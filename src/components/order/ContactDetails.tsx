@@ -10,6 +10,14 @@ export interface ContactData {
   agreeTerms: boolean;
 }
 
+export const emptyContactData: ContactData = {
+  name: "",
+  email: "",
+  phone: "",
+  company: "",
+  agreeTerms: false,
+};
+
 interface ContactDetailsProps {
   data: ContactData;
   onChange: (data: ContactData) => void;
@@ -21,9 +29,9 @@ export default function ContactDetails({ data, onChange }: ContactDetailsProps) 
   };
 
   return (
-    <div>
+    <div className="bg-white border border-border rounded-xl p-5 sm:p-6">
       <h2 className="text-lg font-semibold text-foreground mb-1">
-        Step 3: Your Details
+        Your Details
       </h2>
       <p className="text-sm text-muted mb-4">
         We&apos;ll use this to confirm your order.
@@ -66,7 +74,7 @@ export default function ContactDetails({ data, onChange }: ContactDetailsProps) 
               type="tel"
               value={data.phone}
               onChange={(e) => update("phone", e.target.value)}
-              placeholder="+34 600 000 000"
+              placeholder="+1 555 000 0000"
               className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>

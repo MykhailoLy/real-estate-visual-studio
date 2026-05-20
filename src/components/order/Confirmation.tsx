@@ -9,7 +9,11 @@ interface ConfirmationProps {
   onNewOrder: () => void;
 }
 
-export default function Confirmation({ orderNumber, email, onNewOrder }: ConfirmationProps) {
+export default function Confirmation({
+  orderNumber,
+  email,
+  onNewOrder,
+}: ConfirmationProps) {
   return (
     <div className="max-w-lg mx-auto text-center py-12">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-6">

@@ -1,42 +1,78 @@
-import type { RemoteServiceType } from "@/types";
+import {
+  STAGING_BASE_PRICE,
+  STAGING_ADDONS,
+  RENOVATION_INTERNAL_OPTIONS,
+  RENOVATION_EXTERNAL_OPTIONS,
+  FLOOR_PLAN_TYPES,
+  PHOTO_EDIT_OPTIONS,
+  type AddOnOption,
+  type RenovationOption,
+  type PhotoEditOption,
+} from "@/data/order-options";
+
+// ============================================================
+// PRICING CALCULATION FUNCTIONS
+// All amounts in cents (USD). Use formatUSD() for display.
+// ============================================================
 
 /**
- * Pricing constants for remote digital services.
- * TODO: Replace placeholder values with actual pricing.
+ * Virtual Staging: base price + selected add-ons
  */
-export const PRICING: Record<RemoteServiceType, { pricePerItem: number; unit: string }> = {
-  "virtual-staging": {
-    pricePerItem: 35, // €XX per image — update with real price
-    unit: "per image",
-  },
-  "virtual-renovation": {
-    pricePerItem: 55, // €XX per image — update with real price
-    unit: "per image",
-  },
-  "floor-plans": {
-    pricePerItem: 45, // €XX per floor — update with real price
-    unit: "per floor",
-  },
-  "photo-editing": {
-    pricePerItem: 15, // €XX per image — update with real price
-    unit: "per image",
-  },
-};
-
-/**
- * Calculate estimated total for an order
- */
-export function calculateEstimate(serviceType: RemoteServiceType, itemCount: number): number {
-  const pricing = PRICING[serviceType];
-  if (!pricing) return 0;
-  return pricing.pricePerItem * itemCount;
+export function calculateStagingItemTotal(selectedAddonIds: string[]): number {
+  let total = STAGING_BASE_PRICE;
+  for (const id of selectedAddonIds) {
+    const addon = STAGING_ADDONS.find((a: AddOnOption) => a.id === id);
+    if (addon) total += addon.price;
+  }
+  return total;
 }
 
 /**
- * Volume discount tiers (future use)
+ * Virtual Renovation: sum of selected internal + external options
  */
-export const VOLUME_DISCOUNTS = [
-  { minItems: 5, maxItems: 9, discount: 0.1 },
-  { minItems: 10, maxItems: 19, discount: 0.15 },
-  { minItems: 20, maxItems: Infinity, discount: 0.2 },
-];
+export function calculateRenovationItemTotal(
+  selectedInternalIds: string[],
+  selectedExternalIds: string[]
+): number {
+  let total = 0;
+  for (const id of selectedInternalIds) {
+    const opt = RENOVATION_INTERNAL_OPTIONS.find((o: RenovationOption) => o.id === id);
+    if (opt) total += opt.price;
+  }
+  for (const id of selectedExternalIds) {
+    const opt = RENOVATION_EXTERNAL_OPTIONS.find((o: RenovationOption) => o.id === id);
+    if (opt) total += opt.price;
+  }
+  return total;
+}
+
+/**
+ * Floor Plans: plan type price × number of floors
+ */
+export function calculateFloorPlanItemTotal(
+  planTypeId: string,
+  numberOfFloors: number
+): number {
+  const planType = FLOOR_PLAN_TYPES.find((t) => t.id === planTypeId);
+  if (!planType) return 0;
+  return planType.price * Math.max(1, numberOfFloors);
+}
+
+/**
+ * Photo Editing: sum of selected editing options
+ */
+export function calculatePhotoEditItemTotal(selectedOptionIds: string[]): number {
+  let total = 0;
+  for (const id of selectedOptionIds) {
+    const opt = PHOTO_EDIT_OPTIONS.find((o: PhotoEditOption) => o.id === id);
+    if (opt) total += opt.price;
+  }
+  return total;
+}
+
+/**
+ * Sum an array of item totals (all in cents)
+ */
+export function calculateOrderTotal(itemTotals: number[]): number {
+  return itemTotals.reduce((sum, t) => sum + t, 0);
+}
