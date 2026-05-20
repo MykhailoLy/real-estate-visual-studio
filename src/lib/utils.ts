@@ -9,15 +9,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format a number as currency (EUR)
+ * Format cents to USD display string.
+ * Example: 1900 → "US$19.00", 200 → "US$2.00"
  */
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-EU", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
+export function formatUSD(cents: number): string {
+  const dollars = cents / 100;
+  return `US$${dollars.toFixed(2)}`;
 }
 
 /**
@@ -27,7 +24,7 @@ export function getOrderPrefix(serviceType: string): string {
   const prefixes: Record<string, string> = {
     "virtual-staging": "VS",
     "virtual-renovation": "VR",
-    "floor-plans": "FP",
+    "3d-floor-plans": "FP",
     "photo-editing": "PE",
   };
   return prefixes[serviceType] || "ORD";

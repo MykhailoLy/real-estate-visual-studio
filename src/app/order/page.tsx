@@ -1,180 +1,89 @@
-"use client";
-
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import type { Metadata } from "next";
+import Link from "next/link";
 import Container from "@/components/layout/Container";
-import ServiceSelector from "@/components/order/ServiceSelector";
-import ItemCard, { createEmptyItem, type ItemData } from "@/components/order/ItemCard";
-import ContactDetails, { type ContactData } from "@/components/order/ContactDetails";
-import OrderSummary from "@/components/order/OrderSummary";
-import Confirmation from "@/components/order/Confirmation";
-import { getOrderPrefix } from "@/lib/utils";
-import type { RemoteServiceType } from "@/types";
+import { ImagePlus, Paintbrush, LayoutGrid, SlidersHorizontal } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Order Remote Services",
+  description:
+    "Order virtual staging, virtual renovation, 3D floor plans, or real estate photo editing online. Fast delivery in 24-48 hours.",
+};
+
+const services = [
+  {
+    href: "/order/virtual-staging",
+    icon: ImagePlus,
+    title: "Virtual Staging",
+    description:
+      "Furnish empty rooms with realistic furniture and decor. Choose from 9 styles.",
+    price: "From US$19.00 / image",
+  },
+  {
+    href: "/order/virtual-renovation",
+    icon: Paintbrush,
+    title: "Virtual Renovation",
+    description:
+      "Digitally renovate kitchens, bathrooms, exteriors, and more. Option-based pricing.",
+    price: "From US$3.00 / option",
+  },
+  {
+    href: "/order/3d-floor-plans",
+    icon: LayoutGrid,
+    title: "2D / 3D Floor Plans",
+    description:
+      "Professional floor plans from your sketches, photos, or existing plans.",
+    price: "From US$16.00 / floor",
+  },
+  {
+    href: "/order/photo-editing",
+    icon: SlidersHorizontal,
+    title: "Real Estate Photo Editing",
+    description:
+      "Image enhancement, day to dusk, item removal, sky replacement, and more.",
+    price: "From US$1.00 / option",
+  },
+];
 
 export default function OrderPage() {
-  // --- State ---
-  const [serviceType, setServiceType] = useState<RemoteServiceType | null>(null);
-  const [items, setItems] = useState<ItemData[]>([createEmptyItem()]);
-  const [contact, setContact] = useState<ContactData>({
-    name: "",
-    email: "",
-    phone: "",
-    company: "",
-    agreeTerms: false,
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
-
-  // --- Handlers ---
-  const handleServiceSelect = (type: RemoteServiceType) => {
-    setServiceType(type);
-    // Reset items when service changes
-    setItems([createEmptyItem()]);
-  };
-
-  const handleItemChange = (index: number, data: ItemData) => {
-    setItems((prev) => prev.map((item, i) => (i === index ? data : item)));
-  };
-
-  const handleAddItem = () => {
-    setItems((prev) => [...prev, createEmptyItem()]);
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = () => {
-    // Mock submit — no backend call
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const prefix = serviceType ? getOrderPrefix(serviceType) : "ORD";
-      const number = `${prefix}-${String(Math.floor(Math.random() * 9000) + 1000).padStart(4, "0")}`;
-      setOrderNumber(number);
-      setIsSubmitting(false);
-      setSubmitted(true);
-    }, 1500);
-  };
-
-  const handleNewOrder = () => {
-    setServiceType(null);
-    setItems([createEmptyItem()]);
-    setContact({ name: "", email: "", phone: "", company: "", agreeTerms: false });
-    setSubmitted(false);
-    setOrderNumber("");
-  };
-
-  // --- Validation ---
-  const hasValidItems = items.length > 0 && items.every((item) => item.originalFile !== null);
-  const hasValidContact =
-    contact.name.length >= 2 &&
-    contact.email.includes("@") &&
-    contact.phone.length >= 6 &&
-    contact.agreeTerms;
-  const canSubmit = serviceType !== null && hasValidItems && hasValidContact;
-
-  // --- Confirmation State ---
-  if (submitted) {
-    return (
-      <section className="py-16">
-        <Container>
-          <Confirmation
-            orderNumber={orderNumber}
-            email={contact.email}
-            onNewOrder={handleNewOrder}
-          />
-        </Container>
-      </section>
-    );
-  }
-
-  // --- Main Form ---
   return (
-    <section className="py-10 lg:py-16 bg-surface min-h-screen">
+    <section className="py-12 lg:py-20 bg-surface min-h-screen">
       <Container>
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl lg:text-4xl font-bold text-primary mb-2">
+        <div className="max-w-3xl mx-auto text-center mb-12">
+          <h1 className="text-3xl lg:text-5xl font-bold text-primary mb-4">
             Order Remote Services
           </h1>
-          <p className="text-muted">
-            Upload your photos, select preferences, and receive results in
-            24-48 hours.
+          <p className="text-lg text-muted">
+            Select a service below to start your order. Upload photos, choose
+            options, and receive results in 24-48 hours.
           </p>
         </div>
 
-        {/* Main Layout: Form + Sidebar */}
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left: Form */}
-          <div className="flex-1 space-y-8">
-            {/* Step 1: Service Selector */}
-            <div className="bg-white border border-border rounded-xl p-5 sm:p-6">
-              <ServiceSelector
-                selected={serviceType}
-                onSelect={handleServiceSelect}
-              />
-            </div>
-
-            {/* Step 2: Items (only shown after service selection) */}
-            {serviceType && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Step 2: Add Images
-                    </h2>
-                    <p className="text-sm text-muted">
-                      Upload one photo per item card.
-                    </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-4xl mx-auto">
+          {services.map((service) => {
+            const Icon = service.icon;
+            return (
+              <Link
+                key={service.href}
+                href={service.href}
+                className="group flex flex-col bg-white border border-border rounded-xl p-6 hover:border-primary/50 hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                    <Icon className="w-5 h-5" />
                   </div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {service.title}
+                  </h2>
                 </div>
-
-                <div className="space-y-4">
-                  {items.map((item, index) => (
-                    <ItemCard
-                      key={index}
-                      index={index}
-                      serviceType={serviceType}
-                      data={item}
-                      onChange={(data) => handleItemChange(index, data)}
-                      onRemove={() => handleRemoveItem(index)}
-                      canRemove={items.length > 1}
-                    />
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="mt-4 w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Another Image
-                </button>
-              </div>
-            )}
-
-            {/* Step 3: Contact Details (only shown after service selection) */}
-            {serviceType && (
-              <div className="bg-white border border-border rounded-xl p-5 sm:p-6">
-                <ContactDetails data={contact} onChange={setContact} />
-              </div>
-            )}
-          </div>
-
-          {/* Right: Sticky Order Summary (desktop) */}
-          <div className="lg:w-80">
-            <div className="lg:sticky lg:top-24">
-              <OrderSummary
-                serviceType={serviceType}
-                itemCount={items.length}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                canSubmit={canSubmit}
-              />
-            </div>
-          </div>
+                <p className="text-sm text-muted flex-1 mb-4">
+                  {service.description}
+                </p>
+                <span className="text-sm font-medium text-primary">
+                  {service.price}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </Container>
     </section>

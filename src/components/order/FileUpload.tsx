@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type Accept } from "react-dropzone";
 import { Upload, X, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,10 +9,10 @@ interface FileUploadProps {
   label: string;
   file: File | null;
   onFileChange: (file: File | null) => void;
-  accept?: Record<string, string[]>;
+  accept?: Accept;
   maxSize?: number;
   required?: boolean;
-  multiple?: boolean;
+  helperText?: string;
 }
 
 export default function FileUpload({
@@ -20,8 +20,9 @@ export default function FileUpload({
   file,
   onFileChange,
   accept = { "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"] },
-  maxSize = 20 * 1024 * 1024, // 20MB
+  maxSize = 20 * 1024 * 1024,
   required = false,
+  helperText,
 }: FileUploadProps) {
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -51,6 +52,9 @@ export default function FileUpload({
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
+      {helperText && (
+        <p className="text-xs text-muted mb-2">{helperText}</p>
+      )}
 
       {file ? (
         <div className="flex items-center gap-3 p-3 bg-surface border border-border rounded-lg">
@@ -88,7 +92,7 @@ export default function FileUpload({
             {isDragActive ? "Drop file here" : "Click or drag to upload"}
           </p>
           <p className="text-xs text-muted mt-1">
-            JPG, PNG up to {maxSize / 1024 / 1024}MB
+            Max {maxSize / 1024 / 1024}MB
           </p>
         </div>
       )}
