@@ -14,7 +14,7 @@ import RenovationItemCard, {
   emptyRenovationItem,
 } from "@/components/order/virtual-renovation/RenovationItemCard";
 import { calculateRenovationItemTotal } from "@/lib/pricing";
-import { getOrderPrefix } from "@/lib/utils";
+import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 
 export default function VirtualRenovationOrderPage() {
@@ -23,8 +23,8 @@ export default function VirtualRenovationOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
-  // --- Handlers ---
   const handleItemChange = (index: number, data: RenovationItemData) => {
     setItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
@@ -35,15 +35,33 @@ export default function VirtualRenovationOrderPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      const prefix = getOrderPrefix("virtual-renovation");
-      const num = String(Math.floor(Math.random() * 9000) + 1000);
-      setOrderNumber(`${prefix}-${num}`);
-      setIsSubmitting(false);
+    setSubmitError("");
+
+    const itemsMetadata = items.map((item) => ({
+      selectedInternal: item.selectedInternal,
+      selectedExternal: item.selectedExternal,
+      room: item.room,
+      presentationStyle: item.presentationStyle,
+      referenceLink: item.referenceLink,
+      additionalInfo: item.additionalInfo,
+    }));
+
+    const files = items.map((item) => ({
+      file: item.file,
+      referenceFile: item.referenceFile,
+    }));
+
+    const result = await submitOrder("virtual-renovation", contact, itemsMetadata, files);
+
+    setIsSubmitting(false);
+    if (result.success && result.orderNumber) {
+      setOrderNumber(result.orderNumber);
       setSubmitted(true);
-    }, 1500);
+    } else {
+      setSubmitError(result.error || "Submission failed. Please try again.");
+    }
   };
 
   const handleNewOrder = () => {
@@ -51,6 +69,7 @@ export default function VirtualRenovationOrderPage() {
     setContact(emptyContactData);
     setSubmitted(false);
     setOrderNumber("");
+    setSubmitError("");
   };
 
   // --- Validation ---
@@ -73,7 +92,6 @@ export default function VirtualRenovationOrderPage() {
     subtotal: calculateRenovationItemTotal(item.selectedInternal, item.selectedExternal),
   }));
 
-  // --- Confirmation ---
   if (submitted) {
     return (
       <section className="py-16 bg-surface min-h-screen">
@@ -88,7 +106,6 @@ export default function VirtualRenovationOrderPage() {
     );
   }
 
-  // --- Form ---
   return (
     <OrderLayout
       title="Virtual Renovation"
@@ -103,7 +120,12 @@ export default function VirtualRenovationOrderPage() {
         />
       }
     >
-      {/* Notice */}
+      {submitError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          {submitError}
+        </div>
+      )}
+
       <div className="flex gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
         <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <p>
@@ -113,7 +135,6 @@ export default function VirtualRenovationOrderPage() {
         </p>
       </div>
 
-      {/* Item Cards */}
       <div className="space-y-5">
         {items.map((item, index) => (
           <RenovationItemCard
@@ -127,7 +148,6 @@ export default function VirtualRenovationOrderPage() {
         ))}
       </div>
 
-      {/* Add Another */}
       <button
         type="button"
         onClick={handleAddItem}
@@ -137,7 +157,6 @@ export default function VirtualRenovationOrderPage() {
         Add Another Image
       </button>
 
-      {/* Contact Details */}
       <ContactDetails data={contact} onChange={setContact} />
     </OrderLayout>
   );

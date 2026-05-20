@@ -14,7 +14,7 @@ import StagingItemCard, {
   emptyStagingItem,
 } from "@/components/order/virtual-staging/StagingItemCard";
 import { calculateStagingItemTotal } from "@/lib/pricing";
-import { getOrderPrefix } from "@/lib/utils";
+import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 
 export default function VirtualStagingOrderPage() {
@@ -23,8 +23,8 @@ export default function VirtualStagingOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
-  // --- Handlers ---
   const handleItemChange = (index: number, data: StagingItemData) => {
     setItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
@@ -35,15 +35,32 @@ export default function VirtualStagingOrderPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      const prefix = getOrderPrefix("virtual-staging");
-      const num = String(Math.floor(Math.random() * 9000) + 1000);
-      setOrderNumber(`${prefix}-${num}`);
-      setIsSubmitting(false);
+    setSubmitError("");
+
+    const itemsMetadata = items.map((item) => ({
+      roomName: item.roomName,
+      furnitureStyle: item.furnitureStyle,
+      referenceLink: item.referenceLink,
+      additionalInfo: item.additionalInfo,
+      selectedAddons: item.selectedAddons,
+    }));
+
+    const files = items.map((item) => ({
+      file: item.file,
+      referenceFile: item.referenceFile,
+    }));
+
+    const result = await submitOrder("virtual-staging", contact, itemsMetadata, files);
+
+    setIsSubmitting(false);
+    if (result.success && result.orderNumber) {
+      setOrderNumber(result.orderNumber);
       setSubmitted(true);
-    }, 1500);
+    } else {
+      setSubmitError(result.error || "Submission failed. Please try again.");
+    }
   };
 
   const handleNewOrder = () => {
@@ -51,6 +68,7 @@ export default function VirtualStagingOrderPage() {
     setContact(emptyContactData);
     setSubmitted(false);
     setOrderNumber("");
+    setSubmitError("");
   };
 
   // --- Validation ---
@@ -70,7 +88,6 @@ export default function VirtualStagingOrderPage() {
     subtotal: calculateStagingItemTotal(item.selectedAddons),
   }));
 
-  // --- Confirmation ---
   if (submitted) {
     return (
       <section className="py-16 bg-surface min-h-screen">
@@ -85,7 +102,6 @@ export default function VirtualStagingOrderPage() {
     );
   }
 
-  // --- Form ---
   return (
     <OrderLayout
       title="Virtual Staging"
@@ -100,7 +116,12 @@ export default function VirtualStagingOrderPage() {
         />
       }
     >
-      {/* Item Cards */}
+      {submitError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          {submitError}
+        </div>
+      )}
+
       <div className="space-y-5">
         {items.map((item, index) => (
           <StagingItemCard
@@ -114,7 +135,6 @@ export default function VirtualStagingOrderPage() {
         ))}
       </div>
 
-      {/* Add Another */}
       <button
         type="button"
         onClick={handleAddItem}
@@ -124,7 +144,6 @@ export default function VirtualStagingOrderPage() {
         Add Another Image
       </button>
 
-      {/* Contact Details */}
       <ContactDetails data={contact} onChange={setContact} />
     </OrderLayout>
   );

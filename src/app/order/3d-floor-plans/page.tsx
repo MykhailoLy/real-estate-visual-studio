@@ -14,7 +14,7 @@ import FloorPlanItemCard, {
   emptyFloorPlanItem,
 } from "@/components/order/floor-plans/FloorPlanItemCard";
 import { calculateFloorPlanItemTotal } from "@/lib/pricing";
-import { getOrderPrefix } from "@/lib/utils";
+import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 
 export default function FloorPlansOrderPage() {
@@ -23,8 +23,8 @@ export default function FloorPlansOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
-  // --- Handlers ---
   const handleItemChange = (index: number, data: FloorPlanItemData) => {
     setItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
@@ -35,15 +35,42 @@ export default function FloorPlansOrderPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      const prefix = getOrderPrefix("3d-floor-plans");
-      const num = String(Math.floor(Math.random() * 9000) + 1000);
-      setOrderNumber(`${prefix}-${num}`);
-      setIsSubmitting(false);
+    setSubmitError("");
+
+    const itemsMetadata = items.map((item) => ({
+      planType: item.planType,
+      numberOfFloors: item.numberOfFloors,
+      style3d: item.style3d,
+      planView3d: item.planView3d,
+      pageOrientation: item.pageOrientation,
+      planOrientation: item.planOrientation,
+      flooringByRoom: item.flooringByRoom,
+      showAddress: item.showAddress,
+      streetAddress: item.streetAddress,
+      showTitle: item.showTitle,
+      projectTitle: item.projectTitle,
+      disclaimerOption: item.disclaimerOption,
+      customDisclaimer: item.customDisclaimer,
+      referenceLink: item.referenceLink,
+      additionalInfo: item.additionalInfo,
+    }));
+
+    const files = items.map((item) => ({
+      file: item.file,
+      referenceFile: item.referenceFile,
+    }));
+
+    const result = await submitOrder("3d-floor-plans", contact, itemsMetadata, files);
+
+    setIsSubmitting(false);
+    if (result.success && result.orderNumber) {
+      setOrderNumber(result.orderNumber);
       setSubmitted(true);
-    }, 1500);
+    } else {
+      setSubmitError(result.error || "Submission failed. Please try again.");
+    }
   };
 
   const handleNewOrder = () => {
@@ -51,6 +78,7 @@ export default function FloorPlansOrderPage() {
     setContact(emptyContactData);
     setSubmitted(false);
     setOrderNumber("");
+    setSubmitError("");
   };
 
   // --- Validation ---
@@ -75,7 +103,6 @@ export default function FloorPlansOrderPage() {
     subtotal: calculateFloorPlanItemTotal(item.planType, item.numberOfFloors),
   }));
 
-  // --- Confirmation ---
   if (submitted) {
     return (
       <section className="py-16 bg-surface min-h-screen">
@@ -90,7 +117,6 @@ export default function FloorPlansOrderPage() {
     );
   }
 
-  // --- Form ---
   return (
     <OrderLayout
       title="2D / 3D Floor Plans"
@@ -105,7 +131,12 @@ export default function FloorPlansOrderPage() {
         />
       }
     >
-      {/* Item Cards */}
+      {submitError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          {submitError}
+        </div>
+      )}
+
       <div className="space-y-5">
         {items.map((item, index) => (
           <FloorPlanItemCard
@@ -119,7 +150,6 @@ export default function FloorPlansOrderPage() {
         ))}
       </div>
 
-      {/* Add Another */}
       <button
         type="button"
         onClick={handleAddItem}
@@ -129,7 +159,6 @@ export default function FloorPlansOrderPage() {
         Add Another Floor Plan
       </button>
 
-      {/* Contact Details */}
       <ContactDetails data={contact} onChange={setContact} />
     </OrderLayout>
   );
