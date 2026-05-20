@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* ============================================================
+   CUSTOM THEME — Real Estate Visual Marketing Studio
+   ============================================================ */
+
+@theme inline {
+  /* Brand Colors */
+  --color-primary: #1a365d;         /* Deep navy blue */
+  --color-primary-light: #2c5282;
+  --color-primary-dark: #0f2440;
+  --color-secondary: #c7a94e;       /* Gold accent */
+  --color-secondary-light: #d4bc6a;
+  --color-secondary-dark: #a88b3a;
+  --color-accent: #38a169;          /* Success green */
+
+  /* Neutrals */
+  --color-background: #ffffff;
+  --color-foreground: #1a202c;
+  --color-muted: #718096;
+  --color-muted-light: #a0aec0;
+  --color-border: #e2e8f0;
+  --color-surface: #f7fafc;
+
+  /* Typography */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
