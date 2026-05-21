@@ -358,7 +358,7 @@ export default function PricingPage() {
                         Real Estate Photography
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-primary">
-                        €150 / property
+                        From €129 / 15 photos
                       </td>
                     </tr>
                     <tr className="bg-surface">
@@ -366,7 +366,7 @@ export default function PricingPage() {
                         360 Virtual Tours
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-primary">
-                        €200 / property
+                        From €120 / small apt
                       </td>
                     </tr>
                     <tr className="bg-white">
@@ -374,7 +374,7 @@ export default function PricingPage() {
                         Property Video Tours
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-primary">
-                        €300 / property
+                        From €250 / short walkthrough
                       </td>
                     </tr>
                     <tr className="bg-surface">
@@ -382,15 +382,18 @@ export default function PricingPage() {
                         Drone / Aerial Photography
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-primary">
-                        €200 / session
+                        Quote on request
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <p className="text-xs text-muted mt-4">
-                Final price confirmed after reviewing property details. Travel
-                fee may apply for locations 30km+ from Alicante city.
+                Photography: €129 (15 photos), €179 (25 photos), €239 (35
+                photos). Custom quote for 50+ photos, villas, luxury properties,
+                or urgent delivery. 360 tours and video depend on property size.
+                Drone via licensed specialist — price depends on location and
+                flight permissions. Travel fee may apply 30km+ from Alicante.
               </p>
             </div>
 

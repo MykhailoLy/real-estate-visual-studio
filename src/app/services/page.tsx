@@ -118,7 +118,7 @@ const localServices = [
       "Delivered within 24-48h",
       "Commercial usage rights",
     ],
-    price: "From €150 / property",
+    price: "From €129 / 15 photos",
   },
   {
     icon: View,
@@ -132,7 +132,7 @@ const localServices = [
       "Mobile-friendly viewer",
       "Multi-room navigation",
     ],
-    price: "From €200 / property",
+    price: "From €120 / property",
   },
   {
     icon: Video,
@@ -146,7 +146,7 @@ const localServices = [
       "Multiple formats (web, social, portal)",
       "4K resolution available",
     ],
-    price: "From €300 / property",
+    price: "From €250 / property",
   },
   {
     icon: Plane,
@@ -160,8 +160,8 @@ const localServices = [
       "Licensed drone operator",
       "Available where regulations permit",
     ],
-    price: "From €200 / session",
-    note: "Available only where flight regulations permit.",
+    price: "Quote on request",
+    note: "Available through a licensed specialist where regulations permit. Price depends on location, flight permissions, and scope.",
   },
 ];
 
