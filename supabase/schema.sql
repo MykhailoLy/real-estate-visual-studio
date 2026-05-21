@@ -184,6 +184,15 @@ CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 
 -- -----------------------------------------------------------
+-- GRANTS FOR SERVICE_ROLE
+-- -----------------------------------------------------------
+GRANT USAGE ON SCHEMA public TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.orders TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.order_items TO service_role;
+GRANT SELECT, UPDATE ON public.order_sequences TO service_role;
+GRANT EXECUTE ON FUNCTION public.generate_order_number(TEXT) TO service_role;
+
+-- -----------------------------------------------------------
 -- STORAGE BUCKET SETUP (manual via Supabase Dashboard)
 -- -----------------------------------------------------------
 -- 1. Go to Storage in your Supabase Dashboard
