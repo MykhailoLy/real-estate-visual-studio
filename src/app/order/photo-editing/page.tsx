@@ -14,7 +14,7 @@ import PhotoEditItemCard, {
   emptyPhotoEditItem,
 } from "@/components/order/photo-editing/PhotoEditItemCard";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
-import { getOrderPrefix } from "@/lib/utils";
+import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 
 export default function PhotoEditingOrderPage() {
@@ -23,8 +23,8 @@ export default function PhotoEditingOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
-  // --- Handlers ---
   const handleItemChange = (index: number, data: PhotoEditItemData) => {
     setItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
@@ -45,15 +45,29 @@ export default function PhotoEditingOrderPage() {
     );
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      const prefix = getOrderPrefix("photo-editing");
-      const num = String(Math.floor(Math.random() * 9000) + 1000);
-      setOrderNumber(`${prefix}-${num}`);
-      setIsSubmitting(false);
+    setSubmitError("");
+
+    const itemsMetadata = items.map((item) => ({
+      selectedOptions: item.selectedOptions,
+      additionalInfo: item.additionalInfo,
+    }));
+
+    const files = items.map((item) => ({
+      file: item.file,
+      referenceFile: null,
+    }));
+
+    const result = await submitOrder("photo-editing", contact, itemsMetadata, files);
+
+    setIsSubmitting(false);
+    if (result.success && result.orderNumber) {
+      setOrderNumber(result.orderNumber);
       setSubmitted(true);
-    }, 1500);
+    } else {
+      setSubmitError(result.error || "Submission failed. Please try again.");
+    }
   };
 
   const handleNewOrder = () => {
@@ -61,6 +75,7 @@ export default function PhotoEditingOrderPage() {
     setContact(emptyContactData);
     setSubmitted(false);
     setOrderNumber("");
+    setSubmitError("");
   };
 
   // --- Validation ---
@@ -80,7 +95,6 @@ export default function PhotoEditingOrderPage() {
     subtotal: calculatePhotoEditItemTotal(item.selectedOptions),
   }));
 
-  // --- Confirmation ---
   if (submitted) {
     return (
       <section className="py-16 bg-surface min-h-screen">
@@ -95,7 +109,6 @@ export default function PhotoEditingOrderPage() {
     );
   }
 
-  // --- Form ---
   return (
     <OrderLayout
       title="Real Estate Photo Editing"
@@ -110,7 +123,12 @@ export default function PhotoEditingOrderPage() {
         />
       }
     >
-      {/* Notice */}
+      {submitError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          {submitError}
+        </div>
+      )}
+
       <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
         <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <p>
@@ -120,7 +138,6 @@ export default function PhotoEditingOrderPage() {
         </p>
       </div>
 
-      {/* Item Cards */}
       <div className="space-y-5">
         {items.map((item, index) => (
           <PhotoEditItemCard
@@ -136,7 +153,6 @@ export default function PhotoEditingOrderPage() {
         ))}
       </div>
 
-      {/* Add Another */}
       <button
         type="button"
         onClick={handleAddItem}
@@ -146,7 +162,6 @@ export default function PhotoEditingOrderPage() {
         Add Another Photo
       </button>
 
-      {/* Contact Details */}
       <ContactDetails data={contact} onChange={setContact} />
     </OrderLayout>
   );

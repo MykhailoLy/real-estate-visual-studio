@@ -25,9 +25,8 @@ export default function Confirmation({
       </h2>
 
       <p className="text-muted mb-6 leading-relaxed">
-        We&apos;ll review your files and confirm details within 2 hours during
-        business hours. A confirmation email has been sent to{" "}
-        <span className="font-medium text-foreground">{email}</span>.
+        Your order has been received. We&apos;ll review your files and contact
+        you shortly to confirm the final details.
       </p>
 
       <div className="bg-surface border border-border rounded-xl p-5 mb-8 text-left">
