@@ -214,7 +214,7 @@ const remoteServices: RemoteService[] = [
       "Optional add-ons",
       "Online order available",
     ],
-    pricingHref: "/pricing#virtual-staging",
+    pricingHref: "/pricing/virtual-staging",
     orderHref: "/order/virtual-staging",
   },
   {
@@ -230,7 +230,7 @@ const remoteServices: RemoteService[] = [
       "Kitchen and bathroom fit-outs",
       "Custom instructions per image",
     ],
-    pricingHref: "/pricing#virtual-renovation",
+    pricingHref: "/pricing/virtual-renovation",
     orderHref: "/order/virtual-renovation",
   },
 
@@ -247,7 +247,7 @@ const remoteServices: RemoteService[] = [
       "3D Floor Plans",
       "2D + 3D Bundle",
     ],
-    pricingHref: "/pricing#floor-plans",
+    pricingHref: "/pricing/floor-plans",
     orderHref: "/order/3d-floor-plans",
   },
   {
@@ -264,7 +264,7 @@ const remoteServices: RemoteService[] = [
       "Colour change",
       "Pool water effect",
     ],
-    pricingHref: "/pricing#photo-editing",
+    pricingHref: "/pricing/photo-editing",
     orderHref: "/order/photo-editing",
   },
 ];
