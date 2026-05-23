@@ -96,11 +96,34 @@ export const DeliveryPreferencesSchema = z.object({
   disclaimerText: z.string().max(2000, "Disclaimer too long").optional().default(""),
 });
 
+// --- Order-level Terms Acceptance ---
+// `accepted` MUST be true; the API rejects orders that do not include it.
+// `version` lets us know which terms wording the client agreed to.
+// `acceptedAt` is optional from the client; the API replaces it with the
+// server's own ISO timestamp before persisting so the recorded time
+// cannot be manipulated by the browser.
+export const TermsAcceptanceSchema = z.object({
+  accepted: z.literal(true, {
+    message: "Terms must be accepted to submit an order",
+  }),
+  version: z.string().min(1).max(50).optional().default("unspecified"),
+  acceptedAt: z.string().datetime().optional(),
+});
+
+// --- Order-level Portfolio Permission (optional) ---
+export const PortfolioPermissionSchema = z.object({
+  allowed: z.boolean(),
+});
+
 // --- Full Order Metadata Schema ---
+// `termsAcceptance` is REQUIRED. The previous order-level fields
+// (`deliveryPreferences`, `portfolioPermission`) are optional.
 export const OrderMetadataSchema = z.object({
   serviceType: ServiceTypeSchema,
   contact: ContactSchema,
   deliveryPreferences: DeliveryPreferencesSchema.optional(),
+  termsAcceptance: TermsAcceptanceSchema,
+  portfolioPermission: PortfolioPermissionSchema.optional(),
   items: z.array(z.unknown()).min(1, "At least one item is required").max(50, "Maximum 50 items per order"),
 });
 
@@ -108,6 +131,8 @@ export const OrderMetadataSchema = z.object({
 export type ServiceType = z.infer<typeof ServiceTypeSchema>;
 export type ContactData = z.infer<typeof ContactSchema>;
 export type DeliveryPreferences = z.infer<typeof DeliveryPreferencesSchema>;
+export type TermsAcceptance = z.infer<typeof TermsAcceptanceSchema>;
+export type PortfolioPermission = z.infer<typeof PortfolioPermissionSchema>;
 export type StagingItem = z.infer<typeof StagingItemSchema>;
 export type RenovationItem = z.infer<typeof RenovationItemSchema>;
 export type FloorPlanItem = z.infer<typeof FloorPlanItemSchema>;

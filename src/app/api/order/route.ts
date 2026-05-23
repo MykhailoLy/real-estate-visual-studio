@@ -92,7 +92,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const { serviceType, contact, deliveryPreferences, items: rawItems } = metaResult.data;
+    const {
+      serviceType,
+      contact,
+      deliveryPreferences,
+      termsAcceptance,
+      portfolioPermission,
+      items: rawItems,
+    } = metaResult.data;
+
+    // Trust the server's clock for the recorded acceptance time. Any
+    // `acceptedAt` value the client sent is informational only and is
+    // replaced here so the persisted timestamp cannot be manipulated by
+    // the browser.
+    const serverAcceptedAt = new Date().toISOString();
+    const trustedTermsAcceptance = {
+      accepted: termsAcceptance.accepted,
+      version: termsAcceptance.version || "unspecified",
+      accepted_at: serverAcceptedAt,
+    };
+    const trustedPortfolioPermission = {
+      allowed: portfolioPermission?.allowed === true,
+    };
 
     if (rawItems.length > MAX_ITEMS) {
       return NextResponse.json(
@@ -223,11 +244,14 @@ export async function POST(request: Request) {
     }
 
     // --- 10. Insert order items ---
-    // Each item carries its own delivery preferences (fileSizeLimit,
-    // disclaimerText). The legacy order-level `deliveryPreferences`
-    // payload is kept as a fallback so clients running the previous
-    // build keep working during rollout: if an item omits a field, we
-    // fall back to the order-level value.
+    // Each item carries:
+    //   - its own delivery preferences (fileSizeLimit, disclaimerText).
+    //     The legacy order-level `deliveryPreferences` payload is kept
+    //     as a fallback so clients running the previous build keep
+    //     working during rollout.
+    //   - the order-level terms acceptance and (optional) portfolio
+    //     permission, denormalized so we have a record per item without
+    //     adding a new column to the orders table.
     const orderItemsPayload = validatedItems.items.map((item, i) => ({
       order_id: orderData.id,
       item_index: i,
@@ -237,6 +261,8 @@ export async function POST(request: Request) {
       details: {
         ...buildItemDetails(serviceType, item),
         delivery_preferences: buildDeliveryPreferences(item, deliveryPreferences),
+        terms_acceptance: trustedTermsAcceptance,
+        portfolio_permission: trustedPortfolioPermission,
       },
     }));
 

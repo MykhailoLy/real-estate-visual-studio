@@ -8,6 +8,10 @@ import ContactDetails, {
   type ContactData,
   emptyContactData,
 } from "@/components/order/ContactDetails";
+import OrderTermsBlock, {
+  type OrderTermsData,
+  emptyOrderTerms,
+} from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
 import PhotoEditItemCard, {
   type PhotoEditItemData,
@@ -20,6 +24,7 @@ import Container from "@/components/layout/Container";
 export default function PhotoEditingOrderPage() {
   const [items, setItems] = useState<PhotoEditItemData[]>([emptyPhotoEditItem()]);
   const [contact, setContact] = useState<ContactData>(emptyContactData);
+  const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -49,8 +54,6 @@ export default function PhotoEditingOrderPage() {
     setIsSubmitting(true);
     setSubmitError("");
 
-    // Per-item metadata. Delivery preferences (fileSizeLimit, disclaimerText)
-    // are now carried per item.
     const itemsMetadata = items.map((item) => ({
       selectedOptions: item.selectedOptions,
       fileSizeLimit: item.fileSizeLimit,
@@ -63,7 +66,13 @@ export default function PhotoEditingOrderPage() {
       referenceFile: null,
     }));
 
-    const result = await submitOrder("photo-editing", contact, itemsMetadata, files);
+    const result = await submitOrder(
+      "photo-editing",
+      contact,
+      itemsMetadata,
+      files,
+      orderTerms
+    );
 
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
@@ -77,6 +86,7 @@ export default function PhotoEditingOrderPage() {
   const handleNewOrder = () => {
     setItems([emptyPhotoEditItem()]);
     setContact(emptyContactData);
+    setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
@@ -89,9 +99,10 @@ export default function PhotoEditingOrderPage() {
   const contactValid =
     contact.name.length >= 2 &&
     contact.email.includes("@") &&
-    contact.phone.length >= 6 &&
-    contact.agreeTerms;
-  const canSubmit = items.length > 0 && allItemsValid && contactValid;
+    contact.phone.length >= 6;
+  const termsAccepted = orderTerms.accepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && contactValid && termsAccepted;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -167,6 +178,8 @@ export default function PhotoEditingOrderPage() {
       </button>
 
       <ContactDetails data={contact} onChange={setContact} />
+
+      <OrderTermsBlock data={orderTerms} onChange={setOrderTerms} />
     </OrderLayout>
   );
 }

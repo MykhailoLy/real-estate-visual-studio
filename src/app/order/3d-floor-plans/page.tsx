@@ -8,6 +8,10 @@ import ContactDetails, {
   type ContactData,
   emptyContactData,
 } from "@/components/order/ContactDetails";
+import OrderTermsBlock, {
+  type OrderTermsData,
+  emptyOrderTerms,
+} from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
 import FloorPlanItemCard, {
   type FloorPlanItemData,
@@ -20,6 +24,7 @@ import Container from "@/components/layout/Container";
 export default function FloorPlansOrderPage() {
   const [items, setItems] = useState<FloorPlanItemData[]>([emptyFloorPlanItem()]);
   const [contact, setContact] = useState<ContactData>(emptyContactData);
+  const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -39,8 +44,6 @@ export default function FloorPlansOrderPage() {
     setIsSubmitting(true);
     setSubmitError("");
 
-    // Per-item metadata. Delivery preferences (fileSizeLimit, disclaimerText)
-    // are now carried per item alongside the existing per-item fields.
     const itemsMetadata = items.map((item) => ({
       planType: item.planType,
       numberOfFloors: item.numberOfFloors,
@@ -66,7 +69,13 @@ export default function FloorPlansOrderPage() {
       referenceFile: item.referenceFile,
     }));
 
-    const result = await submitOrder("3d-floor-plans", contact, itemsMetadata, files);
+    const result = await submitOrder(
+      "3d-floor-plans",
+      contact,
+      itemsMetadata,
+      files,
+      orderTerms
+    );
 
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
@@ -80,6 +89,7 @@ export default function FloorPlansOrderPage() {
   const handleNewOrder = () => {
     setItems([emptyFloorPlanItem()]);
     setContact(emptyContactData);
+    setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
@@ -97,9 +107,10 @@ export default function FloorPlansOrderPage() {
   const contactValid =
     contact.name.length >= 2 &&
     contact.email.includes("@") &&
-    contact.phone.length >= 6 &&
-    contact.agreeTerms;
-  const canSubmit = items.length > 0 && allItemsValid && contactValid;
+    contact.phone.length >= 6;
+  const termsAccepted = orderTerms.accepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && contactValid && termsAccepted;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -164,6 +175,8 @@ export default function FloorPlansOrderPage() {
       </button>
 
       <ContactDetails data={contact} onChange={setContact} />
+
+      <OrderTermsBlock data={orderTerms} onChange={setOrderTerms} />
     </OrderLayout>
   );
 }

@@ -1,13 +1,10 @@
 "use client";
 
-import Link from "next/link";
-
 export interface ContactData {
   name: string;
   email: string;
   phone: string;
   company: string;
-  agreeTerms: boolean;
 }
 
 export const emptyContactData: ContactData = {
@@ -15,7 +12,6 @@ export const emptyContactData: ContactData = {
   email: "",
   phone: "",
   company: "",
-  agreeTerms: false,
 };
 
 interface ContactDetailsProps {
@@ -23,8 +19,13 @@ interface ContactDetailsProps {
   onChange: (data: ContactData) => void;
 }
 
+/**
+ * Order-page contact details card. Terms acceptance has been moved out of
+ * this component into a dedicated `OrderTermsBlock` rendered after this
+ * card, so this component is now purely about identifying the client.
+ */
 export default function ContactDetails({ data, onChange }: ContactDetailsProps) {
-  const update = (field: keyof ContactData, value: string | boolean) => {
+  const update = (field: keyof ContactData, value: string) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -91,25 +92,6 @@ export default function ContactDetails({ data, onChange }: ContactDetailsProps) 
             />
           </div>
         </div>
-
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={data.agreeTerms}
-            onChange={(e) => update("agreeTerms", e.target.checked)}
-            className="w-4 h-4 mt-0.5 rounded text-primary border-border focus:ring-primary"
-          />
-          <span className="text-sm text-foreground">
-            I agree to the{" "}
-            <Link
-              href="/terms"
-              className="text-primary underline hover:text-primary-light"
-              target="_blank"
-            >
-              Terms &amp; Conditions
-            </Link>
-          </span>
-        </label>
       </div>
     </div>
   );
