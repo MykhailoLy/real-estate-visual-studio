@@ -3,6 +3,9 @@
 import { Trash2 } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
+import ItemDeliveryFields, {
+  emptyItemDeliveryFields,
+} from "@/components/order/ItemDeliveryFields";
 import { calculateFloorPlanItemTotal } from "@/lib/pricing";
 import {
   FLOOR_PLAN_TYPES,
@@ -19,6 +22,10 @@ export interface FloorPlanItemData {
   file: File | null;
   planType: string;
   numberOfFloors: number;
+  /** Per-item file size limit (one of FILE_SIZE_LIMIT_OPTIONS or "") */
+  fileSizeLimit: string;
+  /** Per-item optional disclaimer text */
+  disclaimerText: string;
   style3d: string;
   planView3d: string;
   pageOrientation: string;
@@ -39,6 +46,7 @@ export const emptyFloorPlanItem = (): FloorPlanItemData => ({
   file: null,
   planType: "",
   numberOfFloors: 1,
+  ...emptyItemDeliveryFields,
   style3d: "",
   planView3d: "",
   pageOrientation: "",
@@ -149,6 +157,16 @@ export default function FloorPlanItemCard({
             />
           </div>
         </div>
+
+        {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
+        <ItemDeliveryFields
+          idPrefix={`floor-plan-item-${index}`}
+          data={{
+            fileSizeLimit: data.fileSizeLimit,
+            disclaimerText: data.disclaimerText,
+          }}
+          onChange={(prefs) => onChange({ ...data, ...prefs })}
+        />
 
         {/* 3D Options (conditional) */}
         {show3dOptions && (

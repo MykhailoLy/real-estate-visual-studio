@@ -8,6 +8,10 @@ import ContactDetails, {
   type ContactData,
   emptyContactData,
 } from "@/components/order/ContactDetails";
+import OrderTermsBlock, {
+  type OrderTermsData,
+  emptyOrderTerms,
+} from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
 import RenovationItemCard, {
   type RenovationItemData,
@@ -20,6 +24,7 @@ import Container from "@/components/layout/Container";
 export default function VirtualRenovationOrderPage() {
   const [items, setItems] = useState<RenovationItemData[]>([emptyRenovationItem()]);
   const [contact, setContact] = useState<ContactData>(emptyContactData);
+  const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -44,6 +49,8 @@ export default function VirtualRenovationOrderPage() {
       selectedExternal: item.selectedExternal,
       room: item.room,
       presentationStyle: item.presentationStyle,
+      fileSizeLimit: item.fileSizeLimit,
+      disclaimerText: item.disclaimerText,
       referenceLink: item.referenceLink,
       additionalInfo: item.additionalInfo,
     }));
@@ -53,7 +60,13 @@ export default function VirtualRenovationOrderPage() {
       referenceFile: item.referenceFile,
     }));
 
-    const result = await submitOrder("virtual-renovation", contact, itemsMetadata, files);
+    const result = await submitOrder(
+      "virtual-renovation",
+      contact,
+      itemsMetadata,
+      files,
+      orderTerms
+    );
 
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
@@ -67,6 +80,7 @@ export default function VirtualRenovationOrderPage() {
   const handleNewOrder = () => {
     setItems([emptyRenovationItem()]);
     setContact(emptyContactData);
+    setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
@@ -82,9 +96,10 @@ export default function VirtualRenovationOrderPage() {
   const contactValid =
     contact.name.length >= 2 &&
     contact.email.includes("@") &&
-    contact.phone.length >= 6 &&
-    contact.agreeTerms;
-  const canSubmit = items.length > 0 && allItemsValid && contactValid;
+    contact.phone.length >= 6;
+  const termsAccepted = orderTerms.accepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && contactValid && termsAccepted;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -158,6 +173,8 @@ export default function VirtualRenovationOrderPage() {
       </button>
 
       <ContactDetails data={contact} onChange={setContact} />
+
+      <OrderTermsBlock data={orderTerms} onChange={setOrderTerms} />
     </OrderLayout>
   );
 }

@@ -1,0 +1,13 @@
+# Placeholder so the folder exists in git.
+# Drop real style preview images here later, named:
+#   modern.jpg
+#   urban-industrial.jpg
+#   scandinavian.jpg
+#   mid-century-modern.jpg
+#   farmhouse.jpg
+#   hamptons.jpg
+#   contemporary.jpg
+#   traditional.jpg
+#   commercial-office.jpg
+#   commercial-non-office.jpg
+# StyleSelector.tsx falls back to a named placeholder when a file is missing.

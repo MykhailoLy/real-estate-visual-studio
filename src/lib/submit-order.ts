@@ -1,6 +1,9 @@
 "use client";
 
 import type { ContactData } from "@/components/order/ContactDetails";
+import type { DeliveryPreferencesData } from "@/components/order/DeliveryPreferences";
+import type { OrderTermsData } from "@/components/order/OrderTermsBlock";
+import { TERMS_VERSION } from "@/components/order/OrderTermsBlock";
 
 export interface OrderSubmitResult {
   success: boolean;
@@ -17,20 +20,31 @@ interface FileRef {
  * Submit an order to POST /api/order.
  *
  * Builds a FormData payload with:
- * - "metadata": JSON string of { serviceType, contact, items (without File objects) }
+ * - "metadata": JSON string with serviceType, contact, termsAcceptance,
+ *   portfolioPermission (optional), deliveryPreferences (legacy
+ *   optional), and items.
  * - "file-{i}-original": original file for each item
  * - "file-{i}-reference": optional reference file for each item
+ *
+ * `termsAcceptance` is REQUIRED at the API level. We send the local
+ * acceptance time the user clicked the checkbox, but the server
+ * overwrites this with its own trusted ISO timestamp before persisting.
+ *
+ * `deliveryPreferences` is optional and accepted only for backward
+ * compatibility with earlier clients; the current UI sends delivery
+ * preferences on each item.
  */
 export async function submitOrder(
   serviceType: string,
   contact: ContactData,
   items: Record<string, unknown>[],
-  files: FileRef[]
+  files: FileRef[],
+  orderTerms: OrderTermsData,
+  deliveryPreferences?: DeliveryPreferencesData
 ): Promise<OrderSubmitResult> {
   try {
     const formData = new FormData();
 
-    // Attach metadata (item details without File objects)
     const metadata = JSON.stringify({
       serviceType,
       contact: {
@@ -39,6 +53,22 @@ export async function submitOrder(
         phone: contact.phone,
         company: contact.company,
       },
+      termsAcceptance: {
+        accepted: orderTerms.accepted,
+        version: TERMS_VERSION,
+        // Client-side timestamp is informational only; the server replaces
+        // it with its own ISO timestamp before saving the order.
+        acceptedAt: new Date().toISOString(),
+      },
+      portfolioPermission: {
+        allowed: orderTerms.allowPortfolio,
+      },
+      deliveryPreferences: deliveryPreferences
+        ? {
+            fileSizeLimit: deliveryPreferences.fileSizeLimit || "",
+            disclaimerText: deliveryPreferences.disclaimerText || "",
+          }
+        : undefined,
       items,
     });
     formData.append("metadata", metadata);

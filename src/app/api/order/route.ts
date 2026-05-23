@@ -92,7 +92,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const { serviceType, contact, items: rawItems } = metaResult.data;
+    const {
+      serviceType,
+      contact,
+      deliveryPreferences,
+      termsAcceptance,
+      portfolioPermission,
+      items: rawItems,
+    } = metaResult.data;
+
+    // Trust the server's clock for the recorded acceptance time. Any
+    // `acceptedAt` value the client sent is informational only and is
+    // replaced here so the persisted timestamp cannot be manipulated by
+    // the browser.
+    const serverAcceptedAt = new Date().toISOString();
+    const trustedTermsAcceptance = {
+      accepted: termsAcceptance.accepted,
+      version: termsAcceptance.version || "unspecified",
+      accepted_at: serverAcceptedAt,
+    };
+    const trustedPortfolioPermission = {
+      allowed: portfolioPermission?.allowed === true,
+    };
 
     if (rawItems.length > MAX_ITEMS) {
       return NextResponse.json(
@@ -223,13 +244,26 @@ export async function POST(request: Request) {
     }
 
     // --- 10. Insert order items ---
+    // Each item carries:
+    //   - its own delivery preferences (fileSizeLimit, disclaimerText).
+    //     The legacy order-level `deliveryPreferences` payload is kept
+    //     as a fallback so clients running the previous build keep
+    //     working during rollout.
+    //   - the order-level terms acceptance and (optional) portfolio
+    //     permission, denormalized so we have a record per item without
+    //     adding a new column to the orders table.
     const orderItemsPayload = validatedItems.items.map((item, i) => ({
       order_id: orderData.id,
       item_index: i,
       original_photo_path: uploadedPaths[i].original,
       reference_image_path: uploadedPaths[i].reference,
       subtotal_cents: itemSubtotals[i],
-      details: buildItemDetails(serviceType, item),
+      details: {
+        ...buildItemDetails(serviceType, item),
+        delivery_preferences: buildDeliveryPreferences(item, deliveryPreferences),
+        terms_acceptance: trustedTermsAcceptance,
+        portfolio_permission: trustedPortfolioPermission,
+      },
     }));
 
     const { error: itemsError } = await supabase
@@ -350,6 +384,32 @@ function recalculatePrices(serviceType: ServiceType, items: unknown[]): number[]
         recalcPhotoEditSubtotal(item as Parameters<typeof recalcPhotoEditSubtotal>[0])
       );
   }
+}
+
+/**
+ * Resolve the final per-item delivery preferences:
+ *   - Prefer the item's own `fileSizeLimit` / `disclaimerText` (new behaviour).
+ *   - Otherwise fall back to the order-level `deliveryPreferences` payload
+ *     (legacy behaviour, kept for backward compatibility with older clients).
+ */
+function buildDeliveryPreferences(
+  item: unknown,
+  orderLevel: { fileSizeLimit?: string; disclaimerText?: string } | undefined
+): { file_size_limit: string; disclaimer_text: string } {
+  const itemRecord = (item ?? {}) as {
+    fileSizeLimit?: string;
+    disclaimerText?: string;
+  };
+  return {
+    file_size_limit:
+      itemRecord.fileSizeLimit?.trim() ||
+      orderLevel?.fileSizeLimit?.trim() ||
+      "",
+    disclaimer_text:
+      itemRecord.disclaimerText?.trim() ||
+      orderLevel?.disclaimerText?.trim() ||
+      "",
+  };
 }
 
 function buildItemDetails(serviceType: ServiceType, item: unknown): Record<string, unknown> {
