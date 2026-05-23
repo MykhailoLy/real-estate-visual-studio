@@ -6,6 +6,7 @@ import BeforeAfterPlaceholder from "@/components/pricing/BeforeAfterPlaceholder"
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
 import SectionLead from "@/components/pricing/SectionLead";
+import StyleGallerySection from "@/components/pricing/StyleGallerySection";
 import Wide from "@/components/pricing/Wide";
 
 export const metadata: Metadata = {
@@ -29,18 +30,6 @@ const addonRows = [
   { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
   { label: "Turn On Lights", price: "US$1.00" },
   { label: "Colour Change", price: "US$3.00" },
-];
-
-const styles = [
-  "Modern",
-  "Urban",
-  "Scandinavian",
-  "Mid-Century",
-  "Farmhouse",
-  "Hamptons",
-  "Contemporary",
-  "Traditional",
-  "Commercial",
 ];
 
 const useCases = [
@@ -182,30 +171,15 @@ export default function VirtualStagingPricingPage() {
         </Wide>
       </section>
 
-      {/* Style options */}
+      {/* Style options — visual gallery with lightbox */}
       <section className="py-16 lg:py-24 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Style options"
             title="Choose the right look for your buyer"
-            description="Pick a single style per image — or let us match a reference. We tailor the furniture, materials and palette to fit the chosen direction."
+            description="Pick a single style per image — or let us match a reference. We tailor the furniture, materials and palette to fit the chosen direction. Tap a card to browse multiple examples per style."
           />
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 lg:p-8 shadow-sm">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
-              {styles.map((style) => (
-                <div
-                  key={style}
-                  className="px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl text-sm lg:text-base font-medium text-foreground text-center hover:border-primary/40 hover:bg-white transition-colors"
-                >
-                  {style}
-                </div>
-              ))}
-            </div>
-            <p className="text-xs lg:text-sm text-muted mt-6 leading-relaxed">
-              You can also send a reference image or link, or ask us to match
-              the style of a specific listing or brand.
-            </p>
-          </div>
+          <StyleGallerySection />
         </Wide>
       </section>
 
