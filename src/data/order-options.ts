@@ -36,8 +36,37 @@ export const STAGING_STYLE_OPTIONS = [
   "Hamptons",
   "Contemporary",
   "Traditional",
-  "Commercial",
+  "Commercial Office",
+  "Commercial Non-Office",
 ] as const;
+
+/**
+ * Visual cards rendered alongside the Furniture Style dropdown on the
+ * Virtual Staging order page. The label here MUST exactly match the
+ * corresponding STAGING_STYLE_OPTIONS entry so dropdown <-> card selection
+ * stays in sync.
+ *
+ * `imageSrc` points at /public/images/styles/*.jpg. Real images are added
+ * later; if a file is missing, StyleSelector falls back to a clean named
+ * placeholder block.
+ */
+export interface StagingStyleCard {
+  label: (typeof STAGING_STYLE_OPTIONS)[number];
+  imageSrc: string;
+}
+
+export const STAGING_STYLE_CARDS: StagingStyleCard[] = [
+  { label: "Modern", imageSrc: "/images/styles/modern.jpg" },
+  { label: "Urban / Industrial", imageSrc: "/images/styles/urban-industrial.jpg" },
+  { label: "Scandinavian", imageSrc: "/images/styles/scandinavian.jpg" },
+  { label: "Mid-Century Modern", imageSrc: "/images/styles/mid-century-modern.jpg" },
+  { label: "Farmhouse", imageSrc: "/images/styles/farmhouse.jpg" },
+  { label: "Hamptons", imageSrc: "/images/styles/hamptons.jpg" },
+  { label: "Contemporary", imageSrc: "/images/styles/contemporary.jpg" },
+  { label: "Traditional", imageSrc: "/images/styles/traditional.jpg" },
+  { label: "Commercial Office", imageSrc: "/images/styles/commercial-office.jpg" },
+  { label: "Commercial Non-Office", imageSrc: "/images/styles/commercial-non-office.jpg" },
+];
 
 export interface AddOnOption {
   id: string;
@@ -236,3 +265,19 @@ export const PHOTO_EDIT_FILE_ACCEPT: Record<string, string[]> = {
   "image/gif": [".gif"],
   "application/pdf": [".pdf"],
 };
+
+// --- Order-level delivery preferences (apply to the whole order, not per-item) ---
+
+/**
+ * File size limit options for delivered images. This is a delivery
+ * preference for MLS / online listing systems that cap upload sizes — it
+ * is NOT a paid add-on. Storing the literal string keeps the choice
+ * human-readable in the order details JSON.
+ */
+export const FILE_SIZE_LIMIT_OPTIONS = [
+  "10 MB & Under",
+  "5 MB & Under",
+  "Same size as original (may vary slightly)",
+] as const;
+
+export type FileSizeLimit = (typeof FILE_SIZE_LIMIT_OPTIONS)[number];

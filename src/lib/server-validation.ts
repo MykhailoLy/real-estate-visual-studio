@@ -70,16 +70,24 @@ export const PhotoEditItemSchema = z.object({
   additionalInfo: z.string().optional().default(""),
 });
 
+// --- Order-level Delivery Preferences (optional) ---
+export const DeliveryPreferencesSchema = z.object({
+  fileSizeLimit: z.string().optional().default(""),
+  disclaimerText: z.string().max(2000, "Disclaimer too long").optional().default(""),
+});
+
 // --- Full Order Metadata Schema ---
 export const OrderMetadataSchema = z.object({
   serviceType: ServiceTypeSchema,
   contact: ContactSchema,
+  deliveryPreferences: DeliveryPreferencesSchema.optional(),
   items: z.array(z.unknown()).min(1, "At least one item is required").max(50, "Maximum 50 items per order"),
 });
 
 // --- Type exports ---
 export type ServiceType = z.infer<typeof ServiceTypeSchema>;
 export type ContactData = z.infer<typeof ContactSchema>;
+export type DeliveryPreferences = z.infer<typeof DeliveryPreferencesSchema>;
 export type StagingItem = z.infer<typeof StagingItemSchema>;
 export type RenovationItem = z.infer<typeof RenovationItemSchema>;
 export type FloorPlanItem = z.infer<typeof FloorPlanItemSchema>;

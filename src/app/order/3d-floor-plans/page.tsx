@@ -8,6 +8,10 @@ import ContactDetails, {
   type ContactData,
   emptyContactData,
 } from "@/components/order/ContactDetails";
+import DeliveryPreferences, {
+  type DeliveryPreferencesData,
+  emptyDeliveryPreferences,
+} from "@/components/order/DeliveryPreferences";
 import Confirmation from "@/components/order/Confirmation";
 import FloorPlanItemCard, {
   type FloorPlanItemData,
@@ -20,6 +24,9 @@ import Container from "@/components/layout/Container";
 export default function FloorPlansOrderPage() {
   const [items, setItems] = useState<FloorPlanItemData[]>([emptyFloorPlanItem()]);
   const [contact, setContact] = useState<ContactData>(emptyContactData);
+  const [deliveryPrefs, setDeliveryPrefs] = useState<DeliveryPreferencesData>(
+    emptyDeliveryPreferences
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -62,7 +69,7 @@ export default function FloorPlansOrderPage() {
       referenceFile: item.referenceFile,
     }));
 
-    const result = await submitOrder("3d-floor-plans", contact, itemsMetadata, files);
+    const result = await submitOrder("3d-floor-plans", contact, itemsMetadata, files, deliveryPrefs);
 
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
@@ -76,6 +83,7 @@ export default function FloorPlansOrderPage() {
   const handleNewOrder = () => {
     setItems([emptyFloorPlanItem()]);
     setContact(emptyContactData);
+    setDeliveryPrefs(emptyDeliveryPreferences);
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
@@ -160,6 +168,8 @@ export default function FloorPlansOrderPage() {
       </button>
 
       <ContactDetails data={contact} onChange={setContact} />
+
+      <DeliveryPreferences data={deliveryPrefs} onChange={setDeliveryPrefs} />
     </OrderLayout>
   );
 }

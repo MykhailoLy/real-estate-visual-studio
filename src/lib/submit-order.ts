@@ -1,6 +1,7 @@
 "use client";
 
 import type { ContactData } from "@/components/order/ContactDetails";
+import type { DeliveryPreferencesData } from "@/components/order/DeliveryPreferences";
 
 export interface OrderSubmitResult {
   success: boolean;
@@ -17,15 +18,21 @@ interface FileRef {
  * Submit an order to POST /api/order.
  *
  * Builds a FormData payload with:
- * - "metadata": JSON string of { serviceType, contact, items (without File objects) }
+ * - "metadata": JSON string of { serviceType, contact, deliveryPreferences,
+ *   items (without File objects) }
  * - "file-{i}-original": original file for each item
  * - "file-{i}-reference": optional reference file for each item
+ *
+ * `deliveryPreferences` is optional. When omitted, the order is submitted
+ * without any delivery preferences — backward compatible with earlier
+ * callers and with already-deployed clients.
  */
 export async function submitOrder(
   serviceType: string,
   contact: ContactData,
   items: Record<string, unknown>[],
-  files: FileRef[]
+  files: FileRef[],
+  deliveryPreferences?: DeliveryPreferencesData
 ): Promise<OrderSubmitResult> {
   try {
     const formData = new FormData();
@@ -39,6 +46,12 @@ export async function submitOrder(
         phone: contact.phone,
         company: contact.company,
       },
+      deliveryPreferences: deliveryPreferences
+        ? {
+            fileSizeLimit: deliveryPreferences.fileSizeLimit || "",
+            disclaimerText: deliveryPreferences.disclaimerText || "",
+          }
+        : undefined,
       items,
     });
     formData.append("metadata", metadata);

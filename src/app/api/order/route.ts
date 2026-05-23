@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { serviceType, contact, items: rawItems } = metaResult.data;
+    const { serviceType, contact, deliveryPreferences, items: rawItems } = metaResult.data;
 
     if (rawItems.length > MAX_ITEMS) {
       return NextResponse.json(
@@ -223,13 +223,25 @@ export async function POST(request: Request) {
     }
 
     // --- 10. Insert order items ---
+    // Order-level delivery preferences are denormalized onto each item's
+    // `details` JSON because the orders table does not have a JSON column
+    // for order-wide metadata. This keeps the schema unchanged while
+    // making the preferences visible per item.
+    const deliveryPrefsForDetails = {
+      file_size_limit: deliveryPreferences?.fileSizeLimit || "",
+      disclaimer_text: deliveryPreferences?.disclaimerText || "",
+    };
+
     const orderItemsPayload = validatedItems.items.map((item, i) => ({
       order_id: orderData.id,
       item_index: i,
       original_photo_path: uploadedPaths[i].original,
       reference_image_path: uploadedPaths[i].reference,
       subtotal_cents: itemSubtotals[i],
-      details: buildItemDetails(serviceType, item),
+      details: {
+        ...buildItemDetails(serviceType, item),
+        delivery_preferences: deliveryPrefsForDetails,
+      },
     }));
 
     const { error: itemsError } = await supabase

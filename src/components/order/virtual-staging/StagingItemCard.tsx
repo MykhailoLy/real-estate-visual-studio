@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
+import StyleSelector from "@/components/order/virtual-staging/StyleSelector";
 import { formatUSD } from "@/lib/utils";
 import { calculateStagingItemTotal } from "@/lib/pricing";
 import {
@@ -85,6 +86,21 @@ export default function StagingItemCard({
           accept={STAGING_FILE_ACCEPT}
           required
         />
+
+        {/* Furniture Style — visual picker (kept in sync with the dropdown below) */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            Furniture Style <span className="text-red-500">*</span>
+          </label>
+          <p className="text-xs text-muted mb-3">
+            Tap a style card to select it. The dropdown below stays in sync.
+          </p>
+          <StyleSelector
+            value={data.furnitureStyle}
+            onChange={(label) => onChange({ ...data, furnitureStyle: label })}
+            groupName={`furniture-style-${index}`}
+          />
+        </div>
 
         {/* Room & Style */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

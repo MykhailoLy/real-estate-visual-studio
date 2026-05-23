@@ -8,6 +8,10 @@ import ContactDetails, {
   type ContactData,
   emptyContactData,
 } from "@/components/order/ContactDetails";
+import DeliveryPreferences, {
+  type DeliveryPreferencesData,
+  emptyDeliveryPreferences,
+} from "@/components/order/DeliveryPreferences";
 import Confirmation from "@/components/order/Confirmation";
 import PhotoEditItemCard, {
   type PhotoEditItemData,
@@ -20,6 +24,9 @@ import Container from "@/components/layout/Container";
 export default function PhotoEditingOrderPage() {
   const [items, setItems] = useState<PhotoEditItemData[]>([emptyPhotoEditItem()]);
   const [contact, setContact] = useState<ContactData>(emptyContactData);
+  const [deliveryPrefs, setDeliveryPrefs] = useState<DeliveryPreferencesData>(
+    emptyDeliveryPreferences
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -59,7 +66,7 @@ export default function PhotoEditingOrderPage() {
       referenceFile: null,
     }));
 
-    const result = await submitOrder("photo-editing", contact, itemsMetadata, files);
+    const result = await submitOrder("photo-editing", contact, itemsMetadata, files, deliveryPrefs);
 
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
@@ -73,6 +80,7 @@ export default function PhotoEditingOrderPage() {
   const handleNewOrder = () => {
     setItems([emptyPhotoEditItem()]);
     setContact(emptyContactData);
+    setDeliveryPrefs(emptyDeliveryPreferences);
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
@@ -163,6 +171,8 @@ export default function PhotoEditingOrderPage() {
       </button>
 
       <ContactDetails data={contact} onChange={setContact} />
+
+      <DeliveryPreferences data={deliveryPrefs} onChange={setDeliveryPrefs} />
     </OrderLayout>
   );
 }

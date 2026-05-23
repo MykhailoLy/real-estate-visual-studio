@@ -1,8 +1,23 @@
 "use client";
 
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Upload, X, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Extensions that are safe to preview as a thumbnail in the browser even when
+// the File object lacks a recognizable image/* MIME type (some browsers / OSes
+// drop the MIME for files dragged from certain sources).
+const PREVIEWABLE_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+
+/**
+ * Decide whether a File should be shown as a thumbnail preview.
+ * Trusts the MIME type first; falls back to extension matching.
+ */
+function isPreviewableImage(file: File): boolean {
+  if (file.type && file.type.startsWith("image/")) return true;
+  const lower = file.name.toLowerCase();
+  return PREVIEWABLE_IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
 
 // Public API kept identical to the previous implementation so callers don't change.
 export type FileUploadAccept = Record<string, string[]>;
@@ -79,6 +94,21 @@ export default function FileUpload({
   const inputId = useId();
   const [isDragActive, setIsDragActive] = useState(false);
   const [rejected, setRejected] = useState(false);
+
+  // Local object URL for image previews. Derived from the current File via
+  // useMemo so we avoid the "setState in useEffect" anti-pattern; an
+  // accompanying effect revokes the URL when it changes or on unmount to
+  // avoid memory leaks.
+  const previewUrl = useMemo<string | null>(() => {
+    if (!file || !isPreviewableImage(file)) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const acceptString = buildAcceptString(accept);
 
@@ -177,9 +207,22 @@ export default function FileUpload({
       />
 
       {file ? (
-        <div className="flex items-center gap-3 p-3 bg-surface border border-border rounded-lg">
-          <FileImage className="w-5 h-5 text-primary flex-shrink-0" />
-          <div className="min-w-0 flex-1">
+        <div className="flex items-stretch gap-3 p-3 bg-surface border border-border rounded-lg">
+          {previewUrl ? (
+            // Local-File preview. Plain <img> is intentional: next/image needs
+            // a static or remote URL, while object URLs are short-lived blobs.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previewUrl}
+              alt={file.name}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-md object-cover bg-stone-100 flex-shrink-0"
+            />
+          ) : (
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-md bg-stone-100 flex items-center justify-center flex-shrink-0">
+              <FileImage className="w-6 h-6 text-primary" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1 flex flex-col justify-center">
             <p className="text-sm font-medium text-foreground truncate">
               {file.name}
             </p>
@@ -190,7 +233,7 @@ export default function FileUpload({
           <button
             type="button"
             onClick={removeFile}
-            className="flex-shrink-0 p-1 text-muted hover:text-red-500 transition-colors"
+            className="flex-shrink-0 self-start p-1 text-muted hover:text-red-500 transition-colors"
             aria-label="Remove file"
           >
             <X className="w-4 h-4" />
