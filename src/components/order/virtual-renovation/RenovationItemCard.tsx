@@ -3,6 +3,9 @@
 import { Trash2 } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
+import ItemDeliveryFields, {
+  emptyItemDeliveryFields,
+} from "@/components/order/ItemDeliveryFields";
 import { formatUSD } from "@/lib/utils";
 import { calculateRenovationItemTotal } from "@/lib/pricing";
 import {
@@ -19,6 +22,10 @@ export interface RenovationItemData {
   selectedExternal: string[];
   room: string;
   presentationStyle: string;
+  /** Per-item file size limit (one of FILE_SIZE_LIMIT_OPTIONS or "") */
+  fileSizeLimit: string;
+  /** Per-item optional disclaimer text */
+  disclaimerText: string;
   referenceLink: string;
   referenceFile: File | null;
   additionalInfo: string;
@@ -30,6 +37,7 @@ export const emptyRenovationItem = (): RenovationItemData => ({
   selectedExternal: [],
   room: "",
   presentationStyle: "",
+  ...emptyItemDeliveryFields,
   referenceLink: "",
   referenceFile: null,
   additionalInfo: "",
@@ -193,6 +201,16 @@ export default function RenovationItemCard({
             </select>
           </div>
         </div>
+
+        {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
+        <ItemDeliveryFields
+          idPrefix={`renovation-item-${index}`}
+          data={{
+            fileSizeLimit: data.fileSizeLimit,
+            disclaimerText: data.disclaimerText,
+          }}
+          onChange={(prefs) => onChange({ ...data, ...prefs })}
+        />
 
         {/* Reference Link */}
         <div>

@@ -8,10 +8,6 @@ import ContactDetails, {
   type ContactData,
   emptyContactData,
 } from "@/components/order/ContactDetails";
-import DeliveryPreferences, {
-  type DeliveryPreferencesData,
-  emptyDeliveryPreferences,
-} from "@/components/order/DeliveryPreferences";
 import Confirmation from "@/components/order/Confirmation";
 import StagingItemCard, {
   type StagingItemData,
@@ -24,9 +20,6 @@ import Container from "@/components/layout/Container";
 export default function VirtualStagingOrderPage() {
   const [items, setItems] = useState<StagingItemData[]>([emptyStagingItem()]);
   const [contact, setContact] = useState<ContactData>(emptyContactData);
-  const [deliveryPrefs, setDeliveryPrefs] = useState<DeliveryPreferencesData>(
-    emptyDeliveryPreferences
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -46,9 +39,15 @@ export default function VirtualStagingOrderPage() {
     setIsSubmitting(true);
     setSubmitError("");
 
+    // Per-item metadata. Each item carries its own delivery preferences
+    // (fileSizeLimit + disclaimerText). The order-level deliveryPreferences
+    // arg of submitOrder is left undefined; the API still accepts it for
+    // backward compatibility.
     const itemsMetadata = items.map((item) => ({
       roomName: item.roomName,
       furnitureStyle: item.furnitureStyle,
+      fileSizeLimit: item.fileSizeLimit,
+      disclaimerText: item.disclaimerText,
       referenceLink: item.referenceLink,
       additionalInfo: item.additionalInfo,
       selectedAddons: item.selectedAddons,
@@ -59,7 +58,7 @@ export default function VirtualStagingOrderPage() {
       referenceFile: item.referenceFile,
     }));
 
-    const result = await submitOrder("virtual-staging", contact, itemsMetadata, files, deliveryPrefs);
+    const result = await submitOrder("virtual-staging", contact, itemsMetadata, files);
 
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
@@ -73,7 +72,6 @@ export default function VirtualStagingOrderPage() {
   const handleNewOrder = () => {
     setItems([emptyStagingItem()]);
     setContact(emptyContactData);
-    setDeliveryPrefs(emptyDeliveryPreferences);
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
@@ -153,8 +151,6 @@ export default function VirtualStagingOrderPage() {
       </button>
 
       <ContactDetails data={contact} onChange={setContact} />
-
-      <DeliveryPreferences data={deliveryPrefs} onChange={setDeliveryPrefs} />
     </OrderLayout>
   );
 }

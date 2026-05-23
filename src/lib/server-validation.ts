@@ -23,6 +23,19 @@ export const ContactSchema = z.object({
   company: z.string().optional().default(""),
 });
 
+// --- Per-item delivery preferences (optional, applies to one item) ---
+// Mixed into every per-item schema below so each image / item carries its
+// own values. Both fields are optional and free-form so we never fight the
+// client about wording.
+const itemDeliveryFields = {
+  fileSizeLimit: z.string().optional().default(""),
+  disclaimerText: z
+    .string()
+    .max(2000, "Disclaimer too long")
+    .optional()
+    .default(""),
+};
+
 // --- Virtual Staging Item ---
 export const StagingItemSchema = z.object({
   roomName: z.string().min(1, "Room name is required"),
@@ -30,6 +43,7 @@ export const StagingItemSchema = z.object({
   referenceLink: z.string().url().optional().or(z.literal("")),
   additionalInfo: z.string().optional().default(""),
   selectedAddons: z.array(z.string()).default([]),
+  ...itemDeliveryFields,
 });
 
 // --- Virtual Renovation Item ---
@@ -40,6 +54,7 @@ export const RenovationItemSchema = z.object({
   presentationStyle: z.string().optional().default(""),
   referenceLink: z.string().url().optional().or(z.literal("")),
   additionalInfo: z.string().optional().default(""),
+  ...itemDeliveryFields,
 }).refine(
   (data) => data.selectedInternal.length > 0 || data.selectedExternal.length > 0,
   { message: "At least one renovation option must be selected" }
@@ -62,15 +77,20 @@ export const FloorPlanItemSchema = z.object({
   customDisclaimer: z.string().optional().default(""),
   referenceLink: z.string().url().optional().or(z.literal("")),
   additionalInfo: z.string().optional().default(""),
+  ...itemDeliveryFields,
 });
 
 // --- Photo Editing Item ---
 export const PhotoEditItemSchema = z.object({
   selectedOptions: z.array(z.string()).min(1, "At least one editing option is required"),
   additionalInfo: z.string().optional().default(""),
+  ...itemDeliveryFields,
 });
 
-// --- Order-level Delivery Preferences (optional) ---
+// --- Order-level Delivery Preferences ---
+// Kept for backward compatibility with earlier clients. The current UI
+// sends preferences on each item, not on the order, but we still accept
+// this field so deployed clients keep working during a rollout.
 export const DeliveryPreferencesSchema = z.object({
   fileSizeLimit: z.string().optional().default(""),
   disclaimerText: z.string().max(2000, "Disclaimer too long").optional().default(""),

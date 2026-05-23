@@ -223,15 +223,11 @@ export async function POST(request: Request) {
     }
 
     // --- 10. Insert order items ---
-    // Order-level delivery preferences are denormalized onto each item's
-    // `details` JSON because the orders table does not have a JSON column
-    // for order-wide metadata. This keeps the schema unchanged while
-    // making the preferences visible per item.
-    const deliveryPrefsForDetails = {
-      file_size_limit: deliveryPreferences?.fileSizeLimit || "",
-      disclaimer_text: deliveryPreferences?.disclaimerText || "",
-    };
-
+    // Each item carries its own delivery preferences (fileSizeLimit,
+    // disclaimerText). The legacy order-level `deliveryPreferences`
+    // payload is kept as a fallback so clients running the previous
+    // build keep working during rollout: if an item omits a field, we
+    // fall back to the order-level value.
     const orderItemsPayload = validatedItems.items.map((item, i) => ({
       order_id: orderData.id,
       item_index: i,
@@ -240,7 +236,7 @@ export async function POST(request: Request) {
       subtotal_cents: itemSubtotals[i],
       details: {
         ...buildItemDetails(serviceType, item),
-        delivery_preferences: deliveryPrefsForDetails,
+        delivery_preferences: buildDeliveryPreferences(item, deliveryPreferences),
       },
     }));
 
@@ -362,6 +358,32 @@ function recalculatePrices(serviceType: ServiceType, items: unknown[]): number[]
         recalcPhotoEditSubtotal(item as Parameters<typeof recalcPhotoEditSubtotal>[0])
       );
   }
+}
+
+/**
+ * Resolve the final per-item delivery preferences:
+ *   - Prefer the item's own `fileSizeLimit` / `disclaimerText` (new behaviour).
+ *   - Otherwise fall back to the order-level `deliveryPreferences` payload
+ *     (legacy behaviour, kept for backward compatibility with older clients).
+ */
+function buildDeliveryPreferences(
+  item: unknown,
+  orderLevel: { fileSizeLimit?: string; disclaimerText?: string } | undefined
+): { file_size_limit: string; disclaimer_text: string } {
+  const itemRecord = (item ?? {}) as {
+    fileSizeLimit?: string;
+    disclaimerText?: string;
+  };
+  return {
+    file_size_limit:
+      itemRecord.fileSizeLimit?.trim() ||
+      orderLevel?.fileSizeLimit?.trim() ||
+      "",
+    disclaimer_text:
+      itemRecord.disclaimerText?.trim() ||
+      orderLevel?.disclaimerText?.trim() ||
+      "",
+  };
 }
 
 function buildItemDetails(serviceType: ServiceType, item: unknown): Record<string, unknown> {

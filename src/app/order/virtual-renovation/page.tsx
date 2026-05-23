@@ -8,10 +8,6 @@ import ContactDetails, {
   type ContactData,
   emptyContactData,
 } from "@/components/order/ContactDetails";
-import DeliveryPreferences, {
-  type DeliveryPreferencesData,
-  emptyDeliveryPreferences,
-} from "@/components/order/DeliveryPreferences";
 import Confirmation from "@/components/order/Confirmation";
 import RenovationItemCard, {
   type RenovationItemData,
@@ -24,9 +20,6 @@ import Container from "@/components/layout/Container";
 export default function VirtualRenovationOrderPage() {
   const [items, setItems] = useState<RenovationItemData[]>([emptyRenovationItem()]);
   const [contact, setContact] = useState<ContactData>(emptyContactData);
-  const [deliveryPrefs, setDeliveryPrefs] = useState<DeliveryPreferencesData>(
-    emptyDeliveryPreferences
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -46,11 +39,15 @@ export default function VirtualRenovationOrderPage() {
     setIsSubmitting(true);
     setSubmitError("");
 
+    // Per-item metadata. Delivery preferences (fileSizeLimit, disclaimerText)
+    // are now carried per item.
     const itemsMetadata = items.map((item) => ({
       selectedInternal: item.selectedInternal,
       selectedExternal: item.selectedExternal,
       room: item.room,
       presentationStyle: item.presentationStyle,
+      fileSizeLimit: item.fileSizeLimit,
+      disclaimerText: item.disclaimerText,
       referenceLink: item.referenceLink,
       additionalInfo: item.additionalInfo,
     }));
@@ -60,7 +57,7 @@ export default function VirtualRenovationOrderPage() {
       referenceFile: item.referenceFile,
     }));
 
-    const result = await submitOrder("virtual-renovation", contact, itemsMetadata, files, deliveryPrefs);
+    const result = await submitOrder("virtual-renovation", contact, itemsMetadata, files);
 
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
@@ -74,7 +71,6 @@ export default function VirtualRenovationOrderPage() {
   const handleNewOrder = () => {
     setItems([emptyRenovationItem()]);
     setContact(emptyContactData);
-    setDeliveryPrefs(emptyDeliveryPreferences);
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
@@ -166,8 +162,6 @@ export default function VirtualRenovationOrderPage() {
       </button>
 
       <ContactDetails data={contact} onChange={setContact} />
-
-      <DeliveryPreferences data={deliveryPrefs} onChange={setDeliveryPrefs} />
     </OrderLayout>
   );
 }

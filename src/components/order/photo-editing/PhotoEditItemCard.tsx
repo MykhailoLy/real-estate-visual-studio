@@ -3,6 +3,9 @@
 import { Trash2 } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
+import ItemDeliveryFields, {
+  emptyItemDeliveryFields,
+} from "@/components/order/ItemDeliveryFields";
 import { formatUSD } from "@/lib/utils";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { PHOTO_EDIT_OPTIONS, PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
@@ -10,12 +13,17 @@ import { PHOTO_EDIT_OPTIONS, PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options
 export interface PhotoEditItemData {
   file: File | null;
   selectedOptions: string[];
+  /** Per-item file size limit (one of FILE_SIZE_LIMIT_OPTIONS or "") */
+  fileSizeLimit: string;
+  /** Per-item optional disclaimer text */
+  disclaimerText: string;
   additionalInfo: string;
 }
 
 export const emptyPhotoEditItem = (): PhotoEditItemData => ({
   file: null,
   selectedOptions: [],
+  ...emptyItemDeliveryFields,
   additionalInfo: "",
 });
 
@@ -106,6 +114,16 @@ export default function PhotoEditItemCard({
             ))}
           </div>
         </div>
+
+        {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
+        <ItemDeliveryFields
+          idPrefix={`photo-edit-item-${index}`}
+          data={{
+            fileSizeLimit: data.fileSizeLimit,
+            disclaimerText: data.disclaimerText,
+          }}
+          onChange={(prefs) => onChange({ ...data, ...prefs })}
+        />
 
         {/* Additional Info */}
         <div>
