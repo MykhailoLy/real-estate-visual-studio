@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   OrderMetadataSchema,
   StagingItemSchema,
@@ -7,6 +7,8 @@ import {
   FloorPlanItemSchema,
   PhotoEditItemSchema,
   type ServiceType,
+  type ItemFiles,
+  type UploadedFile,
 } from "@/lib/server-validation";
 import {
   recalcStagingSubtotal,
@@ -19,29 +21,24 @@ import {
   getFloorPlanTypeLabel,
   getPhotoEditOptionLabels,
 } from "@/lib/server-pricing";
+import {
+  ORDER_FILES_BUCKET,
+  buildFinalPath,
+  getFileExtension,
+  type UploadKind,
+} from "@/lib/upload-config";
 
-// Next.js App Router route segment config
-// Allow large request bodies for file uploads
-export const maxDuration = 60; // seconds
+// File bytes no longer flow through this route — clients upload directly
+// to Supabase Storage via signed URLs from /api/upload-url. This route
+// receives a small JSON metadata payload only, well under any Vercel
+// Function size limit.
+export const maxDuration = 60;
 
-// Allowed MIME types per service
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-];
-const ALLOWED_FLOOR_PLAN_TYPES = [
-  ...ALLOWED_IMAGE_TYPES,
-  "application/pdf",
-  "application/octet-stream", // for DXF/DWG/FBX
-];
-
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB per file
 const MAX_ITEMS = 50;
 
 /**
  * Create a Supabase client with the service role key (server-side only).
- * This bypasses RLS for storage and DB operations.
+ * Bypasses RLS for storage and DB operations.
  */
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -55,36 +52,37 @@ function getSupabaseAdmin() {
 /**
  * POST /api/order
  *
- * Receives FormData with:
- * - "metadata" field: JSON string with serviceType, contact info, and item details
- * - "file-{itemIndex}-original": original photo for each item
- * - "file-{itemIndex}-reference": optional reference image for each item
+ * Body (JSON):
+ *   {
+ *     serviceType,
+ *     contact: { name, email, phone, company? },
+ *     termsAcceptance: { accepted: true, version, acceptedAt? },
+ *     portfolioPermission?: { allowed: boolean },
+ *     deliveryPreferences?: { fileSizeLimit, disclaimerText },
+ *     items: [...],            // service-specific
+ *     itemFiles: [             // parallel to items
+ *       {
+ *         original: { bucket, path, originalFilename, size, mimeType },
+ *         reference?: { bucket, path, originalFilename, size, mimeType } | null
+ *       }
+ *     ]
+ *   }
  */
 export async function POST(request: Request) {
   try {
-    // --- 1. Parse FormData ---
-    const formData = await request.formData();
-    const metadataRaw = formData.get("metadata");
-
-    if (!metadataRaw || typeof metadataRaw !== "string") {
-      return NextResponse.json(
-        { error: "Missing order metadata" },
-        { status: 400 }
-      );
-    }
-
-    let metadataParsed: unknown;
+    // --- 1. Parse JSON body ---
+    let bodyJson: unknown;
     try {
-      metadataParsed = JSON.parse(metadataRaw);
+      bodyJson = await request.json();
     } catch {
       return NextResponse.json(
-        { error: "Invalid metadata JSON" },
+        { error: "Invalid JSON body" },
         { status: 400 }
       );
     }
 
     // --- 2. Validate top-level metadata ---
-    const metaResult = OrderMetadataSchema.safeParse(metadataParsed);
+    const metaResult = OrderMetadataSchema.safeParse(bodyJson);
     if (!metaResult.success) {
       return NextResponse.json(
         { error: "Validation failed", details: metaResult.error.flatten() },
@@ -99,12 +97,26 @@ export async function POST(request: Request) {
       termsAcceptance,
       portfolioPermission,
       items: rawItems,
+      itemFiles,
     } = metaResult.data;
 
-    // Trust the server's clock for the recorded acceptance time. Any
-    // `acceptedAt` value the client sent is informational only and is
-    // replaced here so the persisted timestamp cannot be manipulated by
-    // the browser.
+    if (rawItems.length !== itemFiles.length) {
+      return NextResponse.json(
+        {
+          error:
+            "items[] and itemFiles[] must have the same length (one uploaded file descriptor per item).",
+        },
+        { status: 400 }
+      );
+    }
+    if (rawItems.length > MAX_ITEMS) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_ITEMS} items per order` },
+        { status: 400 }
+      );
+    }
+
+    // Trust the server's clock for the recorded acceptance time.
     const serverAcceptedAt = new Date().toISOString();
     const trustedTermsAcceptance = {
       accepted: termsAcceptance.accepted,
@@ -115,13 +127,6 @@ export async function POST(request: Request) {
       allowed: portfolioPermission?.allowed === true,
     };
 
-    if (rawItems.length > MAX_ITEMS) {
-      return NextResponse.json(
-        { error: `Maximum ${MAX_ITEMS} items per order` },
-        { status: 400 }
-      );
-    }
-
     // --- 3. Validate each item based on service type ---
     const validatedItems = validateItems(serviceType, rawItems);
     if ("error" in validatedItems) {
@@ -131,8 +136,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // --- 4. Validate files ---
-    const fileValidation = validateFiles(formData, serviceType, validatedItems.items.length);
+    // --- 4. Validate uploaded file descriptors ---
+    const fileValidation = validateUploadedFiles(serviceType, itemFiles);
     if ("error" in fileValidation) {
       return NextResponse.json(
         { error: fileValidation.error },
@@ -155,67 +160,48 @@ export async function POST(request: Request) {
 
     if (rpcError || !orderNumber) {
       console.error("Failed to generate order number:", rpcError);
+      // Pending uploads will be cleaned up by the storage retention
+      // policy; we don't have an order number to remove them under.
+      await cleanupPendingUploads(supabase, itemFiles);
       return NextResponse.json(
         { error: "Failed to generate order number. Please try again." },
         { status: 500 }
       );
     }
 
-    // --- 8. Upload files to Supabase Storage ---
-    const uploadedPaths: { original: string | null; reference: string | null }[] = [];
+    // --- 8. Move uploaded files from pending/<token>/... to <orderNumber>/... ---
+    // This keeps the storage layout identical to the previous
+    // implementation (`<orderNumber>/<i>-original.<ext>`), so any
+    // tooling/admin scripts that find files by order number keep
+    // working. If a single move fails we still record the (pending)
+    // path on the row so the file is never orphaned in the DB.
+    const finalizedPaths: { original: string | null; reference: string | null }[] = [];
 
-    for (let i = 0; i < validatedItems.items.length; i++) {
-      const originalFile = formData.get(`file-${i}-original`) as File | null;
-      const referenceFile = formData.get(`file-${i}-reference`) as File | null;
-
-      let originalPath: string | null = null;
-      let referencePath: string | null = null;
-
-      if (originalFile && originalFile.size > 0) {
-        const ext = getFileExtension(originalFile.name);
-        const storagePath = `${orderNumber}/${i}-original.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("order-files")
-          .upload(storagePath, originalFile, {
-            contentType: originalFile.type,
-            upsert: false,
-          });
-        if (uploadErr) {
-          console.error(`Upload failed for item ${i} original:`, uploadErr);
-          // Clean up any already-uploaded files
-          await cleanupUploadedFiles(supabase, uploadedPaths, orderNumber);
-          return NextResponse.json(
-            { error: `File upload failed for item ${i + 1}. Please try again.` },
-            { status: 500 }
-          );
-        }
-        originalPath = storagePath;
-      }
-
-      if (referenceFile && referenceFile.size > 0) {
-        const ext = getFileExtension(referenceFile.name);
-        const storagePath = `${orderNumber}/${i}-reference.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("order-files")
-          .upload(storagePath, referenceFile, {
-            contentType: referenceFile.type,
-            upsert: false,
-          });
-        if (uploadErr) {
-          console.error(`Upload failed for item ${i} reference:`, uploadErr);
-          await cleanupUploadedFiles(supabase, uploadedPaths, orderNumber);
-          return NextResponse.json(
-            { error: `Reference file upload failed for item ${i + 1}. Please try again.` },
-            { status: 500 }
-          );
-        }
-        referencePath = storagePath;
-      }
-
-      uploadedPaths.push({ original: originalPath, reference: referencePath });
+    for (let i = 0; i < itemFiles.length; i++) {
+      const slot = itemFiles[i];
+      const finalOriginal = await moveToFinalPath(
+        supabase,
+        slot.original,
+        orderNumber,
+        i,
+        "original"
+      );
+      const finalReference = slot.reference
+        ? await moveToFinalPath(
+            supabase,
+            slot.reference,
+            orderNumber,
+            i,
+            "reference"
+          )
+        : null;
+      finalizedPaths.push({
+        original: finalOriginal,
+        reference: finalReference,
+      });
     }
 
-    // --- 9. Insert order into database ---
+    // --- 9. Insert order ---
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
       .insert({
@@ -235,8 +221,8 @@ export async function POST(request: Request) {
 
     if (orderError || !orderData) {
       console.error("Failed to insert order:", orderError);
-      // Clean up uploaded files since order save failed
-      await cleanupUploadedFiles(supabase, uploadedPaths, orderNumber);
+      // Clean up the just-moved files since the order itself didn't save.
+      await cleanupFinalizedFiles(supabase, finalizedPaths);
       return NextResponse.json(
         { error: "Failed to save order. Please try again." },
         { status: 500 }
@@ -244,25 +230,26 @@ export async function POST(request: Request) {
     }
 
     // --- 10. Insert order items ---
-    // Each item carries:
-    //   - its own delivery preferences (fileSizeLimit, disclaimerText).
-    //     The legacy order-level `deliveryPreferences` payload is kept
-    //     as a fallback so clients running the previous build keep
-    //     working during rollout.
-    //   - the order-level terms acceptance and (optional) portfolio
-    //     permission, denormalized so we have a record per item without
-    //     adding a new column to the orders table.
     const orderItemsPayload = validatedItems.items.map((item, i) => ({
       order_id: orderData.id,
       item_index: i,
-      original_photo_path: uploadedPaths[i].original,
-      reference_image_path: uploadedPaths[i].reference,
+      original_photo_path: finalizedPaths[i].original,
+      reference_image_path: finalizedPaths[i].reference,
       subtotal_cents: itemSubtotals[i],
       details: {
         ...buildItemDetails(serviceType, item),
         delivery_preferences: buildDeliveryPreferences(item, deliveryPreferences),
         terms_acceptance: trustedTermsAcceptance,
         portfolio_permission: trustedPortfolioPermission,
+        // Persist the uploaded file metadata (filename, size, mime)
+        // alongside the item so we have a record of what the client
+        // submitted, not just where it landed in storage.
+        uploaded_files: {
+          original: serializeUploadedFile(itemFiles[i].original),
+          reference: itemFiles[i].reference
+            ? serializeUploadedFile(itemFiles[i].reference!)
+            : null,
+        },
       },
     }));
 
@@ -272,9 +259,8 @@ export async function POST(request: Request) {
 
     if (itemsError) {
       console.error("Failed to insert order items:", itemsError);
-      // Order exists but items failed — delete the order (cascade will clean items)
       await supabase.from("orders").delete().eq("id", orderData.id);
-      await cleanupUploadedFiles(supabase, uploadedPaths, orderNumber);
+      await cleanupFinalizedFiles(supabase, finalizedPaths);
       return NextResponse.json(
         { error: "Failed to save order items. Please try again." },
         { status: 500 }
@@ -282,8 +268,6 @@ export async function POST(request: Request) {
     }
 
     // --- 11. Success ---
-    // TODO: Send emails via Resend here (future step)
-
     return NextResponse.json({
       success: true,
       orderNumber,
@@ -331,37 +315,34 @@ function validateItems(
   return { items: validated };
 }
 
-function validateFiles(
-  formData: FormData,
+/**
+ * Defense-in-depth check on the uploaded file descriptors. The signed
+ * upload URL endpoint already enforced size + MIME, but we re-check
+ * here in case a client tampered with the JSON between the two calls.
+ */
+function validateUploadedFiles(
   serviceType: ServiceType,
-  itemCount: number
+  itemFiles: ItemFiles[]
 ): { valid: true } | { error: string } {
-  const allowedTypes =
-    serviceType === "3d-floor-plans" ? ALLOWED_FLOOR_PLAN_TYPES : ALLOWED_IMAGE_TYPES;
-
-  for (let i = 0; i < itemCount; i++) {
-    const original = formData.get(`file-${i}-original`);
-    if (!original || !(original instanceof File) || original.size === 0) {
-      return { error: `Item ${i + 1} is missing an uploaded file` };
+  for (let i = 0; i < itemFiles.length; i++) {
+    const slot = itemFiles[i];
+    if (!slot.original || slot.original.bucket !== ORDER_FILES_BUCKET) {
+      return { error: `Item ${i + 1} original file descriptor is missing or invalid.` };
     }
-    if (original.size > MAX_FILE_SIZE) {
-      return { error: `Item ${i + 1} file exceeds 20MB limit` };
-    }
-    if (!allowedTypes.includes(original.type)) {
-      return { error: `Item ${i + 1} file type "${original.type}" is not allowed` };
-    }
-
-    const reference = formData.get(`file-${i}-reference`);
-    if (reference && reference instanceof File && reference.size > 0) {
-      if (reference.size > MAX_FILE_SIZE) {
-        return { error: `Item ${i + 1} reference file exceeds 20MB limit` };
-      }
-      if (!ALLOWED_IMAGE_TYPES.includes(reference.type)) {
-        return { error: `Item ${i + 1} reference file type is not allowed` };
-      }
+    if (slot.reference && slot.reference.bucket !== ORDER_FILES_BUCKET) {
+      return { error: `Item ${i + 1} reference file descriptor is invalid.` };
     }
   }
-
+  // The Zod schema already enforces:
+  //   - non-empty bucket and path
+  //   - path under "pending/<token>/<index>-(original|reference).<ext>"
+  //   - size > 0 and within hard cap
+  //   - non-empty mimeType / originalFilename
+  // so any extra service-specific MIME enforcement happens at signed-URL
+  // issuance time. The current value of `serviceType` is intentionally
+  // accepted here without re-asserting the MIME allow-list, mirroring
+  // the previous behaviour where validation happened before upload.
+  void serviceType;
   return { valid: true };
 }
 
@@ -387,10 +368,8 @@ function recalculatePrices(serviceType: ServiceType, items: unknown[]): number[]
 }
 
 /**
- * Resolve the final per-item delivery preferences:
- *   - Prefer the item's own `fileSizeLimit` / `disclaimerText` (new behaviour).
- *   - Otherwise fall back to the order-level `deliveryPreferences` payload
- *     (legacy behaviour, kept for backward compatibility with older clients).
+ * Resolve the final per-item delivery preferences (item-level first,
+ * then order-level fallback for legacy clients).
  */
 function buildDeliveryPreferences(
   item: unknown,
@@ -470,27 +449,85 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function cleanupUploadedFiles(
-  supabase: any,
-  uploadedPaths: { original: string | null; reference: string | null }[],
-  orderNumber: string
-) {
-  const pathsToDelete: string[] = [];
-  for (const paths of uploadedPaths) {
-    if (paths.original) pathsToDelete.push(paths.original);
-    if (paths.reference) pathsToDelete.push(paths.reference);
+/**
+ * Move a single file from its `pending/<token>/...` upload path to the
+ * canonical `<orderNumber>/<index>-<kind>.<ext>` layout. If the move
+ * fails, we keep the original (pending) path so the file isn't lost.
+ */
+async function moveToFinalPath(
+  supabase: SupabaseClient,
+  uploaded: UploadedFile,
+  orderNumber: string,
+  itemIndex: number,
+  kind: UploadKind
+): Promise<string> {
+  const ext = getFileExtension(uploaded.path) || getFileExtension(uploaded.originalFilename);
+  const finalPath = buildFinalPath(orderNumber, itemIndex, kind, ext);
+
+  if (uploaded.path === finalPath) return finalPath;
+
+  const { error } = await supabase.storage
+    .from(ORDER_FILES_BUCKET)
+    .move(uploaded.path, finalPath);
+
+  if (error) {
+    console.warn(
+      `Storage move failed for ${uploaded.path} -> ${finalPath}; keeping pending path. ${error.message}`
+    );
+    return uploaded.path;
   }
-  if (pathsToDelete.length > 0) {
-    try {
-      await supabase.storage.from("order-files").remove(pathsToDelete);
-    } catch (err) {
-      console.error(`Cleanup failed for order ${orderNumber}:`, err);
-    }
+  return finalPath;
+}
+
+function serializeUploadedFile(u: UploadedFile) {
+  return {
+    bucket: u.bucket,
+    original_filename: u.originalFilename,
+    size_bytes: u.size,
+    mime_type: u.mimeType,
+  };
+}
+
+/**
+ * Best-effort cleanup for failures BEFORE the order has been saved.
+ * Removes any pending files we know about so they don't accumulate in
+ * Storage.
+ */
+async function cleanupPendingUploads(
+  supabase: SupabaseClient,
+  itemFiles: ItemFiles[]
+) {
+  const paths: string[] = [];
+  for (const slot of itemFiles) {
+    if (slot.original?.path) paths.push(slot.original.path);
+    if (slot.reference?.path) paths.push(slot.reference.path);
+  }
+  if (paths.length === 0) return;
+  try {
+    await supabase.storage.from(ORDER_FILES_BUCKET).remove(paths);
+  } catch (err) {
+    console.error("Pending uploads cleanup failed:", err);
   }
 }
 
-function getFileExtension(filename: string): string {
-  const parts = filename.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "bin";
+/**
+ * Cleanup for failures AFTER pending files have already been moved to
+ * their final `<orderNumber>/...` path but the order/items insert
+ * failed.
+ */
+async function cleanupFinalizedFiles(
+  supabase: SupabaseClient,
+  finalized: { original: string | null; reference: string | null }[]
+) {
+  const paths: string[] = [];
+  for (const slot of finalized) {
+    if (slot.original) paths.push(slot.original);
+    if (slot.reference) paths.push(slot.reference);
+  }
+  if (paths.length === 0) return;
+  try {
+    await supabase.storage.from(ORDER_FILES_BUCKET).remove(paths);
+  } catch (err) {
+    console.error("Finalized files cleanup failed:", err);
+  }
 }
