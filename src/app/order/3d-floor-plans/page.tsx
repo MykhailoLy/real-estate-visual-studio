@@ -28,6 +28,7 @@ export default function FloorPlansOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const handleItemChange = (index: number, data: FloorPlanItemData) => {
@@ -80,6 +81,7 @@ export default function FloorPlansOrderPage() {
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
       setOrderNumber(result.orderNumber);
+      setConfirmationEmailSent(result.confirmationEmailSent === true);
       setSubmitted(true);
     } else {
       setSubmitError(result.error || "Submission failed. Please try again.");
@@ -125,6 +127,7 @@ export default function FloorPlansOrderPage() {
           <Confirmation
             orderNumber={orderNumber}
             email={contact.email}
+            confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
         </Container>

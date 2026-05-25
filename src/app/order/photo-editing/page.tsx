@@ -28,6 +28,7 @@ export default function PhotoEditingOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const handleItemChange = (index: number, data: PhotoEditItemData) => {
@@ -77,6 +78,7 @@ export default function PhotoEditingOrderPage() {
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
       setOrderNumber(result.orderNumber);
+      setConfirmationEmailSent(result.confirmationEmailSent === true);
       setSubmitted(true);
     } else {
       setSubmitError(result.error || "Submission failed. Please try again.");
@@ -117,6 +119,7 @@ export default function PhotoEditingOrderPage() {
           <Confirmation
             orderNumber={orderNumber}
             email={contact.email}
+            confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
         </Container>
