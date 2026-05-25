@@ -1,5 +1,5 @@
 // ============================================================
-// TYPE DEFINITIONS — Real Estate Visual Marketing Studio
+// TYPE DEFINITIONS — PicchuSpot (Real Estate Visuals)
 // ============================================================
 
 // --- Services ---

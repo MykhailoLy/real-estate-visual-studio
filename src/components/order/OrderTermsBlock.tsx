@@ -99,7 +99,7 @@ export default function OrderTermsBlock({
             className="w-4 h-4 mt-0.5 rounded text-primary border-border focus:ring-primary flex-shrink-0"
           />
           <span className="text-sm text-foreground leading-relaxed">
-            I allow RE Visual Studio to use before/after examples from this
+            I allow PicchuSpot to use before/after examples from this
             order in portfolio or marketing materials.
             <span className="block text-xs text-muted mt-1">
               Optional. We may anonymize property details and never display

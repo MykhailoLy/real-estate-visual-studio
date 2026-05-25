@@ -1,5 +1,5 @@
 -- ============================================================
--- SUPABASE SCHEMA — Real Estate Visual Marketing Studio
+-- SUPABASE SCHEMA — PicchuSpot (Real Estate Visuals)
 -- ============================================================
 -- Version: 2.0 (Updated for separated order flows + USD cents)
 -- Run this in the Supabase SQL Editor to create all tables.

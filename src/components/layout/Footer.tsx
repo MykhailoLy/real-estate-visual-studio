@@ -42,10 +42,14 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
-            <h3 className="text-lg font-bold mb-4">RE Visual Studio</h3>
+            <h3 className="text-lg font-bold mb-1 tracking-tight">PicchuSpot</h3>
+            <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-4">
+              Real Estate Visuals
+            </p>
             <p className="text-sm text-white/70 mb-4">
-              Real estate visual marketing. Remote digital services worldwide.
-              Local photography in Alicante &amp; Costa Blanca.
+              Property visuals that make listings stand out. Remote digital
+              services worldwide. Local photography in Alicante &amp; Costa
+              Blanca.
             </p>
             {/* TODO: Add social media links */}
           </div>
@@ -102,7 +106,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-white/20 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-white/60">
-            &copy; {new Date().getFullYear()} RE Visual Studio. All rights reserved.
+            &copy; {new Date().getFullYear()} PicchuSpot. All rights reserved.
           </p>
           <div className="flex gap-4">
             {footerLinks.legal.map((link) => (

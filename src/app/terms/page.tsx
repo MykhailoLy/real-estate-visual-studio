@@ -6,13 +6,13 @@ import { TERMS_VERSION } from "@/components/order/OrderTermsBlock";
 export const metadata: Metadata = {
   title: "Terms & Conditions",
   description:
-    "RE Visual Studio terms and conditions: scope of services, client responsibilities, revisions, turnaround, pricing, file delivery, copyright, liability, refunds, and how local services work.",
+    "PicchuSpot terms and conditions: scope of services, client responsibilities, revisions, turnaround, pricing, file delivery, copyright, liability, refunds, and how local services work.",
 };
 
 /**
  * Terms & Conditions page.
  *
- * Original wording in our own neutral RE Visual Studio voice. No
+ * Original wording in our own neutral PicchuSpot voice. No
  * third-party branded text. Clean and readable, matches the rest of
  * the public site (premium navy + soft neutrals, generous spacing).
  *
@@ -34,7 +34,7 @@ const sections: Section[] = [
     body: (
       <>
         <p>
-          These terms cover orders placed with RE Visual Studio for visual
+          These terms cover orders placed with PicchuSpot for visual
           marketing services such as virtual staging, virtual renovation,
           floor plans, and photo editing, as well as on-location services
           where available. By submitting an order, you agree to the terms
@@ -379,7 +379,7 @@ export default function TermsPage() {
               Terms &amp; Conditions
             </h1>
             <p className="text-base lg:text-lg text-muted leading-relaxed">
-              These terms apply to any order placed with RE Visual Studio.
+              These terms apply to any order placed with PicchuSpot.
               They are written to be clear and practical, not heavy with
               legal jargon. Please read them before submitting an order.
             </p>

@@ -388,7 +388,7 @@ export default function ServicesPage() {
             {/* Left: text content */}
             <div className="lg:col-span-5">
               <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-5">
-                RE Visual Studio Services
+                PicchuSpot Services
               </p>
               <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-primary mb-6 leading-[1.05] tracking-tight">
                 Real Estate Visual Marketing Services
