@@ -1,17 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Mail } from "lucide-react";
 
 interface ConfirmationProps {
   orderNumber: string;
   email: string;
+  /**
+   * True when the post-submit confirmation email was actually
+   * accepted by Resend. We only surface "we emailed you" when this
+   * is true so we never lie to the user if email is misconfigured
+   * or transiently down — the order is saved either way.
+   */
+  confirmationEmailSent?: boolean;
   onNewOrder: () => void;
 }
 
 export default function Confirmation({
   orderNumber,
   email,
+  confirmationEmailSent,
   onNewOrder,
 }: ConfirmationProps) {
   return (
@@ -28,6 +36,16 @@ export default function Confirmation({
         Your order has been received. We&apos;ll review your files and contact
         you shortly to confirm the final details.
       </p>
+
+      {confirmationEmailSent && email ? (
+        <div className="inline-flex items-start gap-2 bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 mb-6 text-sm text-left">
+          <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>
+            A confirmation email has been sent to{" "}
+            <span className="font-semibold break-all">{email}</span>.
+          </span>
+        </div>
+      ) : null}
 
       <div className="bg-surface border border-border rounded-xl p-5 mb-8 text-left">
         <h3 className="text-sm font-semibold text-foreground mb-2">

@@ -28,6 +28,7 @@ export default function VirtualRenovationOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const handleItemChange = (index: number, data: RenovationItemData) => {
@@ -71,6 +72,7 @@ export default function VirtualRenovationOrderPage() {
     setIsSubmitting(false);
     if (result.success && result.orderNumber) {
       setOrderNumber(result.orderNumber);
+      setConfirmationEmailSent(result.confirmationEmailSent === true);
       setSubmitted(true);
     } else {
       setSubmitError(result.error || "Submission failed. Please try again.");
@@ -114,6 +116,7 @@ export default function VirtualRenovationOrderPage() {
           <Confirmation
             orderNumber={orderNumber}
             email={contact.email}
+            confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
         </Container>

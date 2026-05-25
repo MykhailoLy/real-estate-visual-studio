@@ -27,6 +27,7 @@ import {
   getFileExtension,
   type UploadKind,
 } from "@/lib/upload-config";
+import { sendOrderEmails } from "@/lib/email/send-order-emails";
 
 // File bytes no longer flow through this route — clients upload directly
 // to Supabase Storage via signed URLs from /api/upload-url. This route
@@ -267,12 +268,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // --- 11. Success ---
+    // --- 11. Send notification emails (best-effort; never blocks success) ---
+    // The order and its items are already persisted at this point.
+    // Email is fire-and-await so we surface deliverability info in
+    // logs, but `sendOrderEmails` is documented to never throw and
+    // every internal failure mode is logged + swallowed.
+    const emailResult = await sendOrderEmails({
+      supabase,
+      orderNumber,
+      serviceType,
+      client: {
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        company: contact.company || null,
+      },
+      itemCount: validatedItems.items.length,
+      estimatedTotalCents,
+      termsAcceptance: trustedTermsAcceptance,
+      portfolioPermission: trustedPortfolioPermission,
+      items: validatedItems.items.map((item, i) => ({
+        index: i,
+        subtotalCents: itemSubtotals[i],
+        details: orderItemsPayload[i].details as Record<string, unknown>,
+        files: {
+          originalPath: finalizedPaths[i].original,
+          referenceImagePath: finalizedPaths[i].reference,
+          originalFilename: itemFiles[i].original.originalFilename,
+          referenceFilename: itemFiles[i].reference?.originalFilename ?? null,
+          originalSizeBytes: itemFiles[i].original.size,
+          referenceSizeBytes: itemFiles[i].reference?.size ?? null,
+        },
+      })),
+    });
+
+    // --- 12. Success ---
     return NextResponse.json({
       success: true,
       orderNumber,
       estimatedTotalCents,
       itemCount: validatedItems.items.length,
+      // Surface email status so the client can confirm "we emailed
+      // you" only when we actually did. The order itself is success
+      // regardless of email outcome.
+      emailNotifications: {
+        clientConfirmation: emailResult.client.sent,
+        adminNotification: emailResult.admin.sent,
+      },
     });
   } catch (err) {
     console.error("Unhandled order submission error:", err);

@@ -28,6 +28,13 @@ import {
 export interface OrderSubmitResult {
   success: boolean;
   orderNumber?: string;
+  /**
+   * Whether the post-submit client confirmation email was actually
+   * sent. Only `true` when the API reports the Resend send was
+   * accepted; `false` when email is unconfigured or failed. The order
+   * itself succeeds independently of this flag.
+   */
+  confirmationEmailSent?: boolean;
   /** Human-readable error message, if any. Always set when !success. */
   error?: string;
   /**
@@ -404,7 +411,15 @@ export async function submitOrder(
     };
   }
 
-  let result: { error?: string; orderNumber?: string; details?: unknown } = {};
+  let result: {
+    error?: string;
+    orderNumber?: string;
+    details?: unknown;
+    emailNotifications?: {
+      clientConfirmation?: boolean;
+      adminNotification?: boolean;
+    };
+  } = {};
   try {
     result = await response.json();
   } catch {
@@ -438,5 +453,6 @@ export async function submitOrder(
   return {
     success: true,
     orderNumber: result.orderNumber,
+    confirmationEmailSent: result.emailNotifications?.clientConfirmation === true,
   };
 }
