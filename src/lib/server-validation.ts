@@ -2,8 +2,10 @@ import { z } from "zod";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS
-// These validate the JSON metadata sent alongside FormData.
-// File validation is handled separately in the API route.
+// Validates the JSON payload posted to /api/order. Files
+// themselves are uploaded separately to Supabase Storage via
+// signed URLs from /api/upload-url; the order payload only
+// references their storage paths through `itemFiles`.
 // ============================================================
 
 const serviceTypes = [
@@ -115,9 +117,45 @@ export const PortfolioPermissionSchema = z.object({
   allowed: z.boolean(),
 });
 
+// --- Uploaded file metadata (lightweight reference to a file already
+//     stored in Supabase Storage) ---
+//
+// Files are no longer streamed through /api/order. Instead the client
+// uploads directly to Supabase Storage via a signed upload URL and then
+// posts only this descriptor to /api/order. Path is constrained to the
+// `pending/<token>/...` namespace so a malicious client cannot point us
+// at arbitrary objects (e.g. another tenant's files).
+export const UploadedFileSchema = z.object({
+  bucket: z.string().min(1).max(100),
+  path: z
+    .string()
+    .min(1)
+    .max(500)
+    .regex(
+      /^pending\/[A-Za-z0-9_-]+\/\d+-(original|reference)\.[A-Za-z0-9]+$/,
+      "Path must live under pending/<token>/..."
+    ),
+  originalFilename: z.string().min(1).max(255),
+  size: z
+    .number()
+    .int()
+    .min(1, "File appears to be empty")
+    .max(100 * 1024 * 1024, "File too large"),
+  mimeType: z.string().min(1).max(255),
+});
+
+export const ItemFilesSchema = z.object({
+  original: UploadedFileSchema,
+  reference: UploadedFileSchema.nullable().optional(),
+});
+
 // --- Full Order Metadata Schema ---
 // `termsAcceptance` is REQUIRED. The previous order-level fields
 // (`deliveryPreferences`, `portfolioPermission`) are optional.
+//
+// `itemFiles` is parallel to `items` (same length / same index order)
+// and points to files already uploaded to Supabase Storage. The API
+// route enforces this length match and refuses orders without it.
 export const OrderMetadataSchema = z.object({
   serviceType: ServiceTypeSchema,
   contact: ContactSchema,
@@ -125,6 +163,10 @@ export const OrderMetadataSchema = z.object({
   termsAcceptance: TermsAcceptanceSchema,
   portfolioPermission: PortfolioPermissionSchema.optional(),
   items: z.array(z.unknown()).min(1, "At least one item is required").max(50, "Maximum 50 items per order"),
+  itemFiles: z
+    .array(ItemFilesSchema)
+    .min(1, "At least one uploaded file is required")
+    .max(50, "Maximum 50 items per order"),
 });
 
 // --- Type exports ---
@@ -137,3 +179,5 @@ export type StagingItem = z.infer<typeof StagingItemSchema>;
 export type RenovationItem = z.infer<typeof RenovationItemSchema>;
 export type FloorPlanItem = z.infer<typeof FloorPlanItemSchema>;
 export type PhotoEditItem = z.infer<typeof PhotoEditItemSchema>;
+export type UploadedFile = z.infer<typeof UploadedFileSchema>;
+export type ItemFiles = z.infer<typeof ItemFilesSchema>;
