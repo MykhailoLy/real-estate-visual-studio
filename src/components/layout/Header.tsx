@@ -23,9 +23,13 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="text-xl font-bold text-primary">
-            {/* TODO: Replace with actual logo */}
-            RE Visual Studio
+          <Link
+            href="/"
+            aria-label="PicchuSpot — Real Estate Visuals home"
+            className="text-xl font-bold text-primary tracking-tight"
+          >
+            {/* Simple text wordmark for now — final logo TBD. */}
+            PicchuSpot
           </Link>
 
           {/* Desktop Navigation */}
