@@ -58,13 +58,13 @@ const BENEFITS = [
 
 export default function BenefitsRow() {
   return (
-    <section className="py-16 lg:py-24 bg-surface border-y border-border">
+    <section className="py-12 lg:py-16 bg-surface border-y border-border">
       <div className="px-4 sm:px-6 lg:px-8 xl:px-10">
-        <div className="max-w-3xl mb-12 lg:mb-16">
+        <div className="max-w-3xl mb-8 lg:mb-12">
           <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
             Why work with PicchuSpot
           </h2>
-          <p className="mt-4 text-base lg:text-xl text-muted leading-relaxed">
+          <p className="mt-3 text-base lg:text-xl text-muted leading-relaxed">
             Built for listings — not generic photo work.
           </p>
         </div>
