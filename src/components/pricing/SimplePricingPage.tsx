@@ -7,6 +7,8 @@ import Wide from "./Wide";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "@/components/home/ServicePlaceholder";
+import PortfolioExamples from "@/components/portfolio/PortfolioExamples";
+import type { PortfolioServiceSlug } from "@/lib/portfolio";
 
 // ============================================================
 // SIMPLE PRICING DETAIL PAGE
@@ -44,6 +46,11 @@ export interface SimplePricingPageProps {
   /** Final CTA section copy. */
   ctaTitle: string;
   ctaSubtitle: string;
+  /** Canonical portfolio slug. When admin-uploaded portfolio
+   *  items exist for this slug, a "Before & after examples"
+   *  section is inserted under the placeholder visual. When no
+   *  items exist the section is not rendered (no empty state). */
+  portfolioSlug?: PortfolioServiceSlug;
 }
 
 export default function SimplePricingPage({
@@ -61,6 +68,7 @@ export default function SimplePricingPage({
   secondaryLabel = "Talk to Us",
   ctaTitle,
   ctaSubtitle,
+  portfolioSlug,
 }: SimplePricingPageProps) {
   return (
     <>
@@ -91,6 +99,18 @@ export default function SimplePricingPage({
           )}
         </Wide>
       </section>
+
+      {/* Real before/after examples — renders only when admin has
+          uploaded at least one portfolio_items row matching this
+          service slug. Otherwise this whole section disappears so
+          the page never shows an empty "Examples" block. */}
+      {portfolioSlug && (
+        <PortfolioExamples
+          serviceSlug={portfolioSlug}
+          placeholderVariant={variant}
+          background="stone-50"
+        />
+      )}
 
       {/* What's included */}
       <section className="py-14 lg:py-20 bg-stone-50">

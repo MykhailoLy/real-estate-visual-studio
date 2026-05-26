@@ -7,6 +7,7 @@ import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBloc
 import ServiceCTA from "@/components/pricing/ServiceCTA";
 import SectionLead from "@/components/pricing/SectionLead";
 import Wide from "@/components/pricing/Wide";
+import PortfolioExamples from "@/components/portfolio/PortfolioExamples";
 
 export const metadata: Metadata = {
   title: "Item Removal & Virtual Cleaning Pricing",
@@ -183,6 +184,15 @@ export default function PhotoEditingPricingPage() {
           </div>
         </Wide>
       </section>
+
+      {/* Real before/after examples — uses the canonical portfolio
+          slug item-removal-virtual-cleaning even though this page
+          lives at the legacy /pricing/photo-editing URL. */}
+      <PortfolioExamples
+        serviceSlug="item-removal-virtual-cleaning"
+        placeholderVariant="item-removal"
+        background="stone-50"
+      />
 
       {/* Example blocks */}
       <section className="py-16 lg:py-24 bg-stone-50">

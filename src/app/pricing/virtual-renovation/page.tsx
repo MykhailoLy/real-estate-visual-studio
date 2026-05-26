@@ -15,6 +15,7 @@ import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBloc
 import ServiceCTA from "@/components/pricing/ServiceCTA";
 import SectionLead from "@/components/pricing/SectionLead";
 import Wide from "@/components/pricing/Wide";
+import PortfolioExamples from "@/components/portfolio/PortfolioExamples";
 
 export const metadata: Metadata = {
   title: "Virtual Renovation Pricing",
@@ -215,6 +216,14 @@ export default function VirtualRenovationPricingPage() {
           </div>
         </Wide>
       </section>
+
+      {/* Real before/after examples — only renders when admin has
+          uploaded portfolio_items rows for virtual-renovation. */}
+      <PortfolioExamples
+        serviceSlug="virtual-renovation"
+        placeholderVariant="virtual-renovation"
+        background="stone-50"
+      />
 
       {/* How pricing works */}
       <section className="py-16 lg:py-24 bg-stone-50">

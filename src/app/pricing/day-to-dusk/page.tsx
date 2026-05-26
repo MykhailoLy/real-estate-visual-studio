@@ -33,6 +33,7 @@ export default function DayToDuskPricingPage() {
       primaryLabel="Order Online"
       ctaTitle="Make the hero photo unmissable."
       ctaSubtitle="A single dusk shot can change the way a listing reads online."
+      portfolioSlug="day-to-dusk"
     />
   );
 }

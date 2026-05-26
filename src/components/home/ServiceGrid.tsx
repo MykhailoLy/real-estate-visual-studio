@@ -1,22 +1,25 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import ServicePlaceholder, {
+import {
   type ServiceVariant,
 } from "./ServicePlaceholder";
+import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
+import {
+  getFeaturedHomeItems,
+  getPortfolioPublicUrl,
+  type PortfolioServiceSlug,
+} from "@/lib/portfolio";
 
 // ============================================================
 // REMOTE DIGITAL SERVICES — "This is what we do" grid
 //
-// Each card is a single link wrapping a generous before/after
-// visual + name + price + description. No inner CTAs — the
-// whole card is the CTA, which keeps the grid feeling like a
-// portfolio rather than an order form.
-//
-// Routes match the second-row navigation: every service has its
-// own pricing/detail page. The Order CTA inside those pricing
-// pages routes to the appropriate existing order form (the
-// real-estate-photo-editing family all share /order/photo-editing
-// per the latest spec).
+// Server component. For each service card we look up the first
+// admin-curated portfolio item flagged `featured_home` (falling
+// back to the first published item by sort_order). When found,
+// the card renders the real before/after pair via
+// BeforeAfterFrame; otherwise it renders the original
+// CSS placeholder. Either way the grid layout, typography,
+// and 2-cards-per-row desktop rhythm are unchanged.
 // ============================================================
 
 interface ServiceEntry {
@@ -24,6 +27,10 @@ interface ServiceEntry {
    *  working; not used by the second-row sub-nav anymore. */
   id: string;
   variant: ServiceVariant;
+  /** Canonical portfolio slug — bridges the legacy URL/id to the
+   *  10 slugs in lib/portfolio.ts (e.g. "item-removal" -> the
+   *  full "item-removal-virtual-cleaning"). */
+  portfolioSlug: PortfolioServiceSlug;
   name: string;
   description: string;
   /** Display string for the price line. Empty = "Request a quote". */
@@ -36,6 +43,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "image-enhancement",
     variant: "image-enhancement",
+    portfolioSlug: "image-enhancement",
     name: "Image Enhancement",
     description:
       "Color, exposure, and window correction so listing photos look bright, crisp, and natural.",
@@ -45,6 +53,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "day-to-dusk",
     variant: "day-to-dusk",
+    portfolioSlug: "day-to-dusk",
     name: "Day to Dusk",
     description:
       "Turn a daytime exterior into a warm dusk shot — perfect for the hero photo of a listing.",
@@ -54,6 +63,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "virtual-staging",
     variant: "virtual-staging",
+    portfolioSlug: "virtual-staging",
     name: "Virtual Staging",
     description:
       "Furnish empty rooms with realistic, market-aware styling so buyers can picture the space.",
@@ -63,6 +73,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "item-removal",
     variant: "item-removal",
+    portfolioSlug: "item-removal-virtual-cleaning",
     name: "Item Removal & Virtual Cleaning",
     description:
       "Remove distracting clutter, personal items, or stray objects so the room itself is the star.",
@@ -72,6 +83,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "floor-plans",
     variant: "floor-plans",
+    portfolioSlug: "floor-plans",
     name: "Floor Plans",
     description:
       "Sketches, existing plans, or photos converted into clean 2D and 3D floor plans for marketing.",
@@ -81,6 +93,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "virtual-renovation",
     variant: "virtual-renovation",
+    portfolioSlug: "virtual-renovation",
     name: "Virtual Renovation",
     description:
       "Show how a kitchen, bathroom, or facade could look after renovation — without lifting a hammer.",
@@ -90,6 +103,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "360-image-enhancement",
     variant: "panorama-enhancement",
+    portfolioSlug: "360-image-enhancement",
     name: "360° Image Enhancement",
     description:
       "Enhance equirectangular panoramas so every direction reads as listing-quality.",
@@ -98,6 +112,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "360-virtual-staging",
     variant: "panorama-staging",
+    portfolioSlug: "360-virtual-staging",
     name: "360° Virtual Staging",
     description:
       "Stage furniture inside a 360 panorama so virtual tours show furnished, lived-in spaces.",
@@ -106,6 +121,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "aerial-editing",
     variant: "aerial-editing",
+    portfolioSlug: "aerial-editing",
     name: "Aerial Editing",
     description:
       "Cleaner skies, sharper detail, and balanced color for drone exteriors and listing aerials.",
@@ -115,6 +131,7 @@ const SERVICES: ServiceEntry[] = [
   {
     id: "development-site-plans",
     variant: "site-plans",
+    portfolioSlug: "development-site-plans",
     name: "Development Site Plans",
     description:
       "Top-down site layouts that show plot boundaries, units, and amenities for development marketing.",
@@ -122,7 +139,42 @@ const SERVICES: ServiceEntry[] = [
   },
 ];
 
-export default function ServiceGrid() {
+/** Card-level data resolved on the server before render. */
+interface ResolvedCard {
+  svc: ServiceEntry;
+  beforeUrl: string | null;
+  afterUrl: string | null;
+  beforeAlt: string;
+  afterAlt: string;
+}
+
+export default async function ServiceGrid() {
+  // Single DB round trip for all 10 cards. Helper returns an
+  // empty Map (not an error) when Supabase isn't configured, so
+  // the marketing site builds cleanly in sandbox/preview without
+  // secrets — the placeholders stay in place.
+  const featured = await getFeaturedHomeItems();
+
+  const cards: ResolvedCard[] = SERVICES.map((svc) => {
+    const item = featured.get(svc.portfolioSlug);
+    if (!item) {
+      return {
+        svc,
+        beforeUrl: null,
+        afterUrl: null,
+        beforeAlt: `${svc.name} before`,
+        afterAlt: `${svc.name} after`,
+      };
+    }
+    return {
+      svc,
+      beforeUrl: getPortfolioPublicUrl(item.before_image_path),
+      afterUrl: getPortfolioPublicUrl(item.after_image_path),
+      beforeAlt: item.before_alt || `${svc.name} before`,
+      afterAlt: item.after_alt || `${svc.name} after`,
+    };
+  });
+
   return (
     <section className="py-16 lg:py-28 bg-surface">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
@@ -139,8 +191,8 @@ export default function ServiceGrid() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
-          {SERVICES.map((svc) => (
-            <ServiceCard key={svc.id} svc={svc} />
+          {cards.map((card) => (
+            <ServiceCard key={card.svc.id} card={card} />
           ))}
         </div>
       </div>
@@ -148,7 +200,8 @@ export default function ServiceGrid() {
   );
 }
 
-function ServiceCard({ svc }: { svc: ServiceEntry }) {
+function ServiceCard({ card }: { card: ResolvedCard }) {
+  const { svc, beforeUrl, afterUrl, beforeAlt, afterAlt } = card;
   const priceText = svc.price ?? "Request a quote";
 
   return (
@@ -164,11 +217,17 @@ function ServiceCard({ svc }: { svc: ServiceEntry }) {
           imagery replaces the placeholder. Keeps the cards compact
           (not tall) while still showing the transformation clearly. */}
       <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
-        <ServicePlaceholder variant={svc.variant} />
+        <BeforeAfterFrame
+          beforeUrl={beforeUrl}
+          afterUrl={afterUrl}
+          beforeAlt={beforeAlt}
+          afterAlt={afterAlt}
+          placeholderVariant={svc.variant}
+        />
         {/* Hover overlay arrow */}
         <span
           aria-hidden
-          className="absolute bottom-4 right-4 w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
+          className="absolute bottom-4 right-4 w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-10"
         >
           <ArrowUpRight className="w-5 h-5" />
         </span>
