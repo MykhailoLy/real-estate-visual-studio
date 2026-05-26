@@ -11,44 +11,55 @@ import CtaSection from "@/components/sections/CtaSection";
 // ============================================================
 // HOME / REMOTE DIGITAL SERVICES
 //
-// Image-led structure: a full-width before/after slider sits
-// directly under the two-level navigation, then the hero text
-// block (eyebrow + H1 + subhead + CTAs), then benefits, the
-// 2-column service grid, how-it-works, the About collage,
-// testimonials, and a closing CTA.
+// Final section order (post-refinement):
+//   1. Header / two-level nav (sticky)
+//   2. Wide low-height before/after slider (banner strip)
+//   3. Why work with PicchuSpot — benefits row
+//   4. Remote Digital Services — hero text + CTAs
+//   5. This is what we do — service grid
+//   6. How it works
+//   7. About PicchuSpot — collage + narrative
+//   8. Testimonials carousel
+//   9. Footer CTA
 //
-// The slider container uses minimal horizontal padding so it
-// reads as a wide website banner, while the text block below
-// stays inside the standard 1500px content rail so its line
-// length stays readable.
+// Section background rhythm intentionally alternates so the page
+// reads as a sequence of structured chunks rather than one slab:
+//   slider          white
+//   benefits        surface
+//   hero text       white
+//   service grid    surface
+//   how it works    white
+//   about           surface
+//   testimonials    white
+//   final cta       primary (navy)
+//
+// Each child component owns its own background; this file simply
+// places them in the right order.
 // ============================================================
 
 export default function HomePage() {
   return (
     <>
-      {/* 1. Hero — slider first, then text */}
-      <section className="bg-surface">
-        {/* Full-width slider sitting just under the second-row
-            navigation. Padding is intentionally minimal at lg+ so
-            the slider reads as a banner rather than a centered
-            card. The slider component itself owns its rounded
-            corners + drop shadow, so a thin gutter on each side
-            keeps the shadow visible without losing impact. */}
-        <div className="px-4 sm:px-6 lg:px-4 pt-6 lg:pt-8">
+      {/* 1. Slider — wide banner strip directly under the nav. */}
+      <section className="bg-white">
+        <div className="px-3 sm:px-4 lg:px-2 pt-4 lg:pt-6 pb-2 lg:pb-4">
           <BeforeAfterShowcase />
         </div>
+      </section>
 
-        {/* Hero text block — sits below the slider. Constrained
-            to the standard 1500px rail so the headline + subhead
-            don't span an uncomfortable line length. */}
-        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 lg:pt-14 pb-14 lg:pb-20">
+      {/* 2. Why work with PicchuSpot — benefits */}
+      <BenefitsRow />
+
+      {/* 3. Remote Digital Services — hero text block */}
+      <section className="bg-white py-14 lg:py-20">
+        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
           <div className="max-w-3xl">
             <p className="text-secondary-dark text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-5 lg:mb-6">
               Remote Digital Services
             </p>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-primary leading-[1.02] tracking-tight">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-primary leading-[1.02] tracking-tight">
               Help Your Listings Stand Out and Sell Faster
-            </h1>
+            </h2>
             <p className="mt-6 lg:mt-8 text-lg sm:text-xl lg:text-2xl text-muted leading-snug max-w-3xl">
               Virtual staging, photo editing, floor plans, 360 visuals, and
               local real estate media for market-ready property listings.
@@ -72,22 +83,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 2. Benefits row */}
-      <BenefitsRow />
-
-      {/* 3. Service grid */}
+      {/* 4. This is what we do — service grid (bg flipped to surface
+            for clean alternation against the white hero block above). */}
       <ServiceGrid />
 
-      {/* 4. How it works */}
+      {/* 5. How it works (bg flipped to white). */}
       <HowItWorksDetailed />
 
-      {/* 5. About PicchuSpot */}
+      {/* 6. About PicchuSpot — collage + narrative (bg flipped to surface). */}
       <AboutPicchuSpot />
 
-      {/* 6. Testimonials */}
+      {/* 7. Testimonials carousel (bg flipped to white). */}
       <Testimonials />
 
-      {/* 7. Final CTA */}
+      {/* 8. Final CTA — navy block. */}
       <CtaSection
         title="Start your next listing with the visuals already done."
         subtitle="Upload your photos and we will take it from there."

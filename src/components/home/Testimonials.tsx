@@ -57,7 +57,7 @@ export default function Testimonials() {
 
   return (
     <section
-      className="py-16 lg:py-28 bg-surface"
+      className="py-16 lg:py-28 bg-white"
       aria-labelledby="testimonials-heading"
     >
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">

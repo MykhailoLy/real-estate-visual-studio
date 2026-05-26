@@ -81,7 +81,7 @@ export default function BeforeAfterShowcase() {
       aria-label="Before and after slider"
     >
       {/* Stage — wide, dramatic, no overlay text/pills */}
-      <div className="relative w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl ring-1 ring-black/10 bg-stone-100 aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9]">
+      <div className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[4/3] sm:aspect-[16/9] md:aspect-[21/9] lg:aspect-[32/9]">
         {SLIDES.map((slide, i) => (
           <div
             key={slide.id}

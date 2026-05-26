@@ -124,7 +124,7 @@ const SERVICES: ServiceEntry[] = [
 
 export default function ServiceGrid() {
   return (
-    <section className="py-16 lg:py-28 bg-white">
+    <section className="py-16 lg:py-28 bg-surface">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-12 lg:mb-16">
           <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">

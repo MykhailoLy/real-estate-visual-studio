@@ -39,7 +39,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white border-b border-border">
       {/* ---------- Row 1: brand + top-level + CTAs ---------- */}
       <div className={NAV_X_PADDING}>
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center h-16">
           {/* Brand */}
           <Link
             href="/"
@@ -58,7 +58,7 @@ export default function Header() {
            */}
           <nav
             aria-label="Service categories"
-            className="hidden lg:flex items-center gap-1"
+            className="hidden lg:flex items-center gap-1 ml-8 xl:ml-12"
           >
             {topLevels.map((entry) => {
               const isActive = entry.key === active.key;
@@ -81,7 +81,7 @@ export default function Header() {
           </nav>
 
           {/* Right-side CTAs (desktop) */}
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2 ml-auto">
             {headerCtaLinks.map((link) => (
               <Link
                 key={link.href}
@@ -100,7 +100,7 @@ export default function Header() {
 
           {/* Mobile menu button */}
           <button
-            className="lg:hidden p-2 -mr-2"
+            className="lg:hidden ml-auto p-2 -mr-2"
             onClick={() => setMobileMenuOpen((v) => !v)}
             aria-label="Toggle menu"
             aria-expanded={mobileMenuOpen}
