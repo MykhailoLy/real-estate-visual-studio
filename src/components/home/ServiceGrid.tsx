@@ -143,7 +143,7 @@ export default function ServiceGrid() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
           {SERVICES.map((svc) => (
             <ServiceCard key={svc.id} svc={svc} />
           ))}
@@ -165,7 +165,7 @@ function ServiceCard({ svc }: { svc: ServiceEntry }) {
       aria-label={`${svc.name} — ${priceText}`}
     >
       {/* Visual */}
-      <div className="aspect-[4/3] relative overflow-hidden bg-stone-100">
+      <div className="aspect-[4/3] md:aspect-[16/10] relative overflow-hidden bg-stone-100">
         <ServicePlaceholder variant={svc.variant} />
         {isComingSoon && (
           <span className="absolute top-4 right-4 inline-flex items-center px-3 py-1.5 rounded-full bg-white/95 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-secondary-dark shadow-md">
@@ -175,27 +175,27 @@ function ServiceCard({ svc }: { svc: ServiceEntry }) {
         {/* Hover overlay arrow */}
         <span
           aria-hidden
-          className="absolute bottom-4 right-4 w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
+          className="absolute bottom-5 right-5 w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
         >
-          <ArrowUpRight className="w-5 h-5" />
+          <ArrowUpRight className="w-5 h-5 lg:w-6 lg:h-6" />
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-6 lg:p-8 flex-1 flex flex-col">
-        <h3 className="text-xl lg:text-2xl font-bold text-primary leading-tight tracking-tight group-hover:text-primary-light transition-colors">
+      <div className="p-6 lg:p-10 flex-1 flex flex-col">
+        <h3 className="text-2xl lg:text-3xl font-bold text-primary leading-tight tracking-tight group-hover:text-primary-light transition-colors">
           {svc.name}
         </h3>
         <p
           className={
             isComingSoon
-              ? "mt-2 text-sm font-medium text-muted"
-              : "mt-2 text-sm lg:text-base font-semibold text-secondary-dark"
+              ? "mt-2 lg:mt-3 text-sm lg:text-base font-medium text-muted"
+              : "mt-2 lg:mt-3 text-base lg:text-lg font-semibold text-secondary-dark"
           }
         >
           {priceText}
         </p>
-        <p className="mt-3 text-sm lg:text-base text-muted leading-relaxed flex-1">
+        <p className="mt-3 lg:mt-4 text-sm lg:text-base text-muted leading-relaxed flex-1">
           {svc.description}
         </p>
       </div>

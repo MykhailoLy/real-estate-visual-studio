@@ -1,156 +1,150 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "./ServicePlaceholder";
 import { cn } from "@/lib/utils";
 
 // ============================================================
-// HERO BEFORE/AFTER SHOWCASE
+// HERO BEFORE/AFTER SLIDER
 //
-// Designed to be the visual anchor of the homepage hero. Lives
-// inside a near-full-width container; the stage itself runs to a
-// 16:8.5 aspect on desktop so it reads as a hero image rather
-// than a card. A horizontally scrollable thumbnail strip below
-// lets visitors swap services without taking the focus away from
-// the stage. Pure CSS placeholders — no third-party imagery.
+// Image-led, near-full-width hero slider. The stage itself is
+// the focal point — no label pills, no captions, no thumbnail
+// strip. Navigation uses a simple dot indicator + paired side
+// arrows, autoplay is on, and we honour prefers-reduced-motion
+// so users who've opted out of motion never see auto-cycling.
+// Hovering or focusing the slider pauses autoplay, which keeps
+// the UX predictable for keyboard and pointer users.
 // ============================================================
 
 interface Slide {
   id: string;
   variant: ServiceVariant;
-  label: string;
-  caption: string;
 }
 
 const SLIDES: Slide[] = [
-  {
-    id: "image-enhancement",
-    variant: "image-enhancement",
-    label: "Image Enhancement",
-    caption:
-      "Lifted contrast, balanced color, and clean windows — without losing the natural look.",
-  },
-  {
-    id: "day-to-dusk",
-    variant: "day-to-dusk",
-    label: "Day to Dusk",
-    caption:
-      "A daytime exterior turned into a warm dusk shot for a stand-out hero photo.",
-  },
-  {
-    id: "virtual-staging",
-    variant: "virtual-staging",
-    label: "Virtual Staging",
-    caption:
-      "Empty rooms turned into furnished spaces buyers can imagine living in.",
-  },
-  {
-    id: "floor-plans",
-    variant: "floor-plans",
-    label: "Floor Plans",
-    caption:
-      "Sketches and existing plans redrawn into clean 2D and 3D floor plans.",
-  },
-  {
-    id: "virtual-renovation",
-    variant: "virtual-renovation",
-    label: "Virtual Renovation",
-    caption:
-      "Show what a kitchen, bathroom, or facade could look like — before any work begins.",
-  },
-  {
-    id: "panorama-staging",
-    variant: "panorama-staging",
-    label: "360° Visuals",
-    caption:
-      "Enhance and stage panoramic shots so every angle of the listing looks intentional.",
-  },
-  {
-    id: "aerial-editing",
-    variant: "aerial-editing",
-    label: "Aerial Editing",
-    caption:
-      "Cleaner skies and crisper detail for drone exteriors and listing aerials.",
-  },
-  {
-    id: "local-package",
-    variant: "local-package",
-    label: "Local Real Estate Media",
-    caption:
-      "On-location photo, video, and 360 tours across Alicante and Costa Blanca.",
-  },
+  { id: "image-enhancement", variant: "image-enhancement" },
+  { id: "day-to-dusk", variant: "day-to-dusk" },
+  { id: "virtual-staging", variant: "virtual-staging" },
+  { id: "floor-plans", variant: "floor-plans" },
+  { id: "virtual-renovation", variant: "virtual-renovation" },
+  { id: "panorama-staging", variant: "panorama-staging" },
+  { id: "aerial-editing", variant: "aerial-editing" },
+  { id: "local-package", variant: "local-package" },
 ];
 
+const AUTOPLAY_MS = 5500;
+
 export default function BeforeAfterShowcase() {
-  const [activeId, setActiveId] = useState(SLIDES[0].id);
-  const active = SLIDES.find((s) => s.id === activeId) ?? SLIDES[0];
+  const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  // Detect prefers-reduced-motion at mount and subscribe to changes
+  // so a user who toggles their OS setting mid-session sees the
+  // slider stop or resume cycling without a reload.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setReducedMotion(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  // Autoplay timer. Re-armed on every slide change so the dwell on
+  // each slide is consistent regardless of how the user got there.
+  useEffect(() => {
+    if (paused || reducedMotion) return;
+    const t = window.setTimeout(() => {
+      setIdx((i) => (i + 1) % SLIDES.length);
+    }, AUTOPLAY_MS);
+    return () => window.clearTimeout(t);
+  }, [idx, paused, reducedMotion]);
+
+  const goPrev = () =>
+    setIdx((i) => (i - 1 + SLIDES.length) % SLIDES.length);
+  const goNext = () => setIdx((i) => (i + 1) % SLIDES.length);
+  const goTo = (i: number) => setIdx(i);
 
   return (
-    <div>
-      {/* Big stage */}
-      <div className="relative w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl ring-1 ring-black/10 bg-stone-100 aspect-[4/3] sm:aspect-[16/9] lg:aspect-[16/8]">
-        <ServicePlaceholder variant={active.variant} />
+    <div
+      className="relative"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Before and after slider"
+    >
+      {/* Stage — wide, dramatic, no overlay text/pills */}
+      <div className="relative w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl ring-1 ring-black/10 bg-stone-100 aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9]">
+        {SLIDES.map((slide, i) => (
+          <div
+            key={slide.id}
+            className={cn(
+              "absolute inset-0 transition-opacity duration-700 ease-in-out",
+              i === idx ? "opacity-100" : "opacity-0"
+            )}
+            aria-hidden={i !== idx}
+          >
+            <ServicePlaceholder
+              variant={slide.variant}
+              showInnerLabels={false}
+            />
+          </div>
+        ))}
 
-        {/* Service label pill (top-left) */}
-        <div className="pointer-events-none absolute left-4 right-4 top-4 sm:left-6 sm:right-6 sm:top-6 lg:left-8 lg:top-8 flex items-start justify-between gap-4">
-          <span className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 backdrop-blur text-[11px] sm:text-xs font-bold tracking-[0.18em] uppercase text-primary shadow-md">
-            {active.label}
-          </span>
-        </div>
-
-        {/* Caption (bottom) */}
-        <div className="pointer-events-none absolute left-4 right-4 bottom-4 sm:left-6 sm:right-6 sm:bottom-6 lg:left-10 lg:right-10 lg:bottom-10 max-w-3xl">
-          <p className="text-sm sm:text-base lg:text-xl xl:text-2xl text-white font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)] leading-snug">
-            {active.caption}
-          </p>
-        </div>
+        {/* Side arrows — kept simple per spec ("Manual navigation
+            is okay if simple"). Sized large on desktop so they
+            read as a deliberate UI element rather than tiny
+            decorative bits. */}
+        <button
+          type="button"
+          onClick={goPrev}
+          aria-label="Previous slide"
+          className="absolute left-3 lg:left-5 top-1/2 -translate-y-1/2 w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-white/95 text-foreground hover:text-primary hover:bg-white shadow-lg flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
+        >
+          <ChevronLeft className="w-5 h-5 lg:w-6 lg:h-6" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={goNext}
+          aria-label="Next slide"
+          className="absolute right-3 lg:right-5 top-1/2 -translate-y-1/2 w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-white/95 text-foreground hover:text-primary hover:bg-white shadow-lg flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
+        >
+          <ChevronRight className="w-5 h-5 lg:w-6 lg:h-6" aria-hidden />
+        </button>
       </div>
 
-      {/* Thumbnail strip */}
-      <div className="mt-4 lg:mt-6">
-        <div
-          className="flex gap-2 sm:gap-3 overflow-x-auto pb-3 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory"
-          role="tablist"
-          aria-label="Service preview slides"
-        >
-          {SLIDES.map((slide, i) => {
-            const isActive = slide.id === activeId;
-            return (
-              <button
-                key={slide.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveId(slide.id)}
-                className={cn(
-                  "group flex-shrink-0 w-32 sm:w-40 lg:w-48 rounded-xl overflow-hidden ring-2 transition-all duration-200 snap-start",
-                  isActive
-                    ? "ring-secondary scale-[1.03] shadow-md"
-                    : "ring-white/10 opacity-70 hover:opacity-100 hover:ring-white/30"
-                )}
-              >
-                <div className="relative aspect-[16/10] bg-stone-100">
-                  <ServicePlaceholder variant={slide.variant} />
-                </div>
-                <div
-                  className={cn(
-                    "px-2.5 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap text-left flex items-center justify-between gap-2",
-                    isActive
-                      ? "bg-white text-primary"
-                      : "bg-white/95 text-foreground/80 group-hover:text-primary"
-                  )}
-                >
-                  <span className="truncate">{slide.label}</span>
-                  <span className="text-stone-400 font-semibold tabular-nums">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+      {/* Dot indicators — simple, not thumbnails */}
+      <div
+        className="mt-6 lg:mt-8 flex items-center justify-center gap-2.5"
+        role="tablist"
+        aria-label="Slide indicator"
+      >
+        {SLIDES.map((slide, i) => {
+          const isActive = i === idx;
+          return (
+            <button
+              key={slide.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`Show slide ${i + 1} of ${SLIDES.length}`}
+              onClick={() => goTo(i)}
+              className={cn(
+                "h-2.5 rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
+                isActive
+                  ? "w-9 bg-primary"
+                  : "w-2.5 bg-stone-300 hover:bg-stone-400"
+              )}
+            />
+          );
+        })}
       </div>
     </div>
   );

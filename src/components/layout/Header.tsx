@@ -33,7 +33,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-border">
       {/* ---------- Row 1: brand + top-level + CTAs ---------- */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="flex items-center justify-between h-16">
           {/* Brand */}
           <Link
@@ -99,13 +99,19 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ---------- Row 2: sub-nav for the active top-level ---------- */}
+      {/* ---------- Row 2: sub-nav for the active top-level ----------
+       *
+       * Compact and clean: white background (not a tinted band), a
+       * single hairline border above for separation, and a single
+       * scrollable row so links never wrap into a second line and
+       * never sit inside visible "boxes". The custom-scrollbar
+       * styles hide the default scrollbar on the rare wide list. */}
       {active.subLinks.length > 0 && (
-        <div className="hidden lg:block bg-surface border-t border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="hidden lg:block border-t border-border bg-white">
+          <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
             <nav
               aria-label={`${active.label} services`}
-              className="flex items-center gap-x-5 gap-y-2 flex-wrap py-2.5"
+              className="flex items-center gap-x-7 xl:gap-x-9 py-3 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
               {active.subLinks.map((link) => (
                 <Link
@@ -115,7 +121,7 @@ export default function Header() {
                       ? `${active.href === "/" ? "" : active.href}${link.href}`
                       : link.href
                   }
-                  className="text-[13px] font-medium text-foreground/70 hover:text-primary transition-colors whitespace-nowrap"
+                  className="text-[13px] font-medium text-foreground/65 hover:text-primary transition-colors whitespace-nowrap"
                 >
                   {link.label}
                 </Link>

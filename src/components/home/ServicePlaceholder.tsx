@@ -228,12 +228,18 @@ interface ServicePlaceholderProps {
   /** Hide the centerline divider for "no before/after" services
    *  (e.g. a 360 tour or a video cut). Defaults to true. */
   showDivider?: boolean;
+  /** Show the inner "Original / Enhanced" style corner labels.
+   *  Defaults to true — appropriate for service-grid cards.
+   *  Set to false on hero / collage usages where labels would be
+   *  visual noise. */
+  showInnerLabels?: boolean;
   className?: string;
 }
 
 export default function ServicePlaceholder({
   variant,
   showDivider = true,
+  showInnerLabels = true,
   className,
 }: ServicePlaceholderProps) {
   const style = STYLES[variant];
@@ -248,9 +254,11 @@ export default function ServicePlaceholder({
     >
       {/* LEFT half */}
       <div className={cn("relative w-1/2 flex items-end p-4", style.left)}>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/85 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-stone-700">
-          {style.leftLabel}
-        </span>
+        {showInnerLabels && (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/85 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-stone-700">
+            {style.leftLabel}
+          </span>
+        )}
       </div>
 
       {/* RIGHT half */}
@@ -287,9 +295,11 @@ export default function ServicePlaceholder({
             }}
           />
         )}
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/85 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-primary relative">
-          {style.rightLabel}
-        </span>
+        {showInnerLabels && (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/85 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-primary relative">
+            {style.rightLabel}
+          </span>
+        )}
       </div>
 
       {/* Centerline divider */}
