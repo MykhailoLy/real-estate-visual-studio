@@ -51,17 +51,25 @@ export const topLevels: TopLevelEntry[] = [
     label: "Remote Digital Services",
     tagline:
       "Edits delivered worldwide in 24-48 hours. Upload your photos and choose what you need.",
+    // Sub-links point at the relevant pricing detail pages so the
+    // second-row navigation behaves like a real service nav rather
+    // than just in-page scroll. The two 360° entries don't have
+    // dedicated pages yet, so they currently drop into /contact —
+    // they'll graduate to /pricing/<...> once those pages exist.
     subLinks: [
-      { href: "#image-enhancement", label: "Image Enhancement" },
-      { href: "#day-to-dusk", label: "Day to Dusk" },
-      { href: "#virtual-staging", label: "Virtual Staging" },
-      { href: "#item-removal", label: "Item Removal & Virtual Cleaning" },
-      { href: "#floor-plans", label: "Floor Plans" },
-      { href: "#virtual-renovation", label: "Virtual Renovation" },
-      { href: "#360-image-enhancement", label: "360° Image Enhancement" },
-      { href: "#360-virtual-staging", label: "360° Virtual Staging" },
-      { href: "#aerial-editing", label: "Aerial Editing" },
-      { href: "#development-site-plans", label: "Development Site Plans" },
+      { href: "/pricing/photo-editing", label: "Image Enhancement" },
+      { href: "/pricing/photo-editing", label: "Day to Dusk" },
+      { href: "/pricing/virtual-staging", label: "Virtual Staging" },
+      {
+        href: "/pricing/photo-editing",
+        label: "Item Removal & Virtual Cleaning",
+      },
+      { href: "/pricing/floor-plans", label: "Floor Plans" },
+      { href: "/pricing/virtual-renovation", label: "Virtual Renovation" },
+      { href: "/contact", label: "360° Image Enhancement" },
+      { href: "/contact", label: "360° Virtual Staging" },
+      { href: "/pricing/photo-editing", label: "Aerial Editing" },
+      { href: "/pricing/floor-plans", label: "Development Site Plans" },
     ],
   },
   {
