@@ -33,6 +33,7 @@ export default function ImageEnhancementPricingPage() {
       primaryLabel="Order Online"
       ctaTitle="Ready to brighten your listing photos?"
       ctaSubtitle="Upload your images and we'll return market-ready files in 24-48 hours."
+      portfolioSlug="image-enhancement"
     />
   );
 }

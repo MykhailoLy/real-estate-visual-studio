@@ -6,6 +6,7 @@ import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBloc
 import ServiceCTA from "@/components/pricing/ServiceCTA";
 import SectionLead from "@/components/pricing/SectionLead";
 import Wide from "@/components/pricing/Wide";
+import PortfolioExamples from "@/components/portfolio/PortfolioExamples";
 
 export const metadata: Metadata = {
   title: "2D / 3D Floor Plans Pricing",
@@ -276,6 +277,14 @@ export default function FloorPlansPricingPage() {
           </div>
         </Wide>
       </section>
+
+      {/* Real before/after examples — only renders when admin has
+          uploaded portfolio_items rows for floor-plans. */}
+      <PortfolioExamples
+        serviceSlug="floor-plans"
+        placeholderVariant="floor-plans"
+        background="stone-50"
+      />
 
       {/* Pricing table */}
       <section className="py-16 lg:py-24 bg-stone-50">

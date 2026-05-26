@@ -32,6 +32,7 @@ export default function ThreeSixtyImageEnhancementPricingPage() {
       primaryLabel="Order Online"
       ctaTitle="Send a sample 360 — we'll quote in 24 hours."
       ctaSubtitle="Pricing depends on resolution and the amount of cleanup needed."
+      portfolioSlug="360-image-enhancement"
     />
   );
 }

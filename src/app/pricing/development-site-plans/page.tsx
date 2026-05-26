@@ -34,6 +34,7 @@ export default function DevelopmentSitePlansPricingPage() {
       primaryLabel="Order Online"
       ctaTitle="A clear site plan does the heavy lifting in development marketing."
       ctaSubtitle="Send your source files — we'll quote in writing within 24 hours."
+      portfolioSlug="development-site-plans"
     />
   );
 }

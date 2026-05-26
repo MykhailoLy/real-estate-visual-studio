@@ -33,6 +33,7 @@ export default function AerialEditingPricingPage() {
       primaryLabel="Order Online"
       ctaTitle="Make every drone shot listing-ready."
       ctaSubtitle="Most aerial edits ship in 24-48 hours from when we have the source file."
+      portfolioSlug="aerial-editing"
     />
   );
 }

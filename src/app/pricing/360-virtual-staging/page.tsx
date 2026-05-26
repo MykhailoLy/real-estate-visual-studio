@@ -32,6 +32,7 @@ export default function ThreeSixtyVirtualStagingPricingPage() {
       primaryLabel="Order Online"
       ctaTitle="Furnish a 360 without lifting a sofa."
       ctaSubtitle="Pricing depends on room complexity and the number of furniture items."
+      portfolioSlug="360-virtual-staging"
     />
   );
 }

@@ -20,6 +20,67 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment variables
+
+Copy `.env.example` to `.env.local` and fill in your project values. Variables required for full functionality:
+
+| Variable                     | Required for                              | Notes                                      |
+| ---------------------------- | ----------------------------------------- | ------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`   | Order system, portfolio admin             | Public — safe to ship to the browser       |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Order system                            | Public                                     |
+| `SUPABASE_SERVICE_ROLE_KEY`  | Order API routes, portfolio admin         | **Server only.** Never expose to clients   |
+| `RESEND_API_KEY`             | Order confirmation + admin emails         | Server only                                |
+| `ADMIN_EMAIL`                | Where order notifications are sent        | Plain string                               |
+| `NEXT_PUBLIC_SITE_URL`       | Canonical metadata + email links          | No trailing slash                          |
+| `ADMIN_PASSWORD`             | `/admin/login` + portfolio admin          | **Server only.** Rotating it logs everyone out |
+
+## Database setup (Supabase)
+
+Two SQL files under `supabase/` describe the schema. Run them in order in the Supabase SQL editor:
+
+1. `supabase/schema.sql` — orders + order_items + sequences + the private `order-files` storage bucket. **Already in production.**
+2. `supabase/portfolio.sql` — `portfolio_items` table + the public `portfolio` storage bucket. Required for `/admin/portfolio` and the homepage / pricing-page portfolio sections.
+
+Both files are idempotent (`IF NOT EXISTS`, `ON CONFLICT`) so you can re-run them safely.
+
+## Portfolio media admin (`/admin/portfolio`)
+
+The marketing site can show real before/after pairs uploaded by an admin instead of CSS placeholders. Setup:
+
+1. **Apply the migration** — run `supabase/portfolio.sql` in your Supabase project. It creates the `portfolio_items` table and the public `portfolio` storage bucket.
+2. **Set `ADMIN_PASSWORD`** in the deployment environment. This is the single shared password used by the login form. Changing it invalidates every existing admin session cookie.
+3. **Visit `/admin/login`** and sign in.
+4. **Upload before/after pairs** at `/admin/portfolio`. Each item has a service slug, title, optional description and alt text, sort order, and two booleans:
+   - `published` — gates the item on the public site (RLS denies unpublished rows to anon).
+   - `featured_home` — promotes the item to the homepage service grid (one per service slug).
+5. **No redeploy required.** Each admin save invalidates the relevant pages via `revalidatePath('/')` and the matching `/pricing/<service>` URL.
+
+### Portfolio service slugs
+
+| Pricing page                             | Portfolio slug                    |
+| ---------------------------------------- | --------------------------------- |
+| `/pricing/image-enhancement`             | `image-enhancement`               |
+| `/pricing/day-to-dusk`                   | `day-to-dusk`                     |
+| `/pricing/virtual-staging`               | `virtual-staging`                 |
+| `/pricing/photo-editing` *(legacy URL)*  | `item-removal-virtual-cleaning`   |
+| `/pricing/floor-plans`                   | `floor-plans`                     |
+| `/pricing/virtual-renovation`            | `virtual-renovation`              |
+| `/pricing/360-image-enhancement`         | `360-image-enhancement`           |
+| `/pricing/360-virtual-staging`           | `360-virtual-staging`             |
+| `/pricing/aerial-editing`                | `aerial-editing`                  |
+| `/pricing/development-site-plans`        | `development-site-plans`          |
+
+### Storage buckets
+
+The project owns two Supabase Storage buckets. **Do not change their visibility.**
+
+| Bucket        | Visibility | Purpose                              |
+| ------------- | ---------- | ------------------------------------ |
+| `order-files` | **Private** | Client uploads attached to orders. Read via signed URLs only |
+| `portfolio`   | **Public**  | Marketing portfolio images shown on `/` and pricing pages    |
+
+The `portfolio` bucket is intentionally public-read because everything inside it is curated marketing content. The `order-files` bucket stays private — never re-classify it.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
