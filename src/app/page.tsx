@@ -11,28 +11,37 @@ import CtaSection from "@/components/sections/CtaSection";
 // ============================================================
 // HOME / REMOTE DIGITAL SERVICES
 //
-// Image-led structure: a near-full-width hero slider sits above
-// concise text + CTAs, then benefits, the 2-column service grid,
-// how-it-works, the About collage, testimonials, and a closing
-// CTA. The hero band is a clean solid fill (no pattern, no
-// gradient) so the slider itself is unambiguously the focal
-// point. Section containers are 1500px wide; the slider runs to
-// 1640px so it feels nearly edge-to-edge on desktop.
+// Image-led structure: a full-width before/after slider sits
+// directly under the two-level navigation, then the hero text
+// block (eyebrow + H1 + subhead + CTAs), then benefits, the
+// 2-column service grid, how-it-works, the About collage,
+// testimonials, and a closing CTA.
+//
+// The slider container uses minimal horizontal padding so it
+// reads as a wide website banner, while the text block below
+// stays inside the standard 1500px content rail so its line
+// length stays readable.
 // ============================================================
 
 export default function HomePage() {
   return (
     <>
-      {/* 1. Hero
-       *
-       * Layout: text + CTAs first (kept narrow so headline and
-       * subhead read at full punch), then the slider takes over
-       * the page at near-full-bleed. Background is a single
-       * solid surface fill — no gradient, no grid texture — so
-       * nothing competes with the slider for attention. */}
+      {/* 1. Hero — slider first, then text */}
       <section className="bg-surface">
-        {/* Headline + CTAs */}
-        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 pt-12 sm:pt-16 lg:pt-20">
+        {/* Full-width slider sitting just under the second-row
+            navigation. Padding is intentionally minimal at lg+ so
+            the slider reads as a banner rather than a centered
+            card. The slider component itself owns its rounded
+            corners + drop shadow, so a thin gutter on each side
+            keeps the shadow visible without losing impact. */}
+        <div className="px-4 sm:px-6 lg:px-4 pt-6 lg:pt-8">
+          <BeforeAfterShowcase />
+        </div>
+
+        {/* Hero text block — sits below the slider. Constrained
+            to the standard 1500px rail so the headline + subhead
+            don't span an uncomfortable line length. */}
+        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 pt-10 lg:pt-14 pb-14 lg:pb-20">
           <div className="max-w-3xl">
             <p className="text-secondary-dark text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-5 lg:mb-6">
               Remote Digital Services
@@ -60,11 +69,6 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-        </div>
-
-        {/* Slider — wider container so it reads as image-led */}
-        <div className="max-w-[1640px] mx-auto px-4 sm:px-6 lg:px-12 pt-12 lg:pt-16 pb-16 lg:pb-24">
-          <BeforeAfterShowcase />
         </div>
       </section>
 
