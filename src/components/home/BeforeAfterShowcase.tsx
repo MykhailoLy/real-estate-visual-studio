@@ -80,11 +80,15 @@ export default function BeforeAfterShowcase() {
       aria-roledescription="carousel"
       aria-label="Before and after slider"
     >
-      {/* Stage — wide and low. The desktop aspect intentionally
-          reads as a banner strip (≈ 5:1) so the first viewport
-          can also show the dots and the "Why work with PicchuSpot"
-          benefits section directly underneath. */}
-      <div className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[5/1]">
+      {/* Stage — wide cinematic banner. The desktop aspect sits
+          deliberately between the original 32:9 (~3.56:1) and the
+          previous 5:1 attempt: 4:1 keeps the slider feeling like a
+          banner strip but is tall enough that the "Remote Digital
+          Services" intro strip below the benefits row stays out of
+          the first viewport on common laptop and desktop heights,
+          while the dots and "Why work with PicchuSpot" benefits
+          remain visible directly underneath. */}
+      <div className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]">
         {SLIDES.map((slide, i) => (
           <div
             key={slide.id}
@@ -123,11 +127,11 @@ export default function BeforeAfterShowcase() {
         </button>
       </div>
 
-      {/* Dot indicators — simple, not thumbnails. Tight margin so
-          the slider + dots together stay short enough that the
-          benefits row peeks into the first viewport. */}
+      {/* Dot indicators — simple, not thumbnails. Margin tuned so
+          the slider + dots together leave just enough room below
+          for the benefits row to begin in the first viewport. */}
       <div
-        className="mt-4 lg:mt-5 flex items-center justify-center gap-2.5"
+        className="mt-5 lg:mt-6 flex items-center justify-center gap-2.5"
         role="tablist"
         aria-label="Slide indicator"
       >

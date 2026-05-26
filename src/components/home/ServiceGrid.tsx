@@ -158,8 +158,12 @@ function ServiceCard({ svc }: { svc: ServiceEntry }) {
       className="group relative flex flex-col bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 hover:border-primary/40 transition-all duration-300 scroll-mt-32 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
       aria-label={`${svc.name} — ${priceText}`}
     >
-      {/* Visual */}
-      <div className="aspect-[4/3] relative overflow-hidden bg-stone-100">
+      {/* Visual — wide before/after comparison frame.
+          Aspect 5:2 gives each side roughly 5:4, suitable for two
+          listing photos placed side by side once real before/after
+          imagery replaces the placeholder. Keeps the cards compact
+          (not tall) while still showing the transformation clearly. */}
+      <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
         <ServicePlaceholder variant={svc.variant} />
         {/* Hover overlay arrow */}
         <span
