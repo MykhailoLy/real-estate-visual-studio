@@ -9,7 +9,7 @@ import SectionLead from "@/components/pricing/SectionLead";
 import Wide from "@/components/pricing/Wide";
 
 export const metadata: Metadata = {
-  title: "Photo Editing & Virtual Cleaning Pricing",
+  title: "Item Removal & Virtual Cleaning Pricing",
   description:
     "Per-option photo editing for real estate. Image enhancement, day to dusk, item removal, virtual cleaning, background change, colour change, water effect, shadow removal and more. Pay only for the options you select.",
 };
@@ -135,8 +135,8 @@ export default function PhotoEditingPricingPage() {
   return (
     <>
       <PricingHero
-        eyebrow="Photo Editing & Virtual Cleaning"
-        title="Photo Editing Pricing"
+        eyebrow="Real Estate Photo Editing"
+        title="Item Removal & Virtual Cleaning"
         description="Enhance listing images, remove distractions, change backgrounds, turn on lights, add dusk skies, fill pools, and clean spaces. Pay per option, per image."
         priceLine="From US$1 / option"
         primaryHref="/order/photo-editing"

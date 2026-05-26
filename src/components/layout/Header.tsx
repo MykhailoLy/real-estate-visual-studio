@@ -16,14 +16,14 @@ import {
 // ============================================================
 // HEADER — TWO-LEVEL NAVIGATION
 //
-// Row 1: PicchuSpot wordmark + top-level service categories
-//        (Remote Digital, Local Real Estate Media, Renders,
-//        Online Retail) + Order/Contact CTAs.
+// Row 1: PicchuSpot wordmark + four top-level service categories
+//        (uppercase, bold, with a navy pill on the active route)
+//        + Order/Contact CTAs.
 // Row 2: Sub-nav for the active top-level. On desktop this row
-//        renders only the links that fit, with overflow tucked
-//        into a "More" dropdown so links never get clipped or
-//        wrap onto a second line. On mobile the full menu lives
-//        in the drawer below the row 1 hamburger.
+//        renders as many links as fit, with overflow tucked into
+//        a "More" dropdown anchored to the right. The visible row
+//        spans full-bleed at lg+ so wide displays can show all or
+//        almost all links before anything spills into More.
 // ============================================================
 
 export default function Header() {
@@ -45,7 +45,12 @@ export default function Header() {
             PicchuSpot
           </Link>
 
-          {/* Top-level categories (desktop) */}
+          {/* Top-level categories (desktop)
+           *
+           * Uppercase, bold, slightly tracked. The active state is a
+           * navy text + tinted background pill — clean and obvious
+           * without being loud.
+           */}
           <nav
             aria-label="Service categories"
             className="hidden lg:flex items-center gap-1"
@@ -57,10 +62,10 @@ export default function Header() {
                   key={entry.key}
                   href={entry.href}
                   className={cn(
-                    "px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    "px-3 py-2 text-[12px] font-bold uppercase tracking-[0.10em] rounded-md transition-colors",
                     isActive
                       ? "text-primary bg-primary/5"
-                      : "text-foreground/75 hover:text-primary hover:bg-surface"
+                      : "text-foreground/70 hover:text-primary hover:bg-surface"
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
@@ -77,10 +82,10 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "text-sm font-medium transition-colors",
+                  "text-[12px] font-bold uppercase tracking-[0.10em] transition-colors",
                   link.href === "/order"
                     ? "bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-light"
-                    : "text-foreground/75 hover:text-primary px-3 py-2"
+                    : "text-foreground/70 hover:text-primary px-3 py-2"
                 )}
               >
                 {link.label}
@@ -104,8 +109,8 @@ export default function Header() {
        *
        * The `key={active.key}` remount ensures all internal state
        * (overflow split, dropdown open/closed) resets when the user
-       * switches top-level category, without any imperative reset
-       * effects that would trip the "no setState in useEffect" rule.
+       * switches top-level category, without any prop-driven setState
+       * inside an effect.
        */}
       {active.subLinks.length > 0 && (
         <DesktopSubNav
@@ -115,12 +120,7 @@ export default function Header() {
         />
       )}
 
-      {/* ---------- Mobile drawer ----------
-       *
-       * Mobile already lists every sub-link vertically inside the
-       * drawer, so it doesn't need the desktop overflow handling.
-       * The drawer renders the full sub-link list under the
-       * matching top-level group. */}
+      {/* ---------- Mobile drawer ---------- */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-border bg-white">
           <div className="px-4 py-4 space-y-6 max-h-[80vh] overflow-y-auto">
@@ -138,7 +138,7 @@ export default function Header() {
                       href={entry.href}
                       onClick={() => setMobileMenuOpen(false)}
                       className={cn(
-                        "block px-3 py-2 rounded-md text-base font-medium",
+                        "block px-3 py-2 rounded-md text-[13px] font-bold uppercase tracking-[0.10em]",
                         isActive
                           ? "text-primary bg-primary/5"
                           : "text-foreground/85 hover:bg-surface"
@@ -167,7 +167,7 @@ export default function Header() {
                       key={link.label}
                       href={resolveSubLinkHref(link, active.href)}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block px-3 py-2 rounded-md text-sm text-foreground/70 hover:text-primary hover:bg-surface"
+                      className="block px-3 py-2 rounded-md text-[12px] font-bold uppercase tracking-[0.10em] text-foreground/70 hover:text-primary hover:bg-surface"
                     >
                       {link.label}
                     </Link>
@@ -184,7 +184,7 @@ export default function Header() {
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "block px-3 py-2 rounded-md text-base font-medium",
+                    "block px-3 py-2 rounded-md text-[13px] font-bold uppercase tracking-[0.10em]",
                     link.href === "/order"
                       ? "bg-primary text-white text-center"
                       : "text-foreground/85 hover:bg-surface"
@@ -207,9 +207,7 @@ export default function Header() {
 
 /**
  * Sub-nav links use `#anchor` to mean "scroll on the active
- * top-level page" and absolute paths to mean "navigate". The
- * desktop and mobile renderers share this resolver so behaviour
- * stays consistent across breakpoints.
+ * top-level page" and absolute paths to mean "navigate".
  */
 function resolveSubLinkHref(link: SubNavLink, base: string): string {
   if (link.href.startsWith("#")) {
@@ -221,17 +219,13 @@ function resolveSubLinkHref(link: SubNavLink, base: string): string {
 // ============================================================
 // DESKTOP SUB-NAV WITH MEASUREMENT-BASED "MORE" OVERFLOW
 //
-// We measure each sub-link's natural width using a hidden mirror
-// row, then render only the prefix that fits in the available
-// container width. Anything that wouldn't fit ends up in a "More"
-// dropdown anchored to the right of the row. The mirror layer is
-// positioned absolutely with `inset-x-*` matching the parent's
-// padding so its child offsets line up with the visible row.
-//
-// This component is remounted on category change (via `key` in
-// the parent), which keeps the overflow split and dropdown state
-// in lockstep with the active top-level without any prop-watcher
-// effects.
+// Strategy: the visible row uses a full-bleed container at lg+
+// so wide displays can show as many links as possible. We measure
+// each link's natural width via a hidden mirror layer and a real
+// "More" button rendered alongside, so the reserve we apply when
+// trimming is exact rather than estimated. We also re-measure
+// after the document's web fonts settle, since label widths can
+// change once Geist finishes loading.
 // ============================================================
 
 interface DesktopSubNavProps {
@@ -239,22 +233,21 @@ interface DesktopSubNavProps {
   pathname: string;
 }
 
-/**
- * Approximate width reserved for the "More ▾" button + its
- * left margin, in CSS pixels. Slightly generous so we never let
- * the trailing visible link bump up against the More button.
- */
-const MORE_BUTTON_RESERVE_PX = 110;
-
 function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const measureLayerRef = useRef<HTMLDivElement | null>(null);
+  const measureMoreRef = useRef<HTMLSpanElement | null>(null);
   const moreWrapperRef = useRef<HTMLDivElement | null>(null);
   const [overflowAt, setOverflowAt] = useState(active.subLinks.length);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Measure how many sub-links fit in the visible row. Re-runs on
-  // mount and any time the container resizes.
+  // Measure how many sub-links fit. We do TWO passes:
+  //   1. Without reserving for the More button — if everything fits,
+  //      we don't need the dropdown at all.
+  //   2. With the actual width of the More button reserved, since at
+  //      least one link will spill.
+  // The "reserve" is the real width of a hidden mirror of the More
+  // button, so we never trim more than necessary.
   useEffect(() => {
     const measure = () => {
       const container = containerRef.current;
@@ -262,10 +255,13 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
       if (!container || !layer) return;
 
       const availableWidth = container.offsetWidth;
-      const spans = Array.from(layer.children) as HTMLElement[];
+      const spans = Array.from(layer.children).filter(
+        (el): el is HTMLElement =>
+          el instanceof HTMLElement && el.dataset.subnavMeasure === "link"
+      );
       if (spans.length === 0) return;
 
-      // Pass 1: how many fit if we don't reserve any room for "More"?
+      // Pass 1: assume no More needed.
       let allFit = 0;
       for (let i = 0; i < spans.length; i++) {
         const right = spans[i].offsetLeft + spans[i].offsetWidth;
@@ -277,22 +273,33 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
         return;
       }
 
-      // Pass 2: at least one will spill into "More", so reserve the
-      // button's width when deciding which links can stay visible.
-      const allowed = availableWidth - MORE_BUTTON_RESERVE_PX;
+      // Pass 2: reserve the actual More button width plus a small
+      // gap so the trailing visible link never bumps up against it.
+      const moreWidth = measureMoreRef.current?.offsetWidth ?? 90;
+      const allowed = availableWidth - moreWidth - 16; // 16px breathing gap
+
       let count = 0;
       for (let i = 0; i < spans.length; i++) {
         const right = spans[i].offsetLeft + spans[i].offsetWidth;
         if (right > allowed) break;
         count = i + 1;
       }
-      // Always keep at least one link visible — an empty row with
-      // only "More" looks broken even if the available width is
-      // narrower than the first link itself.
+      // Always keep at least one link visible so the row never
+      // collapses to "only More".
       setOverflowAt(Math.max(1, count));
     };
 
     measure();
+
+    // Re-measure when fonts finish loading — Geist labels resize
+    // slightly between fallback fonts and the real font.
+    if (
+      typeof document !== "undefined" &&
+      typeof document.fonts !== "undefined"
+    ) {
+      document.fonts.ready.then(measure).catch(() => {});
+    }
+
     const ro =
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(measure)
@@ -329,23 +336,37 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
 
   return (
     <div className="hidden lg:block border-t border-border bg-white">
-      <div className="relative max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
-        {/* Hidden measurement mirror — same typography + gap as the
-            visible row so its children's `offsetLeft + offsetWidth`
-            tells us exactly where the visible row would clip. */}
+      {/* Full-bleed container at lg+: we drop the max-w cap so wide
+          displays can show as many links as physically fit before
+          the dropdown takes over. The first row stays at 1500px so
+          the brand and CTAs remain anchored. */}
+      <div className="relative px-4 sm:px-6 lg:px-8 xl:px-10">
+        {/* Hidden measurement mirror — same typography and gap as
+            the visible row. It includes a hidden mirror of the
+            More button so the reserved width matches reality. */}
         <div
           ref={measureLayerRef}
           aria-hidden
-          className="invisible pointer-events-none absolute inset-x-4 sm:inset-x-6 lg:inset-x-12 top-0 flex items-center gap-x-7 xl:gap-x-9 whitespace-nowrap py-3.5"
+          className="invisible pointer-events-none absolute inset-x-4 sm:inset-x-6 lg:inset-x-8 xl:inset-x-10 top-0 flex items-center gap-x-6 xl:gap-x-7 whitespace-nowrap py-3"
         >
           {active.subLinks.map((link) => (
             <span
               key={`measure-${link.label}`}
+              data-subnav-measure="link"
               className="text-[13px] font-bold uppercase tracking-[0.10em]"
             >
               {link.label}
             </span>
           ))}
+          {/* More button mirror — used for accurate reserve width */}
+          <span
+            ref={measureMoreRef}
+            data-subnav-measure="more"
+            className="inline-flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.10em]"
+          >
+            More
+            <ChevronDown className="w-3.5 h-3.5" aria-hidden />
+          </span>
         </div>
 
         {/* Visible row */}
@@ -355,7 +376,7 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
         >
           <nav
             aria-label={`${active.label} services`}
-            className="flex items-stretch gap-x-7 xl:gap-x-9 flex-1 min-w-0"
+            className="flex items-stretch gap-x-6 xl:gap-x-7 flex-1 min-w-0"
           >
             {visible.map((link) => {
               const href = resolveSubLinkHref(link, active.href);
@@ -382,8 +403,10 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
-                  "group relative inline-flex items-center gap-1.5 py-3.5 text-[13px] font-bold uppercase tracking-[0.10em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary",
-                  moreOpen ? "text-primary" : "text-foreground/65 hover:text-primary"
+                  "group relative inline-flex items-center gap-1.5 py-3 text-[13px] font-bold uppercase tracking-[0.10em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary",
+                  moreOpen
+                    ? "text-primary"
+                    : "text-foreground/65 hover:text-primary"
                 )}
               >
                 More
@@ -450,10 +473,9 @@ interface SubNavItemProps {
 }
 
 /**
- * Single visible sub-nav link. Renders the label in uppercase
- * with extra letter-spacing, plus an animated underline that
- * slides in from the left on hover/focus and stays put when the
- * route is the current page.
+ * Visible sub-nav link. Uppercase, bold, with letter-spacing,
+ * and a navy underline that slides in from the left on hover or
+ * focus. Stays pinned for the current route.
  */
 function SubNavItem({ href, label, current }: SubNavItemProps) {
   return (
@@ -461,7 +483,7 @@ function SubNavItem({ href, label, current }: SubNavItemProps) {
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "group relative inline-flex items-center py-3.5 text-[13px] font-bold uppercase tracking-[0.10em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary",
+        "group relative inline-flex items-center py-3 text-[13px] font-bold uppercase tracking-[0.10em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary",
         current ? "text-primary" : "text-foreground/65 hover:text-primary"
       )}
     >

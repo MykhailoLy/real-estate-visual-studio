@@ -22,10 +22,6 @@ export interface SubNavLink {
    */
   href: string;
   label: string;
-  /** Set when the destination is on a *different* page than the
-   *  current top-level so the Header can render an inline icon.
-   *  Currently unused — kept here for future expansion. */
-  external?: boolean;
 }
 
 export interface TopLevelEntry {
@@ -51,14 +47,14 @@ export const topLevels: TopLevelEntry[] = [
     label: "Remote Digital Services",
     tagline:
       "Edits delivered worldwide in 24-48 hours. Upload your photos and choose what you need.",
-    // Sub-links point at the relevant pricing detail pages so the
-    // second-row navigation behaves like a real service nav rather
-    // than just in-page scroll. The two 360° entries don't have
-    // dedicated pages yet, so they currently drop into /contact —
-    // they'll graduate to /pricing/<...> once those pages exist.
+    // Each sub-link points at its dedicated pricing/detail page.
+    // The Order CTA inside those pages routes to the appropriate
+    // existing order route (the four real order forms haven't
+    // multiplied — the photo-editing form is shared across the
+    // photo-editing family per the latest spec).
     subLinks: [
-      { href: "/pricing/photo-editing", label: "Image Enhancement" },
-      { href: "/pricing/photo-editing", label: "Day to Dusk" },
+      { href: "/pricing/image-enhancement", label: "Image Enhancement" },
+      { href: "/pricing/day-to-dusk", label: "Day to Dusk" },
       { href: "/pricing/virtual-staging", label: "Virtual Staging" },
       {
         href: "/pricing/photo-editing",
@@ -66,10 +62,16 @@ export const topLevels: TopLevelEntry[] = [
       },
       { href: "/pricing/floor-plans", label: "Floor Plans" },
       { href: "/pricing/virtual-renovation", label: "Virtual Renovation" },
-      { href: "/contact", label: "360° Image Enhancement" },
-      { href: "/contact", label: "360° Virtual Staging" },
-      { href: "/pricing/photo-editing", label: "Aerial Editing" },
-      { href: "/pricing/floor-plans", label: "Development Site Plans" },
+      {
+        href: "/pricing/360-image-enhancement",
+        label: "360° Image Enhancement",
+      },
+      { href: "/pricing/360-virtual-staging", label: "360° Virtual Staging" },
+      { href: "/pricing/aerial-editing", label: "Aerial Editing" },
+      {
+        href: "/pricing/development-site-plans",
+        label: "Development Site Plans",
+      },
     ],
   },
   {

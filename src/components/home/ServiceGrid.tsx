@@ -10,31 +10,26 @@ import ServicePlaceholder, {
 // Each card is a single link wrapping a generous before/after
 // visual + name + price + description. No inner CTAs — the
 // whole card is the CTA, which keeps the grid feeling like a
-// portfolio rather than an order form. Routes per spec:
+// portfolio rather than an order form.
 //
-//   Image Enhancement, Day to Dusk, Item Removal,
-//   Aerial Editing      -> /pricing/photo-editing
-//   Virtual Staging     -> /pricing/virtual-staging
-//   Virtual Renovation  -> /pricing/virtual-renovation
-//   Floor Plans         -> /pricing/floor-plans
-//   360° Image Enh.,
-//   360° Virtual Staging,
-//   Development Site Plans -> /contact (Coming Soon)
+// Routes match the second-row navigation: every service has its
+// own pricing/detail page. The Order CTA inside those pricing
+// pages routes to the appropriate existing order form (the
+// real-estate-photo-editing family all share /order/photo-editing
+// per the latest spec).
 // ============================================================
 
 interface ServiceEntry {
-  /** Anchor used by the second-row sub-nav. */
+  /** Anchor used for `id=...` so deep-links from elsewhere keep
+   *  working; not used by the second-row sub-nav anymore. */
   id: string;
   variant: ServiceVariant;
   name: string;
   description: string;
-  /** Display string for the price line. Empty when there is no
-   *  public price yet. */
+  /** Display string for the price line. Empty = "Request a quote". */
   price?: string;
   /** Single destination for the whole card. */
   href: string;
-  /** Surfaces a "Coming Soon" badge and softens the price line. */
-  comingSoon?: boolean;
 }
 
 const SERVICES: ServiceEntry[] = [
@@ -44,8 +39,8 @@ const SERVICES: ServiceEntry[] = [
     name: "Image Enhancement",
     description:
       "Color, exposure, and window correction so listing photos look bright, crisp, and natural.",
-    price: "From US$1.00 / option",
-    href: "/pricing/photo-editing",
+    price: "From US$2.00 / image",
+    href: "/pricing/image-enhancement",
   },
   {
     id: "day-to-dusk",
@@ -53,7 +48,8 @@ const SERVICES: ServiceEntry[] = [
     name: "Day to Dusk",
     description:
       "Turn a daytime exterior into a warm dusk shot — perfect for the hero photo of a listing.",
-    href: "/pricing/photo-editing",
+    price: "From US$5.00 / image",
+    href: "/pricing/day-to-dusk",
   },
   {
     id: "virtual-staging",
@@ -70,6 +66,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Item Removal & Virtual Cleaning",
     description:
       "Remove distracting clutter, personal items, or stray objects so the room itself is the star.",
+    price: "From US$8.00 / image",
     href: "/pricing/photo-editing",
   },
   {
@@ -96,8 +93,7 @@ const SERVICES: ServiceEntry[] = [
     name: "360° Image Enhancement",
     description:
       "Enhance equirectangular panoramas so every direction reads as listing-quality.",
-    href: "/contact",
-    comingSoon: true,
+    href: "/pricing/360-image-enhancement",
   },
   {
     id: "360-virtual-staging",
@@ -105,8 +101,7 @@ const SERVICES: ServiceEntry[] = [
     name: "360° Virtual Staging",
     description:
       "Stage furniture inside a 360 panorama so virtual tours show furnished, lived-in spaces.",
-    href: "/contact",
-    comingSoon: true,
+    href: "/pricing/360-virtual-staging",
   },
   {
     id: "aerial-editing",
@@ -114,7 +109,8 @@ const SERVICES: ServiceEntry[] = [
     name: "Aerial Editing",
     description:
       "Cleaner skies, sharper detail, and balanced color for drone exteriors and listing aerials.",
-    href: "/pricing/photo-editing",
+    price: "Request a quote",
+    href: "/pricing/aerial-editing",
   },
   {
     id: "development-site-plans",
@@ -122,8 +118,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Development Site Plans",
     description:
       "Top-down site layouts that show plot boundaries, units, and amenities for development marketing.",
-    href: "/contact",
-    comingSoon: true,
+    href: "/pricing/development-site-plans",
   },
 ];
 
@@ -154,8 +149,7 @@ export default function ServiceGrid() {
 }
 
 function ServiceCard({ svc }: { svc: ServiceEntry }) {
-  const isComingSoon = svc.comingSoon === true;
-  const priceText = svc.price ?? (isComingSoon ? "Coming Soon · Request a quote" : "Request a quote");
+  const priceText = svc.price ?? "Request a quote";
 
   return (
     <Link
@@ -165,37 +159,32 @@ function ServiceCard({ svc }: { svc: ServiceEntry }) {
       aria-label={`${svc.name} — ${priceText}`}
     >
       {/* Visual */}
-      <div className="aspect-[4/3] md:aspect-[16/10] relative overflow-hidden bg-stone-100">
+      <div className="aspect-[4/3] relative overflow-hidden bg-stone-100">
         <ServicePlaceholder variant={svc.variant} />
-        {isComingSoon && (
-          <span className="absolute top-4 right-4 inline-flex items-center px-3 py-1.5 rounded-full bg-white/95 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-secondary-dark shadow-md">
-            Coming Soon
-          </span>
-        )}
         {/* Hover overlay arrow */}
         <span
           aria-hidden
-          className="absolute bottom-5 right-5 w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
+          className="absolute bottom-4 right-4 w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"
         >
-          <ArrowUpRight className="w-5 h-5 lg:w-6 lg:h-6" />
+          <ArrowUpRight className="w-5 h-5" />
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-6 lg:p-10 flex-1 flex flex-col">
-        <h3 className="text-2xl lg:text-3xl font-bold text-primary leading-tight tracking-tight group-hover:text-primary-light transition-colors">
+      <div className="p-6 lg:p-8 flex-1 flex flex-col">
+        <h3 className="text-xl lg:text-2xl font-bold text-primary leading-tight tracking-tight group-hover:text-primary-light transition-colors">
           {svc.name}
         </h3>
         <p
           className={
-            isComingSoon
-              ? "mt-2 lg:mt-3 text-sm lg:text-base font-medium text-muted"
-              : "mt-2 lg:mt-3 text-base lg:text-lg font-semibold text-secondary-dark"
+            svc.price
+              ? "mt-2 text-sm lg:text-base font-semibold text-secondary-dark"
+              : "mt-2 text-sm font-medium text-muted"
           }
         >
           {priceText}
         </p>
-        <p className="mt-3 lg:mt-4 text-sm lg:text-base text-muted leading-relaxed flex-1">
+        <p className="mt-3 text-sm lg:text-base text-muted leading-relaxed flex-1">
           {svc.description}
         </p>
       </div>
