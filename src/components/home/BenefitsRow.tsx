@@ -9,7 +9,11 @@ import {
 
 // ============================================================
 // BENEFITS ROW
-// Six concise benefit cards. Original PicchuSpot copy only.
+//
+// Six cards laid out in a 1 / 2 / 3 column grid that feels
+// substantial rather than dense. Larger icon tiles, bigger
+// titles, more padding. Original PicchuSpot copy only — exact
+// strings supplied by the spec.
 // ============================================================
 
 const BENEFITS = [
@@ -47,20 +51,40 @@ const BENEFITS = [
 
 export default function BenefitsRow() {
   return (
-    <section className="py-14 lg:py-20 bg-surface border-y border-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-8">
+    <section className="py-16 lg:py-24 bg-surface border-y border-border">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
+        <div className="max-w-3xl mb-12 lg:mb-16">
+          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
+            Why work with PicchuSpot
+          </p>
+          <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
+            Built for listings — not generic photo work.
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-7">
           {BENEFITS.map((b) => {
             const Icon = b.icon;
             return (
-              <div key={b.title} className="text-left">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
-                  <Icon className="w-5 h-5 text-primary" aria-hidden />
+              <div
+                key={b.title}
+                className="group relative bg-white border border-stone-200 rounded-2xl p-7 lg:p-8 hover:border-primary/30 hover:shadow-lg transition-all duration-300"
+              >
+                {/* Top accent stripe — appears on hover */}
+                <span
+                  aria-hidden
+                  className="absolute top-0 left-7 right-7 h-0.5 rounded-b-full bg-secondary scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-300"
+                />
+                <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-5 lg:mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+                  <Icon
+                    className="w-7 h-7 lg:w-8 lg:h-8 text-primary group-hover:text-white transition-colors"
+                    aria-hidden
+                  />
                 </div>
-                <p className="font-semibold text-foreground text-sm">
+                <h3 className="font-bold text-foreground text-lg lg:text-xl tracking-tight">
                   {b.title}
-                </p>
-                <p className="mt-1 text-xs text-muted leading-relaxed">
+                </h3>
+                <p className="mt-2.5 text-sm lg:text-base text-muted leading-relaxed">
                   {b.body}
                 </p>
               </div>

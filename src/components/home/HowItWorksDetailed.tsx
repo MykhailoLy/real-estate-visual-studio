@@ -30,15 +30,15 @@ const STEPS = [
 export default function HowItWorksDetailed() {
   return (
     <section className="py-16 lg:py-24 bg-surface" id="how-it-works">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mb-10 lg:mb-14">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
+        <div className="max-w-3xl mb-12 lg:mb-16">
+          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
             Process
           </p>
-          <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.1]">
+          <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
             How it works
           </h2>
-          <p className="mt-4 text-base lg:text-lg text-muted leading-relaxed">
+          <p className="mt-6 text-base lg:text-xl text-muted leading-relaxed">
             From upload to delivery in four simple steps.
           </p>
         </div>

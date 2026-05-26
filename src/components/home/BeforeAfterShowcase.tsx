@@ -9,10 +9,12 @@ import { cn } from "@/lib/utils";
 // ============================================================
 // HERO BEFORE/AFTER SHOWCASE
 //
-// A static (non-autoplaying) before/after surface with a row of
-// labelled tabs underneath. Clicking a tab swaps the placeholder
-// underneath, keeping the user in control. Pure CSS placeholders
-// — no third-party imagery.
+// Designed to be the visual anchor of the homepage hero. Lives
+// inside a near-full-width container; the stage itself runs to a
+// 16:8.5 aspect on desktop so it reads as a hero image rather
+// than a card. A horizontally scrollable thumbnail strip below
+// lets visitors swap services without taking the focus away from
+// the stage. Pure CSS placeholders — no third-party imagery.
 // ============================================================
 
 interface Slide {
@@ -87,31 +89,33 @@ export default function BeforeAfterShowcase() {
 
   return (
     <div>
-      {/* Stage */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5 bg-stone-100">
+      {/* Big stage */}
+      <div className="relative w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl ring-1 ring-black/10 bg-stone-100 aspect-[4/3] sm:aspect-[16/9] lg:aspect-[16/8]">
         <ServicePlaceholder variant={active.variant} />
 
-        {/* Overlay copy */}
-        <div className="pointer-events-none absolute left-4 right-4 top-4 flex items-start justify-between gap-4">
-          <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/90 backdrop-blur text-[11px] font-semibold tracking-[0.15em] uppercase text-primary shadow-sm">
+        {/* Service label pill (top-left) */}
+        <div className="pointer-events-none absolute left-4 right-4 top-4 sm:left-6 sm:right-6 sm:top-6 lg:left-8 lg:top-8 flex items-start justify-between gap-4">
+          <span className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/95 backdrop-blur text-[11px] sm:text-xs font-bold tracking-[0.18em] uppercase text-primary shadow-md">
             {active.label}
-          </span>
-          <span className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-primary/90 text-white backdrop-blur text-[11px] font-semibold tracking-[0.15em] uppercase shadow-sm">
-            Before / After
           </span>
         </div>
 
-        <div className="pointer-events-none absolute left-4 right-4 bottom-4">
-          <p className="text-sm sm:text-base text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] max-w-2xl">
+        {/* Caption (bottom) */}
+        <div className="pointer-events-none absolute left-4 right-4 bottom-4 sm:left-6 sm:right-6 sm:bottom-6 lg:left-10 lg:right-10 lg:bottom-10 max-w-3xl">
+          <p className="text-sm sm:text-base lg:text-xl xl:text-2xl text-white font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)] leading-snug">
             {active.caption}
           </p>
         </div>
       </div>
 
-      {/* Slide picker */}
-      <div className="mt-4">
-        <div className="flex gap-2 flex-wrap" role="tablist" aria-label="Service preview slides">
-          {SLIDES.map((slide) => {
+      {/* Thumbnail strip */}
+      <div className="mt-4 lg:mt-6">
+        <div
+          className="flex gap-2 sm:gap-3 overflow-x-auto pb-3 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory"
+          role="tablist"
+          aria-label="Service preview slides"
+        >
+          {SLIDES.map((slide, i) => {
             const isActive = slide.id === activeId;
             return (
               <button
@@ -121,13 +125,28 @@ export default function BeforeAfterShowcase() {
                 aria-selected={isActive}
                 onClick={() => setActiveId(slide.id)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors",
+                  "group flex-shrink-0 w-32 sm:w-40 lg:w-48 rounded-xl overflow-hidden ring-2 transition-all duration-200 snap-start",
                   isActive
-                    ? "bg-primary text-white border-primary"
-                    : "bg-white text-foreground/70 border-border hover:border-primary/40 hover:text-primary"
+                    ? "ring-secondary scale-[1.03] shadow-md"
+                    : "ring-white/10 opacity-70 hover:opacity-100 hover:ring-white/30"
                 )}
               >
-                {slide.label}
+                <div className="relative aspect-[16/10] bg-stone-100">
+                  <ServicePlaceholder variant={slide.variant} />
+                </div>
+                <div
+                  className={cn(
+                    "px-2.5 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] whitespace-nowrap text-left flex items-center justify-between gap-2",
+                    isActive
+                      ? "bg-white text-primary"
+                      : "bg-white/95 text-foreground/80 group-hover:text-primary"
+                  )}
+                >
+                  <span className="truncate">{slide.label}</span>
+                  <span className="text-stone-400 font-semibold tabular-nums">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </div>
               </button>
             );
           })}
