@@ -14,9 +14,11 @@ import {
   X,
 } from "lucide-react";
 import {
+  PORTFOLIO_BUCKET,
   PORTFOLIO_SERVICES,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
+import { getSupabaseBrowser } from "@/lib/supabase";
 
 // ============================================================
 // PortfolioAdminClient
@@ -26,10 +28,20 @@ import {
 //   2. Editor panel — slides into view when creating or editing
 //   3. Item table   — every existing portfolio_items row
 //
-// All mutations go through /api/admin/portfolio[*]. After success
-// we router.refresh() so the server component re-fetches the row
-// list. We do NOT mutate local state optimistically because
-// out-of-order responses + revalidatePath make eventual
+// IMAGE UPLOAD FLOW (per item):
+//   1. POST /api/admin/portfolio/upload-url     → JSON, ~few hundred bytes
+//   2. supabase.storage.uploadToSignedUrl()     → bytes go browser → Supabase
+//   3. POST /api/admin/portfolio (or PATCH)     → JSON metadata + paths
+//
+// Step 2 is the whole reason this file exists in its current
+// shape: streaming multi-MB image bytes through a Vercel
+// Function returns 413 FUNCTION_PAYLOAD_TOO_LARGE for the
+// combined before+after pair. Routing them straight to Storage
+// keeps the API request body as JSON metadata only.
+//
+// All mutations finish with router.refresh() so the server
+// component re-fetches the row list. We do NOT mutate local
+// state optimistically because revalidatePath() makes eventual
 // consistency easier to reason about.
 // ============================================================
 
@@ -61,6 +73,18 @@ interface Props {
 type EditorMode = "closed" | "create" | { kind: "edit"; item: AdminItemView };
 
 const DEFAULT_SLUG: PortfolioServiceSlug = PORTFOLIO_SERVICES[0].slug;
+
+// Limits and allowed types — match the server. Kept in this file
+// so the client can reject invalid files BEFORE we ever ask for
+// a signed URL, giving the admin a fast, clear error.
+const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_MB = MAX_BYTES / (1024 * 1024);
+const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
+type AllowedMime = (typeof ALLOWED_MIMES)[number];
+
+function isAllowedMime(mime: string): mime is AllowedMime {
+  return (ALLOWED_MIMES as readonly string[]).includes(mime);
+}
 
 export default function PortfolioAdminClient({
   items,
@@ -121,7 +145,7 @@ export default function PortfolioAdminClient({
       });
       if (!res.ok) {
         const body = await safeJson(res);
-        flashError(body?.error ?? "Could not delete item.");
+        flashError(body?.error ?? "Could not delete portfolio item.");
         return;
       }
       flashNotice(`Deleted "${item.title}".`);
@@ -171,6 +195,10 @@ export default function PortfolioAdminClient({
               Supabase is not fully configured on this deployment. Set{" "}
               <code className="font-mono text-[12px]">
                 NEXT_PUBLIC_SUPABASE_URL
+              </code>
+              ,{" "}
+              <code className="font-mono text-[12px]">
+                NEXT_PUBLIC_SUPABASE_ANON_KEY
               </code>{" "}
               and{" "}
               <code className="font-mono text-[12px]">
@@ -432,6 +460,32 @@ interface EditorProps {
   onError: (message: string) => void;
 }
 
+interface SignedUploadInfo {
+  bucket: string;
+  path: string;
+  token: string;
+  signedUrl: string;
+}
+
+/** What the editor reads out of the form before submitting. */
+interface EditorValues {
+  service_slug: PortfolioServiceSlug;
+  title: string;
+  description: string;
+  before_alt: string;
+  after_alt: string;
+  sort_order: number;
+  featured_home: boolean;
+  published: boolean;
+}
+
+/** Stage of the multi-step submit, for nicer status copy. */
+type Stage =
+  | "idle"
+  | "uploading-before"
+  | "uploading-after"
+  | "saving";
+
 function PortfolioEditor({
   mode,
   initial,
@@ -439,11 +493,159 @@ function PortfolioEditor({
   onSaved,
   onError,
 }: EditorProps) {
-  const [submitting, setSubmitting] = useState(false);
+  const [stage, setStage] = useState<Stage>("idle");
   const [localError, setLocalError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const isEdit = mode === "edit" && initial !== null;
+  const submitting = stage !== "idle";
+
+  /**
+   * Local validation of a freshly-picked file. Mirrors the
+   * server checks so the admin sees a clear error before any
+   * network round-trip.
+   */
+  function checkFile(
+    file: File,
+    label: "Before image" | "After image"
+  ): { ok: true } | { ok: false; message: string } {
+    if (file.size === 0) {
+      return { ok: false, message: `${label} appears to be empty.` };
+    }
+    if (file.size > MAX_BYTES) {
+      return { ok: false, message: `File is too large. Max ${MAX_MB} MB.` };
+    }
+    if (!isAllowedMime(file.type)) {
+      return {
+        ok: false,
+        message: "Unsupported file type. Use JPG, PNG, or WebP.",
+      };
+    }
+    return { ok: true };
+  }
+
+  /**
+   * Ask the server for a signed Supabase upload URL. The server
+   * re-validates everything we just checked locally.
+   */
+  async function requestSignedUrl(
+    serviceSlug: PortfolioServiceSlug,
+    file: File,
+    kind: "before" | "after"
+  ): Promise<
+    | { ok: true; data: SignedUploadInfo }
+    | { ok: false; message: string }
+  > {
+    let res: Response;
+    try {
+      res = await fetch("/api/admin/portfolio/upload-url", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          service_slug: serviceSlug,
+          filename: file.name,
+          content_type: file.type,
+          file_size: file.size,
+          kind,
+        }),
+      });
+    } catch {
+      return { ok: false, message: "Could not create signed upload URL." };
+    }
+
+    if (!res.ok) {
+      const body = await safeJson(res);
+      return {
+        ok: false,
+        message: body?.error ?? "Could not create signed upload URL.",
+      };
+    }
+
+    let payload: Partial<SignedUploadInfo> = {};
+    try {
+      payload = (await res.json()) as Partial<SignedUploadInfo>;
+    } catch {
+      // fall through
+    }
+    if (!payload.bucket || !payload.path || !payload.token || !payload.signedUrl) {
+      return { ok: false, message: "Could not create signed upload URL." };
+    }
+    return {
+      ok: true,
+      data: {
+        bucket: payload.bucket,
+        path: payload.path,
+        token: payload.token,
+        signedUrl: payload.signedUrl,
+      },
+    };
+  }
+
+  /**
+   * PUT the file straight to Supabase Storage using the signed
+   * URL — bytes never touch our Vercel functions.
+   */
+  async function uploadOne(
+    file: File,
+    info: SignedUploadInfo
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    if (info.bucket !== PORTFOLIO_BUCKET) {
+      return {
+        ok: false,
+        message: "Upload to Supabase failed. (Wrong bucket.)",
+      };
+    }
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase.storage
+        .from(PORTFOLIO_BUCKET)
+        .uploadToSignedUrl(info.path, info.token, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+      if (error) {
+        console.warn("portfolio: uploadToSignedUrl failed", error);
+        return { ok: false, message: "Upload to Supabase failed." };
+      }
+      return { ok: true };
+    } catch (err) {
+      console.warn("portfolio: uploadToSignedUrl threw", err);
+      return { ok: false, message: "Upload to Supabase failed." };
+    }
+  }
+
+  /**
+   * Read the typed/checked values out of the form once. Booleans
+   * come from the DOM elements directly because unchecked
+   * checkboxes are absent from FormData entirely.
+   */
+  function readValues(form: HTMLFormElement): EditorValues {
+    const fd = new FormData(form);
+    const serviceSlug = String(fd.get("service_slug") ?? "") as PortfolioServiceSlug;
+    const title = String(fd.get("title") ?? "").trim();
+    const description = String(fd.get("description") ?? "").trim();
+    const before_alt = String(fd.get("before_alt") ?? "").trim();
+    const after_alt = String(fd.get("after_alt") ?? "").trim();
+    const sortRaw = String(fd.get("sort_order") ?? "0").trim();
+    const sortNum = parseInt(sortRaw, 10);
+    const featured_home =
+      (form.elements.namedItem("featured_home") as HTMLInputElement | null)
+        ?.checked ?? false;
+    const published =
+      (form.elements.namedItem("published") as HTMLInputElement | null)
+        ?.checked ?? false;
+    return {
+      service_slug: serviceSlug,
+      title,
+      description,
+      before_alt,
+      after_alt,
+      sort_order: Number.isFinite(sortNum) ? sortNum : 0,
+      featured_home,
+      published,
+    };
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -451,70 +653,184 @@ function PortfolioEditor({
     setLocalError(null);
 
     const form = event.currentTarget;
-    const data = new FormData(form);
+    const values = readValues(form);
 
-    // For edit mode, drop empty file fields so we don't send a
-    // 0-byte File object — the server treats that as "no file
-    // selected", but it's clearer to omit it.
-    if (isEdit) {
-      const beforeFile = data.get("before_image");
-      if (beforeFile instanceof File && beforeFile.size === 0) {
-        data.delete("before_image");
+    if (!values.title) {
+      const message = "Title is required.";
+      setLocalError(message);
+      onError(message);
+      return;
+    }
+
+    // Pull the raw File handles. Empty file inputs return a File
+    // with size 0; treat those as "no new file selected".
+    const beforeInput = form.elements.namedItem(
+      "before_image"
+    ) as HTMLInputElement | null;
+    const afterInput = form.elements.namedItem(
+      "after_image"
+    ) as HTMLInputElement | null;
+    const beforeFile =
+      beforeInput?.files && beforeInput.files[0] && beforeInput.files[0].size > 0
+        ? beforeInput.files[0]
+        : null;
+    const afterFile =
+      afterInput?.files && afterInput.files[0] && afterInput.files[0].size > 0
+        ? afterInput.files[0]
+        : null;
+
+    // Create mode requires both files. Edit mode allows either to
+    // stay the same.
+    if (!isEdit) {
+      if (!beforeFile) {
+        const m = "Before image is required.";
+        setLocalError(m);
+        onError(m);
+        return;
       }
-      const afterFile = data.get("after_image");
-      if (afterFile instanceof File && afterFile.size === 0) {
-        data.delete("after_image");
+      if (!afterFile) {
+        const m = "After image is required.";
+        setLocalError(m);
+        onError(m);
+        return;
       }
     }
 
-    // Booleans: native checkboxes only include their value when
-    // checked. We always send "true"/"false" so the server can
-    // distinguish "unchecked" from "not in form" (the latter
-    // means leave-as-is in PATCH semantics).
-    data.set(
-      "published",
-      (form.elements.namedItem("published") as HTMLInputElement | null)
-        ?.checked
-        ? "true"
-        : "false"
-    );
-    data.set(
-      "featured_home",
-      (form.elements.namedItem("featured_home") as HTMLInputElement | null)
-        ?.checked
-        ? "true"
-        : "false"
-    );
+    // Validate any picked files locally before any network calls.
+    if (beforeFile) {
+      const c = checkFile(beforeFile, "Before image");
+      if (!c.ok) {
+        setLocalError(c.message);
+        onError(c.message);
+        return;
+      }
+    }
+    if (afterFile) {
+      const c = checkFile(afterFile, "After image");
+      if (!c.ok) {
+        setLocalError(c.message);
+        onError(c.message);
+        return;
+      }
+    }
 
-    setSubmitting(true);
+    // ----- 1+2. Upload changed files directly to Supabase -----
+    let beforePath = isEdit && initial ? initial.before_image_path : "";
+    let afterPath = isEdit && initial ? initial.after_image_path : "";
+
     try {
+      if (beforeFile) {
+        setStage("uploading-before");
+        const signed = await requestSignedUrl(
+          values.service_slug,
+          beforeFile,
+          "before"
+        );
+        if (!signed.ok) {
+          setLocalError(signed.message);
+          onError(signed.message);
+          return;
+        }
+        const upload = await uploadOne(beforeFile, signed.data);
+        if (!upload.ok) {
+          setLocalError(upload.message);
+          onError(upload.message);
+          return;
+        }
+        beforePath = signed.data.path;
+      }
+
+      if (afterFile) {
+        setStage("uploading-after");
+        const signed = await requestSignedUrl(
+          values.service_slug,
+          afterFile,
+          "after"
+        );
+        if (!signed.ok) {
+          setLocalError(signed.message);
+          onError(signed.message);
+          return;
+        }
+        const upload = await uploadOne(afterFile, signed.data);
+        if (!upload.ok) {
+          setLocalError(upload.message);
+          onError(upload.message);
+          return;
+        }
+        afterPath = signed.data.path;
+      }
+
+      // ----- 3. Save the row metadata -----
+      setStage("saving");
+
+      if (!beforePath || !afterPath) {
+        const m = "Could not save portfolio item.";
+        setLocalError(m);
+        onError(m);
+        return;
+      }
+
+      const baseBody = {
+        service_slug: values.service_slug,
+        title: values.title,
+        description: values.description || null,
+        before_image_path: beforePath,
+        after_image_path: afterPath,
+        before_alt: values.before_alt || null,
+        after_alt: values.after_alt || null,
+        sort_order: values.sort_order,
+        featured_home: values.featured_home,
+        published: values.published,
+      };
+
       const url = isEdit
         ? `/api/admin/portfolio/${initial!.id}`
         : "/api/admin/portfolio";
-      const res = await fetch(url, {
-        method: isEdit ? "PATCH" : "POST",
-        body: data,
-        credentials: "same-origin",
-      });
+
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(baseBody),
+        });
+      } catch {
+        const m = "Could not save portfolio item.";
+        setLocalError(m);
+        onError(m);
+        return;
+      }
+
       if (!res.ok) {
         const body = await safeJson(res);
-        const message = body?.error ?? "Save failed.";
+        const message = body?.error ?? "Could not save portfolio item.";
         setLocalError(message);
         onError(message);
         return;
       }
+
       onSaved(
         isEdit
-          ? `Saved "${data.get("title") ?? initial?.title ?? "item"}".`
-          : `Created "${data.get("title") ?? "item"}".`
+          ? `Saved "${values.title || initial?.title || "item"}".`
+          : `Created "${values.title || "item"}".`
       );
-    } catch {
-      setLocalError("Network error during save.");
-      onError("Network error during save.");
     } finally {
-      setSubmitting(false);
+      setStage("idle");
     }
   }
+
+  const submitLabel =
+    stage === "uploading-before"
+      ? "Uploading before image…"
+      : stage === "uploading-after"
+      ? "Uploading after image…"
+      : stage === "saving"
+      ? "Saving…"
+      : isEdit
+      ? "Save changes"
+      : "Create item";
 
   return (
     <div className="bg-white border border-border rounded-2xl shadow-sm mb-6 lg:mb-8">
@@ -536,7 +852,6 @@ function PortfolioEditor({
         ref={formRef}
         onSubmit={onSubmit}
         className="p-5 lg:p-6 space-y-5"
-        encType="multipart/form-data"
         noValidate
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
@@ -651,7 +966,7 @@ function PortfolioEditor({
             {submitting && (
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
             )}
-            {isEdit ? "Save changes" : "Create item"}
+            {submitLabel}
           </button>
         </div>
       </form>
@@ -750,7 +1065,7 @@ function FilePair({
           <input
             type="file"
             name={inputName}
-            accept="image/jpeg,image/jpg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp"
             required={!isEdit}
             className="block w-full text-sm text-foreground file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:font-bold file:text-xs file:cursor-pointer hover:file:bg-primary-light"
           />
