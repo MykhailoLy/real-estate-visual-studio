@@ -1,58 +1,66 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
 import {
-  isPortfolioServiceSlug,
+  PORTFOLIO_SERVICE_SLUGS,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
 import {
   deletePortfolioFiles,
+  isValidPortfolioObjectPath,
   revalidatePortfolioPaths,
-  uploadPortfolioFile,
 } from "@/lib/portfolio-server";
 
 // ============================================================
 // POST /api/admin/portfolio
 //
-// Create a new portfolio_items row + upload its before/after
-// images to the `portfolio` Supabase Storage bucket. Accepts
-// multipart/form-data so the browser can stream the files in a
-// single request.
+// Create a new portfolio_items row. Image files are NOT sent
+// here any more — the browser uploads them directly to the
+// `portfolio` Supabase Storage bucket using signed URLs from
+// /api/admin/portfolio/upload-url, then sends only the resulting
+// object paths in this JSON request.
 //
-// Required FormData fields:
-//   - service_slug   (one of the 10 canonical slugs)
-//   - title          (non-empty)
-//   - before_image   (jpg/png/webp, ≤ 10 MB)
-//   - after_image    (jpg/png/webp, ≤ 10 MB)
-//
-// Optional fields:
-//   - description, before_alt, after_alt
-//   - sort_order     (integer, defaults to 0)
-//   - published      ("true" | "false")
-//   - featured_home  ("true" | "false")
+// Request body (JSON):
+//   service_slug         (one of the canonical slugs)
+//   title                (non-empty)
+//   before_image_path    (returned by upload-url)
+//   after_image_path     (returned by upload-url)
+//   description          (optional)
+//   before_alt           (optional)
+//   after_alt            (optional)
+//   sort_order           (integer, defaults to 0)
+//   featured_home        (boolean, defaults to false)
+//   published            (boolean, defaults to false)
 //
 // Always 401 if the admin session cookie is missing or invalid.
 // ============================================================
 
 export const runtime = "nodejs";
 
-/** Coerce "true"/"on"/"1" → true. Anything else → false.  */
-function asBool(value: FormDataEntryValue | null): boolean {
-  if (value == null) return false;
-  const s = String(value).toLowerCase();
-  return s === "true" || s === "on" || s === "1" || s === "yes";
-}
+const Body = z.object({
+  service_slug: z.enum(PORTFOLIO_SERVICE_SLUGS),
+  title: z.string().trim().min(1, "Title is required.").max(140),
+  description: z
+    .union([z.string().trim().max(2000), z.null(), z.undefined()])
+    .optional(),
+  before_image_path: z.string().min(1).max(512),
+  after_image_path: z.string().min(1).max(512),
+  before_alt: z
+    .union([z.string().trim().max(200), z.null(), z.undefined()])
+    .optional(),
+  after_alt: z
+    .union([z.string().trim().max(200), z.null(), z.undefined()])
+    .optional(),
+  sort_order: z.number().int().min(-9999).max(9999).optional(),
+  featured_home: z.boolean().optional(),
+  published: z.boolean().optional(),
+});
 
-function asInt(value: FormDataEntryValue | null, fallback = 0): number {
-  if (value == null) return fallback;
-  const n = parseInt(String(value), 10);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function asText(value: FormDataEntryValue | null): string {
-  if (value == null) return "";
-  if (typeof value === "string") return value.trim();
-  return "";
+function nullable(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 export async function POST(request: Request) {
@@ -60,69 +68,54 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let form: FormData;
+  let raw: unknown;
   try {
-    form = await request.formData();
+    raw = await request.json();
   } catch {
     return NextResponse.json(
-      { error: "Expected multipart/form-data body." },
+      { error: "Invalid JSON body." },
       { status: 400 }
     );
   }
 
-  const serviceSlugRaw = asText(form.get("service_slug"));
-  if (!isPortfolioServiceSlug(serviceSlugRaw)) {
+  const parsed = Body.safeParse(raw);
+  if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const first =
+      Object.values(flat.fieldErrors)
+        .flat()
+        .find((m): m is string => typeof m === "string" && m.length > 0) ??
+      "Invalid request.";
     return NextResponse.json(
-      { error: "Invalid or missing service_slug." },
+      { error: first, details: flat },
       { status: 400 }
     );
   }
-  const serviceSlug = serviceSlugRaw as PortfolioServiceSlug;
 
-  const title = asText(form.get("title"));
-  if (!title) {
+  const data = parsed.data;
+  const serviceSlug = data.service_slug as PortfolioServiceSlug;
+
+  // Sanity-check the paths the client sent: they must look like
+  // they came out of buildPortfolioObjectPath AND start with the
+  // declared service slug. Stops a logged-in admin from pointing
+  // a row at an arbitrary object in the bucket.
+  if (!isValidPortfolioObjectPath(data.before_image_path, serviceSlug)) {
     return NextResponse.json(
-      { error: "Title is required." },
+      { error: "Invalid before_image_path." },
       { status: 400 }
     );
   }
-
-  const beforeFile = form.get("before_image");
-  const afterFile = form.get("after_image");
-
-  if (!(beforeFile instanceof File) || !(afterFile instanceof File)) {
+  if (!isValidPortfolioObjectPath(data.after_image_path, serviceSlug)) {
     return NextResponse.json(
-      {
-        error: "Both before_image and after_image files are required.",
-      },
+      { error: "Invalid after_image_path." },
       { status: 400 }
     );
-  }
-
-  // Upload both files first. If either fails, clean up any file
-  // that already landed so we don't accumulate orphans.
-  let before;
-  let after;
-  try {
-    before = await uploadPortfolioFile(
-      beforeFile,
-      serviceSlug,
-      "before"
-    );
-    after = await uploadPortfolioFile(afterFile, serviceSlug, "after");
-  } catch (err) {
-    // Roll back the half-uploaded pair if needed.
-    if (before?.path) await deletePortfolioFiles([before.path]);
-    const message =
-      err instanceof Error ? err.message : "Upload failed.";
-    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   let supabase;
   try {
     supabase = createServerClient();
   } catch (err) {
-    await deletePortfolioFiles([before.path, after.path]);
     console.error("portfolio: supabase init failed", err);
     return NextResponse.json(
       { error: "Server is not configured for portfolio admin." },
@@ -132,34 +125,38 @@ export async function POST(request: Request) {
 
   const insert = {
     service_slug: serviceSlug,
-    title,
-    description: asText(form.get("description")) || null,
-    before_image_path: before.path,
-    after_image_path: after.path,
-    before_alt: asText(form.get("before_alt")) || null,
-    after_alt: asText(form.get("after_alt")) || null,
-    sort_order: asInt(form.get("sort_order"), 0),
-    published: asBool(form.get("published")),
-    featured_home: asBool(form.get("featured_home")),
+    title: data.title.trim(),
+    description: nullable(data.description ?? null),
+    before_image_path: data.before_image_path,
+    after_image_path: data.after_image_path,
+    before_alt: nullable(data.before_alt ?? null),
+    after_alt: nullable(data.after_alt ?? null),
+    sort_order: data.sort_order ?? 0,
+    published: data.published ?? false,
+    featured_home: data.featured_home ?? false,
   };
 
-  const { data, error } = await supabase
+  const { data: row, error } = await supabase
     .from("portfolio_items")
     .insert(insert)
     .select("*")
     .single();
 
-  if (error || !data) {
-    // Drop the orphaned files since the row never landed.
-    await deletePortfolioFiles([before.path, after.path]);
+  if (error || !row) {
+    // Drop the orphaned files we accepted moments ago. Best-
+    // effort — if delete fails, we just leave them.
+    await deletePortfolioFiles([
+      data.before_image_path,
+      data.after_image_path,
+    ]);
     console.error("portfolio: insert failed", error);
     return NextResponse.json(
-      { error: "Could not save portfolio item. Please try again." },
+      { error: "Could not save portfolio item." },
       { status: 500 }
     );
   }
 
   revalidatePortfolioPaths([serviceSlug]);
 
-  return NextResponse.json({ ok: true, item: data });
+  return NextResponse.json({ ok: true, item: row });
 }

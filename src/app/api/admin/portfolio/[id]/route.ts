@@ -1,27 +1,30 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
 import {
-  isPortfolioServiceSlug,
+  PORTFOLIO_SERVICE_SLUGS,
   type PortfolioServiceSlug,
   type PortfolioItem,
 } from "@/lib/portfolio";
 import {
   deletePortfolioFiles,
+  isValidPortfolioObjectPath,
   revalidatePortfolioPaths,
-  uploadPortfolioFile,
 } from "@/lib/portfolio-server";
 
 // ============================================================
 // PATCH /api/admin/portfolio/[id]
 // DELETE /api/admin/portfolio/[id]
 //
-// PATCH accepts the same multipart/form-data shape as POST, but
-// every field is optional. Files are only re-uploaded if the
-// admin actually picked a new one — replaced files are deleted
-// from storage so the bucket doesn't grow forever.
+// PATCH accepts a JSON body. Image bytes never reach this route
+// — the client uploads files directly to Supabase Storage using
+// signed URLs from /api/admin/portfolio/upload-url, then sends
+// the resulting object paths here. To keep an existing image
+// untouched, the client just resends the existing path.
 //
-// DELETE removes the row AND both storage objects.
+// DELETE removes the row AND best-effort-deletes both storage
+// objects.
 // ============================================================
 
 export const runtime = "nodejs";
@@ -30,27 +33,35 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-function asBool(value: FormDataEntryValue | null): boolean {
-  if (value == null) return false;
-  const s = String(value).toLowerCase();
-  return s === "true" || s === "on" || s === "1" || s === "yes";
-}
-
-function asInt(value: FormDataEntryValue | null, fallback = 0): number {
-  if (value == null) return fallback;
-  const n = parseInt(String(value), 10);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function asText(value: FormDataEntryValue | null): string {
-  if (value == null) return "";
-  if (typeof value === "string") return value.trim();
-  return "";
-}
-
 /** UUID v4-ish shape check — Supabase always issues v4s here. */
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const PatchBody = z.object({
+  service_slug: z.enum(PORTFOLIO_SERVICE_SLUGS).optional(),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Title cannot be empty.")
+    .max(140)
+    .optional(),
+  description: z
+    .union([z.string().trim().max(2000), z.null()])
+    .optional(),
+  before_image_path: z.string().min(1).max(512).optional(),
+  after_image_path: z.string().min(1).max(512).optional(),
+  before_alt: z.union([z.string().trim().max(200), z.null()]).optional(),
+  after_alt: z.union([z.string().trim().max(200), z.null()]).optional(),
+  sort_order: z.number().int().min(-9999).max(9999).optional(),
+  featured_home: z.boolean().optional(),
+  published: z.boolean().optional(),
+});
+
+function nullable(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
 
 async function loadExistingItem(id: string): Promise<PortfolioItem | null> {
   const supabase = createServerClient();
@@ -80,119 +91,102 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid id." }, { status: 400 });
   }
 
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body." },
+      { status: 400 }
+    );
+  }
+
+  const parsed = PatchBody.safeParse(raw);
+  if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const first =
+      Object.values(flat.fieldErrors)
+        .flat()
+        .find((m): m is string => typeof m === "string" && m.length > 0) ??
+      "Invalid request.";
+    return NextResponse.json(
+      { error: first, details: flat },
+      { status: 400 }
+    );
+  }
+  const body = parsed.data;
+
   const existing = await loadExistingItem(id);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
-    return NextResponse.json(
-      { error: "Expected multipart/form-data body." },
-      { status: 400 }
-    );
-  }
+  // Determine the next service slug — needed up front so we can
+  // validate any newly-supplied image paths against it.
+  const nextSlug: PortfolioServiceSlug =
+    body.service_slug !== undefined
+      ? (body.service_slug as PortfolioServiceSlug)
+      : existing.service_slug;
 
-  // service_slug is optional on update — but if provided must
-  // pass the canonical-list check. We collect "affected slugs"
-  // for revalidation: both old and new in case it changes.
-  const slugRaw = asText(form.get("service_slug"));
-  let nextSlug: PortfolioServiceSlug = existing.service_slug;
-  if (slugRaw) {
-    if (!isPortfolioServiceSlug(slugRaw)) {
+  // For each image path, the client may either:
+  //   - send a new path (just minted by upload-url) belonging to
+  //     `nextSlug` — meaning a fresh upload happened; OR
+  //   - send the existing path — meaning "keep as-is"; OR
+  //   - omit the field — same as "keep as-is".
+  //
+  // Anything else is rejected.
+  let nextBefore: string = existing.before_image_path;
+  let beforeReplaced = false;
+  if (body.before_image_path !== undefined) {
+    const candidate = body.before_image_path;
+    if (candidate === existing.before_image_path) {
+      nextBefore = candidate;
+    } else if (isValidPortfolioObjectPath(candidate, nextSlug)) {
+      nextBefore = candidate;
+      beforeReplaced = true;
+    } else {
       return NextResponse.json(
-        { error: "Invalid service_slug." },
+        { error: "Invalid before_image_path." },
         { status: 400 }
       );
     }
-    nextSlug = slugRaw as PortfolioServiceSlug;
   }
 
-  const beforeFile = form.get("before_image");
-  const afterFile = form.get("after_image");
-  const hasNewBefore = beforeFile instanceof File && beforeFile.size > 0;
-  const hasNewAfter = afterFile instanceof File && afterFile.size > 0;
-
-  // Upload any newly-supplied files first. Roll back if one fails.
-  let nextBeforePath = existing.before_image_path;
-  let nextAfterPath = existing.after_image_path;
-  let uploadedBefore: { path: string } | null = null;
-  let uploadedAfter: { path: string } | null = null;
-
-  try {
-    if (hasNewBefore) {
-      uploadedBefore = await uploadPortfolioFile(
-        beforeFile as File,
-        nextSlug,
-        "before"
+  let nextAfter: string = existing.after_image_path;
+  let afterReplaced = false;
+  if (body.after_image_path !== undefined) {
+    const candidate = body.after_image_path;
+    if (candidate === existing.after_image_path) {
+      nextAfter = candidate;
+    } else if (isValidPortfolioObjectPath(candidate, nextSlug)) {
+      nextAfter = candidate;
+      afterReplaced = true;
+    } else {
+      return NextResponse.json(
+        { error: "Invalid after_image_path." },
+        { status: 400 }
       );
-      nextBeforePath = uploadedBefore.path;
     }
-    if (hasNewAfter) {
-      uploadedAfter = await uploadPortfolioFile(
-        afterFile as File,
-        nextSlug,
-        "after"
-      );
-      nextAfterPath = uploadedAfter.path;
-    }
-  } catch (err) {
-    if (uploadedBefore?.path) await deletePortfolioFiles([uploadedBefore.path]);
-    if (uploadedAfter?.path) await deletePortfolioFiles([uploadedAfter.path]);
-    const message =
-      err instanceof Error ? err.message : "Upload failed.";
-    return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  // Build the partial update payload from whichever fields the
-  // form actually contained. Empty strings → null where the DB
-  // column is nullable; missing fields are left untouched.
+  // Build the partial update. Only include keys the client sent.
   const update: Partial<PortfolioItem> = {
     service_slug: nextSlug,
-    before_image_path: nextBeforePath,
-    after_image_path: nextAfterPath,
+    before_image_path: nextBefore,
+    after_image_path: nextAfter,
   };
-
-  if (form.has("title")) {
-    const title = asText(form.get("title"));
-    if (!title) {
-      // Roll back uploads if the row update would be invalid.
-      if (uploadedBefore?.path) await deletePortfolioFiles([uploadedBefore.path]);
-      if (uploadedAfter?.path) await deletePortfolioFiles([uploadedAfter.path]);
-      return NextResponse.json(
-        { error: "Title cannot be empty." },
-        { status: 400 }
-      );
-    }
-    update.title = title;
-  }
-  if (form.has("description")) {
-    update.description = asText(form.get("description")) || null;
-  }
-  if (form.has("before_alt")) {
-    update.before_alt = asText(form.get("before_alt")) || null;
-  }
-  if (form.has("after_alt")) {
-    update.after_alt = asText(form.get("after_alt")) || null;
-  }
-  if (form.has("sort_order")) {
-    update.sort_order = asInt(form.get("sort_order"), existing.sort_order);
-  }
-  if (form.has("published")) {
-    update.published = asBool(form.get("published"));
-  }
-  if (form.has("featured_home")) {
-    update.featured_home = asBool(form.get("featured_home"));
-  }
+  if (body.title !== undefined) update.title = body.title.trim();
+  if (body.description !== undefined) update.description = nullable(body.description);
+  if (body.before_alt !== undefined) update.before_alt = nullable(body.before_alt);
+  if (body.after_alt !== undefined) update.after_alt = nullable(body.after_alt);
+  if (body.sort_order !== undefined) update.sort_order = body.sort_order;
+  if (body.featured_home !== undefined) update.featured_home = body.featured_home;
+  if (body.published !== undefined) update.published = body.published;
 
   let supabase;
   try {
     supabase = createServerClient();
   } catch (err) {
-    if (uploadedBefore?.path) await deletePortfolioFiles([uploadedBefore.path]);
-    if (uploadedAfter?.path) await deletePortfolioFiles([uploadedAfter.path]);
     console.error("portfolio: supabase init failed", err);
     return NextResponse.json(
       { error: "Server is not configured for portfolio admin." },
@@ -200,31 +194,33 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const { data, error } = await supabase
+  const { data: row, error } = await supabase
     .from("portfolio_items")
     .update(update)
     .eq("id", id)
     .select("*")
     .single();
 
-  if (error || !data) {
-    // Drop newly-uploaded files since the row update failed.
-    if (uploadedBefore?.path) await deletePortfolioFiles([uploadedBefore.path]);
-    if (uploadedAfter?.path) await deletePortfolioFiles([uploadedAfter.path]);
+  if (error || !row) {
+    // Drop newly-uploaded objects since the row update failed.
+    const orphans: string[] = [];
+    if (beforeReplaced) orphans.push(nextBefore);
+    if (afterReplaced) orphans.push(nextAfter);
+    if (orphans.length > 0) await deletePortfolioFiles(orphans);
     console.error("portfolio: update failed", error);
     return NextResponse.json(
-      { error: "Could not update portfolio item. Please try again." },
+      { error: "Could not save portfolio item." },
       { status: 500 }
     );
   }
 
-  // Now that the row is committed, retire the *old* file objects
-  // that have been replaced. Best-effort — orphans aren't fatal.
+  // Now that the row is committed, retire the old file objects
+  // that were replaced. Best-effort — orphans aren't fatal.
   const stale: string[] = [];
-  if (uploadedBefore?.path && existing.before_image_path) {
+  if (beforeReplaced && existing.before_image_path) {
     stale.push(existing.before_image_path);
   }
-  if (uploadedAfter?.path && existing.after_image_path) {
+  if (afterReplaced && existing.after_image_path) {
     stale.push(existing.after_image_path);
   }
   if (stale.length > 0) await deletePortfolioFiles(stale);
@@ -236,7 +232,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
   revalidatePortfolioPaths(slugsToRevalidate);
 
-  return NextResponse.json({ ok: true, item: data });
+  return NextResponse.json({ ok: true, item: row });
 }
 
 // ============================================================
@@ -258,7 +254,17 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const supabase = createServerClient();
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch (err) {
+    console.error("portfolio: supabase init failed", err);
+    return NextResponse.json(
+      { error: "Server is not configured for portfolio admin." },
+      { status: 500 }
+    );
+  }
+
   const { error } = await supabase
     .from("portfolio_items")
     .delete()
@@ -272,7 +278,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
     );
   }
 
-  // Best-effort storage cleanup after the row is gone.
+  // Best-effort storage cleanup after the row is gone. Storage
+  // failures are logged inside deletePortfolioFiles and never
+  // bubble up — losing the row matters more than orphan bytes.
   await deletePortfolioFiles([
     existing.before_image_path,
     existing.after_image_path,
