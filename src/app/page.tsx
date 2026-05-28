@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import BeforeAfterShowcase from "@/components/home/BeforeAfterShowcase";
+import BeforeAfterShowcase, {
+  type ShowcaseSlide,
+} from "@/components/home/BeforeAfterShowcase";
 import BenefitsRow from "@/components/home/BenefitsRow";
 import ServiceGrid from "@/components/home/ServiceGrid";
 import HowItWorksDetailed from "@/components/home/HowItWorksDetailed";
-import AboutPicchuSpot from "@/components/home/AboutPicchuSpot";
+import AboutPicchuSpot, {
+  type AboutCollageTile,
+} from "@/components/home/AboutPicchuSpot";
 import Testimonials from "@/components/home/Testimonials";
 import CtaSection from "@/components/sections/CtaSection";
+import {
+  getAboutCollageItems,
+  getHomepageSliderItems,
+  getSiteMediaPublicUrl,
+} from "@/lib/site-media";
 
 // ============================================================
 // HOME / REMOTE DIGITAL SERVICES
@@ -23,35 +32,71 @@ import CtaSection from "@/components/sections/CtaSection";
 //   9. Testimonials carousel
 //  10. Footer CTA
 //
-// First-viewport rule: at desktop breakpoints the nav, slider,
-// dots, and the "Why work with PicchuSpot" benefits row should
-// all be visible without scrolling. The slider therefore uses a
-// ~5:1 aspect (BeforeAfterShowcase), the slider section uses
-// minimal vertical padding, and the Remote Digital Services
-// block is reduced to a single-row strip below the benefits.
-//
-// Section background rhythm intentionally alternates so the page
-// reads as a sequence of structured chunks rather than one slab:
-//   slider          white
-//   benefits        surface
-//   intro strip     white
-//   service grid    surface
-//   how it works    white
-//   about           surface
-//   testimonials    white
-//   final cta       primary (navy)
-//
-// Each child component owns its own background; this file simply
-// places them in the right order.
+// Data flow:
+//   - The slider and the About collage now read from the
+//     admin-managed `site_media_items` table (see /admin/media).
+//   - When the table is empty (or Supabase isn't configured),
+//     each component falls back to its built-in placeholders so
+//     a fresh deploy still ships a polished hero + About section.
+//   - This page is rendered as a server component; the slider
+//     stays "use client" for autoplay/pause logic.
 // ============================================================
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Load admin media in parallel. Both helpers return [] on
+  // misconfigured / unreachable Supabase, so neither will throw.
+  const [sliderRows, collageRows] = await Promise.all([
+    getHomepageSliderItems(),
+    getAboutCollageItems(),
+  ]);
+
+  const sliderSlides: ShowcaseSlide[] = sliderRows
+    .map<ShowcaseSlide | null>((row) => {
+      const beforeUrl = getSiteMediaPublicUrl(row.before_image_path);
+      const afterUrl = getSiteMediaPublicUrl(row.after_image_path);
+      // The DB query already filters out rows missing either
+      // path, but a local check makes the URL fallback explicit
+      // and keeps TypeScript happy.
+      if (!beforeUrl || !afterUrl) return null;
+      return {
+        kind: "image",
+        id: row.id,
+        beforeUrl,
+        afterUrl,
+        beforeAlt: row.alt_text || row.title || "Before",
+        afterAlt: row.alt_text || row.title || "After",
+      };
+    })
+    .filter((s): s is ShowcaseSlide => s !== null);
+
+  const collageTiles: AboutCollageTile[] = collageRows
+    .map<AboutCollageTile | null>((row) => {
+      // Pick the most representative image for this row. About
+      // collage items are usually plain "image" media_type, but
+      // we tolerate other shapes (e.g. an admin reuses a
+      // before/after item by surfacing only the after frame).
+      const url =
+        getSiteMediaPublicUrl(row.image_path) ||
+        getSiteMediaPublicUrl(row.after_image_path) ||
+        getSiteMediaPublicUrl(row.before_image_path) ||
+        getSiteMediaPublicUrl(row.poster_image_path) ||
+        getSiteMediaPublicUrl(row.panorama_image_path);
+      if (!url) return null;
+      return {
+        kind: "image",
+        id: row.id,
+        url,
+        alt: row.alt_text || row.title || "About PicchuSpot",
+      };
+    })
+    .filter((t): t is AboutCollageTile => t !== null);
+
   return (
     <>
       {/* 1. Slider — wide banner strip directly under the nav. */}
       <section className="bg-white">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
-          <BeforeAfterShowcase />
+          <BeforeAfterShowcase slides={sliderSlides} />
         </div>
       </section>
 
@@ -102,7 +147,7 @@ export default function HomePage() {
       <HowItWorksDetailed />
 
       {/* 6. About PicchuSpot — collage + narrative (bg flipped to surface). */}
-      <AboutPicchuSpot />
+      <AboutPicchuSpot tiles={collageTiles} />
 
       {/* 7. Testimonials carousel (bg flipped to white). */}
       <Testimonials />
