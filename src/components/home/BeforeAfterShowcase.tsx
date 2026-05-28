@@ -71,7 +71,7 @@ export default function BeforeAfterShowcase() {
 
   return (
     <div
-      className="relative"
+      className="relative w-full"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}

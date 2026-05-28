@@ -49,7 +49,7 @@ export default function HomePage() {
   return (
     <>
       {/* 1. Slider — wide banner strip directly under the nav. */}
-      <section className="bg-white">
+      <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
           <BeforeAfterShowcase />
         </div>

@@ -59,7 +59,7 @@ const BENEFITS = [
 export default function BenefitsRow() {
   return (
     <section className="py-12 lg:py-16 bg-surface border-y border-border">
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-10">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="max-w-3xl mb-8 lg:mb-12">
           <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
             Why work with PicchuSpot

@@ -35,9 +35,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Smooth scroll */
+/* Smooth scroll + prevent horizontal page overflow.
+   Elements that genuinely need horizontal scroll (pricing tables,
+   internal carousels) use overflow-x: auto on their own container. */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 /* Focus styles */
