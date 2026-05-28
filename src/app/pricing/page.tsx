@@ -122,7 +122,7 @@ export default function PricingPage() {
               <h4 className="text-sm font-semibold text-foreground mb-3">
                 Optional Add-ons
               </h4>
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                   <tbody>
                     {stagingAddons.map((addon, i) => (
@@ -168,7 +168,7 @@ export default function PricingPage() {
               <h4 className="text-sm font-semibold text-foreground mb-3">
                 Internal Renovations
               </h4>
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                   <tbody>
                     {renovationInternal.map((opt, i) => (
@@ -194,7 +194,7 @@ export default function PricingPage() {
               <h4 className="text-sm font-semibold text-foreground mb-3">
                 External Renovations
               </h4>
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                   <tbody>
                     {renovationExternal.map((opt, i) => (
@@ -236,7 +236,7 @@ export default function PricingPage() {
             />
 
             <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-surface">
@@ -298,7 +298,7 @@ export default function PricingPage() {
             />
 
             <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                   <tbody>
                     {photoEditOptions.map((opt, i) => (
@@ -340,7 +340,7 @@ export default function PricingPage() {
             />
 
             <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-surface">
