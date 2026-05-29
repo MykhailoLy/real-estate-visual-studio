@@ -1,48 +1,92 @@
-import ServicePlaceholder from "./ServicePlaceholder";
+import ServicePlaceholder, {
+  type ServiceVariant,
+} from "./ServicePlaceholder";
 
 // ============================================================
 // ABOUT PICCHUSPOT
 //
-// Two-column layout: an asymmetric collage of placeholder tiles
-// on the larger side, narrative copy on the smaller side. The
-// tiles use the existing ServicePlaceholder variants so the
-// section still feels visually coherent with the homepage's
-// before/after vocabulary, but the layout reads as "About"
-// rather than another service grid. Real images can replace the
-// placeholders later by swapping out tile contents.
+// Two-column layout: an asymmetric collage of five tiles on the
+// larger side, narrative copy on the smaller side. The tile
+// content is admin-managed via /admin/media (section
+// "about-collage"). When fewer than five tiles are configured,
+// remaining slots fall back to ServicePlaceholder variants so
+// the section never shows blank tiles.
+//
+// The collage shape is fixed (1 anchor + 4 satellites). We layer
+// admin tiles into the slot order — admins can reshuffle ordering
+// via the sort_order field in /admin/media.
 // ============================================================
 
-export default function AboutPicchuSpot() {
+/** A single collage tile. Either a real admin-uploaded image or
+ *  one of the built-in placeholder variants. */
+export type AboutCollageTile =
+  | {
+      kind: "image";
+      id: string;
+      url: string;
+      alt: string;
+    }
+  | {
+      kind: "placeholder";
+      id: string;
+      variant: ServiceVariant;
+    };
+
+interface Props {
+  /** Up to 5 admin-uploaded tiles. Missing slots fall back to
+   *  the default placeholder set so the layout still feels
+   *  populated. */
+  tiles?: AboutCollageTile[];
+}
+
+/** Defaults that mirror the original hardcoded collage so
+ *  fresh deploys without admin uploads still ship a polished
+ *  About section. */
+const FALLBACK_TILES: AboutCollageTile[] = [
+  { kind: "placeholder", id: "fb-1", variant: "virtual-staging" },
+  { kind: "placeholder", id: "fb-2", variant: "image-enhancement" },
+  { kind: "placeholder", id: "fb-3", variant: "day-to-dusk" },
+  { kind: "placeholder", id: "fb-4", variant: "floor-plans" },
+  { kind: "placeholder", id: "fb-5", variant: "virtual-renovation" },
+];
+
+/** Pick the i-th tile, falling back to the i-th default when
+ *  the admin hasn't supplied that many. Always returns a valid
+ *  tile so the JSX below never has to null-check. */
+function tileAt(tiles: AboutCollageTile[], i: number): AboutCollageTile {
+  return tiles[i] ?? FALLBACK_TILES[i] ?? FALLBACK_TILES[0];
+}
+
+export default function AboutPicchuSpot({ tiles = [] }: Props) {
+  // Only the first 5 admin tiles drive the collage. Anything
+  // beyond that is ignored at render time but still visible in
+  // /admin/media — admins can demote a tile by lowering its
+  // sort_order rather than deleting it.
+  const trimmed = tiles.slice(0, 5);
+
+  const t0 = tileAt(trimmed, 0);
+  const t1 = tileAt(trimmed, 1);
+  const t2 = tileAt(trimmed, 2);
+  const t3 = tileAt(trimmed, 3);
+  const t4 = tileAt(trimmed, 4);
+
   return (
     <section className="py-16 lg:py-28 bg-surface" id="about">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           {/* Collage */}
           <div className="lg:col-span-7 order-2 lg:order-1">
-            <div
-              className="grid grid-cols-3 grid-rows-3 gap-3 lg:gap-4 h-[440px] sm:h-[540px] lg:h-[640px]"
-              aria-hidden
-            >
+            <div className="grid grid-cols-3 grid-rows-3 gap-3 lg:gap-4 h-[440px] sm:h-[540px] lg:h-[640px]">
               {/* Big anchor tile (top-left, 2x2) */}
-              <div className="col-span-2 row-span-2 relative overflow-hidden rounded-2xl shadow-md ring-1 ring-stone-200">
-                <ServicePlaceholder variant="virtual-staging" />
-              </div>
+              <CollageCell tile={t0} className="col-span-2 row-span-2" />
 
               {/* Top-right column (1x1 + 1x1) */}
-              <div className="relative overflow-hidden rounded-2xl shadow-md ring-1 ring-stone-200">
-                <ServicePlaceholder variant="image-enhancement" />
-              </div>
-              <div className="relative overflow-hidden rounded-2xl shadow-md ring-1 ring-stone-200">
-                <ServicePlaceholder variant="day-to-dusk" />
-              </div>
+              <CollageCell tile={t1} />
+              <CollageCell tile={t2} />
 
               {/* Bottom row (1x1 + 2x1) */}
-              <div className="relative overflow-hidden rounded-2xl shadow-md ring-1 ring-stone-200">
-                <ServicePlaceholder variant="floor-plans" />
-              </div>
-              <div className="col-span-2 relative overflow-hidden rounded-2xl shadow-md ring-1 ring-stone-200">
-                <ServicePlaceholder variant="virtual-renovation" />
-              </div>
+              <CollageCell tile={t3} />
+              <CollageCell tile={t4} className="col-span-2" />
             </div>
           </div>
 
@@ -74,5 +118,40 @@ export default function AboutPicchuSpot() {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * One cell of the collage. Renders an <img> for admin tiles and
+ * a ServicePlaceholder for fallback tiles. Wrapper styling is
+ * identical so swapping a placeholder for an admin upload (or
+ * vice versa) doesn't reflow the layout.
+ */
+function CollageCell({
+  tile,
+  className,
+}: {
+  tile: AboutCollageTile;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-2xl shadow-md ring-1 ring-stone-200 ${
+        className ?? ""
+      }`}
+    >
+      {tile.kind === "image" ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={tile.url}
+          alt={tile.alt}
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        <ServicePlaceholder variant={tile.variant} />
+      )}
+    </div>
   );
 }

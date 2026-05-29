@@ -202,9 +202,9 @@ export default async function VirtualStagingPage() {
     <>
       {/* ═══════════════════════════════════════════════════════
           A. HERO SLIDER  —  white / near-edge (homepage feel)
-          The px values here match the homepage slider wrapper
-          exactly: px-3 sm:px-4 lg:px-2. overflow-hidden on the
-          section prevents any bleed at narrow viewports.
+          px-3 sm:px-4 lg:px-2 matches the homepage slider wrapper
+          exactly so the banner feels edge-to-edge at every viewport.
+          overflow-hidden on the section prevents lateral bleed.
           ═══════════════════════════════════════════════════════ */}
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-4 lg:pb-6">
@@ -252,8 +252,7 @@ export default async function VirtualStagingPage() {
       {/* ═══════════════════════════════════════════════════════
           C. PRICING INTRO  —  white
           Compact side-by-side block: title + price + CTAs.
-          Uses <h1> because this is the primary page heading
-          (the slider above is purely visual).
+          Uses <h1> because this is the primary page heading.
           ═══════════════════════════════════════════════════════ */}
       <section className="bg-white border-y border-stone-200">
         <Wide className="py-10 lg:py-14">
@@ -295,11 +294,11 @@ export default async function VirtualStagingPage() {
 
       {/* ═══════════════════════════════════════════════════════
           D. WHAT IT IS + EXAMPLES  —  stone-50  (merged section)
-          Copy + bullets form the intro; portfolio cards appear
-          directly below in the same section — no separate
-          heading, no separate description for the grid.
-          If no items are uploaded, a single full-width placeholder
-          frame stands in so the section still has visual weight.
+          Copy + bullets form the intro. Portfolio cards appear
+          directly below in the same section — no separate heading,
+          no separate "Before & after examples" description.
+          If no items exist, a single full-width placeholder frame
+          stands in so the section always has visual weight.
           ═══════════════════════════════════════════════════════ */}
       <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
@@ -386,7 +385,7 @@ export default async function VirtualStagingPage() {
 
           {/* ── Full examples grid (all items, 2-col desktop) ──
               Only rendered when there are uploaded items.
-              No extra heading — the intro copy above contextualises
+              No extra heading — the intro copy contextualises
               the grid so it reads as a continuation. */}
           {hasItems && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">

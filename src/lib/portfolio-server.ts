@@ -15,138 +15,164 @@ import {
 // Code shared by the /api/admin/portfolio* route handlers:
 //   - allowed image types and size cap
 //   - filename → object-path generation inside the bucket
-//   - upload + delete helpers (service-role bucket access)
+//   - signed upload URL helper (service-role bucket access)
+//   - delete helper (service-role bucket access)
 //   - revalidatePath helper that always invalidates `/`,
 //     /admin/portfolio, AND every public pricing page that maps
 //     to the affected service slug
 //
 // Imported via "server-only" so accidental client imports fail
 // at build time rather than leaking the service-role client.
+//
+// NOTE: image bytes are NEVER streamed through this module any
+// more. The browser uploads files directly to Supabase Storage
+// using a signed URL issued here, which avoids Vercel's
+// FUNCTION_PAYLOAD_TOO_LARGE (413) limit on the API route.
 // ============================================================
 
 export const ADMIN_MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
 export const ADMIN_MAX_IMAGE_MB =
   ADMIN_MAX_IMAGE_BYTES / (1024 * 1024);
 
+/**
+ * Image MIME types the admin upload-url endpoint will accept.
+ * Deliberately narrow: only formats Supabase Storage can serve
+ * back as a normal public web image.
+ */
 export const ADMIN_ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
-  "image/jpg", // some browsers report this for .jpg
   "image/png",
   "image/webp",
 ] as const;
 
-export const ADMIN_ALLOWED_IMAGE_EXTENSIONS = [
-  "jpg",
-  "jpeg",
-  "png",
-  "webp",
-] as const;
+export type AdminAllowedImageMime =
+  (typeof ADMIN_ALLOWED_IMAGE_MIME_TYPES)[number];
+
+export function isAllowedImageMime(
+  mime: unknown
+): mime is AdminAllowedImageMime {
+  return (
+    typeof mime === "string" &&
+    (ADMIN_ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime)
+  );
+}
+
+export type PortfolioImageKind = "before" | "after";
+
+export function isPortfolioImageKind(
+  value: unknown
+): value is PortfolioImageKind {
+  return value === "before" || value === "after";
+}
 
 /**
- * Quick MIME check used by request validators. Allows the small
- * set of formats that the bucket can serve back as a public web
- * image. Anything else (HEIC, TIFF, raw, etc.) is rejected.
+ * Sanitise a user-supplied filename for use inside a storage
+ * object path:
+ *   - lowercase
+ *   - keep the extension if it's one we recognise
+ *   - replace anything not [a-z0-9._-] with "-"
+ *   - collapse repeated dashes and trim them from the edges
+ *   - cap the total length so we never produce a 1KB path
+ *
+ * Always returns at least "file" so the path stays well-formed
+ * even if the input is empty.
  */
-export function isAllowedImageMime(mime: string): boolean {
-  return (ADMIN_ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime);
-}
+export function safeFilename(input: string): string {
+  const raw = (input ?? "").trim().toLowerCase();
+  if (!raw) return "file";
 
-/** Lower-cased file extension or "" if the filename has none. */
-export function safeExt(filename: string): string {
-  const dot = filename.lastIndexOf(".");
-  if (dot < 0 || dot === filename.length - 1) return "";
-  return filename.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Split off the extension so it doesn't get mangled by the
+  // dash collapsing below.
+  const dot = raw.lastIndexOf(".");
+  let stem = raw;
+  let ext = "";
+  if (dot > 0 && dot < raw.length - 1) {
+    stem = raw.slice(0, dot);
+    ext = raw.slice(dot + 1).replace(/[^a-z0-9]/g, "");
+    if (ext.length > 8) ext = ext.slice(0, 8);
+  }
+
+  let cleanStem = stem
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  if (!cleanStem) cleanStem = "file";
+  if (cleanStem.length > 60) cleanStem = cleanStem.slice(0, 60);
+
+  return ext ? `${cleanStem}.${ext}` : cleanStem;
 }
 
 /**
- * Build a stable, collision-resistant storage path within the
+ * Build a stable, collision-resistant storage path inside the
  * `portfolio` bucket:
  *
- *   <service-slug>/<yyyy-mm-dd>-<random>-<role>.<ext>
+ *   {service_slug}/{timestamp-random}-{kind}-{safe-filename}
  *
- * - `<role>` is "before" or "after" so a manual storage browse
- *   reveals which half is which.
+ * - `<timestamp>` is `Date.now()` so paths sort chronologically.
  * - `<random>` is a short hex string so two uploads in the same
- *   second never collide.
- * - `<ext>` is normalised to png/jpg/jpeg/webp.
+ *   millisecond never collide.
+ * - `<kind>` is "before" or "after" so a manual storage browse
+ *   tells you which half is which.
+ * - The path is RELATIVE to the bucket — never prefix with
+ *   "portfolio/", because the bucket is already named that.
  */
-export function buildPortfolioStoragePath(
+export function buildPortfolioObjectPath(
   serviceSlug: PortfolioServiceSlug,
-  role: "before" | "after",
+  kind: PortfolioImageKind,
   filename: string
 ): string {
-  let ext = safeExt(filename);
-  if (!ext || !(ADMIN_ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) {
-    // Fall back to png for unknown but mime-validated uploads.
-    // This is rare since we already filtered MIME at validation
-    // time, but it keeps the path well-formed.
-    ext = "png";
-  }
-  const today = new Date().toISOString().slice(0, 10);
+  const timestamp = Date.now();
   const nonce = randomBytes(4).toString("hex");
-  return `${serviceSlug}/${today}-${nonce}-${role}.${ext}`;
+  return `${serviceSlug}/${timestamp}-${nonce}-${kind}-${safeFilename(
+    filename
+  )}`;
 }
 
-/** Result of a successful portfolio upload — caller stores the
- *  `path` in the portfolio_items row. */
-export interface UploadedPortfolioFile {
+// ============================================================
+// SIGNED UPLOAD URL
+// ============================================================
+
+export interface PortfolioSignedUploadInfo {
+  bucket: typeof PORTFOLIO_BUCKET;
   path: string;
-  contentType: string;
-  size: number;
+  token: string;
+  signedUrl: string;
 }
 
 /**
- * Upload a single image to the `portfolio` bucket using the
- * service-role client. Validates MIME and size up front; throws
- * a descriptive Error on any failure so the route handler can
- * surface a useful 4xx/5xx response.
+ * Create a signed upload URL for a single object inside the
+ * `portfolio` bucket. The browser then uses
+ * `supabase.storage.from(bucket).uploadToSignedUrl(path, token, file)`
+ * to PUT bytes directly to Supabase, bypassing the Vercel
+ * function payload limit.
+ *
+ * Throws on Supabase errors so the route handler can surface a
+ * descriptive 5xx response.
  */
-export async function uploadPortfolioFile(
-  file: File,
-  serviceSlug: PortfolioServiceSlug,
-  role: "before" | "after"
-): Promise<UploadedPortfolioFile> {
-  if (!file || typeof file === "string") {
-    throw new Error(`Missing ${role} image upload.`);
-  }
-  if (file.size === 0) {
-    throw new Error(`The ${role} image is empty.`);
-  }
-  if (file.size > ADMIN_MAX_IMAGE_BYTES) {
-    throw new Error(
-      `The ${role} image is larger than ${ADMIN_MAX_IMAGE_MB} MB.`
-    );
-  }
-  if (!isAllowedImageMime(file.type)) {
-    throw new Error(
-      `Unsupported ${role} image type "${file.type}". Use JPG, PNG, or WebP.`
-    );
-  }
-
+export async function createPortfolioSignedUploadUrl(
+  path: string
+): Promise<PortfolioSignedUploadInfo> {
   const supabase = createServerClient();
-  const path = buildPortfolioStoragePath(serviceSlug, role, file.name);
-  const arrayBuffer = await file.arrayBuffer();
-
-  const { error } = await supabase.storage
+  const { data, error } = await supabase.storage
     .from(PORTFOLIO_BUCKET)
-    .upload(path, arrayBuffer, {
-      contentType: file.type,
-      upsert: false,
-    });
+    .createSignedUploadUrl(path);
 
-  if (error) {
-    console.error("portfolio: storage upload failed", { path, error });
-    throw new Error(
-      `Could not upload ${role} image. ${error.message ?? "Storage error."}`
-    );
+  if (error || !data) {
+    console.error("portfolio: createSignedUploadUrl failed", { path, error });
+    throw new Error("Could not create signed upload URL.");
   }
 
   return {
-    path,
-    contentType: file.type,
-    size: file.size,
+    bucket: PORTFOLIO_BUCKET,
+    path: data.path ?? path,
+    token: data.token,
+    signedUrl: data.signedUrl,
   };
 }
+
+// ============================================================
+// STORAGE DELETE
+// ============================================================
 
 /**
  * Best-effort removal of one or more storage objects. Failures
@@ -173,6 +199,44 @@ export async function deletePortfolioFiles(
     console.warn("portfolio: storage remove threw", { paths: real, err });
   }
 }
+
+// ============================================================
+// PATH VALIDATION
+// ============================================================
+
+/**
+ * Validate that a path string came from buildPortfolioObjectPath
+ * (or at least conforms to its shape) AND that its leading
+ * segment is the claimed service slug. Used by the create/update
+ * routes so the client cannot submit an arbitrary path that
+ * doesn't actually point at a portfolio object.
+ *
+ * Allows ".../path/with/slashes" only as long as the first
+ * segment matches `serviceSlug`. We deliberately do NOT do a
+ * HEAD on storage here — that would add a round-trip on every
+ * save, and the path was just minted by our own signed-URL
+ * endpoint moments earlier.
+ */
+export function isValidPortfolioObjectPath(
+  path: unknown,
+  expectedSlug: PortfolioServiceSlug
+): path is string {
+  if (typeof path !== "string") return false;
+  if (path.length === 0 || path.length > 512) return false;
+  if (path.startsWith("/")) return false;
+  if (path.includes("..")) return false;
+  // Must look like "<slug>/<...>" with at least one path segment
+  // after the slug. The bucket name "portfolio" is implicit.
+  const idx = path.indexOf("/");
+  if (idx <= 0 || idx === path.length - 1) return false;
+  const slug = path.slice(0, idx);
+  if (slug !== expectedSlug) return false;
+  return true;
+}
+
+// ============================================================
+// REVALIDATION
+// ============================================================
 
 /**
  * Map a portfolio service slug to the canonical pricing page

@@ -36,7 +36,7 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-border">
+    <header className="sticky top-0 z-50 bg-white border-b border-border w-full overflow-x-hidden">
       {/* ---------- Row 1: brand + top-level + CTAs ---------- */}
       <div className={NAV_X_PADDING}>
         <div className="flex items-center h-16">
@@ -359,7 +359,7 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
         <div
           ref={measureLayerRef}
           aria-hidden
-          className="invisible pointer-events-none absolute inset-x-4 sm:inset-x-6 lg:inset-x-8 xl:inset-x-10 top-0 flex items-center gap-x-6 xl:gap-x-7 whitespace-nowrap py-3"
+          className="invisible pointer-events-none absolute inset-x-4 sm:inset-x-6 lg:inset-x-8 xl:inset-x-10 top-0 flex items-center gap-x-6 xl:gap-x-7 whitespace-nowrap py-3 overflow-hidden"
         >
           {active.subLinks.map((link) => (
             <span

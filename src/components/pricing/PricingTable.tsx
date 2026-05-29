@@ -33,7 +33,7 @@ export default function PricingTable({
           {title}
         </h3>
       )}
-      <div className="border border-stone-200 rounded-xl overflow-hidden">
+      <div className="border border-stone-200 rounded-xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm lg:text-base">
           {(headerLabel || headerPrice) && (
             <thead>
