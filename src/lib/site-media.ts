@@ -32,6 +32,7 @@ export const SITE_MEDIA_SECTIONS = [
   "homepage-slider",
   "about-collage",
   "service-hero",
+  "service-options",
   "360-tour",
   "general",
 ] as const;
@@ -73,9 +74,16 @@ export const SITE_MEDIA_SECTION_META: SiteMediaSectionMeta[] = [
   },
   {
     section: "service-hero",
-    label: "Service hero (future)",
+    label: "Service hero",
     description:
-      "Optional hero media for individual service pages. Stored now, used by service pages later.",
+      "Before/after hero slider media for individual service pages (e.g. floor-plans, virtual-staging).",
+    defaultMediaType: "before-after",
+  },
+  {
+    section: "service-options",
+    label: "Service options",
+    description:
+      "Individual option card images for service pages (e.g. floor plan style cards). Map by sort_order.",
     defaultMediaType: "image",
   },
   {
@@ -266,6 +274,53 @@ export async function getHomepageSliderItems(): Promise<SiteMediaItem[]> {
  */
 export async function getAboutCollageItems(): Promise<SiteMediaItem[]> {
   return getPublishedSiteMediaForSection("about-collage");
+}
+
+/**
+ * Service-options images for a specific service page.
+ *
+ * Reads from site_media_items where:
+ *   section      = "service-options"
+ *   service_slug = <provided slug>
+ *   media_type   = "image"
+ *   published    = true
+ *
+ * Returns items ordered by sort_order (ascending) so callers can
+ * map sort_order=1 → card index 0, sort_order=2 → card index 1, etc.
+ *
+ * Returns [] when Supabase is unconfigured — callers should fall
+ * back to CSS placeholder visuals in that case.
+ */
+export async function getServiceOptionsImages(
+  serviceSlug: string
+): Promise<SiteMediaItem[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("site_media_items")
+    .select("*")
+    .eq("section", "service-options")
+    .eq("service_slug", serviceSlug)
+    .eq("media_type", "image")
+    .eq("published", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn(
+      `site-media: getServiceOptionsImages(${serviceSlug}) failed`,
+      error
+    );
+    return [];
+  }
+  return (data ?? []) as SiteMediaItem[];
 }
 
 /**
