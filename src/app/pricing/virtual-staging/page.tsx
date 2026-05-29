@@ -16,18 +16,17 @@ import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfo
 // ============================================================
 // /pricing/virtual-staging  —  Virtual Staging service page
 //
-// Section order and background rhythm (fixed — never toggled
-// on data availability):
+// Section order and background rhythm:
 //
-//   A  Hero slider          white   (near-edge, homepage style)
-//   B  When to use          stone-50
-//   C  Pricing intro        white
-//   D  What it is + examples stone-50  (single merged section)
-//   E  Before you order     white
-//   F  Style options        stone-50
-//   G  Pricing cards        white
-//   H  FAQ                  stone-50
-//   I  Final CTA            navy  (ServiceCTA)
+//   A  Hero slider               white   (near-edge, homepage style)
+//   B  When to use               stone-50  (tight spacing after slider)
+//   C  Pricing intro             white
+//   D  Pricing cards             stone-50  (immediately after intro)
+//   E  What it is + examples     white     (text-only intro, then grid)
+//   F  Before you order          stone-50
+//   G  Style options             white
+//   H  FAQ                       stone-50
+//   I  Final CTA                 navy  (ServiceCTA)
 //
 // Data loading:
 //   - getPublishedItemsForService returns [] when Supabase is
@@ -204,10 +203,12 @@ export default async function VirtualStagingPage() {
           A. HERO SLIDER  —  white / near-edge (homepage feel)
           px-3 sm:px-4 lg:px-2 matches the homepage slider wrapper
           exactly so the banner feels edge-to-edge at every viewport.
+          pb-0 removes the gap between slider and the next section
+          so the "When to use" cards sit snugly beneath the banner.
           overflow-hidden on the section prevents lateral bleed.
           ═══════════════════════════════════════════════════════ */}
       <section className="bg-white overflow-hidden">
-        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-4 lg:pb-6">
+        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
           <ServicePageSlider
             slides={sliderSlides}
             ariaLabel="Virtual Staging before and after examples"
@@ -217,8 +218,10 @@ export default async function VirtualStagingPage() {
 
       {/* ═══════════════════════════════════════════════════════
           B. WHEN TO USE  —  stone-50
+          pt-8 lg:pt-10 gives a tight but readable gap after the
+          slider; pb remains generous so the section breathes.
           ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Best for"
@@ -293,201 +296,12 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          D. WHAT IT IS + EXAMPLES  —  stone-50  (merged section)
-          Copy + bullets form the intro. Portfolio cards appear
-          directly below in the same section — no separate heading,
-          no separate "Before & after examples" description.
-          If no items exist, a single full-width placeholder frame
-          stands in so the section always has visual weight.
+          D. PRICING CARDS  —  stone-50
+          Placed directly after the intro so the price information
+          is immediately visible. 3-col desktop / 2-col tablet /
+          1-col mobile. Navy card for base, white cards for add-ons.
           ═══════════════════════════════════════════════════════ */}
       <section className="py-14 lg:py-20 bg-stone-50">
-        <Wide>
-          {/* ── Intro copy ── */}
-          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start mb-10 lg:mb-14">
-            <div className="lg:col-span-5">
-              <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
-                What it is
-              </p>
-              <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
-                Furnished, market-ready images from empty rooms
-              </h2>
-              <p className="text-base lg:text-lg text-muted leading-relaxed mb-6">
-                We replace empty spaces with realistic furniture, decor, and
-                lighting. Each image is styled to match your target buyer and
-                listing positioning — residential or commercial.
-              </p>
-              <ul className="space-y-3">
-                {WHAT_IT_IS_BULLETS.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-center gap-3 text-sm lg:text-base text-foreground"
-                  >
-                    <span
-                      aria-hidden
-                      className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"
-                    >
-                      <Check className="w-3 h-3 text-primary" />
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Right column: first two examples or placeholder */}
-            <div className="lg:col-span-7">
-              {hasItems ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
-                  {allItems.slice(0, 2).map((item) => {
-                    const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
-                    const afterUrl = getPortfolioPublicUrl(item.after_image_path);
-                    return (
-                      <article
-                        key={item.id}
-                        className="rounded-2xl overflow-hidden border border-stone-200 shadow-sm bg-white"
-                      >
-                        <div className="aspect-[5/3] relative overflow-hidden bg-stone-100">
-                          <BeforeAfterFrame
-                            beforeUrl={beforeUrl}
-                            afterUrl={afterUrl}
-                            beforeAlt={item.before_alt ?? `${item.title} — before`}
-                            afterAlt={item.after_alt ?? `${item.title} — after`}
-                            placeholderVariant="virtual-staging"
-                          />
-                        </div>
-                        <div className="p-4">
-                          <h3 className="text-sm font-bold text-primary tracking-tight">
-                            {item.title}
-                          </h3>
-                          {item.description && (
-                            <p className="mt-1 text-xs text-muted leading-relaxed line-clamp-2">
-                              {item.description}
-                            </p>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
-                  <BeforeAfterFrame
-                    beforeUrl={null}
-                    afterUrl={null}
-                    beforeAlt="Empty room before virtual staging"
-                    afterAlt="Furnished room after virtual staging"
-                    placeholderVariant="virtual-staging"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Full examples grid (all items, 2-col desktop) ──
-              Only rendered when there are uploaded items.
-              No extra heading — the intro copy contextualises
-              the grid so it reads as a continuation. */}
-          {hasItems && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-              {allItems.map((item) => {
-                const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
-                const afterUrl = getPortfolioPublicUrl(item.after_image_path);
-                return (
-                  <article
-                    key={item.id}
-                    className="group bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
-                  >
-                    {/* 5:2 wide aspect — same as homepage service grid */}
-                    <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
-                      <BeforeAfterFrame
-                        beforeUrl={beforeUrl}
-                        afterUrl={afterUrl}
-                        beforeAlt={item.before_alt ?? `${item.title} — before`}
-                        afterAlt={item.after_alt ?? `${item.title} — after`}
-                        placeholderVariant="virtual-staging"
-                      />
-                    </div>
-                    <div className="p-5 lg:p-6">
-                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                        {item.title}
-                      </h3>
-                      {item.description && (
-                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </Wide>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          E. BEFORE YOU ORDER  —  white
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
-        <Wide>
-          <SectionLead
-            eyebrow="Before you order"
-            title="What we need from you"
-            description="Send us a clean photo of the empty room and a few details — we handle the rest."
-          />
-          <UploadRequirementsBlock
-            items={[
-              {
-                label: "Original room photo",
-                required: true,
-                hint: "JPG or PNG, well-lit, straight angle if possible",
-              },
-              {
-                label: "Room name / area",
-                required: true,
-                hint: "Living room, bedroom, kitchen, outdoor, etc.",
-              },
-              {
-                label: "Preferred furniture style",
-                required: true,
-                hint: "Pick from the 9 styles below",
-              },
-              {
-                label: "Reference image or link",
-                hint: "Optional — helps us match a specific look",
-              },
-              {
-                label: "Notes or instructions",
-                hint: "Special requests, focal points, items to keep / remove",
-              },
-            ]}
-            footnote="Required fields are marked *. Standard photo editing add-ons can be added during the order and apply to the same image."
-          />
-        </Wide>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          F. STYLE OPTIONS  —  stone-50
-          StyleGallerySection renders 9 horizontal cards (3-col
-          desktop, 2-col tablet, 1-col mobile) + lightbox.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
-        <Wide>
-          <SectionLead
-            eyebrow="Style options"
-            title="Choose the right look for your buyer"
-            description="Pick a single style per image — or let us match a reference. We tailor the furniture, materials and palette to fit the chosen direction. Tap a card to browse multiple examples per style."
-          />
-          <StyleGallerySection />
-        </Wide>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          G. PRICING CARDS  —  white
-          3-col desktop / 2-col tablet / 1-col mobile.
-          Navy card for base, white cards for add-ons.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Pricing"
@@ -559,6 +373,154 @@ export default async function VirtualStagingPage() {
               <ArrowRight className="w-4 h-4" aria-hidden />
             </Link>
           </div>
+        </Wide>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════
+          E. WHAT IT IS + EXAMPLES  —  white
+          Text block only on top (no right-side small cards).
+          The full-width examples grid appears directly below
+          the intro text inside the same section.
+          ═══════════════════════════════════════════════════════ */}
+      <section className="py-14 lg:py-20 bg-white">
+        <Wide>
+          {/* ── Intro copy — full width, no side cards ── */}
+          <div className="max-w-3xl mb-10 lg:mb-14">
+            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+              What it is
+            </p>
+            <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+              Furnished, market-ready images from empty rooms
+            </h2>
+            <p className="text-base lg:text-lg text-muted leading-relaxed mb-6">
+              We replace empty spaces with realistic furniture, decor, and
+              lighting. Each image is styled to match your target buyer and
+              listing positioning — residential or commercial.
+            </p>
+            <ul className="space-y-3">
+              {WHAT_IT_IS_BULLETS.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-center gap-3 text-sm lg:text-base text-foreground"
+                >
+                  <span
+                    aria-hidden
+                    className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"
+                  >
+                    <Check className="w-3 h-3 text-primary" />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* ── Full examples grid (2-col desktop, 1-col mobile) ──
+              Shown when portfolio items are uploaded. Falls back to
+              a single full-width placeholder so the section always
+              has visual weight even before any images are added. */}
+          {hasItems ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+              {allItems.map((item) => {
+                const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
+                const afterUrl = getPortfolioPublicUrl(item.after_image_path);
+                return (
+                  <article
+                    key={item.id}
+                    className="group bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
+                  >
+                    {/* 5:2 wide aspect — same as homepage service grid */}
+                    <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
+                      <BeforeAfterFrame
+                        beforeUrl={beforeUrl}
+                        afterUrl={afterUrl}
+                        beforeAlt={item.before_alt ?? `${item.title} — before`}
+                        afterAlt={item.after_alt ?? `${item.title} — after`}
+                        placeholderVariant="virtual-staging"
+                      />
+                    </div>
+                    <div className="p-5 lg:p-6">
+                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
+                        {item.title}
+                      </h3>
+                      {item.description && (
+                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
+              <BeforeAfterFrame
+                beforeUrl={null}
+                afterUrl={null}
+                beforeAlt="Empty room before virtual staging"
+                afterAlt="Furnished room after virtual staging"
+                placeholderVariant="virtual-staging"
+              />
+            </div>
+          )}
+        </Wide>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════
+          F. BEFORE YOU ORDER  —  stone-50
+          ═══════════════════════════════════════════════════════ */}
+      <section className="py-14 lg:py-20 bg-stone-50">
+        <Wide>
+          <SectionLead
+            eyebrow="Before you order"
+            title="What we need from you"
+            description="Send us a clean photo of the empty room and a few details — we handle the rest."
+          />
+          <UploadRequirementsBlock
+            items={[
+              {
+                label: "Original room photo",
+                required: true,
+                hint: "JPG or PNG, well-lit, straight angle if possible",
+              },
+              {
+                label: "Room name / area",
+                required: true,
+                hint: "Living room, bedroom, kitchen, outdoor, etc.",
+              },
+              {
+                label: "Preferred furniture style",
+                required: true,
+                hint: "Pick from the 9 styles below",
+              },
+              {
+                label: "Reference image or link",
+                hint: "Optional — helps us match a specific look",
+              },
+              {
+                label: "Notes or instructions",
+                hint: "Special requests, focal points, items to keep / remove",
+              },
+            ]}
+            footnote="Required fields are marked *. Standard photo editing add-ons can be added during the order and apply to the same image."
+          />
+        </Wide>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════
+          G. STYLE OPTIONS  —  white
+          StyleGallerySection renders 9 horizontal cards (3-col
+          desktop, 2-col tablet, 1-col mobile) + lightbox.
+          ═══════════════════════════════════════════════════════ */}
+      <section className="py-14 lg:py-20 bg-white">
+        <Wide>
+          <SectionLead
+            eyebrow="Style options"
+            title="Choose the right look for your buyer"
+            description="Pick a single style per image — or let us match a reference. We tailor the furniture, materials and palette to fit the chosen direction. Tap a card to browse multiple examples per style."
+          />
+          <StyleGallerySection />
         </Wide>
       </section>
 
