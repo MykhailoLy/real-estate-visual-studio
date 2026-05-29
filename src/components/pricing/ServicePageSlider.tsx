@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ServicePlaceholder, {
   type ServiceVariant,
@@ -10,19 +10,15 @@ import { cn } from "@/lib/utils";
 // ============================================================
 // SERVICE PAGE HERO SLIDER
 //
-// Reusable variant of the homepage BeforeAfterShowcase designed
-// for individual service pages. Accepts an array of resolved
-// slides so the parent server component can inject real portfolio
-// items from Supabase; falls back to CSS ServicePlaceholder when
-// images are absent or Supabase is unconfigured.
+// Reusable before/after slider for individual service pages.
 //
-// Shape mirrors the homepage slider exactly — same aspect ratios,
-// same arrow / dot controls, same autoplay / pause / reduced-
-// motion behaviour — so the transition between the homepage and a
-// service page feels consistent.
-//
-// "use client" because autoplay and user-controlled navigation
-// require useState / useEffect.
+// Controls:
+//   - Arrow buttons (bare icons, no heavy white circle)
+//   - Dot indicator below
+//   - Touch/pointer swipe: swipe left → next, swipe right → prev.
+//     SWIPE_MIN_X prevents accidental slide changes. Vertical-
+//     dominant gestures are ignored so the page can still scroll.
+//   - Autoplay (paused on hover/focus, respects reduced-motion)
 // ============================================================
 
 export type ServicePageSlide =
@@ -43,13 +39,13 @@ export type ServicePageSlide =
 
 interface Props {
   slides: ServicePageSlide[];
-  /** Autoplay interval in ms. Defaults to 5 500. */
   autoplayMs?: number;
-  /** ARIA label for the carousel region. */
   ariaLabel?: string;
 }
 
 const AUTOPLAY_MS = 5_500;
+const SWIPE_MIN_X = 40;
+const SWIPE_MAX_RATIO = 1.2;
 
 export default function ServicePageSlider({
   slides,
@@ -62,12 +58,11 @@ export default function ServicePageSlider({
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
-  // Clamp idx at render time — avoids setState-in-effect when the
-  // slide list changes size between server and client.
   const idx = total > 0 ? rawIdx % total : 0;
 
-  // Subscribe to prefers-reduced-motion. Synchronous check on
-  // mount + listener for live changes.
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+
+  // prefers-reduced-motion
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -77,8 +72,7 @@ export default function ServicePageSlider({
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  // Autoplay timer re-armed on every slide change so dwell time is
-  // consistent regardless of how navigation happened.
+  // Autoplay
   useEffect(() => {
     if (paused || reducedMotion || total <= 1) return;
     const t = window.setTimeout(
@@ -95,6 +89,32 @@ export default function ServicePageSlider({
   const goPrev = () => setRawIdx((i) => (i - 1 + total) % total);
   const goNext = () => setRawIdx((i) => (i + 1) % total);
 
+  // ── Swipe handlers ──────────────────────────────────────────
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!e.isPrimary) return;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!e.isPrimary || !dragStart.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    dragStart.current = null;
+
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+
+    if (adx < SWIPE_MIN_X) return;
+    if (ady > adx * SWIPE_MAX_RATIO) return;
+
+    if (dx < 0) goNext();
+    else goPrev();
+  };
+
+  const handlePointerCancel = () => {
+    dragStart.current = null;
+  };
+
   return (
     <div
       className="relative w-full"
@@ -107,9 +127,13 @@ export default function ServicePageSlider({
       aria-label={ariaLabel}
     >
       {/* ── Slide stage ── */}
-      {/* Aspect ratios match the homepage banner exactly so the
-          slider reads as the same design element. */}
-      <div className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]">
+      <div
+        className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        style={{ userSelect: "none", WebkitUserSelect: "none" }}
+      >
         {slides.map((slide, i) => (
           <div
             key={slide.id}
@@ -136,23 +160,36 @@ export default function ServicePageSlider({
           </div>
         ))}
 
+        {/* ── Arrow controls — bare icons, no white circle ── */}
         {showNav && (
           <>
             <button
               type="button"
               onClick={goPrev}
               aria-label="Previous slide"
-              className="absolute left-3 lg:left-5 top-1/2 -translate-y-1/2 w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-white/95 text-foreground hover:text-primary hover:bg-white shadow-lg flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
+              className={cn(
+                "absolute left-2 lg:left-4 top-1/2 -translate-y-1/2",
+                "w-11 h-11 flex items-center justify-center",
+                "text-white/80 hover:text-white",
+                "drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]",
+                "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent rounded"
+              )}
             >
-              <ChevronLeft className="w-5 h-5 lg:w-6 lg:h-6" aria-hidden />
+              <ChevronLeft className="w-7 h-7 lg:w-8 lg:h-8" strokeWidth={2.2} aria-hidden />
             </button>
             <button
               type="button"
               onClick={goNext}
               aria-label="Next slide"
-              className="absolute right-3 lg:right-5 top-1/2 -translate-y-1/2 w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-white/95 text-foreground hover:text-primary hover:bg-white shadow-lg flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
+              className={cn(
+                "absolute right-2 lg:right-4 top-1/2 -translate-y-1/2",
+                "w-11 h-11 flex items-center justify-center",
+                "text-white/80 hover:text-white",
+                "drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]",
+                "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent rounded"
+              )}
             >
-              <ChevronRight className="w-5 h-5 lg:w-6 lg:h-6" aria-hidden />
+              <ChevronRight className="w-7 h-7 lg:w-8 lg:h-8" strokeWidth={2.2} aria-hidden />
             </button>
           </>
         )}
@@ -189,10 +226,6 @@ export default function ServicePageSlider({
     </div>
   );
 }
-
-// ── Real before/after image pair ──────────────────────────────
-// Plain <img> for Supabase Storage URLs — avoids needing
-// next.config remotePatterns and is fine for admin-uploaded JPGs.
 
 function RealSlide({
   beforeUrl,
@@ -233,7 +266,7 @@ function RealSlide({
         />
       </div>
 
-      {/* Centerline divider — same affordance as ServicePlaceholder */}
+      {/* Centerline divider */}
       <div
         aria-hidden
         className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[3px] bg-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.06)]"
