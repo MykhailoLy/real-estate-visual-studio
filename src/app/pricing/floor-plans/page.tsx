@@ -16,28 +16,38 @@ import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
-import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
 import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
 import {
   getServiceHeroSliderItems,
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
+import {
+  PortfolioExamplesGrid,
+  StyleOptionsGrid,
+  type PortfolioExampleCard,
+  type StyleOptionCard,
+} from "./FloorPlansInteractive";
 
 // ============================================================
 // /pricing/floor-plans  —  Floor Plans service page
 //
-// Section order and background rhythm (mirrors Virtual Staging):
+// Section order and background rhythm:
 //
-//   A  Hero slider               white   (near-edge, homepage style)
+//   A  Hero slider               white   (service-hero media only)
 //   B  When to use               stone-50
 //   C  Pricing intro             white
-//   D  What it is + examples     stone-50
+//   D  What it is + examples     stone-50  (portfolio_items only)
 //   E  Before you order          white
-//   F  Plan options              stone-50
+//   F  Style options             stone-50  (service-options media)
 //   G  Pricing cards             white
 //   H  FAQ                       stone-50
-//   I  Final CTA                 navy  (ServiceCTA)
+//   I  Final CTA                 navy
+//
+// Media sources:
+//   A  → /admin/media, section=service-hero, service_slug=floor-plans
+//   D  → /admin/portfolio, service_slug=floor-plans
+//   F  → /admin/media, section=service-options, service_slug=floor-plans
 // ============================================================
 
 export const metadata: Metadata = {
@@ -45,7 +55,6 @@ export const metadata: Metadata = {
   description:
     "Professional 2D and 3D floor plans from US$16 per floor. Send a sketch, scan, PDF, or measurements and receive clean, listing-ready floor plans in JPG and PDF.",
 };
-
 
 // ── Static data ──────────────────────────────────────────────
 
@@ -83,73 +92,90 @@ const WHAT_IT_IS_BULLETS = [
   "Listing-ready JPG/PDF delivery",
 ] as const;
 
-const PLAN_OPTIONS = [
+/**
+ * Fallback style option cards used when no admin service-options
+ * items are uploaded. Named as visual styles, not plan types, so
+ * the section communicates presentation direction rather than
+ * technical output format (2D/3D/etc.).
+ *
+ * The plan type examples (2D, 3D, furnished, site plan…) belong
+ * in /admin/portfolio where they will appear in the "What it is"
+ * section instead.
+ */
+const FALLBACK_STYLE_OPTIONS: StyleOptionCard[] = [
   {
-    title: "2D Black & White Plan",
-    description:
-      "Clean, simple layout for standard real estate listings with clear room labels and dimensions.",
-    visual: "bw" as const,
+    sortOrder: 1,
+    title: "Modern",
+    description: "Clean lines, neutral tones, and open layouts for contemporary listings.",
+    imageUrl: null,
+    imageAlt: "Modern floor plan style",
+    placeholderVariant: "modern",
   },
   {
-    title: "2D Color Plan",
-    description:
-      "A more visual plan with color zones and clearer room separation for marketing materials.",
-    visual: "color" as const,
+    sortOrder: 2,
+    title: "Scandinavian",
+    description: "Soft whites, natural materials, and minimal styling for calm Nordic spaces.",
+    imageUrl: null,
+    imageAlt: "Scandinavian floor plan style",
+    placeholderVariant: "scandinavian",
   },
   {
-    title: "2D Furnished Plan",
-    description:
-      "Adds furniture symbols to help buyers understand scale, layout, and room flow.",
-    visual: "furnished" as const,
+    sortOrder: 3,
+    title: "Minimal",
+    description: "Stripped-back, highly legible plan with maximum whitespace and clarity.",
+    imageUrl: null,
+    imageAlt: "Minimal floor plan style",
+    placeholderVariant: "minimal",
   },
   {
-    title: "3D Floor Plan",
-    description:
-      "A more visual 3D layout for premium listings, brochures, and property presentations.",
-    visual: "3d" as const,
+    sortOrder: 4,
+    title: "Classic",
+    description: "Warm tones, measured proportions, and a timeless presentation feel.",
+    imageUrl: null,
+    imageAlt: "Classic floor plan style",
+    placeholderVariant: "classic",
   },
   {
-    title: "Site / Development Plan",
-    description:
-      "Useful for land, development, multi-unit projects, plot layouts, and amenity presentation.",
-    visual: "site" as const,
+    sortOrder: 5,
+    title: "Luxury",
+    description: "Dark, premium presentation with bold contrast and polished detail.",
+    imageUrl: null,
+    imageAlt: "Luxury floor plan style",
+    placeholderVariant: "luxury",
   },
   {
-    title: "Interactive-Ready Plan",
-    description:
-      "Prepared for future interactive floor plan, virtual tour, or listing media integrations.",
-    visual: "interactive" as const,
+    sortOrder: 6,
+    title: "Editorial",
+    description: "Styled for brochures and marketing — typographic, layered, and refined.",
+    imageUrl: null,
+    imageAlt: "Editorial floor plan style",
+    placeholderVariant: "editorial",
   },
   {
-    title: "2D Plan With Dimensions",
-    description:
-      "A clean measured plan focused on room sizes, dimensions, and practical buyer clarity.",
-    visual: "dimensions" as const,
+    sortOrder: 7,
+    title: "Clean B&W",
+    description: "High-contrast black-and-white output, ideal for print and MLS listings.",
+    imageUrl: null,
+    imageAlt: "Clean black and white floor plan style",
+    placeholderVariant: "clean-bw",
   },
   {
-    title: "Marketing Floor Plan",
-    description:
-      "A polished presentation plan designed for brochures, websites, and listing packages.",
-    visual: "marketing" as const,
+    sortOrder: 8,
+    title: "Soft Color",
+    description: "Pastel colour zones with a warm, welcoming residential character.",
+    imageUrl: null,
+    imageAlt: "Soft color floor plan style",
+    placeholderVariant: "soft-color",
   },
   {
-    title: "Multi-Level Floor Plan",
-    description:
-      "Best for houses, duplexes, and properties where multiple floors need to be shown clearly.",
-    visual: "multilevel" as const,
+    sortOrder: 9,
+    title: "Presentation Style",
+    description: "Designed for client presentations, websites, and listing packages.",
+    imageUrl: null,
+    imageAlt: "Presentation floor plan style",
+    placeholderVariant: "presentation",
   },
-] as const;
-
-type PlanVisualVariant =
-  | "bw"
-  | "color"
-  | "furnished"
-  | "3d"
-  | "site"
-  | "interactive"
-  | "dimensions"
-  | "marketing"
-  | "multilevel";
+];
 
 const PRICING_CARDS = [
   {
@@ -219,8 +245,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     question: "Can you update an existing plan?",
-    answer:
-      "Yes. Send the current plan and mark the changes you need.",
+    answer: "Yes. Send the current plan and mark the changes you need.",
   },
   {
     question: "What format will I receive?",
@@ -239,207 +264,13 @@ const FAQ_ITEMS: FaqItem[] = [
   },
 ];
 
-
-// ── Plan option visual placeholders ──────────────────────────
-
-function PlanOptionVisual({ variant }: { variant: PlanVisualVariant }) {
-  // Each variant uses pure CSS to suggest the style category.
-  // Real images can replace these once the admin uploads media.
-  switch (variant) {
-    case "bw":
-      return (
-        <div className="absolute inset-0 bg-white">
-          <div
-            className="absolute inset-0 opacity-20"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(15,36,64,0.15) 1px,transparent 1px),linear-gradient(90deg,rgba(15,36,64,0.15) 1px,transparent 1px)",
-              backgroundSize: "20px 20px",
-            }}
-          />
-          <div className="absolute inset-x-10 inset-y-6 border-2 border-stone-700 rounded-sm">
-            <div className="absolute top-1/2 left-0 right-1/3 h-0.5 bg-stone-600" />
-            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-stone-600" />
-            <div className="absolute right-1/3 top-0 h-1/2 w-0.5 bg-stone-600" />
-          </div>
-        </div>
-      );
-    case "color":
-      return (
-        <div className="absolute inset-0 bg-stone-50">
-          <div className="absolute inset-x-10 inset-y-6 border-2 border-primary/40 rounded-sm grid grid-cols-3 grid-rows-2 gap-0.5 p-0.5">
-            <div className="bg-amber-100/80" />
-            <div className="bg-stone-200/80" />
-            <div className="bg-emerald-100/70" />
-            <div className="bg-sky-100/70" />
-            <div className="bg-rose-100/70" />
-            <div className="bg-stone-100" />
-          </div>
-        </div>
-      );
-    case "furnished":
-      return (
-        <div className="absolute inset-0 bg-stone-50">
-          <div className="absolute inset-x-10 inset-y-6 border-2 border-primary/40 rounded-sm p-1">
-            <div className="w-full h-full grid grid-cols-3 grid-rows-2 gap-0.5">
-              <div className="relative bg-amber-50 border border-amber-200/60">
-                <div className="absolute inset-1 border border-amber-300/50 rounded-sm" />
-              </div>
-              <div className="relative bg-stone-100 border border-stone-200">
-                <div className="absolute bottom-1 left-1 right-1 h-1.5 bg-stone-300/60 rounded-sm" />
-              </div>
-              <div className="relative bg-emerald-50 border border-emerald-200/60">
-                <div className="absolute inset-1.5 border border-emerald-300/40 rounded-full" />
-              </div>
-              <div className="bg-sky-50 border border-sky-200/50" />
-              <div className="relative bg-rose-50 border border-rose-200/50">
-                <div className="absolute inset-1 border border-rose-200/40 rounded-sm" />
-              </div>
-              <div className="bg-stone-100 border border-stone-200" />
-            </div>
-          </div>
-        </div>
-      );
-    case "3d":
-      return (
-        <div className="absolute inset-0 bg-gradient-to-br from-stone-100 via-amber-50 to-stone-200 flex items-center justify-center">
-          <div
-            className="w-3/5 aspect-[4/3] bg-white border border-primary/25 shadow-md rounded-sm grid grid-cols-3 grid-rows-2"
-            style={{ transform: "perspective(700px) rotateX(46deg) rotateZ(-10deg)" }}
-          >
-            <div className="border-r border-b border-primary/15 bg-amber-50/60" />
-            <div className="border-r border-b border-primary/15 bg-stone-50" />
-            <div className="border-b border-primary/15 bg-emerald-50/50" />
-            <div className="border-r border-primary/15 bg-sky-50/60" />
-            <div className="border-r border-primary/15 bg-rose-50/50" />
-            <div className="bg-stone-100" />
-          </div>
-        </div>
-      );
-    case "site":
-      return (
-        <div className="absolute inset-0 bg-emerald-50/40">
-          <div
-            className="absolute inset-0 opacity-30"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(52,211,153,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(52,211,153,0.2) 1px,transparent 1px)",
-              backgroundSize: "24px 24px",
-            }}
-          />
-          <div className="absolute inset-8 border-2 border-emerald-500/40 rounded-sm">
-            <div className="absolute inset-2 border border-primary/20 rounded-sm bg-stone-100/50" />
-            <div className="absolute top-1/3 left-1/4 w-1/2 h-1/3 border border-primary/30 bg-amber-50/60" />
-          </div>
-        </div>
-      );
-    case "interactive":
-      return (
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-50 to-indigo-50/50">
-          <div className="absolute inset-x-10 inset-y-6 border-2 border-sky-400/30 rounded-sm grid grid-cols-3 grid-rows-2 gap-0.5 p-0.5">
-            <div className="bg-sky-100/70 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-sky-400/60" />
-            </div>
-            <div className="bg-indigo-50/70 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-indigo-400/60" />
-            </div>
-            <div className="bg-sky-50/70 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-sky-300/60" />
-            </div>
-            <div className="bg-indigo-100/70" />
-            <div className="bg-sky-100/60" />
-            <div className="bg-indigo-50/70 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-indigo-300/60" />
-            </div>
-          </div>
-        </div>
-      );
-    case "dimensions":
-      return (
-        <div className="absolute inset-0 bg-white">
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(15,36,64,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(15,36,64,0.2) 1px,transparent 1px)",
-              backgroundSize: "16px 16px",
-            }}
-          />
-          <div className="absolute inset-x-10 inset-y-5 border-2 border-stone-700 rounded-sm">
-            <div className="absolute top-1/2 left-0 right-1/3 h-0.5 bg-stone-600" />
-            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-stone-600" />
-            {/* Dimension tick marks */}
-            <div className="absolute -top-3 left-0 right-0 flex justify-between px-1">
-              <div className="w-0.5 h-3 bg-stone-500" />
-              <div className="w-0.5 h-3 bg-stone-500" />
-            </div>
-            <div className="absolute top-0 bottom-0 -left-3 flex flex-col justify-between py-1">
-              <div className="h-0.5 w-3 bg-stone-500" />
-              <div className="h-0.5 w-3 bg-stone-500" />
-            </div>
-          </div>
-        </div>
-      );
-    case "marketing":
-      return (
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-stone-50 to-rose-50/40">
-          <div className="absolute inset-x-8 inset-y-4 border-2 border-primary/30 rounded-sm shadow-sm">
-            <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-px p-px">
-              <div className="bg-amber-100/60 rounded-sm" />
-              <div className="bg-stone-100/80 rounded-sm" />
-              <div className="bg-rose-100/50 rounded-sm" />
-              <div className="bg-sky-100/50 rounded-sm" />
-              <div className="bg-amber-50/80 rounded-sm" />
-              <div className="bg-emerald-100/50 rounded-sm" />
-            </div>
-          </div>
-          {/* Decorative brand stripe */}
-          <div className="absolute bottom-0 inset-x-0 h-1.5 bg-gradient-to-r from-primary/30 via-secondary/40 to-primary/30" />
-        </div>
-      );
-    case "multilevel":
-      return (
-        <div className="absolute inset-0 bg-stone-50 flex items-center justify-center gap-2">
-          {/* Two stacked floor plates suggesting multiple levels */}
-          <div className="flex flex-col gap-1.5 items-center">
-            <div className="w-28 h-12 border-2 border-primary/40 rounded-sm bg-stone-100/80 relative">
-              <div className="absolute top-1/2 left-0 right-2/5 h-0.5 bg-primary/25" />
-              <div className="absolute left-2/5 top-0 bottom-0 w-0.5 bg-primary/25" />
-              <span className="absolute top-1 right-1.5 text-[7px] font-bold tracking-widest uppercase text-muted/70">
-                GF
-              </span>
-            </div>
-            <div className="w-0.5 h-2 bg-stone-300" />
-            <div className="w-24 h-10 border-2 border-secondary/40 rounded-sm bg-amber-50/60 relative">
-              <div className="absolute top-1/2 left-0 right-1/3 h-0.5 bg-secondary/30" />
-              <span className="absolute top-1 right-1.5 text-[7px] font-bold tracking-widest uppercase text-muted/70">
-                1F
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-  }
-}
-
-
 // ── Data helpers ─────────────────────────────────────────────
 
 /**
  * Build slides for the hero slider.
- *
- * Source: ONLY site_media_items where section="service-hero",
- *   service_slug="floor-plans", media_type="before-after"
- *   (managed via /admin/media → Section: Service hero).
- *
- * Intentionally does NOT fall back to portfolio_items so the top
- * hero slider and the "What it is" example cards are completely
- * independent content surfaces:
- *   - Hero slider  → /admin/media  (service-hero / floor-plans)
- *   - Examples     → /admin/portfolio  (floor-plans items)
- *
- * If no service-hero items are uploaded yet, falls back to the
- * CSS ServicePlaceholder so the page always renders cleanly.
+ * Source: ONLY site_media_items (section=service-hero, floor-plans).
+ * No portfolio fallback — keeps hero slider and examples grids
+ * independently managed.
  */
 async function buildSliderSlides(): Promise<ServicePageSlide[]> {
   const heroMedia = await getServiceHeroSliderItems("floor-plans");
@@ -457,36 +288,56 @@ async function buildSliderSlides(): Promise<ServicePageSlide[]> {
       title: item.title ?? undefined,
     }));
   }
-  // CSS placeholder — no portfolio fallback.
   return [{ kind: "placeholder", id: "fp-fallback", variant: "floor-plans" }];
 }
 
 // ── Page ─────────────────────────────────────────────────────
 
 export default async function FloorPlansPage() {
-  // portfolio_items drives ONLY the "What it is" examples grid.
-  // The hero slider and plan option cards use site_media_items.
   const [allItems, optionImages, sliderSlides] = await Promise.all([
-    getPublishedItemsForService("floor-plans"),
-    getServiceOptionsImages("floor-plans"),
-    buildSliderSlides(),
+    getPublishedItemsForService("floor-plans"),   // → section D (examples)
+    getServiceOptionsImages("floor-plans"),        // → section F (style options)
+    buildSliderSlides(),                           // → section A (hero slider)
   ]);
-  const hasItems = allItems.length > 0;
 
-  // Build a map: sort_order → resolved public URL for plan option cards.
-  // sort_order 1..9 maps directly to PLAN_OPTIONS index 0..8.
-  const optionImageMap = new Map<number, string>();
-  for (const img of optionImages) {
-    if (img.sort_order > 0 && img.image_path) {
-      const url = getSiteMediaPublicUrl(img.image_path);
-      if (url) optionImageMap.set(img.sort_order, url);
-    }
+  // ── Resolve portfolio example cards ────────────────────────
+  const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => ({
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    beforeUrl: getPortfolioPublicUrl(item.before_image_path),
+    afterUrl: getPortfolioPublicUrl(item.after_image_path),
+    beforeAlt: item.before_alt ?? `${item.title} — before`,
+    afterAlt: item.after_alt ?? `${item.title} — after`,
+  }));
+
+  // ── Resolve style option cards ──────────────────────────────
+  // If admin has uploaded service-options items, use them fully
+  // (title, description, image all from the DB row).
+  // Otherwise fall back to the hardcoded FALLBACK_STYLE_OPTIONS which
+  // present visual styles rather than technical plan types.
+  let styleOptionCards: StyleOptionCard[];
+
+  if (optionImages.length > 0) {
+    // Admin-managed: use DB title/description/image.
+    styleOptionCards = optionImages.map((item) => ({
+      sortOrder: item.sort_order,
+      title: item.title ?? `Style ${item.sort_order}`,
+      description: item.description ?? "",
+      imageUrl: getSiteMediaPublicUrl(item.image_path),
+      imageAlt: item.alt_text ?? item.title ?? `Floor plan style ${item.sort_order}`,
+      placeholderVariant: "modern", // not shown when imageUrl is set
+    }));
+  } else {
+    // CSS placeholder fallback.
+    styleOptionCards = FALLBACK_STYLE_OPTIONS;
   }
 
   return (
     <>
       {/* ═══════════════════════════════════════════════════════
           A. HERO SLIDER  —  white / near-edge
+          Source: /admin/media → service-hero / floor-plans
           ═══════════════════════════════════════════════════════ */}
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
@@ -574,6 +425,8 @@ export default async function FloorPlansPage() {
 
       {/* ═══════════════════════════════════════════════════════
           D. WHAT IT IS + EXAMPLES  —  stone-50
+          Source: /admin/portfolio → floor-plans
+          Clicking image cards opens a lightbox (PortfolioExamplesGrid).
           ═══════════════════════════════════════════════════════ */}
       <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
@@ -608,50 +461,8 @@ export default async function FloorPlansPage() {
             </ul>
           </div>
 
-          {hasItems ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-              {allItems.map((item) => {
-                const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
-                const afterUrl = getPortfolioPublicUrl(item.after_image_path);
-                return (
-                  <article
-                    key={item.id}
-                    className="group bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
-                  >
-                    <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
-                      <BeforeAfterFrame
-                        beforeUrl={beforeUrl}
-                        afterUrl={afterUrl}
-                        beforeAlt={item.before_alt ?? `${item.title} — before`}
-                        afterAlt={item.after_alt ?? `${item.title} — after`}
-                        placeholderVariant="floor-plans"
-                      />
-                    </div>
-                    <div className="p-5 lg:p-6">
-                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                        {item.title}
-                      </h3>
-                      {item.description && (
-                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
-              <BeforeAfterFrame
-                beforeUrl={null}
-                afterUrl={null}
-                beforeAlt="Sketch before floor plan redraw"
-                afterAlt="Clean floor plan after redraw"
-                placeholderVariant="floor-plans"
-              />
-            </div>
-          )}
+          {/* Client component — owns lightbox state for portfolio cards */}
+          <PortfolioExamplesGrid cards={portfolioCards} />
         </Wide>
       </section>
 
@@ -697,61 +508,25 @@ export default async function FloorPlansPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          F. PLAN OPTIONS  —  stone-50
-          9 cards: 3-col desktop / 2-col tablet / 1-col mobile.
-          16:9 horizontal visual area — matches the Visual Staging
-          style option cards. No lightbox, no badges.
+          F. STYLE OPTIONS  —  stone-50
+          Source: /admin/media → service-options / floor-plans
+          When no admin items exist, shows visual style fallbacks.
+          Clicking image cards opens a lightbox (StyleOptionsGrid).
           ═══════════════════════════════════════════════════════ */}
       <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
-            eyebrow="Plan options"
+            eyebrow="Style options"
             title="Choose the right floor plan style"
-            description="Select the floor plan format that best fits your listing, presentation, or marketing package."
+            description="Pick a visual style for your floor plan presentation — or send a reference and we'll match the look. Tap any card to view a larger example."
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
-            {PLAN_OPTIONS.map((opt, idx) => {
-              // sort_order is 1-based (1..9); idx is 0-based (0..8)
-              const adminImageUrl = optionImageMap.get(idx + 1) ?? null;
-              return (
-              <div
-                key={opt.title}
-                className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all"
-              >
-                {/* 16:9 horizontal visual area */}
-                <div className="relative aspect-video overflow-hidden bg-stone-100">
-                  {adminImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={adminImageUrl}
-                      alt={opt.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : (
-                    <PlanOptionVisual variant={opt.visual} />
-                  )}
-                </div>
-                <div className="px-4 py-3.5 lg:px-5 lg:py-4">
-                  <h3 className="text-sm lg:text-base font-bold text-primary tracking-tight leading-tight">
-                    {opt.title}
-                  </h3>
-                  <p className="text-xs text-muted mt-0.5 leading-relaxed line-clamp-2">
-                    {opt.description}
-                  </p>
-                </div>
-              </div>
-              );
-            })}
-          </div>
+          {/* Client component — owns lightbox state for style option cards */}
+          <StyleOptionsGrid cards={styleOptionCards} />
         </Wide>
       </section>
 
       {/* ═══════════════════════════════════════════════════════
           G. PRICING CARDS  —  white
-          3-col desktop / 2-col tablet / 1-col mobile.
-          Navy card for the base plan, white cards for others.
           ═══════════════════════════════════════════════════════ */}
       <section className="py-14 lg:py-20 bg-white">
         <Wide>
