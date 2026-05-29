@@ -21,10 +21,10 @@ import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfo
 //   A  Hero slider               white   (near-edge, homepage style)
 //   B  When to use               stone-50  (tight spacing after slider)
 //   C  Pricing intro             white
-//   D  Pricing cards             stone-50  (immediately after intro)
-//   E  What it is + examples     white     (text-only intro, then grid)
-//   F  Before you order          stone-50
-//   G  Style options             white
+//   D  What it is + examples     stone-50  (text-only intro, then grid)
+//   E  Before you order          white
+//   F  Style options             stone-50
+//   G  Pricing cards             white     (after style options)
 //   H  FAQ                       stone-50
 //   I  Final CTA                 navy  (ServiceCTA)
 //
@@ -296,93 +296,12 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          D. PRICING CARDS  —  stone-50
-          Placed directly after the intro so the price information
-          is immediately visible. 3-col desktop / 2-col tablet /
-          1-col mobile. Navy card for base, white cards for add-ons.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
-        <Wide>
-          <SectionLead
-            eyebrow="Pricing"
-            title="Base price + optional add-ons"
-            description="Start with the base virtual staging price per image. Combine any add-ons you need for the same image — they stack on top of the base price."
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
-            {PRICING_CARDS.map((card) => (
-              <div
-                key={card.label}
-                className={`rounded-2xl border p-6 lg:p-7 flex flex-col gap-3 ${
-                  card.isBase
-                    ? "bg-primary border-primary text-white shadow-lg"
-                    : "bg-white border-stone-200 shadow-sm hover:border-primary/25 hover:shadow-md transition-all"
-                }`}
-              >
-                {card.isBase && (
-                  <span className="self-start inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold tracking-[0.18em] uppercase">
-                    Base Price
-                  </span>
-                )}
-                <div>
-                  <p
-                    className={`text-2xl lg:text-3xl font-bold tracking-tight ${
-                      card.isBase ? "text-white" : "text-primary"
-                    }`}
-                  >
-                    {card.price}
-                  </p>
-                  <p
-                    className={`text-xs font-medium mt-0.5 ${
-                      card.isBase ? "text-white/70" : "text-muted"
-                    }`}
-                  >
-                    {card.unit}
-                  </p>
-                </div>
-                <div>
-                  <p
-                    className={`text-sm lg:text-base font-semibold leading-tight ${
-                      card.isBase ? "text-white" : "text-foreground"
-                    }`}
-                  >
-                    {card.label}
-                  </p>
-                  <p
-                    className={`text-xs lg:text-sm mt-1 leading-relaxed ${
-                      card.isBase ? "text-white/75" : "text-muted"
-                    }`}
-                  >
-                    {card.note}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-6 text-xs lg:text-sm text-muted leading-relaxed max-w-2xl">
-            Add-ons are per image and stack on top of the base virtual staging
-            price. Multiple add-ons can be combined on the same image.
-          </p>
-
-          <div className="mt-8">
-            <Link
-              href="/order/virtual-staging"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
-            >
-              Order Virtual Staging
-              <ArrowRight className="w-4 h-4" aria-hidden />
-            </Link>
-          </div>
-        </Wide>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          E. WHAT IT IS + EXAMPLES  —  white
+          D. WHAT IT IS + EXAMPLES  —  stone-50
           Text block only on top (no right-side small cards).
           The full-width examples grid appears directly below
           the intro text inside the same section.
           ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
           {/* ── Intro copy — full width, no side cards ── */}
           <div className="max-w-3xl mb-10 lg:mb-14">
@@ -468,9 +387,9 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          F. BEFORE YOU ORDER  —  stone-50
+          E. BEFORE YOU ORDER  —  white
           ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section className="py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Before you order"
@@ -509,11 +428,11 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          G. STYLE OPTIONS  —  white
+          F. STYLE OPTIONS  —  stone-50
           StyleGallerySection renders 9 horizontal cards (3-col
           desktop, 2-col tablet, 1-col mobile) + lightbox.
           ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Style options"
@@ -521,6 +440,88 @@ export default async function VirtualStagingPage() {
             description="Pick a single style per image — or let us match a reference. We tailor the furniture, materials and palette to fit the chosen direction. Tap a card to browse multiple examples per style."
           />
           <StyleGallerySection />
+        </Wide>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════
+          G. PRICING CARDS  —  white
+          3-col desktop / 2-col tablet / 1-col mobile.
+          Navy card for base, white cards for add-ons.
+          Placed after Style options so users have seen all
+          available styles before reviewing the price breakdown.
+          ═══════════════════════════════════════════════════════ */}
+      <section className="py-14 lg:py-20 bg-white">
+        <Wide>
+          <SectionLead
+            eyebrow="Pricing"
+            title="Base price + optional add-ons"
+            description="Start with the base virtual staging price per image. Combine any add-ons you need for the same image — they stack on top of the base price."
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
+            {PRICING_CARDS.map((card) => (
+              <div
+                key={card.label}
+                className={`rounded-2xl border p-6 lg:p-7 flex flex-col gap-3 ${
+                  card.isBase
+                    ? "bg-primary border-primary text-white shadow-lg"
+                    : "bg-white border-stone-200 shadow-sm hover:border-primary/25 hover:shadow-md transition-all"
+                }`}
+              >
+                {card.isBase && (
+                  <span className="self-start inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold tracking-[0.18em] uppercase">
+                    Base Price
+                  </span>
+                )}
+                <div>
+                  <p
+                    className={`text-2xl lg:text-3xl font-bold tracking-tight ${
+                      card.isBase ? "text-white" : "text-primary"
+                    }`}
+                  >
+                    {card.price}
+                  </p>
+                  <p
+                    className={`text-xs font-medium mt-0.5 ${
+                      card.isBase ? "text-white/70" : "text-muted"
+                    }`}
+                  >
+                    {card.unit}
+                  </p>
+                </div>
+                <div>
+                  <p
+                    className={`text-sm lg:text-base font-semibold leading-tight ${
+                      card.isBase ? "text-white" : "text-foreground"
+                    }`}
+                  >
+                    {card.label}
+                  </p>
+                  <p
+                    className={`text-xs lg:text-sm mt-1 leading-relaxed ${
+                      card.isBase ? "text-white/75" : "text-muted"
+                    }`}
+                  >
+                    {card.note}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-6 text-xs lg:text-sm text-muted leading-relaxed max-w-2xl">
+            Add-ons are per image and stack on top of the base virtual staging
+            price. Multiple add-ons can be combined on the same image.
+          </p>
+
+          <div className="mt-8">
+            <Link
+              href="/order/virtual-staging"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
+            >
+              Order Virtual Staging
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Link>
+          </div>
         </Wide>
       </section>
 
