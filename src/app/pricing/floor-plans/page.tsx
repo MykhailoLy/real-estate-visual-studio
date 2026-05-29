@@ -20,6 +20,7 @@ import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
 import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
 import {
   getServiceHeroSliderItems,
+  getServiceOptionsImages,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 
@@ -425,31 +426,28 @@ function PlanOptionVisual({ variant }: { variant: PlanVisualVariant }) {
 // ── Data helpers ─────────────────────────────────────────────
 
 /**
- * Build slides for the hero slider with the following priority:
+ * Build slides for the hero slider.
  *
- *   1. site_media_items where section="service-hero",
- *      service_slug="floor-plans", media_type="before-after"
- *      → managed via /admin/media, independent from portfolio
+ * Source: ONLY site_media_items where section="service-hero",
+ *   service_slug="floor-plans", media_type="before-after"
+ *   (managed via /admin/media → Section: Service hero).
  *
- *   2. portfolio_items where service_slug="floor-plans"
- *      → fallback when no service-hero media has been uploaded yet
+ * Intentionally does NOT fall back to portfolio_items so the top
+ * hero slider and the "What it is" example cards are completely
+ * independent content surfaces:
+ *   - Hero slider  → /admin/media  (service-hero / floor-plans)
+ *   - Examples     → /admin/portfolio  (floor-plans items)
  *
- *   3. CSS placeholder
- *      → final fallback so the slider always renders
- *
- * This separation lets the admin control the top hero images
- * independently from the "What it is" portfolio example cards.
+ * If no service-hero items are uploaded yet, falls back to the
+ * CSS ServicePlaceholder so the page always renders cleanly.
  */
-async function buildSliderSlides(
-  portfolioItems: Awaited<ReturnType<typeof getPublishedItemsForService>>
-): Promise<ServicePageSlide[]> {
-  // ── Priority 1: site_media service-hero ──
+async function buildSliderSlides(): Promise<ServicePageSlide[]> {
   const heroMedia = await getServiceHeroSliderItems("floor-plans");
-  const heroUsable = heroMedia.filter(
+  const usable = heroMedia.filter(
     (it) => it.before_image_path && it.after_image_path
   );
-  if (heroUsable.length > 0) {
-    return heroUsable.map((item) => ({
+  if (usable.length > 0) {
+    return usable.map((item) => ({
       kind: "image" as const,
       id: item.id,
       beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
@@ -459,35 +457,31 @@ async function buildSliderSlides(
       title: item.title ?? undefined,
     }));
   }
-
-  // ── Priority 2: portfolio items ──
-  const portfolioUsable = portfolioItems
-    .filter((it) => it.before_image_path && it.after_image_path)
-    .slice(0, 5);
-  if (portfolioUsable.length > 0) {
-    return portfolioUsable.map((item) => ({
-      kind: "image" as const,
-      id: item.id,
-      beforeUrl: getPortfolioPublicUrl(item.before_image_path) ?? "",
-      afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
-      beforeAlt: item.before_alt ?? `${item.title} — before`,
-      afterAlt: item.after_alt ?? `${item.title} — after`,
-      title: item.title,
-    }));
-  }
-
-  // ── Priority 3: CSS placeholder ──
+  // CSS placeholder — no portfolio fallback.
   return [{ kind: "placeholder", id: "fp-fallback", variant: "floor-plans" }];
 }
 
 // ── Page ─────────────────────────────────────────────────────
 
 export default async function FloorPlansPage() {
-  // portfolio_items drives the "What it is" examples grid.
-  // The hero slider is built separately with service-hero priority.
-  const allItems = await getPublishedItemsForService("floor-plans");
-  const sliderSlides = await buildSliderSlides(allItems);
+  // portfolio_items drives ONLY the "What it is" examples grid.
+  // The hero slider and plan option cards use site_media_items.
+  const [allItems, optionImages, sliderSlides] = await Promise.all([
+    getPublishedItemsForService("floor-plans"),
+    getServiceOptionsImages("floor-plans"),
+    buildSliderSlides(),
+  ]);
   const hasItems = allItems.length > 0;
+
+  // Build a map: sort_order → resolved public URL for plan option cards.
+  // sort_order 1..9 maps directly to PLAN_OPTIONS index 0..8.
+  const optionImageMap = new Map<number, string>();
+  for (const img of optionImages) {
+    if (img.sort_order > 0 && img.image_path) {
+      const url = getSiteMediaPublicUrl(img.image_path);
+      if (url) optionImageMap.set(img.sort_order, url);
+    }
+  }
 
   return (
     <>
@@ -716,14 +710,28 @@ export default async function FloorPlansPage() {
             description="Select the floor plan format that best fits your listing, presentation, or marketing package."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
-            {PLAN_OPTIONS.map((opt) => (
+            {PLAN_OPTIONS.map((opt, idx) => {
+              // sort_order is 1-based (1..9); idx is 0-based (0..8)
+              const adminImageUrl = optionImageMap.get(idx + 1) ?? null;
+              return (
               <div
                 key={opt.title}
                 className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all"
               >
                 {/* 16:9 horizontal visual area */}
                 <div className="relative aspect-video overflow-hidden bg-stone-100">
-                  <PlanOptionVisual variant={opt.visual} />
+                  {adminImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={adminImageUrl}
+                      alt={opt.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <PlanOptionVisual variant={opt.visual} />
+                  )}
                 </div>
                 <div className="px-4 py-3.5 lg:px-5 lg:py-4">
                   <h3 className="text-sm lg:text-base font-bold text-primary tracking-tight leading-tight">
@@ -734,7 +742,8 @@ export default async function FloorPlansPage() {
                   </p>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </Wide>
       </section>
