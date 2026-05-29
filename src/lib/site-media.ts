@@ -269,6 +269,59 @@ export async function getAboutCollageItems(): Promise<SiteMediaItem[]> {
 }
 
 /**
+ * Service-hero before/after slider items for a specific service page.
+ *
+ * Reads from site_media_items where:
+ *   section      = "service-hero"
+ *   service_slug = <provided slug>
+ *   media_type   = "before-after"
+ *   published    = true
+ *
+ * Ordered by sort_order then created_at; limited to 5 slides so
+ * the hero slider never becomes unwieldy.
+ *
+ * Returns [] when Supabase is unconfigured — callers should fall
+ * back to portfolio_items or a CSS placeholder in that case.
+ *
+ * This is the preferred source for service-page hero sliders so
+ * the admin can manage hero imagery (/admin/media → service-hero)
+ * independently from the portfolio examples in the page body
+ * (/admin/portfolio).
+ */
+export async function getServiceHeroSliderItems(
+  serviceSlug: string
+): Promise<SiteMediaItem[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("site_media_items")
+    .select("*")
+    .eq("section", "service-hero")
+    .eq("service_slug", serviceSlug)
+    .eq("media_type", "before-after")
+    .eq("published", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(5);
+
+  if (error) {
+    console.warn(
+      `site-media: getServiceHeroSliderItems(${serviceSlug}) failed`,
+      error
+    );
+    return [];
+  }
+  return (data ?? []) as SiteMediaItem[];
+}
+
+/**
  * Admin read — every row, regardless of `published`. Sorted the
  * way the admin grid renders them (newest first within a
  * section).
