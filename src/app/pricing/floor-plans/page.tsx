@@ -18,6 +18,10 @@ import ServicePageSlider, {
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
 import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
+import {
+  getServiceHeroSliderItems,
+  getSiteMediaPublicUrl,
+} from "@/lib/site-media";
 
 // ============================================================
 // /pricing/floor-plans  —  Floor Plans service page
@@ -82,7 +86,7 @@ const PLAN_OPTIONS = [
   {
     title: "2D Black & White Plan",
     description:
-      "Clean, simple layout for standard real estate listings. Clear room labels and dimensions.",
+      "Clean, simple layout for standard real estate listings with clear room labels and dimensions.",
     visual: "bw" as const,
   },
   {
@@ -94,30 +98,57 @@ const PLAN_OPTIONS = [
   {
     title: "2D Furnished Plan",
     description:
-      "Layout with furniture symbols to help buyers understand scale and room flow.",
+      "Adds furniture symbols to help buyers understand scale, layout, and room flow.",
     visual: "furnished" as const,
   },
   {
     title: "3D Floor Plan",
     description:
-      "A more visual 3D layout for premium listings and marketing presentations.",
+      "A more visual 3D layout for premium listings, brochures, and property presentations.",
     visual: "3d" as const,
   },
   {
     title: "Site / Development Plan",
     description:
-      "Useful for land, development, or multi-unit presentation with plot boundaries and amenities.",
+      "Useful for land, development, multi-unit projects, plot layouts, and amenity presentation.",
     visual: "site" as const,
   },
   {
     title: "Interactive-Ready Plan",
     description:
-      "Prepared for future interactive floor plan or virtual tour integrations.",
+      "Prepared for future interactive floor plan, virtual tour, or listing media integrations.",
     visual: "interactive" as const,
+  },
+  {
+    title: "2D Plan With Dimensions",
+    description:
+      "A clean measured plan focused on room sizes, dimensions, and practical buyer clarity.",
+    visual: "dimensions" as const,
+  },
+  {
+    title: "Marketing Floor Plan",
+    description:
+      "A polished presentation plan designed for brochures, websites, and listing packages.",
+    visual: "marketing" as const,
+  },
+  {
+    title: "Multi-Level Floor Plan",
+    description:
+      "Best for houses, duplexes, and properties where multiple floors need to be shown clearly.",
+    visual: "multilevel" as const,
   },
 ] as const;
 
-type PlanVisualVariant = "bw" | "color" | "furnished" | "3d" | "site" | "interactive";
+type PlanVisualVariant =
+  | "bw"
+  | "color"
+  | "furnished"
+  | "3d"
+  | "site"
+  | "interactive"
+  | "dimensions"
+  | "marketing"
+  | "multilevel";
 
 const PRICING_CARDS = [
   {
@@ -322,37 +353,138 @@ function PlanOptionVisual({ variant }: { variant: PlanVisualVariant }) {
           </div>
         </div>
       );
+    case "dimensions":
+      return (
+        <div className="absolute inset-0 bg-white">
+          <div
+            className="absolute inset-0 opacity-10"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(15,36,64,0.2) 1px,transparent 1px),linear-gradient(90deg,rgba(15,36,64,0.2) 1px,transparent 1px)",
+              backgroundSize: "16px 16px",
+            }}
+          />
+          <div className="absolute inset-x-10 inset-y-5 border-2 border-stone-700 rounded-sm">
+            <div className="absolute top-1/2 left-0 right-1/3 h-0.5 bg-stone-600" />
+            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-stone-600" />
+            {/* Dimension tick marks */}
+            <div className="absolute -top-3 left-0 right-0 flex justify-between px-1">
+              <div className="w-0.5 h-3 bg-stone-500" />
+              <div className="w-0.5 h-3 bg-stone-500" />
+            </div>
+            <div className="absolute top-0 bottom-0 -left-3 flex flex-col justify-between py-1">
+              <div className="h-0.5 w-3 bg-stone-500" />
+              <div className="h-0.5 w-3 bg-stone-500" />
+            </div>
+          </div>
+        </div>
+      );
+    case "marketing":
+      return (
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-stone-50 to-rose-50/40">
+          <div className="absolute inset-x-8 inset-y-4 border-2 border-primary/30 rounded-sm shadow-sm">
+            <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-px p-px">
+              <div className="bg-amber-100/60 rounded-sm" />
+              <div className="bg-stone-100/80 rounded-sm" />
+              <div className="bg-rose-100/50 rounded-sm" />
+              <div className="bg-sky-100/50 rounded-sm" />
+              <div className="bg-amber-50/80 rounded-sm" />
+              <div className="bg-emerald-100/50 rounded-sm" />
+            </div>
+          </div>
+          {/* Decorative brand stripe */}
+          <div className="absolute bottom-0 inset-x-0 h-1.5 bg-gradient-to-r from-primary/30 via-secondary/40 to-primary/30" />
+        </div>
+      );
+    case "multilevel":
+      return (
+        <div className="absolute inset-0 bg-stone-50 flex items-center justify-center gap-2">
+          {/* Two stacked floor plates suggesting multiple levels */}
+          <div className="flex flex-col gap-1.5 items-center">
+            <div className="w-28 h-12 border-2 border-primary/40 rounded-sm bg-stone-100/80 relative">
+              <div className="absolute top-1/2 left-0 right-2/5 h-0.5 bg-primary/25" />
+              <div className="absolute left-2/5 top-0 bottom-0 w-0.5 bg-primary/25" />
+              <span className="absolute top-1 right-1.5 text-[7px] font-bold tracking-widest uppercase text-muted/70">
+                GF
+              </span>
+            </div>
+            <div className="w-0.5 h-2 bg-stone-300" />
+            <div className="w-24 h-10 border-2 border-secondary/40 rounded-sm bg-amber-50/60 relative">
+              <div className="absolute top-1/2 left-0 right-1/3 h-0.5 bg-secondary/30" />
+              <span className="absolute top-1 right-1.5 text-[7px] font-bold tracking-widest uppercase text-muted/70">
+                1F
+              </span>
+            </div>
+          </div>
+        </div>
+      );
   }
 }
 
 
 // ── Data helpers ─────────────────────────────────────────────
 
+/**
+ * Build slides for the hero slider with the following priority:
+ *
+ *   1. site_media_items where section="service-hero",
+ *      service_slug="floor-plans", media_type="before-after"
+ *      → managed via /admin/media, independent from portfolio
+ *
+ *   2. portfolio_items where service_slug="floor-plans"
+ *      → fallback when no service-hero media has been uploaded yet
+ *
+ *   3. CSS placeholder
+ *      → final fallback so the slider always renders
+ *
+ * This separation lets the admin control the top hero images
+ * independently from the "What it is" portfolio example cards.
+ */
 async function buildSliderSlides(
-  items: Awaited<ReturnType<typeof getPublishedItemsForService>>
+  portfolioItems: Awaited<ReturnType<typeof getPublishedItemsForService>>
 ): Promise<ServicePageSlide[]> {
-  const usable = items
-    .filter((it) => it.before_image_path && it.after_image_path)
-    .slice(0, 5);
-
-  if (usable.length === 0) {
-    return [{ kind: "placeholder", id: "fp-fallback", variant: "floor-plans" }];
+  // ── Priority 1: site_media service-hero ──
+  const heroMedia = await getServiceHeroSliderItems("floor-plans");
+  const heroUsable = heroMedia.filter(
+    (it) => it.before_image_path && it.after_image_path
+  );
+  if (heroUsable.length > 0) {
+    return heroUsable.map((item) => ({
+      kind: "image" as const,
+      id: item.id,
+      beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
+      afterUrl: getSiteMediaPublicUrl(item.after_image_path) ?? "",
+      beforeAlt: item.alt_text ?? item.title ?? "Floor plan — before",
+      afterAlt: item.alt_text ?? item.title ?? "Floor plan — after",
+      title: item.title ?? undefined,
+    }));
   }
 
-  return usable.map((item) => ({
-    kind: "image" as const,
-    id: item.id,
-    beforeUrl: getPortfolioPublicUrl(item.before_image_path) ?? "",
-    afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
-    beforeAlt: item.before_alt ?? `${item.title} — before`,
-    afterAlt: item.after_alt ?? `${item.title} — after`,
-    title: item.title,
-  }));
+  // ── Priority 2: portfolio items ──
+  const portfolioUsable = portfolioItems
+    .filter((it) => it.before_image_path && it.after_image_path)
+    .slice(0, 5);
+  if (portfolioUsable.length > 0) {
+    return portfolioUsable.map((item) => ({
+      kind: "image" as const,
+      id: item.id,
+      beforeUrl: getPortfolioPublicUrl(item.before_image_path) ?? "",
+      afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
+      beforeAlt: item.before_alt ?? `${item.title} — before`,
+      afterAlt: item.after_alt ?? `${item.title} — after`,
+      title: item.title,
+    }));
+  }
+
+  // ── Priority 3: CSS placeholder ──
+  return [{ kind: "placeholder", id: "fp-fallback", variant: "floor-plans" }];
 }
 
 // ── Page ─────────────────────────────────────────────────────
 
 export default async function FloorPlansPage() {
+  // portfolio_items drives the "What it is" examples grid.
+  // The hero slider is built separately with service-hero priority.
   const allItems = await getPublishedItemsForService("floor-plans");
   const sliderSlides = await buildSliderSlides(allItems);
   const hasItems = allItems.length > 0;
@@ -572,10 +704,9 @@ export default async function FloorPlansPage() {
 
       {/* ═══════════════════════════════════════════════════════
           F. PLAN OPTIONS  —  stone-50
-          6 cards: 3-col desktop / 2-col tablet / 1-col mobile.
-          Horizontal aspect (16:9) so the visual area is wide,
-          not tall — consistent with the Style options cards on
-          the Virtual Staging page.
+          9 cards: 3-col desktop / 2-col tablet / 1-col mobile.
+          16:9 horizontal visual area — matches the Visual Staging
+          style option cards. No lightbox, no badges.
           ═══════════════════════════════════════════════════════ */}
       <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
@@ -588,20 +719,17 @@ export default async function FloorPlansPage() {
             {PLAN_OPTIONS.map((opt) => (
               <div
                 key={opt.title}
-                className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
+                className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all"
               >
                 {/* 16:9 horizontal visual area */}
                 <div className="relative aspect-video overflow-hidden bg-stone-100">
                   <PlanOptionVisual variant={opt.visual} />
-                  <span className="absolute bottom-2.5 right-3 text-[9px] font-medium tracking-[0.15em] uppercase text-muted bg-white/85 backdrop-blur px-2 py-0.5 rounded-full">
-                    placeholder
-                  </span>
                 </div>
                 <div className="px-4 py-3.5 lg:px-5 lg:py-4">
                   <h3 className="text-sm lg:text-base font-bold text-primary tracking-tight leading-tight">
                     {opt.title}
                   </h3>
-                  <p className="text-xs text-muted mt-1 leading-relaxed">
+                  <p className="text-xs text-muted mt-0.5 leading-relaxed line-clamp-2">
                     {opt.description}
                   </p>
                 </div>
