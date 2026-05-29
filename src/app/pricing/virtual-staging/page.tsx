@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Check,
-  Home,
-  Sparkles,
-  Building2,
-  ImagePlus,
-} from "lucide-react";
+import { ArrowRight, Check, Home, Sparkles, Building2, ImagePlus } from "lucide-react";
 import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
 import StyleGallerySection from "@/components/pricing/StyleGallerySection";
@@ -16,33 +9,31 @@ import ServiceCTA from "@/components/pricing/ServiceCTA";
 import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
-import FaqAccordion, {
-  type FaqItem,
-} from "@/components/pricing/FaqAccordion";
+import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
-import {
-  getPortfolioPublicUrl,
-  getPublishedItemsForService,
-} from "@/lib/portfolio";
+import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
 
 // ============================================================
-// /pricing/virtual-staging — Full Service Page
+// /pricing/virtual-staging  —  Virtual Staging service page
 //
-// Section order (per spec):
-//   1. Top hero before/after slider
-//   2. When to use (4 use-case cards)
-//   3. Compact pricing hero (title, description, price, CTAs)
-//   4. What it is (copy + bullets, large examples below)
-//   5. Large 2-col portfolio examples grid
-//   6. Before you order (upload requirements)
-//   7. Style options (StyleGallerySection with lightbox)
-//   8. Pricing (3-col cards, not tables)
-//   9. FAQ (accordion)
-//  10. Final CTA (ServiceCTA)
+// Section order and background rhythm (fixed — never toggled
+// on data availability):
 //
-// The page is a server component so it can pull portfolio items
-// at request time. The slider and FAQ are thin "use client"
-// wrappers that receive pre-resolved data as props.
+//   A  Hero slider          white   (near-edge, homepage style)
+//   B  When to use          stone-50
+//   C  Pricing intro        white
+//   D  What it is + examples stone-50  (single merged section)
+//   E  Before you order     white
+//   F  Style options        stone-50
+//   G  Pricing cards        white
+//   H  FAQ                  stone-50
+//   I  Final CTA            navy  (ServiceCTA)
+//
+// Data loading:
+//   - getPublishedItemsForService returns [] when Supabase is
+//     unconfigured → page still builds/renders statically.
+//   - A single DB call fills both the slider (up to 5 slides)
+//     and the examples grid (all items).
 // ============================================================
 
 export const metadata: Metadata = {
@@ -78,6 +69,13 @@ const USE_CASES = [
     description:
       "Bring renders and unfinished spaces to life with realistic styling.",
   },
+] as const;
+
+const WHAT_IT_IS_BULLETS = [
+  "Photorealistic furniture and decor",
+  "Multiple interior styles to choose from",
+  "1 revision included",
+  "High-resolution JPG delivery in 24–48h",
 ] as const;
 
 const PRICING_CARDS = [
@@ -168,25 +166,17 @@ const FAQ_ITEMS: FaqItem[] = [
   },
 ];
 
-// ── Helpers ──────────────────────────────────────────────────
+// ── Data helpers ─────────────────────────────────────────────
 
-/** Build slider slides: real portfolio items (up to 5) or a
- *  single CSS placeholder fallback. */
-async function buildSliderSlides(): Promise<ServicePageSlide[]> {
-  const items = await getPublishedItemsForService("virtual-staging");
+async function buildSliderSlides(
+  items: Awaited<ReturnType<typeof getPublishedItemsForService>>
+): Promise<ServicePageSlide[]> {
   const usable = items
     .filter((it) => it.before_image_path && it.after_image_path)
     .slice(0, 5);
 
   if (usable.length === 0) {
-    // Fallback: CSS placeholder so the slider always renders.
-    return [
-      {
-        kind: "placeholder",
-        id: "vs-placeholder",
-        variant: "virtual-staging",
-      },
-    ];
+    return [{ kind: "placeholder", id: "vs-fallback", variant: "virtual-staging" }];
   }
 
   return usable.map((item) => ({
@@ -203,23 +193,21 @@ async function buildSliderSlides(): Promise<ServicePageSlide[]> {
 // ── Page ─────────────────────────────────────────────────────
 
 export default async function VirtualStagingPage() {
-  // Fetch portfolio items for both the slider and examples grid in
-  // one shot. getPublishedItemsForService returns [] when Supabase is
-  // unconfigured so the page still renders statically in CI / forks.
-  const [sliderSlides, allItems] = await Promise.all([
-    buildSliderSlides(),
-    getPublishedItemsForService("virtual-staging"),
-  ]);
+  // Single DB round-trip — reuse for slider and examples grid.
+  const allItems = await getPublishedItemsForService("virtual-staging");
+  const sliderSlides = await buildSliderSlides(allItems);
+  const hasItems = allItems.length > 0;
 
   return (
     <>
       {/* ═══════════════════════════════════════════════════════
-          1. HERO SLIDER
-          Wide before/after banner, directly under the header.
-          Contained with overflow-hidden so no horizontal bleed.
+          A. HERO SLIDER  —  white / near-edge (homepage feel)
+          px-3 sm:px-4 lg:px-2 matches the homepage slider wrapper
+          exactly so the banner feels edge-to-edge at every viewport.
+          overflow-hidden on the section prevents lateral bleed.
           ═══════════════════════════════════════════════════════ */}
       <section className="bg-white overflow-hidden">
-        <div className="max-w-[1500px] mx-auto px-3 sm:px-4 lg:px-6 pt-4 lg:pt-6 pb-3 lg:pb-4">
+        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-4 lg:pb-6">
           <ServicePageSlider
             slides={sliderSlides}
             ariaLabel="Virtual Staging before and after examples"
@@ -228,10 +216,9 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          2. WHEN TO USE
-          4 use-case cards directly under the slider.
+          B. WHEN TO USE  —  stone-50
           ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Best for"
@@ -263,11 +250,11 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          3. COMPACT PRICING HERO
-          Now mid-page (not top hero). Slim info block with the
-          service name, price line, and the two primary CTAs.
+          C. PRICING INTRO  —  white
+          Compact side-by-side block: title + price + CTAs.
+          Uses <h1> because this is the primary page heading.
           ═══════════════════════════════════════════════════════ */}
-      <section className="bg-stone-50 border-y border-stone-200">
+      <section className="bg-white border-y border-stone-200">
         <Wide className="py-10 lg:py-14">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
             <div className="lg:max-w-2xl">
@@ -306,26 +293,31 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          4. WHAT IT IS
-          Copy block + feature bullets. No placeholder image here
-          — the examples grid below supplies the visual weight.
+          D. WHAT IT IS + EXAMPLES  —  stone-50  (merged section)
+          Copy + bullets form the intro. Portfolio cards appear
+          directly below in the same section — no separate heading,
+          no separate "Before & after examples" description.
+          If no items exist, a single full-width placeholder frame
+          stands in so the section always has visual weight.
           ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
-          <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+          {/* ── Intro copy ── */}
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start mb-10 lg:mb-14">
             <div className="lg:col-span-5">
-              <SectionLead
-                eyebrow="What it is"
-                title="Furnished, market-ready images from empty rooms"
-                description="We replace empty spaces with realistic furniture, decor, and lighting. Each image is styled to match your target buyer and listing positioning — residential or commercial."
-              />
+              <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+                What it is
+              </p>
+              <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+                Furnished, market-ready images from empty rooms
+              </h2>
+              <p className="text-base lg:text-lg text-muted leading-relaxed mb-6">
+                We replace empty spaces with realistic furniture, decor, and
+                lighting. Each image is styled to match your target buyer and
+                listing positioning — residential or commercial.
+              </p>
               <ul className="space-y-3">
-                {[
-                  "Photorealistic furniture and decor",
-                  "Multiple interior styles to choose from",
-                  "1 revision included",
-                  "High-resolution JPG delivery in 24–48h",
-                ].map((item) => (
+                {WHAT_IT_IS_BULLETS.map((item) => (
                   <li
                     key={item}
                     className="flex items-center gap-3 text-sm lg:text-base text-foreground"
@@ -340,42 +332,15 @@ export default async function VirtualStagingPage() {
                   </li>
                 ))}
               </ul>
-
-              <div className="mt-8">
-                <Link
-                  href="/order/virtual-staging"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
-                >
-                  Order Virtual Staging
-                  <ArrowRight className="w-4 h-4" aria-hidden />
-                </Link>
-              </div>
             </div>
 
-            {/* Right column: first two examples as a 2-card preview, or
-                placeholder if no items are uploaded yet. */}
+            {/* Right column: first two examples or placeholder */}
             <div className="lg:col-span-7">
-              {allItems.length === 0 ? (
-                /* Placeholder fallback — CSS gradient stands in until
-                   real portfolio items are uploaded. */
-                <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
-                  <BeforeAfterFrame
-                    beforeUrl={null}
-                    afterUrl={null}
-                    beforeAlt="Empty room before virtual staging"
-                    afterAlt="Furnished room after virtual staging"
-                    placeholderVariant="virtual-staging"
-                  />
-                </div>
-              ) : (
+              {hasItems ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
                   {allItems.slice(0, 2).map((item) => {
-                    const beforeUrl = getPortfolioPublicUrl(
-                      item.before_image_path
-                    );
-                    const afterUrl = getPortfolioPublicUrl(
-                      item.after_image_path
-                    );
+                    const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
+                    const afterUrl = getPortfolioPublicUrl(item.after_image_path);
                     return (
                       <article
                         key={item.id}
@@ -385,12 +350,8 @@ export default async function VirtualStagingPage() {
                           <BeforeAfterFrame
                             beforeUrl={beforeUrl}
                             afterUrl={afterUrl}
-                            beforeAlt={
-                              item.before_alt ?? `${item.title} — before`
-                            }
-                            afterAlt={
-                              item.after_alt ?? `${item.title} — after`
-                            }
+                            beforeAlt={item.before_alt ?? `${item.title} — before`}
+                            afterAlt={item.after_alt ?? `${item.title} — after`}
                             placeholderVariant="virtual-staging"
                           />
                         </div>
@@ -408,46 +369,40 @@ export default async function VirtualStagingPage() {
                     );
                   })}
                 </div>
+              ) : (
+                <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
+                  <BeforeAfterFrame
+                    beforeUrl={null}
+                    afterUrl={null}
+                    beforeAlt="Empty room before virtual staging"
+                    afterAlt="Furnished room after virtual staging"
+                    placeholderVariant="virtual-staging"
+                  />
+                </div>
               )}
             </div>
           </div>
-        </Wide>
-      </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          5. LARGE EXAMPLES GRID
-          All published items, 2 per row desktop, 1 per row mobile.
-          Omitted entirely when no items are uploaded (avoids an
-          empty section — the placeholder above already covers this).
-          ═══════════════════════════════════════════════════════ */}
-      {allItems.length > 0 && (
-        <section className="py-14 lg:py-20 bg-stone-50">
-          <Wide>
-            <SectionLead
-              eyebrow="Examples"
-              title="Before & after examples"
-              description="Recent work from the PicchuSpot team. New examples are added regularly."
-            />
+          {/* ── Full examples grid (all items, 2-col desktop) ──
+              Only rendered when there are uploaded items.
+              No extra heading — the intro copy contextualises
+              the grid so it reads as a continuation. */}
+          {hasItems && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
               {allItems.map((item) => {
-                const beforeUrl = getPortfolioPublicUrl(
-                  item.before_image_path
-                );
+                const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
                 const afterUrl = getPortfolioPublicUrl(item.after_image_path);
                 return (
                   <article
                     key={item.id}
                     className="group bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
                   >
-                    {/* Wider 5:2 aspect so images fill a comfortable
-                        horizontal band — same as the homepage service grid. */}
+                    {/* 5:2 wide aspect — same as homepage service grid */}
                     <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
                       <BeforeAfterFrame
                         beforeUrl={beforeUrl}
                         afterUrl={afterUrl}
-                        beforeAlt={
-                          item.before_alt ?? `${item.title} — before`
-                        }
+                        beforeAlt={item.before_alt ?? `${item.title} — before`}
                         afterAlt={item.after_alt ?? `${item.title} — after`}
                         placeholderVariant="virtual-staging"
                       />
@@ -466,18 +421,14 @@ export default async function VirtualStagingPage() {
                 );
               })}
             </div>
-          </Wide>
-        </section>
-      )}
+          )}
+        </Wide>
+      </section>
 
       {/* ═══════════════════════════════════════════════════════
-          6. BEFORE YOU ORDER
+          E. BEFORE YOU ORDER  —  white
           ═══════════════════════════════════════════════════════ */}
-      <section
-        className={`py-14 lg:py-20 ${
-          allItems.length > 0 ? "bg-white" : "bg-stone-50"
-        }`}
-      >
+      <section className="py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Before you order"
@@ -516,13 +467,11 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          7. STYLE OPTIONS
+          F. STYLE OPTIONS  —  stone-50
+          StyleGallerySection renders 9 horizontal cards (3-col
+          desktop, 2-col tablet, 1-col mobile) + lightbox.
           ═══════════════════════════════════════════════════════ */}
-      <section
-        className={`py-14 lg:py-20 ${
-          allItems.length > 0 ? "bg-stone-50" : "bg-white"
-        }`}
-      >
+      <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Style options"
@@ -534,21 +483,17 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          8. PRICING — 3-col cards (not tables)
-          Base price card (highlighted) + 5 add-on cards.
+          G. PRICING CARDS  —  white
+          3-col desktop / 2-col tablet / 1-col mobile.
+          Navy card for base, white cards for add-ons.
           ═══════════════════════════════════════════════════════ */}
-      <section
-        className={`py-14 lg:py-20 ${
-          allItems.length > 0 ? "bg-white" : "bg-stone-50"
-        }`}
-      >
+      <section className="py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Pricing"
             title="Base price + optional add-ons"
             description="Start with the base virtual staging price per image. Combine any add-ons you need for the same image — they stack on top of the base price."
           />
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {PRICING_CARDS.map((card) => (
               <div
@@ -618,18 +563,11 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          9. FAQ
+          H. FAQ  —  stone-50
           ═══════════════════════════════════════════════════════ */}
-      <section
-        className={`py-14 lg:py-20 ${
-          allItems.length > 0 ? "bg-stone-50" : "bg-white"
-        }`}
-      >
+      <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
-          <SectionLead
-            eyebrow="FAQ"
-            title="Virtual Staging questions"
-          />
+          <SectionLead eyebrow="FAQ" title="Virtual Staging questions" />
           <div className="max-w-3xl">
             <FaqAccordion items={FAQ_ITEMS} />
           </div>
@@ -637,7 +575,7 @@ export default async function VirtualStagingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          10. FINAL CTA
+          I. FINAL CTA  —  navy  (ServiceCTA owns its own bg)
           ═══════════════════════════════════════════════════════ */}
       <ServiceCTA
         title="Ready to stage your listing?"
