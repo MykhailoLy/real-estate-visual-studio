@@ -1,280 +1,141 @@
 import type { Metadata } from "next";
-import PricingHero from "@/components/pricing/PricingHero";
-import PricingTable from "@/components/pricing/PricingTable";
-import BeforeAfterPlaceholder from "@/components/pricing/BeforeAfterPlaceholder";
-import ServiceExampleBlock from "@/components/pricing/ServiceExampleBlock";
-import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
-import ServiceCTA from "@/components/pricing/ServiceCTA";
-import SectionLead from "@/components/pricing/SectionLead";
-import Wide from "@/components/pricing/Wide";
-import PortfolioExamples from "@/components/portfolio/PortfolioExamples";
+import { Eraser, Home, Star, ImageIcon } from "lucide-react";
+import ServicePage from "@/components/pricing/ServicePage";
 
 export const metadata: Metadata = {
-  title: "Item Removal & Virtual Cleaning Pricing",
+  title: "Item Removal & Virtual Cleaning",
   description:
-    "Per-option photo editing for real estate. Image enhancement, day to dusk, item removal, virtual cleaning, background change, colour change, water effect, shadow removal and more. Pay only for the options you select.",
+    "Remove distracting items, clutter, and imperfections from property photos for cleaner, more listing-ready images. From US$8 / image.",
 };
-
-const photoEditRows = [
-  { label: "Image Enhancement", price: "US$2.00" },
-  { label: "Turn On Lights", price: "US$1.00" },
-  { label: "Colour Change", price: "US$3.00" },
-  { label: "Background Removal", price: "US$3.00" },
-  { label: "Background Change", price: "US$5.00" },
-  { label: "Day to Dusk", price: "US$5.00" },
-  { label: "Water Effect for Empty Pools & Jacuzzi", price: "US$5.00" },
-  { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
-  { label: "Shadow Removal", price: "US$8.00" },
-];
-
-// ============================================================
-// EXAMPLE BLOCKS
-// ============================================================
-
-interface Example {
-  title: string;
-  description: string;
-  price: string;
-  variant:
-    | "enhancement"
-    | "dusk"
-    | "object-removal"
-    | "pool"
-    | "background"
-    | "color"
-    | "editing";
-  bullets?: string[];
-}
-
-const examples: Example[] = [
-  {
-    title: "Image Enhancement",
-    description:
-      "Real-estate-grade colour correction, exposure balancing, white balance, and lens cleanup. The fastest way to make every listing photo look professional.",
-    price: "US$2.00 / image",
-    variant: "enhancement",
-    bullets: [
-      "Exposure & contrast balanced",
-      "White balance corrected",
-      "Lens distortion cleaned",
-      "Window views recovered",
-    ],
-  },
-  {
-    title: "Day to Dusk",
-    description:
-      "Convert daytime exterior photos into warm dusk scenes — glowing windows, soft sky tones, and inviting twilight ambience.",
-    price: "US$5.00 / image",
-    variant: "dusk",
-    bullets: [
-      "Realistic dusk sky replacement",
-      "Warm interior glow",
-      "Lights turned on automatically",
-    ],
-  },
-  {
-    title: "Minor Object Removal",
-    description:
-      "Remove distracting objects — bins, cables, signs, clutter, reflections — while preserving the natural look of the room or facade.",
-    price: "US$8.00 / image",
-    variant: "object-removal",
-    bullets: [
-      "Cables, signs, and clutter removed",
-      "Background fill blended seamlessly",
-    ],
-    
-  },
-  {
-    title: "Standard Item Removal / Virtual Cleaning",
-    description:
-      "Clean entire rooms by removing furniture, decor, and personal items — perfect for cleaned-up listing photos before staging or selling unfurnished.",
-    price: "US$8.00 / image",
-    variant: "object-removal",
-    bullets: [
-      "Furniture and personal items removed",
-      "Floors and walls reconstructed",
-      "Combine with Virtual Staging for full transformation",
-    ],
-  },
-  {
-    title: "Pool Water Effect",
-    description:
-      "Fill empty pools and jacuzzis with realistic water — ideal for listings shot during off-season or maintenance.",
-    price: "US$5.00 / image",
-    variant: "pool",
-    bullets: [
-      "Realistic water fill",
-      "Reflection & light adjustments",
-    ],
-  },
-  {
-    title: "Background Change",
-    description:
-      "Replace the sky, view, or background behind a property to create a cleaner or more attractive setting.",
-    price: "US$5.00 / image",
-    variant: "background",
-    bullets: [
-      "Sky replacement",
-      "Cleaner view backgrounds",
-      "Custom requests accepted",
-    ],
-  },
-  {
-    title: "Colour Change",
-    description:
-      "Change the colour of walls, doors, ceilings, or specific elements to test palettes or match a brand.",
-    price: "US$3.00 / image",
-    variant: "color",
-    bullets: [
-      "Walls, doors, ceilings, fixtures",
-      "Match exact brand or reference colour",
-    ],
-  },
-];
 
 export default function PhotoEditingPricingPage() {
   return (
-    <>
-      <PricingHero
-        eyebrow="Real Estate Photo Editing"
-        title="Item Removal & Virtual Cleaning"
-        description="Enhance listing images, remove distractions, change backgrounds, turn on lights, add dusk skies, fill pools, and clean spaces. Pay per option, per image."
-        priceLine="From US$1 / option"
-        primaryHref="/order/photo-editing"
-        primaryLabel="Order Photo Editing"
-      />
-
-      {/* Big before/after */}
-      <section className="py-16 lg:py-24 bg-white">
-        <Wide>
-          <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
-            <div className="lg:col-span-5">
-              <SectionLead
-                eyebrow="What it is"
-                title="Per-option editing built for real estate"
-                description="Each editing option has its own price. Stack as many as you need on one image — your final total is the sum of selected options multiplied by the number of images."
-              />
-              <ul className="space-y-3 text-sm lg:text-base text-foreground">
-                <li className="flex gap-2.5">
-                  <span className="text-secondary-dark mt-1">•</span>
-                  <span>9 individually priced editing options</span>
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="text-secondary-dark mt-1">•</span>
-                  <span>Combine multiple options on the same image</span>
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="text-secondary-dark mt-1">•</span>
-                  <span>1 revision included per image</span>
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="text-secondary-dark mt-1">•</span>
-                  <span>High-resolution JPG delivery in 24–48h</span>
-                </li>
-              </ul>
-            </div>
-            <div className="lg:col-span-7">
-              <BeforeAfterPlaceholder
-                variant="editing"
-                beforeLabel="Original"
-                afterLabel="Edited"
-                caption="Before/after preview placeholder. Real editing examples will be added soon."
-              />
-            </div>
-          </div>
-        </Wide>
-      </section>
-
-      {/* Real before/after examples — uses the canonical portfolio
-          slug item-removal-virtual-cleaning even though this page
-          lives at the legacy /pricing/photo-editing URL. */}
-      <PortfolioExamples
-        serviceSlug="item-removal-virtual-cleaning"
-        placeholderVariant="item-removal"
-        background="stone-50"
-      />
-
-      {/* Example blocks */}
-      <section className="py-16 lg:py-24 bg-stone-50">
-        <Wide>
-          <SectionLead
-            eyebrow="Service examples"
-            title="See what each editing option does"
-            description="Each block shows the type of transformation you can expect, with the price for that option per image."
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {examples.map((ex) => (
-              <ServiceExampleBlock
-                key={ex.title}
-                title={ex.title}
-                description={ex.description}
-                price={ex.price}
-                priceLabel="Price"
-                variant={ex.variant}
-                bullets={ex.bullets}
-              />
-            ))}
-          </div>
-        </Wide>
-      </section>
-
-      {/* Pricing table */}
-      <section className="py-16 lg:py-24 bg-white">
-        <Wide>
-          <SectionLead
-            eyebrow="Pricing"
-            title="All photo editing options"
-            description="The full per-option pricing list. Pricing is per image — combine multiple options on one image to build a complete edit."
-          />
-          <PricingTable
-            rows={photoEditRows}
-            headerLabel="Editing Option"
-            headerPrice="Price / image"
-            caption="Stack multiple options on the same image — your final total is the sum of selected options."
-          />
-        </Wide>
-      </section>
-
-      {/* Upload requirements */}
-      <section className="py-16 lg:py-24 bg-stone-50">
-        <Wide>
-          <SectionLead
-            eyebrow="Before you order"
-            title="What we need from you"
-            description="Send us the original photo and tell us which options you need. The clearer your notes, the closer the result to your vision."
-          />
-          <UploadRequirementsBlock
-            items={[
-              {
-                label: "Original photo",
-                required: true,
-                hint: "JPG or PNG, ideally the highest-resolution version available",
-              },
-              {
-                label: "Selected editing options",
-                required: true,
-                hint: "Pick from the options above for each image",
-              },
-              {
-                label: "Notes about what should be changed",
-                hint: "Specific colours, items to remove, sky direction, etc.",
-              },
-              {
-                label: "Reference image or link",
-                hint: "Optional — useful for colour matching or background changes",
-              },
-            ]}
-            footnote="Required fields are marked with *. Multiple images and option combinations are supported in a single order."
-          />
-        </Wide>
-      </section>
-
-      <ServiceCTA
-        title="Ready to enhance your photos?"
-        subtitle="Upload your images, choose the editing options, and receive market-ready photos within 24–48 hours."
-        primaryHref="/order/photo-editing"
-        primaryLabel="Order Photo Editing"
-      />
-    </>
+    <ServicePage
+      serviceSlug="item-removal-virtual-cleaning"
+      placeholderVariant="item-removal"
+      eyebrow="Item Removal & Virtual Cleaning"
+      title="Item Removal & Virtual Cleaning Pricing"
+      description="Remove distracting items, clutter, small imperfections, and visual distractions to make property photos cleaner and more listing-ready."
+      priceLine="From US$8 / image"
+      orderHref="/order/photo-editing"
+      orderLabel="Order Item Removal"
+      whenToUseTitle="When to use Item Removal & Virtual Cleaning"
+      whenToUseDescription="Item removal and virtual cleaning is the practical first step before staging, publishing, or upgrading listing photos."
+      useCases={[
+        {
+          icon: Home,
+          title: "Cluttered rooms",
+          description: "Remove furniture, personal items, and clutter from rooms that could not be cleared before the shoot.",
+        },
+        {
+          icon: Eraser,
+          title: "Small object removal",
+          description: "Take out bins, cables, signs, reflections, and other small distractions cleanly.",
+        },
+        {
+          icon: Star,
+          title: "Cleaner listing presentation",
+          description: "Present a cleaner, more spacious-looking room without reshooting.",
+        },
+        {
+          icon: ImageIcon,
+          title: "Pre-sale photo cleanup",
+          description: "Clean up listing photos quickly before publishing so every image looks polished.",
+        },
+      ]}
+      whatItIsTitle="Cleaner property photos without visual distractions"
+      whatItIsBody="We clean up listing photos by removing unwanted objects, clutter, cables, small marks, or distracting details while keeping the space realistic and natural."
+      whatItIsBullets={[
+        "Objects, clutter, and personal items removed",
+        "Background fill blended naturally",
+        "Cables, signs, and reflections cleaned up",
+        "Compatible with Virtual Staging on the same image",
+        "1 revision included per image",
+        "High-resolution JPG delivery in 24–48h",
+      ]}
+      beforeYouOrderDescription="Send the original image with clear notes about what should be removed — the more specific you are, the cleaner the result."
+      uploadItems={[
+        {
+          label: "Original photo",
+          required: true,
+          hint: "JPG or PNG at the highest resolution available",
+        },
+        {
+          label: "Objects to remove",
+          required: true,
+          hint: "Describe or mark every item that should be removed",
+        },
+        {
+          label: "Areas to keep unchanged",
+          hint: "Specify anything that must stay exactly as it is",
+        },
+        {
+          label: "Notes or instructions",
+          hint: "Any additional context or special requests",
+        },
+      ]}
+      uploadFootnote="Required fields are marked *. The clearer your removal notes, the more accurate the result."
+      pricingTitle="Item Removal pricing"
+      pricingDescription="Per-image pricing. Multiple editing options can be combined on the same image."
+      pricingCards={[
+        {
+          label: "Item Removal & Virtual Cleaning",
+          price: "US$8.00",
+          unit: "per image",
+          note: "Remove objects, clutter, and distracting details cleanly.",
+          isBase: true,
+        },
+        {
+          label: "Image Enhancement",
+          price: "+US$2.00",
+          unit: "per image",
+          note: "Color and exposure correction applied after cleanup.",
+        },
+        {
+          label: "Virtual Staging",
+          price: "+US$19.00",
+          unit: "per image",
+          note: "Add furniture after the room has been cleaned virtually.",
+        },
+      ]}
+      pricingFootnote="Item Removal can be combined with Image Enhancement, Virtual Staging, and other editing options in the same order."
+      faqTitle="Item Removal & Virtual Cleaning questions"
+      faqItems={[
+        {
+          question: "What kinds of items can be removed?",
+          answer: "We can remove personal items, furniture, clutter, cables, bins, signs, reflections, small marks, and other visible distractions in most scenes.",
+        },
+        {
+          question: "What if the background behind an object is complex?",
+          answer: "We blend the fill naturally — if a wall, floor, or background is visible behind the removed item, we reconstruct it to match the surrounding area.",
+        },
+        {
+          question: "Can I combine Item Removal with Virtual Staging on the same image?",
+          answer: "Yes. A common workflow is to clean the room first with Item Removal, then add furnishings with Virtual Staging. Both are priced per image and can be in the same order.",
+        },
+        {
+          question: "Do I need to mark what should be removed?",
+          answer: "Yes — written descriptions are fine, but marking up a reference image makes it faster and more accurate.",
+        },
+        {
+          question: "Can you remove items from exterior shots?",
+          answer: "Yes. Cars, bins, cables, scaffolding, and other exterior distractions can be removed if the scene beneath is recoverable.",
+        },
+        {
+          question: "How long does it take?",
+          answer: "Standard delivery is 24–48 hours from when we receive your image and removal notes.",
+        },
+        {
+          question: "Is one revision included?",
+          answer: "Yes. One revision round is included per image.",
+        },
+        {
+          question: "Can I use the result for MLS and marketing?",
+          answer: "Yes. Delivered images are suitable for real estate listings, websites, and marketing.",
+        },
+      ]}
+      ctaTitle="Ready to clean up your listing photos?"
+      ctaSubtitle="Upload your images, mark what needs removing, and receive cleaner photos within 24–48 hours."
+    />
   );
 }
