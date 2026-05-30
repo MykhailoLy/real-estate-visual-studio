@@ -296,6 +296,12 @@ export default function MediaAdminClient({
               <ArrowLeft className="w-4 h-4" aria-hidden />
               Portfolio
             </Link>
+            <Link
+              href="/admin/orders"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              Orders
+            </Link>
             <button
               type="button"
               onClick={onLogout}
