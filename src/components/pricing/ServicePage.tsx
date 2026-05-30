@@ -17,8 +17,8 @@ import {
   getServiceHeroSliderItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
-import { PortfolioExamplesGrid } from "@/app/pricing/floor-plans/FloorPlansInteractive";
-import type { PortfolioExampleCard } from "@/app/pricing/floor-plans/FloorPlansInteractive";
+import { PortfolioExamplesGrid } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
+import type { PortfolioExampleCard } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
 
 // ============================================================
 // ServicePage — shared server component
