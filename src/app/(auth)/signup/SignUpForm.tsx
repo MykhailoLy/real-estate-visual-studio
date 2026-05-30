@@ -41,12 +41,6 @@ export default function SignUpForm() {
 
       if (authError) { setError(authError.message); return; }
 
-      // Empty identities → account already exists (Supabase returns fake success)
-      if ((data?.user?.identities ?? []).length === 0) {
-        setError("An account with this email already exists. Please sign in instead.");
-        return;
-      }
-
       // Auto-confirm enabled → session written immediately, go to dashboard
       if (data?.session) {
         router.replace("/dashboard");
@@ -54,7 +48,10 @@ export default function SignUpForm() {
         return;
       }
 
-      // Email confirmation required → show success state
+      // Email confirmation required (or unconfirmed user created) → show success state
+      // Note: do NOT use identities.length === 0 to detect duplicates — with email
+      // confirmation enabled Supabase returns an empty identities array even for a
+      // freshly created unconfirmed user, which would incorrectly show an error.
       setSuccess(true);
     } catch {
       setError("An unexpected error occurred. Please try again.");
