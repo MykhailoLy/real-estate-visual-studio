@@ -113,7 +113,16 @@ export default function Header() {
           {/* Mobile menu toggle */}
           <button
             className="lg:hidden ml-auto p-2 -mr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-            onClick={() => setMobileMenuOpen((v) => !v)}
+            onClick={() => {
+              const nextOpen = !mobileMenuOpen;
+              setMobileMenuOpen(nextOpen);
+              // When opening, reset the expanded accordion to the
+              // currently active top-level so the user always sees
+              // their current section's links immediately on open.
+              if (nextOpen) {
+                setMobileOpenKey(active.key);
+              }
+            }}
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
           >
@@ -298,6 +307,12 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
   const measureLayerRef = useRef<HTMLDivElement | null>(null);
   const measureMoreRef = useRef<HTMLSpanElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Ref forwarded into MoreDropdown so the outside-click handler
+  // can check both the trigger button AND the panel itself before
+  // deciding to close. Without this a pointerdown on a menu item
+  // would close the dropdown before the Link's click/navigation
+  // had a chance to complete.
+  const dropdownPanelRef = useRef<HTMLDivElement | null>(null);
   const [overflowAt, setOverflowAt] = useState(active.subLinks.length);
   const [moreOpen, setMoreOpen] = useState(false);
   // Screen coords for the fixed dropdown
@@ -372,7 +387,14 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
   useEffect(() => {
     if (!moreOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!moreButtonRef.current?.contains(e.target as Node)) {
+      // Close only when the click is outside BOTH the trigger button
+      // and the dropdown panel. This prevents the pointerdown from
+      // closing the menu before a Link inside the panel has time to
+      // fire its click / navigation event.
+      const target = e.target as Node;
+      const insideButton = moreButtonRef.current?.contains(target) ?? false;
+      const insidePanel = dropdownPanelRef.current?.contains(target) ?? false;
+      if (!insideButton && !insidePanel) {
         closeMore();
       }
     };
@@ -495,6 +517,7 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
                   top={dropdownPos.top}
                   right={dropdownPos.right}
                   onClose={closeMore}
+                  panelRef={dropdownPanelRef}
                 />
               )}
             </div>
@@ -514,6 +537,9 @@ interface MoreDropdownProps {
   top: number;
   right: number;
   onClose: () => void;
+  /** Forwarded ref attached to the panel div so the outside-click
+   *  handler in DesktopSubNav can test containment before closing. */
+  panelRef: React.RefObject<HTMLDivElement | null>;
 }
 
 function MoreDropdown({
@@ -523,9 +549,11 @@ function MoreDropdown({
   top,
   right,
   onClose,
+  panelRef,
 }: MoreDropdownProps) {
   return (
     <div
+      ref={panelRef}
       role="menu"
       aria-label={`${active.label} more services`}
       style={{
