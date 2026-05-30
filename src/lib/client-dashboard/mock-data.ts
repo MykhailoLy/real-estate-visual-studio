@@ -23,10 +23,20 @@ export interface DashboardJob {
   id: string;
   title: string;
   reference: string;
-  serviceType: DashboardServiceType;
+  /**
+   * Human-readable service label.
+   * Typed as `string` (not the narrow DashboardServiceType union) so that
+   * real orders mapped from DB slugs are accepted without a cast.
+   * Mock jobs use DashboardServiceType values which are valid strings.
+   */
+  serviceType: string;
   status: DashboardJobStatus;
-  submittedDate: string; // ISO date string
-  estimatedCompletion: string; // ISO date string
+  submittedDate: string; // ISO date string  e.g. "2025-05-10"
+  /**
+   * ISO date string, "Delivered", "—", or "" for real orders where
+   * no ETA column exists yet. JobsTable.formatDate handles non-ISO values.
+   */
+  estimatedCompletion: string;
   progress: number; // 0–100
   costCents: number; // cost in cents for formatUSD()
   imageCount: number;
