@@ -16,28 +16,46 @@ import {
 // ============================================================
 // HEADER — TWO-LEVEL NAVIGATION
 //
-// Both rows now share the same full-bleed container so the brand
-// wordmark, top-level categories, and second-row service links
-// all sit on the same left/right rail. The first row reads as
-// the primary nav (text-[13px] uppercase tracking) and the
-// second row as secondary (text-[12px] uppercase tracking).
+// Row 1: brand wordmark + top-level category links + CTAs
+// Row 2: service sub-links for the active top-level, with a
+//         measurement-based "More" overflow dropdown
+//
+// Key fixes in this revision:
+//
+//   1. More dropdown — fixed-position overlay
+//      The sub-nav row is inside a sticky header that has
+//      overflow-x-hidden applied globally. `absolute top-full`
+//      on the dropdown was being clipped by that or any ancestor
+//      overflow context. Solution: measure the trigger button's
+//      screen rect with getBoundingClientRect() and render the
+//      dropdown with `position: fixed` at those coordinates.
+//      This escapes every overflow context.
+//
+//   2. Mobile drawer — accordion sections
+//      Each top-level category becomes an expandable accordion
+//      section with a chevron arrow on the right. Tapping the
+//      row header (or its arrow) toggles the sub-links. Clicking
+//      any sub-link closes the entire mobile menu.
 // ============================================================
 
-/**
- * Shared horizontal padding scale for both navigation rows. The
- * wordmark on row 1 and the first sub-link on row 2 use this so
- * they align on the same rail across all breakpoints.
- */
 const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-10";
 
 export default function Header() {
   const pathname = usePathname() ?? "/";
   const active = getTopLevelForPath(pathname);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Which top-level accordion is expanded in the mobile drawer.
+  // Initialised to the active category so the current section's
+  // links are immediately visible on open.
+  const [mobileOpenKey, setMobileOpenKey] = useState<string | null>(
+    active.key
+  );
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-border w-full overflow-x-hidden">
-      {/* ---------- Row 1: brand + top-level + CTAs ---------- */}
+      {/* ── Row 1: brand + top-level + CTAs ── */}
       <div className={NAV_X_PADDING}>
         <div className="flex items-center h-16">
           {/* Brand */}
@@ -49,13 +67,7 @@ export default function Header() {
             PicchuSpot
           </Link>
 
-          {/* Top-level categories (desktop)
-           *
-           * Slightly larger and bolder than the second row so
-           * primary navigation reads as primary. Active state is
-           * a navy text + tinted background pill — clean and
-           * obvious without competing visually.
-           */}
+          {/* Top-level categories (desktop) */}
           <nav
             aria-label="Service categories"
             className="hidden lg:flex items-center gap-1 ml-8 xl:ml-12"
@@ -98,11 +110,11 @@ export default function Header() {
             ))}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu toggle */}
           <button
-            className="lg:hidden ml-auto p-2 -mr-2"
+            className="lg:hidden ml-auto p-2 -mr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             onClick={() => setMobileMenuOpen((v) => !v)}
-            aria-label="Toggle menu"
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -110,13 +122,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ---------- Row 2: desktop sub-nav with "More" overflow ----------
-       *
-       * The `key={active.key}` remount ensures all internal state
-       * (overflow split, dropdown open/closed) resets when the user
-       * switches top-level category, without any prop-driven setState
-       * inside an effect.
-       */}
+      {/* ── Row 2: desktop sub-nav ── */}
       {active.subLinks.length > 0 && (
         <DesktopSubNav
           key={active.key}
@@ -125,82 +131,15 @@ export default function Header() {
         />
       )}
 
-      {/* ---------- Mobile drawer ---------- */}
+      {/* ── Mobile drawer ── */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-border bg-white">
-          <div className="px-4 py-4 space-y-6 max-h-[80vh] overflow-y-auto">
-            {/* Top-level */}
-            <div>
-              <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-muted mb-2">
-                Categories
-              </p>
-              <nav aria-label="Service categories" className="space-y-1">
-                {topLevels.map((entry) => {
-                  const isActive = entry.key === active.key;
-                  return (
-                    <Link
-                      key={entry.key}
-                      href={entry.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={cn(
-                        "block px-3 py-2 rounded-md text-[13px] font-bold uppercase tracking-[0.10em]",
-                        isActive
-                          ? "text-primary bg-primary/5"
-                          : "text-foreground/85 hover:bg-surface"
-                      )}
-                      aria-current={isActive ? "page" : undefined}
-                    >
-                      {entry.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Sub-nav for active top-level */}
-            {active.subLinks.length > 0 && (
-              <div>
-                <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-muted mb-2">
-                  {active.label}
-                </p>
-                <nav
-                  aria-label={`${active.label} services`}
-                  className="space-y-1"
-                >
-                  {active.subLinks.map((link) => (
-                    <Link
-                      key={link.label}
-                      href={resolveSubLinkHref(link, active.href)}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-3 py-2 rounded-md text-[12px] font-bold uppercase tracking-[0.10em] text-foreground/70 hover:text-primary hover:bg-surface"
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-            )}
-
-            {/* CTAs */}
-            <div className="pt-2 border-t border-border space-y-2">
-              {headerCtaLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    "block px-3 py-2 rounded-md text-[13px] font-bold uppercase tracking-[0.10em]",
-                    link.href === "/order"
-                      ? "bg-primary text-white text-center"
-                      : "text-foreground/85 hover:bg-surface"
-                  )}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
+        <MobileDrawer
+          active={active}
+          pathname={pathname}
+          openKey={mobileOpenKey}
+          setOpenKey={setMobileOpenKey}
+          onClose={closeMobileMenu}
+        />
       )}
     </header>
   );
@@ -210,10 +149,6 @@ export default function Header() {
 // HELPERS
 // ============================================================
 
-/**
- * Sub-nav links use `#anchor` to mean "scroll on the active
- * top-level page" and absolute paths to mean "navigate".
- */
 function resolveSubLinkHref(link: SubNavLink, base: string): string {
   if (link.href.startsWith("#")) {
     return `${base === "/" ? "" : base}${link.href}`;
@@ -222,24 +157,135 @@ function resolveSubLinkHref(link: SubNavLink, base: string): string {
 }
 
 // ============================================================
+// MOBILE DRAWER — accordion sections
+// ============================================================
+
+interface MobileDrawerProps {
+  active: TopLevelEntry;
+  pathname: string;
+  openKey: string | null;
+  setOpenKey: (key: string | null) => void;
+  onClose: () => void;
+}
+
+function MobileDrawer({
+  active,
+  pathname,
+  openKey,
+  setOpenKey,
+  onClose,
+}: MobileDrawerProps) {
+  const toggleSection = (key: string) => {
+    setOpenKey(openKey === key ? null : key);
+  };
+
+  return (
+    <div className="lg:hidden border-t border-border bg-white">
+      <div className="px-4 py-3 max-h-[80vh] overflow-y-auto">
+        {/* Accordion sections — one per top-level category */}
+        <div className="space-y-1 mb-4">
+          {topLevels.map((entry) => {
+            const isExpanded = openKey === entry.key;
+            const isActive = entry.key === active.key;
+
+            return (
+              <div key={entry.key} className="rounded-lg overflow-hidden">
+                {/* Section header — tap to toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleSection(entry.key)}
+                  aria-expanded={isExpanded}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-3 rounded-lg text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    isActive
+                      ? "bg-primary/5 text-primary"
+                      : "text-foreground/80 hover:bg-surface"
+                  )}
+                >
+                  <span className="text-[13px] font-bold uppercase tracking-[0.10em]">
+                    {entry.label}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 flex-shrink-0 text-muted transition-transform duration-200",
+                      isExpanded && "rotate-180"
+                    )}
+                    aria-hidden
+                  />
+                </button>
+
+                {/* Sub-links — shown when section is expanded */}
+                {isExpanded && (
+                  <div className="pl-3 pb-2 space-y-0.5">
+                    {entry.subLinks.length > 0 ? (
+                      entry.subLinks.map((link) => {
+                        const href = resolveSubLinkHref(link, entry.href);
+                        const isCurrent =
+                          !href.startsWith("#") && pathname === href;
+                        return (
+                          <Link
+                            key={link.label}
+                            href={href}
+                            onClick={onClose}
+                            className={cn(
+                              "block px-3 py-2 rounded-md text-[12px] font-semibold tracking-[0.06em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                              isCurrent
+                                ? "text-primary bg-primary/5"
+                                : "text-foreground/65 hover:text-primary hover:bg-surface"
+                            )}
+                            aria-current={isCurrent ? "page" : undefined}
+                          >
+                            {link.label}
+                          </Link>
+                        );
+                      })
+                    ) : (
+                      // No sub-links yet — link to the top-level page directly
+                      <Link
+                        href={entry.href}
+                        onClick={onClose}
+                        className="block px-3 py-2 rounded-md text-[12px] font-semibold tracking-[0.06em] text-foreground/65 hover:text-primary hover:bg-surface"
+                      >
+                        {entry.label}
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Separator */}
+        <div className="border-t border-border pt-3 space-y-1">
+          {headerCtaLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={onClose}
+              className={cn(
+                "block px-3 py-3 rounded-lg text-[13px] font-bold uppercase tracking-[0.10em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                link.href === "/order"
+                  ? "bg-primary text-white text-center mt-2"
+                  : "text-foreground/80 hover:bg-surface"
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // DESKTOP SUB-NAV WITH MEASUREMENT-BASED "MORE" OVERFLOW
 //
-// Two key fixes vs the previous iteration:
-//
-//  1. The dropdown's `absolute top-full` menu used to be clipped
-//     by an `overflow-hidden` on the row container, so clicking
-//     "More" appeared to open an empty popover. The fix is to
-//     move `overflow-hidden` from the row container to the inner
-//     <nav>, so visible items still get clipped during the brief
-//     pre-measurement frame at SSR but the dropdown can extend
-//     freely below the row.
-//
-//  2. Both navigation rows now share the same horizontal padding
-//     rail (NAV_X_PADDING in this file) so the brand wordmark on
-//     row 1 and the first sub-link on row 2 sit on the same
-//     vertical line at every breakpoint. The measurement mirror
-//     uses the same inset values so its child offsets line up
-//     with the visible row.
+// The More dropdown is rendered with position:fixed at the
+// screen coordinates of the trigger button so it escapes every
+// overflow context (including the sticky header's
+// overflow-x-hidden and any parent clipping).
 // ============================================================
 
 interface DesktopSubNavProps {
@@ -251,20 +297,13 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const measureLayerRef = useRef<HTMLDivElement | null>(null);
   const measureMoreRef = useRef<HTMLSpanElement | null>(null);
-  const moreWrapperRef = useRef<HTMLDivElement | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const [overflowAt, setOverflowAt] = useState(active.subLinks.length);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Screen coords for the fixed dropdown
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
 
-  // Measure how many sub-links fit in the visible row using a
-  // hidden mirror that's laid out identically (same typography,
-  // same gap, same inset). Two passes:
-  //   1. Without reserving for the More button — if everything
-  //      fits, no dropdown is needed.
-  //   2. With the actual width of the rendered More button, since
-  //      at least one item will spill into it.
-  // Re-runs on container resize, on window resize, and once
-  // document.fonts.ready resolves so labels resized after font
-  // load get a corrected fit count.
+  // Measure which sub-links fit in the visible row.
   useEffect(() => {
     const measure = () => {
       const container = containerRef.current;
@@ -278,11 +317,10 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
       );
       if (spans.length === 0) return;
 
-      // Pass 1: assume everything fits. If it does, no dropdown.
+      // Pass 1: does everything fit?
       let allFit = 0;
       for (let i = 0; i < spans.length; i++) {
-        const right = spans[i].offsetLeft + spans[i].offsetWidth;
-        if (right > availableWidth) break;
+        if (spans[i].offsetLeft + spans[i].offsetWidth > availableWidth) break;
         allFit = i + 1;
       }
       if (allFit === spans.length) {
@@ -290,32 +328,21 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
         return;
       }
 
-      // Pass 2: reserve the actual More-button width plus a small
-      // 16px breathing gap so the trailing visible link never
-      // bumps up against the dropdown trigger.
+      // Pass 2: reserve More-button width
       const moreWidth = measureMoreRef.current?.offsetWidth ?? 90;
       const allowed = availableWidth - moreWidth - 16;
-
       let count = 0;
       for (let i = 0; i < spans.length; i++) {
-        const right = spans[i].offsetLeft + spans[i].offsetWidth;
-        if (right > allowed) break;
+        if (spans[i].offsetLeft + spans[i].offsetWidth > allowed) break;
         count = i + 1;
       }
-      // Always keep at least one link visible — the row should
-      // never collapse to "only More".
       setOverflowAt(Math.max(1, count));
     };
 
     measure();
-
-    if (
-      typeof document !== "undefined" &&
-      typeof document.fonts !== "undefined"
-    ) {
+    if (typeof document !== "undefined" && document.fonts) {
       document.fonts.ready.then(measure).catch(() => {});
     }
-
     const ro =
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(measure)
@@ -328,22 +355,48 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
     };
   }, []);
 
-  // Close the More dropdown on outside pointer-down or Escape.
+  // Open dropdown and capture the trigger button's position
+  const openMore = () => {
+    if (!moreButtonRef.current) return;
+    const rect = moreButtonRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,   // 4 px gap below the button
+      right: window.innerWidth - rect.right,
+    });
+    setMoreOpen(true);
+  };
+
+  const closeMore = () => setMoreOpen(false);
+
+  // Close on outside click or Escape
   useEffect(() => {
     if (!moreOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!moreWrapperRef.current?.contains(e.target as Node)) {
-        setMoreOpen(false);
+      if (!moreButtonRef.current?.contains(e.target as Node)) {
+        closeMore();
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMoreOpen(false);
+      if (e.key === "Escape") closeMore();
+    };
+    // Re-position on scroll so the dropdown follows the button if
+    // the page scrolls (though with sticky header this is minimal)
+    const onScroll = () => {
+      if (moreButtonRef.current) {
+        const rect = moreButtonRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + 4,
+          right: window.innerWidth - rect.right,
+        });
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [moreOpen]);
 
@@ -353,9 +406,7 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
   return (
     <div className="hidden lg:block border-t border-border bg-white">
       <div className={cn("relative", NAV_X_PADDING)}>
-        {/* Hidden measurement mirror — same typography and gap as
-            the visible row, plus a real mirror of the More button
-            so we reserve its actual width when trimming. */}
+        {/* Hidden measurement mirror */}
         <div
           ref={measureLayerRef}
           aria-hidden
@@ -380,11 +431,7 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
           </span>
         </div>
 
-        {/* Visible row.
-            NOTE: `overflow-hidden` lives on the inner <nav>, not
-            on this container, so the More dropdown menu (which is
-            absolutely positioned inside `moreWrapperRef`) can
-            extend down past the row without being clipped. */}
+        {/* Visible row */}
         <div ref={containerRef} className="flex items-stretch">
           <nav
             aria-label={`${active.label} services`}
@@ -405,13 +452,11 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
           </nav>
 
           {overflow.length > 0 && (
-            <div
-              ref={moreWrapperRef}
-              className="relative flex-shrink-0 flex items-stretch ml-3 xl:ml-4"
-            >
+            <div className="relative flex-shrink-0 flex items-stretch ml-3 xl:ml-4">
               <button
+                ref={moreButtonRef}
                 type="button"
-                onClick={() => setMoreOpen((o) => !o)}
+                onClick={() => (moreOpen ? closeMore() : openMore())}
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
@@ -440,35 +485,17 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
                 />
               </button>
 
-              {moreOpen && (
-                <div
-                  role="menu"
-                  aria-label={`${active.label} more services`}
-                  className="absolute right-0 top-full mt-1 w-72 bg-white border border-border rounded-lg shadow-xl py-2 z-50"
-                >
-                  {overflow.map((link) => {
-                    const href = resolveSubLinkHref(link, active.href);
-                    const isCurrent =
-                      !href.startsWith("#") && pathname === href;
-                    return (
-                      <Link
-                        key={link.label}
-                        href={href}
-                        role="menuitem"
-                        aria-current={isCurrent ? "page" : undefined}
-                        onClick={() => setMoreOpen(false)}
-                        className={cn(
-                          "block px-4 py-2.5 text-[12px] font-bold uppercase tracking-[0.10em] transition-colors focus:outline-none focus-visible:bg-surface",
-                          isCurrent
-                            ? "text-primary bg-primary/5"
-                            : "text-foreground/75 hover:text-primary hover:bg-surface"
-                        )}
-                      >
-                        {link.label}
-                      </Link>
-                    );
-                  })}
-                </div>
+              {/* Dropdown — fixed position so it escapes every
+                  overflow / stacking context in the sticky header */}
+              {moreOpen && dropdownPos && (
+                <MoreDropdown
+                  links={overflow}
+                  active={active}
+                  pathname={pathname}
+                  top={dropdownPos.top}
+                  right={dropdownPos.right}
+                  onClose={closeMore}
+                />
               )}
             </div>
           )}
@@ -478,18 +505,71 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
   );
 }
 
+// ── More dropdown rendered at fixed screen coordinates ────────
+
+interface MoreDropdownProps {
+  links: SubNavLink[];
+  active: TopLevelEntry;
+  pathname: string;
+  top: number;
+  right: number;
+  onClose: () => void;
+}
+
+function MoreDropdown({
+  links,
+  active,
+  pathname,
+  top,
+  right,
+  onClose,
+}: MoreDropdownProps) {
+  return (
+    <div
+      role="menu"
+      aria-label={`${active.label} more services`}
+      style={{
+        position: "fixed",
+        top,
+        right,
+        width: "18rem",   // w-72
+        zIndex: 9999,
+      }}
+      className="bg-white border border-border rounded-lg shadow-xl py-2"
+    >
+      {links.map((link) => {
+        const href = resolveSubLinkHref(link, active.href);
+        const isCurrent = !href.startsWith("#") && pathname === href;
+        return (
+          <Link
+            key={link.label}
+            href={href}
+            role="menuitem"
+            aria-current={isCurrent ? "page" : undefined}
+            onClick={onClose}
+            className={cn(
+              "block px-4 py-2.5 text-[12px] font-bold uppercase tracking-[0.10em] transition-colors focus:outline-none focus-visible:bg-surface",
+              isCurrent
+                ? "text-primary bg-primary/5"
+                : "text-foreground/75 hover:text-primary hover:bg-surface"
+            )}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Sub-nav visible link ──────────────────────────────────────
+
 interface SubNavItemProps {
   href: string;
   label: string;
   current: boolean;
 }
 
-/**
- * Visible sub-nav link. Smaller than the top row to read as
- * secondary navigation. Uppercase, bold, with letter-spacing,
- * and a navy underline that slides in from the left on hover or
- * focus. Stays pinned for the current route.
- */
 function SubNavItem({ href, label, current }: SubNavItemProps) {
   return (
     <Link
