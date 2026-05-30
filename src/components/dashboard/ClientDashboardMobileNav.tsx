@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { X, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DASHBOARD_NAV_ITEMS } from "./ClientDashboardTopNav";
 import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
-import { STATUS_LABELS } from "@/lib/client-dashboard/mock-data";
+import { STATUS_LABELS, MOCK_CLIENT } from "@/lib/client-dashboard/mock-data";
 
 interface ClientDashboardMobileNavProps {
   open: boolean;
@@ -24,10 +24,10 @@ const STATUS_FILTERS: Array<{ value: DashboardJobStatus | "all"; label: string }
 ];
 
 const statusDotColor: Record<DashboardJobStatus | "all", string> = {
-  all: "bg-foreground/30",
-  "awaiting-submission": "bg-amber-500",
+  all: "bg-muted-light",
+  "awaiting-submission": "bg-amber-400",
   "in-progress": "bg-blue-500",
-  "revision-requested": "bg-orange-500",
+  "revision-requested": "bg-orange-400",
   completed: "bg-emerald-500",
   cancelled: "bg-slate-400",
 };
@@ -51,7 +51,7 @@ export default function ClientDashboardMobileNav({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
         onClick={onClose}
         aria-hidden
       />
@@ -59,27 +59,52 @@ export default function ClientDashboardMobileNav({
       {/* Drawer */}
       <div
         role="dialog"
+        aria-modal="true"
         aria-label="Dashboard navigation menu"
-        className="fixed inset-y-0 left-0 w-72 bg-white z-50 lg:hidden flex flex-col shadow-2xl"
+        className="fixed inset-y-0 left-0 w-[17rem] bg-white z-50 lg:hidden flex flex-col shadow-2xl"
       >
-        {/* Drawer header */}
-        <div className="flex items-center justify-between px-4 h-14 bg-primary flex-shrink-0">
-          <span className="text-white font-bold text-base tracking-tight">
-            PicchuSpot
-          </span>
+        {/* Drawer header — matches top nav */}
+        <div className="flex items-center justify-between px-4 h-14 bg-primary flex-shrink-0 border-b border-primary-dark/40">
+          <div className="flex items-center gap-2">
+            <span className="text-white font-bold text-[15px] tracking-tight">
+              PicchuSpot
+            </span>
+            <span className="inline-flex items-center px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-secondary text-[9px] font-bold uppercase tracking-[0.18em]">
+              Portal
+            </span>
+          </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" aria-hidden />
           </button>
         </div>
 
+        {/* Client identity strip */}
+        <div className="px-4 py-3 bg-surface border-b border-border flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
+            <span className="text-[10px] font-bold text-white">
+              {MOCK_CLIENT.firstName.charAt(0)}{MOCK_CLIENT.lastName.charAt(0)}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground truncate leading-tight">{MOCK_CLIENT.name}</p>
+            <p className="text-[11px] text-muted truncate">{MOCK_CLIENT.email}</p>
+          </div>
+          <span className="ml-auto flex-shrink-0 inline-flex items-center px-1.5 py-0.5 bg-amber-50 border border-amber-200/60 rounded text-[9px] font-bold uppercase tracking-[0.12em] text-amber-600">
+            Demo
+          </span>
+        </div>
+
         <div className="flex-1 overflow-y-auto">
           {/* Main nav links */}
-          <nav aria-label="Dashboard pages" className="px-3 py-4 space-y-1">
+          <nav aria-label="Dashboard pages" className="px-2 py-3 space-y-0.5">
+            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">
+              Menu
+            </p>
             {DASHBOARD_NAV_ITEMS.map((item) => {
               const active = isActive(item.href, item.exact);
               const isNewOrder = item.href === "/order";
@@ -90,22 +115,18 @@ export default function ClientDashboardMobileNav({
                   onClick={onClose}
                   aria-current={active && !isNewOrder ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150",
                     isNewOrder
-                      ? "bg-secondary/10 text-secondary-dark hover:bg-secondary/20 border border-secondary/30 mt-2"
+                      ? "bg-secondary/10 text-secondary-dark hover:bg-secondary/18 border border-secondary/25 mt-1"
                       : active
-                      ? "bg-primary/8 text-primary"
-                      : "text-foreground/70 hover:text-primary hover:bg-surface"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-foreground/65 hover:text-foreground hover:bg-surface"
                   )}
                 >
                   <item.icon
                     className={cn(
                       "w-4 h-4 flex-shrink-0",
-                      isNewOrder
-                        ? "text-secondary-dark"
-                        : active
-                        ? "text-primary"
-                        : "text-muted"
+                      isNewOrder ? "text-secondary-dark" : active ? "text-white" : "text-muted-light"
                     )}
                     aria-hidden
                   />
@@ -117,39 +138,57 @@ export default function ClientDashboardMobileNav({
 
           {/* Status quick filters */}
           {onStatusFilter && (
-            <div className="px-3 pb-4">
-              <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-muted">
-                Filter by status
-              </p>
-              <div className="space-y-0.5">
-                {STATUS_FILTERS.map((f) => (
-                  <button
-                    key={f.value}
-                    type="button"
-                    onClick={() => {
-                      onStatusFilter(f.value);
-                      onClose();
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left",
-                      activeStatusFilter === f.value
-                        ? "bg-primary/8 text-primary font-semibold"
-                        : "text-foreground/65 hover:text-primary hover:bg-surface"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "w-2 h-2 rounded-full flex-shrink-0",
-                        statusDotColor[f.value]
-                      )}
-                      aria-hidden
-                    />
-                    {f.label}
-                  </button>
-                ))}
+            <>
+              <div className="mx-4 border-t border-border" />
+              <div className="px-2 py-3">
+                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">
+                  Filter jobs
+                </p>
+                <div className="space-y-0.5">
+                  {STATUS_FILTERS.map((f) => {
+                    const active = activeStatusFilter === f.value;
+                    return (
+                      <button
+                        key={f.value}
+                        type="button"
+                        onClick={() => {
+                          onStatusFilter(f.value);
+                          onClose();
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 text-left",
+                          active
+                            ? "bg-primary/8 text-primary font-semibold"
+                            : "text-foreground/60 hover:text-foreground hover:bg-surface font-medium"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "w-2 h-2 rounded-full flex-shrink-0",
+                            active ? statusDotColor[f.value] : "bg-border"
+                          )}
+                          aria-hidden
+                        />
+                        {f.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            </>
           )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 border-t border-border px-2 py-3 space-y-0.5">
+          <Link
+            href="/"
+            onClick={onClose}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-muted hover:text-primary hover:bg-surface transition-colors"
+          >
+            <ArrowUpRight className="w-4 h-4 flex-shrink-0" aria-hidden />
+            Back to website
+          </Link>
         </div>
       </div>
     </>

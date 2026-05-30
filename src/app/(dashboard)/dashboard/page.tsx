@@ -6,15 +6,72 @@ import {
   RefreshCw,
   PlusCircle,
   ArrowRight,
+  Sparkles,
+  CalendarClock,
+  FileCheck2,
 } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import DashboardStatCard from "@/components/dashboard/DashboardStatCard";
 import JobsTable from "@/components/dashboard/JobsTable";
-import { MOCK_JOBS, MOCK_CLIENT, getDashboardStats } from "@/lib/client-dashboard/mock-data";
+import {
+  MOCK_JOBS,
+  MOCK_CLIENT,
+  getDashboardStats,
+} from "@/lib/client-dashboard/mock-data";
 
 export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
 };
+
+// Next-steps / recent activity items derived from mock data
+function getNextSteps(jobs: typeof MOCK_JOBS) {
+  return [
+    ...jobs.filter((j) => j.status === "awaiting-submission").map((j) => ({
+      id: j.id,
+      icon: Clock,
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-600",
+      text: `Complete submission for`,
+      jobTitle: j.title,
+      reference: j.reference,
+      cta: "Submit now",
+      ctaHref: "/dashboard/jobs",
+    })),
+    ...jobs.filter((j) => j.status === "revision-requested").map((j) => ({
+      id: j.id + "-rev",
+      icon: RefreshCw,
+      iconBg: "bg-orange-50",
+      iconColor: "text-orange-600",
+      text: `Revision requested for`,
+      jobTitle: j.title,
+      reference: j.reference,
+      cta: "View job",
+      ctaHref: "/dashboard/jobs",
+    })),
+    ...jobs.filter((j) => j.status === "in-progress").slice(0, 1).map((j) => ({
+      id: j.id + "-prog",
+      icon: CalendarClock,
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
+      text: `In production:`,
+      jobTitle: j.title,
+      reference: j.reference,
+      cta: "Track",
+      ctaHref: "/dashboard/jobs",
+    })),
+    ...jobs.filter((j) => j.status === "completed").slice(0, 1).map((j) => ({
+      id: j.id + "-done",
+      icon: FileCheck2,
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
+      text: `Ready to download:`,
+      jobTitle: j.title,
+      reference: j.reference,
+      cta: "View files",
+      ctaHref: "/dashboard/files",
+    })),
+  ].slice(0, 4);
+}
 
 export default function DashboardPage() {
   const stats = getDashboardStats(MOCK_JOBS);
@@ -22,30 +79,45 @@ export default function DashboardPage() {
     (a, b) =>
       new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime()
   );
+  const nextSteps = getNextSteps(MOCK_JOBS);
 
   return (
     <ClientDashboardLayout>
-      {/* Welcome block */}
-      <div className="mb-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-secondary-dark mb-1">
-          Client Portal
-        </p>
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary leading-tight">
-          Welcome back, {MOCK_CLIENT.firstName}
-        </h1>
-        <p className="text-muted mt-1 text-sm">
-          Here&rsquo;s an overview of your PicchuSpot account.
-        </p>
+
+      {/* ── Welcome block ── */}
+      <div className="mb-7">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-2">
+              Client Portal
+            </p>
+            <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
+              Welcome back, {MOCK_CLIENT.firstName}
+            </h1>
+            <p className="text-muted mt-1.5 text-sm leading-relaxed">
+              {MOCK_CLIENT.company} &middot; Member since {MOCK_CLIENT.memberSince}
+            </p>
+          </div>
+          <Link
+            href="/order"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0"
+          >
+            <PlusCircle className="w-4 h-4" aria-hidden />
+            New Order
+          </Link>
+        </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+      {/* ── Stats cards ── */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-7">
         <DashboardStatCard
           label="Active Jobs"
           value={stats.activeJobs}
           icon={Briefcase}
           iconColor="text-blue-600"
           iconBg="bg-blue-50"
+          accentBorder="border-l-blue-400"
+          note="Currently in production"
         />
         <DashboardStatCard
           label="Awaiting Submission"
@@ -53,6 +125,8 @@ export default function DashboardPage() {
           icon={Clock}
           iconColor="text-amber-600"
           iconBg="bg-amber-50"
+          accentBorder="border-l-amber-400"
+          note={stats.awaitingSubmission > 0 ? "Action required" : "Nothing pending"}
         />
         <DashboardStatCard
           label="Completed"
@@ -60,6 +134,8 @@ export default function DashboardPage() {
           icon={CheckCircle2}
           iconColor="text-emerald-600"
           iconBg="bg-emerald-50"
+          accentBorder="border-l-emerald-400"
+          note="All time"
         />
         <DashboardStatCard
           label="Revisions"
@@ -67,43 +143,95 @@ export default function DashboardPage() {
           icon={RefreshCw}
           iconColor="text-orange-600"
           iconBg="bg-orange-50"
+          accentBorder="border-l-orange-400"
+          note={stats.revisions > 0 ? "Needs your feedback" : "None open"}
         />
       </div>
 
-      {/* Recent jobs */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-foreground">Recent Jobs</h2>
-          <Link
-            href="/dashboard/jobs"
-            className="text-sm font-semibold text-primary hover:text-primary-light transition-colors flex items-center gap-1"
-          >
-            View all
-            <ArrowRight className="w-3.5 h-3.5" aria-hidden />
-          </Link>
-        </div>
-        <JobsTable jobs={recentJobs} limit={5} />
-      </section>
+      {/* ── Two-column row: Next steps + Recent jobs ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-7">
 
-      {/* CTA card */}
-      <div className="bg-primary rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
-        <div>
-          <h2 className="text-xl font-bold text-white mb-1">
-            Ready to place a new order?
+        {/* Next steps / activity feed */}
+        {nextSteps.length > 0 && (
+          <div className="xl:col-span-1">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-secondary" aria-hidden />
+              <h2 className="text-sm font-bold text-foreground">Next Steps</h2>
+            </div>
+            <div className="space-y-2">
+              {nextSteps.map((step) => (
+                <div
+                  key={step.id}
+                  className="bg-white border border-border rounded-xl p-4 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${step.iconBg}`}
+                  >
+                    <step.icon className={`w-4 h-4 ${step.iconColor}`} aria-hidden />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted leading-snug">{step.text}</p>
+                    <p className="text-[13px] font-semibold text-foreground leading-snug truncate">
+                      {step.jobTitle}
+                    </p>
+                    <span className="inline-block text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded mt-0.5">
+                      {step.reference}
+                    </span>
+                  </div>
+                  <Link
+                    href={step.ctaHref}
+                    className="flex-shrink-0 text-[11px] font-bold text-primary hover:text-primary-light transition-colors whitespace-nowrap"
+                  >
+                    {step.cta} →
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent jobs table */}
+        <section className={nextSteps.length > 0 ? "xl:col-span-2" : "xl:col-span-3"}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-foreground">Recent Jobs</h2>
+            <Link
+              href="/dashboard/jobs"
+              className="text-[12px] font-bold text-primary hover:text-primary-light transition-colors flex items-center gap-1"
+            >
+              View all
+              <ArrowRight className="w-3 h-3" aria-hidden />
+            </Link>
+          </div>
+          <JobsTable jobs={recentJobs} limit={5} showProgress={false} />
+        </section>
+      </div>
+
+      {/* ── CTA banner ── */}
+      <div className="relative overflow-hidden bg-primary rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+        {/* Subtle decorative circle */}
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/5 pointer-events-none" aria-hidden />
+        <div className="absolute -bottom-8 right-24 w-32 h-32 rounded-full bg-secondary/10 pointer-events-none" aria-hidden />
+        <div className="relative">
+          <p className="text-secondary text-[11px] font-bold uppercase tracking-[0.2em] mb-1.5">
+            Ready to get started?
+          </p>
+          <h2 className="text-xl font-bold text-white leading-tight mb-1">
+            Place a new order today
           </h2>
-          <p className="text-white/70 text-sm leading-relaxed">
-            Virtual staging, floor plans, day-to-dusk, image enhancement, and
-            more — delivered in 24–48 hours.
+          <p className="text-white/60 text-sm leading-relaxed max-w-md">
+            Virtual staging, floor plans, day-to-dusk, image enhancement and more —
+            delivered within 24–48 hours.
           </p>
         </div>
         <Link
           href="/order"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-secondary text-primary-dark font-bold rounded-lg hover:bg-secondary-light transition-colors text-sm whitespace-nowrap flex-shrink-0 shadow-sm"
+          className="relative inline-flex items-center gap-2 px-6 py-3 bg-secondary text-primary-dark font-bold rounded-xl hover:bg-secondary-light transition-colors text-sm whitespace-nowrap flex-shrink-0 shadow-sm"
         >
           <PlusCircle className="w-4 h-4" aria-hidden />
           Create a New Order
         </Link>
       </div>
+
     </ClientDashboardLayout>
   );
 }
