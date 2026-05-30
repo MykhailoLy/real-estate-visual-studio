@@ -1,64 +1,87 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+export const runtime = "nodejs";
 
 // ============================================================
 // /auth/callback — Supabase Auth redirect handler
 //
-// Supabase Auth redirects here after:
-//   - Email confirmation (sign-up)
-//   - Password reset (forgot-password)
-//   - Magic link (if used in the future)
+// Supabase redirects here after:
+//   - Email confirmation  (type=signup  / code=…)
+//   - Password reset link (type=recovery / code=…)
+//   - Magic link          (code=…)
 //
-// In @supabase/supabase-js v2 without @supabase/ssr, the PKCE
-// flow exchange (code → session) happens client-side via the
-// Supabase JS SDK on the page that receives the #fragment.
-//
-// This server route handles the simpler redirect flows where
-// Supabase appends query params (?code=…&type=…) instead of
-// hash fragments. We forward the browser to the right page so
-// the client-side SDK can pick up the session.
-//
-// If the URL contains a `code` param, Supabase handles the
-// exchange automatically when the JS SDK initialises on the
-// target page. We just need to forward cleanly.
+// We exchange the PKCE `code` for a session server-side using
+// the @supabase/ssr server client. This writes the session
+// cookies before redirecting, so the proxy immediately sees the
+// valid session on the next request — no client-side exchange
+// needed, no redirect loop.
 // ============================================================
-
-export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
 
-  const type = searchParams.get("type");
-  const code = searchParams.get("code");
+  const code  = searchParams.get("code");
+  const type  = searchParams.get("type");   // "recovery" | "signup" | null
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
-  // If Supabase returned an error, forward to login with a message
+  // ── Error forwarded by Supabase ───────────────────────────
   if (error) {
-    const loginUrl = new URL("/login", origin);
-    loginUrl.searchParams.set(
-      "error",
-      errorDescription ?? error ?? "Authentication failed"
-    );
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Password reset — forward to dashboard which will detect the
-  // recovery session and can be extended to a /reset-password page later
-  if (type === "recovery" || (code && type === "recovery")) {
-    const target = new URL("/dashboard", origin);
+    const target = new URL("/login", origin);
+    target.searchParams.set("error", errorDescription ?? error);
     return NextResponse.redirect(target);
   }
 
-  // Email confirmation / magic link — forward to dashboard
-  // The client-side Supabase SDK will pick up the code from the URL
-  // and exchange it for a session automatically on the dashboard page.
-  if (code) {
-    const target = new URL("/dashboard", origin);
-    // Forward the code so the client SDK can complete the exchange
-    target.searchParams.set("code", code);
+  // ── No code — nothing to exchange ────────────────────────
+  if (!code) {
+    return NextResponse.redirect(new URL("/login", origin));
+  }
+
+  // ── Build SSR server client with mutable cookie store ────
+  const cookieStore = await cookies();
+
+  const url     = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    // Env vars missing (build environment) — redirect to login
+    return NextResponse.redirect(new URL("/login", origin));
+  }
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // Ignore — cookies are set on the response below anyway
+        }
+      },
+    },
+  });
+
+  // ── Exchange the code for a session ──────────────────────
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (exchangeError) {
+    const target = new URL("/login", origin);
+    target.searchParams.set("error", exchangeError.message);
     return NextResponse.redirect(target);
   }
 
-  // Fallback — just go to login
-  return NextResponse.redirect(new URL("/login", origin));
+  // ── Route based on flow type ──────────────────────────────
+  // Password recovery → /reset-password so the user can set a new password
+  if (type === "recovery") {
+    return NextResponse.redirect(new URL("/reset-password", origin));
+  }
+
+  // Email confirmation, magic link, or generic → /dashboard
+  return NextResponse.redirect(new URL("/dashboard", origin));
 }
