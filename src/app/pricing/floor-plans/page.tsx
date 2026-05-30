@@ -344,6 +344,9 @@ export default async function FloorPlansPage() {
           <ServicePageSlider
             slides={sliderSlides}
             ariaLabel="Floor plan before and after examples"
+            imageFit="contain"
+            imageBackground="bg-stone-50"
+            mobileAspect="aspect-[4/3]"
           />
         </div>
       </section>

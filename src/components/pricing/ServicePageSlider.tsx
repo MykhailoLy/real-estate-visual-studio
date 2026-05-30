@@ -41,6 +41,25 @@ interface Props {
   slides: ServicePageSlide[];
   autoplayMs?: number;
   ariaLabel?: string;
+  /**
+   * How real slide images are fitted inside each half of the stage.
+   *
+   * "cover"   (default) — crops to fill; good for photos
+   * "contain" — fits the whole image; use for plans, diagrams, documents
+   */
+  imageFit?: "cover" | "contain";
+  /**
+   * Tailwind background colour class applied behind each image half when
+   * imageFit = "contain" (otherwise images fill the frame completely).
+   * Defaults to "bg-stone-100".
+   */
+  imageBackground?: string;
+  /**
+   * Override the mobile aspect-ratio class (applied at the `sm:` breakpoint
+   * boundary and below). Defaults to the photo-slider value "aspect-[16/9]".
+   * For plan/document images pass a taller ratio, e.g. "aspect-[4/3]".
+   */
+  mobileAspect?: string;
 }
 
 const AUTOPLAY_MS = 5_500;
@@ -51,6 +70,9 @@ export default function ServicePageSlider({
   slides,
   autoplayMs = AUTOPLAY_MS,
   ariaLabel = "Before and after examples",
+  imageFit = "cover",
+  imageBackground = "bg-stone-100",
+  mobileAspect = "aspect-[16/9]",
 }: Props) {
   const total = slides.length;
 
@@ -127,8 +149,21 @@ export default function ServicePageSlider({
       aria-label={ariaLabel}
     >
       {/* ── Slide stage ── */}
+      {/*
+        The aspect-ratio chain:
+          [mobileAspect] (e.g. aspect-[16/9] for photos, aspect-[4/3] for plans)
+          sm:aspect-[21/9]  — wider on small tablets
+          md:aspect-[3/1]   — panoramic on medium
+          lg:aspect-[4/1]   — ultra-wide hero on desktop
+        mobileAspect is injected as a prop so plan-based pages can pass a
+        taller ratio without affecting photo-based services.
+      */}
       <div
-        className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
+        className={cn(
+          "relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100",
+          mobileAspect,
+          "sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
+        )}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
@@ -150,6 +185,8 @@ export default function ServicePageSlider({
                 beforeAlt={slide.beforeAlt}
                 afterAlt={slide.afterAlt}
                 eager={i === 0}
+                imageFit={imageFit}
+                imageBackground={imageBackground}
               />
             ) : (
               <ServicePlaceholder
@@ -233,36 +270,44 @@ function RealSlide({
   beforeAlt,
   afterAlt,
   eager,
+  imageFit = "cover",
+  imageBackground = "bg-stone-100",
 }: {
   beforeUrl: string;
   afterUrl: string;
   beforeAlt: string;
   afterAlt: string;
   eager: boolean;
+  imageFit?: "cover" | "contain";
+  imageBackground?: string;
 }) {
+  const imgClass = `absolute inset-0 w-full h-full ${
+    imageFit === "contain" ? "object-contain p-2 sm:p-3" : "object-cover"
+  }`;
+
   return (
     <div className="absolute inset-0 flex">
       {/* Before half */}
-      <div className="relative w-1/2 overflow-hidden bg-stone-200">
+      <div className={`relative w-1/2 overflow-hidden ${imageBackground}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={beforeUrl}
           alt={beforeAlt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover"
+          className={imgClass}
         />
       </div>
 
       {/* After half */}
-      <div className="relative w-1/2 overflow-hidden bg-stone-200">
+      <div className={`relative w-1/2 overflow-hidden ${imageBackground}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={afterUrl}
           alt={afterAlt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover"
+          className={imgClass}
         />
       </div>
 
