@@ -41,6 +41,26 @@ interface Props {
   slides: ServicePageSlide[];
   autoplayMs?: number;
   ariaLabel?: string;
+  /**
+   * How real slide images fit inside each half of the stage.
+   *   "cover"   (default) — crops to fill; correct for photos.
+   *   "contain" — fits whole image without cropping; use for plans,
+   *               drawings, documents where nothing can be cut off.
+   */
+  imageFit?: "cover" | "contain";
+  /**
+   * Tailwind bg-* class applied behind each image half when
+   * imageFit = "contain". Defaults to "bg-stone-100".
+   */
+  imageBackground?: string;
+  /**
+   * Override the mobile aspect-ratio Tailwind class (applied at the
+   * base/mobile breakpoint only). Defaults to "aspect-[16/9]" which
+   * is appropriate for photo-based services. Pass a wider ratio like
+   * "aspect-[16/10]" for plan-based pages that still need to feel
+   * like a banner rather than a tall square.
+   */
+  mobileAspect?: string;
 }
 
 const AUTOPLAY_MS = 5_500;
@@ -51,6 +71,9 @@ export default function ServicePageSlider({
   slides,
   autoplayMs = AUTOPLAY_MS,
   ariaLabel = "Before and after examples",
+  imageFit = "cover",
+  imageBackground = "bg-stone-100",
+  mobileAspect = "aspect-[16/9]",
 }: Props) {
   const total = slides.length;
 
@@ -127,8 +150,19 @@ export default function ServicePageSlider({
       aria-label={ariaLabel}
     >
       {/* ── Slide stage ── */}
+      {/*
+        Aspect chain:
+          [mobileAspect] e.g. aspect-[16/9] for photos, aspect-[16/10] for plans
+          sm:aspect-[21/9]  small tablets
+          md:aspect-[3/1]   medium viewports
+          lg:aspect-[4/1]   wide desktop hero
+      */}
       <div
-        className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
+        className={cn(
+          "relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100",
+          mobileAspect,
+          "sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
+        )}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
@@ -150,6 +184,8 @@ export default function ServicePageSlider({
                 beforeAlt={slide.beforeAlt}
                 afterAlt={slide.afterAlt}
                 eager={i === 0}
+                imageFit={imageFit}
+                imageBackground={imageBackground}
               />
             ) : (
               <ServicePlaceholder
@@ -233,36 +269,47 @@ function RealSlide({
   beforeAlt,
   afterAlt,
   eager,
+  imageFit = "cover",
+  imageBackground = "bg-stone-100",
 }: {
   beforeUrl: string;
   afterUrl: string;
   beforeAlt: string;
   afterAlt: string;
   eager: boolean;
+  imageFit?: "cover" | "contain";
+  imageBackground?: string;
 }) {
+  // object-contain gets a small inset so the plan image has
+  // breathing room against the frame edge and centerline divider.
+  const imgCls =
+    imageFit === "contain"
+      ? "absolute inset-0 w-full h-full object-contain p-3 sm:p-4"
+      : "absolute inset-0 w-full h-full object-cover";
+
   return (
     <div className="absolute inset-0 flex">
       {/* Before half */}
-      <div className="relative w-1/2 overflow-hidden bg-stone-200">
+      <div className={`relative w-1/2 overflow-hidden ${imageBackground}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={beforeUrl}
           alt={beforeAlt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover"
+          className={imgCls}
         />
       </div>
 
       {/* After half */}
-      <div className="relative w-1/2 overflow-hidden bg-stone-200">
+      <div className={`relative w-1/2 overflow-hidden ${imageBackground}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={afterUrl}
           alt={afterAlt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover"
+          className={imgCls}
         />
       </div>
 
