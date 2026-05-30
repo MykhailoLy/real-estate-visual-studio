@@ -53,7 +53,7 @@ export default function ClientDashboardTopNav({
   const user = useDashboardUser();
 
   const displayName = user?.displayName || "Client";
-  const firstName   = user?.firstName   || displayName.split(" ")[0];
+  const firstName   = user?.profileName || user?.firstName || displayName.split(" ")[0];
   const email       = user?.email       || "";
   const initials    = getInitials(displayName);
   const isLiveUser  = Boolean(user?.email);
