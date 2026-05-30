@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 import "./globals.css";
+
+// NOTE: Header and Footer are rendered by the (public) route-group layout.
+// The (dashboard) route-group layout renders its own portal shell instead.
+// This root layout provides only the HTML/body wrapper.
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,9 +60,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen w-full overflow-x-hidden`}
       >
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        {children}
       </body>
     </html>
   );
