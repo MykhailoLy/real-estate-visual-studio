@@ -133,12 +133,12 @@ export default function ClientDashboardTopNav({
           <span className="text-[11px] font-bold text-white/30">—</span>
         </div>
 
-        {/* Demo data pill — always shown while jobs/files are mock */}
+        {/* Files/invoices are still mock data — keep the pill until Phase 5B */}
         <span
           className="hidden sm:inline-flex items-center px-2 py-0.5 bg-secondary/15 border border-secondary/25 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] text-secondary/80 select-none cursor-default"
-          title="Jobs and files shown are sample data"
+          title="Files and invoices shown are sample data. Jobs now show real orders."
         >
-          Demo data
+          Files: demo
         </span>
 
         {/* User dropdown */}
@@ -195,7 +195,7 @@ export default function ClientDashboardTopNav({
                     <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-200/60 rounded-md">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" aria-hidden />
                       <p className="text-[11px] text-emerald-700 font-semibold">
-                        Signed in · Jobs &amp; files are sample data
+                        Signed in · Files &amp; invoices are sample data
                       </p>
                     </div>
                   ) : (

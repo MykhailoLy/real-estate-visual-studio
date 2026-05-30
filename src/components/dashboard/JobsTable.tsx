@@ -289,7 +289,11 @@ export default function JobsTable({
 }
 
 function formatDate(iso: string): string {
+  // Pass-through for special display strings produced by real orders
+  // (e.g. "Delivered", "—") and for empty / missing values.
+  if (!iso || iso === "—" || iso === "Delivered") return iso || "—";
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",

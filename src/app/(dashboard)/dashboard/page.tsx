@@ -1,3 +1,15 @@
+// ============================================================
+// /dashboard — main overview page
+//
+// Server component.  Fetches real orders + auth user for the
+// welcome heading, stats cards, next-steps panel, and recent
+// jobs table.
+//
+// Security: email is read from the validated Supabase SSR session
+// via getClientUser() — NEVER from URL params or client input.
+// ============================================================
+
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   Briefcase,
@@ -13,73 +25,101 @@ import {
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import DashboardStatCard from "@/components/dashboard/DashboardStatCard";
 import JobsTable from "@/components/dashboard/JobsTable";
+import { getDashboardStats } from "@/lib/client-dashboard/mock-data";
+import type { DashboardJob } from "@/lib/client-dashboard/mock-data";
+import { getClientUser } from "@/lib/client-auth";
+import { getClientProfile } from "@/lib/client-profile";
 import {
-  MOCK_JOBS,
-  MOCK_CLIENT,
-  getDashboardStats,
-} from "@/lib/client-dashboard/mock-data";
+  getOrdersByClientEmail,
+  mapOrdersToDashboardJobs,
+} from "@/lib/client-orders";
 
 export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
 };
 
-// Next-steps / recent activity items derived from mock data
-function getNextSteps(jobs: typeof MOCK_JOBS) {
+// ── Next-steps panel ──────────────────────────────────────────
+
+function getNextSteps(jobs: DashboardJob[]) {
   return [
-    ...jobs.filter((j) => j.status === "awaiting-submission").map((j) => ({
-      id: j.id,
-      icon: Clock,
-      iconBg: "bg-amber-50",
-      iconColor: "text-amber-600",
-      text: `Complete submission for`,
-      jobTitle: j.title,
-      reference: j.reference,
-      cta: "Submit now",
-      ctaHref: "/dashboard/jobs",
-    })),
-    ...jobs.filter((j) => j.status === "revision-requested").map((j) => ({
-      id: j.id + "-rev",
-      icon: RefreshCw,
-      iconBg: "bg-orange-50",
-      iconColor: "text-orange-600",
-      text: `Revision requested for`,
-      jobTitle: j.title,
-      reference: j.reference,
-      cta: "View job",
-      ctaHref: "/dashboard/jobs",
-    })),
-    ...jobs.filter((j) => j.status === "in-progress").slice(0, 1).map((j) => ({
-      id: j.id + "-prog",
-      icon: CalendarClock,
-      iconBg: "bg-blue-50",
-      iconColor: "text-blue-600",
-      text: `In production:`,
-      jobTitle: j.title,
-      reference: j.reference,
-      cta: "Track",
-      ctaHref: "/dashboard/jobs",
-    })),
-    ...jobs.filter((j) => j.status === "completed").slice(0, 1).map((j) => ({
-      id: j.id + "-done",
-      icon: FileCheck2,
-      iconBg: "bg-emerald-50",
-      iconColor: "text-emerald-600",
-      text: `Ready to download:`,
-      jobTitle: j.title,
-      reference: j.reference,
-      cta: "View files",
-      ctaHref: "/dashboard/files",
-    })),
+    ...jobs
+      .filter((j) => j.status === "awaiting-submission")
+      .map((j) => ({
+        id: j.id,
+        icon: Clock,
+        iconBg: "bg-amber-50",
+        iconColor: "text-amber-600",
+        text: "Pending confirmation:",
+        jobTitle: j.title,
+        reference: j.reference,
+        cta: "View job",
+        ctaHref: "/dashboard/jobs",
+      })),
+    ...jobs
+      .filter((j) => j.status === "in-progress")
+      .slice(0, 1)
+      .map((j) => ({
+        id: j.id + "-prog",
+        icon: CalendarClock,
+        iconBg: "bg-blue-50",
+        iconColor: "text-blue-600",
+        text: "In production:",
+        jobTitle: j.title,
+        reference: j.reference,
+        cta: "Track",
+        ctaHref: "/dashboard/jobs",
+      })),
+    ...jobs
+      .filter((j) => j.status === "completed")
+      .slice(0, 1)
+      .map((j) => ({
+        id: j.id + "-done",
+        icon: FileCheck2,
+        iconBg: "bg-emerald-50",
+        iconColor: "text-emerald-600",
+        text: "Ready to download:",
+        jobTitle: j.title,
+        reference: j.reference,
+        cta: "View files",
+        ctaHref: "/dashboard/files",
+      })),
   ].slice(0, 4);
 }
 
-export default function DashboardPage() {
-  const stats = getDashboardStats(MOCK_JOBS);
-  const recentJobs = [...MOCK_JOBS].sort(
-    (a, b) =>
-      new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime()
-  );
-  const nextSteps = getNextSteps(MOCK_JOBS);
+// ── Page ──────────────────────────────────────────────────────
+
+export default async function DashboardPage() {
+  // Validated SSR session — email never comes from the client
+  const user = await getClientUser();
+
+  // Check for client profile — if missing, redirect to onboarding.
+  // getClientProfile() returns null both when the row doesn't exist yet
+  // and when the table hasn't been migrated; both cases are handled safely.
+  const profile = await getClientProfile();
+  if (user && profile === null) {
+    redirect("/dashboard/profile?onboarding=1");
+  }
+
+  // Fetch real orders for this user.  Returns [] if env vars absent or on error.
+  const rawOrders = user?.email
+    ? await getOrdersByClientEmail(user.email)
+    : [];
+
+  const jobs = mapOrdersToDashboardJobs(rawOrders);
+  const hasOrders = jobs.length > 0;
+
+  const stats = getDashboardStats(jobs);
+  const recentJobs = [...jobs].slice(0, 5); // already ordered newest-first from DB
+  const nextSteps = getNextSteps(jobs);
+
+  // Welcome name: profile first_name → profile full_name split → auth display name
+  const welcomeName =
+    profile?.first_name?.trim() ||
+    (profile?.full_name?.trim() ? profile.full_name.trim().split(" ")[0] : null) ||
+    user?.firstName ||
+    "there";
+
+  const companyLine = profile?.company_name?.trim() || null;
 
   return (
     <ClientDashboardLayout>
@@ -92,11 +132,11 @@ export default function DashboardPage() {
               Client Portal
             </p>
             <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
-              Welcome back, {MOCK_CLIENT.firstName}
+              Welcome back, {welcomeName}
             </h1>
-            <p className="text-muted mt-1.5 text-sm leading-relaxed">
-              {MOCK_CLIENT.company} &middot; Member since {MOCK_CLIENT.memberSince}
-            </p>
+            {companyLine && (
+              <p className="text-muted mt-1.5 text-sm leading-relaxed">{companyLine}</p>
+            )}
           </div>
           <Link
             href="/order"
@@ -120,13 +160,13 @@ export default function DashboardPage() {
           note="Currently in production"
         />
         <DashboardStatCard
-          label="Awaiting Submission"
+          label="Awaiting"
           value={stats.awaitingSubmission}
           icon={Clock}
           iconColor="text-amber-600"
           iconBg="bg-amber-50"
           accentBorder="border-l-amber-400"
-          note={stats.awaitingSubmission > 0 ? "Action required" : "Nothing pending"}
+          note={stats.awaitingSubmission > 0 ? "Pending confirmation" : "Nothing pending"}
         />
         <DashboardStatCard
           label="Completed"
@@ -148,67 +188,89 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Two-column row: Next steps + Recent jobs ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-7">
+      {hasOrders ? (
+        <>
+          {/* ── Two-column row: Next steps + Recent jobs ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-7">
 
-        {/* Next steps / activity feed */}
-        {nextSteps.length > 0 && (
-          <div className="xl:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-secondary" aria-hidden />
-              <h2 className="text-sm font-bold text-foreground">Next Steps</h2>
-            </div>
-            <div className="space-y-2">
-              {nextSteps.map((step) => (
-                <div
-                  key={step.id}
-                  className="bg-white border border-border rounded-xl p-4 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${step.iconBg}`}
-                  >
-                    <step.icon className={`w-4 h-4 ${step.iconColor}`} aria-hidden />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted leading-snug">{step.text}</p>
-                    <p className="text-[13px] font-semibold text-foreground leading-snug truncate">
-                      {step.jobTitle}
-                    </p>
-                    <span className="inline-block text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded mt-0.5">
-                      {step.reference}
-                    </span>
-                  </div>
-                  <Link
-                    href={step.ctaHref}
-                    className="flex-shrink-0 text-[11px] font-bold text-primary hover:text-primary-light transition-colors whitespace-nowrap"
-                  >
-                    {step.cta} →
-                  </Link>
+            {nextSteps.length > 0 && (
+              <div className="xl:col-span-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-secondary" aria-hidden />
+                  <h2 className="text-sm font-bold text-foreground">Next Steps</h2>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+                <div className="space-y-2">
+                  {nextSteps.map((step) => (
+                    <div
+                      key={step.id}
+                      className="bg-white border border-border rounded-xl p-4 flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${step.iconBg}`}>
+                        <step.icon className={`w-4 h-4 ${step.iconColor}`} aria-hidden />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted leading-snug">{step.text}</p>
+                        <p className="text-[13px] font-semibold text-foreground leading-snug truncate">
+                          {step.jobTitle}
+                        </p>
+                        <span className="inline-block text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded mt-0.5">
+                          {step.reference}
+                        </span>
+                      </div>
+                      <Link
+                        href={step.ctaHref}
+                        className="flex-shrink-0 text-[11px] font-bold text-primary hover:text-primary-light transition-colors whitespace-nowrap"
+                      >
+                        {step.cta} →
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Recent jobs table */}
-        <section className={nextSteps.length > 0 ? "xl:col-span-2" : "xl:col-span-3"}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-foreground">Recent Jobs</h2>
-            <Link
-              href="/dashboard/jobs"
-              className="text-[12px] font-bold text-primary hover:text-primary-light transition-colors flex items-center gap-1"
-            >
-              View all
-              <ArrowRight className="w-3 h-3" aria-hidden />
-            </Link>
+            <section className={nextSteps.length > 0 ? "xl:col-span-2" : "xl:col-span-3"}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-foreground">Recent Jobs</h2>
+                <Link
+                  href="/dashboard/jobs"
+                  className="text-[12px] font-bold text-primary hover:text-primary-light transition-colors flex items-center gap-1"
+                >
+                  View all
+                  <ArrowRight className="w-3 h-3" aria-hidden />
+                </Link>
+              </div>
+              <JobsTable jobs={recentJobs} limit={5} showProgress={false} />
+            </section>
           </div>
-          <JobsTable jobs={recentJobs} limit={5} showProgress={false} />
-        </section>
-      </div>
+        </>
+      ) : (
+        /* ── Getting-started card (no orders yet) ── */
+        <div className="mb-7 bg-white border border-border rounded-2xl p-8 flex flex-col sm:flex-row sm:items-center gap-6 shadow-sm">
+          <div className="flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary-dark mb-2">
+              Getting started
+            </p>
+            <h2 className="text-xl font-bold text-foreground mb-2 leading-tight">
+              No orders yet
+            </h2>
+            <p className="text-sm text-muted leading-relaxed max-w-md">
+              Place your first order to get started. Virtual staging, floor plans,
+              day-to-dusk, image enhancement and more — delivered within 24–48 hours.
+            </p>
+          </div>
+          <Link
+            href="/order"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
+          >
+            <PlusCircle className="w-4 h-4" aria-hidden />
+            Place your first order
+          </Link>
+        </div>
+      )}
 
       {/* ── CTA banner ── */}
       <div className="relative overflow-hidden bg-primary rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
-        {/* Subtle decorative circle */}
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/5 pointer-events-none" aria-hidden />
         <div className="absolute -bottom-8 right-24 w-32 h-32 rounded-full bg-secondary/10 pointer-events-none" aria-hidden />
         <div className="relative">
