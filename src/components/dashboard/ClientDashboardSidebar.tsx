@@ -144,8 +144,8 @@ export default function ClientDashboardSidebar({
           Back to website
         </Link>
         <div className="flex items-center gap-2 px-3 py-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" aria-hidden />
-          <span className="text-[10px] text-muted-light font-medium select-none">Demo mode</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0" aria-hidden />
+          <span className="text-[10px] text-muted-light font-medium select-none">Client Portal</span>
         </div>
       </div>
     </aside>

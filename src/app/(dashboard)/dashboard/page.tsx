@@ -15,9 +15,10 @@ import DashboardStatCard from "@/components/dashboard/DashboardStatCard";
 import JobsTable from "@/components/dashboard/JobsTable";
 import {
   MOCK_JOBS,
-  MOCK_CLIENT,
   getDashboardStats,
 } from "@/lib/client-dashboard/mock-data";
+import { getClientUser } from "@/lib/client-auth";
+import { getClientProfile } from "@/lib/client-profile";
 
 export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
@@ -73,13 +74,27 @@ function getNextSteps(jobs: typeof MOCK_JOBS) {
   ].slice(0, 4);
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
   const stats = getDashboardStats(MOCK_JOBS);
   const recentJobs = [...MOCK_JOBS].sort(
     (a, b) =>
       new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime()
   );
   const nextSteps = getNextSteps(MOCK_JOBS);
+
+  // Real auth user + profile for the welcome heading
+  const [user, profile] = await Promise.all([getClientUser(), getClientProfile()]);
+
+  // Prefer profile first_name → auth displayName first word → fallback
+  const welcomeName =
+    profile?.first_name?.trim() ||
+    (profile?.full_name?.trim() ? profile.full_name.trim().split(" ")[0] : null) ||
+    user?.firstName ||
+    "there";
+
+  const companyLine =
+    profile?.company_name?.trim() ||
+    null;
 
   return (
     <ClientDashboardLayout>
@@ -92,11 +107,13 @@ export default function DashboardPage() {
               Client Portal
             </p>
             <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
-              Welcome back, {MOCK_CLIENT.firstName}
+              Welcome back, {welcomeName}
             </h1>
-            <p className="text-muted mt-1.5 text-sm leading-relaxed">
-              {MOCK_CLIENT.company} &middot; Member since {MOCK_CLIENT.memberSince}
-            </p>
+            {companyLine && (
+              <p className="text-muted mt-1.5 text-sm leading-relaxed">
+                {companyLine}
+              </p>
+            )}
           </div>
           <Link
             href="/order"

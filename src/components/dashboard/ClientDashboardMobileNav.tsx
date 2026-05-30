@@ -53,7 +53,7 @@ export default function ClientDashboardMobileNav({
 
   const displayName = user?.displayName || "Client";
   const email       = user?.email       || "";
-  const initials    = getInitials(displayName);
+  const initials    = getInitials(user?.profileName || displayName);
   const isLiveUser  = Boolean(user?.email);
 
   return (
@@ -94,7 +94,7 @@ export default function ClientDashboardMobileNav({
             <span className="text-[10px] font-bold text-white">{initials}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-foreground truncate leading-tight">{displayName}</p>
+            <p className="text-sm font-bold text-foreground truncate leading-tight">{user?.profileName || displayName}</p>
             <p className="text-[11px] text-muted truncate">{email || "Not signed in"}</p>
           </div>
           {isLiveUser ? (

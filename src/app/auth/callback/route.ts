@@ -17,6 +17,10 @@ export const runtime = "nodejs";
 // cookies before redirecting, so the proxy immediately sees the
 // valid session on the next request — no client-side exchange
 // needed, no redirect loop.
+//
+// After email confirmation (type=signup):
+//   - If the user has no client_profiles row yet → /dashboard/profile?onboarding=1
+//   - If they already have a profile (e.g. re-confirming) → /dashboard
 // ============================================================
 
 export async function GET(req: NextRequest) {
@@ -77,11 +81,33 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Route based on flow type ──────────────────────────────
+
   // Password recovery → /reset-password so the user can set a new password
   if (type === "recovery") {
     return NextResponse.redirect(new URL("/reset-password", origin));
   }
 
-  // Email confirmation, magic link, or generic → /dashboard
+  // Email confirmation (type=signup or default after signUp) →
+  // check if the user already has a profile row. If not, send them
+  // to the onboarding flow so they can fill in their details.
+  if (type === "signup" || !type) {
+    try {
+      const { data: profile } = await supabase
+        .from("client_profiles")
+        .select("id")
+        .maybeSingle();
+
+      if (!profile) {
+        // No profile yet — new user, send to onboarding
+        return NextResponse.redirect(
+          new URL("/dashboard/profile?onboarding=1", origin)
+        );
+      }
+    } catch {
+      // DB unavailable (e.g. env missing in build) — fall through to /dashboard
+    }
+  }
+
+  // Profile exists or unrecognised flow → normal dashboard
   return NextResponse.redirect(new URL("/dashboard", origin));
 }
