@@ -1,14 +1,26 @@
+"use client";
+
+import { useState } from "react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import JobsTable from "@/components/dashboard/JobsTable";
 import { MOCK_JOBS } from "@/lib/client-dashboard/mock-data";
+import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 
-export const metadata = {
-  title: "Jobs | PicchuSpot Client Portal",
-};
+// NOTE: This page is a client component so it can own the shared
+// statusFilter state that drives both the sidebar/mobile filters
+// (via ClientDashboardLayout) and the JobsTable select (via props).
+// Sidebar ↔ table select are always in sync.
 
 export default function DashboardJobsPage() {
+  const [statusFilter, setStatusFilter] = useState<DashboardJobStatus | "all">(
+    "all"
+  );
+
   return (
-    <ClientDashboardLayout showStatusFilter>
+    <ClientDashboardLayout
+      statusFilter={statusFilter}
+      onStatusFilterChange={setStatusFilter}
+    >
       {/* Page header */}
       <div className="mb-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-secondary-dark mb-1">
@@ -22,8 +34,13 @@ export default function DashboardJobsPage() {
         </p>
       </div>
 
-      {/* Jobs table with search + filter */}
-      <JobsTable jobs={MOCK_JOBS} showControls />
+      {/* Jobs table — externalStatusFilter keeps it in sync with sidebar/mobile filters */}
+      <JobsTable
+        jobs={MOCK_JOBS}
+        showControls
+        externalStatusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+      />
     </ClientDashboardLayout>
   );
 }

@@ -18,6 +18,13 @@ interface JobsTableProps {
   showControls?: boolean;
   /** Limit rows (used on the overview page to show "recent" only). */
   limit?: number;
+  /**
+   * Externally controlled status filter (e.g. driven by the sidebar).
+   * When provided, the table's own select stays in sync with this value.
+   */
+  externalStatusFilter?: DashboardJobStatus | "all";
+  /** Called when the table's own select changes — lets the parent sync sidebar. */
+  onStatusFilterChange?: (status: DashboardJobStatus | "all") => void;
   className?: string;
 }
 
@@ -33,12 +40,27 @@ export default function JobsTable({
   jobs,
   showControls = false,
   limit,
+  externalStatusFilter,
+  onStatusFilterChange,
   className,
 }: JobsTableProps) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<DashboardJobStatus | "all">(
-    "all"
-  );
+  // Internal filter state — used only when no external filter is provided.
+  const [internalStatusFilter, setInternalStatusFilter] = useState<
+    DashboardJobStatus | "all"
+  >("all");
+
+  // If an external filter is wired in, use that; otherwise fall back to internal.
+  const isControlled = externalStatusFilter !== undefined;
+  const statusFilter = isControlled ? externalStatusFilter : internalStatusFilter;
+
+  function handleStatusFilterChange(value: DashboardJobStatus | "all") {
+    if (isControlled) {
+      onStatusFilterChange?.(value);
+    } else {
+      setInternalStatusFilter(value);
+    }
+  }
 
   const filtered = jobs.filter((job) => {
     const matchesSearch =
@@ -81,7 +103,7 @@ export default function JobsTable({
             <select
               value={statusFilter}
               onChange={(e) =>
-                setStatusFilter(e.target.value as DashboardJobStatus | "all")
+                handleStatusFilterChange(e.target.value as DashboardJobStatus | "all")
               }
               className="pl-9 pr-8 py-2.5 text-sm border border-border rounded-lg bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors cursor-pointer"
               aria-label="Filter by status"
