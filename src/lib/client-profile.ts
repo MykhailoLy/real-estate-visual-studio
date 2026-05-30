@@ -28,14 +28,14 @@ export interface ClientProfile {
 }
 
 export interface UpsertProfileData {
-  first_name?: string;
-  last_name?: string;
-  full_name?: string;
-  company_name?: string;
-  phone?: string;
-  country?: string;
-  industry?: string;
-  how_found_us?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  company_name?: string | null;
+  phone?: string | null;
+  country?: string | null;
+  industry?: string | null;
+  how_found_us?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────

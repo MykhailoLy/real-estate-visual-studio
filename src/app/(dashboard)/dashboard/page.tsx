@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   Briefcase,
@@ -84,6 +85,13 @@ export default async function DashboardPage() {
 
   // Real auth user + profile for the welcome heading
   const [user, profile] = await Promise.all([getClientUser(), getClientProfile()]);
+
+  // If the authenticated user has no profile row yet, send them to onboarding.
+  // (Covers users who logged in directly without going through /auth/callback,
+  // e.g. an existing Supabase user created before the profile table existed.)
+  if (user && profile === null) {
+    redirect("/dashboard/profile?onboarding=1");
+  }
 
   // Prefer profile first_name → auth displayName first word → fallback
   const welcomeName =
