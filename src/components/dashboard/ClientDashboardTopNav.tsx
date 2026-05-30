@@ -12,13 +12,14 @@ import {
   LifeBuoy,
   ChevronDown,
   User,
-  LogOut,
   ArrowUpRight,
   Coins,
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MOCK_CLIENT } from "@/lib/client-dashboard/mock-data";
+import { getInitials } from "@/lib/client-auth-utils";
+import { useDashboardUser } from "./DashboardUserContext";
+import SignOutButton from "./SignOutButton";
 
 export interface DashboardNavItem {
   href: string;
@@ -48,6 +49,15 @@ export default function ClientDashboardTopNav({
   const pathname = usePathname() ?? "/dashboard";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  // Read user from context (set by the server layout)
+  const user = useDashboardUser();
+
+  const displayName = user?.displayName || "Client";
+  const firstName   = user?.firstName   || displayName.split(" ")[0];
+  const email       = user?.email       || "";
+  const initials    = getInitials(displayName);
+  const isLiveUser  = Boolean(user?.email);
+
   const isActive = (item: DashboardNavItem) => {
     if (item.exact) return pathname === item.href;
     return pathname.startsWith(item.href);
@@ -69,10 +79,9 @@ export default function ClientDashboardTopNav({
         </span>
       </Link>
 
-      {/* Vertical divider */}
       <div className="hidden lg:block w-px h-5 bg-white/15 flex-shrink-0" />
 
-      {/* Desktop nav items */}
+      {/* Desktop nav */}
       <nav
         aria-label="Dashboard navigation"
         className="hidden lg:flex items-center gap-0.5 flex-1"
@@ -112,19 +121,24 @@ export default function ClientDashboardTopNav({
           <span className="hidden xl:inline">Back to website</span>
         </Link>
 
-        {/* Separator */}
         <div className="hidden md:block w-px h-4 bg-white/15" />
 
-        {/* Credits placeholder badge */}
-        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/8 border border-white/12 rounded-full cursor-default select-none" title="Credits feature coming soon">
+        {/* Credits placeholder */}
+        <div
+          className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/8 border border-white/12 rounded-full cursor-default select-none"
+          title="Credits feature coming soon"
+        >
           <Coins className="w-3 h-3 text-secondary/70" aria-hidden />
           <span className="text-[11px] font-semibold text-white/50">Credits</span>
           <span className="text-[11px] font-bold text-white/30">—</span>
         </div>
 
-        {/* Demo mode pill */}
-        <span className="hidden sm:inline-flex items-center px-2 py-0.5 bg-secondary/15 border border-secondary/25 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] text-secondary/80 select-none cursor-default">
-          Demo
+        {/* Demo data pill — always shown while jobs/files are mock */}
+        <span
+          className="hidden sm:inline-flex items-center px-2 py-0.5 bg-secondary/15 border border-secondary/25 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] text-secondary/80 select-none cursor-default"
+          title="Jobs and files shown are sample data"
+        >
+          Demo data
         </span>
 
         {/* User dropdown */}
@@ -136,15 +150,13 @@ export default function ClientDashboardTopNav({
             aria-haspopup="menu"
             className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/18 border border-white/10 hover:border-white/20 transition-all text-white"
           >
-            {/* Avatar */}
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-secondary to-secondary-dark flex items-center justify-center flex-shrink-0 shadow-sm">
               <span className="text-[10px] font-bold text-primary-dark leading-none">
-                {MOCK_CLIENT.firstName.charAt(0)}
-                {MOCK_CLIENT.lastName.charAt(0)}
+                {initials}
               </span>
             </div>
             <span className="hidden sm:inline text-[13px] font-semibold leading-none">
-              {MOCK_CLIENT.firstName}
+              {firstName}
             </span>
             <ChevronDown
               className={cn(
@@ -157,38 +169,43 @@ export default function ClientDashboardTopNav({
 
           {userMenuOpen && (
             <>
-              {/* Backdrop */}
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setUserMenuOpen(false)}
                 aria-hidden
               />
-              {/* Dropdown panel */}
               <div
                 role="menu"
                 className="absolute right-0 mt-2 w-60 bg-white border border-border rounded-xl shadow-2xl shadow-black/10 py-1 z-50 overflow-hidden"
               >
-                {/* User identity block */}
+                {/* Identity block */}
                 <div className="px-4 py-3 border-b border-border bg-surface/60">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-white">
-                        {MOCK_CLIENT.firstName.charAt(0)}
-                        {MOCK_CLIENT.lastName.charAt(0)}
-                      </span>
+                      <span className="text-xs font-bold text-white">{initials}</span>
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-foreground leading-tight truncate">
-                        {MOCK_CLIENT.name}
+                        {displayName}
                       </p>
-                      <p className="text-[11px] text-muted truncate">{MOCK_CLIENT.email}</p>
+                      <p className="text-[11px] text-muted truncate">{email}</p>
                     </div>
                   </div>
-                  {/* Demo badge inside dropdown */}
-                  <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-200/60 rounded-md">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" aria-hidden />
-                    <p className="text-[11px] text-amber-700 font-semibold">Demo Mode — auth not connected yet</p>
-                  </div>
+                  {isLiveUser ? (
+                    <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-200/60 rounded-md">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" aria-hidden />
+                      <p className="text-[11px] text-emerald-700 font-semibold">
+                        Signed in · Jobs &amp; files are sample data
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-200/60 rounded-md">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" aria-hidden />
+                      <p className="text-[11px] text-amber-700 font-semibold">
+                        Demo mode — not signed in
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="py-1">
@@ -222,15 +239,9 @@ export default function ClientDashboardTopNav({
                 </div>
 
                 <div className="border-t border-border py-1">
-                  <button
-                    role="menuitem"
-                    type="button"
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted hover:bg-surface hover:text-foreground transition-colors"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <LogOut className="w-4 h-4" aria-hidden />
-                    Sign out
-                  </button>
+                  <SignOutButton
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted hover:bg-surface hover:text-foreground transition-colors disabled:opacity-60"
+                  />
                 </div>
               </div>
             </>

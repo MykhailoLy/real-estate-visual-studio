@@ -4,9 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/client-auth-utils";
 import { DASHBOARD_NAV_ITEMS } from "./ClientDashboardTopNav";
 import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
-import { STATUS_LABELS, MOCK_CLIENT } from "@/lib/client-dashboard/mock-data";
+import { STATUS_LABELS } from "@/lib/client-dashboard/mock-data";
+import { useDashboardUser } from "./DashboardUserContext";
+import SignOutButton from "./SignOutButton";
 
 interface ClientDashboardMobileNavProps {
   open: boolean;
@@ -39,6 +42,7 @@ export default function ClientDashboardMobileNav({
   onStatusFilter,
 }: ClientDashboardMobileNavProps) {
   const pathname = usePathname() ?? "/dashboard";
+  const user = useDashboardUser();
 
   if (!open) return null;
 
@@ -47,28 +51,29 @@ export default function ClientDashboardMobileNav({
     return pathname.startsWith(href);
   };
 
+  const displayName = user?.displayName || "Client";
+  const email       = user?.email       || "";
+  const initials    = getInitials(displayName);
+  const isLiveUser  = Boolean(user?.email);
+
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
         onClick={onClose}
         aria-hidden
       />
 
-      {/* Drawer */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Dashboard navigation menu"
         className="fixed inset-y-0 left-0 w-[17rem] bg-white z-50 lg:hidden flex flex-col shadow-2xl"
       >
-        {/* Drawer header — matches top nav */}
+        {/* Header */}
         <div className="flex items-center justify-between px-4 h-14 bg-primary flex-shrink-0 border-b border-primary-dark/40">
           <div className="flex items-center gap-2">
-            <span className="text-white font-bold text-[15px] tracking-tight">
-              PicchuSpot
-            </span>
+            <span className="text-white font-bold text-[15px] tracking-tight">PicchuSpot</span>
             <span className="inline-flex items-center px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-secondary text-[9px] font-bold uppercase tracking-[0.18em]">
               Portal
             </span>
@@ -83,28 +88,30 @@ export default function ClientDashboardMobileNav({
           </button>
         </div>
 
-        {/* Client identity strip */}
+        {/* Identity strip */}
         <div className="px-4 py-3 bg-surface border-b border-border flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] font-bold text-white">
-              {MOCK_CLIENT.firstName.charAt(0)}{MOCK_CLIENT.lastName.charAt(0)}
-            </span>
+            <span className="text-[10px] font-bold text-white">{initials}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-foreground truncate leading-tight">{MOCK_CLIENT.name}</p>
-            <p className="text-[11px] text-muted truncate">{MOCK_CLIENT.email}</p>
+            <p className="text-sm font-bold text-foreground truncate leading-tight">{displayName}</p>
+            <p className="text-[11px] text-muted truncate">{email || "Not signed in"}</p>
           </div>
-          <span className="ml-auto flex-shrink-0 inline-flex items-center px-1.5 py-0.5 bg-amber-50 border border-amber-200/60 rounded text-[9px] font-bold uppercase tracking-[0.12em] text-amber-600">
-            Demo
-          </span>
+          {isLiveUser ? (
+            <span className="ml-auto flex-shrink-0 inline-flex items-center px-1.5 py-0.5 bg-emerald-50 border border-emerald-200/60 rounded text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+              Live
+            </span>
+          ) : (
+            <span className="ml-auto flex-shrink-0 inline-flex items-center px-1.5 py-0.5 bg-amber-50 border border-amber-200/60 rounded text-[9px] font-bold uppercase tracking-[0.12em] text-amber-600">
+              Demo
+            </span>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Main nav links */}
+          {/* Nav links */}
           <nav aria-label="Dashboard pages" className="px-2 py-3 space-y-0.5">
-            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">
-              Menu
-            </p>
+            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">Menu</p>
             {DASHBOARD_NAV_ITEMS.map((item) => {
               const active = isActive(item.href, item.exact);
               const isNewOrder = item.href === "/order";
@@ -136,14 +143,12 @@ export default function ClientDashboardMobileNav({
             })}
           </nav>
 
-          {/* Status quick filters */}
+          {/* Status filters */}
           {onStatusFilter && (
             <>
               <div className="mx-4 border-t border-border" />
               <div className="px-2 py-3">
-                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">
-                  Filter jobs
-                </p>
+                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">Filter jobs</p>
                 <div className="space-y-0.5">
                   {STATUS_FILTERS.map((f) => {
                     const active = activeStatusFilter === f.value;
@@ -151,10 +156,7 @@ export default function ClientDashboardMobileNav({
                       <button
                         key={f.value}
                         type="button"
-                        onClick={() => {
-                          onStatusFilter(f.value);
-                          onClose();
-                        }}
+                        onClick={() => { onStatusFilter(f.value); onClose(); }}
                         className={cn(
                           "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 text-left",
                           active
@@ -163,10 +165,7 @@ export default function ClientDashboardMobileNav({
                         )}
                       >
                         <span
-                          className={cn(
-                            "w-2 h-2 rounded-full flex-shrink-0",
-                            active ? statusDotColor[f.value] : "bg-border"
-                          )}
+                          className={cn("w-2 h-2 rounded-full flex-shrink-0", active ? statusDotColor[f.value] : "bg-border")}
                           aria-hidden
                         />
                         {f.label}
@@ -180,7 +179,7 @@ export default function ClientDashboardMobileNav({
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 border-t border-border px-2 py-3 space-y-0.5">
+        <div className="flex-shrink-0 border-t border-border px-2 py-2 space-y-0.5">
           <Link
             href="/"
             onClick={onClose}
@@ -189,6 +188,9 @@ export default function ClientDashboardMobileNav({
             <ArrowUpRight className="w-4 h-4 flex-shrink-0" aria-hidden />
             Back to website
           </Link>
+          <SignOutButton
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-muted hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
+          />
         </div>
       </div>
     </>
