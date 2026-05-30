@@ -289,6 +289,7 @@ export default function AdminOrdersClient({
                       "Items / Cost",
                       "Status",
                       "Submitted",
+                      "Deliverables",
                     ].map((h) => (
                       <th
                         key={h}
@@ -387,6 +388,16 @@ function OrderRow({
         <p className="text-[12px] text-foreground/70">
           {formatDate(order.created_at)}
         </p>
+      </td>
+
+      {/* Deliverables link */}
+      <td className="px-4 py-4 whitespace-nowrap">
+        <Link
+          href={`/admin/orders/${order.id}`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[11px] font-semibold text-foreground/70 hover:border-primary hover:text-primary bg-white transition-colors"
+        >
+          Files →
+        </Link>
       </td>
     </tr>
   );
