@@ -13,6 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import {
   PORTFOLIO_BUCKET,
   PORTFOLIO_SERVICES,
@@ -178,14 +179,22 @@ export default function PortfolioAdminClient({
               site shows.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="inline-flex items-center gap-2 self-start sm:self-auto px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-          >
-            <LogOut className="w-4 h-4" aria-hidden />
-            Sign out
-          </button>
+          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+            <Link
+              href="/admin/orders"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              Orders
+            </Link>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              <LogOut className="w-4 h-4" aria-hidden />
+              Sign out
+            </button>
+          </div>
         </header>
 
         {!supabaseConfigured && (
