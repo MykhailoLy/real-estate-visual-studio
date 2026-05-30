@@ -13,7 +13,8 @@ import {
   ChevronDown,
   User,
   LogOut,
-  Settings,
+  ArrowUpRight,
+  Coins,
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,25 +54,28 @@ export default function ClientDashboardTopNav({
   };
 
   return (
-    <header className="h-14 bg-primary border-b border-primary-dark flex items-center px-4 sm:px-6 gap-4 flex-shrink-0 z-40 sticky top-0">
+    <header className="h-14 bg-primary border-b border-primary-dark/60 flex items-center px-4 sm:px-6 gap-4 flex-shrink-0 z-40 sticky top-0 shadow-sm">
       {/* Logo */}
       <Link
         href="/dashboard"
-        className="flex items-center gap-2 flex-shrink-0"
+        className="flex items-center gap-2.5 flex-shrink-0 group"
         aria-label="PicchuSpot Dashboard home"
       >
-        <span className="text-white font-bold text-lg tracking-tight leading-none">
+        <span className="text-white font-bold text-[15px] tracking-tight leading-none group-hover:text-white/90 transition-colors">
           PicchuSpot
         </span>
-        <span className="hidden sm:inline-block text-secondary text-[10px] font-semibold uppercase tracking-[0.15em] leading-none mt-0.5">
-          Client Portal
+        <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-secondary text-[9px] font-bold uppercase tracking-[0.18em] leading-none">
+          Portal
         </span>
       </Link>
+
+      {/* Vertical divider */}
+      <div className="hidden lg:block w-px h-5 bg-white/15 flex-shrink-0" />
 
       {/* Desktop nav items */}
       <nav
         aria-label="Dashboard navigation"
-        className="hidden lg:flex items-center gap-1 ml-6 flex-1"
+        className="hidden lg:flex items-center gap-0.5 flex-1"
       >
         {DASHBOARD_NAV_ITEMS.map((item) => {
           const active = isActive(item);
@@ -81,12 +85,12 @@ export default function ClientDashboardTopNav({
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-semibold transition-colors",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-semibold transition-all duration-150",
                 isNewOrder
-                  ? "bg-secondary text-primary-dark hover:bg-secondary-light ml-2"
+                  ? "bg-secondary text-primary-dark hover:bg-secondary-light ml-1 shadow-sm"
                   : active
-                  ? "bg-white/15 text-white"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
+                  ? "bg-white/18 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+                  : "text-white/65 hover:text-white hover:bg-white/10"
               )}
               aria-current={active && !isNewOrder ? "page" : undefined}
             >
@@ -98,10 +102,29 @@ export default function ClientDashboardTopNav({
       </nav>
 
       {/* Right side */}
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2">
+        {/* Back to website */}
+        <Link
+          href="/"
+          className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-semibold text-white/55 hover:text-white/90 transition-colors rounded-md hover:bg-white/8"
+        >
+          <ArrowUpRight className="w-3.5 h-3.5" aria-hidden />
+          <span className="hidden xl:inline">Back to website</span>
+        </Link>
+
+        {/* Separator */}
+        <div className="hidden md:block w-px h-4 bg-white/15" />
+
         {/* Credits placeholder badge */}
-        <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/10 border border-white/20 rounded-full text-[11px] font-semibold text-white/80 cursor-default select-none">
-          Credits: —
+        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/8 border border-white/12 rounded-full cursor-default select-none" title="Credits feature coming soon">
+          <Coins className="w-3 h-3 text-secondary/70" aria-hidden />
+          <span className="text-[11px] font-semibold text-white/50">Credits</span>
+          <span className="text-[11px] font-bold text-white/30">—</span>
+        </div>
+
+        {/* Demo mode pill */}
+        <span className="hidden sm:inline-flex items-center px-2 py-0.5 bg-secondary/15 border border-secondary/25 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] text-secondary/80 select-none cursor-default">
+          Demo
         </span>
 
         {/* User dropdown */}
@@ -111,20 +134,21 @@ export default function ClientDashboardTopNav({
             onClick={() => setUserMenuOpen((v) => !v)}
             aria-expanded={userMenuOpen}
             aria-haspopup="menu"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white"
+            className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/18 border border-white/10 hover:border-white/20 transition-all text-white"
           >
-            <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-              <span className="text-[10px] font-bold text-primary-dark">
+            {/* Avatar */}
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-secondary to-secondary-dark flex items-center justify-center flex-shrink-0 shadow-sm">
+              <span className="text-[10px] font-bold text-primary-dark leading-none">
                 {MOCK_CLIENT.firstName.charAt(0)}
                 {MOCK_CLIENT.lastName.charAt(0)}
               </span>
             </div>
-            <span className="hidden sm:inline text-[13px] font-semibold">
+            <span className="hidden sm:inline text-[13px] font-semibold leading-none">
               {MOCK_CLIENT.firstName}
             </span>
             <ChevronDown
               className={cn(
-                "w-3.5 h-3.5 transition-transform duration-200",
+                "w-3.5 h-3.5 text-white/60 transition-transform duration-200",
                 userMenuOpen && "rotate-180"
               )}
               aria-hidden
@@ -142,37 +166,66 @@ export default function ClientDashboardTopNav({
               {/* Dropdown panel */}
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-xl py-1.5 z-50"
+                className="absolute right-0 mt-2 w-60 bg-white border border-border rounded-xl shadow-2xl shadow-black/10 py-1 z-50 overflow-hidden"
               >
-                <div className="px-4 py-2.5 border-b border-border">
-                  <p className="text-sm font-semibold text-foreground">
-                    {MOCK_CLIENT.name}
-                  </p>
-                  <p className="text-xs text-muted">{MOCK_CLIENT.email}</p>
+                {/* User identity block */}
+                <div className="px-4 py-3 border-b border-border bg-surface/60">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-white">
+                        {MOCK_CLIENT.firstName.charAt(0)}
+                        {MOCK_CLIENT.lastName.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground leading-tight truncate">
+                        {MOCK_CLIENT.name}
+                      </p>
+                      <p className="text-[11px] text-muted truncate">{MOCK_CLIENT.email}</p>
+                    </div>
+                  </div>
+                  {/* Demo badge inside dropdown */}
+                  <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-200/60 rounded-md">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" aria-hidden />
+                    <p className="text-[11px] text-amber-700 font-semibold">Demo Mode — auth not connected yet</p>
+                  </div>
                 </div>
-                <Link
-                  href="/dashboard/profile"
-                  role="menuitem"
-                  onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 hover:bg-surface hover:text-primary transition-colors"
-                >
-                  <User className="w-4 h-4" aria-hidden />
-                  Profile
-                </Link>
-                <Link
-                  href="/dashboard/support"
-                  role="menuitem"
-                  onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 hover:bg-surface hover:text-primary transition-colors"
-                >
-                  <Settings className="w-4 h-4" aria-hidden />
-                  Settings
-                </Link>
-                <div className="border-t border-border mt-1 pt-1">
+
+                <div className="py-1">
+                  <Link
+                    href="/dashboard/profile"
+                    role="menuitem"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 hover:bg-surface hover:text-primary transition-colors"
+                  >
+                    <User className="w-4 h-4 text-muted" aria-hidden />
+                    Profile
+                  </Link>
+                  <Link
+                    href="/dashboard/support"
+                    role="menuitem"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 hover:bg-surface hover:text-primary transition-colors"
+                  >
+                    <LifeBuoy className="w-4 h-4 text-muted" aria-hidden />
+                    Support
+                  </Link>
+                  <Link
+                    href="/"
+                    role="menuitem"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 hover:bg-surface hover:text-primary transition-colors"
+                  >
+                    <ArrowUpRight className="w-4 h-4 text-muted" aria-hidden />
+                    Back to website
+                  </Link>
+                </div>
+
+                <div className="border-t border-border py-1">
                   <button
                     role="menuitem"
                     type="button"
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/60 hover:bg-surface hover:text-foreground transition-colors"
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted hover:bg-surface hover:text-foreground transition-colors"
                     onClick={() => setUserMenuOpen(false)}
                   >
                     <LogOut className="w-4 h-4" aria-hidden />
@@ -190,7 +243,7 @@ export default function ClientDashboardTopNav({
           onClick={onMobileMenuToggle}
           aria-expanded={mobileMenuOpen}
           aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-          className="lg:hidden p-1.5 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+          className="lg:hidden p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
         >
           <Menu className="w-5 h-5" aria-hidden />
         </button>
