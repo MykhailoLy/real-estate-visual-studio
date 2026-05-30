@@ -223,19 +223,24 @@ export default function JobsTable({
                     key={job.id}
                     className="hover:bg-surface/50 transition-colors group"
                   >
-                    {/* Job title + reference */}
+                    {/* Job title + reference — links to the detail page */}
                     <td className="px-4 py-3.5">
-                      <p className="font-semibold text-foreground group-hover:text-primary transition-colors leading-snug text-[13px]">
-                        {job.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded">
-                          {job.reference}
-                        </span>
-                        <span className="text-[10px] text-muted-light hidden sm:inline">
-                          {job.imageCount} image{job.imageCount !== 1 ? "s" : ""}
-                        </span>
-                      </div>
+                      <Link
+                        href={`/dashboard/jobs/${job.id}`}
+                        className="block group/link"
+                      >
+                        <p className="font-semibold text-foreground group-hover/link:text-primary transition-colors leading-snug text-[13px]">
+                          {job.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded group-hover/link:bg-primary/8 transition-colors">
+                            {job.reference}
+                          </span>
+                          <span className="text-[10px] text-muted-light hidden sm:inline">
+                            {job.imageCount} image{job.imageCount !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      </Link>
                     </td>
                     {/* Service */}
                     <td className="px-4 py-3.5 hidden md:table-cell">
