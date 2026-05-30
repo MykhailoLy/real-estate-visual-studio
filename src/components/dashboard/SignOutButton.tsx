@@ -1,32 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogOut, Loader2 } from "lucide-react";
-import { getSupabaseBrowser } from "@/lib/supabase";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 interface SignOutButtonProps {
   className?: string;
 }
 
-// Signs out via the Supabase browser client (clears localStorage session)
-// then hard-navigates to /login. We use router.replace so the back button
-// doesn't return to the dashboard after sign-out.
+// Signs out via the SSR cookie-based Supabase browser client, then
+// hard-navigates to /login so the server session cookie is cleared too.
+// Always redirects even if signOut throws, so the button never gets stuck.
 export default function SignOutButton({ className }: SignOutButtonProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleSignOut() {
     if (loading) return;
     setLoading(true);
     try {
-      const supabase = getSupabaseBrowser();
-      await supabase.auth.signOut();
+      const supabase = createBrowserSupabaseClient();
+      await supabase.auth.signOut({ scope: "local" });
     } catch {
       // Continue regardless — we still redirect to login
     }
-    router.replace("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   return (
