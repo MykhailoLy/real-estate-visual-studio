@@ -144,29 +144,29 @@ export function PortfolioExamplesGrid({ cards }: PortfolioGridProps) {
               >
                 {hasImages ? (
                   <div className="absolute inset-0 flex">
-                    {/* Before half */}
-                    <div className="relative w-1/2 overflow-hidden bg-stone-50">
+                    {/* Before half — object-contain with white bg so plans are fully visible */}
+                    <div className="relative w-1/2 overflow-hidden bg-white">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={card.beforeUrl!}
                         alt={card.beforeAlt}
                         loading="lazy"
                         decoding="async"
-                        className="absolute inset-0 w-full h-full object-contain p-1 sm:p-2"
+                        className="absolute inset-0 w-full h-full object-contain p-2 sm:p-3"
                       />
                       <span className="absolute bottom-2.5 left-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-stone-700 shadow-sm">
                         Before
                       </span>
                     </div>
-                    {/* After half */}
-                    <div className="relative w-1/2 overflow-hidden bg-stone-50">
+                    {/* After half — object-contain with white bg */}
+                    <div className="relative w-1/2 overflow-hidden bg-white">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={card.afterUrl!}
                         alt={card.afterAlt}
                         loading="lazy"
                         decoding="async"
-                        className="absolute inset-0 w-full h-full object-contain p-1 sm:p-2"
+                        className="absolute inset-0 w-full h-full object-contain p-2 sm:p-3"
                       />
                       <span className="absolute bottom-2.5 right-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-primary shadow-sm">
                         After
@@ -268,7 +268,7 @@ export function StyleOptionsGrid({ cards }: StyleGridProps) {
                 aria-label={hasImage ? `View ${card.title} example` : undefined}
                 onClick={() => hasImage && setOpen(card)}
                 className={cn(
-                  "w-full relative aspect-video overflow-hidden bg-stone-50 block",
+                  "w-full relative aspect-video overflow-hidden bg-white block",
                   hasImage
                     ? "cursor-zoom-in focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                     : "cursor-default"
@@ -282,7 +282,7 @@ export function StyleOptionsGrid({ cards }: StyleGridProps) {
                       alt={card.imageAlt}
                       loading="lazy"
                       decoding="async"
-                      className="absolute inset-0 w-full h-full object-contain p-2 sm:p-3 bg-stone-50"
+                      className="absolute inset-0 w-full h-full object-contain p-2 sm:p-3"
                     />
                     <span
                       aria-hidden

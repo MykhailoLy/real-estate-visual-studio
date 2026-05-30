@@ -42,22 +42,23 @@ interface Props {
   autoplayMs?: number;
   ariaLabel?: string;
   /**
-   * How real slide images are fitted inside each half of the stage.
-   *
-   * "cover"   (default) — crops to fill; good for photos
-   * "contain" — fits the whole image; use for plans, diagrams, documents
+   * How real slide images fit inside each half of the stage.
+   *   "cover"   (default) — crops to fill; correct for photos.
+   *   "contain" — fits whole image without cropping; use for plans,
+   *               drawings, documents where nothing can be cut off.
    */
   imageFit?: "cover" | "contain";
   /**
-   * Tailwind background colour class applied behind each image half when
-   * imageFit = "contain" (otherwise images fill the frame completely).
-   * Defaults to "bg-stone-100".
+   * Tailwind bg-* class applied behind each image half when
+   * imageFit = "contain". Defaults to "bg-stone-100".
    */
   imageBackground?: string;
   /**
-   * Override the mobile aspect-ratio class (applied at the `sm:` breakpoint
-   * boundary and below). Defaults to the photo-slider value "aspect-[16/9]".
-   * For plan/document images pass a taller ratio, e.g. "aspect-[4/3]".
+   * Override the mobile aspect-ratio Tailwind class (applied at the
+   * base/mobile breakpoint only). Defaults to "aspect-[16/9]" which
+   * is appropriate for photo-based services. Pass a wider ratio like
+   * "aspect-[16/10]" for plan-based pages that still need to feel
+   * like a banner rather than a tall square.
    */
   mobileAspect?: string;
 }
@@ -150,13 +151,11 @@ export default function ServicePageSlider({
     >
       {/* ── Slide stage ── */}
       {/*
-        The aspect-ratio chain:
-          [mobileAspect] (e.g. aspect-[16/9] for photos, aspect-[4/3] for plans)
-          sm:aspect-[21/9]  — wider on small tablets
-          md:aspect-[3/1]   — panoramic on medium
-          lg:aspect-[4/1]   — ultra-wide hero on desktop
-        mobileAspect is injected as a prop so plan-based pages can pass a
-        taller ratio without affecting photo-based services.
+        Aspect chain:
+          [mobileAspect] e.g. aspect-[16/9] for photos, aspect-[16/10] for plans
+          sm:aspect-[21/9]  small tablets
+          md:aspect-[3/1]   medium viewports
+          lg:aspect-[4/1]   wide desktop hero
       */}
       <div
         className={cn(
@@ -281,9 +280,12 @@ function RealSlide({
   imageFit?: "cover" | "contain";
   imageBackground?: string;
 }) {
-  const imgClass = `absolute inset-0 w-full h-full ${
-    imageFit === "contain" ? "object-contain p-2 sm:p-3" : "object-cover"
-  }`;
+  // object-contain gets a small inset so the plan image has
+  // breathing room against the frame edge and centerline divider.
+  const imgCls =
+    imageFit === "contain"
+      ? "absolute inset-0 w-full h-full object-contain p-3 sm:p-4"
+      : "absolute inset-0 w-full h-full object-cover";
 
   return (
     <div className="absolute inset-0 flex">
@@ -295,7 +297,7 @@ function RealSlide({
           alt={beforeAlt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
-          className={imgClass}
+          className={imgCls}
         />
       </div>
 
@@ -307,7 +309,7 @@ function RealSlide({
           alt={afterAlt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
-          className={imgClass}
+          className={imgCls}
         />
       </div>
 
