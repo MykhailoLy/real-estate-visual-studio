@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
 import AdminDeliverableUpload, {
   type DeliverableRow,
 } from "@/components/admin/AdminDeliverableUpload";
+import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 
 // ============================================================
 // /admin/orders/[orderId] — admin order detail + deliverables
@@ -172,15 +173,7 @@ export default async function AdminOrderDetailPage({
               <ArrowLeft className="w-4 h-4" aria-hidden />
               Back to orders
             </Link>
-            <form action="/api/admin/logout" method="POST">
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                <LogOut className="w-4 h-4" aria-hidden />
-                Sign out
-              </button>
-            </form>
+            <AdminLogoutButton />
           </div>
         </header>
 

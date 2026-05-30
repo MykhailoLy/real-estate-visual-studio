@@ -6,7 +6,7 @@ import {
   DELIVERABLES_BUCKET,
   ADMIN_DELIVERABLE_MAX_BYTES,
   ADMIN_DELIVERABLE_MAX_MB,
-} from "@/lib/client-deliverables";
+} from "@/lib/deliverables-config";
 
 // ============================================================
 // POST /api/admin/orders/[orderId]/deliverables

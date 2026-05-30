@@ -34,7 +34,7 @@ import {
   ADMIN_DELIVERABLE_MAX_MB,
   ALLOWED_DELIVERABLE_MIME_TYPES,
   ALLOWED_DELIVERABLE_EXTENSIONS,
-} from "@/lib/client-deliverables";
+} from "@/lib/deliverables-config";
 
 // ── Types ──────────────────────────────────────────────────────
 

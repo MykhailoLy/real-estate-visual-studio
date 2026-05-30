@@ -9,7 +9,7 @@ import {
   ALLOWED_DELIVERABLE_MIME_TYPES,
   ALLOWED_DELIVERABLE_EXTENSIONS,
   buildDeliverablePath,
-} from "@/lib/client-deliverables";
+} from "@/lib/deliverables-config";
 
 // ============================================================
 // POST /api/admin/orders/[orderId]/deliverables/upload-url

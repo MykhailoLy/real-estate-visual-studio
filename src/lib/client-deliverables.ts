@@ -17,37 +17,25 @@
 // Server-only.  Never import from a "use client" file.
 // ============================================================
 
+import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import {
+  DELIVERABLES_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
+} from "@/lib/deliverables-config";
 
-// ── Constants ─────────────────────────────────────────────────
-
-/** Private Supabase Storage bucket that holds finished deliverables. */
-export const DELIVERABLES_BUCKET = "deliverables";
-
-/** Signed URL TTL in seconds (5 minutes). */
-export const SIGNED_URL_TTL_SECONDS = 300;
-
-/** Max file size for admin deliverable uploads (200 MB). */
-export const ADMIN_DELIVERABLE_MAX_BYTES = 200 * 1024 * 1024;
-export const ADMIN_DELIVERABLE_MAX_MB = ADMIN_DELIVERABLE_MAX_BYTES / (1024 * 1024);
-
-/** MIME types accepted for deliverable uploads. */
-export const ALLOWED_DELIVERABLE_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/tiff",
-  "application/pdf",
-  "application/zip",
-  "application/x-zip-compressed",
-  // Some OS/browsers report generic octet-stream for ZIP files
-  "application/octet-stream",
-] as const;
-
-/** Allowed file extensions (used to verify octet-stream uploads). */
-export const ALLOWED_DELIVERABLE_EXTENSIONS = [
-  "jpg", "jpeg", "png", "webp", "tif", "tiff", "pdf", "zip",
-] as const;
+// Re-export so callers that already import from this module keep working.
+export {
+  DELIVERABLES_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
+} from "@/lib/deliverables-config";
+export {
+  ADMIN_DELIVERABLE_MAX_BYTES,
+  ADMIN_DELIVERABLE_MAX_MB,
+  ALLOWED_DELIVERABLE_MIME_TYPES,
+  ALLOWED_DELIVERABLE_EXTENSIONS,
+  buildDeliverablePath,
+} from "@/lib/deliverables-config";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -182,23 +170,4 @@ export async function getDeliverableDownloadUrl(
   }
 }
 
-// ── Path builder (used by admin upload route) ─────────────────
-
-/**
- * Constructs a safe storage path for a deliverable file.
- * Path is built server-side only — never accepts raw client input.
- *
- * Format: <orderNumber>/<timestamp>-<safe-filename>
- */
-export function buildDeliverablePath(
-  orderNumber: string,
-  originalFilename: string
-): string {
-  // Strip path separators and non-safe chars from the filename
-  const safeBase = originalFilename
-    .replace(/^.*[\\/]/, "")         // strip any path prefix
-    .replace(/[^a-zA-Z0-9._-]/g, "_") // replace unsafe chars
-    .slice(0, 100);                    // cap length
-  const ts = Date.now();
-  return `${orderNumber}/${ts}-${safeBase}`;
-}
+// buildDeliverablePath is re-exported from deliverables-config above.

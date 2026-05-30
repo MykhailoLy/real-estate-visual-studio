@@ -89,3 +89,15 @@ CREATE POLICY "deliverables_client_select_own"
 
 -- No client INSERT / UPDATE / DELETE — admin uses service role
 -- through server-only API routes (bypasses RLS entirely).
+
+
+-- -----------------------------------------------------------
+-- GRANTS FOR SERVICE_ROLE
+--
+-- Admin API routes use the service role key (bypasses RLS) to
+-- INSERT and SELECT deliverables.  Explicit grants ensure the
+-- service role has the required privileges even if the default
+-- Supabase grants are modified in future migrations.
+-- -----------------------------------------------------------
+GRANT USAGE ON SCHEMA public TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.order_deliverables TO service_role;
