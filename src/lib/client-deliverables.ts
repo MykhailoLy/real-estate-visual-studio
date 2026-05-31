@@ -116,6 +116,12 @@ export async function getDeliverablesByClientEmail(
   }
 }
 
+/** Result returned from getDeliverableDownloadUrl. */
+export interface DeliverableDownloadResult {
+  signedUrl: string;
+  filename: string;
+}
+
 /**
  * Generates a short-lived signed download URL for one deliverable.
  *
@@ -126,11 +132,14 @@ export async function getDeliverablesByClientEmail(
  *   - Returns null when ownership check fails — indistinguishable
  *     from "not found" to prevent information leakage.
  *   - The storage_path is never returned to the caller.
+ *   - Signed URL is generated with { download: filename } so that
+ *     Supabase Storage sets Content-Disposition: attachment, which
+ *     forces browsers to download rather than open the file.
  */
 export async function getDeliverableDownloadUrl(
   deliverableId: string,
   email: string
-): Promise<string | null> {
+): Promise<DeliverableDownloadResult | null> {
   if (!deliverableId || !email) return null;
 
   let supabase;
@@ -141,29 +150,34 @@ export async function getDeliverableDownloadUrl(
 
   try {
     // Ownership-guarded query: deliverable + order email in one shot.
+    // Also fetch filename so we can pass it to createSignedUrl.
     const { data, error } = await supabase
       .from("order_deliverables")
-      .select("storage_path, orders!inner(client_email)")
+      .select("storage_path, filename, orders!inner(client_email)")
       .eq("id", deliverableId)
       .eq("orders.client_email", email)      // ← ownership check
       .maybeSingle();
 
     if (error || !data) return null;
 
-    const storagePath = (data as unknown as { storage_path: string }).storage_path;
+    const { storage_path: storagePath, filename } =
+      data as unknown as { storage_path: string; filename: string };
 
-    // Generate signed URL — never stored, never logged, 300s TTL.
+    // Generate signed URL with forced download filename so Storage sets
+    // Content-Disposition: attachment — never stored, never logged, 300s TTL.
     const { data: signed, error: urlErr } = await supabase
       .storage
       .from(DELIVERABLES_BUCKET)
-      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS, {
+        download: filename,
+      });
 
     if (urlErr || !signed?.signedUrl) {
       console.error("[client-deliverables] Signed URL error:", urlErr?.message);
       return null;
     }
 
-    return signed.signedUrl;
+    return { signedUrl: signed.signedUrl, filename };
   } catch (err) {
     console.error("[client-deliverables] Unexpected error in getDeliverableDownloadUrl:", err);
     return null;

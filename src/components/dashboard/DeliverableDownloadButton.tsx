@@ -4,8 +4,16 @@
 // DeliverableDownloadButton
 //
 // Calls POST /api/client/deliverables/[id]/download-url,
-// receives a short-lived signed URL, then opens it to trigger
-// the browser's native file download.
+// receives a short-lived signed URL, then triggers a real file
+// download via a temporary <a> element with the `download`
+// attribute — this forces browsers to save the file instead of
+// opening it in a tab.
+//
+// Two layers of force-download:
+//   1. Server: createSignedUrl(..., { download: filename }) sets
+//      Content-Disposition: attachment on the Storage response.
+//   2. Client: <a download="filename"> instructs the browser to
+//      treat the response as a download regardless of MIME type.
 //
 // The storage_path never reaches the client — only the signed
 // URL (which is itself the temporary credential for one file).
@@ -39,11 +47,21 @@ export default function DeliverableDownloadButton({ deliverableId, filename }: P
         throw new Error(body.error ?? "Could not generate download link.");
       }
 
-      const { signedUrl } = await res.json() as { signedUrl: string };
+      const { signedUrl, filename: dlFilename } =
+        await res.json() as { signedUrl: string; filename: string };
 
-      // Open in same tab — browser will download because Supabase Storage
-      // sets Content-Disposition: attachment for signed download URLs.
-      window.location.href = signedUrl;
+      // Force download via a temporary <a> element.
+      // The `download` attribute tells the browser to save the file
+      // with the given name instead of navigating to it.
+      // Combined with Content-Disposition: attachment from the server,
+      // this works reliably across Chrome, Firefox, Safari, and Edge.
+      const a = document.createElement("a");
+      a.href = signedUrl;
+      a.download = dlFilename ?? filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed.");
     } finally {
@@ -62,7 +80,7 @@ export default function DeliverableDownloadButton({ deliverableId, filename }: P
       >
         {loading
           ? <><Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />Preparing…</>
-          : <><Download className="w-3.5 h-3.5" aria-hidden />Download</>
+          : <><Download className="w-3.5 h-3.5" aria-hidden />Download file</>
         }
       </button>
       {error && (

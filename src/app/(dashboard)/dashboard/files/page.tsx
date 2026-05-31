@@ -53,6 +53,11 @@ export default async function DashboardFilesPage() {
         <p className="text-muted mt-1 text-sm">
           Download your completed visuals. Download links expire after 5 minutes.
         </p>
+        <p className="text-muted mt-1 text-xs">
+          If your browser opens the file instead of saving it, use{" "}
+          <strong className="font-semibold text-foreground">Save / Share</strong>{" "}
+          to save it to your device.
+        </p>
       </div>
 
       {deliverables.length === 0 ? (
