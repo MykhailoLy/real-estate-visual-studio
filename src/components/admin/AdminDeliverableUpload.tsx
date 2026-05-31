@@ -7,15 +7,20 @@
 // Shows existing deliverables with a delete button, and a file
 // picker + upload control for adding new files.
 //
+// Phase 5C: admin can assign each upload to:
+//   - Order-level (item_index: null)
+//   - Image 1 … Image N  (item_index: 0 … N-1)
+//
 // Upload flow:
-//   1. Admin picks a file.
-//   2. POST /api/admin/orders/[orderId]/deliverables/upload-url
+//   1. Admin selects assignment target from dropdown.
+//   2. Admin picks a file.
+//   3. POST /api/admin/orders/[orderId]/deliverables/upload-url
 //      → receives { path, signedUrl, token }
-//   3. Browser PUTs file bytes directly to Supabase Storage.
+//   4. Browser PUTs file bytes directly to Supabase Storage.
 //      (No bytes flow through Next.js — avoids Vercel 4.5 MB limit.)
-//   4. POST /api/admin/orders/[orderId]/deliverables
-//      → registers the row in order_deliverables.
-//   5. onDeliverableAdded() callback updates parent state.
+//   5. POST /api/admin/orders/[orderId]/deliverables
+//      → registers the row in order_deliverables with item_index.
+//   6. onDeliverableAdded() callback updates parent state.
 // ============================================================
 
 import { useRef, useState } from "react";
@@ -28,6 +33,7 @@ import {
   AlertCircle,
   CheckCircle2,
   FolderOpen,
+  Tag,
 } from "lucide-react";
 import {
   ADMIN_DELIVERABLE_MAX_BYTES,
@@ -52,6 +58,8 @@ export interface DeliverableRow {
 interface Props {
   orderId: string;
   orderNumber: string;
+  /** Total number of source images in the order. Drives the assignment dropdown. */
+  itemCount: number;
   initialDeliverables: DeliverableRow[];
   onDeliverableAdded?: (row: DeliverableRow) => void;
   onDeliverableDeleted?: (id: string) => void;
@@ -60,7 +68,7 @@ interface Props {
 // ── Helpers ────────────────────────────────────────────────────
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024)       return `${bytes} B`;
+  if (bytes < 1024)        return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -90,22 +98,40 @@ function isMimeAccepted(mime: string, filename: string): boolean {
   return false;
 }
 
+/** Human-readable label for an item_index value. */
+export function itemLabel(itemIndex: number | null): string {
+  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
+}
+
+// Sentinel string value used in the <select> to represent null (order-level).
+const ORDER_LEVEL_VALUE = "__order_level__";
+
 // ── Component ──────────────────────────────────────────────────
 
 export default function AdminDeliverableUpload({
   orderId,
   orderNumber,
+  itemCount,
   initialDeliverables,
   onDeliverableAdded,
   onDeliverableDeleted,
 }: Props) {
-  const fileRef                     = useRef<HTMLInputElement>(null);
-  const [deliverables, setDeliverables] = useState<DeliverableRow[]>(initialDeliverables);
-  const [uploading, setUploading]   = useState(false);
-  const [progress, setProgress]     = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg]     = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [deliverables, setDeliverables]   = useState<DeliverableRow[]>(initialDeliverables);
+  const [selectedTarget, setSelectedTarget] = useState<string>(ORDER_LEVEL_VALUE);
+  const [uploading, setUploading]         = useState(false);
+  const [progress, setProgress]           = useState<string | null>(null);
+  const [successMsg, setSuccessMsg]       = useState<string | null>(null);
+  const [errorMsg, setErrorMsg]           = useState<string | null>(null);
+  const [deletingId, setDeletingId]       = useState<string | null>(null);
+
+  // Derive item_index (null | number) from the select value.
+  function getItemIndex(): number | null {
+    if (selectedTarget === ORDER_LEVEL_VALUE) return null;
+    const n = parseInt(selectedTarget, 10);
+    return isNaN(n) ? null : n;
+  }
 
   // ── Upload ─────────────────────────────────────────────────
 
@@ -128,6 +154,8 @@ export default function AdminDeliverableUpload({
       setErrorMsg(`File type "${file.type}" is not allowed.`);
       return;
     }
+
+    const itemIndex = getItemIndex();
 
     setUploading(true);
     setProgress("Requesting upload URL…");
@@ -169,7 +197,7 @@ export default function AdminDeliverableUpload({
         throw new Error(`Storage upload failed (HTTP ${putRes.status}).`);
       }
 
-      // Step 3 — register the row in order_deliverables
+      // Step 3 — register the row in order_deliverables with item_index
       setProgress("Registering file…");
       const regRes = await fetch(
         `/api/admin/orders/${orderId}/deliverables`,
@@ -182,7 +210,7 @@ export default function AdminDeliverableUpload({
             filename:   file.name,
             file_size:  file.size,
             mime_type:  file.type || "application/octet-stream",
-            item_index: null,
+            item_index: itemIndex,
           }),
         }
       );
@@ -196,7 +224,9 @@ export default function AdminDeliverableUpload({
 
       setDeliverables((prev) => [deliverable, ...prev]);
       onDeliverableAdded?.(deliverable);
-      setSuccessMsg(`"${file.name}" uploaded successfully.`);
+
+      const targetLabel = itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
+      setSuccessMsg(`"${file.name}" uploaded as ${targetLabel}.`);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Upload failed.");
     } finally {
@@ -260,47 +290,81 @@ export default function AdminDeliverableUpload({
           </span>
         </div>
 
-        <div className="px-5 py-5">
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            accept=".jpg,.jpeg,.png,.webp,.tif,.tiff,.pdf,.zip"
-            disabled={uploading}
-            onChange={handleFileChange}
-          />
+        <div className="px-5 py-5 space-y-4">
 
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-light transition-colors shadow-sm disabled:opacity-60"
-          >
-            {uploading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-                {progress ?? "Uploading…"}</>
-            ) : (
-              <><Upload className="w-4 h-4" aria-hidden />Choose file to upload</>
-            )}
-          </button>
+          {/* ── Assignment dropdown ── */}
+          <div>
+            <label
+              htmlFor="deliverable-target"
+              className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-1.5"
+            >
+              <Tag className="inline w-3 h-3 mr-1 -mt-px" aria-hidden />
+              Assign to
+            </label>
+            <select
+              id="deliverable-target"
+              value={selectedTarget}
+              onChange={(e) => setSelectedTarget(e.target.value)}
+              disabled={uploading}
+              className="w-full sm:w-64 px-3 py-2 border border-border rounded-lg text-[13px] text-foreground bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <option value={ORDER_LEVEL_VALUE}>Order-level file / ZIP</option>
+              {Array.from({ length: Math.max(0, itemCount) }, (_, i) => (
+                <option key={i} value={String(i)}>
+                  Image {i + 1}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-muted">
+              {itemCount > 0
+                ? `This order has ${itemCount} image${itemCount !== 1 ? "s" : ""}.`
+                : "No image count set — only order-level upload available."}
+            </p>
+          </div>
 
-          <p className="mt-2 text-[11px] text-muted leading-relaxed">
-            The file will be stored in the private{" "}
-            <code className="font-mono bg-surface px-1 rounded">deliverables</code>{" "}
-            bucket under{" "}
-            <code className="font-mono bg-surface px-1 rounded">{orderNumber}/</code>.
-            The client can then download it from their dashboard.
-          </p>
+          {/* ── File picker ── */}
+          <div>
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.webp,.tif,.tiff,.pdf,.zip"
+              disabled={uploading}
+              onChange={handleFileChange}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-light transition-colors shadow-sm disabled:opacity-60"
+            >
+              {uploading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+                  {progress ?? "Uploading…"}</>
+              ) : (
+                <><Upload className="w-4 h-4" aria-hidden />Choose file to upload</>
+              )}
+            </button>
+
+            <p className="mt-2 text-[11px] text-muted leading-relaxed">
+              The file will be stored in the private{" "}
+              <code className="font-mono bg-surface px-1 rounded">deliverables</code>{" "}
+              bucket under{" "}
+              <code className="font-mono bg-surface px-1 rounded">{orderNumber}/</code>.
+              The client can then download it from their dashboard.
+            </p>
+          </div>
 
           {/* Feedback messages */}
           {errorMsg && (
-            <div className="mt-3 flex items-start gap-2 text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+            <div className="flex items-start gap-2 text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" aria-hidden />
               {errorMsg}
             </div>
           )}
           {successMsg && (
-            <div className="mt-3 flex items-start gap-2 text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
+            <div className="flex items-start gap-2 text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
               <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" aria-hidden />
               {successMsg}
             </div>
@@ -340,11 +404,11 @@ export default function AdminDeliverableUpload({
                   </p>
                   <p className="text-[11px] text-muted">
                     {formatBytes(d.file_size)} · {formatDate(d.uploaded_at)}
-                    {d.item_index !== null && (
-                      <span className="ml-2 text-muted-light">
-                        (item {d.item_index + 1})
-                      </span>
-                    )}
+                    {" · "}
+                    <span className="inline-flex items-center gap-0.5 font-semibold text-foreground/70">
+                      <Tag className="w-2.5 h-2.5" aria-hidden />
+                      {itemLabel(d.item_index)}
+                    </span>
                   </p>
                 </div>
                 <button

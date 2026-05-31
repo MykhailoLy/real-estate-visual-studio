@@ -23,7 +23,8 @@ import {
 //   filename    : string  — display filename (≤ 255 chars)
 //   file_size   : number  — bytes
 //   mime_type   : string
-//   item_index  : number | null  — which item, or null for order-level
+//   item_index  : number | null  — which item (0-based), or null for order-level
+//                                  validated server-side against order.item_count
 //
 // DELETE body (JSON):
 //   deliverable_id : string  — UUID of the row to delete
@@ -94,10 +95,10 @@ export async function POST(
     );
   }
 
-  // Fetch order to validate orderId + get order_number
+  // Fetch order to validate orderId + get order_number + item_count
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id, order_number")
+    .select("id, order_number, item_count")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -105,7 +106,31 @@ export async function POST(
     return NextResponse.json({ error: "Order not found." }, { status: 400 });
   }
 
-  const orderRow = order as unknown as { id: string; order_number: string };
+  const orderRow = order as unknown as {
+    id: string;
+    order_number: string;
+    item_count: number;
+  };
+
+  // Validate item_index against the order's actual item count.
+  // null  → order-level, always valid.
+  // number → must be a non-negative integer < item_count.
+  if (item_index !== null && item_index !== undefined) {
+    if (!Number.isInteger(item_index) || item_index < 0) {
+      return NextResponse.json(
+        { error: "item_index must be a non-negative integer." },
+        { status: 400 }
+      );
+    }
+    if (orderRow.item_count <= 0 || item_index >= orderRow.item_count) {
+      return NextResponse.json(
+        {
+          error: `item_index ${item_index} is out of range for an order with ${orderRow.item_count} image(s).`,
+        },
+        { status: 400 }
+      );
+    }
+  }
 
   // Guard: path must start with the correct orderNumber prefix
   // to prevent cross-order path injection.

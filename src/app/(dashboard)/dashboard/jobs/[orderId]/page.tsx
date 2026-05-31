@@ -28,9 +28,12 @@ import {
   LifeBuoy,
   Building2,
   ExternalLink,
+  FolderOpen,
+  Tag,
 } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
 import { getClientUser } from "@/lib/client-auth";
 import {
   getOrderByIdForClient,
@@ -39,6 +42,7 @@ import {
   getProgressFromStatus,
   deriveEstimatedCompletion,
 } from "@/lib/client-orders";
+import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
 import { formatUSD } from "@/lib/utils";
 
 // ── Metadata ─────────────────────────────────────────────────
@@ -65,6 +69,17 @@ function formatDisplayDate(iso: string): string {
     month: "long",
     year: "numeric",
   });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024)        return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Human-readable label for item_index. */
+function itemLabel(itemIndex: number | null): string {
+  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
 }
 
 /** Render a progress bar for the detail page. */
@@ -224,6 +239,10 @@ export default async function OrderDetailPage({
   // A wrong owner gets null, indistinguishable from "not found".
   const order = await getOrderByIdForClient(orderId, user.email);
   if (!order) notFound();
+
+  // Fetch deliverables for this specific order — ownership enforced by email JOIN.
+  const allDeliverables = await getDeliverablesByClientEmail(user.email);
+  const orderDeliverables = allDeliverables.filter((d) => d.order_id === order.id);
 
   // Derive display values from raw DB fields
   const serviceLabel  = getServiceLabel(order.service_type);
@@ -415,19 +434,59 @@ export default async function OrderDetailPage({
             </div>
           )}
 
-          {/* ── Delivery info notice ── */}
-          <div className="flex items-start gap-3 bg-blue-50 border border-blue-200/60 rounded-xl p-4">
-            <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" aria-hidden />
-            <div>
-              <p className="text-[13px] font-semibold text-blue-800">
-                Deliverables sent by email
-              </p>
-              <p className="text-xs text-blue-700/80 mt-0.5 leading-relaxed">
-                Completed files are delivered to your registered email address.
-                In-portal download links will be available in a future update.
-              </p>
+          {/* ── Deliverables section ── */}
+          {orderDeliverables.length > 0 ? (
+            <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
+                <h2 className="text-[13px] font-bold text-foreground">
+                  Delivered files
+                </h2>
+                <span className="ml-auto text-[11px] text-muted-light">
+                  {orderDeliverables.length} file{orderDeliverables.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <ul className="divide-y divide-border">
+                {orderDeliverables.map((d) => (
+                  <li key={d.id} className="px-5 py-3.5 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-foreground truncate">
+                        {d.filename}
+                      </p>
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
+                          <Tag className="w-2.5 h-2.5" aria-hidden />
+                          {itemLabel(d.item_index)}
+                        </span>
+                        <span className="text-[11px] text-muted">
+                          {formatBytes(d.file_size)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <DeliverableDownloadButton
+                        deliverableId={d.id}
+                        filename={d.filename}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          ) : (
+            /* Pending delivery notice */
+            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200/60 rounded-xl p-4">
+              <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" aria-hidden />
+              <div>
+                <p className="text-[13px] font-semibold text-blue-800">
+                  Files will appear here when delivered
+                </p>
+                <p className="text-xs text-blue-700/80 mt-0.5 leading-relaxed">
+                  Completed files are also sent to your registered email address.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ── Company info if present ── */}
           {order.client_company && (
