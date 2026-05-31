@@ -254,6 +254,7 @@ export default async function AdminOrderDetailPage({
               <AdminDeliverableUpload
                 orderId={order.id}
                 orderNumber={order.order_number}
+                itemCount={order.item_count}
                 initialDeliverables={deliverables}
               />
             </div>

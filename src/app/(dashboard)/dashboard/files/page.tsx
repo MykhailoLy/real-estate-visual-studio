@@ -10,11 +10,16 @@
 // ============================================================
 
 import Link from "next/link";
-import { FolderOpen, PlusCircle } from "lucide-react";
+import { FolderOpen, PlusCircle, Tag } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import { getClientUser } from "@/lib/client-auth";
 import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
 import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
+
+/** Human-readable label for item_index. Mirrors the admin helper. */
+function itemLabel(itemIndex: number | null): string {
+  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
+}
 
 export const metadata = {
   title: "Files | PicchuSpot Client Portal",
@@ -97,6 +102,10 @@ export default async function DashboardFilesPage() {
                     {d.filename}
                   </p>
                   <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
+                      <Tag className="w-2.5 h-2.5" aria-hidden />
+                      {itemLabel(d.item_index)}
+                    </span>
                     <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded">
                       {d.order_number}
                     </span>
