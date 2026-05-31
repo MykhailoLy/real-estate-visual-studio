@@ -1,28 +1,35 @@
 // ============================================================
-// /dashboard/files — real deliverables (Phase 5B)
+// /dashboard/files — delivered files + review actions (Phase 5D.1)
 //
 // Server component. Fetches the authenticated client's
-// deliverables via getDeliverablesByClientEmail() and renders
-// a download card for each one. The download button calls
-// POST /api/client/deliverables/[id]/download-url which
-// returns a 300-second signed URL — the storage path never
-// reaches the browser.
+// deliverables and their latest review status, then renders a
+// card per file with:
+//   - Download button  (signed URL, force-download)
+//   - DeliverableReviewActions  (Approve / Request Rework)
+//
+// Ownership enforced server-side for both fetches:
+//   getDeliverablesByClientEmail: orders.client_email = email
+//   getReviewsByClientEmail:      orders.client_email = email
+// storage_path never reaches the browser.
 // ============================================================
 
 import Link from "next/link";
-import { FolderOpen, PlusCircle } from "lucide-react";
+import { FolderOpen, PlusCircle, Tag } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import { getClientUser } from "@/lib/client-auth";
 import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
+import { getReviewsByClientEmail } from "@/lib/client-reviews";
+import type { ReviewStatus } from "@/lib/client-reviews";
 import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
+import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 
 export const metadata = {
   title: "Files | PicchuSpot Client Portal",
 };
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024)        return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024)         return `${bytes} B`;
+  if (bytes < 1024 * 1024)  return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -34,11 +41,36 @@ function formatDate(iso: string): string {
   } catch { return iso; }
 }
 
+/** Human-readable label for item_index. */
+function itemLabel(idx: number | null): string {
+  return idx === null ? "Order-level" : `Image ${idx + 1}`;
+}
+
 export default async function DashboardFilesPage() {
   const user = await getClientUser();
-  const deliverables = user?.email
-    ? await getDeliverablesByClientEmail(user.email)
-    : [];
+
+  // Fetch deliverables and reviews in parallel, both ownership-guarded.
+  const [deliverables, reviews] = user?.email
+    ? await Promise.all([
+        getDeliverablesByClientEmail(user.email),
+        getReviewsByClientEmail(user.email),
+      ])
+    : [[], []];
+
+  // Build deliverable_id → latest review map.
+  // Reviews are returned newest-first so the first entry per id is the latest.
+  const latestReviewByDeliverable = new Map<
+    string,
+    { status: ReviewStatus; comment: string | null }
+  >();
+  for (const rev of reviews) {
+    if (!latestReviewByDeliverable.has(rev.deliverable_id)) {
+      latestReviewByDeliverable.set(rev.deliverable_id, {
+        status:  rev.status,
+        comment: rev.comment,
+      });
+    }
+  }
 
   return (
     <ClientDashboardLayout>
@@ -51,7 +83,8 @@ export default async function DashboardFilesPage() {
           Delivered Files
         </h1>
         <p className="text-muted mt-1 text-sm">
-          Download your completed visuals. Download links expire after 5 minutes.
+          Download your completed visuals or request changes.
+          Download links expire after 5 minutes.
         </p>
       </div>
 
@@ -78,38 +111,58 @@ export default async function DashboardFilesPage() {
       ) : (
         /* ── File cards ── */
         <div className="space-y-3 mb-6">
-          {deliverables.map((d) => (
-            <div
-              key={d.id}
-              className="bg-white border border-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm hover:shadow-md transition-all duration-200"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-primary/6 border border-primary/10 flex items-center justify-center flex-shrink-0">
-                  <FolderOpen className="w-5 h-5 text-primary" aria-hidden />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground text-[13px] leading-snug">
-                    {d.filename}
-                  </p>
-                  <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                    <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded">
-                      {d.order_number}
-                    </span>
-                    <span className="text-[11px] text-muted">
-                      {formatBytes(d.file_size)}
-                    </span>
-                    <span className="text-[11px] text-muted">
-                      Delivered {formatDate(d.uploaded_at)}
-                    </span>
+          {deliverables.map((d) => {
+            const rev = latestReviewByDeliverable.get(d.id) ?? null;
+            return (
+              <div
+                key={d.id}
+                className="bg-white border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  {/* File info */}
+                  <div className="flex items-start gap-4 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-primary/6 border border-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <FolderOpen className="w-5 h-5 text-primary" aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground text-[13px] leading-snug truncate">
+                        {d.filename}
+                      </p>
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
+                          <Tag className="w-2.5 h-2.5" aria-hidden />
+                          {itemLabel(d.item_index)}
+                        </span>
+                        <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded">
+                          {d.order_number}
+                        </span>
+                        <span className="text-[11px] text-muted">
+                          {formatBytes(d.file_size)}
+                        </span>
+                        <span className="text-[11px] text-muted">
+                          Delivered {formatDate(d.uploaded_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: download + review */}
+                  <div className="flex flex-col gap-2.5 flex-shrink-0 sm:items-end">
+                    <DeliverableDownloadButton
+                      deliverableId={d.id}
+                      filename={d.filename}
+                    />
+                    <DeliverableReviewActions
+                      deliverableId={d.id}
+                      initialReviewStatus={rev?.status ?? null}
+                      initialComment={rev?.comment ?? null}
+                      filename={d.filename}
+                    />
                   </div>
                 </div>
               </div>
-
-              <div className="flex-shrink-0">
-                <DeliverableDownloadButton deliverableId={d.id} filename={d.filename} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
