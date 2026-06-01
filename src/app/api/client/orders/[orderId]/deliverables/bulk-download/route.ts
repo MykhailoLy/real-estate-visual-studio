@@ -3,12 +3,18 @@ import { getClientUser } from "@/lib/client-auth";
 import { getCurrentDeliverableRows } from "@/lib/client-deliverable-display";
 import type { ClientDeliverable } from "@/lib/client-deliverables";
 import type { DeliverableReview } from "@/lib/client-reviews";
-import { DELIVERABLES_BUCKET, SIGNED_URL_TTL_SECONDS } from "@/lib/deliverables-config";
+import { DELIVERABLES_BUCKET } from "@/lib/deliverables-config";
+import {
+  assertZipLimits,
+  createZipResponse,
+  imageFolder,
+  safeZipFilename,
+  uniqueZipPath,
+  type ZipSourceFile,
+} from "@/lib/server-zip-download";
 import { createServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
-
-const MAX_BULK_FILES = 100;
 
 type DeliverableWithPath = ClientDeliverable & { storage_path: string };
 
@@ -82,52 +88,56 @@ export async function POST(
     (reviews ?? []) as unknown as DeliverableReview[]
   );
 
-  if (currentRows.length === 0) {
-    return NextResponse.json({ error: "No delivered files found." }, { status: 404 });
-  }
-  if (currentRows.length > MAX_BULK_FILES) {
+  const limit = assertZipLimits(
+    currentRows.map(({ deliverable }) => ({ sizeBytes: deliverable.file_size }))
+  );
+  if (!limit.ok) {
     return NextResponse.json(
-      { error: `Too many files for one bulk download. Maximum is ${MAX_BULK_FILES}.` },
-      { status: 413 }
+      {
+        error:
+          limit.status === 404 ? "No delivered files found." : limit.error,
+      },
+      { status: limit.status }
     );
   }
 
   const pathByDeliverableId = new Map(rows.map((row) => [row.id, row.storage_path]));
-  const files = await Promise.all(
-    currentRows.map(async ({ deliverable }) => {
-      const storagePath = pathByDeliverableId.get(deliverable.id);
-      if (!storagePath) {
-        throw new Error(`Could not find storage path for ${deliverable.filename}.`);
-      }
+  const usedPaths = new Set<string>();
+  const zipFiles: ZipSourceFile[] = [];
 
-      const { data: signed, error } = await supabase.storage
-        .from(DELIVERABLES_BUCKET)
-        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS, {
-          download: deliverable.filename,
-        });
+  for (const { deliverable } of currentRows) {
+    const storagePath = pathByDeliverableId.get(deliverable.id);
+    if (!storagePath) {
+      console.error("[client/deliverables/bulk-download] Missing storage path:", deliverable.id);
+      return NextResponse.json(
+        { error: `Could not prepare delivered file "${deliverable.filename}".` },
+        { status: 500 }
+      );
+    }
 
-      if (error || !signed?.signedUrl) {
-        throw new Error(`Could not create download link for ${deliverable.filename}.`);
-      }
+    const { data, error } = await supabase.storage
+      .from(DELIVERABLES_BUCKET)
+      .download(storagePath);
 
-      return {
-        signedUrl: signed.signedUrl,
-        filename: deliverable.filename,
-      };
-    })
-  ).catch((err) => {
-    console.error("[client/deliverables/bulk-download] Signing failed:", err);
-    return null;
-  });
+    if (error || !data) {
+      console.error("[client/deliverables/bulk-download] Storage download failed:", error?.message);
+      return NextResponse.json(
+        { error: `Could not download delivered file "${deliverable.filename}".` },
+        { status: 500 }
+      );
+    }
 
-  if (!files) {
-    return NextResponse.json({ error: "Could not prepare delivered file downloads." }, { status: 500 });
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const zipPath = uniqueZipPath(
+      `${imageFolder(deliverable.item_index)}/${safeZipFilename(deliverable.filename)}`,
+      usedPaths
+    );
+
+    zipFiles.push({ path: zipPath, data: bytes });
   }
 
-  return NextResponse.json({
-    ok: true,
-    mode: "signed-url-batch",
-    archiveFilename: `${(order as { order_number: string }).order_number}-delivered-files.zip`,
-    files,
-  });
+  return createZipResponse(
+    `${(order as { order_number: string }).order_number}-delivered-files.zip`,
+    zipFiles
+  );
 }

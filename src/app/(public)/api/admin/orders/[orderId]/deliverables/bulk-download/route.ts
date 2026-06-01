@@ -1,11 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { DELIVERABLES_BUCKET, SIGNED_URL_TTL_SECONDS } from "@/lib/deliverables-config";
+import { DELIVERABLES_BUCKET } from "@/lib/deliverables-config";
+import {
+  assertZipLimits,
+  createZipResponse,
+  imageFolder,
+  safeZipFilename,
+  uniqueZipPath,
+  type ZipSourceFile,
+} from "@/lib/server-zip-download";
 import { createServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
-
-const MAX_BULK_FILES = 100;
 
 export async function POST(
   _req: NextRequest,
@@ -44,7 +50,7 @@ export async function POST(
 
   const { data: deliverables, error: deliverablesErr } = await supabase
     .from("order_deliverables")
-    .select("id, storage_path, filename")
+    .select("id, item_index, storage_path, filename, file_size")
     .eq("order_id", orderId)
     .order("uploaded_at", { ascending: false });
 
@@ -54,50 +60,44 @@ export async function POST(
   }
 
   const rows = (deliverables ?? []) as unknown as Array<{
+    item_index: number | null;
     storage_path: string;
     filename: string;
+    file_size: number | null;
   }>;
 
-  if (rows.length === 0) {
-    return NextResponse.json({ error: "No deliverables found." }, { status: 404 });
-  }
-  if (rows.length > MAX_BULK_FILES) {
-    return NextResponse.json(
-      { error: `Too many files for one bulk download. Maximum is ${MAX_BULK_FILES}.` },
-      { status: 413 }
-    );
+  const limit = assertZipLimits(rows.map((row) => ({ sizeBytes: row.file_size })));
+  if (!limit.ok) {
+    return NextResponse.json({ error: limit.error }, { status: limit.status });
   }
 
-  const files = await Promise.all(
-    rows.map(async (row) => {
-      const { data: signed, error } = await supabase.storage
+  const usedPaths = new Set<string>();
+  const zipFiles: ZipSourceFile[] = [];
+
+  for (const row of rows) {
+    const { data, error } = await supabase.storage
         .from(DELIVERABLES_BUCKET)
-        .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS, {
-          download: row.filename,
-        });
+        .download(row.storage_path);
 
-      if (error || !signed?.signedUrl) {
-        throw new Error(`Could not create download link for ${row.filename}.`);
-      }
+    if (error || !data) {
+      console.error("[admin/deliverables/bulk-download] Storage download failed:", error?.message);
+      return NextResponse.json(
+        { error: `Could not download deliverable "${row.filename}".` },
+        { status: 500 }
+      );
+    }
 
-      return {
-        signedUrl: signed.signedUrl,
-        filename: row.filename,
-      };
-    })
-  ).catch((err) => {
-    console.error("[admin/deliverables/bulk-download] Signing failed:", err);
-    return null;
-  });
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const zipPath = uniqueZipPath(
+      `${imageFolder(row.item_index)}/${safeZipFilename(row.filename)}`,
+      usedPaths
+    );
 
-  if (!files) {
-    return NextResponse.json({ error: "Could not prepare deliverable downloads." }, { status: 500 });
+    zipFiles.push({ path: zipPath, data: bytes });
   }
 
-  return NextResponse.json({
-    ok: true,
-    mode: "signed-url-batch",
-    archiveFilename: `${(order as { order_number: string }).order_number}-deliverables.zip`,
-    files,
-  });
+  return createZipResponse(
+    `${(order as { order_number: string }).order_number}-deliverables.zip`,
+    zipFiles
+  );
 }
