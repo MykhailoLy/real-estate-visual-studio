@@ -39,7 +39,7 @@ import { getClientUser } from "@/lib/client-auth";
 import {
   getOrderByIdForClient,
   getServiceLabel,
-  getDashboardStatus,
+  deriveDashboardStatusFromReviews,
   getProgressFromStatus,
   deriveEstimatedCompletion,
 } from "@/lib/client-orders";
@@ -260,7 +260,8 @@ export default async function OrderDetailPage({
 
   // Derive display values from raw DB fields
   const serviceLabel  = getServiceLabel(order.service_type);
-  const dashStatus    = getDashboardStatus(order.status);
+  const orderReviews  = allReviews.filter((review) => review.order_id === order.id);
+  const dashStatus    = deriveDashboardStatusFromReviews(order.status, orderReviews);
   const progress      = getProgressFromStatus(order.status);
   const estimatedComp = deriveEstimatedCompletion(order.status, order.created_at);
 
@@ -371,7 +372,14 @@ export default async function OrderDetailPage({
                 "Your order has been confirmed and will enter production soon."}
               {order.status === "in-progress" &&
                 "Our team is currently working on your order."}
+              {dashStatus === "pending-rework" &&
+                "Your rework request is pending review by our team."}
+              {dashStatus === "rework-in-progress" &&
+                "Our team is working on your requested revisions."}
+              {dashStatus === "new-version-ready" &&
+                "A new version is ready for your review."}
               {order.status === "delivered" &&
+                dashStatus === "completed" &&
                 "Your order has been completed and delivered."}
               {order.status === "cancelled" &&
                 "This order has been cancelled."}

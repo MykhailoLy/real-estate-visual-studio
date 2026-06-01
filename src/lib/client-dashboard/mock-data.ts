@@ -8,6 +8,9 @@ export type DashboardJobStatus =
   | "awaiting-submission"
   | "in-progress"
   | "revision-requested"
+  | "pending-rework"
+  | "rework-in-progress"
+  | "new-version-ready"
   | "completed"
   | "cancelled";
 
@@ -152,7 +155,14 @@ export function getDashboardStats(jobs: DashboardJob[]) {
       (j) => j.status === "awaiting-submission"
     ).length,
     completedJobs: jobs.filter((j) => j.status === "completed").length,
-    revisions: jobs.filter((j) => j.status === "revision-requested").length,
+    revisions: jobs.filter((j) =>
+      [
+        "revision-requested",
+        "pending-rework",
+        "rework-in-progress",
+        "new-version-ready",
+      ].includes(j.status)
+    ).length,
   };
 }
 
@@ -171,6 +181,9 @@ export const STATUS_LABELS: Record<DashboardJobStatus, string> = {
   "awaiting-submission": "Awaiting Submission",
   "in-progress": "In Progress",
   "revision-requested": "Revision Requested",
+  "pending-rework": "Pending Rework",
+  "rework-in-progress": "Rework in Progress",
+  "new-version-ready": "New Version Ready",
   completed: "Completed",
   cancelled: "Cancelled",
 };

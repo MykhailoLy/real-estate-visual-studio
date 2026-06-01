@@ -34,6 +34,9 @@ const ALL_STATUSES: DashboardJobStatus[] = [
   "awaiting-submission",
   "in-progress",
   "revision-requested",
+  "pending-rework",
+  "rework-in-progress",
+  "new-version-ready",
   "completed",
   "cancelled",
 ];
@@ -46,7 +49,12 @@ function ProgressBar({ value, status }: { value: number; status: DashboardJobSta
       ? "bg-emerald-500"
       : status === "in-progress"
       ? "bg-blue-500"
-      : status === "revision-requested"
+      : [
+          "revision-requested",
+          "pending-rework",
+          "rework-in-progress",
+          "new-version-ready",
+        ].includes(status)
       ? "bg-orange-400"
       : status === "awaiting-submission"
       ? "bg-amber-400"

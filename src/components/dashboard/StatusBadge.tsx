@@ -31,6 +31,24 @@ const statusConfig: Record<
     border: "border-orange-200",
     dot: "bg-orange-400",
   },
+  "pending-rework": {
+    bg: "bg-orange-50",
+    text: "text-orange-700",
+    border: "border-orange-200",
+    dot: "bg-orange-400",
+  },
+  "rework-in-progress": {
+    bg: "bg-sky-50",
+    text: "text-sky-700",
+    border: "border-sky-200",
+    dot: "bg-sky-500",
+  },
+  "new-version-ready": {
+    bg: "bg-violet-50",
+    text: "text-violet-700",
+    border: "border-violet-200",
+    dot: "bg-violet-500",
+  },
   completed: {
     bg: "bg-emerald-50",
     text: "text-emerald-700",

@@ -28,6 +28,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import type { DashboardJob, DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
+import type { ReviewStatus } from "@/lib/client-reviews";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -80,6 +81,7 @@ const DB_STATUS_TO_DASHBOARD: Record<string, DashboardJobStatus> = {
   "confirmed":   "in-progress",
   "in-progress": "in-progress",
   "delivered":   "completed",
+  "completed":   "completed",
   "cancelled":   "cancelled",
 };
 
@@ -92,8 +94,22 @@ const STATUS_TO_PROGRESS: Record<string, number> = {
   "confirmed":   15,
   "in-progress": 50,
   "delivered":   100,
+  "completed":   100,
   "cancelled":   0,
 };
+
+const REWORK_DASHBOARD_PROGRESS: Partial<Record<DashboardJobStatus, number>> = {
+  "pending-rework": 80,
+  "rework-in-progress": 85,
+  "new-version-ready": 100,
+};
+
+type ReviewStatusLike = Pick<DeliverableReviewSummary, "order_id" | "status">;
+
+export interface DeliverableReviewSummary {
+  order_id: string;
+  status: ReviewStatus;
+}
 
 // ── Private helpers ───────────────────────────────────────────
 
@@ -150,6 +166,31 @@ export function getServiceLabel(slug: string): string {
  */
 export function getDashboardStatus(dbStatus: string): DashboardJobStatus {
   return DB_STATUS_TO_DASHBOARD[dbStatus] ?? "awaiting-submission";
+}
+
+/**
+ * Derives the client-facing display status without mutating orders.status.
+ * Active review states intentionally override a delivered/completed order so
+ * the dashboard does not call open rework "Completed".
+ */
+export function deriveDashboardStatusFromReviews(
+  dbStatus: string,
+  reviews: Array<Pick<DeliverableReviewSummary, "status">> = []
+): DashboardJobStatus {
+  const statuses = new Set(reviews.map((review) => review.status));
+
+  if (statuses.has("rework_requested")) return "pending-rework";
+  if (statuses.has("rework_in_progress")) return "rework-in-progress";
+  if (statuses.has("rework_delivered")) return "new-version-ready";
+
+  return getDashboardStatus(dbStatus);
+}
+
+function getProgressForDashboardStatus(
+  dbStatus: string,
+  dashboardStatus: DashboardJobStatus
+): number {
+  return REWORK_DASHBOARD_PROGRESS[dashboardStatus] ?? STATUS_TO_PROGRESS[dbStatus] ?? 0;
 }
 
 /** Derives cosmetic progress (0–100) from a raw DB status string. */
@@ -252,12 +293,14 @@ export function sanitizeDetails(
  * estimatedCompletion from available DB columns.
  * No JSONB details or storage paths are exposed.
  */
-export function mapOrderToDashboardJob(order: ClientOrder): DashboardJob {
+export function mapOrderToDashboardJob(
+  order: ClientOrder,
+  reviews: Array<Pick<DeliverableReviewSummary, "status">> = []
+): DashboardJob {
   const serviceLabel =
     SERVICE_TYPE_LABELS[order.service_type] ?? slugToLabel(order.service_type);
-  const dashboardStatus: DashboardJobStatus =
-    DB_STATUS_TO_DASHBOARD[order.status] ?? "awaiting-submission";
-  const progress = STATUS_TO_PROGRESS[order.status] ?? 0;
+  const dashboardStatus = deriveDashboardStatusFromReviews(order.status, reviews);
+  const progress = getProgressForDashboardStatus(order.status, dashboardStatus);
 
   return {
     id:                  order.id,
@@ -274,8 +317,20 @@ export function mapOrderToDashboardJob(order: ClientOrder): DashboardJob {
 }
 
 /** Convenience wrapper: maps an array of ClientOrders to DashboardJobs. */
-export function mapOrdersToDashboardJobs(orders: ClientOrder[]): DashboardJob[] {
-  return orders.map(mapOrderToDashboardJob);
+export function mapOrdersToDashboardJobs(
+  orders: ClientOrder[],
+  reviews: ReviewStatusLike[] = []
+): DashboardJob[] {
+  const reviewsByOrder = new Map<string, ReviewStatusLike[]>();
+  for (const review of reviews) {
+    const existing = reviewsByOrder.get(review.order_id) ?? [];
+    existing.push(review);
+    reviewsByOrder.set(review.order_id, existing);
+  }
+
+  return orders.map((order) =>
+    mapOrderToDashboardJob(order, reviewsByOrder.get(order.id) ?? [])
+  );
 }
 
 /**
