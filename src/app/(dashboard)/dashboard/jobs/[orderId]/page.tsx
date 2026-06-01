@@ -34,6 +34,7 @@ import {
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
+import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 import { getClientUser } from "@/lib/client-auth";
 import {
   getOrderByIdForClient,
@@ -43,6 +44,8 @@ import {
   deriveEstimatedCompletion,
 } from "@/lib/client-orders";
 import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
+import { getReviewsByClientEmail } from "@/lib/client-reviews";
+import type { ReviewStatus } from "@/lib/client-reviews";
 import { formatUSD } from "@/lib/utils";
 
 // ── Metadata ─────────────────────────────────────────────────
@@ -240,9 +243,20 @@ export default async function OrderDetailPage({
   const order = await getOrderByIdForClient(orderId, user.email);
   if (!order) notFound();
 
-  // Fetch deliverables for this specific order — ownership enforced by email JOIN.
-  const allDeliverables = await getDeliverablesByClientEmail(user.email);
+  // Fetch deliverables + reviews in parallel — both ownership-guarded by email JOIN.
+  const [allDeliverables, allReviews] = await Promise.all([
+    getDeliverablesByClientEmail(user.email),
+    getReviewsByClientEmail(user.email),
+  ]);
   const orderDeliverables = allDeliverables.filter((d) => d.order_id === order.id);
+
+  // Build deliverable_id → latest review map (reviews already newest-first).
+  const reviewMap = new Map<string, { status: ReviewStatus; comment: string | null }>();
+  for (const rev of allReviews) {
+    if (!reviewMap.has(rev.deliverable_id)) {
+      reviewMap.set(rev.deliverable_id, { status: rev.status, comment: rev.comment });
+    }
+  }
 
   // Derive display values from raw DB fields
   const serviceLabel  = getServiceLabel(order.service_type);
@@ -447,8 +461,10 @@ export default async function OrderDetailPage({
                 </span>
               </div>
               <ul className="divide-y divide-border">
-                {orderDeliverables.map((d) => (
-                  <li key={d.id} className="px-5 py-3.5 flex items-center gap-3">
+                {orderDeliverables.map((d) => {
+                  const rev = reviewMap.get(d.id) ?? null;
+                  return (
+                  <li key={d.id} className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-foreground truncate">
                         {d.filename}
@@ -463,14 +479,21 @@ export default async function OrderDetailPage({
                         </span>
                       </div>
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="flex flex-col gap-2.5 flex-shrink-0">
                       <DeliverableDownloadButton
                         deliverableId={d.id}
                         filename={d.filename}
                       />
+                      <DeliverableReviewActions
+                        deliverableId={d.id}
+                        initialReviewStatus={rev?.status ?? null}
+                        initialComment={rev?.comment ?? null}
+                        filename={d.filename}
+                      />
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           ) : (

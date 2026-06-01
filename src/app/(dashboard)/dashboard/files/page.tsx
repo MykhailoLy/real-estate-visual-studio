@@ -14,7 +14,10 @@ import { FolderOpen, PlusCircle, Tag } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import { getClientUser } from "@/lib/client-auth";
 import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
+import { getReviewsByClientEmail } from "@/lib/client-reviews";
+import type { ReviewStatus } from "@/lib/client-reviews";
 import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
+import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 
 /** Human-readable label for item_index. Mirrors the admin helper. */
 function itemLabel(itemIndex: number | null): string {
@@ -41,9 +44,21 @@ function formatDate(iso: string): string {
 
 export default async function DashboardFilesPage() {
   const user = await getClientUser();
-  const deliverables = user?.email
-    ? await getDeliverablesByClientEmail(user.email)
-    : [];
+
+  const [deliverables, reviews] = user?.email
+    ? await Promise.all([
+        getDeliverablesByClientEmail(user.email),
+        getReviewsByClientEmail(user.email),
+      ])
+    : [[], []];
+
+  // Build deliverable_id → latest review map (reviews are newest-first).
+  const reviewMap = new Map<string, { status: ReviewStatus; comment: string | null }>();
+  for (const rev of reviews) {
+    if (!reviewMap.has(rev.deliverable_id)) {
+      reviewMap.set(rev.deliverable_id, { status: rev.status, comment: rev.comment });
+    }
+  }
 
   return (
     <ClientDashboardLayout>
@@ -88,10 +103,12 @@ export default async function DashboardFilesPage() {
       ) : (
         /* ── File cards ── */
         <div className="space-y-3 mb-6">
-          {deliverables.map((d) => (
+          {deliverables.map((d) => {
+            const rev = reviewMap.get(d.id) ?? null;
+            return (
             <div
               key={d.id}
-              className="bg-white border border-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm hover:shadow-md transition-all duration-200"
+              className="bg-white border border-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 shadow-sm hover:shadow-md transition-all duration-200"
             >
               <div className="flex items-center gap-4">
                 <div className="w-11 h-11 rounded-xl bg-primary/6 border border-primary/10 flex items-center justify-center flex-shrink-0">
@@ -119,11 +136,18 @@ export default async function DashboardFilesPage() {
                 </div>
               </div>
 
-              <div className="flex-shrink-0">
+              <div className="flex flex-col gap-2.5 flex-shrink-0 sm:items-end">
                 <DeliverableDownloadButton deliverableId={d.id} filename={d.filename} />
+                <DeliverableReviewActions
+                  deliverableId={d.id}
+                  initialReviewStatus={rev?.status ?? null}
+                  initialComment={rev?.comment ?? null}
+                  filename={d.filename}
+                />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
