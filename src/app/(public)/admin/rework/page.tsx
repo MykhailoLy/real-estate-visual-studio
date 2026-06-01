@@ -51,7 +51,7 @@ export default async function AdminReworkPage() {
         .select(
           "id, deliverable_id, order_id, order_number, item_index, " +
           "client_email, status, comment, created_at, updated_at, " +
-          "order_deliverables!inner(filename)"
+          "order_deliverables!deliverable_reviews_deliverable_id_fkey(filename)"
         )
         .in("status", ["rework_requested", "rework_in_progress"])
         .order("created_at", { ascending: false });
