@@ -122,6 +122,10 @@ export interface DeliverableDownloadResult {
   filename: string;
 }
 
+interface DeliverableSignedUrlOptions {
+  download?: boolean;
+}
+
 /**
  * Generates a short-lived signed download URL for one deliverable.
  *
@@ -138,7 +142,8 @@ export interface DeliverableDownloadResult {
  */
 export async function getDeliverableDownloadUrl(
   deliverableId: string,
-  email: string
+  email: string,
+  options: DeliverableSignedUrlOptions = { download: true }
 ): Promise<DeliverableDownloadResult | null> {
   if (!deliverableId || !email) return null;
 
@@ -165,12 +170,11 @@ export async function getDeliverableDownloadUrl(
 
     // Generate signed URL with forced download filename so Storage sets
     // Content-Disposition: attachment — never stored, never logged, 300s TTL.
+    const signedOptions = options.download ? { download: filename } : undefined;
     const { data: signed, error: urlErr } = await supabase
       .storage
       .from(DELIVERABLES_BUCKET)
-      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS, {
-        download: filename,
-      });
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS, signedOptions);
 
     if (urlErr || !signed?.signedUrl) {
       console.error("[client-deliverables] Signed URL error:", urlErr?.message);

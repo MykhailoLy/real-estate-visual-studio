@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RotateCcw, CheckCircle2, Clock, FileText, ImageIcon, Tag } from "lucide-react";
+import { ArrowLeft, RotateCcw, CheckCircle2, Clock, FileText, Tag } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   buildAdminSourceFiles,
@@ -13,7 +13,7 @@ import AdminDeliverableUpload, {
   type DeliverableRow,
 } from "@/components/admin/AdminDeliverableUpload";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
-import AdminSourceFileDownloadButton from "@/components/admin/AdminSourceFileDownloadButton";
+import FilePreviewCard from "@/components/FilePreviewCard";
 
 // ============================================================
 // /admin/orders/[orderId] — admin order detail + deliverables
@@ -77,13 +77,6 @@ function formatBytes(bytes: number | null): string | null {
   if (bytes < 1024)        return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function fileIcon(mimeType: string | null) {
-  if (mimeType?.startsWith("image/")) {
-    return <ImageIcon className="w-4 h-4 text-primary" aria-hidden />;
-  }
-  return <FileText className="w-4 h-4 text-primary" aria-hidden />;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -376,32 +369,20 @@ export default async function AdminOrderDetailPage({
                     {sourceFiles.map((file) => {
                       const size = formatBytes(file.fileSize);
                       return (
-                        <li
-                          key={file.id}
-                          className="px-5 py-3.5 flex items-center gap-3 hover:bg-surface/40 transition-colors"
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-primary/8 border border-primary/12 flex items-center justify-center flex-shrink-0">
-                            {fileIcon(file.mimeType)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-semibold text-foreground truncate">
-                              {file.filename}
-                            </p>
-                            <p className="text-[11px] text-muted">
-                              {size && <>{size} · </>}
-                              {file.uploadedAt && <>{formatDate(file.uploadedAt)} · </>}
-                              <span className="inline-flex items-center gap-0.5 font-semibold text-foreground/70">
-                                <Tag className="w-2.5 h-2.5" aria-hidden />
-                                Image {file.itemIndex + 1}
-                              </span>
-                              {" · "}
-                              <span className="capitalize">{file.kind}</span>
-                            </p>
-                          </div>
-                          <AdminSourceFileDownloadButton
-                            orderId={order.id}
-                            fileId={file.id}
+                        <li key={file.id} className="px-5 py-3.5 hover:bg-surface/40 transition-colors">
+                          <FilePreviewCard
                             filename={file.filename}
+                            mimeType={file.mimeType}
+                            fileSizeLabel={size}
+                            badgeLabel={`Image ${file.itemIndex + 1}`}
+                            signedUrlEndpoint={`/api/admin/orders/${order.id}/source-files/${file.id}/download-url`}
+                            downloadLabel="Download"
+                            meta={
+                              <p className="text-[11px] text-muted">
+                                {file.uploadedAt && <>{formatDate(file.uploadedAt)} · </>}
+                                <span className="capitalize">{file.kind}</span>
+                              </p>
+                            }
                           />
                         </li>
                       );
