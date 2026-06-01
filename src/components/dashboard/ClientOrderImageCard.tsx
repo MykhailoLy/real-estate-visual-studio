@@ -14,6 +14,7 @@ import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewAc
 import FilePreviewCard from "@/components/FilePreviewCard";
 import OrderItemDetails from "@/components/order/OrderItemDetails";
 import type { CurrentDeliverableRow } from "@/lib/client-deliverable-display";
+import type { ClientSourceFile } from "@/lib/client-source-files";
 
 export type ClientImageWorkflowStatus =
   | "awaiting_delivery"
@@ -25,10 +26,12 @@ export type ClientImageWorkflowStatus =
   | "resolved";
 
 interface Props {
+  orderId: string;
   imageNumber: number;
   imageCount: number;
   subtotalLabel?: string | null;
   details: Record<string, unknown>;
+  sourceFiles: ClientSourceFile[];
   deliverables: CurrentDeliverableRow[];
   status: ClientImageWorkflowStatus;
   latestComment?: string | null;
@@ -82,15 +85,19 @@ const COMMENT_STATUSES = new Set<ClientImageWorkflowStatus>([
 ]);
 
 export default function ClientOrderImageCard({
+  orderId,
   imageNumber,
   imageCount,
   subtotalLabel = null,
   details,
+  sourceFiles,
   deliverables,
   status,
   latestComment = null,
 }: Props) {
   const statusConfig = STATUS_CONFIG[status];
+  const originalSource = sourceFiles.find((file) => file.kind === "original") ?? null;
+  const referenceSource = sourceFiles.find((file) => file.kind === "reference") ?? null;
 
   return (
     <article className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
@@ -114,54 +121,77 @@ export default function ClientOrderImageCard({
       </div>
 
       <div className="p-5 space-y-5">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <WorkflowPanel title="Original uploaded file">
-            <div className="h-full min-h-32 rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 flex flex-col items-center justify-center text-center">
-              <FileImage className="w-7 h-7 text-muted-light" aria-hidden />
-              <p className="mt-2 text-[13px] font-semibold text-foreground">
-                Original uploaded file
-              </p>
-              <p className="mt-1 text-[11px] text-muted leading-relaxed max-w-xs">
-                Preview coming soon
-              </p>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,0.9fr)] gap-4 xl:gap-5 items-start">
+          <WorkflowPanel title="Original / Before">
+            {originalSource ? (
+              <LargePreviewFrame>
+                <FilePreviewCard
+                  filename={originalSource.filename}
+                  mimeType={originalSource.mimeType}
+                  fileSizeLabel={formatOptionalBytes(originalSource.fileSize)}
+                  badgeLabel="Original"
+                  signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${originalSource.id}/download-url`}
+                  downloadLabel="Download"
+                />
+              </LargePreviewFrame>
+            ) : (
+              <SourcePlaceholder />
+            )}
+
+            {referenceSource && (
+              <div className="mt-3 rounded-lg border border-border bg-surface/30 p-3">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+                  Reference file
+                </p>
+                <FilePreviewCard
+                  filename={referenceSource.filename}
+                  mimeType={referenceSource.mimeType}
+                  fileSizeLabel={formatOptionalBytes(referenceSource.fileSize)}
+                  badgeLabel="Reference"
+                  signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
+                  downloadLabel="Download"
+                />
+              </div>
+            )}
           </WorkflowPanel>
 
-          <WorkflowPanel title="Delivered result">
+          <WorkflowPanel title="Delivered / After">
             {deliverables.length > 0 ? (
               <ul className="space-y-3">
                 {deliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
                   <li key={deliverable.id}>
-                    <FilePreviewCard
-                      filename={deliverable.filename}
-                      mimeType={deliverable.mime_type}
-                      fileSizeLabel={formatBytes(deliverable.file_size)}
-                      badgeLabel={`Image ${imageNumber}`}
-                      signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
-                      downloadLabel="Download file"
-                      meta={
-                        <div className="space-y-1">
-                          {isReplacement && (
-                            <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
-                              New version
-                            </span>
-                          )}
-                          {previousFilename && (
-                            <p className="text-[10px] text-muted">
-                              Replaces {previousFilename}
-                            </p>
-                          )}
-                        </div>
-                      }
-                      actions={
-                        <DeliverableReviewActions
-                          deliverableId={deliverable.id}
-                          initialReviewStatus={review?.status ?? null}
-                          initialComment={review?.comment ?? null}
-                          filename={deliverable.filename}
-                        />
-                      }
-                    />
+                    <LargePreviewFrame>
+                      <FilePreviewCard
+                        filename={deliverable.filename}
+                        mimeType={deliverable.mime_type}
+                        fileSizeLabel={formatBytes(deliverable.file_size)}
+                        badgeLabel={`Image ${imageNumber}`}
+                        signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
+                        downloadLabel="Download file"
+                        meta={
+                          <div className="space-y-1">
+                            {isReplacement && (
+                              <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
+                                New version
+                              </span>
+                            )}
+                            {previousFilename && (
+                              <p className="text-[10px] text-muted">
+                                Replaces {previousFilename}
+                              </p>
+                            )}
+                          </div>
+                        }
+                        actions={
+                          <DeliverableReviewActions
+                            deliverableId={deliverable.id}
+                            initialReviewStatus={review?.status ?? null}
+                            initialComment={review?.comment ?? null}
+                            filename={deliverable.filename}
+                          />
+                        }
+                      />
+                    </LargePreviewFrame>
                   </li>
                 ))}
               </ul>
@@ -177,27 +207,58 @@ export default function ClientOrderImageCard({
               </div>
             )}
           </WorkflowPanel>
-        </div>
 
-        {COMMENT_STATUSES.has(status) && latestComment && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
-            <p className="flex items-start gap-1.5 text-[12px] text-amber-900 leading-relaxed">
-              <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" aria-hidden />
-              <span>
-                <span className="font-semibold">Latest rework note:</span> {latestComment}
-              </span>
-            </p>
-          </div>
-        )}
-
-        <div className="border-t border-border pt-4">
-          <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-3">
-            Request details
-          </h4>
-          <OrderItemDetails details={details} />
+          <WorkflowPanel title="Request details">
+            <div className="rounded-lg border border-border bg-surface/30 p-4">
+              <OrderItemDetails details={details} />
+            </div>
+            {COMMENT_STATUSES.has(status) && latestComment && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
+                <p className="flex items-start gap-1.5 text-[12px] text-amber-900 leading-relaxed">
+                  <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" aria-hidden />
+                  <span>
+                    <span className="font-semibold">Latest rework note:</span> {latestComment}
+                  </span>
+                </p>
+              </div>
+            )}
+          </WorkflowPanel>
         </div>
       </div>
     </article>
+  );
+}
+
+function SourcePlaceholder() {
+  return (
+    <div className="h-full min-h-56 rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 flex flex-col items-center justify-center text-center">
+      <FileImage className="w-8 h-8 text-muted-light" aria-hidden />
+      <p className="mt-2 text-[13px] font-semibold text-foreground">
+        Original uploaded file
+      </p>
+      <p className="mt-1 text-[11px] text-muted leading-relaxed max-w-xs">
+        Preview coming soon
+      </p>
+    </div>
+  );
+}
+
+function LargePreviewFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className={[
+        "rounded-lg border border-border bg-white p-3",
+        "[&>div]:sm:flex-col [&>div]:sm:items-stretch",
+        "[&>div>button:first-child]:sm:!w-full",
+        "[&>div>button:first-child]:sm:!h-56",
+        "[&>div>button:first-child]:lg:!h-64",
+        "[&>div>button:first-child]:xl:!h-72",
+        "[&>div>div:last-child]:sm:flex-row",
+        "[&>div>div:last-child]:sm:items-start",
+      ].join(" ")}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -209,13 +270,18 @@ function WorkflowPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0">
+    <section className="min-w-0 h-full">
       <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-2">
         {title}
       </h4>
       {children}
     </section>
   );
+}
+
+function formatOptionalBytes(bytes: number | null): string | null {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return null;
+  return formatBytes(bytes);
 }
 
 function formatBytes(bytes: number): string {
