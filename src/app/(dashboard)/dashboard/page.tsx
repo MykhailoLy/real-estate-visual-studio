@@ -34,6 +34,7 @@ import {
   getOrdersByClientEmail,
   mapOrdersToDashboardJobs,
 } from "@/lib/client-orders";
+import { getReviewsByClientEmail } from "@/lib/client-reviews";
 
 export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
@@ -103,11 +104,14 @@ export default async function DashboardPage() {
   }
 
   // Fetch real orders. Returns [] on missing env vars or any error.
-  const rawOrders = user?.email
-    ? await getOrdersByClientEmail(user.email)
-    : [];
+  const [rawOrders, reviews] = user?.email
+    ? await Promise.all([
+        getOrdersByClientEmail(user.email),
+        getReviewsByClientEmail(user.email),
+      ])
+    : [[], []];
 
-  const jobs     = mapOrdersToDashboardJobs(rawOrders);
+  const jobs     = mapOrdersToDashboardJobs(rawOrders, reviews);
   const hasJobs  = jobs.length > 0;
   const stats    = getDashboardStats(jobs);
   // DB query is already newest-first; take top 5 for the recent table

@@ -14,6 +14,7 @@ import {
   getOrdersByClientEmail,
   mapOrdersToDashboardJobs,
 } from "@/lib/client-orders";
+import { getReviewsByClientEmail } from "@/lib/client-reviews";
 import ClientJobsShell from "@/components/dashboard/ClientJobsShell";
 
 export const metadata = {
@@ -27,11 +28,14 @@ export default async function DashboardJobsPage() {
   // Fetch real orders. Email comes exclusively from the verified session.
   // Returns [] when SUPABASE_SERVICE_ROLE_KEY is absent or on any error,
   // so the page degrades gracefully to the empty state.
-  const rawOrders = user?.email
-    ? await getOrdersByClientEmail(user.email)
-    : [];
+  const [rawOrders, reviews] = user?.email
+    ? await Promise.all([
+        getOrdersByClientEmail(user.email),
+        getReviewsByClientEmail(user.email),
+      ])
+    : [[], []];
 
-  const jobs = mapOrdersToDashboardJobs(rawOrders);
+  const jobs = mapOrdersToDashboardJobs(rawOrders, reviews);
 
   return <ClientJobsShell jobs={jobs} />;
 }
