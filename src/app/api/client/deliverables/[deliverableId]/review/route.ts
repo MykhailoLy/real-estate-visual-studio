@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getClientUser } from "@/lib/client-auth";
 import { submitDeliverableReview, REVIEW_COMMENT_MIN, REVIEW_COMMENT_MAX } from "@/lib/client-reviews";
+import { sendReviewWorkflowEmail } from "@/lib/email/review-workflow-notifications";
 
 // ============================================================
 // POST /api/client/deliverables/[deliverableId]/review
@@ -57,6 +58,18 @@ export async function POST(
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
   const { review } = result;
+  if (review.status === "rework_requested") {
+    await sendReviewWorkflowEmail({
+      event: "client_rework_requested",
+      reviewId: review.id,
+    });
+  } else if (review.status === "approved") {
+    await sendReviewWorkflowEmail({
+      event: "client_approved",
+      reviewId: review.id,
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     review: { id: review.id, status: review.status, comment: review.comment, created_at: review.created_at },

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { sendReviewWorkflowEmail } from "@/lib/email/review-workflow-notifications";
 import { createServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -119,6 +120,12 @@ export async function PATCH(
     console.error("[admin/reviews/replacement] Update error:", updateErr.message);
     return NextResponse.json({ error: "Could not link replacement deliverable." }, { status: 500 });
   }
+
+  await sendReviewWorkflowEmail({
+    event: "admin_replacement_ready",
+    reviewId,
+    replacementDeliverableId,
+  });
 
   return NextResponse.json({
     ok: true,
