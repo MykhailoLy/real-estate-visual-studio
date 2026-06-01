@@ -13,10 +13,10 @@ import {
 } from "lucide-react";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
-import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 import ClientOrderImageCard, {
   type ClientImageWorkflowStatus,
 } from "@/components/dashboard/ClientOrderImageCard";
+import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import FilePreviewCard from "@/components/FilePreviewCard";
 import { getClientUser } from "@/lib/client-auth";
@@ -37,6 +37,10 @@ import {
   type DeliverableReview,
   type ReviewStatus,
 } from "@/lib/client-reviews";
+import {
+  getClientSourceFilesForOrder,
+  type ClientSourceFile,
+} from "@/lib/client-source-files";
 import { formatUSD } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -81,6 +85,18 @@ function groupCurrentDeliverablesByItem(
     const existing = grouped.get(itemIndex) ?? [];
     existing.push(row);
     grouped.set(itemIndex, existing);
+  }
+  return grouped;
+}
+
+function groupSourceFilesByItem(
+  files: ClientSourceFile[]
+): Map<number, ClientSourceFile[]> {
+  const grouped = new Map<number, ClientSourceFile[]>();
+  for (const file of files) {
+    const existing = grouped.get(file.itemIndex) ?? [];
+    existing.push(file);
+    grouped.set(file.itemIndex, existing);
   }
   return grouped;
 }
@@ -168,15 +184,17 @@ export default async function OrderDetailPage({
   const order = await getOrderByIdForClient(orderId, user.email);
   if (!order) notFound();
 
-  const [allDeliverables, allReviews] = await Promise.all([
+  const [allDeliverables, allReviews, sourceFiles] = await Promise.all([
     getDeliverablesByClientEmail(user.email),
     getReviewsByClientEmail(user.email),
+    getClientSourceFilesForOrder(order.id, user.email),
   ]);
 
   const orderDeliverables = allDeliverables.filter((deliverable) => deliverable.order_id === order.id);
   const orderReviews = allReviews.filter((review) => review.order_id === order.id);
   const currentDeliverables = getCurrentDeliverableRows(orderDeliverables, orderReviews);
   const imageDeliverables = groupCurrentDeliverablesByItem(currentDeliverables);
+  const imageSourceFiles = groupSourceFilesByItem(sourceFiles);
   const orderLevelDeliverables = getOrderLevelDeliverables(currentDeliverables);
 
   const serviceLabel = getServiceLabel(order.service_type);
@@ -231,205 +249,197 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-primary" aria-hidden />
-              <h2 className="text-[13px] font-bold text-foreground">Summary</h2>
-            </div>
-            <dl className="divide-y divide-border">
-              <SummaryRow label="Order number" value={order.order_number} mono />
-              <SummaryRow label="Service" value={serviceLabel} />
-              <SummaryRow label="Submitted" value={formatDisplayDate(order.created_at)} />
-              <SummaryRow
-                label="Est. completion"
-                value={
-                  estimatedComp === "Delivered"
-                    ? "Delivered"
-                    : estimatedCompDisplay === "-"
-                      ? "-"
-                      : `~${estimatedCompDisplay} (est.)`
-                }
-              />
-              <SummaryRow
-                label="Images / items"
-                value={`${order.item_count} image${order.item_count !== 1 ? "s" : ""}`}
-              />
-              <SummaryRow
-                label="Est. total"
-                value={formatUSD(order.estimated_total_cents)}
-                bold
-              />
-              {order.client_company && (
-                <SummaryRow label="Company" value={order.client_company} />
-              )}
-            </dl>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-5 mb-7">
+        <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-primary" aria-hidden />
+            <h2 className="text-[13px] font-bold text-foreground">Summary</h2>
           </div>
-
-          <div className="bg-white border border-border rounded-xl shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-primary" aria-hidden />
-              <h2 className="text-[13px] font-bold text-foreground">Progress</h2>
-            </div>
-            <ProgressBar value={progress} className="mb-3" />
-            <p className="text-[11px] text-muted leading-relaxed">
-              {order.status === "pending" &&
-                "Your order has been received and is awaiting confirmation."}
-              {order.status === "confirmed" &&
-                "Your order has been confirmed and will enter production soon."}
-              {order.status === "in-progress" &&
-                "Our team is currently working on your order."}
-              {dashStatus === "pending-rework" &&
-                "Your rework request is pending review by our team."}
-              {dashStatus === "rework-in-progress" &&
-                "Our team is working on your requested revisions."}
-              {dashStatus === "new-version-ready" &&
-                "A new version is ready for your review."}
-              {order.status === "delivered" &&
-                dashStatus === "completed" &&
-                "Your order has been completed and delivered."}
-              {order.status === "cancelled" &&
-                "This order has been cancelled."}
-            </p>
-          </div>
-
-          <Link
-            href="/dashboard/jobs"
-            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 border border-border rounded-lg text-[13px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary bg-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden />
-            Back to all jobs
-          </Link>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
+            <SummaryRow label="Order number" value={order.order_number} mono />
+            <SummaryRow label="Service" value={serviceLabel} />
+            <SummaryRow label="Submitted" value={formatDisplayDate(order.created_at)} />
+            <SummaryRow
+              label="Est. completion"
+              value={
+                estimatedComp === "Delivered"
+                  ? "Delivered"
+                  : estimatedCompDisplay === "-"
+                    ? "-"
+                    : `~${estimatedCompDisplay} (est.)`
+              }
+            />
+            <SummaryRow
+              label="Images / items"
+              value={`${order.item_count} image${order.item_count !== 1 ? "s" : ""}`}
+            />
+            <SummaryRow
+              label="Est. total"
+              value={formatUSD(order.estimated_total_cents)}
+              bold
+            />
+            {order.client_company && (
+              <SummaryRow label="Company" value={order.client_company} />
+            )}
+          </dl>
         </div>
 
-        <div className="lg:col-span-2 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-primary" aria-hidden />
-              <h2 className="text-[13px] font-bold text-foreground">
-                Image workflow
-                <span className="ml-2 text-[11px] font-normal text-muted">
-                  ({order.items.length} image{order.items.length !== 1 ? "s" : ""})
-                </span>
-              </h2>
-            </div>
-            <BulkDownloadButton
-              endpoint={`/api/client/orders/${order.id}/deliverables/bulk-download`}
-              disabled={currentDeliverables.length === 0}
-              emptyLabel="No files"
-            />
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="w-4 h-4 text-primary" aria-hidden />
+            <h2 className="text-[13px] font-bold text-foreground">Progress</h2>
           </div>
-
-          {order.items.length > 0 ? (
-            <div className="space-y-4">
-              {order.items.map((item) => {
-                const deliverables = imageDeliverables.get(item.item_index) ?? [];
-                const itemReviews = orderReviews.filter(
-                  (review) => review.item_index === item.item_index
-                );
-                const status = deriveImageWorkflowStatus(deliverables, itemReviews);
-
-                return (
-                  <ClientOrderImageCard
-                    key={item.id}
-                    imageNumber={item.item_index + 1}
-                    imageCount={order.items.length}
-                    subtotalLabel={
-                      item.subtotal_cents > 0 ? formatUSD(item.subtotal_cents) : null
-                    }
-                    details={item.details}
-                    deliverables={deliverables}
-                    status={status}
-                    latestComment={latestRelevantComment(itemReviews, status)}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bg-white border border-border rounded-xl shadow-sm p-8 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center mb-4">
-                <Layers className="w-5 h-5 text-muted-light" aria-hidden />
-              </div>
-              <p className="text-sm font-semibold text-foreground mb-1">
-                Item details not yet available
-              </p>
-              <p className="text-xs text-muted max-w-xs leading-relaxed">
-                Item-level details will appear here once your order has been confirmed.
-              </p>
-            </div>
-          )}
-
-          {orderLevelDeliverables.length > 0 && (
-            <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
-                <h2 className="text-[13px] font-bold text-foreground">
-                  Order-level files
-                </h2>
-                <span className="ml-auto text-[11px] text-muted-light text-right">
-                  {orderLevelDeliverables.length} file{orderLevelDeliverables.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <ul className="divide-y divide-border">
-                {orderLevelDeliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
-                  <li key={deliverable.id} className="px-5 py-3.5">
-                    <FilePreviewCard
-                      filename={deliverable.filename}
-                      mimeType={deliverable.mime_type}
-                      fileSizeLabel={formatBytes(deliverable.file_size)}
-                      badgeLabel={itemLabel(deliverable.item_index)}
-                      signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
-                      downloadLabel="Download file"
-                      meta={
-                        <div className="space-y-1">
-                          {isReplacement && (
-                            <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
-                              New version
-                            </span>
-                          )}
-                          {previousFilename && (
-                            <p className="text-[10px] text-muted">
-                              Replaces {previousFilename}
-                            </p>
-                          )}
-                          {review?.comment && (
-                            <p className="text-[10px] text-muted truncate max-w-xs" title={review.comment}>
-                              {review.comment}
-                            </p>
-                          )}
-                        </div>
-                      }
-                      actions={
-                        <DeliverableReviewActions
-                          deliverableId={deliverable.id}
-                          initialReviewStatus={review?.status ?? null}
-                          initialComment={review?.comment ?? null}
-                          filename={deliverable.filename}
-                        />
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {order.client_company && (
-            <div className="flex items-start gap-3 bg-surface border border-border rounded-xl p-4">
-              <Building2 className="w-4 h-4 text-muted flex-shrink-0 mt-0.5" aria-hidden />
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-0.5">
-                  Order placed for
-                </p>
-                <p className="text-[13px] font-semibold text-foreground">
-                  {order.client_company}
-                </p>
-              </div>
-            </div>
-          )}
+          <ProgressBar value={progress} className="mb-3" />
+          <p className="text-[11px] text-muted leading-relaxed">
+            {order.status === "pending" &&
+              "Your order has been received and is awaiting confirmation."}
+            {order.status === "confirmed" &&
+              "Your order has been confirmed and will enter production soon."}
+            {order.status === "in-progress" &&
+              "Our team is currently working on your order."}
+            {dashStatus === "pending-rework" &&
+              "Your rework request is pending review by our team."}
+            {dashStatus === "rework-in-progress" &&
+              "Our team is working on your requested revisions."}
+            {dashStatus === "new-version-ready" &&
+              "A new version is ready for your review."}
+            {order.status === "delivered" &&
+              dashStatus === "completed" &&
+              "Your order has been completed and delivered."}
+            {order.status === "cancelled" &&
+              "This order has been cancelled."}
+          </p>
         </div>
       </div>
+
+      <section className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" aria-hidden />
+            <h2 className="text-[13px] font-bold text-foreground">
+              Image workflow
+              <span className="ml-2 text-[11px] font-normal text-muted">
+                ({order.items.length} image{order.items.length !== 1 ? "s" : ""})
+              </span>
+            </h2>
+          </div>
+          <BulkDownloadButton
+            endpoint={`/api/client/orders/${order.id}/deliverables/bulk-download`}
+            disabled={currentDeliverables.length === 0}
+            emptyLabel="No files"
+          />
+        </div>
+
+        {order.items.length > 0 ? (
+          <div className="space-y-4">
+            {order.items.map((item) => {
+              const deliverables = imageDeliverables.get(item.item_index) ?? [];
+              const itemReviews = orderReviews.filter(
+                (review) => review.item_index === item.item_index
+              );
+              const status = deriveImageWorkflowStatus(deliverables, itemReviews);
+
+              return (
+                <ClientOrderImageCard
+                  key={item.id}
+                  orderId={order.id}
+                  imageNumber={item.item_index + 1}
+                  imageCount={order.items.length}
+                  subtotalLabel={
+                    item.subtotal_cents > 0 ? formatUSD(item.subtotal_cents) : null
+                  }
+                  details={item.details}
+                  sourceFiles={imageSourceFiles.get(item.item_index) ?? []}
+                  deliverables={deliverables}
+                  status={status}
+                  latestComment={latestRelevantComment(itemReviews, status)}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white border border-border rounded-xl shadow-sm p-8 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center mb-4">
+              <Layers className="w-5 h-5 text-muted-light" aria-hidden />
+            </div>
+            <p className="text-sm font-semibold text-foreground mb-1">
+              Item details not yet available
+            </p>
+            <p className="text-xs text-muted max-w-xs leading-relaxed">
+              Item-level details will appear here once your order has been confirmed.
+            </p>
+          </div>
+        )}
+
+        {orderLevelDeliverables.length > 0 && (
+          <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
+              <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
+              <h2 className="text-[13px] font-bold text-foreground">
+                Order-level files
+              </h2>
+              <span className="ml-auto text-[11px] text-muted-light text-right">
+                {orderLevelDeliverables.length} file{orderLevelDeliverables.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <ul className="divide-y divide-border">
+              {orderLevelDeliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
+                <li key={deliverable.id} className="px-5 py-3.5">
+                  <FilePreviewCard
+                    filename={deliverable.filename}
+                    mimeType={deliverable.mime_type}
+                    fileSizeLabel={formatBytes(deliverable.file_size)}
+                    badgeLabel={itemLabel(deliverable.item_index)}
+                    signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
+                    downloadLabel="Download file"
+                    meta={
+                      <div className="space-y-1">
+                        {isReplacement && (
+                          <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
+                            New version
+                          </span>
+                        )}
+                        {previousFilename && (
+                          <p className="text-[10px] text-muted">
+                            Replaces {previousFilename}
+                          </p>
+                        )}
+                        {review?.comment && (
+                          <p className="text-[10px] text-muted truncate max-w-xs" title={review.comment}>
+                            {review.comment}
+                          </p>
+                        )}
+                      </div>
+                    }
+                    actions={
+                      <DeliverableReviewActions
+                        deliverableId={deliverable.id}
+                        initialReviewStatus={review?.status ?? null}
+                        initialComment={review?.comment ?? null}
+                        filename={deliverable.filename}
+                      />
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {order.client_company && (
+          <div className="flex items-start gap-3 bg-surface border border-border rounded-xl p-4">
+            <Building2 className="w-4 h-4 text-muted flex-shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-0.5">
+                Order placed for
+              </p>
+              <p className="text-[13px] font-semibold text-foreground">
+                {order.client_company}
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 px-5 py-4 bg-surface border border-border rounded-xl">
         <div className="flex items-center gap-2">
