@@ -150,7 +150,7 @@ export default async function AdminOrderDetailPage({
           .from("deliverable_reviews")
           .select(
             "id, deliverable_id, item_index, client_email, status, comment, created_at, " +
-            "order_deliverables!inner(filename)"
+            "order_deliverables!deliverable_reviews_deliverable_id_fkey(filename)"
           )
           .eq("order_id", orderId)
           .order("created_at", { ascending: false });
