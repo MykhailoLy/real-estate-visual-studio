@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCcw, CheckCircle2, Clock, Tag } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
 import AdminDeliverableUpload, {
@@ -98,6 +98,11 @@ export default async function AdminOrderDetailPage({
 
   let order: OrderRow | null = null;
   let deliverables: DeliverableRow[] = [];
+  let reviews: Array<{
+    id: string; deliverable_id: string; item_index: number | null;
+    client_email: string; status: string; comment: string | null;
+    created_at: string; filename: string | null;
+  }> = [];
   let supabaseError: string | null = null;
 
   const supabaseConfigured = Boolean(
@@ -139,6 +144,28 @@ export default async function AdminOrderDetailPage({
         if (!delivErr) {
           deliverables = (delivData ?? []) as unknown as DeliverableRow[];
         }
+
+        // Fetch reviews for this order
+        const { data: revData } = await supabase
+          .from("deliverable_reviews")
+          .select(
+            "id, deliverable_id, item_index, client_email, status, comment, created_at, " +
+            "order_deliverables!inner(filename)"
+          )
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: false });
+
+        if (revData) {
+          reviews = (revData as unknown as Array<{
+            id: string; deliverable_id: string; item_index: number | null;
+            client_email: string; status: string; comment: string | null;
+            created_at: string; order_deliverables: { filename: string };
+          }>).map((r) => ({
+            ...r,
+            filename: r.order_deliverables?.filename ?? null,
+            order_deliverables: undefined,
+          })) as typeof reviews;
+        }
       }
     } catch (err) {
       supabaseError = String(err);
@@ -166,6 +193,13 @@ export default async function AdminOrderDetailPage({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/rework"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" aria-hidden />
+              Rework queue
+            </Link>
             <Link
               href="/admin/orders"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
@@ -250,13 +284,68 @@ export default async function AdminOrderDetailPage({
             </div>
 
             {/* ── Right: deliverables upload ── */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-5">
               <AdminDeliverableUpload
                 orderId={order.id}
                 orderNumber={order.order_number}
                 itemCount={order.item_count}
                 initialDeliverables={deliverables}
               />
+
+              {/* ── Review status summary ── */}
+              {reviews.length > 0 && (
+                <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-primary" aria-hidden />
+                    <h3 className="text-[13px] font-bold text-foreground">
+                      Client review status
+                    </h3>
+                    <span className="ml-auto text-[11px] text-muted-light">
+                      {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <ul className="divide-y divide-border">
+                    {reviews.map((r) => (
+                      <li key={r.id} className="px-5 py-3 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
+                            <Tag className="w-2.5 h-2.5" aria-hidden />
+                            {r.item_index === null ? "Order-level" : `Image ${r.item_index + 1}`}
+                          </span>
+                          {r.filename && (
+                            <span className="text-[11px] text-muted truncate max-w-[120px]">{r.filename}</span>
+                          )}
+                          {r.status === "approved" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3" aria-hidden />Approved
+                            </span>
+                          )}
+                          {r.status === "rework_requested" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-amber-50 text-amber-700 border-amber-200">
+                              <RotateCcw className="w-3 h-3" aria-hidden />Rework requested
+                            </span>
+                          )}
+                          {r.status === "rework_in_progress" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                              <Clock className="w-3 h-3" aria-hidden />In progress
+                            </span>
+                          )}
+                          {r.status === "resolved" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3" aria-hidden />Resolved
+                            </span>
+                          )}
+                        </div>
+                        {r.comment && (
+                          <p className="text-[11px] text-foreground/70 leading-snug pl-1 truncate max-w-[400px]" title={r.comment}>
+                            &ldquo;{r.comment}&rdquo;
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
           </div>
