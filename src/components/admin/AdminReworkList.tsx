@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  RotateCcw, Clock, CheckCircle2, Loader2, AlertCircle, MessageSquare, Tag, ExternalLink,
+  RotateCcw, Clock, CheckCircle2, Loader2, AlertCircle, MessageSquare, Tag, ExternalLink, Upload,
 } from "lucide-react";
 import type { ReworkRow } from "@/app/(public)/admin/rework/page";
 
@@ -142,6 +142,13 @@ export default function AdminReworkList({ initialRows }: Props) {
 
               {/* Actions */}
               <div className="flex items-center gap-2 pt-1">
+                <Link
+                  href={`/admin/orders/${r.order_id}?reviewId=${r.id}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-[11px] font-semibold hover:bg-primary-light transition-colors shadow-sm"
+                >
+                  <Upload className="w-3 h-3" aria-hidden />
+                  Upload replacement
+                </Link>
                 {r.status === "rework_requested" && (
                   <button
                     type="button"

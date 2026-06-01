@@ -45,7 +45,7 @@ import {
 } from "@/lib/client-orders";
 import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
 import { getReviewsByClientEmail } from "@/lib/client-reviews";
-import type { ReviewStatus } from "@/lib/client-reviews";
+import { getCurrentDeliverableRows } from "@/lib/client-deliverable-display";
 import { formatUSD } from "@/lib/utils";
 
 // ── Metadata ─────────────────────────────────────────────────
@@ -249,15 +249,9 @@ export default async function OrderDetailPage({
     getReviewsByClientEmail(user.email),
   ]);
   const orderDeliverables = allDeliverables.filter((d) => d.order_id === order.id);
+  const currentDeliverables = getCurrentDeliverableRows(orderDeliverables, allReviews);
 
   // Build deliverable_id → latest review map (reviews already newest-first).
-  const reviewMap = new Map<string, { status: ReviewStatus; comment: string | null }>();
-  for (const rev of allReviews) {
-    if (!reviewMap.has(rev.deliverable_id)) {
-      reviewMap.set(rev.deliverable_id, { status: rev.status, comment: rev.comment });
-    }
-  }
-
   // Derive display values from raw DB fields
   const serviceLabel  = getServiceLabel(order.service_type);
   const orderReviews  = allReviews.filter((review) => review.order_id === order.id);
@@ -457,7 +451,7 @@ export default async function OrderDetailPage({
           )}
 
           {/* ── Deliverables section ── */}
-          {orderDeliverables.length > 0 ? (
+          {currentDeliverables.length > 0 ? (
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
               <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
                 <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
@@ -465,12 +459,11 @@ export default async function OrderDetailPage({
                   Delivered files
                 </h2>
                 <span className="ml-auto text-[11px] text-muted-light">
-                  {orderDeliverables.length} file{orderDeliverables.length !== 1 ? "s" : ""}
+                  {currentDeliverables.length} file{currentDeliverables.length !== 1 ? "s" : ""}
                 </span>
               </div>
               <ul className="divide-y divide-border">
-                {orderDeliverables.map((d) => {
-                  const rev = reviewMap.get(d.id) ?? null;
+                {currentDeliverables.map(({ deliverable: d, review: rev, isReplacement, previousFilename }) => {
                   return (
                   <li key={d.id} className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -485,7 +478,17 @@ export default async function OrderDetailPage({
                         <span className="text-[11px] text-muted">
                           {formatBytes(d.file_size)}
                         </span>
+                        {isReplacement && (
+                          <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
+                            New version
+                          </span>
+                        )}
                       </div>
+                      {previousFilename && (
+                        <p className="mt-1 text-[10px] text-muted">
+                          Replaces {previousFilename}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2.5 flex-shrink-0">
                       <DeliverableDownloadButton

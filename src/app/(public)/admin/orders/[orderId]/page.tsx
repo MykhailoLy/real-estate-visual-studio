@@ -78,10 +78,15 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default async function AdminOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orderId: string }>;
+  searchParams: Promise<{ reviewId?: string }>;
 }) {
   const { orderId } = await params;
+  const { reviewId } = await searchParams;
+  const requestedReviewId =
+    reviewId && /^[0-9a-f-]{36}$/i.test(reviewId) ? reviewId : null;
 
   // ── Auth guard ──────────────────────────────────────────
   if (!(await isAdminAuthenticated())) {
@@ -101,7 +106,8 @@ export default async function AdminOrderDetailPage({
   let reviews: Array<{
     id: string; deliverable_id: string; item_index: number | null;
     client_email: string; status: string; comment: string | null;
-    created_at: string; filename: string | null;
+    created_at: string; replacement_deliverable_id: string | null;
+    filename: string | null;
   }> = [];
   let supabaseError: string | null = null;
 
@@ -150,6 +156,7 @@ export default async function AdminOrderDetailPage({
           .from("deliverable_reviews")
           .select(
             "id, deliverable_id, item_index, client_email, status, comment, created_at, " +
+            "replacement_deliverable_id, " +
             "order_deliverables!deliverable_reviews_deliverable_id_fkey(filename)"
           )
           .eq("order_id", orderId)
@@ -159,7 +166,8 @@ export default async function AdminOrderDetailPage({
           reviews = (revData as unknown as Array<{
             id: string; deliverable_id: string; item_index: number | null;
             client_email: string; status: string; comment: string | null;
-            created_at: string; order_deliverables: { filename: string };
+            created_at: string; replacement_deliverable_id: string | null;
+            order_deliverables: { filename: string };
           }>).map((r) => ({
             ...r,
             filename: r.order_deliverables?.filename ?? null,
@@ -174,6 +182,14 @@ export default async function AdminOrderDetailPage({
 
   const formatUSD = (cents: number) =>
     `US$${(cents / 100).toFixed(2)}`;
+
+  const replacementReview = requestedReviewId
+    ? reviews.find((r) =>
+        r.id === requestedReviewId &&
+        ["rework_requested", "rework_in_progress"].includes(r.status) &&
+        !r.replacement_deliverable_id
+      ) ?? null
+    : null;
 
   return (
     <section className="bg-surface min-h-screen py-10 lg:py-14">
@@ -227,6 +243,26 @@ export default async function AdminOrderDetailPage({
         {!order && supabaseConfigured && !supabaseError && (
           <div className="mb-6 rounded-xl border border-border bg-white px-4 py-3 text-sm text-muted">
             Order not found.
+          </div>
+        )}
+        {order && requestedReviewId && !replacementReview && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm">
+            The selected rework request is no longer active or does not belong to this order.
+          </div>
+        )}
+        {order && replacementReview && (
+          <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+            <span className="font-semibold text-primary">
+              Uploading replacement for{" "}
+              {replacementReview.item_index === null
+                ? "order-level file"
+                : `Image ${replacementReview.item_index + 1}`}
+            </span>
+            {replacementReview.filename && (
+              <span className="block mt-1 text-muted">
+                Original file: {replacementReview.filename}
+              </span>
+            )}
           </div>
         )}
 
@@ -290,6 +326,11 @@ export default async function AdminOrderDetailPage({
                 orderNumber={order.order_number}
                 itemCount={order.item_count}
                 initialDeliverables={deliverables}
+                replacementReview={replacementReview ? {
+                  id: replacementReview.id,
+                  itemIndex: replacementReview.item_index,
+                  filename: replacementReview.filename,
+                } : null}
               />
 
               {/* ── Review status summary ── */}
@@ -328,6 +369,11 @@ export default async function AdminOrderDetailPage({
                           {r.status === "rework_in_progress" && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
                               <Clock className="w-3 h-3" aria-hidden />In progress
+                            </span>
+                          )}
+                          {r.status === "rework_delivered" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-purple-50 text-purple-700 border-purple-200">
+                              <CheckCircle2 className="w-3 h-3" aria-hidden />Replacement delivered
                             </span>
                           )}
                           {r.status === "resolved" && (

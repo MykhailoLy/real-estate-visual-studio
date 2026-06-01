@@ -61,6 +61,11 @@ interface Props {
   /** Total number of source images in the order. Drives the assignment dropdown. */
   itemCount: number;
   initialDeliverables: DeliverableRow[];
+  replacementReview?: {
+    id: string;
+    itemIndex: number | null;
+    filename: string | null;
+  } | null;
   onDeliverableAdded?: (row: DeliverableRow) => void;
   onDeliverableDeleted?: (id: string) => void;
 }
@@ -113,13 +118,20 @@ export default function AdminDeliverableUpload({
   orderNumber,
   itemCount,
   initialDeliverables,
+  replacementReview = null,
   onDeliverableAdded,
   onDeliverableDeleted,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [deliverables, setDeliverables]   = useState<DeliverableRow[]>(initialDeliverables);
-  const [selectedTarget, setSelectedTarget] = useState<string>(ORDER_LEVEL_VALUE);
+  const [selectedTarget, setSelectedTarget] = useState<string>(
+    replacementReview
+      ? replacementReview.itemIndex === null
+        ? ORDER_LEVEL_VALUE
+        : String(replacementReview.itemIndex)
+      : ORDER_LEVEL_VALUE
+  );
   const [uploading, setUploading]         = useState(false);
   const [progress, setProgress]           = useState<string | null>(null);
   const [successMsg, setSuccessMsg]       = useState<string | null>(null);
@@ -222,11 +234,35 @@ export default function AdminDeliverableUpload({
 
       const { deliverable } = await regRes.json() as { deliverable: DeliverableRow };
 
+      if (replacementReview) {
+        setProgress("Linking replacement to rework request...");
+        const linkRes = await fetch(
+          `/api/admin/reviews/${replacementReview.id}/replacement`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ replacementDeliverableId: deliverable.id }),
+          }
+        );
+
+        if (!linkRes.ok) {
+          const body = await linkRes.json().catch(() => ({})) as { error?: string };
+          throw new Error(
+            `File uploaded, but replacement could not be linked: ${body.error ?? "Link failed."}`
+          );
+        }
+      }
+
       setDeliverables((prev) => [deliverable, ...prev]);
       onDeliverableAdded?.(deliverable);
 
       const targetLabel = itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
-      setSuccessMsg(`"${file.name}" uploaded as ${targetLabel}.`);
+      setSuccessMsg(
+        replacementReview
+          ? `"${file.name}" uploaded as the replacement for ${targetLabel}.`
+          : `"${file.name}" uploaded as ${targetLabel}.`
+      );
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Upload failed.");
     } finally {
@@ -283,7 +319,7 @@ export default function AdminDeliverableUpload({
         <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
           <Upload className="w-4 h-4 text-primary" aria-hidden />
           <h3 className="text-[13px] font-bold text-foreground">
-            Upload deliverable
+            {replacementReview ? "Upload replacement" : "Upload deliverable"}
           </h3>
           <span className="ml-auto text-[10px] text-muted-light font-medium">
             Max {ADMIN_DELIVERABLE_MAX_MB} MB · JPG/PNG/WebP/TIFF/PDF/ZIP
@@ -291,6 +327,18 @@ export default function AdminDeliverableUpload({
         </div>
 
         <div className="px-5 py-5 space-y-4">
+          {replacementReview && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px] text-foreground">
+              <p className="font-semibold text-primary">
+                Uploading replacement for {itemLabel(replacementReview.itemIndex)}
+              </p>
+              {replacementReview.filename && (
+                <p className="mt-0.5 text-muted">
+                  Original file: {replacementReview.filename}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Assignment dropdown ── */}
           <div>
@@ -305,7 +353,7 @@ export default function AdminDeliverableUpload({
               id="deliverable-target"
               value={selectedTarget}
               onChange={(e) => setSelectedTarget(e.target.value)}
-              disabled={uploading}
+              disabled={uploading || Boolean(replacementReview)}
               className="w-full sm:w-64 px-3 py-2 border border-border rounded-lg text-[13px] text-foreground bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <option value={ORDER_LEVEL_VALUE}>Order-level file / ZIP</option>
@@ -343,7 +391,8 @@ export default function AdminDeliverableUpload({
                 <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                   {progress ?? "Uploading…"}</>
               ) : (
-                <><Upload className="w-4 h-4" aria-hidden />Choose file to upload</>
+                <><Upload className="w-4 h-4" aria-hidden />
+                  {replacementReview ? "Choose replacement file" : "Choose file to upload"}</>
               )}
             </button>
 
