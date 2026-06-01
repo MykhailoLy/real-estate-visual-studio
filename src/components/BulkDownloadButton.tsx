@@ -3,18 +3,6 @@
 import { useState } from "react";
 import { AlertCircle, Download, Loader2 } from "lucide-react";
 
-interface BulkDownloadFile {
-  signedUrl: string;
-  filename: string;
-}
-
-interface BulkDownloadResponse {
-  ok: true;
-  mode: "signed-url-batch";
-  archiveFilename: string;
-  files: BulkDownloadFile[];
-}
-
 interface Props {
   endpoint: string;
   disabled?: boolean;
@@ -49,22 +37,16 @@ export default function BulkDownloadButton({
         throw new Error(body.error ?? "Could not prepare downloads.");
       }
 
-      const payload = (await res.json()) as BulkDownloadResponse;
-      if (!payload.files?.length) {
-        throw new Error("No files are available to download.");
-      }
-
-      payload.files.forEach((file, index) => {
-        window.setTimeout(() => {
-          const a = document.createElement("a");
-          a.href = file.signedUrl;
-          a.download = file.filename;
-          a.rel = "noopener";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        }, index * 300);
-      });
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filenameFromDisposition(res.headers.get("Content-Disposition"));
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bulk download failed.");
     } finally {
@@ -101,9 +83,25 @@ export default function BulkDownloadButton({
       )}
       {!disabled && (
         <p className="text-[10px] text-muted-light text-right">
-          Downloads files one by one.
+          Downloads as ZIP.
         </p>
       )}
     </div>
   );
+}
+
+function filenameFromDisposition(disposition: string | null): string {
+  if (!disposition) return "files.zip";
+
+  const utfMatch = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1]);
+    } catch {
+      return utfMatch[1];
+    }
+  }
+
+  const asciiMatch = /filename="?([^";]+)"?/i.exec(disposition);
+  return asciiMatch?.[1] ?? "files.zip";
 }

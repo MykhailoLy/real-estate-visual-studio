@@ -4,13 +4,18 @@ import {
   getAdminSourceFileSlot,
   type OrderItemSourceFileRow,
 } from "@/lib/admin-source-files";
+import {
+  assertZipLimits,
+  createZipResponse,
+  imageFolder,
+  safeZipFilename,
+  uniqueZipPath,
+  type ZipSourceFile,
+} from "@/lib/server-zip-download";
 import { createServerClient } from "@/lib/supabase";
 import { ORDER_FILES_BUCKET } from "@/lib/upload-config";
 
 export const runtime = "nodejs";
-
-const BULK_SIGNED_URL_TTL_SECONDS = 300;
-const MAX_BULK_FILES = 100;
 
 export async function POST(
   _req: NextRequest,
@@ -68,48 +73,40 @@ export async function POST(
       .filter((file) => Boolean(file.slot.storagePath))
   );
 
-  if (sourceFiles.length === 0) {
-    return NextResponse.json({ error: "No source files found." }, { status: 404 });
-  }
-  if (sourceFiles.length > MAX_BULK_FILES) {
-    return NextResponse.json(
-      { error: `Too many files for one bulk download. Maximum is ${MAX_BULK_FILES}.` },
-      { status: 413 }
-    );
+  const limit = assertZipLimits(
+    sourceFiles.map((file) => ({ sizeBytes: file.slot.fileSize }))
+  );
+  if (!limit.ok) {
+    return NextResponse.json({ error: limit.error }, { status: limit.status });
   }
 
-  const files = await Promise.all(
-    sourceFiles.map(async ({ itemIndex, slot }) => {
-      const { data: signed, error } = await supabase.storage
+  const usedPaths = new Set<string>();
+  const zipFiles: ZipSourceFile[] = [];
+
+  for (const { itemIndex, slot } of sourceFiles) {
+    const { data, error } = await supabase.storage
         .from(ORDER_FILES_BUCKET)
-        .createSignedUrl(slot.storagePath!, BULK_SIGNED_URL_TTL_SECONDS, {
-          download: slot.filename,
-        });
+        .download(slot.storagePath!);
 
-      if (error || !signed?.signedUrl) {
-        throw new Error(
-          `Could not create download link for Image ${itemIndex + 1} ${slot.kind}.`
-        );
-      }
+    if (error || !data) {
+      console.error("[admin/source-files/bulk-download] Storage download failed:", error?.message);
+      return NextResponse.json(
+        { error: `Could not download Image ${itemIndex + 1} ${slot.kind} source file.` },
+        { status: 500 }
+      );
+    }
 
-      return {
-        signedUrl: signed.signedUrl,
-        filename: slot.filename,
-      };
-    })
-  ).catch((err) => {
-    console.error("[admin/source-files/bulk-download] Signing failed:", err);
-    return null;
-  });
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const zipPath = uniqueZipPath(
+      `${imageFolder(itemIndex)}/${slot.kind}-${safeZipFilename(slot.filename)}`,
+      usedPaths
+    );
 
-  if (!files) {
-    return NextResponse.json({ error: "Could not prepare source file downloads." }, { status: 500 });
+    zipFiles.push({ path: zipPath, data: bytes });
   }
 
-  return NextResponse.json({
-    ok: true,
-    mode: "signed-url-batch",
-    archiveFilename: `${(order as { order_number: string }).order_number}-source-files.zip`,
-    files,
-  });
+  return createZipResponse(
+    `${(order as { order_number: string }).order_number}-source-files.zip`,
+    zipFiles
+  );
 }
