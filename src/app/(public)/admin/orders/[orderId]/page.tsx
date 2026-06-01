@@ -1,35 +1,51 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RotateCcw, CheckCircle2, Clock, FileText, Tag } from "lucide-react";
+import { ArrowLeft, FolderOpen, Layers, RotateCcw } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   buildAdminSourceFiles,
   type AdminSourceFile,
   type OrderItemSourceFileRow,
 } from "@/lib/admin-source-files";
+import {
+  groupAdminSourceFilesByItem,
+  groupDeliverablesByItem,
+  groupReviewsByItem,
+  type AdminReview,
+} from "@/lib/admin-order-workflow";
 import { createServerClient } from "@/lib/supabase";
 import AdminDeliverableUpload, {
   type DeliverableRow,
 } from "@/components/admin/AdminDeliverableUpload";
+import AdminOrderImageCard from "@/components/admin/AdminOrderImageCard";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
-import FilePreviewCard from "@/components/FilePreviewCard";
 
 // ============================================================
-// /admin/orders/[orderId] — admin order detail + deliverables
+// /admin/orders/[orderId] — admin order detail (per-image workflow)
 //
-// Server component.  Guards with isAdminAuthenticated(), then:
-//  1. Fetches the order summary row.
-//  2. Fetches existing order_deliverables for this order.
-//  3. Renders a read-only summary + AdminDeliverableUpload.
+// Phase 5H.2: redesigned from fragmented sections into per-image
+// workflow cards. Each image card shows:
+//   Left   — Client source / Original
+//   Middle — Uploaded deliverable / After
+//   Right  — Request details + upload control + review status
 //
-// Pattern mirrors /admin/orders (force-dynamic, nodejs runtime,
-// service-role DB access, auth guard before any data fetch).
+// Order-level deliverables (item_index null) remain in a
+// dedicated "Order-level files" section at the bottom.
+//
+// Existing behaviours preserved:
+//   - Signed-URL source preview / download (never raw paths)
+//   - Signed-URL deliverable preview / download
+//   - Delete deliverable
+//   - Upload deliverable (per-image + order-level)
+//   - Rework / replacement linking
+//   - Admin status controls
+//   - Bulk-download ZIP for source files + deliverables
 // ============================================================
 
-export const dynamic  = "force-dynamic";
-export const runtime  = "nodejs";
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function generateMetadata({
   params,
@@ -38,55 +54,60 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { orderId } = await params;
   return {
-    title:  `Order ${orderId.slice(0, 8).toUpperCase()} — Admin | PicchuSpot`,
+    title: `Order ${orderId.slice(0, 8).toUpperCase()} — Admin | PicchuSpot`,
     robots: { index: false, follow: false },
   };
 }
 
-// ── Service slug → label (mirrors admin/orders page) ──────────
+// ── Helpers ────────────────────────────────────────────────────
 
 const SERVICE_LABELS: Record<string, string> = {
-  "virtual-staging":        "Virtual Staging",
-  "virtual-renovation":     "Virtual Renovation",
-  "3d-floor-plans":         "Floor Plans",
-  "photo-editing":          "Photo Editing",
-  "image-enhancement":      "Image Enhancement",
-  "day-to-dusk":            "Day to Dusk",
-  "item-removal":           "Item Removal",
-  "virtual-cleaning":       "Virtual Cleaning",
-  "360-image-enhancement":  "360° Image Enhancement",
-  "360-virtual-staging":    "360° Virtual Staging",
-  "aerial-editing":         "Aerial Editing",
+  "virtual-staging": "Virtual Staging",
+  "virtual-renovation": "Virtual Renovation",
+  "3d-floor-plans": "Floor Plans",
+  "photo-editing": "Photo Editing",
+  "image-enhancement": "Image Enhancement",
+  "day-to-dusk": "Day to Dusk",
+  "item-removal": "Item Removal",
+  "virtual-cleaning": "Virtual Cleaning",
+  "360-image-enhancement": "360° Image Enhancement",
+  "360-virtual-staging": "360° Virtual Staging",
+  "aerial-editing": "Aerial Editing",
   "development-site-plans": "Development Site Plans",
 };
 
 function toLabel(slug: string): string {
-  return SERVICE_LABELS[slug] ?? slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return (
+    SERVICE_LABELS[slug] ??
+    slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
 }
 
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleString(undefined, {
-      year: "numeric", month: "short", day: "numeric",
-      hour: "2-digit", minute: "2-digit",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-  } catch { return iso; }
-}
-
-function formatBytes(bytes: number | null): string | null {
-  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return null;
-  if (bytes < 1024)        return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  } catch {
+    return iso;
+  }
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  "pending":     "bg-amber-50 text-amber-700 border-amber-200",
-  "confirmed":   "bg-blue-50 text-blue-700 border-blue-200",
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed: "bg-blue-50 text-blue-700 border-blue-200",
   "in-progress": "bg-blue-50 text-blue-700 border-blue-200",
-  "delivered":   "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "cancelled":   "bg-slate-100 text-slate-500 border-slate-200",
+  delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-slate-100 text-slate-500 border-slate-200",
 };
+
+function formatUSD(cents: number): string {
+  return `US$${(cents / 100).toFixed(2)}`;
+}
 
 // ── Page ──────────────────────────────────────────────────────
 
@@ -102,45 +123,57 @@ export default async function AdminOrderDetailPage({
   const requestedReviewId =
     reviewId && /^[0-9a-f-]{36}$/i.test(reviewId) ? reviewId : null;
 
-  // ── Auth guard ──────────────────────────────────────────
+  // ── Auth guard ────────────────────────────────────────────
   if (!(await isAdminAuthenticated())) {
     redirect("/admin/login");
   }
 
-  // ── Supabase ────────────────────────────────────────────
+  // ── Data types ────────────────────────────────────────────
   type OrderRow = {
-    id: string; order_number: string; service_type: string; status: string;
-    client_name: string; client_email: string; client_company: string | null;
-    item_count: number; estimated_total_cents: number;
-    created_at: string; updated_at: string;
+    id: string;
+    order_number: string;
+    service_type: string;
+    status: string;
+    client_name: string;
+    client_email: string;
+    client_company: string | null;
+    item_count: number;
+    estimated_total_cents: number;
+    created_at: string;
+    updated_at: string;
   };
 
+  type OrderItem = {
+    id: string;
+    item_index: number;
+    details: Record<string, unknown>;
+  };
+
+  // ── State ─────────────────────────────────────────────────
   let order: OrderRow | null = null;
   let deliverables: DeliverableRow[] = [];
   let sourceFiles: AdminSourceFile[] = [];
-  let reviews: Array<{
-    id: string; deliverable_id: string; item_index: number | null;
-    client_email: string; status: string; comment: string | null;
-    created_at: string; replacement_deliverable_id: string | null;
-    filename: string | null;
-  }> = [];
+  let orderItems: OrderItem[] = [];
+  let reviews: AdminReview[] = [];
   let supabaseError: string | null = null;
 
   const supabaseConfigured = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
+  // ── Supabase fetch ────────────────────────────────────────
   if (supabaseConfigured) {
     try {
       const supabase = createServerClient();
 
-      // Fetch order
+      // Order row
       const { data: orderData, error: orderErr } = await supabase
         .from("orders")
         .select(
           "id, order_number, service_type, status, " +
-          "client_name, client_email, client_company, " +
-          "item_count, estimated_total_cents, created_at, updated_at"
+            "client_name, client_email, client_company, " +
+            "item_count, estimated_total_cents, created_at, updated_at",
         )
         .eq("id", orderId)
         .maybeSingle();
@@ -151,13 +184,13 @@ export default async function AdminOrderDetailPage({
         order = orderData as unknown as OrderRow | null;
       }
 
-      // Fetch existing deliverables for this order
       if (order) {
+        // Deliverables (all, sorted newest-first)
         const { data: delivData, error: delivErr } = await supabase
           .from("order_deliverables")
           .select(
             "id, order_id, order_number, item_index, " +
-            "filename, file_size, mime_type, uploaded_at"
+              "filename, file_size, mime_type, uploaded_at",
           )
           .eq("order_id", orderId)
           .order("uploaded_at", { ascending: false });
@@ -166,42 +199,60 @@ export default async function AdminOrderDetailPage({
           deliverables = (delivData ?? []) as unknown as DeliverableRow[];
         }
 
+        // Order items (source files + details, sorted by item_index)
         const { data: itemData, error: itemErr } = await supabase
           .from("order_items")
           .select(
-            "id, item_index, original_photo_path, reference_image_path, details, created_at"
+            "id, item_index, original_photo_path, reference_image_path, details, created_at",
           )
           .eq("order_id", orderId)
           .order("item_index", { ascending: true });
 
-        if (!itemErr) {
-          sourceFiles = buildAdminSourceFiles(
-            (itemData ?? []) as unknown as OrderItemSourceFileRow[]
-          );
+        if (!itemErr && itemData) {
+          const typedItemData = itemData as unknown as OrderItemSourceFileRow[];
+          sourceFiles = buildAdminSourceFiles(typedItemData);
+          orderItems = typedItemData.map((row) => ({
+            id: row.id,
+            item_index: row.item_index,
+            details: row.details ?? {},
+          }));
         }
 
-        // Fetch reviews for this order
+        // Reviews (sorted newest-first so [0] is latest per item)
         const { data: revData } = await supabase
           .from("deliverable_reviews")
           .select(
             "id, deliverable_id, item_index, client_email, status, comment, created_at, " +
-            "replacement_deliverable_id, " +
-            "order_deliverables!deliverable_reviews_deliverable_id_fkey(filename)"
+              "replacement_deliverable_id, " +
+              "order_deliverables!deliverable_reviews_deliverable_id_fkey(filename)",
           )
           .eq("order_id", orderId)
           .order("created_at", { ascending: false });
 
         if (revData) {
-          reviews = (revData as unknown as Array<{
-            id: string; deliverable_id: string; item_index: number | null;
-            client_email: string; status: string; comment: string | null;
-            created_at: string; replacement_deliverable_id: string | null;
-            order_deliverables: { filename: string };
-          }>).map((r) => ({
-            ...r,
+          reviews = (
+            revData as unknown as Array<{
+              id: string;
+              deliverable_id: string;
+              item_index: number | null;
+              client_email: string;
+              status: string;
+              comment: string | null;
+              created_at: string;
+              replacement_deliverable_id: string | null;
+              order_deliverables: { filename: string } | null;
+            }>
+          ).map((r) => ({
+            id: r.id,
+            deliverable_id: r.deliverable_id,
+            item_index: r.item_index,
+            client_email: r.client_email,
+            status: r.status,
+            comment: r.comment,
+            created_at: r.created_at,
+            replacement_deliverable_id: r.replacement_deliverable_id,
             filename: r.order_deliverables?.filename ?? null,
-            order_deliverables: undefined,
-          })) as typeof reviews;
+          }));
         }
       }
     } catch (err) {
@@ -209,32 +260,53 @@ export default async function AdminOrderDetailPage({
     }
   }
 
-  const formatUSD = (cents: number) =>
-    `US$${(cents / 100).toFixed(2)}`;
+  // ── Derived data ──────────────────────────────────────────
 
+  // Replacement review (from ?reviewId= query param)
   const replacementReview = requestedReviewId
-    ? reviews.find((r) =>
-        r.id === requestedReviewId &&
-        ["rework_requested", "rework_in_progress"].includes(r.status) &&
-        !r.replacement_deliverable_id
-      ) ?? null
+    ? (reviews.find(
+        (r) =>
+          r.id === requestedReviewId &&
+          ["rework_requested", "rework_in_progress"].includes(r.status) &&
+          !r.replacement_deliverable_id,
+      ) ?? null)
     : null;
+
+  // Split replacement review by target
+  const imageReplacementReview =
+    replacementReview && replacementReview.item_index !== null
+      ? replacementReview
+      : null;
+  const orderLevelReplacementReview =
+    replacementReview && replacementReview.item_index === null
+      ? replacementReview
+      : null;
+
+  // Group data by item_index
+  const sourceFilesByItem = groupAdminSourceFilesByItem(sourceFiles);
+  const { byImage: deliverablesByImage, orderLevel: orderLevelDeliverables } =
+    groupDeliverablesByItem(deliverables);
+  const { byImage: reviewsByImage, orderLevel: orderLevelReviews } =
+    groupReviewsByItem(reviews);
+
+  // ── Render ────────────────────────────────────────────────
 
   return (
     <section className="bg-surface min-h-screen py-10 lg:py-14">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-10">
-
-        {/* ── Header ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+        {/* ── Page header ── */}
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
           <div>
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
               PicchuSpot Admin
             </p>
             <h1 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight">
-              Order Deliverables
+              Order detail
             </h1>
             {order && (
-              <p className="mt-1 text-sm text-muted font-mono">{order.order_number}</p>
+              <p className="mt-1 text-sm text-muted font-mono">
+                {order.order_number}
+              </p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -256,12 +328,18 @@ export default async function AdminOrderDetailPage({
           </div>
         </header>
 
-        {/* ── Error / config banners ── */}
+        {/* ── Config / error banners ── */}
         {!supabaseConfigured && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm">
             Supabase is not configured. Set{" "}
-            <code className="font-mono text-[12px]">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-            <code className="font-mono text-[12px]">SUPABASE_SERVICE_ROLE_KEY</code>.
+            <code className="font-mono text-[12px]">
+              NEXT_PUBLIC_SUPABASE_URL
+            </code>{" "}
+            and{" "}
+            <code className="font-mono text-[12px]">
+              SUPABASE_SERVICE_ROLE_KEY
+            </code>
+            .
           </div>
         )}
         {supabaseError && (
@@ -276,7 +354,8 @@ export default async function AdminOrderDetailPage({
         )}
         {order && requestedReviewId && !replacementReview && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm">
-            The selected rework request is no longer active or does not belong to this order.
+            The selected rework request is no longer active or does not belong
+            to this order.
           </div>
         )}
         {order && replacementReview && (
@@ -295,173 +374,238 @@ export default async function AdminOrderDetailPage({
           </div>
         )}
 
+        {/* ── Main content (only when order is loaded) ── */}
         {order && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-            {/* ── Left: order summary ── */}
-            <div className="lg:col-span-1">
+          <div className="space-y-6">
+            {/* ── Top section: summary (left) + status/downloads (right) ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-5">
+              {/* Left: Order summary */}
               <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
                 <div className="px-5 py-3.5 border-b border-border bg-surface/60">
-                  <h2 className="text-[13px] font-bold text-foreground">Order summary</h2>
+                  <h2 className="text-[13px] font-bold text-foreground">
+                    Order summary
+                  </h2>
                 </div>
-                <dl className="divide-y divide-border">
+                <dl className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
                   {[
-                    ["Order #",   order.order_number],
-                    ["Service",   toLabel(order.service_type)],
-                    ["Client",    order.client_name],
-                    ["Email",     order.client_email],
-                    ["Company",   order.client_company ?? "—"],
-                    ["Images",    String(order.item_count)],
+                    ["Order #", order.order_number],
+                    ["Service", toLabel(order.service_type)],
+                    ["Client", order.client_name],
+                    ["Email", order.client_email],
+                    ["Company", order.client_company ?? "—"],
+                    ["Images", String(order.item_count)],
                     ["Est. total", formatUSD(order.estimated_total_cents)],
                     ["Submitted", formatDate(order.created_at)],
-                    ["Updated",   formatDate(order.updated_at)],
+                    ["Updated", formatDate(order.updated_at)],
                   ].map(([label, value]) => (
-                    <div key={label} className="flex items-start justify-between gap-3 px-5 py-3">
+                    <div
+                      key={label}
+                      className="flex items-start justify-between gap-3 px-5 py-3"
+                    >
                       <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light flex-shrink-0">
                         {label}
                       </dt>
                       <dd className="text-[12px] text-foreground text-right break-all">
-                        {label === "Status" ? (
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${STATUS_COLORS[value] ?? "bg-surface text-muted border-border"}`}
-                          >
-                            {value}
-                          </span>
-                        ) : value}
+                        {value}
                       </dd>
                     </div>
                   ))}
-                  {/* Status row separately for badge rendering */}
-                  <div className="flex items-start justify-between gap-3 px-5 py-3">
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light flex-shrink-0">
-                      Status
-                    </dt>
-                    <dd>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${STATUS_COLORS[order.status] ?? "bg-surface text-muted border-border"}`}
-                      >
-                        {order.status}
-                      </span>
-                    </dd>
-                  </div>
                 </dl>
               </div>
-            </div>
 
-            {/* ── Right: deliverables upload ── */}
-            <div className="lg:col-span-2 space-y-5">
-              <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" aria-hidden />
-                  <h3 className="text-[13px] font-bold text-foreground">
-                    Client uploaded files
-                  </h3>
-                  <div className="ml-auto flex flex-col sm:flex-row sm:items-center gap-2">
-                    <span className="text-[11px] text-muted-light text-right">
-                      {sourceFiles.length} file{sourceFiles.length !== 1 ? "s" : ""}
+              {/* Right: Status + admin downloads */}
+              <div className="space-y-4">
+                {/* Status card */}
+                <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-5 py-3.5 border-b border-border bg-surface/60">
+                    <h2 className="text-[13px] font-bold text-foreground">
+                      Status
+                    </h2>
+                  </div>
+                  <div className="px-5 py-4">
+                    <span
+                      className={`inline-flex items-center px-3 py-1.5 rounded-full text-[12px] font-semibold border ${
+                        STATUS_COLORS[order.status] ??
+                        "bg-surface text-muted border-border"
+                      }`}
+                    >
+                      {order.status
+                        .replace(/-/g, " ")
+                        .replace(/\b\w/g, (c) => c.toUpperCase())}
                     </span>
-                    <BulkDownloadButton
-                      endpoint={`/api/admin/orders/${order.id}/source-files/bulk-download`}
-                      disabled={sourceFiles.length === 0}
-                      emptyLabel="No files"
-                    />
+                    <p className="mt-2 text-[11px] text-muted leading-relaxed">
+                      To change the order status, use the inline control in{" "}
+                      <Link
+                        href="/admin/orders"
+                        className="underline underline-offset-2 hover:text-primary transition-colors"
+                      >
+                        Orders list
+                      </Link>
+                      .
+                    </p>
                   </div>
                 </div>
 
-                {sourceFiles.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-sm text-muted">
-                    No uploaded source files found.
+                {/* Bulk download card */}
+                <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-5 py-3.5 border-b border-border bg-surface/60">
+                    <h2 className="text-[13px] font-bold text-foreground">
+                      Bulk downloads
+                    </h2>
                   </div>
-                ) : (
-                  <ul className="divide-y divide-border">
-                    {sourceFiles.map((file) => {
-                      const size = formatBytes(file.fileSize);
-                      return (
-                        <li key={file.id} className="px-5 py-3.5 hover:bg-surface/40 transition-colors">
-                          <FilePreviewCard
-                            filename={file.filename}
-                            mimeType={file.mimeType}
-                            fileSizeLabel={size}
-                            badgeLabel={`Image ${file.itemIndex + 1}`}
-                            signedUrlEndpoint={`/api/admin/orders/${order.id}/source-files/${file.id}/download-url`}
-                            downloadLabel="Download"
-                            meta={
-                              <p className="text-[11px] text-muted">
-                                {file.uploadedAt && <>{formatDate(file.uploadedAt)} · </>}
-                                <span className="capitalize">{file.kind}</span>
-                              </p>
-                            }
-                          />
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                  <div className="px-5 py-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[12px] text-foreground/70">
+                        All source files
+                      </span>
+                      <BulkDownloadButton
+                        endpoint={`/api/admin/orders/${order.id}/source-files/bulk-download`}
+                        disabled={sourceFiles.length === 0}
+                        emptyLabel="No files"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[12px] text-foreground/70">
+                        All deliverables
+                      </span>
+                      <BulkDownloadButton
+                        endpoint={`/api/admin/orders/${order.id}/deliverables/bulk-download`}
+                        disabled={deliverables.length === 0}
+                        emptyLabel="No files"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Per-image workflow cards ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Layers className="w-4 h-4 text-primary" aria-hidden />
+                <h2 className="text-[13px] font-bold text-foreground">
+                  Image workflow
+                  <span className="ml-2 text-[11px] font-normal text-muted">
+                    ({orderItems.length} image
+                    {orderItems.length !== 1 ? "s" : ""})
+                  </span>
+                </h2>
+              </div>
+
+              {orderItems.length > 0 ? (
+                <div className="space-y-4">
+                  {orderItems.map((item) => {
+                    const itemSources =
+                      sourceFilesByItem.get(item.item_index) ?? [];
+                    const itemDeliverables =
+                      deliverablesByImage.get(item.item_index) ?? [];
+                    const itemReviews =
+                      reviewsByImage.get(item.item_index) ?? [];
+
+                    // Match replacement review to this image
+                    const cardReplacementReview =
+                      imageReplacementReview?.item_index === item.item_index
+                        ? {
+                            id: imageReplacementReview.id,
+                            itemIndex: imageReplacementReview.item_index,
+                            filename: imageReplacementReview.filename,
+                          }
+                        : null;
+
+                    return (
+                      <AdminOrderImageCard
+                        key={item.id}
+                        orderId={order.id}
+                        imageNumber={item.item_index + 1}
+                        imageCount={order.item_count}
+                        details={item.details}
+                        sourceFiles={itemSources}
+                        initialDeliverables={itemDeliverables}
+                        reviews={itemReviews}
+                        replacementReview={cardReplacementReview}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-white border border-border rounded-xl shadow-sm p-8 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center mb-4">
+                    <Layers className="w-5 h-5 text-muted-light" aria-hidden />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground mb-1">
+                    No image items found
+                  </p>
+                  <p className="text-xs text-muted max-w-xs leading-relaxed">
+                    Per-image cards will appear here once order items have been
+                    recorded.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {/* ── Order-level files section ── */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
+                <h2 className="text-[13px] font-bold text-foreground">
+                  Order-level files
+                  <span className="ml-2 text-[11px] font-normal text-muted">
+                    (item_index: null — ZIPs or order-wide deliverables)
+                  </span>
+                </h2>
               </div>
 
               <AdminDeliverableUpload
                 orderId={order.id}
                 orderNumber={order.order_number}
                 itemCount={order.item_count}
-                initialDeliverables={deliverables}
-                replacementReview={replacementReview ? {
-                  id: replacementReview.id,
-                  itemIndex: replacementReview.item_index,
-                  filename: replacementReview.filename,
-                } : null}
+                initialDeliverables={orderLevelDeliverables}
+                fixedItemIndex={null}
+                replacementReview={
+                  orderLevelReplacementReview
+                    ? {
+                        id: orderLevelReplacementReview.id,
+                        itemIndex: orderLevelReplacementReview.item_index,
+                        filename: orderLevelReplacementReview.filename,
+                      }
+                    : null
+                }
               />
 
-              {/* ── Review status summary ── */}
-              {reviews.length > 0 && (
-                <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+              {/* Order-level reviews */}
+              {orderLevelReviews.length > 0 && (
+                <div className="mt-5 bg-white border border-border rounded-xl shadow-sm overflow-hidden">
                   <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
                     <RotateCcw className="w-4 h-4 text-primary" aria-hidden />
                     <h3 className="text-[13px] font-bold text-foreground">
-                      Client review status
+                      Order-level review status
                     </h3>
                     <span className="ml-auto text-[11px] text-muted-light">
-                      {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                      {orderLevelReviews.length} review
+                      {orderLevelReviews.length !== 1 ? "s" : ""}
                     </span>
                   </div>
                   <ul className="divide-y divide-border">
-                    {reviews.map((r) => (
+                    {orderLevelReviews.map((r) => (
                       <li key={r.id} className="px-5 py-3 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
-                            <Tag className="w-2.5 h-2.5" aria-hidden />
-                            {r.item_index === null ? "Order-level" : `Image ${r.item_index + 1}`}
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="text-muted-light font-semibold capitalize">
+                            {r.status.replace(/_/g, " ")}
                           </span>
                           {r.filename && (
-                            <span className="text-[11px] text-muted truncate max-w-[120px]">{r.filename}</span>
-                          )}
-                          {r.status === "approved" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3" aria-hidden />Approved
+                            <span className="text-muted truncate max-w-[150px]">
+                              {r.filename}
                             </span>
                           )}
-                          {r.status === "rework_requested" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-amber-50 text-amber-700 border-amber-200">
-                              <RotateCcw className="w-3 h-3" aria-hidden />Rework requested
-                            </span>
-                          )}
-                          {r.status === "rework_in_progress" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
-                              <Clock className="w-3 h-3" aria-hidden />In progress
-                            </span>
-                          )}
-                          {r.status === "rework_delivered" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-purple-50 text-purple-700 border-purple-200">
-                              <CheckCircle2 className="w-3 h-3" aria-hidden />Replacement delivered
-                            </span>
-                          )}
-                          {r.status === "resolved" && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3" aria-hidden />Resolved
-                            </span>
-                          )}
+                          <span className="text-muted">
+                            {formatDate(r.created_at)}
+                          </span>
                         </div>
                         {r.comment && (
-                          <p className="text-[11px] text-foreground/70 leading-snug pl-1 truncate max-w-[400px]" title={r.comment}>
+                          <p
+                            className="text-[11px] text-foreground/70 leading-snug pl-1 truncate max-w-[400px]"
+                            title={r.comment}
+                          >
                             &ldquo;{r.comment}&rdquo;
                           </p>
                         )}
@@ -470,11 +614,9 @@ export default async function AdminOrderDetailPage({
                   </ul>
                 </div>
               )}
-            </div>
-
+            </section>
           </div>
         )}
-
       </div>
     </section>
   );
