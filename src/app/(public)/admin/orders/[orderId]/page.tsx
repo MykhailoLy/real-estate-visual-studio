@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RotateCcw, CheckCircle2, Clock, Tag } from "lucide-react";
+import { ArrowLeft, RotateCcw, CheckCircle2, Clock, FileText, ImageIcon, Tag } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import {
+  buildAdminSourceFiles,
+  type AdminSourceFile,
+  type OrderItemSourceFileRow,
+} from "@/lib/admin-source-files";
 import { createServerClient } from "@/lib/supabase";
 import AdminDeliverableUpload, {
   type DeliverableRow,
 } from "@/components/admin/AdminDeliverableUpload";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
+import AdminSourceFileDownloadButton from "@/components/admin/AdminSourceFileDownloadButton";
 
 // ============================================================
 // /admin/orders/[orderId] — admin order detail + deliverables
@@ -66,6 +72,20 @@ function formatDate(iso: string): string {
   } catch { return iso; }
 }
 
+function formatBytes(bytes: number | null): string | null {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return null;
+  if (bytes < 1024)        return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileIcon(mimeType: string | null) {
+  if (mimeType?.startsWith("image/")) {
+    return <ImageIcon className="w-4 h-4 text-primary" aria-hidden />;
+  }
+  return <FileText className="w-4 h-4 text-primary" aria-hidden />;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   "pending":     "bg-amber-50 text-amber-700 border-amber-200",
   "confirmed":   "bg-blue-50 text-blue-700 border-blue-200",
@@ -103,6 +123,7 @@ export default async function AdminOrderDetailPage({
 
   let order: OrderRow | null = null;
   let deliverables: DeliverableRow[] = [];
+  let sourceFiles: AdminSourceFile[] = [];
   let reviews: Array<{
     id: string; deliverable_id: string; item_index: number | null;
     client_email: string; status: string; comment: string | null;
@@ -149,6 +170,20 @@ export default async function AdminOrderDetailPage({
 
         if (!delivErr) {
           deliverables = (delivData ?? []) as unknown as DeliverableRow[];
+        }
+
+        const { data: itemData, error: itemErr } = await supabase
+          .from("order_items")
+          .select(
+            "id, item_index, original_photo_path, reference_image_path, details, created_at"
+          )
+          .eq("order_id", orderId)
+          .order("item_index", { ascending: true });
+
+        if (!itemErr) {
+          sourceFiles = buildAdminSourceFiles(
+            (itemData ?? []) as unknown as OrderItemSourceFileRow[]
+          );
         }
 
         // Fetch reviews for this order
@@ -321,6 +356,60 @@ export default async function AdminOrderDetailPage({
 
             {/* ── Right: deliverables upload ── */}
             <div className="lg:col-span-2 space-y-5">
+              <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" aria-hidden />
+                  <h3 className="text-[13px] font-bold text-foreground">
+                    Client uploaded files
+                  </h3>
+                  <span className="ml-auto text-[11px] text-muted-light">
+                    {sourceFiles.length} file{sourceFiles.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                {sourceFiles.length === 0 ? (
+                  <div className="px-5 py-8 text-center text-sm text-muted">
+                    No uploaded source files found.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {sourceFiles.map((file) => {
+                      const size = formatBytes(file.fileSize);
+                      return (
+                        <li
+                          key={file.id}
+                          className="px-5 py-3.5 flex items-center gap-3 hover:bg-surface/40 transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-primary/8 border border-primary/12 flex items-center justify-center flex-shrink-0">
+                            {fileIcon(file.mimeType)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-semibold text-foreground truncate">
+                              {file.filename}
+                            </p>
+                            <p className="text-[11px] text-muted">
+                              {size && <>{size} · </>}
+                              {file.uploadedAt && <>{formatDate(file.uploadedAt)} · </>}
+                              <span className="inline-flex items-center gap-0.5 font-semibold text-foreground/70">
+                                <Tag className="w-2.5 h-2.5" aria-hidden />
+                                Image {file.itemIndex + 1}
+                              </span>
+                              {" · "}
+                              <span className="capitalize">{file.kind}</span>
+                            </p>
+                          </div>
+                          <AdminSourceFileDownloadButton
+                            orderId={order.id}
+                            fileId={file.id}
+                            filename={file.filename}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
               <AdminDeliverableUpload
                 orderId={order.id}
                 orderNumber={order.order_number}
