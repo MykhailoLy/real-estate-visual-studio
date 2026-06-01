@@ -104,10 +104,15 @@ const REWORK_DASHBOARD_PROGRESS: Partial<Record<DashboardJobStatus, number>> = {
   "new-version-ready": 100,
 };
 
-type ReviewStatusLike = Pick<DeliverableReviewSummary, "order_id" | "status">;
+type ReviewStatusLike = Pick<
+  DeliverableReviewSummary,
+  "order_id" | "deliverable_id" | "replacement_deliverable_id" | "status"
+>;
 
 export interface DeliverableReviewSummary {
   order_id: string;
+  deliverable_id?: string;
+  replacement_deliverable_id?: string | null;
   status: ReviewStatus;
 }
 
@@ -175,9 +180,29 @@ export function getDashboardStatus(dbStatus: string): DashboardJobStatus {
  */
 export function deriveDashboardStatusFromReviews(
   dbStatus: string,
-  reviews: Array<Pick<DeliverableReviewSummary, "status">> = []
+  reviews: Array<Pick<
+    DeliverableReviewSummary,
+    "deliverable_id" | "replacement_deliverable_id" | "status"
+  >> = []
 ): DashboardJobStatus {
-  const statuses = new Set(reviews.map((review) => review.status));
+  const latestByDeliverable = new Map<string, ReviewStatus>();
+  for (const review of reviews) {
+    if (review.deliverable_id && !latestByDeliverable.has(review.deliverable_id)) {
+      latestByDeliverable.set(review.deliverable_id, review.status);
+    }
+  }
+
+  const statuses = new Set<ReviewStatus>();
+  for (const review of reviews) {
+    if (
+      review.status === "rework_delivered" &&
+      review.replacement_deliverable_id &&
+      latestByDeliverable.has(review.replacement_deliverable_id)
+    ) {
+      continue;
+    }
+    statuses.add(review.status);
+  }
 
   if (statuses.has("rework_requested")) return "pending-rework";
   if (statuses.has("rework_in_progress")) return "rework-in-progress";

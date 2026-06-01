@@ -15,7 +15,7 @@ import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout"
 import { getClientUser } from "@/lib/client-auth";
 import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
 import { getReviewsByClientEmail } from "@/lib/client-reviews";
-import type { ReviewStatus } from "@/lib/client-reviews";
+import { getCurrentDeliverableRows } from "@/lib/client-deliverable-display";
 import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
 import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 
@@ -53,13 +53,7 @@ export default async function DashboardFilesPage() {
     : [[], []];
 
   // Build deliverable_id → latest review map (reviews are newest-first).
-  const reviewMap = new Map<string, { status: ReviewStatus; comment: string | null }>();
-  for (const rev of reviews) {
-    if (!reviewMap.has(rev.deliverable_id)) {
-      reviewMap.set(rev.deliverable_id, { status: rev.status, comment: rev.comment });
-    }
-  }
-
+  const currentRows = getCurrentDeliverableRows(deliverables, reviews);
   return (
     <ClientDashboardLayout>
       {/* Page header */}
@@ -80,7 +74,7 @@ export default async function DashboardFilesPage() {
         </p>
       </div>
 
-      {deliverables.length === 0 ? (
+      {currentRows.length === 0 ? (
         /* ── Empty state ── */
         <div className="bg-white border border-border rounded-2xl p-10 flex flex-col items-center justify-center text-center mb-6 shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-surface border border-border flex items-center justify-center mb-5">
@@ -103,8 +97,7 @@ export default async function DashboardFilesPage() {
       ) : (
         /* ── File cards ── */
         <div className="space-y-3 mb-6">
-          {deliverables.map((d) => {
-            const rev = reviewMap.get(d.id) ?? null;
+          {currentRows.map(({ deliverable: d, review: rev, isReplacement, previousFilename }) => {
             return (
             <div
               key={d.id}
@@ -132,7 +125,17 @@ export default async function DashboardFilesPage() {
                     <span className="text-[11px] text-muted">
                       Delivered {formatDate(d.uploaded_at)}
                     </span>
+                    {isReplacement && (
+                      <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
+                        New version
+                      </span>
+                    )}
                   </div>
+                  {previousFilename && (
+                    <p className="mt-1 text-[10px] text-muted">
+                      Replaces {previousFilename}
+                    </p>
+                  )}
                 </div>
               </div>
 
