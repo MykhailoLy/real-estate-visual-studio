@@ -29,12 +29,11 @@ import {
   Building2,
   ExternalLink,
   FolderOpen,
-  Tag,
 } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
 import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
+import FilePreviewCard from "@/components/FilePreviewCard";
 import { getClientUser } from "@/lib/client-auth";
 import {
   getOrderByIdForClient,
@@ -465,43 +464,37 @@ export default async function OrderDetailPage({
               <ul className="divide-y divide-border">
                 {currentDeliverables.map(({ deliverable: d, review: rev, isReplacement, previousFilename }) => {
                   return (
-                  <li key={d.id} className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-foreground truncate">
-                        {d.filename}
-                      </p>
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
-                          <Tag className="w-2.5 h-2.5" aria-hidden />
-                          {itemLabel(d.item_index)}
-                        </span>
-                        <span className="text-[11px] text-muted">
-                          {formatBytes(d.file_size)}
-                        </span>
-                        {isReplacement && (
-                          <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
-                            New version
-                          </span>
-                        )}
-                      </div>
-                      {previousFilename && (
-                        <p className="mt-1 text-[10px] text-muted">
-                          Replaces {previousFilename}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2.5 flex-shrink-0">
-                      <DeliverableDownloadButton
-                        deliverableId={d.id}
-                        filename={d.filename}
-                      />
-                      <DeliverableReviewActions
-                        deliverableId={d.id}
-                        initialReviewStatus={rev?.status ?? null}
-                        initialComment={rev?.comment ?? null}
-                        filename={d.filename}
-                      />
-                    </div>
+                  <li key={d.id} className="px-5 py-3.5">
+                    <FilePreviewCard
+                      filename={d.filename}
+                      mimeType={d.mime_type}
+                      fileSizeLabel={formatBytes(d.file_size)}
+                      badgeLabel={itemLabel(d.item_index)}
+                      signedUrlEndpoint={`/api/client/deliverables/${d.id}/download-url`}
+                      downloadLabel="Download file"
+                      meta={
+                        <div className="space-y-1">
+                          {isReplacement && (
+                            <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
+                              New version
+                            </span>
+                          )}
+                          {previousFilename && (
+                            <p className="text-[10px] text-muted">
+                              Replaces {previousFilename}
+                            </p>
+                          )}
+                        </div>
+                      }
+                      actions={
+                        <DeliverableReviewActions
+                          deliverableId={d.id}
+                          initialReviewStatus={rev?.status ?? null}
+                          initialComment={rev?.comment ?? null}
+                          filename={d.filename}
+                        />
+                      }
+                    />
                   </li>
                   );
                 })}

@@ -29,7 +29,7 @@ import { getDeliverableDownloadUrl } from "@/lib/client-deliverables";
 export const runtime = "nodejs";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ deliverableId: string }> }
 ) {
   // Validate session server-side — email never from client
@@ -39,6 +39,8 @@ export async function POST(
   }
 
   const { deliverableId } = await params;
+  const body = (await req.json().catch(() => ({}))) as { intent?: unknown };
+  const intent = body.intent === "preview" ? "preview" : "download";
 
   // Basic UUID-shape check before touching the DB
   if (!deliverableId || !/^[0-9a-f-]{36}$/i.test(deliverableId)) {
@@ -46,7 +48,9 @@ export async function POST(
   }
 
   // Ownership-guarded signed URL — null = not found or wrong owner
-  const result = await getDeliverableDownloadUrl(deliverableId, user.email);
+  const result = await getDeliverableDownloadUrl(deliverableId, user.email, {
+    download: intent !== "preview",
+  });
 
   if (!result) {
     // Deliberately identical response for "not found" and "wrong owner"
@@ -57,5 +61,5 @@ export async function POST(
   }
 
   // Return signed URL + filename — do NOT log the signed URL
-  return NextResponse.json({ signedUrl: result.signedUrl, filename: result.filename });
+  return NextResponse.json({ ok: true, signedUrl: result.signedUrl, filename: result.filename });
 }

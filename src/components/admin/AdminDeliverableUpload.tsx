@@ -28,13 +28,12 @@ import {
   Upload,
   Loader2,
   Trash2,
-  FileText,
-  ImageIcon,
   AlertCircle,
   CheckCircle2,
   FolderOpen,
   Tag,
 } from "lucide-react";
+import FilePreviewCard from "@/components/FilePreviewCard";
 import {
   ADMIN_DELIVERABLE_MAX_BYTES,
   ADMIN_DELIVERABLE_MAX_MB,
@@ -85,11 +84,6 @@ function formatDate(iso: string): string {
       hour: "2-digit", minute: "2-digit",
     });
   } catch { return iso; }
-}
-
-function fileIcon(mime: string) {
-  if (mime.startsWith("image/")) return <ImageIcon className="w-4 h-4 text-primary" aria-hidden />;
-  return <FileText className="w-4 h-4 text-primary" aria-hidden />;
 }
 
 function isMimeAccepted(mime: string, filename: string): boolean {
@@ -442,36 +436,33 @@ export default function AdminDeliverableUpload({
             {deliverables.map((d) => (
               <li
                 key={d.id}
-                className="px-5 py-3.5 flex items-center gap-3 hover:bg-surface/40 transition-colors"
+                className="px-5 py-3.5 hover:bg-surface/40 transition-colors"
               >
-                <div className="w-8 h-8 rounded-lg bg-primary/8 border border-primary/12 flex items-center justify-center flex-shrink-0">
-                  {fileIcon(d.mime_type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-foreground truncate">
-                    {d.filename}
-                  </p>
-                  <p className="text-[11px] text-muted">
-                    {formatBytes(d.file_size)} · {formatDate(d.uploaded_at)}
-                    {" · "}
-                    <span className="inline-flex items-center gap-0.5 font-semibold text-foreground/70">
-                      <Tag className="w-2.5 h-2.5" aria-hidden />
-                      {itemLabel(d.item_index)}
-                    </span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(d.id, d.filename)}
-                  disabled={deletingId === d.id}
-                  className="p-1.5 rounded-lg text-muted hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 flex-shrink-0"
-                  title="Delete deliverable"
-                >
-                  {deletingId === d.id
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
-                    : <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                <FilePreviewCard
+                  filename={d.filename}
+                  mimeType={d.mime_type}
+                  fileSizeLabel={formatBytes(d.file_size)}
+                  badgeLabel={itemLabel(d.item_index)}
+                  signedUrlEndpoint={`/api/admin/orders/${orderId}/deliverables/${d.id}/download-url`}
+                  downloadLabel="Download"
+                  meta={
+                    <p className="text-[11px] text-muted">{formatDate(d.uploaded_at)}</p>
                   }
-                </button>
+                  actions={
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(d.id, d.filename)}
+                      disabled={deletingId === d.id}
+                      className="p-1.5 rounded-lg text-muted hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 flex-shrink-0"
+                      title="Delete deliverable"
+                    >
+                      {deletingId === d.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                        : <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                      }
+                    </button>
+                  }
+                />
               </li>
             ))}
           </ul>

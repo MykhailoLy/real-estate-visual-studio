@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 const SOURCE_FILE_SIGNED_URL_TTL_SECONDS = 300;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ orderId: string; fileId: string }> }
 ) {
   if (!(await isAdminAuthenticated())) {
@@ -21,6 +21,8 @@ export async function POST(
   }
 
   const { orderId, fileId } = await params;
+  const body = (await req.json().catch(() => ({}))) as { intent?: unknown };
+  const intent = body.intent === "preview" ? "preview" : "download";
   if (!orderId || !/^[0-9a-f-]{36}$/i.test(orderId)) {
     return NextResponse.json({ error: "Invalid order ID." }, { status: 400 });
   }
@@ -77,9 +79,11 @@ export async function POST(
 
   const { data: signed, error: signedErr } = await supabase.storage
     .from(ORDER_FILES_BUCKET)
-    .createSignedUrl(slot.storagePath, SOURCE_FILE_SIGNED_URL_TTL_SECONDS, {
-      download: slot.filename,
-    });
+    .createSignedUrl(
+      slot.storagePath,
+      SOURCE_FILE_SIGNED_URL_TTL_SECONDS,
+      intent === "preview" ? undefined : { download: slot.filename }
+    );
 
   if (signedErr || !signed?.signedUrl) {
     console.error(
