@@ -33,6 +33,7 @@ import {
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
+import BulkDownloadButton from "@/components/BulkDownloadButton";
 import FilePreviewCard from "@/components/FilePreviewCard";
 import { getClientUser } from "@/lib/client-auth";
 import {
@@ -457,9 +458,16 @@ export default async function OrderDetailPage({
                 <h2 className="text-[13px] font-bold text-foreground">
                   Delivered files
                 </h2>
-                <span className="ml-auto text-[11px] text-muted-light">
-                  {currentDeliverables.length} file{currentDeliverables.length !== 1 ? "s" : ""}
-                </span>
+                <div className="ml-auto flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span className="text-[11px] text-muted-light text-right">
+                    {currentDeliverables.length} file{currentDeliverables.length !== 1 ? "s" : ""}
+                  </span>
+                  <BulkDownloadButton
+                    endpoint={`/api/client/orders/${order.id}/deliverables/bulk-download`}
+                    disabled={currentDeliverables.length === 0}
+                    emptyLabel="No files"
+                  />
+                </div>
               </div>
               <ul className="divide-y divide-border">
                 {currentDeliverables.map(({ deliverable: d, review: rev, isReplacement, previousFilename }) => {

@@ -13,6 +13,7 @@ import AdminDeliverableUpload, {
   type DeliverableRow,
 } from "@/components/admin/AdminDeliverableUpload";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
+import BulkDownloadButton from "@/components/BulkDownloadButton";
 import FilePreviewCard from "@/components/FilePreviewCard";
 
 // ============================================================
@@ -355,9 +356,16 @@ export default async function AdminOrderDetailPage({
                   <h3 className="text-[13px] font-bold text-foreground">
                     Client uploaded files
                   </h3>
-                  <span className="ml-auto text-[11px] text-muted-light">
-                    {sourceFiles.length} file{sourceFiles.length !== 1 ? "s" : ""}
-                  </span>
+                  <div className="ml-auto flex flex-col sm:flex-row sm:items-center gap-2">
+                    <span className="text-[11px] text-muted-light text-right">
+                      {sourceFiles.length} file{sourceFiles.length !== 1 ? "s" : ""}
+                    </span>
+                    <BulkDownloadButton
+                      endpoint={`/api/admin/orders/${order.id}/source-files/bulk-download`}
+                      disabled={sourceFiles.length === 0}
+                      emptyLabel="No files"
+                    />
+                  </div>
                 </div>
 
                 {sourceFiles.length === 0 ? (

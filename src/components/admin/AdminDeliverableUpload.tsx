@@ -33,6 +33,7 @@ import {
   FolderOpen,
   Tag,
 } from "lucide-react";
+import BulkDownloadButton from "@/components/BulkDownloadButton";
 import FilePreviewCard from "@/components/FilePreviewCard";
 import {
   ADMIN_DELIVERABLE_MAX_BYTES,
@@ -422,9 +423,16 @@ export default function AdminDeliverableUpload({
           <h3 className="text-[13px] font-bold text-foreground">
             Uploaded deliverables
           </h3>
-          <span className="ml-auto text-[11px] text-muted-light">
-            {deliverables.length} file{deliverables.length !== 1 ? "s" : ""}
-          </span>
+          <div className="ml-auto flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-[11px] text-muted-light text-right">
+              {deliverables.length} file{deliverables.length !== 1 ? "s" : ""}
+            </span>
+            <BulkDownloadButton
+              endpoint={`/api/admin/orders/${orderId}/deliverables/bulk-download`}
+              disabled={deliverables.length === 0}
+              emptyLabel="No files"
+            />
+          </div>
         </div>
 
         {deliverables.length === 0 ? (
