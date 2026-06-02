@@ -63,12 +63,25 @@ interface Props {
   initialDeliverables: DeliverableRow[];
   /** Reviews for this image, sorted newest-first by the server. */
   reviews: AdminReview[];
+  referenceFilesByReview?: Record<string, AdminReworkReferenceFile[]>;
   /** When set, the upload control is pre-wired to replace this review. */
   replacementReview?: {
     id: string;
     itemIndex: number | null;
     filename: string | null;
   } | null;
+}
+
+export interface AdminReworkReferenceFile {
+  id: string;
+  review_id: string;
+  order_id: string;
+  deliverable_id: string;
+  item_index: number | null;
+  filename: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string;
 }
 
 // ── Review-status badge config ─────────────────────────────────
@@ -201,6 +214,7 @@ export default function AdminOrderImageCard({
   sourceFiles,
   initialDeliverables,
   reviews,
+  referenceFilesByReview = {},
   replacementReview = null,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -670,6 +684,39 @@ export default function AdminOrderImageCard({
                             />
                             {r.comment}
                           </p>
+                        )}
+
+                        {referenceFilesByReview[r.id]?.length > 0 && (
+                          <div className="rounded-lg border border-border bg-white px-3 py-2.5">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+                                Client reference files
+                              </p>
+                              <span className="text-[10px] font-semibold text-muted">
+                                {referenceFilesByReview[r.id].length} file
+                                {referenceFilesByReview[r.id].length !== 1 ? "s" : ""}
+                              </span>
+                            </div>
+                            <ul className="space-y-2">
+                              {referenceFilesByReview[r.id].map((file) => (
+                                <li key={file.id}>
+                                  <FilePreviewCard
+                                    filename={file.filename}
+                                    mimeType={file.mime_type}
+                                    fileSizeLabel={formatBytes(file.file_size)}
+                                    badgeLabel="Reference"
+                                    signedUrlEndpoint={`/api/admin/orders/${orderId}/reviews/${r.id}/reference-files/${file.id}/download-url`}
+                                    downloadLabel="Download"
+                                    meta={
+                                      <p className="text-[10px] text-muted">
+                                        {formatDate(file.created_at)}
+                                      </p>
+                                    }
+                                  />
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         )}
 
                         {/* Action buttons for active reviews */}

@@ -18,7 +18,9 @@ import { createServerClient } from "@/lib/supabase";
 import AdminDeliverableUpload, {
   type DeliverableRow,
 } from "@/components/admin/AdminDeliverableUpload";
-import AdminOrderImageCard from "@/components/admin/AdminOrderImageCard";
+import AdminOrderImageCard, {
+  type AdminReworkReferenceFile,
+} from "@/components/admin/AdminOrderImageCard";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 
@@ -109,6 +111,17 @@ function formatUSD(cents: number): string {
   return `US$${(cents / 100).toFixed(2)}`;
 }
 
+function groupReferenceFilesByReview(
+  files: AdminReworkReferenceFile[],
+): Record<string, AdminReworkReferenceFile[]> {
+  const grouped: Record<string, AdminReworkReferenceFile[]> = {};
+  for (const file of files) {
+    grouped[file.review_id] ??= [];
+    grouped[file.review_id].push(file);
+  }
+  return grouped;
+}
+
 // ── Page ──────────────────────────────────────────────────────
 
 export default async function AdminOrderDetailPage({
@@ -155,6 +168,7 @@ export default async function AdminOrderDetailPage({
   let sourceFiles: AdminSourceFile[] = [];
   let orderItems: OrderItem[] = [];
   let reviews: AdminReview[] = [];
+  let reworkReferenceFiles: AdminReworkReferenceFile[] = [];
   let supabaseError: string | null = null;
 
   const supabaseConfigured = Boolean(
@@ -254,6 +268,26 @@ export default async function AdminOrderDetailPage({
             filename: r.order_deliverables?.filename ?? null,
           }));
         }
+
+        // Rework reference files (safe metadata only; storage_path intentionally excluded)
+        const { data: refFileData, error: refFileErr } = await supabase
+          .from("deliverable_review_files")
+          .select(
+            "id, review_id, order_id, deliverable_id, item_index, " +
+              "filename, file_size, mime_type, created_at",
+          )
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: true });
+
+        if (refFileErr) {
+          console.error(
+            "[admin/order-detail] Rework reference file lookup:",
+            refFileErr.message,
+          );
+        } else {
+          reworkReferenceFiles =
+            (refFileData ?? []) as unknown as AdminReworkReferenceFile[];
+        }
       }
     } catch (err) {
       supabaseError = String(err);
@@ -288,6 +322,8 @@ export default async function AdminOrderDetailPage({
     groupDeliverablesByItem(deliverables);
   const { byImage: reviewsByImage, orderLevel: orderLevelReviews } =
     groupReviewsByItem(reviews);
+  const referenceFilesByReview =
+    groupReferenceFilesByReview(reworkReferenceFiles);
 
   // ── Render ────────────────────────────────────────────────
 
@@ -522,6 +558,7 @@ export default async function AdminOrderDetailPage({
                         sourceFiles={itemSources}
                         initialDeliverables={itemDeliverables}
                         reviews={itemReviews}
+                        referenceFilesByReview={referenceFilesByReview}
                         replacementReview={cardReplacementReview}
                       />
                     );
