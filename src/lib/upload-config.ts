@@ -48,7 +48,7 @@ export type UploadKind = "original" | "reference";
  */
 export function getAllowedMimeTypes(
   serviceType: ServiceType,
-  kind: UploadKind
+  kind: UploadKind,
 ): readonly string[] {
   if (kind === "reference") return ALLOWED_REFERENCE_MIME_TYPES;
   if (serviceType === "3d-floor-plans") return ALLOWED_FLOOR_PLAN_MIME_TYPES;
@@ -75,7 +75,7 @@ export function buildPendingPath(
   pendingToken: string,
   itemIndex: number,
   kind: UploadKind,
-  ext: string
+  ext: string,
 ): string {
   return `pending/${pendingToken}/${itemIndex}-${kind}.${ext}`;
 }
@@ -89,7 +89,35 @@ export function buildFinalPath(
   orderNumber: string,
   itemIndex: number,
   kind: UploadKind,
-  ext: string
+  ext: string,
 ): string {
   return `${orderNumber}/${itemIndex}-${kind}.${ext}`;
+}
+
+/**
+ * Build the storage path for a rework reference file.
+ *
+ * Files are stored in the private `order-files` bucket.
+ * Path format:  rework/<reviewId>/<timestamp>-<safeFilename>
+ *
+ * SECURITY:
+ * • `reviewId` comes from a server-created DB row — never from raw
+ *   client input.
+ * • `originalFilename` is sanitized: path separators stripped,
+ *   unsafe characters replaced, length capped at 100 characters.
+ * • The resulting path is used server-side only to issue a signed
+ *   upload URL. The path is NEVER returned to the browser.
+ * • Admin download routes generate short-lived signed URLs from the
+ *   stored path without exposing the path itself.
+ */
+export function buildReworkReferencePath(
+  reviewId: string,
+  originalFilename: string,
+): string {
+  const safeBase = originalFilename
+    .replace(/^.*[\\/]/, "") // strip any leading path prefix
+    .replace(/[^a-zA-Z0-9._-]/g, "_") // replace unsafe characters
+    .slice(0, 100); // cap total length
+  const ts = Date.now();
+  return `rework/${reviewId}/${ts}-${safeBase}`;
 }
