@@ -1,170 +1,403 @@
-// ============================================================
-// /dashboard/files — real deliverables (Phase 5B)
-//
-// Server component. Fetches the authenticated client's
-// deliverables via getDeliverablesByClientEmail() and renders
-// a download card for each one. The download button calls
-// POST /api/client/deliverables/[id]/download-url which
-// returns a 300-second signed URL — the storage path never
-// reaches the browser.
-// ============================================================
-
 import Link from "next/link";
-import { FolderOpen, PlusCircle, Tag } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  FileImage,
+  FolderOpen,
+  HardDrive,
+  ImageIcon,
+  Layers,
+  PlusCircle,
+  UploadCloud,
+} from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
+import FilePreviewCard from "@/components/FilePreviewCard";
 import { getClientUser } from "@/lib/client-auth";
-import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
-import { getReviewsByClientEmail } from "@/lib/client-reviews";
-import { getCurrentDeliverableRows } from "@/lib/client-deliverable-display";
-import DeliverableDownloadButton from "@/components/dashboard/DeliverableDownloadButton";
-import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
-
-/** Human-readable label for item_index. Mirrors the admin helper. */
-function itemLabel(itemIndex: number | null): string {
-  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
-}
+import {
+  getClientFilesHubData,
+  type ClientDeliveredFileHubItem,
+  type ClientUploadedFileHubItem,
+} from "@/lib/client-files";
+import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Files | PicchuSpot Client Portal",
 };
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024)        return `${bytes} B`;
+function formatBytes(bytes: number | null): string | null {
+  if (bytes === null || !Number.isFinite(bytes)) return null;
+  if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", {
-      day: "numeric", month: "short", year: "numeric",
-    });
-  } catch { return iso; }
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function itemLabel(itemIndex: number | null): string {
+  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
+}
+
+function sourceKindLabel(kind: ClientUploadedFileHubItem["kind"]): string {
+  return kind === "original" ? "Original" : "Reference";
+}
+
+function orderStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: "Pending",
+    confirmed: "Confirmed",
+    "in-progress": "In Progress",
+    delivered: "Delivered",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  };
+  return labels[status] ?? status.replace(/[-_]/g, " ");
+}
+
+function SummaryCard({
+  label,
+  value,
+  note,
+  icon: Icon,
+  iconClassName,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  icon: typeof FolderOpen;
+  iconClassName: string;
+}) {
+  return (
+    <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light mb-1">
+            {label}
+          </p>
+          <p className="text-2xl font-bold text-foreground tabular-nums">
+            {value}
+          </p>
+        </div>
+        <div className="h-9 w-9 rounded-xl bg-surface border border-border flex items-center justify-center">
+          <Icon className={cn("h-4 w-4", iconClassName)} aria-hidden />
+        </div>
+      </div>
+      <p className="text-[11px] text-muted mt-2">{note}</p>
+    </div>
+  );
+}
+
+function ViewOrderAction({ orderId }: { orderId: string }) {
+  return (
+    <Link
+      href={`/dashboard/jobs/${orderId}`}
+      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[12px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
+    >
+      View order
+      <ArrowRight className="w-3.5 h-3.5" aria-hidden />
+    </Link>
+  );
+}
+
+function FileMeta({
+  orderNumber,
+  serviceLabel,
+  item,
+  dateLabel,
+  status,
+}: {
+  orderNumber: string;
+  serviceLabel: string;
+  item: string;
+  dateLabel: string;
+  status: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
+      <span className="font-mono bg-surface px-1.5 py-0.5 rounded">
+        {orderNumber}
+      </span>
+      <span>{serviceLabel}</span>
+      <span>{item}</span>
+      <span>{dateLabel}</span>
+      <span className="inline-flex items-center rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
+        {orderStatusLabel(status)}
+      </span>
+    </div>
+  );
+}
+
+function DeliveredFileCard({ file }: { file: ClientDeliveredFileHubItem }) {
+  return (
+    <li className="bg-white border border-border rounded-xl p-4 shadow-sm">
+      <FilePreviewCard
+        filename={file.filename}
+        mimeType={file.mime_type}
+        fileSizeLabel={formatBytes(file.file_size)}
+        badgeLabel="Delivered"
+        signedUrlEndpoint={`/api/client/deliverables/${file.id}/download-url`}
+        downloadLabel="Download"
+        meta={
+          <FileMeta
+            orderNumber={file.order_number}
+            serviceLabel={file.order.service_label}
+            item={itemLabel(file.item_index)}
+            dateLabel={`Delivered ${formatDate(file.uploaded_at)}`}
+            status={file.order.status}
+          />
+        }
+        actions={<ViewOrderAction orderId={file.order_id} />}
+      />
+    </li>
+  );
+}
+
+function UploadedFileCard({ file }: { file: ClientUploadedFileHubItem }) {
+  const label = sourceKindLabel(file.kind);
+
+  return (
+    <li className="bg-white border border-border rounded-xl p-4 shadow-sm">
+      <FilePreviewCard
+        filename={file.filename}
+        mimeType={file.mime_type}
+        fileSizeLabel={formatBytes(file.file_size)}
+        badgeLabel={label}
+        signedUrlEndpoint={`/api/client/orders/${file.order_id}/source-files/${file.id}/download-url`}
+        downloadLabel="Download"
+        meta={
+          <FileMeta
+            orderNumber={file.order_number}
+            serviceLabel={file.order.service_label}
+            item={itemLabel(file.item_index)}
+            dateLabel={`Uploaded ${formatDate(file.uploaded_at)}`}
+            status={file.order.status}
+          />
+        }
+        actions={<ViewOrderAction orderId={file.order_id} />}
+      />
+    </li>
+  );
+}
+
+function SectionEmptyState({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="bg-white border border-dashed border-border rounded-xl p-6 text-center">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="text-xs text-muted leading-relaxed mt-1 max-w-md mx-auto">
+        {body}
+      </p>
+    </div>
+  );
 }
 
 export default async function DashboardFilesPage() {
   const user = await getClientUser();
+  const supabaseConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
 
-  const [deliverables, reviews] = user?.email
-    ? await Promise.all([
-        getDeliverablesByClientEmail(user.email),
-        getReviewsByClientEmail(user.email),
-      ])
-    : [[], []];
+  const data = user?.email
+    ? await getClientFilesHubData(user.email)
+    : { orders: [], deliveredFiles: [], uploadedFiles: [] };
 
-  // Build deliverable_id → latest review map (reviews are newest-first).
-  const currentRows = getCurrentDeliverableRows(deliverables, reviews);
+  const { orders, deliveredFiles, uploadedFiles } = data;
+  const originalCount = uploadedFiles.filter((file) => file.kind === "original").length;
+  const totalFileCount = deliveredFiles.length + uploadedFiles.length;
+  const orderIdsWithFiles = new Set([
+    ...deliveredFiles.map((file) => file.order_id),
+    ...uploadedFiles.map((file) => file.order_id),
+  ]);
+  const totalKnownBytes = [
+    ...deliveredFiles.map((file) => file.file_size),
+    ...uploadedFiles.map((file) => file.file_size),
+  ].reduce<number>(
+    (sum, size) => sum + (typeof size === "number" ? size : 0),
+    0,
+  );
+  const totalKnownSize = totalKnownBytes > 0 ? formatBytes(totalKnownBytes) : null;
+  const hasFiles = totalFileCount > 0;
+
   return (
     <ClientDashboardLayout>
-      {/* Page header */}
       <div className="mb-7">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-1.5">
           Client Portal
         </p>
-        <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
-          Delivered Files
-        </h1>
-        <p className="text-muted mt-1 text-sm">
-          Download your completed visuals. Download links expire after 5 minutes.
-        </p>
-        <p className="text-muted mt-1 text-xs">
-          If your browser opens the file instead of saving it, use{" "}
-          <strong className="font-semibold text-foreground">Save / Share</strong>{" "}
-          to save it to your device.
-        </p>
-      </div>
-
-      {currentRows.length === 0 ? (
-        /* ── Empty state ── */
-        <div className="bg-white border border-border rounded-2xl p-10 flex flex-col items-center justify-center text-center mb-6 shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-surface border border-border flex items-center justify-center mb-5">
-            <FolderOpen className="w-6 h-6 text-muted-light" aria-hidden />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
+              Files
+            </h1>
+            <p className="text-muted mt-1 text-sm">
+              Access your uploaded originals and delivered files across all orders.
+            </p>
           </div>
-          <h2 className="text-base font-bold text-foreground mb-2">
-            No files available yet
-          </h2>
-          <p className="text-sm text-muted max-w-sm leading-relaxed mb-6">
-            Completed deliverables will appear here once your order is delivered.
-            We&rsquo;ll also send them to your email address.
-          </p>
           <Link
-            href="/dashboard/jobs"
-            className="inline-flex items-center gap-1.5 text-[13px] font-bold text-primary hover:text-primary-light transition-colors"
+            href="/order"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
-            View your orders →
+            <PlusCircle className="w-4 h-4" aria-hidden />
+            New Order
           </Link>
         </div>
-      ) : (
-        /* ── File cards ── */
-        <div className="space-y-3 mb-6">
-          {currentRows.map(({ deliverable: d, review: rev, isReplacement, previousFilename }) => {
-            return (
-            <div
-              key={d.id}
-              className="bg-white border border-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 shadow-sm hover:shadow-md transition-all duration-200"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-primary/6 border border-primary/10 flex items-center justify-center flex-shrink-0">
-                  <FolderOpen className="w-5 h-5 text-primary" aria-hidden />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground text-[13px] leading-snug">
-                    {d.filename}
-                  </p>
-                  <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
-                      <Tag className="w-2.5 h-2.5" aria-hidden />
-                      {itemLabel(d.item_index)}
-                    </span>
-                    <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded">
-                      {d.order_number}
-                    </span>
-                    <span className="text-[11px] text-muted">
-                      {formatBytes(d.file_size)}
-                    </span>
-                    <span className="text-[11px] text-muted">
-                      Delivered {formatDate(d.uploaded_at)}
-                    </span>
-                    {isReplacement && (
-                      <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
-                        New version
-                      </span>
-                    )}
-                  </div>
-                  {previousFilename && (
-                    <p className="mt-1 text-[10px] text-muted">
-                      Replaces {previousFilename}
-                    </p>
-                  )}
-                </div>
-              </div>
+      </div>
 
-              <div className="flex flex-col gap-2.5 flex-shrink-0 sm:items-end">
-                <DeliverableDownloadButton deliverableId={d.id} filename={d.filename} />
-                <DeliverableReviewActions
-                  deliverableId={d.id}
-                  initialReviewStatus={rev?.status ?? null}
-                  initialComment={rev?.comment ?? null}
-                  filename={d.filename}
-                />
-              </div>
-            </div>
-            );
-          })}
+      {!user && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              Sign in to view your files.
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              Files are loaded from your authenticated client account.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Bottom info cards */}
+      {user && !supabaseConfigured && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              Files are temporarily unavailable.
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              Please check back shortly or contact support if you need a file link.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-7">
+        <SummaryCard
+          label="Delivered files"
+          value={String(deliveredFiles.length)}
+          note="Current delivered versions"
+          icon={CheckCircle2}
+          iconClassName="text-emerald-600"
+        />
+        <SummaryCard
+          label="Uploaded originals"
+          value={String(originalCount)}
+          note="Client-uploaded source images"
+          icon={UploadCloud}
+          iconClassName="text-primary"
+        />
+        <SummaryCard
+          label="Orders with files"
+          value={String(orderIdsWithFiles.size)}
+          note={`${orders.length} total order${orders.length === 1 ? "" : "s"}`}
+          icon={Layers}
+          iconClassName="text-secondary-dark"
+        />
+        <SummaryCard
+          label="Available files"
+          value={String(totalFileCount)}
+          note={totalKnownSize ? `${totalKnownSize} known total size` : "Size shown when available"}
+          icon={HardDrive}
+          iconClassName="text-blue-600"
+        />
+      </div>
+
+      {!hasFiles ? (
+        <div className="bg-white border border-border rounded-2xl p-8 sm:p-10 shadow-sm text-center mb-7">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/6 border border-primary/10 flex items-center justify-center mb-4">
+            <FolderOpen className="w-5 h-5 text-primary" aria-hidden />
+          </div>
+          <h2 className="text-lg font-bold text-foreground">No files yet</h2>
+          <p className="text-sm text-muted leading-relaxed max-w-md mx-auto mt-2">
+            Files will appear here after you place an order or receive completed
+            deliverables from the PicchuSpot team.
+          </p>
+          <Link
+            href="/order"
+            className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
+          >
+            <PlusCircle className="w-4 h-4" aria-hidden />
+            Place an order
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-7 mb-7">
+          <section>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <FileImage className="w-4 h-4 text-primary" aria-hidden />
+                <h2 className="text-sm font-bold text-foreground">
+                  Delivered files
+                </h2>
+              </div>
+              <span className="text-[11px] text-muted-light">
+                {deliveredFiles.length} file{deliveredFiles.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {deliveredFiles.length > 0 ? (
+              <ul className="space-y-3">
+                {deliveredFiles.map((file) => (
+                  <DeliveredFileCard key={file.id} file={file} />
+                ))}
+              </ul>
+            ) : (
+              <SectionEmptyState
+                title="Delivered files will appear here when your order is completed."
+                body="Your uploaded files are available below while the delivered results are still in progress."
+              />
+            )}
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-primary" aria-hidden />
+                <h2 className="text-sm font-bold text-foreground">
+                  Uploaded files
+                </h2>
+              </div>
+              <span className="text-[11px] text-muted-light">
+                {uploadedFiles.length} file{uploadedFiles.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {uploadedFiles.length > 0 ? (
+              <ul className="space-y-3">
+                {uploadedFiles.map((file) => (
+                  <UploadedFileCard key={file.id} file={file} />
+                ))}
+              </ul>
+            ) : (
+              <SectionEmptyState
+                title="No uploaded source files found."
+                body="Delivered files are available above. Source files appear when uploaded file metadata exists for an order."
+              />
+            )}
+          </section>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
-            <h3 className="text-sm font-bold text-foreground">About your files</h3>
+            <h3 className="text-sm font-bold text-foreground">Private file access</h3>
           </div>
           <p className="text-xs text-muted leading-relaxed">
-            We deliver high-resolution JPEG files (min. 3000px on the long edge)
-            unless otherwise specified. Final files are watermark-free and ready
-            for MLS, print, or digital marketing use.
+            Download and preview links are generated only when you request them
+            and expire shortly after use.
           </p>
         </div>
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
@@ -173,14 +406,15 @@ export default async function DashboardFilesPage() {
             <h3 className="text-sm font-bold text-foreground">Need more visuals?</h3>
           </div>
           <p className="text-xs text-muted leading-relaxed mb-3">
-            Place a new order and we&rsquo;ll have your completed visuals ready
-            within 24–48 hours.
+            Place a new order and your uploaded files and delivered results will
+            appear in this hub.
           </p>
           <Link
             href="/order"
             className="inline-flex items-center gap-1.5 text-[12px] font-bold text-primary hover:text-primary-light transition-colors"
           >
-            Create a new order →
+            Create a new order
+            <ArrowRight className="w-3.5 h-3.5" aria-hidden />
           </Link>
         </div>
       </div>
