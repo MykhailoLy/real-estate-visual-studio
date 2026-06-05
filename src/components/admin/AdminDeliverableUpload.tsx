@@ -41,6 +41,11 @@ import {
   ALLOWED_DELIVERABLE_MIME_TYPES,
   ALLOWED_DELIVERABLE_EXTENSIONS,
 } from "@/lib/deliverables-config";
+import {
+  formatBytes,
+  formatDateTime as formatDate,
+  itemLabel as sharedItemLabel,
+} from "@/lib/display/file-format";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -77,26 +82,6 @@ interface Props {
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function isMimeAccepted(mime: string, filename: string): boolean {
   if ((ALLOWED_DELIVERABLE_MIME_TYPES as readonly string[]).includes(mime)) {
     if (mime === "application/octet-stream") {
@@ -112,7 +97,7 @@ function isMimeAccepted(mime: string, filename: string): boolean {
 
 /** Human-readable label for an item_index value. */
 export function itemLabel(itemIndex: number | null): string {
-  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
+  return sharedItemLabel(itemIndex);
 }
 
 // Sentinel string value used in the <select> to represent null (order-level).

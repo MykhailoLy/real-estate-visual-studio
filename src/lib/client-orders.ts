@@ -29,6 +29,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { DashboardJob, DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 import type { ReviewStatus } from "@/lib/client-reviews";
+import { getServiceLabel as getDisplayServiceLabel } from "@/lib/display/service-labels";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -48,28 +49,6 @@ export interface ClientOrder {
   created_at: string;
   updated_at: string;
 }
-
-// ── Translation maps ──────────────────────────────────────────
-
-/**
- * Maps every known service_type slug to a human-readable label.
- * Covers the 4 original order types plus all extended service slugs.
- * Unknown slugs fall back to slugToLabel().
- */
-const SERVICE_TYPE_LABELS: Record<string, string> = {
-  "virtual-staging":        "Virtual Staging",
-  "virtual-renovation":     "Virtual Renovation",
-  "3d-floor-plans":         "Floor Plans",
-  "photo-editing":          "Photo Editing",
-  "image-enhancement":      "Image Enhancement",
-  "day-to-dusk":            "Day to Dusk",
-  "item-removal":           "Item Removal",
-  "virtual-cleaning":       "Virtual Cleaning",
-  "360-image-enhancement":  "360° Image Enhancement",
-  "360-virtual-staging":    "360° Virtual Staging",
-  "aerial-editing":         "Aerial Editing",
-  "development-site-plans": "Development Site Plans",
-};
 
 /**
  * Maps DB order status strings → DashboardJobStatus values.
@@ -118,14 +97,6 @@ export interface DeliverableReviewSummary {
 
 // ── Private helpers ───────────────────────────────────────────
 
-/** Format an unknown slug into a readable label, e.g. "my-slug" → "My Slug". */
-function slugToLabel(slug: string): string {
-  return slug
-    .split(/[-_]/)
-    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
-    .join(" ");
-}
-
 /**
  * Derive a soft estimated-completion display string.
  *  - delivered   → "Delivered"
@@ -162,7 +133,7 @@ function deriveEstimatedCompletion(dbStatus: string, createdAt: string): string 
  * duplicating the map.
  */
 export function getServiceLabel(slug: string): string {
-  return SERVICE_TYPE_LABELS[slug] ?? slugToLabel(slug);
+  return getDisplayServiceLabel(slug);
 }
 
 /**
@@ -322,8 +293,7 @@ export function mapOrderToDashboardJob(
   order: ClientOrder,
   reviews: Array<Pick<DeliverableReviewSummary, "status">> = []
 ): DashboardJob {
-  const serviceLabel =
-    SERVICE_TYPE_LABELS[order.service_type] ?? slugToLabel(order.service_type);
+  const serviceLabel = getServiceLabel(order.service_type);
   const dashboardStatus = deriveDashboardStatusFromReviews(order.status, reviews);
   const progress = getProgressForDashboardStatus(order.status, dashboardStatus);
 

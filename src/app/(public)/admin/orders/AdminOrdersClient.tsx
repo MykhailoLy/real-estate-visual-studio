@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import AdminOrderStatusControl from "@/components/admin/AdminOrderStatusControl";
+import { formatDateTime } from "@/lib/display/file-format";
+import { getOrderStatusLabel } from "@/lib/display/status-labels";
 import { formatUSD } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -66,26 +68,8 @@ const STATUS_FILTER_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }
   { value: "cancelled",    label: "Cancelled" },
 ];
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  "pending":     "Pending",
-  "confirmed":   "Confirmed",
-  "in-progress": "In Progress",
-  "delivered":   "Delivered",
-  "cancelled":   "Cancelled",
-};
-
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatDateTime(iso);
 }
 
 // ── Component ─────────────────────────────────────────────────
@@ -260,7 +244,7 @@ export default function AdminOrdersClient({
             {statusFilter !== "all" && (
               <span className="ml-1">
                 · filtered by{" "}
-                <strong>{STATUS_LABELS[statusFilter as OrderStatus]}</strong>
+                <strong>{getOrderStatusLabel(statusFilter)}</strong>
               </span>
             )}
           </p>

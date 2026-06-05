@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import AdminOrdersClient, {
   type AdminOrderRow,
 } from "./AdminOrdersClient";
+import { getServiceLabel } from "@/lib/display/service-labels";
 
 // ============================================================
 // /admin/orders
@@ -34,27 +35,8 @@ export const metadata: Metadata = {
 // Mirrors the map in client-orders.ts so both sides stay in sync.
 // Kept here so the server component can annotate rows before
 // passing them to the client.
-const SERVICE_LABELS: Record<string, string> = {
-  "virtual-staging":        "Virtual Staging",
-  "virtual-renovation":     "Virtual Renovation",
-  "3d-floor-plans":         "Floor Plans",
-  "photo-editing":          "Photo Editing",
-  "image-enhancement":      "Image Enhancement",
-  "day-to-dusk":            "Day to Dusk",
-  "item-removal":           "Item Removal",
-  "virtual-cleaning":       "Virtual Cleaning",
-  "360-image-enhancement":  "360° Image Enhancement",
-  "360-virtual-staging":    "360° Virtual Staging",
-  "aerial-editing":         "Aerial Editing",
-  "development-site-plans": "Development Site Plans",
-};
-
 function toServiceLabel(slug: string): string {
-  if (SERVICE_LABELS[slug]) return SERVICE_LABELS[slug];
-  return slug
-    .split(/[-_]/)
-    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
-    .join(" ");
+  return getServiceLabel(slug);
 }
 
 // ── Page ──────────────────────────────────────────────────────

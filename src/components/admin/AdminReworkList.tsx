@@ -6,27 +6,17 @@ import {
   RotateCcw, Clock, CheckCircle2, Loader2, AlertCircle, MessageSquare, Tag, ExternalLink, Upload,
 } from "lucide-react";
 import type { ReworkRow } from "@/app/(public)/admin/rework/page";
-
-function itemLabel(idx: number | null): string {
-  return idx === null ? "Order-level" : `Image ${idx + 1}`;
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-    });
-  } catch { return iso; }
-}
+import { formatDateTime as formatDate, itemLabel } from "@/lib/display/file-format";
+import { getReviewStatusLabel } from "@/lib/display/status-labels";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
   rework_requested: {
-    label: "Rework requested",
+    label: getReviewStatusLabel("rework_requested"),
     cls: "bg-amber-50 text-amber-700 border-amber-200",
     icon: <RotateCcw className="w-3 h-3" aria-hidden />,
   },
   rework_in_progress: {
-    label: "In progress",
+    label: getReviewStatusLabel("rework_in_progress"),
     cls: "bg-blue-50 text-blue-700 border-blue-200",
     icon: <Clock className="w-3 h-3" aria-hidden />,
   },

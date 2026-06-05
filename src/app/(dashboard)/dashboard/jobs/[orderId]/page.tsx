@@ -41,6 +41,7 @@ import {
   getClientSourceFilesForOrder,
   type ClientSourceFile,
 } from "@/lib/client-source-files";
+import { formatBytes, itemLabel } from "@/lib/display/file-format";
 import { formatUSD } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -63,16 +64,6 @@ function formatDisplayDate(iso: string): string {
     month: "long",
     year: "numeric",
   });
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function itemLabel(itemIndex: number | null): string {
-  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
 }
 
 function groupCurrentDeliverablesByItem(
