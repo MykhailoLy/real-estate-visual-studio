@@ -44,7 +44,7 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
             Jobs
           </h1>
           <p className="text-muted mt-1 text-sm">
-            All your orders and their current status.
+            Track every order from production through delivery.
           </p>
         </div>
         <Link
@@ -105,8 +105,8 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
           </div>
           <h2 className="text-lg font-bold text-foreground mb-2">No orders yet</h2>
           <p className="text-sm text-muted max-w-sm leading-relaxed mb-6">
-            Place your first order and it will appear here. Virtual staging,
-            floor plans, image enhancement, and more — delivered in 24–48 hours.
+            Place your first order and it will appear here with delivery,
+            revision, and file status updates.
           </p>
           <Link
             href="/order"

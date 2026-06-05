@@ -136,7 +136,7 @@ export default function JobsTable({
             />
             <input
               type="search"
-              placeholder="Search by title, reference, or service…"
+              placeholder="Search by title, order number, or service..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-lg bg-white placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
@@ -157,7 +157,7 @@ export default function JobsTable({
               className="w-full sm:w-auto pl-9 pr-8 py-2.5 text-sm border border-border rounded-lg bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors cursor-pointer text-foreground"
               aria-label="Filter by status"
             >
-              <option value="all">All Statuses</option>
+              <option value="all">All statuses</option>
               {ALL_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {STATUS_LABELS[s]}
@@ -172,7 +172,7 @@ export default function JobsTable({
       {showControls && (
         <p className="text-[11px] text-muted">
           {displayed.length === 0
-            ? "No jobs match your filters"
+            ? "No jobs match your search or filters"
             : `Showing ${displayed.length} of ${jobs.length} job${jobs.length !== 1 ? "s" : ""}`}
           {statusFilter !== "all" && ` · filtered by ${STATUS_LABELS[statusFilter as DashboardJobStatus]}`}
         </p>
