@@ -90,11 +90,13 @@ function FileMeta({
   status: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
       <span className="font-mono bg-surface px-1.5 py-0.5 rounded">
         {orderNumber}
       </span>
-      <span>{serviceLabel}</span>
+      <span className="max-w-[180px] truncate" title={serviceLabel}>
+        {serviceLabel}
+      </span>
       <span>{item}</span>
       <span>{dateLabel}</span>
       <span className="inline-flex items-center rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
@@ -146,7 +148,7 @@ function UploadedFileCard({ file }: { file: ClientUploadedFileHubItem }) {
             orderNumber={file.order_number}
             serviceLabel={file.order.service_label}
             item={itemLabel(file.item_index)}
-            dateLabel={`Uploaded ${formatDate(file.uploaded_at)}`}
+            dateLabel={`Order submitted ${formatDate(file.order.created_at)}`}
             status={file.order.status}
           />
         }
@@ -305,12 +307,17 @@ export default async function DashboardFilesPage() {
       ) : (
         <div className="space-y-7 mb-7">
           <section>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <FileImage className="w-4 h-4 text-primary" aria-hidden />
-                <h2 className="text-sm font-bold text-foreground">
-                  Delivered files
-                </h2>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <FileImage className="w-4 h-4 text-primary" aria-hidden />
+                  <h2 className="text-sm font-bold text-foreground">
+                    Delivered files
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  Current delivered versions ready to preview or download.
+                </p>
               </div>
               <span className="text-[11px] text-muted-light">
                 {deliveredFiles.length} file{deliveredFiles.length === 1 ? "" : "s"}
@@ -331,12 +338,17 @@ export default async function DashboardFilesPage() {
           </section>
 
           <section>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-primary" aria-hidden />
-                <h2 className="text-sm font-bold text-foreground">
-                  Uploaded files
-                </h2>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-primary" aria-hidden />
+                  <h2 className="text-sm font-bold text-foreground">
+                    Uploaded files
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  Original and reference files attached to your orders.
+                </p>
               </div>
               <span className="text-[11px] text-muted-light">
                 {uploadedFiles.length} file{uploadedFiles.length === 1 ? "" : "s"}

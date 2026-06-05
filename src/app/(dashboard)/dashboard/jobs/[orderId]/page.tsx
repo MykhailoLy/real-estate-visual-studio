@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
+import CopyOrderNumberButton from "@/components/dashboard/CopyOrderNumberButton";
 import ClientOrderImageCard, {
   type ClientImageWorkflowStatus,
 } from "@/components/dashboard/ClientOrderImageCard";
@@ -214,10 +215,11 @@ export default async function OrderDetailPage({
           <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
             {serviceLabel}
           </h1>
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className="font-mono text-[12px] bg-surface border border-border px-2 py-0.5 rounded text-muted">
               {order.order_number}
             </span>
+            <CopyOrderNumberButton orderNumber={order.order_number} />
             <StatusBadge status={dashStatus} />
           </div>
         </div>
