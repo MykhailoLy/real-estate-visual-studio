@@ -10,10 +10,15 @@
 // Pages continue to render ClientDashboardLayout themselves so that
 // pages like /dashboard/jobs can pass their own statusFilter state.
 
+import type { Metadata } from "next";
 import { getClientUser } from "@/lib/client-auth";
 import { getClientProfile } from "@/lib/client-profile";
 import { DashboardUserProvider } from "@/components/dashboard/DashboardUserContext";
 import type { DashboardUser } from "@/components/dashboard/DashboardUserContext";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardGroupLayout({
   children,
