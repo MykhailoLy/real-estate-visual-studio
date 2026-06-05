@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FolderOpen, Layers, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  FileImage,
+  FolderOpen,
+  Layers,
+  PackageCheck,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   buildAdminSourceFiles,
@@ -98,6 +106,37 @@ function groupReferenceFilesByReview(
     grouped[file.review_id].push(file);
   }
   return grouped;
+}
+
+function SummaryCounter({
+  label,
+  value,
+  note,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  note: string;
+  icon: typeof FileImage;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-light">
+            {label}
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
+            {value}
+          </p>
+        </div>
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-border bg-surface">
+          <Icon className="h-4 w-4 text-primary" aria-hidden />
+        </div>
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-muted">{note}</p>
+    </div>
+  );
 }
 
 // ── Page ──────────────────────────────────────────────────────
@@ -302,6 +341,9 @@ export default async function AdminOrderDetailPage({
     groupReviewsByItem(reviews);
   const referenceFilesByReview =
     groupReferenceFilesByReview(reworkReferenceFiles);
+  const activeReviewCount = reviews.filter((review) =>
+    ["rework_requested", "rework_in_progress"].includes(review.status),
+  ).length;
 
   // ── Render ────────────────────────────────────────────────
 
@@ -391,6 +433,33 @@ export default async function AdminOrderDetailPage({
         {/* ── Main content (only when order is loaded) ── */}
         {order && (
           <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <SummaryCounter
+                label="Source files"
+                value={sourceFiles.length}
+                note="Client-uploaded originals and references"
+                icon={FileImage}
+              />
+              <SummaryCounter
+                label="Deliverables"
+                value={deliverables.length}
+                note="Uploaded finished files for this order"
+                icon={PackageCheck}
+              />
+              <SummaryCounter
+                label="Active reviews"
+                value={activeReviewCount}
+                note="Pending or in-progress rework requests"
+                icon={RotateCcw}
+              />
+              <SummaryCounter
+                label="References"
+                value={reworkReferenceFiles.length}
+                note="Files clients attached to rework comments"
+                icon={Sparkles}
+              />
+            </div>
+
             {/* ── Top section: summary (left) + status/downloads (right) ── */}
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-5">
               {/* Left: Order summary */}
@@ -466,7 +535,7 @@ export default async function AdminOrderDetailPage({
                     </h2>
                   </div>
                   <div className="px-5 py-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <span className="text-[12px] text-foreground/70">
                         All source files
                       </span>
@@ -476,7 +545,7 @@ export default async function AdminOrderDetailPage({
                         emptyLabel="No files"
                       />
                     </div>
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <span className="text-[12px] text-foreground/70">
                         All deliverables
                       </span>
@@ -558,14 +627,17 @@ export default async function AdminOrderDetailPage({
 
             {/* ── Order-level files section ── */}
             <section>
-              <div className="flex items-center gap-2 mb-4">
-                <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
-                <h2 className="text-[13px] font-bold text-foreground">
-                  Order-level files
-                  <span className="ml-2 text-[11px] font-normal text-muted">
-                    (item_index: null — ZIPs or order-wide deliverables)
-                  </span>
-                </h2>
+              <div className="mb-4 flex items-start gap-2">
+                <FolderOpen className="mt-0.5 w-4 h-4 text-primary" aria-hidden />
+                <div>
+                  <h2 className="text-[13px] font-bold text-foreground">
+                    Order-level files
+                  </h2>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                    Files here are not tied to one image, such as ZIPs or
+                    order-wide deliverables.
+                  </p>
+                </div>
               </div>
 
               <AdminDeliverableUpload

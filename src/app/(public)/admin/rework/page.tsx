@@ -27,6 +27,7 @@ export interface ReworkRow {
   created_at: string;
   updated_at: string;
   filename: string | null;
+  reference_file_count: number;
 }
 
 export default async function AdminReworkPage() {
@@ -60,12 +61,39 @@ export default async function AdminReworkPage() {
         dbError = error.message;
       } else {
         rows = ((data ?? []) as unknown as Array<
-          Omit<ReworkRow, "filename"> & { order_deliverables: { filename: string } }
+          Omit<ReworkRow, "filename" | "reference_file_count"> & {
+            order_deliverables: { filename: string };
+          }
         >).map((r) => ({
           ...r,
           filename: r.order_deliverables?.filename ?? null,
+          reference_file_count: 0,
           order_deliverables: undefined,
         })) as unknown as ReworkRow[];
+
+        if (rows.length > 0) {
+          const { data: referenceRows, error: referenceErr } = await supabase
+            .from("deliverable_review_files")
+            .select("review_id")
+            .in("review_id", rows.map((row) => row.id));
+
+          if (referenceErr) {
+            console.error(
+              "[admin/rework] Reference file count lookup:",
+              referenceErr.message,
+            );
+          } else {
+            const counts = new Map<string, number>();
+            for (const file of referenceRows ?? []) {
+              const reviewId = String(file.review_id);
+              counts.set(reviewId, (counts.get(reviewId) ?? 0) + 1);
+            }
+            rows = rows.map((row) => ({
+              ...row,
+              reference_file_count: counts.get(row.id) ?? 0,
+            }));
+          }
+        }
       }
     } catch (err) {
       dbError = String(err);
