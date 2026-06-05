@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  RotateCcw, Clock, CheckCircle2, Loader2, AlertCircle, MessageSquare, Tag, ExternalLink, Upload,
+  RotateCcw, Clock, CheckCircle2, Loader2, AlertCircle, MessageSquare, Tag, ExternalLink, Upload, Paperclip,
 } from "lucide-react";
 import type { ReworkRow } from "@/app/(public)/admin/rework/page";
 import { formatDateTime as formatDate, itemLabel } from "@/lib/display/file-format";
@@ -92,21 +92,31 @@ export default function AdminReworkList({ initialRows }: Props) {
           return (
             <li key={r.id} className="px-5 py-4 space-y-2">
               {/* Top: order info + status */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Link
                   href={`/admin/orders/${r.order_id}`}
-                  className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:text-primary-light transition-colors"
+                  className="inline-flex min-w-0 items-center gap-1 text-[12px] font-semibold text-primary hover:text-primary-light transition-colors"
                 >
-                  <ExternalLink className="w-3 h-3" aria-hidden />
-                  {r.order_number}
+                  <ExternalLink className="w-3 h-3 flex-shrink-0" aria-hidden />
+                  <span className="truncate">{r.order_number}</span>
                 </Link>
                 <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary/8 border border-primary/15 px-1.5 py-0.5 rounded-full">
                   <Tag className="w-2.5 h-2.5" aria-hidden />
                   {itemLabel(r.item_index)}
                 </span>
                 {r.filename && (
-                  <span className="text-[11px] text-muted truncate max-w-[150px]">
+                  <span
+                    className="max-w-[220px] truncate text-[11px] text-muted"
+                    title={r.filename}
+                  >
                     {r.filename}
+                  </span>
+                )}
+                {r.reference_file_count > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                    <Paperclip className="h-2.5 w-2.5" aria-hidden />
+                    {r.reference_file_count} reference file
+                    {r.reference_file_count !== 1 ? "s" : ""}
                   </span>
                 )}
                 {badge && (
@@ -125,13 +135,13 @@ export default function AdminReworkList({ initialRows }: Props) {
               )}
 
               {/* Meta */}
-              <div className="flex items-center gap-3 text-[11px] text-muted">
-                <span>{r.client_email}</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
+                <span className="max-w-full truncate">{r.client_email}</span>
                 <span>{formatDate(r.created_at)}</span>
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Link
                   href={`/admin/orders/${r.order_id}?reviewId=${r.id}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-[11px] font-semibold hover:bg-primary-light transition-colors shadow-sm"

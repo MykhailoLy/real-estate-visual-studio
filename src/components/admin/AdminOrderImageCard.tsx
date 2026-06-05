@@ -138,9 +138,11 @@ function isMimeAccepted(mime: string, filename: string): boolean {
 
 function WorkflowPanel({
   title,
+  description,
   children,
 }: {
   title: string;
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -148,6 +150,11 @@ function WorkflowPanel({
       <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-2">
         {title}
       </h4>
+      {description && (
+        <p className="mb-3 text-[11px] leading-relaxed text-muted">
+          {description}
+        </p>
+      )}
       {children}
     </section>
   );
@@ -176,10 +183,10 @@ function SourcePlaceholder() {
     <div className="h-full min-h-48 rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 flex flex-col items-center justify-center text-center">
       <FileImage className="w-8 h-8 text-muted-light" aria-hidden />
       <p className="mt-2 text-[13px] font-semibold text-foreground">
-        No source file
+        No original source file
       </p>
       <p className="mt-1 text-[11px] text-muted leading-relaxed">
-        No original photo was uploaded for this image.
+        No client-uploaded original is recorded for this image.
       </p>
     </div>
   );
@@ -437,7 +444,10 @@ export default function AdminOrderImageCard({
       <div className="p-5">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)] gap-4 xl:gap-5 items-start">
           {/* Left: Client source / Original */}
-          <WorkflowPanel title="Client source / Original">
+          <WorkflowPanel
+            title="Client source files"
+            description="Original upload and any order reference tied to this image."
+          >
             {originalSource ? (
               <LargePreviewFrame>
                 <FilePreviewCard
@@ -475,10 +485,23 @@ export default function AdminOrderImageCard({
                 />
               </div>
             )}
+            {!referenceSource && (
+              <div className="mt-3 rounded-lg border border-dashed border-border bg-surface/30 px-3 py-2.5">
+                <p className="text-[11px] font-semibold text-foreground">
+                  No order reference file
+                </p>
+                <p className="mt-0.5 text-[10px] leading-relaxed text-muted">
+                  The client did not attach a separate reference for this image.
+                </p>
+              </div>
+            )}
           </WorkflowPanel>
 
           {/* Middle: Uploaded deliverable / After */}
-          <WorkflowPanel title="Uploaded deliverable / After">
+          <WorkflowPanel
+            title="Delivered result"
+            description="Uploaded files assigned to this image."
+          >
             {deliverables.length > 0 ? (
               <ul className="space-y-3">
                 {deliverables.map((d) => (
@@ -526,7 +549,7 @@ export default function AdminOrderImageCard({
                   Awaiting upload
                 </p>
                 <p className="mt-1 text-[11px] text-muted leading-relaxed max-w-[200px]">
-                  No deliverable uploaded for this image yet.
+                  Upload the finished file here when this image is ready.
                 </p>
               </div>
             )}
@@ -557,7 +580,10 @@ export default function AdminOrderImageCard({
           </WorkflowPanel>
 
           {/* Right: Request details & Admin actions */}
-          <WorkflowPanel title="Request details & Admin actions">
+          <WorkflowPanel
+            title="Request details & actions"
+            description="Client preferences, upload controls, and review state."
+          >
             {/* OrderItemDetails */}
             <div className="rounded-lg border border-border bg-surface/30 p-4">
               <OrderItemDetails details={details} />
@@ -575,7 +601,10 @@ export default function AdminOrderImageCard({
                     Uploading replacement
                   </p>
                   {replacementReview.filename && (
-                    <p className="mt-0.5 text-muted">
+                    <p
+                      className="mt-0.5 truncate text-muted"
+                      title={replacementReview.filename}
+                    >
                       Original: {replacementReview.filename}
                     </p>
                   )}
@@ -595,7 +624,7 @@ export default function AdminOrderImageCard({
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-bold hover:bg-primary-light transition-colors shadow-sm disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-bold hover:bg-primary-light transition-colors shadow-sm disabled:opacity-60 sm:w-auto"
                 >
                   {uploading ? (
                     <>
@@ -629,6 +658,7 @@ export default function AdminOrderImageCard({
                 <div className="space-y-2">
                   {reviewList.map((r) => {
                     const badge = REVIEW_BADGE[r.status] ?? null;
+                    const referenceFiles = referenceFilesByReview[r.id] ?? [];
                     const isUpdating = updatingReviewId === r.id;
                     const isActive =
                       ["rework_requested", "rework_in_progress"].includes(
@@ -667,19 +697,19 @@ export default function AdminOrderImageCard({
                           </p>
                         )}
 
-                        {referenceFilesByReview[r.id]?.length > 0 && (
+                        {referenceFiles.length > 0 ? (
                           <div className="rounded-lg border border-border bg-white px-3 py-2.5">
                             <div className="flex items-center justify-between gap-2 mb-2">
                               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
                                 Client reference files
                               </p>
                               <span className="text-[10px] font-semibold text-muted">
-                                {referenceFilesByReview[r.id].length} file
-                                {referenceFilesByReview[r.id].length !== 1 ? "s" : ""}
+                                {referenceFiles.length} file
+                                {referenceFiles.length !== 1 ? "s" : ""}
                               </span>
                             </div>
                             <ul className="space-y-2">
-                              {referenceFilesByReview[r.id].map((file) => (
+                              {referenceFiles.map((file) => (
                                 <li key={file.id}>
                                   <FilePreviewCard
                                     filename={file.filename}
@@ -698,7 +728,16 @@ export default function AdminOrderImageCard({
                               ))}
                             </ul>
                           </div>
-                        )}
+                        ) : isActive ? (
+                          <div className="rounded-lg border border-dashed border-border bg-white px-3 py-2">
+                            <p className="text-[11px] font-semibold text-foreground">
+                              No client reference files attached
+                            </p>
+                            <p className="mt-0.5 text-[10px] leading-relaxed text-muted">
+                              Use the client comment above as the revision brief.
+                            </p>
+                          </div>
+                        ) : null}
 
                         {/* Action buttons for active reviews */}
                         {isActive && (
