@@ -50,6 +50,8 @@ import {
   ALLOWED_DELIVERABLE_EXTENSIONS,
   ALLOWED_DELIVERABLE_MIME_TYPES,
 } from "@/lib/deliverables-config";
+import { formatBytes, formatDateTime as formatDate } from "@/lib/display/file-format";
+import { getReviewStatusLabel } from "@/lib/display/status-labels";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -91,54 +93,33 @@ const REVIEW_BADGE: Record<
   { label: string; cls: string; icon: React.ReactNode }
 > = {
   rework_requested: {
-    label: "Pending Rework",
+    label: getReviewStatusLabel("rework_requested"),
     cls: "bg-amber-50 text-amber-700 border-amber-200",
     icon: <RotateCcw className="w-3 h-3" aria-hidden />,
   },
   rework_in_progress: {
-    label: "Rework In Progress",
+    label: getReviewStatusLabel("rework_in_progress"),
     cls: "bg-blue-50 text-blue-700 border-blue-200",
     icon: <Clock className="w-3 h-3" aria-hidden />,
   },
   rework_delivered: {
-    label: "New Version Ready",
+    label: getReviewStatusLabel("rework_delivered"),
     cls: "bg-purple-50 text-purple-700 border-purple-200",
     icon: <Sparkles className="w-3 h-3" aria-hidden />,
   },
   approved: {
-    label: "Approved",
+    label: getReviewStatusLabel("approved"),
     cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
     icon: <CheckCircle2 className="w-3 h-3" aria-hidden />,
   },
   resolved: {
-    label: "Resolved",
+    label: getReviewStatusLabel("resolved"),
     cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
     icon: <CheckCircle2 className="w-3 h-3" aria-hidden />,
   },
 };
 
 // ── Helpers ────────────────────────────────────────────────────
-
-function formatBytes(bytes: number | null): string | null {
-  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return null;
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 function isMimeAccepted(mime: string, filename: string): boolean {
   if ((ALLOWED_DELIVERABLE_MIME_TYPES as readonly string[]).includes(mime)) {

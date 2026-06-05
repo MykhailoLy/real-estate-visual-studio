@@ -14,66 +14,53 @@ import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout"
 import { getClientUser } from "@/lib/client-auth";
 import {
   getOrdersByClientEmail,
-  getServiceLabel,
   type ClientOrder,
 } from "@/lib/client-orders";
+import { formatDate } from "@/lib/display/file-format";
+import {
+  getBillingStatusLabel,
+  getOrderStatusTone,
+  type DisplayTone,
+} from "@/lib/display/status-labels";
+import { getServiceLabel } from "@/lib/display/service-labels";
 import { cn, formatUSD } from "@/lib/utils";
 
 export const metadata = {
   title: "Invoices | PicchuSpot Client Portal",
 };
 
-type BillingStatus = "pending" | "active" | "delivered" | "cancelled";
-
-const statusConfig: Record<
-  BillingStatus,
-  { label: string; className: string; dot: string }
+const statusToneConfig: Record<
+  DisplayTone,
+  { className: string; dot: string }
 > = {
-  pending: {
-    label: "Pending",
+  amber: {
     className: "bg-amber-50 text-amber-700 border-amber-200",
     dot: "bg-amber-400",
   },
-  active: {
-    label: "In Progress",
+  blue: {
     className: "bg-blue-50 text-blue-700 border-blue-200",
     dot: "bg-blue-500",
   },
-  delivered: {
-    label: "Delivered",
+  green: {
     className: "bg-emerald-50 text-emerald-700 border-emerald-200",
     dot: "bg-emerald-500",
   },
-  cancelled: {
-    label: "Cancelled",
+  purple: {
+    className: "bg-purple-50 text-purple-700 border-purple-200",
+    dot: "bg-purple-500",
+  },
+  slate: {
     className: "bg-slate-100 text-slate-500 border-slate-200",
     dot: "bg-slate-400",
   },
 };
-
-function getBillingStatus(status: string): BillingStatus {
-  if (status === "cancelled") return "cancelled";
-  if (status === "delivered" || status === "completed") return "delivered";
-  if (status === "confirmed" || status === "in-progress") return "active";
-  return "pending";
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Date unavailable";
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-}
 
 function formatItemCount(count: number): string {
   return `${count} image${count === 1 ? "" : "s"}`;
 }
 
 function StatusPill({ status }: { status: string }) {
-  const config = statusConfig[getBillingStatus(status)];
+  const config = statusToneConfig[getOrderStatusTone(status)];
 
   return (
     <span
@@ -83,7 +70,7 @@ function StatusPill({ status }: { status: string }) {
       )}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", config.dot)} aria-hidden />
-      {config.label}
+      {getBillingStatusLabel(status)}
     </span>
   );
 }

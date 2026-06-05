@@ -6,9 +6,9 @@ import {
 import { getCurrentDeliverableRows } from "@/lib/client-deliverable-display";
 import {
   getOrdersByClientEmail,
-  getServiceLabel,
   type ClientOrder,
 } from "@/lib/client-orders";
+import { getServiceLabel } from "@/lib/display/service-labels";
 import { getReviewsByClientEmail } from "@/lib/client-reviews";
 import {
   getClientSourceFilesForOrder,

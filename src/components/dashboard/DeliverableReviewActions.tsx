@@ -21,6 +21,8 @@ import {
   REWORK_REFERENCE_MAX_MB,
   isAllowedReworkReferenceMimeType,
 } from "@/lib/rework-references-config";
+import { formatBytes } from "@/lib/display/file-format";
+import { getReviewStatusLabel } from "@/lib/display/status-labels";
 
 interface Props {
   deliverableId: string;
@@ -67,22 +69,22 @@ interface UploadUrlResponse {
 
 const STATUS_BADGE: Partial<Record<ReviewStatus, BadgeCfg>> = {
   approved: {
-    label: "Approved",
+    label: getReviewStatusLabel("approved"),
     variant: "green",
     icon: <CheckCircle2 className="w-3 h-3" aria-hidden />,
   },
   rework_requested: {
-    label: "Rework requested",
+    label: getReviewStatusLabel("rework_requested"),
     variant: "amber",
     icon: <RotateCcw className="w-3 h-3" aria-hidden />,
   },
   rework_in_progress: {
-    label: "In progress",
+    label: getReviewStatusLabel("rework_in_progress"),
     variant: "blue",
     icon: <Clock className="w-3 h-3" aria-hidden />,
   },
   resolved: {
-    label: "Resolved",
+    label: getReviewStatusLabel("resolved"),
     variant: "green",
     icon: <CheckCircle2 className="w-3 h-3" aria-hidden />,
   },
@@ -227,7 +229,7 @@ export default function DeliverableReviewActions({
       {status === "rework_delivered" && (
         <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-2.5 py-1.5">
           <Sparkles className="w-3 h-3 flex-shrink-0" aria-hidden />
-          New version ready
+          {getReviewStatusLabel("rework_delivered")}
         </div>
       )}
 
@@ -513,10 +515,4 @@ async function uploadReferenceFile(reviewId: string, file: File): Promise<void> 
   if (!completeRes.ok || !completeData.ok) {
     throw new Error(completeData.error ?? "Could not confirm reference file upload.");
   }
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -15,6 +15,7 @@ import FilePreviewCard from "@/components/FilePreviewCard";
 import OrderItemDetails from "@/components/order/OrderItemDetails";
 import type { CurrentDeliverableRow } from "@/lib/client-deliverable-display";
 import type { ClientSourceFile } from "@/lib/client-source-files";
+import { formatBytes } from "@/lib/display/file-format";
 
 export type ClientImageWorkflowStatus =
   | "awaiting_delivery"
@@ -128,7 +129,7 @@ export default function ClientOrderImageCard({
                 <FilePreviewCard
                   filename={originalSource.filename}
                   mimeType={originalSource.mimeType}
-                  fileSizeLabel={formatOptionalBytes(originalSource.fileSize)}
+                  fileSizeLabel={formatBytes(originalSource.fileSize)}
                   badgeLabel="Original"
                   signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${originalSource.id}/download-url`}
                   downloadLabel="Download"
@@ -146,7 +147,7 @@ export default function ClientOrderImageCard({
                 <FilePreviewCard
                   filename={referenceSource.filename}
                   mimeType={referenceSource.mimeType}
-                  fileSizeLabel={formatOptionalBytes(referenceSource.fileSize)}
+                  fileSizeLabel={formatBytes(referenceSource.fileSize)}
                   badgeLabel="Reference"
                   signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
                   downloadLabel="Download"
@@ -277,15 +278,4 @@ function WorkflowPanel({
       {children}
     </section>
   );
-}
-
-function formatOptionalBytes(bytes: number | null): string | null {
-  if (typeof bytes !== "number" || !Number.isFinite(bytes)) return null;
-  return formatBytes(bytes);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

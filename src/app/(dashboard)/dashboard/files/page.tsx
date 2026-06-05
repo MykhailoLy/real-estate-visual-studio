@@ -19,47 +19,16 @@ import {
   type ClientDeliveredFileHubItem,
   type ClientUploadedFileHubItem,
 } from "@/lib/client-files";
+import { formatBytes, formatDate, itemLabel } from "@/lib/display/file-format";
+import { getOrderStatusLabel } from "@/lib/display/status-labels";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Files | PicchuSpot Client Portal",
 };
 
-function formatBytes(bytes: number | null): string | null {
-  if (bytes === null || !Number.isFinite(bytes)) return null;
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Date unavailable";
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-function itemLabel(itemIndex: number | null): string {
-  return itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
-}
-
 function sourceKindLabel(kind: ClientUploadedFileHubItem["kind"]): string {
   return kind === "original" ? "Original" : "Reference";
-}
-
-function orderStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    confirmed: "Confirmed",
-    "in-progress": "In Progress",
-    delivered: "Delivered",
-    completed: "Completed",
-    cancelled: "Cancelled",
-  };
-  return labels[status] ?? status.replace(/[-_]/g, " ");
 }
 
 function SummaryCard({
@@ -129,7 +98,7 @@ function FileMeta({
       <span>{item}</span>
       <span>{dateLabel}</span>
       <span className="inline-flex items-center rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
-        {orderStatusLabel(status)}
+        {getOrderStatusLabel(status)}
       </span>
     </div>
   );

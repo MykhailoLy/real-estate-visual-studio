@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { Check, Loader2, AlertCircle } from "lucide-react";
+import { getOrderStatusLabel } from "@/lib/display/status-labels";
 
 const VALID_STATUSES = [
   "pending",
@@ -24,14 +25,6 @@ const VALID_STATUSES = [
 ] as const;
 
 type OrderStatus = (typeof VALID_STATUSES)[number];
-
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  "pending":     "Pending",
-  "confirmed":   "Confirmed",
-  "in-progress": "In Progress",
-  "delivered":   "Delivered",
-  "cancelled":   "Cancelled",
-};
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   "pending":     "text-amber-700 bg-amber-50 border-amber-200",
@@ -115,7 +108,7 @@ export default function AdminOrderStatusControl({
         >
           {VALID_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {STATUS_LABELS[s]}
+              {getOrderStatusLabel(s)}
             </option>
           ))}
         </select>

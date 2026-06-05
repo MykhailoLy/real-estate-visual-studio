@@ -23,6 +23,12 @@ import AdminOrderImageCard, {
 } from "@/components/admin/AdminOrderImageCard";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
+import { formatDateTime } from "@/lib/display/file-format";
+import { getServiceLabel } from "@/lib/display/service-labels";
+import {
+  getOrderStatusLabel,
+  getReviewStatusLabel,
+} from "@/lib/display/status-labels";
 
 // ============================================================
 // /admin/orders/[orderId] — admin order detail (per-image workflow)
@@ -63,40 +69,12 @@ export async function generateMetadata({
 
 // ── Helpers ────────────────────────────────────────────────────
 
-const SERVICE_LABELS: Record<string, string> = {
-  "virtual-staging": "Virtual Staging",
-  "virtual-renovation": "Virtual Renovation",
-  "3d-floor-plans": "Floor Plans",
-  "photo-editing": "Photo Editing",
-  "image-enhancement": "Image Enhancement",
-  "day-to-dusk": "Day to Dusk",
-  "item-removal": "Item Removal",
-  "virtual-cleaning": "Virtual Cleaning",
-  "360-image-enhancement": "360° Image Enhancement",
-  "360-virtual-staging": "360° Virtual Staging",
-  "aerial-editing": "Aerial Editing",
-  "development-site-plans": "Development Site Plans",
-};
-
 function toLabel(slug: string): string {
-  return (
-    SERVICE_LABELS[slug] ??
-    slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-  );
+  return getServiceLabel(slug);
 }
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatDateTime(iso);
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -465,9 +443,7 @@ export default async function AdminOrderDetailPage({
                         "bg-surface text-muted border-border"
                       }`}
                     >
-                      {order.status
-                        .replace(/-/g, " ")
-                        .replace(/\b\w/g, (c) => c.toUpperCase())}
+                      {getOrderStatusLabel(order.status)}
                     </span>
                     <p className="mt-2 text-[11px] text-muted leading-relaxed">
                       To change the order status, use the inline control in{" "}
@@ -627,7 +603,7 @@ export default async function AdminOrderDetailPage({
                       <li key={r.id} className="px-5 py-3 space-y-1">
                         <div className="flex flex-wrap items-center gap-2 text-[11px]">
                           <span className="text-muted-light font-semibold capitalize">
-                            {r.status.replace(/_/g, " ")}
+                            {getReviewStatusLabel(r.status)}
                           </span>
                           {r.filename && (
                             <span className="text-muted truncate max-w-[150px]">
