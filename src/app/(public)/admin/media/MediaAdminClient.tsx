@@ -9,17 +9,14 @@ import {
 } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   Image as ImageIcon,
   Link as LinkIcon,
   Loader2,
-  LogOut,
   Pencil,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import {
   SITE_MEDIA_BUCKET,
   SITE_MEDIA_SECTION_META,
@@ -226,19 +223,6 @@ export default function MediaAdminClient({
     setTopNotice(null);
   }
 
-  async function onLogout() {
-    try {
-      await fetch("/api/admin/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-    } catch {
-      // Cookie is short-lived; navigate regardless.
-    }
-    router.replace("/admin/login");
-    router.refresh();
-  }
-
   async function onDelete(item: AdminMediaView) {
     if (busy) return;
     const label = item.title || `${item.section} item`;
@@ -272,46 +256,7 @@ export default function MediaAdminClient({
   }
 
   return (
-    <section className="bg-surface min-h-[calc(100vh-4rem)] py-10 lg:py-14">
-      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10">
-        {/* Header strip */}
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
-              PicchuSpot Admin
-            </p>
-            <h1 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight">
-              Site Media
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              Manage fixed website imagery — homepage slider, About collage,
-              360° tours, and future service heroes.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/admin/portfolio"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" aria-hidden />
-              Portfolio
-            </Link>
-            <Link
-              href="/admin/orders"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              Orders
-            </Link>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <LogOut className="w-4 h-4" aria-hidden />
-              Sign out
-            </button>
-          </div>
-        </header>
+    <div>
 
         {!supabaseConfigured && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm leading-relaxed flex items-start gap-3">
@@ -423,8 +368,7 @@ export default function MediaAdminClient({
             </ul>
           )}
         </div>
-      </div>
-    </section>
+    </div>
   );
 }
 
