@@ -989,8 +989,9 @@ function MediaEditor({
               placeholder="e.g. virtual-staging"
             />
             <p className="mt-1 text-[11px] text-muted-light">
-              If this matches a portfolio service slug, the matching pricing
-              page will revalidate on save.
+              For Virtual Staging style cards use: virtual-staging. If this
+              matches a portfolio service slug, the matching pricing page will
+              revalidate on save.
             </p>
           </Field>
 
