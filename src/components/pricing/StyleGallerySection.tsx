@@ -5,6 +5,16 @@ import StyleGalleryCard from "./StyleGalleryCard";
 import ImageLightbox from "./ImageLightbox";
 import { STAGING_STYLE_GALLERY } from "@/data/staging-style-gallery";
 
+export interface StyleGalleryCoverOverride {
+  title: string;
+  src: string;
+  alt: string;
+}
+
+function normalizeStyleTitle(title: string): string {
+  return title.trim().toLowerCase();
+}
+
 /**
  * Client-side wrapper for the Virtual Staging "Style Options" gallery.
  *
@@ -17,9 +27,23 @@ import { STAGING_STYLE_GALLERY } from "@/data/staging-style-gallery";
  * internal state (current image index, failed-src tracking) seeds
  * naturally from props on every open. No setState-in-effect needed.
  */
-export default function StyleGallerySection() {
+export default function StyleGallerySection({
+  coverOverrides = [],
+}: {
+  coverOverrides?: StyleGalleryCoverOverride[];
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [openIndex, setOpenIndex] = useState(0);
+
+  const coverByTitle = useMemo(() => {
+    const out = new Map<string, StyleGalleryCoverOverride>();
+    for (const override of coverOverrides) {
+      const key = normalizeStyleTitle(override.title);
+      if (!key || out.has(key)) continue;
+      out.set(key, override);
+    }
+    return out;
+  }, [coverOverrides]);
 
   const activeEntry = useMemo(
     () => STAGING_STYLE_GALLERY.find((e) => e.id === openId) ?? null,
@@ -42,6 +66,7 @@ export default function StyleGallerySection() {
           <StyleGalleryCard
             key={entry.id}
             entry={entry}
+            coverOverride={coverByTitle.get(normalizeStyleTitle(entry.label))}
             onOpen={handleOpen}
           />
         ))}

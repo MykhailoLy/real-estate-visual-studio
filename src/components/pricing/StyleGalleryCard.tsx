@@ -6,6 +6,10 @@ import type { StyleGalleryEntry } from "@/data/staging-style-gallery";
 
 interface StyleGalleryCardProps {
   entry: StyleGalleryEntry;
+  coverOverride?: {
+    src: string;
+    alt: string;
+  };
   /** Called with the entry id and the image index the user clicked on. */
   onOpen: (id: string, imageIndex: number) => void;
 }
@@ -28,10 +32,11 @@ interface StyleGalleryCardProps {
  */
 export default function StyleGalleryCard({
   entry,
+  coverOverride,
   onOpen,
 }: StyleGalleryCardProps) {
   const [coverFailed, setCoverFailed] = useState(false);
-  const cover = entry.images[0];
+  const cover = coverOverride ?? entry.images[0];
   const totalImages = entry.images.length;
 
   return (

@@ -3,7 +3,9 @@ import Link from "next/link";
 import { ArrowRight, Check, Home, Sparkles, Building2, ImagePlus } from "lucide-react";
 import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
-import StyleGallerySection from "@/components/pricing/StyleGallerySection";
+import StyleGallerySection, {
+  type StyleGalleryCoverOverride,
+} from "@/components/pricing/StyleGallerySection";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
 import ServicePageSlider, {
@@ -12,6 +14,10 @@ import ServicePageSlider, {
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
 import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
+import {
+  getServiceOptionsImages,
+  getSiteMediaPublicUrl,
+} from "@/lib/site-media";
 
 // ============================================================
 // /pricing/virtual-staging  —  Virtual Staging service page
@@ -31,8 +37,9 @@ import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfo
 // Data loading:
 //   - getPublishedItemsForService returns [] when Supabase is
 //     unconfigured → page still builds/renders statically.
-//   - A single DB call fills both the slider (up to 5 slides)
+//   - Portfolio examples fill both the slider (up to 5 slides)
 //     and the examples grid (all items).
+//   - service-options media fills the style-card covers by title.
 // ============================================================
 
 export const metadata: Metadata = {
@@ -192,10 +199,27 @@ async function buildSliderSlides(
 // ── Page ─────────────────────────────────────────────────────
 
 export default async function VirtualStagingPage() {
-  // Single DB round-trip — reuse for slider and examples grid.
-  const allItems = await getPublishedItemsForService("virtual-staging");
+  const [allItems, optionImages] = await Promise.all([
+    getPublishedItemsForService("virtual-staging"),
+    getServiceOptionsImages("virtual-staging"),
+  ]);
   const sliderSlides = await buildSliderSlides(allItems);
   const hasItems = allItems.length > 0;
+  const styleCoverOverrides: StyleGalleryCoverOverride[] = optionImages
+    .filter((item) => item.title && item.image_path)
+    .map((item) => {
+      const src = getSiteMediaPublicUrl(item.image_path);
+      if (!src) return null;
+      return {
+        title: item.title!,
+        src,
+        alt:
+          item.alt_text ??
+          item.title ??
+          `Virtual staging ${item.sort_order} style example`,
+      };
+    })
+    .filter((item): item is StyleGalleryCoverOverride => item !== null);
 
   return (
     <>
@@ -439,7 +463,7 @@ export default async function VirtualStagingPage() {
             title="Choose the right look for your buyer"
             description="Pick a single style per image — or let us match a reference. We tailor the furniture, materials and palette to fit the chosen direction. Tap a card to browse multiple examples per style."
           />
-          <StyleGallerySection />
+          <StyleGallerySection coverOverrides={styleCoverOverrides} />
         </Wide>
       </section>
 

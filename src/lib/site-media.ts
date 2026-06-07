@@ -83,7 +83,7 @@ export const SITE_MEDIA_SECTION_META: SiteMediaSectionMeta[] = [
     section: "service-options",
     label: "Service options",
     description:
-      "Individual option card images for service pages (e.g. floor plan style cards). Map by sort_order.",
+      "Images for service page style cards and option cards. Match cards by title and service_slug.",
     defaultMediaType: "image",
   },
   {
