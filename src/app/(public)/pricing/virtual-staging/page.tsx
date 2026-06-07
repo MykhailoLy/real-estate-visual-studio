@@ -4,7 +4,7 @@ import { ArrowRight, Check, Home, Sparkles, Building2, ImagePlus } from "lucide-
 import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
 import StyleGallerySection, {
-  type StyleGalleryCoverOverride,
+  type StyleGalleryImageOverride,
 } from "@/components/pricing/StyleGallerySection";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
@@ -39,7 +39,7 @@ import {
 //     unconfigured → page still builds/renders statically.
 //   - Portfolio examples fill both the slider (up to 5 slides)
 //     and the examples grid (all items).
-//   - service-options media fills the style-card covers by title.
+//   - service-options media fills style-card covers and galleries by title.
 // ============================================================
 
 export const metadata: Metadata = {
@@ -205,7 +205,7 @@ export default async function VirtualStagingPage() {
   ]);
   const sliderSlides = await buildSliderSlides(allItems);
   const hasItems = allItems.length > 0;
-  const styleCoverOverrides: StyleGalleryCoverOverride[] = optionImages
+  const styleImageOverrides: StyleGalleryImageOverride[] = optionImages
     .filter((item) => item.title && item.image_path)
     .map((item) => {
       const src = getSiteMediaPublicUrl(item.image_path);
@@ -219,7 +219,7 @@ export default async function VirtualStagingPage() {
           `Virtual staging ${item.sort_order} style example`,
       };
     })
-    .filter((item): item is StyleGalleryCoverOverride => item !== null);
+    .filter((item): item is StyleGalleryImageOverride => item !== null);
 
   return (
     <>
@@ -463,7 +463,7 @@ export default async function VirtualStagingPage() {
             title="Choose the right look for your buyer"
             description="Pick a single style per image — or let us match a reference. We tailor the furniture, materials and palette to fit the chosen direction. Tap a card to browse multiple examples per style."
           />
-          <StyleGallerySection coverOverrides={styleCoverOverrides} />
+          <StyleGallerySection imageOverrides={styleImageOverrides} />
         </Wide>
       </section>
 
