@@ -118,7 +118,7 @@ export default function ImageLightbox({
           onClose();
         }}
         aria-label="Close gallery"
-        className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
       >
         <X className="w-5 h-5" />
       </button>
@@ -132,7 +132,7 @@ export default function ImageLightbox({
             goPrev();
           }}
           aria-label="Previous image"
-          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          className="absolute left-2 sm:left-6 top-1/2 z-20 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -147,7 +147,7 @@ export default function ImageLightbox({
             goNext();
           }}
           aria-label="Next image"
-          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          className="absolute right-2 sm:right-6 top-1/2 z-20 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
         >
           <ChevronRight className="w-6 h-6" />
         </button>

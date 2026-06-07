@@ -10,6 +10,7 @@ interface StyleGalleryCardProps {
     src: string;
     alt: string;
   };
+  exampleCount?: number;
   /** Called with the entry id and the image index the user clicked on. */
   onOpen: (id: string, imageIndex: number) => void;
 }
@@ -33,11 +34,12 @@ interface StyleGalleryCardProps {
 export default function StyleGalleryCard({
   entry,
   coverOverride,
+  exampleCount,
   onOpen,
 }: StyleGalleryCardProps) {
   const [coverFailed, setCoverFailed] = useState(false);
   const cover = coverOverride ?? entry.images[0];
-  const totalImages = entry.images.length;
+  const totalImages = exampleCount ?? entry.images.length;
 
   return (
     <button
