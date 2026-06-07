@@ -6,14 +6,12 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   Loader2,
-  LogOut,
   Pencil,
   Plus,
   Star,
   Trash2,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import {
   PORTFOLIO_BUCKET,
   PORTFOLIO_SERVICES,
@@ -116,20 +114,6 @@ export default function PortfolioAdminClient({
     setTopNotice(null);
   }
 
-  async function onLogout() {
-    try {
-      await fetch("/api/admin/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-    } catch {
-      // Even if the request fails the cookie is short-lived; we
-      // still navigate away so the admin can re-auth.
-    }
-    router.replace("/admin/login");
-    router.refresh();
-  }
-
   async function onDelete(item: AdminItemView) {
     if (busy) return;
     const ok = window.confirm(
@@ -163,39 +147,7 @@ export default function PortfolioAdminClient({
   }
 
   return (
-    <section className="bg-surface min-h-[calc(100vh-4rem)] py-10 lg:py-14">
-      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10">
-        {/* Header strip */}
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
-              PicchuSpot Admin
-            </p>
-            <h1 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight">
-              Portfolio
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              Upload before / after pairs and decide which ones the public
-              site shows.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
-            <Link
-              href="/admin/orders"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              Orders
-            </Link>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <LogOut className="w-4 h-4" aria-hidden />
-              Sign out
-            </button>
-          </div>
-        </header>
+    <div>
 
         {!supabaseConfigured && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm leading-relaxed flex items-start gap-3">
@@ -309,8 +261,7 @@ export default function PortfolioAdminClient({
             </ul>
           )}
         </div>
-      </div>
-    </section>
+    </div>
   );
 }
 

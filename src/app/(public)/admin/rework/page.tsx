@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
-import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 import AdminReworkList from "@/components/admin/AdminReworkList";
 
 export const dynamic  = "force-dynamic";
@@ -101,33 +99,7 @@ export default async function AdminReworkPage() {
   }
 
   return (
-    <section className="bg-surface min-h-screen py-10 lg:py-14">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-10">
-
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
-              PicchuSpot Admin
-            </p>
-            <h1 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight">
-              Rework Queue
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              Active rework requests from clients
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/admin/orders"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" aria-hidden />
-              Orders
-            </Link>
-            <AdminLogoutButton />
-          </div>
-        </header>
-
+    <div>
         {!configured && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-sm">
             Supabase is not configured.
@@ -154,7 +126,6 @@ export default async function AdminReworkPage() {
         ) : (
           <AdminReworkList initialRows={rows} />
         )}
-      </div>
-    </section>
+    </div>
   );
 }

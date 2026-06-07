@@ -19,8 +19,6 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  LogOut,
-  ArrowLeft,
   RefreshCw,
   ArrowUpDown,
   Info,
@@ -114,19 +112,6 @@ export default function AdminOrdersClient({
     router.refresh();
   }
 
-  async function handleLogout() {
-    try {
-      await fetch("/api/admin/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-    } catch {
-      // short-lived cookie; navigate regardless
-    }
-    router.replace("/admin/login");
-    router.refresh();
-  }
-
   function handleRefresh() {
     setRefreshing(true);
     router.refresh();
@@ -135,53 +120,9 @@ export default function AdminOrdersClient({
   }
 
   return (
-    <section className="bg-surface min-h-[calc(100vh-4rem)] py-10 lg:py-14">
-      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10">
+    <div>
 
         {/* ── Header ── */}
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
-              PicchuSpot Admin
-            </p>
-            <h1 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight">
-              Orders
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              View all orders and update their status.
-              Client dashboard reflects changes immediately.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/admin/portfolio"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" aria-hidden />
-              Portfolio
-            </Link>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-60"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-                aria-hidden
-              />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <LogOut className="w-4 h-4" aria-hidden />
-              Sign out
-            </button>
-          </div>
-        </header>
 
         {/* ── Supabase not-configured banner ── */}
         {!supabaseConfigured && (
@@ -237,6 +178,18 @@ export default function AdminOrdersClient({
             >
               <ArrowUpDown className="w-3.5 h-3.5" aria-hidden />
               {sortNewest ? "Newest first" : "Oldest first"}
+            </button>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-white text-sm font-semibold text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`}
+                aria-hidden
+              />
+              Refresh
             </button>
           </div>
           <p className="text-xs text-muted">
@@ -300,8 +253,7 @@ export default function AdminOrdersClient({
           )}
         </div>
 
-      </div>
-    </section>
+    </div>
   );
 }
 

@@ -9,7 +9,7 @@ import { Loader2, Lock } from "lucide-react";
 //
 // Posts JSON to /api/admin/login. On success the API sets the
 // HMAC-signed session cookie and we router.replace() to the
-// portfolio admin so the back button doesn't return to login.
+// admin workspace so the back button doesn't return to login.
 //
 // The component never reads the password back — we use an
 // uncontrolled <input> so React DevTools / leaked memory dumps
@@ -47,8 +47,8 @@ export default function LoginForm() {
         // Wipe the field before navigating so the password isn't
         // sitting in the form state if the user hits back.
         if (passwordEl) passwordEl.value = "";
-        router.replace("/admin/portfolio");
-        // refresh forces the next /admin/portfolio render to use
+        router.replace("/admin");
+        // refresh forces the next /admin render to use
         // the freshly-set session cookie.
         router.refresh();
         return;

@@ -7,7 +7,7 @@ import LoginForm from "./LoginForm";
 // /admin/login
 //
 // Server component. If the visitor already has a valid admin
-// session cookie, redirect straight to the portfolio admin.
+// session cookie, redirect straight to the admin workspace.
 // Otherwise render the password form (client component).
 //
 // `force-dynamic` so the cookie check actually runs per request
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 export default async function AdminLoginPage() {
   if (await isAdminAuthenticated()) {
-    redirect("/admin/portfolio");
+    redirect("/admin");
   }
 
   const configured = isAdminConfigured();

@@ -29,7 +29,6 @@ import AdminDeliverableUpload, {
 import AdminOrderImageCard, {
   type AdminReworkReferenceFile,
 } from "@/components/admin/AdminOrderImageCard";
-import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 import { formatDateTime } from "@/lib/display/file-format";
 import { getServiceLabel } from "@/lib/display/service-labels";
@@ -348,23 +347,19 @@ export default async function AdminOrderDetailPage({
   // ── Render ────────────────────────────────────────────────
 
   return (
-    <section className="bg-surface min-h-screen py-10 lg:py-14">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+    <div>
         {/* ── Page header ── */}
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
-              PicchuSpot Admin
-            </p>
-            <h1 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight">
-              Order detail
-            </h1>
-            {order && (
-              <p className="mt-1 text-sm text-muted font-mono">
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          {order ? (
+            <p className="text-sm text-muted">
+              Order{" "}
+              <span className="font-mono font-semibold text-primary">
                 {order.order_number}
-              </p>
-            )}
-          </div>
+              </span>
+            </p>
+          ) : (
+            <p className="text-sm text-muted">Order lookup</p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/admin/rework"
@@ -380,9 +375,8 @@ export default async function AdminOrderDetailPage({
               <ArrowLeft className="w-4 h-4" aria-hidden />
               Back to orders
             </Link>
-            <AdminLogoutButton />
           </div>
-        </header>
+        </div>
 
         {/* ── Config / error banners ── */}
         {!supabaseConfigured && (
@@ -702,7 +696,6 @@ export default async function AdminOrderDetailPage({
             </section>
           </div>
         )}
-      </div>
-    </section>
+    </div>
   );
 }
