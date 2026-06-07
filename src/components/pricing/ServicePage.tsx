@@ -290,7 +290,7 @@ export default async function ServicePage({
 
           {/* Portfolio examples grid — client component with lightbox */}
           {portfolioCards.length > 0 ? (
-            <PortfolioExamplesGrid cards={portfolioCards} />
+            <PortfolioExamplesGrid cards={portfolioCards} imageFit="cover" />
           ) : (
             <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
               <BeforeAfterFrame
