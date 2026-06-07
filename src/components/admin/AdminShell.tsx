@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   Briefcase,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Menu,
   PictureInPicture2,
   RotateCcw,
+  X,
 } from "lucide-react";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 
@@ -70,6 +72,11 @@ export default function AdminShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileMenu, setMobileMenu] = useState({
+    open: false,
+    pathname,
+  });
+  const mobileOpen = mobileMenu.open && mobileMenu.pathname === pathname;
 
   if (pathname === "/admin/login") {
     return <>{children}</>;
@@ -129,16 +136,37 @@ export default function AdminShell({
               <AdminLogoutButton />
             </div>
 
-            <details className="group relative lg:hidden">
-              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-bold text-primary shadow-sm [&::-webkit-details-marker]:hidden">
-                <Menu className="h-4 w-4" aria-hidden />
+            <div className="relative lg:hidden">
+              <button
+                type="button"
+                onClick={() =>
+                  setMobileMenu({
+                    open: !mobileOpen,
+                    pathname,
+                  })
+                }
+                aria-expanded={mobileOpen}
+                aria-controls="admin-mobile-menu"
+                className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm font-bold text-primary shadow-sm"
+              >
+                {mobileOpen ? (
+                  <X className="h-4 w-4" aria-hidden />
+                ) : (
+                  <Menu className="h-4 w-4" aria-hidden />
+                )}
                 Menu
                 <ChevronDown
-                  className="h-4 w-4 transition-transform group-open:rotate-180"
+                  className={`h-4 w-4 transition-transform ${
+                    mobileOpen ? "rotate-180" : ""
+                  }`}
                   aria-hidden
                 />
-              </summary>
-              <div className="absolute right-0 mt-3 w-[min(88vw,340px)] rounded-2xl border border-border bg-white p-3 shadow-xl">
+              </button>
+              {mobileOpen && (
+              <div
+                id="admin-mobile-menu"
+                className="absolute right-0 mt-3 w-[min(88vw,340px)] rounded-2xl border border-border bg-white p-3 shadow-xl"
+              >
                 <div className="space-y-1">
                   {adminNav.map((item) => {
                     const active = activeFor(pathname, item.href);
@@ -146,6 +174,9 @@ export default function AdminShell({
                       <Link
                         key={item.href}
                         href={item.href}
+                        onClick={() =>
+                          setMobileMenu({ open: false, pathname })
+                        }
                         aria-current={active ? "page" : undefined}
                         className={`flex items-start gap-3 rounded-xl px-3 py-3 transition-colors ${
                           active
@@ -179,7 +210,8 @@ export default function AdminShell({
                   <AdminLogoutButton className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-60" />
                 </div>
               </div>
-            </details>
+              )}
+            </div>
           </div>
         </div>
       </header>
