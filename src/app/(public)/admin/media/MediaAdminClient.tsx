@@ -991,7 +991,9 @@ function MediaEditor({
             <p className="mt-1 text-[11px] text-muted-light">
               For Virtual Staging style cards use: virtual-staging. If this
               matches a portfolio service slug, the matching pricing page will
-              revalidate on save.
+              revalidate on save. For 360 Virtual Staging hero use:
+              360-virtual-staging with Section Service hero, Media type
+              Panorama 360, and upload a 2:1 equirectangular panorama image.
             </p>
           </Field>
 
