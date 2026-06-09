@@ -76,7 +76,7 @@ export const SITE_MEDIA_SECTION_META: SiteMediaSectionMeta[] = [
     section: "service-hero",
     label: "Service hero",
     description:
-      "Before/after hero slider media for individual service pages (e.g. floor-plans, virtual-staging).",
+      "Hero media for service pages: before/after sliders or 360 panorama viewers. For 360 Virtual Staging use Panorama 360 with service_slug=360-virtual-staging.",
     defaultMediaType: "before-after",
   },
   {
@@ -369,6 +369,51 @@ export async function getServiceHeroSliderItems(
   if (error) {
     console.warn(
       `site-media: getServiceHeroSliderItems(${serviceSlug}) failed`,
+      error
+    );
+    return [];
+  }
+  return (data ?? []) as SiteMediaItem[];
+}
+
+/**
+ * Service-hero 360 panorama items for a specific service page.
+ *
+ * Reads from site_media_items where:
+ *   section      = "service-hero"
+ *   service_slug = <provided slug>
+ *   media_type   = "panorama-360"
+ *   published    = true
+ *
+ * Ordered by sort_order then created_at so the first row is the
+ * hero panorama. Returns [] when Supabase is unconfigured so
+ * service pages can render a polished fallback.
+ */
+export async function getServiceHeroPanoramaItems(
+  serviceSlug: string
+): Promise<SiteMediaItem[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("site_media_items")
+    .select("*")
+    .eq("section", "service-hero")
+    .eq("service_slug", serviceSlug)
+    .eq("media_type", "panorama-360")
+    .eq("published", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn(
+      `site-media: getServiceHeroPanoramaItems(${serviceSlug}) failed`,
       error
     );
     return [];

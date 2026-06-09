@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Wide from "@/components/pricing/Wide";
@@ -106,6 +107,9 @@ export interface ServicePageProps {
   // Section H — final CTA
   ctaTitle: string;
   ctaSubtitle: string;
+
+  // Optional custom hero visual. Defaults to the standard before/after slider.
+  heroContent?: ReactNode;
 }
 
 // ── Slider data helper ────────────────────────────────────────
@@ -160,9 +164,14 @@ export default async function ServicePage({
   faqItems,
   ctaTitle,
   ctaSubtitle,
+  heroContent,
 }: ServicePageProps) {
+  const slidesPromise = heroContent
+    ? Promise.resolve<ServicePageSlide[] | null>(null)
+    : buildSlides(serviceSlug, placeholderVariant);
+
   const [sliderSlides, allItems] = await Promise.all([
-    buildSlides(serviceSlug, placeholderVariant),
+    slidesPromise,
     getPublishedItemsForService(serviceSlug),
   ]);
 
@@ -181,10 +190,12 @@ export default async function ServicePage({
       {/* ── A. HERO SLIDER — white ── */}
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
-          <ServicePageSlider
-            slides={sliderSlides}
-            ariaLabel={`${title} before and after examples`}
-          />
+          {heroContent ?? (
+            <ServicePageSlider
+              slides={sliderSlides ?? []}
+              ariaLabel={`${title} before and after examples`}
+            />
+          )}
         </div>
       </section>
 
