@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Compass, Globe, Home, Sparkles } from "lucide-react";
 import PanoramaHeroViewer from "@/components/pricing/PanoramaHeroViewer";
+import SyncedPanoramaCompareViewer from "@/components/pricing/SyncedPanoramaCompareViewer";
 import ServicePage from "@/components/pricing/ServicePage";
 import {
+  getServiceHeroBeforeAfterItem,
   getServiceHeroPanoramaItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
@@ -14,11 +16,48 @@ export const metadata: Metadata = {
 };
 
 export default async function ThreeSixtyVirtualStagingPricingPage() {
-  const heroPanoramas = await getServiceHeroPanoramaItems("360-virtual-staging");
+  const [heroBeforeAfter, heroPanoramas] = await Promise.all([
+    getServiceHeroBeforeAfterItem("360-virtual-staging"),
+    getServiceHeroPanoramaItems("360-virtual-staging"),
+  ]);
+  const beforePanoramaUrl = getSiteMediaPublicUrl(
+    heroBeforeAfter?.before_image_path
+  );
+  const afterPanoramaUrl = getSiteMediaPublicUrl(
+    heroBeforeAfter?.after_image_path
+  );
   const heroPanorama = heroPanoramas.find((item) => item.panorama_image_path);
   const heroPanoramaUrl = getSiteMediaPublicUrl(
     heroPanorama?.panorama_image_path
   );
+  const heroContent =
+    beforePanoramaUrl && afterPanoramaUrl ? (
+      <SyncedPanoramaCompareViewer
+        beforeImageUrl={beforePanoramaUrl}
+        afterImageUrl={afterPanoramaUrl}
+        beforeTitle={
+          heroBeforeAfter?.alt_text ??
+          heroBeforeAfter?.title ??
+          "Before 360 virtual staging panorama"
+        }
+        afterTitle={
+          heroBeforeAfter?.alt_text ??
+          heroBeforeAfter?.title ??
+          "After 360 virtual staging panorama"
+        }
+        fallbackLabel="360 Virtual Staging before and after hero placeholder"
+      />
+    ) : (
+      <PanoramaHeroViewer
+        imageUrl={heroPanoramaUrl}
+        title={
+          heroPanorama?.alt_text ??
+          heroPanorama?.title ??
+          "Interactive 360 virtual staging panorama"
+        }
+        fallbackLabel="360 Virtual Staging hero placeholder"
+      />
+    );
 
   return (
     <ServicePage
@@ -30,17 +69,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
       priceLine="Request a quote"
       orderHref="/order/photo-editing"
       orderLabel="Order Online"
-      heroContent={
-        <PanoramaHeroViewer
-          imageUrl={heroPanoramaUrl}
-          title={
-            heroPanorama?.alt_text ??
-            heroPanorama?.title ??
-            "Interactive 360 virtual staging panorama"
-          }
-          fallbackLabel="360 Virtual Staging hero placeholder"
-        />
-      }
+      heroContent={heroContent}
       whenToUseTitle="When to use 360° Virtual Staging"
       whenToUseDescription="Use 360° Virtual Staging when an empty panorama needs to feel furnished, styled, and tour-ready before buyers explore the room."
       useCases={[
