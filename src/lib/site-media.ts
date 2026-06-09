@@ -76,7 +76,7 @@ export const SITE_MEDIA_SECTION_META: SiteMediaSectionMeta[] = [
     section: "service-hero",
     label: "Service hero",
     description:
-      "Hero media for service pages: before/after sliders or 360 panorama viewers. For 360 Virtual Staging use Panorama 360 with service_slug=360-virtual-staging.",
+      "Hero media for service pages: before/after sliders or 360 panorama viewers. For synchronized 360 before/after hero use Section Service hero, Media type Before / after, Service slug 360-virtual-staging, and upload two matching 2:1 equirectangular panorama images.",
     defaultMediaType: "before-after",
   },
   {
@@ -374,6 +374,49 @@ export async function getServiceHeroSliderItems(
     return [];
   }
   return (data ?? []) as SiteMediaItem[];
+}
+
+/**
+ * First service-hero before/after pair for a service page.
+ *
+ * Used by the synchronized 360 comparison hero where both image
+ * slots must be real equirectangular panoramas. The query filters
+ * out incomplete rows before sorting so the "first" item is the
+ * first usable published pair by sort_order then created_at.
+ */
+export async function getServiceHeroBeforeAfterItem(
+  serviceSlug: string
+): Promise<SiteMediaItem | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("site_media_items")
+    .select("*")
+    .eq("section", "service-hero")
+    .eq("service_slug", serviceSlug)
+    .eq("media_type", "before-after")
+    .eq("published", true)
+    .not("before_image_path", "is", null)
+    .not("after_image_path", "is", null)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (error) {
+    console.warn(
+      `site-media: getServiceHeroBeforeAfterItem(${serviceSlug}) failed`,
+      error
+    );
+    return null;
+  }
+  return ((data ?? []) as SiteMediaItem[])[0] ?? null;
 }
 
 /**
