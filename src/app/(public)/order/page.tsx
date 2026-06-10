@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Container from "@/components/layout/Container";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { regionalPrice, type RegionalPrice } from "@/lib/currency";
 import { ImagePlus, Paintbrush, LayoutGrid, SlidersHorizontal } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -16,7 +18,7 @@ const services = [
     title: "Virtual Staging",
     description:
       "Furnish empty rooms with realistic furniture and decor. Choose from 9 styles.",
-    price: "From US$19.00 / image",
+    price: regionalPrice("From $19.00 / image", "From €19.00 / image"),
   },
   {
     href: "/order/virtual-renovation",
@@ -24,7 +26,7 @@ const services = [
     title: "Virtual Renovation",
     description:
       "Digitally renovate kitchens, bathrooms, exteriors, and more. Option-based pricing.",
-    price: "From US$3.00 / option",
+    price: regionalPrice("From $3.00 / option", "From €3.00 / option"),
   },
   {
     href: "/order/3d-floor-plans",
@@ -32,7 +34,7 @@ const services = [
     title: "2D / 3D Floor Plans",
     description:
       "Professional floor plans from your sketches, photos, or existing plans.",
-    price: "From US$16.00 / floor",
+    price: regionalPrice("From $16.00 / floor", "From €16.00 / floor"),
   },
   {
     href: "/order/photo-editing",
@@ -40,9 +42,13 @@ const services = [
     title: "Real Estate Photo Editing",
     description:
       "Image enhancement, day to dusk, item removal, sky replacement, and more.",
-    price: "From US$1.00 / option",
+    price: regionalPrice("From $1.00 / option", "From €1.00 / option"),
   },
 ];
+
+function OrderServicePrice({ price }: { price: RegionalPrice }) {
+  return <RegionalPriceText price={price} />;
+}
 
 export default function OrderPage() {
   return (
@@ -79,7 +85,7 @@ export default function OrderPage() {
                   {service.description}
                 </p>
                 <span className="text-sm font-medium text-primary">
-                  {service.price}
+                  <OrderServicePrice price={service.price} />
                 </span>
               </Link>
             );

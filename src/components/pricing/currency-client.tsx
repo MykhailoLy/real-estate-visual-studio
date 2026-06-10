@@ -13,6 +13,7 @@ import {
   currencyForRegion,
   isCurrencyCode,
   isRegionCode,
+  formatRegionalCents,
   resolveRegionalPrice,
   type RegionCode,
   type RegionalPrice,
@@ -384,4 +385,22 @@ export function RegionalPriceText({
   );
 
   return <span className={className}>{text}</span>;
+}
+
+export function useRegionalCentsFormatter() {
+  const [region] = useDisplayRegion();
+  return (cents: number) => formatRegionalCents(cents, currencyForRegion(region));
+}
+
+export function RegionalCentsText({
+  cents,
+  className,
+}: {
+  cents: number;
+  className?: string;
+}) {
+  // Display-only: order totals still use the existing internal cents values.
+  const formatCents = useRegionalCentsFormatter();
+
+  return <span className={className}>{formatCents(cents)}</span>;
 }

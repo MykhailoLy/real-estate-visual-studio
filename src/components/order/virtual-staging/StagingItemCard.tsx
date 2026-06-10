@@ -7,7 +7,7 @@ import StyleSelector from "@/components/order/virtual-staging/StyleSelector";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import { formatUSD } from "@/lib/utils";
+import { RegionalCentsText } from "@/components/pricing/currency-client";
 import { calculateStagingItemTotal } from "@/lib/pricing";
 import {
   STAGING_ROOM_OPTIONS,
@@ -220,7 +220,7 @@ export default function StagingItemCard({
                   <span className="text-sm text-foreground">{addon.label}</span>
                 </div>
                 <span className="text-sm font-medium text-muted">
-                  +{formatUSD(addon.price)}
+                  +<RegionalCentsText cents={addon.price} />
                 </span>
               </label>
             ))}

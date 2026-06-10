@@ -17,9 +17,11 @@ import StagingItemCard, {
   type StagingItemData,
   emptyStagingItem,
 } from "@/components/order/virtual-staging/StagingItemCard";
+import { RegionalCentsText } from "@/components/pricing/currency-client";
 import { calculateStagingItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
+import { STAGING_BASE_PRICE } from "@/data/order-options";
 
 export default function VirtualStagingOrderPage() {
   const [items, setItems] = useState<StagingItemData[]>([emptyStagingItem()]);
@@ -123,7 +125,13 @@ export default function VirtualStagingOrderPage() {
   return (
     <OrderLayout
       title="Virtual Staging"
-      subtitle="Upload your empty room photos and choose a furniture style. US$19.00 per image + optional add-ons."
+      subtitle={
+        <>
+          Upload your empty room photos and choose a furniture style.{" "}
+          <RegionalCentsText cents={STAGING_BASE_PRICE} /> per image + optional
+          add-ons.
+        </>
+      }
       sidebar={
         <OrderSummary
           serviceName="Virtual Staging"

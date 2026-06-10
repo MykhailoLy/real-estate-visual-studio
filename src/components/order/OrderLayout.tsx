@@ -4,7 +4,7 @@ import Container from "@/components/layout/Container";
 
 interface OrderLayoutProps {
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
   children: React.ReactNode;
   sidebar: React.ReactNode;
 }
