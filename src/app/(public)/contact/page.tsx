@@ -9,11 +9,17 @@ import {
   MapPin,
 } from "lucide-react";
 import Container from "@/components/layout/Container";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Contact PicchuSpot",
   description:
     "Contact PicchuSpot for real estate visual service quotes, existing order support, and custom or local media requests.",
+  alternates: localizedAlternates({
+    canonicalPath: "/contact",
+    englishPath: "/contact",
+    spanishPath: "/es/contact",
+  }),
 };
 
 const contactEmail = "hello@picchuspot.com";

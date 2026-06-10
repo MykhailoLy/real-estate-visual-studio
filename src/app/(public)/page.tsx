@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import BeforeAfterShowcase, {
@@ -16,6 +17,18 @@ import {
   getHomepageSliderItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
+import { localizedAlternates } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: "PicchuSpot - Real Estate Visuals",
+  description:
+    "Property visuals that make listings stand out. Virtual staging, virtual renovation, floor plans, photo editing, and local real estate media.",
+  alternates: localizedAlternates({
+    canonicalPath: "/",
+    englishPath: "/",
+    spanishPath: "/es",
+  }),
+};
 
 // ============================================================
 // HOME / REMOTE DIGITAL SERVICES

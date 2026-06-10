@@ -5,12 +5,18 @@ import SectionHeader from "@/components/sections/SectionHeader";
 import CtaSection from "@/components/sections/CtaSection";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice, type RegionalPrice } from "@/lib/currency";
+import { localizedAlternates } from "@/lib/seo";
 import { Check } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
     "Clear per-image pricing for virtual staging, photo editing & floor plans. No subscriptions, no hidden fees. See exactly what you pay.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing",
+    englishPath: "/pricing",
+    spanishPath: "/es/pricing",
+  }),
 };
 
 /* ============================================================

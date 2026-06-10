@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
+import {
+  absoluteUrl,
+  localizedLanguages,
+  type EnglishLocalizedPath,
+  type SpanishLocalizedPath,
+} from "@/lib/seo";
 
 type SpanishMetadataInput = {
   title: string;
   description: string;
-  path: "/es" | "/es/services" | "/es/pricing" | "/es/contact";
-  englishPath: "/" | "/services" | "/pricing" | "/contact";
+  path: SpanishLocalizedPath;
+  englishPath: EnglishLocalizedPath;
 };
 
 export function spanishMetadata({
@@ -17,18 +23,13 @@ export function spanishMetadata({
     title,
     description,
     alternates: {
-      canonical: path,
-      languages: {
-        en: englishPath,
-        "en-US": englishPath,
-        es: path,
-        "es-ES": path,
-      },
+      canonical: absoluteUrl(path),
+      languages: localizedLanguages(englishPath, path),
     },
     openGraph: {
       title,
       description,
-      url: path,
+      url: absoluteUrl(path),
       locale: "es_ES",
       alternateLocale: ["en_US"],
     },
