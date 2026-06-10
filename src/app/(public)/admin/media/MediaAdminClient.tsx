@@ -993,8 +993,8 @@ function MediaEditor({
               matches a portfolio service slug, the matching pricing page will
               revalidate on save. For synchronized 360 before/after hero use:
               Section Service hero, Media type Before / after, Service slug
-              360-virtual-staging. Upload two matching 2:1 equirectangular
-              panorama images.
+              360-virtual-staging or 360-image-enhancement. Upload two matching
+              2:1 equirectangular panorama images.
             </p>
           </Field>
 

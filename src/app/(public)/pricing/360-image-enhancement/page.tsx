@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { Compass, SlidersHorizontal, ImageIcon, Globe } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import SyncedPanoramaCompareViewer from "@/components/pricing/SyncedPanoramaCompareViewer";
+import {
+  getServiceHeroBeforeAfterItem,
+  getSiteMediaPublicUrl,
+} from "@/lib/site-media";
 
 export const metadata: Metadata = {
   title: "360° Image Enhancement",
@@ -8,7 +13,35 @@ export const metadata: Metadata = {
     "Enhance equirectangular panoramas for cleaner virtual tours. Balanced color, exposure, and stitch cleanup. Quote-based.",
 };
 
-export default function ThreeSixtyImageEnhancementPricingPage() {
+export default async function ThreeSixtyImageEnhancementPricingPage() {
+  const heroBeforeAfter = await getServiceHeroBeforeAfterItem(
+    "360-image-enhancement"
+  );
+  const beforePanoramaUrl = getSiteMediaPublicUrl(
+    heroBeforeAfter?.before_image_path
+  );
+  const afterPanoramaUrl = getSiteMediaPublicUrl(
+    heroBeforeAfter?.after_image_path
+  );
+  const heroContent =
+    beforePanoramaUrl && afterPanoramaUrl ? (
+      <SyncedPanoramaCompareViewer
+        beforeImageUrl={beforePanoramaUrl}
+        afterImageUrl={afterPanoramaUrl}
+        beforeTitle={
+          heroBeforeAfter?.alt_text ??
+          heroBeforeAfter?.title ??
+          "Before 360 image enhancement panorama"
+        }
+        afterTitle={
+          heroBeforeAfter?.alt_text ??
+          heroBeforeAfter?.title ??
+          "After enhanced 360 image enhancement panorama"
+        }
+        fallbackLabel="360 Image Enhancement before and after hero placeholder"
+      />
+    ) : undefined;
+
   return (
     <ServicePage
       serviceSlug="360-image-enhancement"
@@ -18,6 +51,7 @@ export default function ThreeSixtyImageEnhancementPricingPage() {
       description="Improve 360° property images with cleaner color, exposure, and presentation quality for virtual tours and interactive listing media."
       priceLine="Request a quote"
       orderHref="/order/photo-editing"
+      heroContent={heroContent}
       orderLabel="Order 360° Enhancement"
       whenToUseTitle="When to use 360° Image Enhancement"
       whenToUseDescription="360° enhancement is the essential step before publishing any virtual tour — making every direction in the panorama look polished and listing-ready."
