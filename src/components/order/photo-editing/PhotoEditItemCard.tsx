@@ -6,7 +6,7 @@ import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import { formatUSD } from "@/lib/utils";
+import { RegionalCentsText } from "@/components/pricing/currency-client";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { PHOTO_EDIT_OPTIONS, PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 
@@ -108,7 +108,7 @@ export default function PhotoEditItemCard({
                   <span className="text-sm text-foreground">{opt.label}</span>
                 </div>
                 <span className="text-sm font-medium text-muted flex-shrink-0 ml-2">
-                  {formatUSD(opt.price)}
+                  <RegionalCentsText cents={opt.price} />
                 </span>
               </label>
             ))}

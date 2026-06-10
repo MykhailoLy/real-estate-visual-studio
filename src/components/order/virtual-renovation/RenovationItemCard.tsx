@@ -6,7 +6,7 @@ import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import { formatUSD } from "@/lib/utils";
+import { RegionalCentsText } from "@/components/pricing/currency-client";
 import { calculateRenovationItemTotal } from "@/lib/pricing";
 import {
   RENOVATION_INTERNAL_OPTIONS,
@@ -127,7 +127,7 @@ export default function RenovationItemCard({
                   <span className="text-sm text-foreground">{opt.label}</span>
                 </div>
                 <span className="text-xs font-medium text-muted flex-shrink-0 ml-2">
-                  {formatUSD(opt.price)}
+                  <RegionalCentsText cents={opt.price} />
                 </span>
               </label>
             ))}
@@ -155,7 +155,7 @@ export default function RenovationItemCard({
                   <span className="text-sm text-foreground">{opt.label}</span>
                 </div>
                 <span className="text-xs font-medium text-muted flex-shrink-0 ml-2">
-                  {formatUSD(opt.price)}
+                  <RegionalCentsText cents={opt.price} />
                 </span>
               </label>
             ))}

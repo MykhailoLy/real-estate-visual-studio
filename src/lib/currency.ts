@@ -82,3 +82,13 @@ export function resolveRegionalPrice(
   if (currency === "EUR") return price.eur;
   return price.usd;
 }
+
+export function formatRegionalCents(
+  cents: number,
+  currency: CurrencyCode
+): string {
+  const amount = (cents / 100).toFixed(2);
+  if (currency === "CAD") return `C$${amount}`;
+  if (currency === "EUR") return `€${amount}`;
+  return `$${amount}`;
+}

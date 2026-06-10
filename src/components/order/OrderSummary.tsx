@@ -1,6 +1,6 @@
 "use client";
 
-import { formatUSD } from "@/lib/utils";
+import { RegionalCentsText } from "@/components/pricing/currency-client";
 
 export interface SummaryItem {
   label: string;
@@ -47,7 +47,7 @@ export default function OrderSummary({
               <div key={i} className="flex justify-between text-xs">
                 <span className="text-muted truncate mr-2">{item.label}</span>
                 <span className="text-foreground font-medium flex-shrink-0">
-                  {formatUSD(item.subtotal)}
+                  <RegionalCentsText cents={item.subtotal} />
                 </span>
               </div>
             ))}
@@ -61,9 +61,12 @@ export default function OrderSummary({
               Estimated Total
             </span>
             <span className="font-bold text-lg text-primary">
-              {formatUSD(orderTotal)}
+              <RegionalCentsText cents={orderTotal} />
             </span>
           </div>
+          <p className="mt-1 text-[11px] text-muted">
+            Prices shown for selected region.
+          </p>
         </div>
       </div>
 
