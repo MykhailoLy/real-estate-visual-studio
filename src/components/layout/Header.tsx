@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
+import { RegionCurrencySelector } from "@/components/pricing/currency-client";
 import { cn } from "@/lib/utils";
 import {
   getTopLevelForPath,
@@ -94,6 +95,7 @@ export default function Header() {
 
           {/* Right-side CTAs (desktop) */}
           <div className="hidden lg:flex items-center gap-2 ml-auto">
+            <RegionCurrencySelector compact className="mr-1" />
             {headerCtaLinks.map((link) => (
               <Link
                 key={link.href}
@@ -267,6 +269,9 @@ function MobileDrawer({
 
         {/* Separator */}
         <div className="border-t border-border pt-3 space-y-1">
+          <div className="px-3 py-3">
+            <RegionCurrencySelector className="w-full justify-between" />
+          </div>
           {headerCtaLinks.map((link) => (
             <Link
               key={link.href}

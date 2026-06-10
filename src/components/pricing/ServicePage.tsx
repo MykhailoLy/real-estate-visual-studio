@@ -54,7 +54,7 @@ export interface UseCase {
 
 export interface PricingCard {
   label: string;
-  price: string;
+  price: ReactNode;
   unit?: string;
   note: string;
   isBase?: boolean;
@@ -75,7 +75,7 @@ export interface ServicePageProps {
   eyebrow: string;
   title: string;
   description: string;
-  priceLine: string;
+  priceLine: ReactNode;
   orderHref: string;
   orderLabel: string;
 

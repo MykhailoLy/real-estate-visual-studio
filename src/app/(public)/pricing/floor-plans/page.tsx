@@ -12,6 +12,7 @@ import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
 import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
@@ -22,6 +23,7 @@ import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
+import { regionalPrice } from "@/lib/currency";
 import {
   PortfolioExamplesGrid,
   StyleOptionsGrid,
@@ -180,21 +182,21 @@ const FALLBACK_STYLE_OPTIONS: StyleOptionCard[] = [
 const PRICING_CARDS = [
   {
     label: "2D Floor Plan Redraw",
-    price: "From US$16",
+    price: regionalPrice("From $16", "From €16"),
     unit: "per floor",
     note: "Black & white or full colour, per storey.",
     isBase: true,
   },
   {
     label: "3D Floor Plan",
-    price: "From US$39",
+    price: regionalPrice("From $39", "From €39"),
     unit: "per floor",
     note: "Stylised 3D top-down with furniture and finishes.",
     isBase: false,
   },
   {
     label: "2D + 3D Bundle",
-    price: "From US$49",
+    price: regionalPrice("From $49", "From €49"),
     unit: "per floor",
     note: "Both 2D colour and 3D plans together — best value.",
     isBase: false,
@@ -404,7 +406,9 @@ export default async function FloorPlansPage() {
                 presentations.
               </p>
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
-                From US$16 / floor
+                <RegionalPriceText
+                  price={regionalPrice("From $16 / floor", "From €16 / floor")}
+                />
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
@@ -559,7 +563,11 @@ export default async function FloorPlansPage() {
                       card.isBase ? "text-white" : "text-primary"
                     }`}
                   >
-                    {card.price}
+                    {typeof card.price === "string" ? (
+                      card.price
+                    ) : (
+                      <RegionalPriceText price={card.price} />
+                    )}
                   </p>
                   {card.unit && (
                     <p
