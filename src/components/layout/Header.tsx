@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, Globe2 } from "lucide-react";
 import { RegionCurrencySelector } from "@/components/pricing/currency-client";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +40,40 @@ import {
 // ============================================================
 
 const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-10";
+
+type SiteLanguage = "en" | "es";
+
+const ENGLISH_TO_SPANISH_ROUTES: Record<string, string> = {
+  "/": "/es",
+  "/services": "/es/services",
+  "/pricing": "/es/pricing",
+  "/contact": "/es/contact",
+};
+
+const SPANISH_TO_ENGLISH_ROUTES: Record<string, string> = {
+  "/es": "/",
+  "/es/services": "/services",
+  "/es/pricing": "/pricing",
+  "/es/contact": "/contact",
+};
+
+function normalizeLanguagePath(pathname: string): string {
+  const normalized = pathname.replace(/\/+$/, "");
+  return normalized || "/";
+}
+
+function getCurrentLanguage(pathname: string): SiteLanguage {
+  const normalized = normalizeLanguagePath(pathname);
+  return normalized === "/es" || normalized.startsWith("/es/") ? "es" : "en";
+}
+
+function getLanguageHref(pathname: string, language: SiteLanguage): string {
+  const normalized = normalizeLanguagePath(pathname);
+  if (language === "es") {
+    return ENGLISH_TO_SPANISH_ROUTES[normalized] ?? "/es";
+  }
+  return SPANISH_TO_ENGLISH_ROUTES[normalized] ?? "/";
+}
 
 export default function Header() {
   const pathname = usePathname() ?? "/";
@@ -96,6 +130,7 @@ export default function Header() {
           {/* Right-side CTAs (desktop) */}
           <div className="hidden lg:flex items-center gap-2 ml-auto">
             <RegionCurrencySelector compact className="mr-1" />
+            <LanguageSelector pathname={pathname} />
             {headerCtaLinks.map((link) => (
               <Link
                 key={link.href}
@@ -272,6 +307,13 @@ function MobileDrawer({
           <div className="px-3 py-3">
             <RegionCurrencySelector className="w-full justify-between" />
           </div>
+          <div className="px-3 py-2">
+            <LanguageSelector
+              pathname={pathname}
+              className="w-full"
+              onNavigate={onClose}
+            />
+          </div>
           {headerCtaLinks.map((link) => (
             <Link
               key={link.href}
@@ -290,6 +332,55 @@ function MobileDrawer({
         </div>
       </div>
     </div>
+  );
+}
+
+function LanguageSelector({
+  pathname,
+  className,
+  onNavigate,
+}: {
+  pathname: string;
+  className?: string;
+  onNavigate?: () => void;
+}) {
+  const currentLanguage = getCurrentLanguage(pathname);
+  const options: { code: SiteLanguage; label: string }[] = [
+    { code: "en", label: "English" },
+    { code: "es", label: "Español" },
+  ];
+
+  return (
+    <nav
+      aria-label="Select language"
+      className={cn(
+        "inline-flex items-center rounded-lg border border-stone-200 bg-white/95 p-0.5 shadow-sm",
+        className
+      )}
+    >
+      <span className="inline-flex items-center px-2 text-primary">
+        <Globe2 className="h-4 w-4" aria-hidden />
+      </span>
+      {options.map((option) => {
+        const active = option.code === currentLanguage;
+        return (
+          <Link
+            key={option.code}
+            href={getLanguageHref(pathname, option.code)}
+            onClick={onNavigate}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "inline-flex flex-1 items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors",
+              active
+                ? "bg-primary text-white"
+                : "text-foreground/70 hover:bg-surface hover:text-primary"
+            )}
+          >
+            {option.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
