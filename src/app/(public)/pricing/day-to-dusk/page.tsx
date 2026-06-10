@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Home, Star, Sunset, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { regionalPrice } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Day to Dusk",
@@ -16,7 +18,11 @@ export default function DayToDuskPricingPage() {
       eyebrow="Day to Dusk"
       title="Day to Dusk Pricing"
       description="Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots and premium presentation."
-      priceLine="From US$5 / image"
+      priceLine={
+        <RegionalPriceText
+          price={regionalPrice("From $5 / image", "From €5 / image")}
+        />
+      }
       orderHref="/order/photo-editing"
       orderLabel="Order Day to Dusk"
       whenToUseTitle="When to use Day to Dusk"
@@ -75,20 +81,20 @@ export default function DayToDuskPricingPage() {
       pricingCards={[
         {
           label: "Day to Dusk",
-          price: "US$5.00",
+          price: <RegionalPriceText price={regionalPrice("$5.00", "€5.00")} />,
           unit: "per image",
           note: "Sky replacement, interior glow, and dusk atmosphere.",
           isBase: true,
         },
         {
           label: "Image Enhancement",
-          price: "+US$2.00",
+          price: <RegionalPriceText price={regionalPrice("+$2.00", "+€2.00")} />,
           unit: "per image",
           note: "Color and exposure refinement on top of the dusk edit.",
         },
         {
           label: "Item Removal",
-          price: "+US$8.00",
+          price: <RegionalPriceText price={regionalPrice("+$8.00", "+€8.00")} />,
           unit: "per image",
           note: "Remove cars, bins, or other distractions before the dusk conversion.",
         },

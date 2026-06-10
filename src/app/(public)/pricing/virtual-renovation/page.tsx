@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Paintbrush, Wrench, Trees, Layers } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { regionalPrice } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Virtual Renovation",
@@ -9,28 +11,28 @@ export const metadata: Metadata = {
 };
 
 const INTERNAL = [
-  { label: "Replace Flooring", price: "US$20.00" },
-  { label: "Replace Walls", price: "US$14.00" },
-  { label: "Replace Ceiling", price: "US$14.00" },
-  { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
-  { label: "Add / Remove Walls", price: "US$35.00" },
-  { label: "Add or Complete Kitchen Fit Out", price: "US$55.00" },
-  { label: "Add or Complete Bathroom Fit Out", price: "US$55.00" },
-  { label: "Add Fixtures", price: "US$20.00" },
-  { label: "Virtual Staging — Residential", price: "US$19.00" },
-  { label: "Colour Change — Walls / Ceiling / Doors", price: "US$3.00" },
+  { label: "Replace Flooring", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Replace Walls", price: regionalPrice("$14.00", "€14.00") },
+  { label: "Replace Ceiling", price: regionalPrice("$14.00", "€14.00") },
+  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
+  { label: "Add / Remove Walls", price: regionalPrice("$35.00", "€35.00") },
+  { label: "Add or Complete Kitchen Fit Out", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Add or Complete Bathroom Fit Out", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Add Fixtures", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Virtual Staging — Residential", price: regionalPrice("$19.00", "€19.00") },
+  { label: "Colour Change — Walls / Ceiling / Doors", price: regionalPrice("$3.00", "€3.00") },
 ];
 
 const EXTERNAL = [
-  { label: "Add Pool Only", price: "US$35.00" },
-  { label: "Add Pool Surrounds", price: "US$28.00" },
-  { label: "Add Basic Landscaping", price: "US$20.00" },
-  { label: "Add Full Landscaping", price: "US$55.00" },
-  { label: "Season Change with Full Landscaping", price: "US$55.00" },
-  { label: "Replace Driveway", price: "US$20.00" },
-  { label: "Replace Roof", price: "US$20.00" },
-  { label: "Replace Exterior Walls", price: "US$40.00" },
-  { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
+  { label: "Add Pool Only", price: regionalPrice("$35.00", "€35.00") },
+  { label: "Add Pool Surrounds", price: regionalPrice("$28.00", "€28.00") },
+  { label: "Add Basic Landscaping", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Add Full Landscaping", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Season Change with Full Landscaping", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Replace Driveway", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Replace Roof", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Replace Exterior Walls", price: regionalPrice("$40.00", "€40.00") },
+  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
 ];
 
 export default function VirtualRenovationPricingPage() {
@@ -113,7 +115,7 @@ export default function VirtualRenovationPricingPage() {
       pricingCards={[
         ...INTERNAL.slice(0, 6).map((row, i) => ({
           label: row.label,
-          price: row.price,
+          price: <RegionalPriceText price={row.price} />,
           unit: "per image",
           note: i === 0 ? "Replace existing flooring with a new surface finish." :
                 i === 1 ? "Change wall finishes, texture, or paint colour." :

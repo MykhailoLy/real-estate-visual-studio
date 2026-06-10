@@ -3,6 +3,11 @@ import Link from "next/link";
 import Container from "@/components/layout/Container";
 import SectionHeader from "@/components/sections/SectionHeader";
 import CtaSection from "@/components/sections/CtaSection";
+import {
+  CurrencySwitcher,
+  RegionalPriceText,
+} from "@/components/pricing/currency-client";
+import { regionalPrice, type RegionalPrice } from "@/lib/currency";
 import { Check } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -13,67 +18,69 @@ export const metadata: Metadata = {
 
 /* ============================================================
    PRICING DATA — pulled from src/data/order-options.ts values
-   All displayed prices match the order system exactly.
+   USD/EUR values are fixed regional display prices. Checkout
+   pricing remains owned by the order flow and is intentionally
+   not imported or changed here.
    ============================================================ */
 
 const stagingAddons = [
-  { label: "Image Enhancement", price: "US$2.00" },
-  { label: "Day to Dusk", price: "US$5.00" },
-  { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
-  { label: "Turn On Lights", price: "US$1.00" },
-  { label: "Colour Change", price: "US$3.00" },
+  { label: "Image Enhancement", price: regionalPrice("$2.00", "€2.00") },
+  { label: "Day to Dusk", price: regionalPrice("$5.00", "€5.00") },
+  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
+  { label: "Turn On Lights", price: regionalPrice("$1.00", "€1.00") },
+  { label: "Colour Change", price: regionalPrice("$3.00", "€3.00") },
 ];
 
 const renovationInternal = [
-  { label: "Replace Flooring", price: "US$20.00" },
-  { label: "Replace Walls", price: "US$14.00" },
-  { label: "Replace Ceiling", price: "US$14.00" },
-  { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
-  { label: "Add / Remove Walls", price: "US$35.00" },
-  { label: "Add or Complete Kitchen Fit Out", price: "US$55.00" },
-  { label: "Add or Complete Bathroom Fit Out", price: "US$55.00" },
-  { label: "Add Fixtures", price: "US$20.00" },
-  { label: "Virtual Staging (Residential)", price: "US$19.00" },
-  { label: "Virtual Staging (Commercial - Office)", price: "US$19.00" },
-  { label: "Virtual Staging (Commercial - Non-office)", price: "US$19.00" },
-  { label: "Color Change Walls/Ceiling/Doors", price: "US$3.00" },
+  { label: "Replace Flooring", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Replace Walls", price: regionalPrice("$14.00", "€14.00") },
+  { label: "Replace Ceiling", price: regionalPrice("$14.00", "€14.00") },
+  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
+  { label: "Add / Remove Walls", price: regionalPrice("$35.00", "€35.00") },
+  { label: "Add or Complete Kitchen Fit Out", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Add or Complete Bathroom Fit Out", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Add Fixtures", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Virtual Staging (Residential)", price: regionalPrice("$19.00", "€19.00") },
+  { label: "Virtual Staging (Commercial - Office)", price: regionalPrice("$19.00", "€19.00") },
+  { label: "Virtual Staging (Commercial - Non-office)", price: regionalPrice("$19.00", "€19.00") },
+  { label: "Color Change Walls/Ceiling/Doors", price: regionalPrice("$3.00", "€3.00") },
 ];
 
 const renovationExternal = [
-  { label: "Add Pool Only", price: "US$35.00" },
-  { label: "Add Pool Surrounds", price: "US$28.00" },
-  { label: "Remove Pool Cover", price: "US$35.00" },
-  { label: "Add Leaves", price: "US$20.00" },
-  { label: "Add Basic Landscaping", price: "US$20.00" },
-  { label: "Add Full Landscaping", price: "US$55.00" },
-  { label: "Season Change with Full Landscaping", price: "US$55.00" },
-  { label: "Virtual Staging (Residential or Commercial)", price: "US$19.00" },
-  { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
-  { label: "Add Fixtures", price: "US$20.00" },
-  { label: "Replace Driveway", price: "US$20.00" },
-  { label: "Replace Roof", price: "US$20.00" },
-  { label: "Replace Exterior Walls", price: "US$40.00" },
-  { label: "Add/Complete Patio, Balcony, Pergola, Veranda, Decking", price: "US$40.00" },
-  { label: "Color Change Exterior Features", price: "US$3.00" },
+  { label: "Add Pool Only", price: regionalPrice("$35.00", "€35.00") },
+  { label: "Add Pool Surrounds", price: regionalPrice("$28.00", "€28.00") },
+  { label: "Remove Pool Cover", price: regionalPrice("$35.00", "€35.00") },
+  { label: "Add Leaves", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Add Basic Landscaping", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Add Full Landscaping", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Season Change with Full Landscaping", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Virtual Staging (Residential or Commercial)", price: regionalPrice("$19.00", "€19.00") },
+  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
+  { label: "Add Fixtures", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Replace Driveway", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Replace Roof", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Replace Exterior Walls", price: regionalPrice("$40.00", "€40.00") },
+  { label: "Add/Complete Patio, Balcony, Pergola, Veranda, Decking", price: regionalPrice("$40.00", "€40.00") },
+  { label: "Color Change Exterior Features", price: regionalPrice("$3.00", "€3.00") },
 ];
 
 const floorPlanTypes = [
-  { label: "2D Floor Plan — Black & White", price: "US$16.00", unit: "per floor" },
-  { label: "2D Floor Plan — Full Colour", price: "US$22.00", unit: "per floor" },
-  { label: "3D Floor Plan", price: "US$39.00", unit: "per floor" },
-  { label: "2D + 3D Bundle", price: "US$49.00", unit: "per floor" },
+  { label: "2D Floor Plan — Black & White", price: regionalPrice("$16.00", "€16.00"), unit: "per floor" },
+  { label: "2D Floor Plan — Full Colour", price: regionalPrice("$22.00", "€22.00"), unit: "per floor" },
+  { label: "3D Floor Plan", price: regionalPrice("$39.00", "€39.00"), unit: "per floor" },
+  { label: "2D + 3D Bundle", price: regionalPrice("$49.00", "€49.00"), unit: "per floor" },
 ];
 
 const photoEditOptions = [
-  { label: "Image Enhancement — Real Estate", price: "US$2.00" },
-  { label: "Item Removal & Virtual Cleaning", price: "US$8.00" },
-  { label: "Shadow Removal", price: "US$8.00" },
-  { label: "Background Removal", price: "US$3.00" },
-  { label: "Background Change", price: "US$5.00" },
-  { label: "Colour Change", price: "US$3.00" },
-  { label: "Turn On Lights", price: "US$1.00" },
-  { label: "Day to Dusk", price: "US$5.00" },
-  { label: "Water Effect for Empty Pools & Jacuzzi", price: "US$5.00" },
+  { label: "Image Enhancement — Real Estate", price: regionalPrice("$2.00", "€2.00") },
+  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
+  { label: "Shadow Removal", price: regionalPrice("$8.00", "€8.00") },
+  { label: "Background Removal", price: regionalPrice("$3.00", "€3.00") },
+  { label: "Background Change", price: regionalPrice("$5.00", "€5.00") },
+  { label: "Colour Change", price: regionalPrice("$3.00", "€3.00") },
+  { label: "Turn On Lights", price: regionalPrice("$1.00", "€1.00") },
+  { label: "Day to Dusk", price: regionalPrice("$5.00", "€5.00") },
+  { label: "Water Effect for Empty Pools & Jacuzzi", price: regionalPrice("$5.00", "€5.00") },
 ];
 
 const inclusions = [
@@ -84,6 +91,10 @@ const inclusions = [
   "No subscription or monthly fees",
   "Volume discounts for bulk orders",
 ];
+
+function PriceText({ price }: { price: RegionalPrice | string }) {
+  return typeof price === "string" ? price : <RegionalPriceText price={price} />;
+}
 
 export default function PricingPage() {
   return (
@@ -99,6 +110,9 @@ export default function PricingPage() {
               Pay per image or per option. No subscriptions. See exactly what
               each service costs before you order.
             </p>
+            <div className="mt-6">
+              <CurrencySwitcher />
+            </div>
           </div>
         </Container>
       </section>
@@ -115,7 +129,9 @@ export default function PricingPage() {
 
             <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
               <div className="flex items-baseline gap-2 mb-6">
-                <span className="text-3xl font-bold text-primary">US$19.00</span>
+                <span className="text-3xl font-bold text-primary">
+                  <RegionalPriceText price={regionalPrice("$19.00", "€19.00")} />
+                </span>
                 <span className="text-muted text-sm">per image</span>
               </div>
 
@@ -134,7 +150,7 @@ export default function PricingPage() {
                           {addon.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary">
-                          +{addon.price}
+                          +<PriceText price={addon.price} />
                         </td>
                       </tr>
                     ))}
@@ -180,7 +196,7 @@ export default function PricingPage() {
                           {opt.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          {opt.price}
+                          <PriceText price={opt.price} />
                         </td>
                       </tr>
                     ))}
@@ -206,7 +222,7 @@ export default function PricingPage() {
                           {opt.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          {opt.price}
+                          <PriceText price={opt.price} />
                         </td>
                       </tr>
                     ))}
@@ -259,7 +275,7 @@ export default function PricingPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="font-bold text-primary">
-                            {plan.price}
+                            <PriceText price={plan.price} />
                           </span>
                           <span className="text-xs text-muted ml-1">
                             {plan.unit}
@@ -310,7 +326,7 @@ export default function PricingPage() {
                           {opt.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          {opt.price}
+                          <PriceText price={opt.price} />
                         </td>
                       </tr>
                     ))}

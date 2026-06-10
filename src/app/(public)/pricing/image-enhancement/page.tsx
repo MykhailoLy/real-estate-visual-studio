@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { SlidersHorizontal, ImageIcon, Aperture, CheckCircle } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { regionalPrice } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Image Enhancement",
@@ -16,7 +18,11 @@ export default function ImageEnhancementPricingPage() {
       eyebrow="Image Enhancement"
       title="Image Enhancement Pricing"
       description="Improve color, exposure, clarity, and presentation quality so listing photos look clean, natural, and market-ready."
-      priceLine="From US$2 / image"
+      priceLine={
+        <RegionalPriceText
+          price={regionalPrice("From $2 / image", "From €2 / image")}
+        />
+      }
       orderHref="/order/photo-editing"
       orderLabel="Order Image Enhancement"
       whenToUseTitle="When to use Image Enhancement"
@@ -75,20 +81,20 @@ export default function ImageEnhancementPricingPage() {
       pricingCards={[
         {
           label: "Image Enhancement",
-          price: "US$2.00",
+          price: <RegionalPriceText price={regionalPrice("$2.00", "€2.00")} />,
           unit: "per image",
           note: "Color, exposure, white balance, and window correction.",
           isBase: true,
         },
         {
           label: "Turn On Lights",
-          price: "+US$1.00",
+          price: <RegionalPriceText price={regionalPrice("+$1.00", "+€1.00")} />,
           unit: "per image",
           note: "Make visible light sources appear switched on.",
         },
         {
           label: "Colour Change",
-          price: "+US$3.00",
+          price: <RegionalPriceText price={regionalPrice("+$3.00", "+€3.00")} />,
           unit: "per image",
           note: "Change wall, ceiling, or door colours.",
         },

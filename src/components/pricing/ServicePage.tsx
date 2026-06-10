@@ -11,6 +11,7 @@ import ServicePageSlider, {
 } from "@/components/pricing/ServicePageSlider";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
+import { CurrencySwitcher } from "@/components/pricing/currency-client";
 import type { ServiceVariant } from "@/components/home/ServicePlaceholder";
 import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
@@ -54,7 +55,7 @@ export interface UseCase {
 
 export interface PricingCard {
   label: string;
-  price: string;
+  price: ReactNode;
   unit?: string;
   note: string;
   isBase?: boolean;
@@ -75,7 +76,7 @@ export interface ServicePageProps {
   eyebrow: string;
   title: string;
   description: string;
-  priceLine: string;
+  priceLine: ReactNode;
   orderHref: string;
   orderLabel: string;
 
@@ -248,6 +249,9 @@ export default async function ServicePage({
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
                 {priceLine}
               </p>
+              <div className="mt-4">
+                <CurrencySwitcher />
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
               <Link
@@ -339,6 +343,9 @@ export default async function ServicePage({
             title={pricingTitle}
             description={pricingDescription}
           />
+          <div className="mb-5 flex justify-start">
+            <CurrencySwitcher />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {pricingCards.map((card) => (
               <div

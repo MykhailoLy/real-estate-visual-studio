@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Eraser, Home, Star, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { regionalPrice } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Item Removal & Virtual Cleaning",
@@ -16,7 +18,11 @@ export default function PhotoEditingPricingPage() {
       eyebrow="Item Removal & Virtual Cleaning"
       title="Item Removal & Virtual Cleaning Pricing"
       description="Remove distracting items, clutter, small imperfections, and visual distractions to make property photos cleaner and more listing-ready."
-      priceLine="From US$8 / image"
+      priceLine={
+        <RegionalPriceText
+          price={regionalPrice("From $8 / image", "From €8 / image")}
+        />
+      }
       orderHref="/order/photo-editing"
       orderLabel="Order Item Removal"
       whenToUseTitle="When to use Item Removal & Virtual Cleaning"
@@ -80,20 +86,20 @@ export default function PhotoEditingPricingPage() {
       pricingCards={[
         {
           label: "Item Removal & Virtual Cleaning",
-          price: "US$8.00",
+          price: <RegionalPriceText price={regionalPrice("$8.00", "€8.00")} />,
           unit: "per image",
           note: "Remove objects, clutter, and distracting details cleanly.",
           isBase: true,
         },
         {
           label: "Image Enhancement",
-          price: "+US$2.00",
+          price: <RegionalPriceText price={regionalPrice("+$2.00", "+€2.00")} />,
           unit: "per image",
           note: "Color and exposure correction applied after cleanup.",
         },
         {
           label: "Virtual Staging",
-          price: "+US$19.00",
+          price: <RegionalPriceText price={regionalPrice("+$19.00", "+€19.00")} />,
           unit: "per image",
           note: "Add furniture after the room has been cleaned virtually.",
         },

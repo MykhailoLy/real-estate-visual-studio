@@ -1,10 +1,16 @@
 import { Clock, Globe, ImageIcon, DollarSign } from "lucide-react";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { regionalPrice } from "@/lib/currency";
 
 const stats = [
   { icon: ImageIcon, label: "Properties Marketed", value: "200+" },
   { icon: Clock, label: "Delivery", value: "24-48h" },
   { icon: Globe, label: "Clients", value: "Worldwide" },
-  { icon: DollarSign, label: "Starting From", value: "US$1.00" },
+  {
+    icon: DollarSign,
+    label: "Starting From",
+    value: <RegionalPriceText price={regionalPrice("$1.00", "€1.00")} />,
+  },
 ];
 
 export default function TrustBar() {

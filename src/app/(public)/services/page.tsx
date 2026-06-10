@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  CurrencySwitcher,
+  RegionalPriceText,
+} from "@/components/pricing/currency-client";
+import { regionalPrice, type RegionalPrice } from "@/lib/currency";
+import {
   ImagePlus,
   Paintbrush,
   LayoutGrid,
@@ -193,19 +198,23 @@ type RemoteService = {
   variant: PlaceholderVariant;
   icon: typeof ImagePlus;
   title: string;
-  price: string;
+  price: RegionalPrice | string;
   description: string;
   highlights: string[];
   pricingHref: string;
   orderHref: string;
 };
 
+function RemotePrice({ price }: { price: RemoteService["price"] }) {
+  return typeof price === "string" ? price : <RegionalPriceText price={price} />;
+}
+
 const remoteServices: RemoteService[] = [
   {
     variant: "staging",
     icon: ImagePlus,
     title: "Virtual Staging",
-    price: "From US$19 / image",
+    price: regionalPrice("From $19 / image", "From €19 / image"),
     description:
       "Transform empty rooms into realistic, furnished spaces with professional styling and market-ready presentation.",
     highlights: [
@@ -238,7 +247,7 @@ const remoteServices: RemoteService[] = [
     variant: "floor-plan",
     icon: LayoutGrid,
     title: "2D / 3D Floor Plans",
-    price: "From US$16 / floor",
+    price: regionalPrice("From $16 / floor", "From €16 / floor"),
     description:
       "Convert sketches, existing plans, photos, or measurements into clean 2D and 3D floor plans for property marketing.",
     highlights: [
@@ -254,7 +263,7 @@ const remoteServices: RemoteService[] = [
     variant: "editing",
     icon: SlidersHorizontal,
     title: "Photo Editing & Virtual Cleaning",
-    price: "From US$1 / option",
+    price: regionalPrice("From $1 / option", "From €1 / option"),
     description:
       "Enhance listing images, remove unwanted objects, correct distractions, add dusk skies, turn on lights, change backgrounds, and clean up spaces.",
     highlights: [
@@ -492,6 +501,9 @@ export default function ServicesPage() {
               Upload your files online and receive market-ready visuals for
               listings, campaigns, and property marketing.
             </p>
+            <div className="mt-6">
+              <CurrencySwitcher />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
@@ -519,7 +531,7 @@ export default function ServicesPage() {
                       {svc.title}
                     </h3>
                     <p className="text-base lg:text-lg font-semibold text-secondary-dark mb-5">
-                      {svc.price}
+                      <RemotePrice price={svc.price} />
                     </p>
                     <p className="text-sm lg:text-base text-muted leading-relaxed mb-6">
                       {svc.description}

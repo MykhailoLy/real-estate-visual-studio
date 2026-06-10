@@ -9,6 +9,12 @@ import {
   getPortfolioPublicUrl,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
+import {
+  regionalPrice,
+  resolveRegionalPrice,
+  type RegionalPrice,
+} from "@/lib/currency";
 
 // ============================================================
 // REMOTE DIGITAL SERVICES — "This is what we do" grid
@@ -34,7 +40,7 @@ interface ServiceEntry {
   name: string;
   description: string;
   /** Display string for the price line. Empty = "Request a quote". */
-  price?: string;
+  price?: RegionalPrice | string;
   /** Single destination for the whole card. */
   href: string;
 }
@@ -47,7 +53,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Image Enhancement",
     description:
       "Color, exposure, and window correction so listing photos look bright, crisp, and natural.",
-    price: "From US$2.00 / image",
+    price: regionalPrice("From $2.00 / image", "From €2.00 / image"),
     href: "/pricing/image-enhancement",
   },
   {
@@ -57,7 +63,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Day to Dusk",
     description:
       "Turn a daytime exterior into a warm dusk shot — perfect for the hero photo of a listing.",
-    price: "From US$5.00 / image",
+    price: regionalPrice("From $5.00 / image", "From €5.00 / image"),
     href: "/pricing/day-to-dusk",
   },
   {
@@ -67,7 +73,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Virtual Staging",
     description:
       "Furnish empty rooms with realistic, market-aware styling so buyers can picture the space.",
-    price: "From US$19.00 / image",
+    price: regionalPrice("From $19.00 / image", "From €19.00 / image"),
     href: "/pricing/virtual-staging",
   },
   {
@@ -77,7 +83,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Item Removal & Virtual Cleaning",
     description:
       "Remove distracting clutter, personal items, or stray objects so the room itself is the star.",
-    price: "From US$8.00 / image",
+    price: regionalPrice("From $8.00 / image", "From €8.00 / image"),
     href: "/pricing/photo-editing",
   },
   {
@@ -87,7 +93,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Floor Plans",
     description:
       "Sketches, existing plans, or photos converted into clean 2D and 3D floor plans for marketing.",
-    price: "From US$16.00 / floor",
+    price: regionalPrice("From $16.00 / floor", "From €16.00 / floor"),
     href: "/pricing/floor-plans",
   },
   {
@@ -202,7 +208,12 @@ export default async function ServiceGrid() {
 
 function ServiceCard({ card }: { card: ResolvedCard }) {
   const { svc, beforeUrl, afterUrl, beforeAlt, afterAlt } = card;
-  const priceText = svc.price ?? "Request a quote";
+  const priceText =
+    typeof svc.price === "string"
+      ? svc.price
+      : svc.price
+        ? resolveRegionalPrice(svc.price, "USD")
+        : "Request a quote";
 
   return (
     <Link
@@ -245,7 +256,11 @@ function ServiceCard({ card }: { card: ResolvedCard }) {
               : "mt-2 text-sm font-medium text-muted"
           }
         >
-          {priceText}
+          {typeof svc.price === "string" || !svc.price ? (
+            priceText
+          ) : (
+            <RegionalPriceText price={svc.price} />
+          )}
         </p>
         <p className="mt-3 text-sm lg:text-base text-muted leading-relaxed flex-1">
           {svc.description}

@@ -8,6 +8,10 @@ import StyleGallerySection, {
 } from "@/components/pricing/StyleGallerySection";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
+import {
+  CurrencySwitcher,
+  RegionalPriceText,
+} from "@/components/pricing/currency-client";
 import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
@@ -18,6 +22,7 @@ import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
+import { regionalPrice } from "@/lib/currency";
 
 // ============================================================
 // /pricing/virtual-staging  —  Virtual Staging service page
@@ -87,42 +92,42 @@ const WHAT_IT_IS_BULLETS = [
 const PRICING_CARDS = [
   {
     label: "Base Virtual Staging",
-    price: "US$19.00",
+    price: regionalPrice("$19.00", "€19.00"),
     unit: "per image",
     note: "Furniture, decor, and styling for one room.",
     isBase: true,
   },
   {
     label: "Image Enhancement",
-    price: "+US$2.00",
+    price: regionalPrice("+$2.00", "+€2.00"),
     unit: "per image",
     note: "Colour, exposure, and window correction.",
     isBase: false,
   },
   {
     label: "Day to Dusk",
-    price: "+US$5.00",
+    price: regionalPrice("+$5.00", "+€5.00"),
     unit: "per image",
     note: "Convert daytime exterior to a warm dusk shot.",
     isBase: false,
   },
   {
     label: "Item Removal & Virtual Cleaning",
-    price: "+US$8.00",
+    price: regionalPrice("+$8.00", "+€8.00"),
     unit: "per image",
     note: "Remove clutter before staging the room.",
     isBase: false,
   },
   {
     label: "Turn On Lights",
-    price: "+US$1.00",
+    price: regionalPrice("+$1.00", "+€1.00"),
     unit: "per image",
     note: "Make visible light sources appear switched on.",
     isBase: false,
   },
   {
     label: "Colour Change",
-    price: "+US$3.00",
+    price: regionalPrice("+$3.00", "+€3.00"),
     unit: "per image",
     note: "Change wall, ceiling, or door colours.",
     isBase: false,
@@ -297,8 +302,13 @@ export default async function VirtualStagingPage() {
                 market-ready results.
               </p>
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
-                From US$19 / image
+                <RegionalPriceText
+                  price={regionalPrice("From $19 / image", "From €19 / image")}
+                />
               </p>
+              <div className="mt-4">
+                <CurrencySwitcher />
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
               <Link
@@ -481,6 +491,9 @@ export default async function VirtualStagingPage() {
             title="Base price + optional add-ons"
             description="Start with the base virtual staging price per image. Combine any add-ons you need for the same image — they stack on top of the base price."
           />
+          <div className="mb-5 flex justify-start">
+            <CurrencySwitcher />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {PRICING_CARDS.map((card) => (
               <div
@@ -502,7 +515,7 @@ export default async function VirtualStagingPage() {
                       card.isBase ? "text-white" : "text-primary"
                     }`}
                   >
-                    {card.price}
+                    <RegionalPriceText price={card.price} />
                   </p>
                   <p
                     className={`text-xs font-medium mt-0.5 ${
