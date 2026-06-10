@@ -3,10 +3,7 @@ import Link from "next/link";
 import Container from "@/components/layout/Container";
 import SectionHeader from "@/components/sections/SectionHeader";
 import CtaSection from "@/components/sections/CtaSection";
-import {
-  CurrencySwitcher,
-  RegionalPriceText,
-} from "@/components/pricing/currency-client";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice, type RegionalPrice } from "@/lib/currency";
 import { Check } from "lucide-react";
 
@@ -18,7 +15,7 @@ export const metadata: Metadata = {
 
 /* ============================================================
    PRICING DATA — pulled from src/data/order-options.ts values
-   USD/EUR values are fixed regional display prices. Checkout
+   USD/CAD/EUR values are fixed regional display prices. Checkout
    pricing remains owned by the order flow and is intentionally
    not imported or changed here.
    ============================================================ */
@@ -110,9 +107,6 @@ export default function PricingPage() {
               Pay per image or per option. No subscriptions. See exactly what
               each service costs before you order.
             </p>
-            <div className="mt-6">
-              <CurrencySwitcher />
-            </div>
           </div>
         </Container>
       </section>

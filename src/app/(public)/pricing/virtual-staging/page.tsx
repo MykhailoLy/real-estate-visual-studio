@@ -8,10 +8,7 @@ import StyleGallerySection, {
 } from "@/components/pricing/StyleGallerySection";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
-import {
-  CurrencySwitcher,
-  RegionalPriceText,
-} from "@/components/pricing/currency-client";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
 import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
@@ -306,9 +303,6 @@ export default async function VirtualStagingPage() {
                   price={regionalPrice("From $19 / image", "From €19 / image")}
                 />
               </p>
-              <div className="mt-4">
-                <CurrencySwitcher />
-              </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
               <Link
@@ -491,9 +485,6 @@ export default async function VirtualStagingPage() {
             title="Base price + optional add-ons"
             description="Start with the base virtual staging price per image. Combine any add-ons you need for the same image — they stack on top of the base price."
           />
-          <div className="mb-5 flex justify-start">
-            <CurrencySwitcher />
-          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {PRICING_CARDS.map((card) => (
               <div

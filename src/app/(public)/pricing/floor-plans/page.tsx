@@ -12,10 +12,7 @@ import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
-import {
-  CurrencySwitcher,
-  RegionalPriceText,
-} from "@/components/pricing/currency-client";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
 import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
@@ -413,9 +410,6 @@ export default async function FloorPlansPage() {
                   price={regionalPrice("From $16 / floor", "From €16 / floor")}
                 />
               </p>
-              <div className="mt-4">
-                <CurrencySwitcher />
-              </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
               <Link
@@ -548,9 +542,6 @@ export default async function FloorPlansPage() {
             title="Floor plan pricing"
             description="Choose the plan format you need. More detailed or multi-level plans can be quoted based on complexity."
           />
-          <div className="mb-5 flex justify-start">
-            <CurrencySwitcher />
-          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {PRICING_CARDS.map((card) => (
               <div

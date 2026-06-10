@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  CurrencySwitcher,
-  RegionalPriceText,
-} from "@/components/pricing/currency-client";
+import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice, type RegionalPrice } from "@/lib/currency";
 import {
   ImagePlus,
@@ -501,9 +498,6 @@ export default function ServicesPage() {
               Upload your files online and receive market-ready visuals for
               listings, campaigns, and property marketing.
             </p>
-            <div className="mt-6">
-              <CurrencySwitcher />
-            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">

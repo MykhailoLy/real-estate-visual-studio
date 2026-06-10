@@ -1,15 +1,53 @@
-export const SUPPORTED_CURRENCIES = ["USD", "EUR"] as const;
+export const SUPPORTED_REGIONS = ["US", "CA", "EU"] as const;
+export const SUPPORTED_CURRENCIES = ["USD", "CAD", "EUR"] as const;
 
+export type RegionCode = (typeof SUPPORTED_REGIONS)[number];
 export type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
 
 export interface RegionalPrice {
   usd: string;
+  cad: string;
   eur: string;
 }
 
+export interface RegionOption {
+  code: RegionCode;
+  flag: string;
+  label: string;
+  currency: CurrencyCode;
+  shortLabel: string;
+}
+
 export const DEFAULT_CURRENCY: CurrencyCode = "USD";
+export const DEFAULT_REGION: RegionCode = "US";
 export const CURRENCY_STORAGE_KEY = "picchuspot-currency";
 export const CURRENCY_COOKIE_NAME = "picchuspot_currency";
+export const REGION_STORAGE_KEY = "picchuspot-region";
+export const REGION_COOKIE_NAME = "picchuspot_region";
+
+export const REGION_OPTIONS: RegionOption[] = [
+  {
+    code: "US",
+    flag: "\u{1F1FA}\u{1F1F8}",
+    label: "United States",
+    currency: "USD",
+    shortLabel: "\u{1F1FA}\u{1F1F8} USD",
+  },
+  {
+    code: "CA",
+    flag: "\u{1F1E8}\u{1F1E6}",
+    label: "Canada",
+    currency: "CAD",
+    shortLabel: "\u{1F1E8}\u{1F1E6} CAD",
+  },
+  {
+    code: "EU",
+    flag: "\u{1F1EA}\u{1F1FA}",
+    label: "Europe",
+    currency: "EUR",
+    shortLabel: "\u{1F1EA}\u{1F1FA} EUR",
+  },
+];
 
 export function isCurrencyCode(value: unknown): value is CurrencyCode {
   return (
@@ -18,14 +56,37 @@ export function isCurrencyCode(value: unknown): value is CurrencyCode {
   );
 }
 
-export function regionalPrice(usd: string, eur: string): RegionalPrice {
-  return { usd, eur };
+export function isRegionCode(value: unknown): value is RegionCode {
+  return (
+    typeof value === "string" &&
+    (SUPPORTED_REGIONS as readonly string[]).includes(value)
+  );
+}
+
+export function currencyForRegion(region: RegionCode): CurrencyCode {
+  return (
+    REGION_OPTIONS.find((option) => option.code === region)?.currency ??
+    DEFAULT_CURRENCY
+  );
+}
+
+function cadFromUsd(usd: string): string {
+  return usd.replace(/\$/g, "C$");
+}
+
+export function regionalPrice(
+  usd: string,
+  eur: string,
+  cad = cadFromUsd(usd)
+): RegionalPrice {
+  return { usd, cad, eur };
 }
 
 export function resolveRegionalPrice(
   price: RegionalPrice,
   currency: CurrencyCode
 ): string {
-  return currency === "EUR" ? price.eur : price.usd;
+  if (currency === "CAD") return price.cad;
+  if (currency === "EUR") return price.eur;
+  return price.usd;
 }
-
