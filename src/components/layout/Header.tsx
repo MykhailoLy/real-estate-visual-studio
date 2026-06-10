@@ -24,7 +24,6 @@ import { RegionCurrencySelector } from "@/components/pricing/currency-client";
 import { cn } from "@/lib/utils";
 import {
   getTopLevelForPath,
-  headerCtaLinks,
   topLevels,
   type SubNavLink,
   type TopLevelEntry,
@@ -290,32 +289,42 @@ export default function Header() {
             })}
           </nav>
 
-          {/* Account actions + menu */}
-          <div className="ml-auto flex items-center gap-2">
+          {/* Menu, account actions, and preferences */}
+          <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <button
+              ref={menuButtonRef}
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-10 sm:w-10"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-haspopup="dialog"
+            >
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
             <Link
               href="/login"
-              className="hidden sm:inline-flex items-center justify-center px-3 py-2 text-[13px] font-bold uppercase tracking-[0.10em] text-foreground/70 hover:text-primary transition-colors"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em] sm:text-foreground/70 sm:hover:text-primary"
+              aria-label="Login"
             >
-              Login
+              <LogIn className="h-4 w-4 sm:hidden" aria-hidden />
+              <span className="hidden sm:inline">Login</span>
             </Link>
             <Link
               href="/signup"
-              className="hidden sm:inline-flex items-center justify-center px-4 py-2 rounded-md bg-primary text-white text-[13px] font-bold uppercase tracking-[0.10em] hover:bg-primary-light transition-colors shadow-sm"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-4 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em]"
+              aria-label="Sign Up"
             >
-              Sign Up
+              <UserPlus className="h-4 w-4 sm:hidden" aria-hidden />
+              <span className="hidden sm:inline">Sign Up</span>
             </Link>
+            <LanguageSelector
+              pathname={pathname}
+              currentLanguage={currentLanguage}
+              compact
+              onLanguageChange={setLanguagePreference}
+            />
+            <RegionCurrencySelector compact tight />
           </div>
-
-          <button
-            ref={menuButtonRef}
-            className="ml-2 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            onClick={() => setMenuOpen((open) => !open)}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            aria-haspopup="dialog"
-          >
-            {menuOpen ? <X size={21} /> : <Menu size={21} />}
-          </button>
         </div>
       </div>
 
@@ -335,10 +344,8 @@ export default function Header() {
         createPortal(
           <BurgerMenuPanel
             panelRef={menuPanelRef}
-            pathname={pathname}
             language={currentLanguage}
             onClose={closeMenu}
-            onLanguageChange={setLanguagePreference}
           />,
           document.body
         )}
@@ -373,7 +380,6 @@ interface MobileDrawerProps {
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
   onClose: () => void;
-  onLanguageChange: (language: SiteLanguage) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -384,7 +390,6 @@ function MobileDrawer({
   openKey,
   setOpenKey,
   onClose,
-  onLanguageChange,
 }: MobileDrawerProps) {
   const toggleSection = (key: string) => {
     setOpenKey(openKey === key ? null : key);
@@ -471,36 +476,6 @@ function MobileDrawer({
           })}
         </div>
 
-        {/* Separator */}
-        <div className="border-t border-border pt-3 space-y-1">
-          <div className="px-3 py-3">
-            <RegionCurrencySelector className="w-full justify-between" />
-          </div>
-          <div className="px-3 py-2">
-            <LanguageSelector
-              pathname={pathname}
-              currentLanguage={language}
-              className="w-full"
-              onNavigate={onClose}
-              onLanguageChange={onLanguageChange}
-            />
-          </div>
-          {headerCtaLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={getLocaleAwareHref(link.href, language)}
-              onClick={onClose}
-              className={cn(
-                "block px-3 py-3 rounded-lg text-[13px] font-bold uppercase tracking-[0.10em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                link.href === "/order"
-                  ? "bg-primary text-white text-center mt-2"
-                  : "text-foreground/80 hover:bg-surface"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -508,10 +483,8 @@ function MobileDrawer({
 
 interface BurgerMenuPanelProps {
   panelRef: React.RefObject<HTMLDivElement | null>;
-  pathname: string;
   language: SiteLanguage;
   onClose: () => void;
-  onLanguageChange: (language: SiteLanguage) => void;
 }
 
 function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
@@ -522,10 +495,8 @@ function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
 
 function BurgerMenuPanel({
   panelRef,
-  pathname,
   language,
   onClose,
-  onLanguageChange,
 }: BurgerMenuPanelProps) {
   return (
     <div
@@ -557,102 +528,21 @@ function BurgerMenuPanel({
         </div>
 
         <div className="overflow-y-auto p-5 sm:p-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="space-y-6">
-              <section>
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-                  Explore
-                </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {resourceMenuItems.map((item) => (
-                    <ResourceMenuLink
-                      key={item.label}
-                      item={item}
-                      href={getResourceHref(item, language)}
-                      onClose={onClose}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-                  Services
-                </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {topLevels.map((entry) => {
-                    const href = getLocaleAwareHref(entry.href, language);
-                    const isCurrent = pathname === href;
-                    return (
-                      <Link
-                        key={entry.key}
-                        href={href}
-                        onClick={onClose}
-                        aria-current={isCurrent ? "page" : undefined}
-                        className={cn(
-                          "rounded-lg border border-stone-200 px-4 py-3 transition-colors hover:border-primary/30 hover:bg-surface",
-                          isCurrent && "border-primary/30 bg-primary/5"
-                        )}
-                      >
-                        <span className="block text-sm font-bold text-primary">
-                          {entry.label}
-                        </span>
-                        <span className="mt-1 block text-xs leading-relaxed text-muted">
-                          {entry.tagline}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            </div>
-
-            <aside className="space-y-5 rounded-xl border border-stone-200 bg-surface p-5">
-              <section>
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-                  Account
-                </p>
-                <div className="space-y-2">
-                  <Link
-                    href="/signup"
-                    onClick={onClose}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-light"
-                  >
-                    <UserPlus className="h-4 w-4" aria-hidden />
-                    Sign Up
-                  </Link>
-                  <Link
-                    href="/login"
-                    onClick={onClose}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-5 py-3 text-sm font-bold text-primary transition-colors hover:border-primary/30 hover:bg-white"
-                  >
-                    <LogIn className="h-4 w-4" aria-hidden />
-                    Login
-                  </Link>
-                </div>
-              </section>
-
-              <section className="border-t border-stone-200 pt-5">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-                  Language
-                </p>
-                <LanguageSelector
-                  pathname={pathname}
-                  currentLanguage={language}
-                  className="w-full"
-                  onNavigate={onClose}
-                  onLanguageChange={onLanguageChange}
+          <section>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+              Explore
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {resourceMenuItems.map((item) => (
+                <ResourceMenuLink
+                  key={item.label}
+                  item={item}
+                  href={getResourceHref(item, language)}
+                  onClose={onClose}
                 />
-              </section>
-
-              <section className="border-t border-stone-200 pt-5">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-                  Region and currency
-                </p>
-                <RegionCurrencySelector className="w-full justify-between" />
-              </section>
-            </aside>
-          </div>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -712,12 +602,14 @@ function ResourceMenuLink({
 function LanguageSelector({
   pathname,
   currentLanguage,
+  compact = false,
   className,
   onNavigate,
   onLanguageChange,
 }: {
   pathname: string;
   currentLanguage: SiteLanguage;
+  compact?: boolean;
   className?: string;
   onNavigate?: () => void;
   onLanguageChange: (language: SiteLanguage) => void;
@@ -732,10 +624,16 @@ function LanguageSelector({
       aria-label="Select language"
       className={cn(
         "inline-flex items-center rounded-lg border border-stone-200 bg-white/95 p-0.5 shadow-sm",
+        compact && "h-9 flex-shrink-0",
         className
       )}
     >
-      <span className="inline-flex items-center px-2 text-primary">
+      <span
+        className={cn(
+          "inline-flex items-center px-2 text-primary",
+          compact && "hidden lg:inline-flex"
+        )}
+      >
         <Globe2 className="h-4 w-4" aria-hidden />
       </span>
       {options.map((option) => {
@@ -751,12 +649,17 @@ function LanguageSelector({
             aria-current={active ? "page" : undefined}
             className={cn(
               "inline-flex flex-1 items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors",
+              compact && "min-w-7 px-2",
               active
                 ? "bg-primary text-white"
                 : "text-foreground/70 hover:bg-surface hover:text-primary"
             )}
           >
-            {option.code === "es" ? "Español" : option.label}
+            {compact
+              ? option.code.toUpperCase()
+              : option.code === "es"
+                ? "Español"
+                : option.label}
           </Link>
         );
       })}

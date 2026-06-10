@@ -155,9 +155,11 @@ function useDisplayRegion(): [RegionCode, (region: RegionCode) => void] {
 export function RegionCurrencySelector({
   className,
   compact = false,
+  tight = false,
 }: {
   className?: string;
   compact?: boolean;
+  tight?: boolean;
 }) {
   const [region, setRegion] = useDisplayRegion();
   const [open, setOpen] = useState(false);
@@ -224,7 +226,7 @@ export function RegionCurrencySelector({
       }
       className={cn(
         "overflow-hidden rounded-lg border border-stone-200 bg-white py-1.5 shadow-xl",
-        compact ? "w-64" : "mt-2 w-full shadow-sm"
+        compact ? (tight ? "w-56" : "w-64") : "mt-2 w-full shadow-sm"
       )}
     >
       {REGION_OPTIONS.map((option) => {
@@ -277,7 +279,11 @@ export function RegionCurrencySelector({
         className={cn(
           "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-sm transition-colors",
           "hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-          compact ? "min-w-[7.5rem]" : "w-full min-w-[12.5rem]"
+          compact
+            ? tight
+              ? "h-9 min-w-[4.25rem] gap-1 px-2 py-1.5"
+              : "min-w-[7.5rem]"
+            : "w-full min-w-[12.5rem]"
         )}
       >
         {!compact && (
