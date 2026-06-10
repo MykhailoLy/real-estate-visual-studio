@@ -76,7 +76,7 @@ export const SITE_MEDIA_SECTION_META: SiteMediaSectionMeta[] = [
     section: "service-hero",
     label: "Service hero",
     description:
-      "Hero media for service pages: before/after sliders or 360 panorama viewers. For synchronized 360 before/after hero use Section Service hero, Media type Before / after, Service slug 360-virtual-staging, and upload two matching 2:1 equirectangular panorama images.",
+      "Hero media for service pages: before/after sliders or 360 panorama viewers. For synchronized 360 before/after hero use Section Service hero, Media type Before / after, Service slug 360-virtual-staging or 360-image-enhancement, and upload two matching 2:1 equirectangular panorama images.",
     defaultMediaType: "before-after",
   },
   {
