@@ -3,12 +3,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { createPortal } from "react-dom";
+import {
+  BookOpen,
+  ChevronDown,
+  FileText,
+  Globe2,
+  HelpCircle,
+  Image as ImageIcon,
+  Info,
+  LogIn,
+  Mail,
+  Menu,
+  Newspaper,
+  Tags,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { RegionCurrencySelector } from "@/components/pricing/currency-client";
 import { cn } from "@/lib/utils";
 import {
   getTopLevelForPath,
-  headerCtaLinks,
   topLevels,
   type SubNavLink,
   type TopLevelEntry,
@@ -41,18 +56,199 @@ import {
 
 const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-10";
 
+type SiteLanguage = "en" | "es";
+
+const LANGUAGE_STORAGE_KEY = "picchuspot-language";
+const LANGUAGE_COOKIE_NAME = "picchuspot_language";
+
+const ENGLISH_TO_SPANISH_ROUTES: Record<string, string> = {
+  "/": "/es",
+  "/services": "/es/services",
+  "/pricing": "/es/pricing",
+  "/contact": "/es/contact",
+};
+
+const SPANISH_TO_ENGLISH_ROUTES: Record<string, string> = {
+  "/es": "/",
+  "/es/services": "/services",
+  "/es/pricing": "/pricing",
+  "/es/contact": "/contact",
+};
+
+type ResourceMenuItem = {
+  label: string;
+  description: string;
+  href?: string;
+  localizedHref?: string;
+  icon: typeof Info;
+  status?: "coming-soon";
+};
+
+const resourceMenuItems: ResourceMenuItem[] = [
+  {
+    label: "About",
+    description: "Who PicchuSpot is and how we work.",
+    href: "/about",
+    icon: Info,
+  },
+  {
+    label: "Contact Us",
+    description: "Quotes, local work, and order support.",
+    href: "/contact",
+    localizedHref: "/es/contact",
+    icon: Mail,
+  },
+  {
+    label: "Pricing",
+    description: "Transparent rates for core visual services.",
+    href: "/pricing",
+    localizedHref: "/es/pricing",
+    icon: Tags,
+  },
+  {
+    label: "Gallery",
+    description: "Before-and-after examples and selected work.",
+    icon: ImageIcon,
+    status: "coming-soon",
+  },
+  {
+    label: "Resources",
+    description: "Guides and practical property marketing notes.",
+    icon: BookOpen,
+    status: "coming-soon",
+  },
+  {
+    label: "FAQ",
+    description: "Common questions about services and delivery.",
+    href: "/faq",
+    icon: HelpCircle,
+  },
+  {
+    label: "Blog",
+    description: "Articles and market notes.",
+    icon: Newspaper,
+    status: "coming-soon",
+  },
+  {
+    label: "Press Kit",
+    description: "Brand assets and media information.",
+    icon: FileText,
+    status: "coming-soon",
+  },
+];
+
+function normalizeLanguagePath(pathname: string): string {
+  const normalized = pathname.replace(/\/+$/, "");
+  return normalized || "/";
+}
+
+function isSiteLanguage(value: unknown): value is SiteLanguage {
+  return value === "en" || value === "es";
+}
+
+function getPathLanguage(pathname: string): SiteLanguage | null {
+  const normalized = normalizeLanguagePath(pathname);
+  return normalized === "/es" || normalized.startsWith("/es/") ? "es" : null;
+}
+
+function readCookieLanguage(): SiteLanguage | null {
+  if (typeof document === "undefined") return null;
+  const cookie = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${LANGUAGE_COOKIE_NAME}=`));
+  if (!cookie) return null;
+  const value = decodeURIComponent(cookie.split("=").slice(1).join("="));
+  return isSiteLanguage(value) ? value : null;
+}
+
+function readStoredLanguage(): SiteLanguage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (isSiteLanguage(stored)) return stored;
+  } catch {
+    // Ignore unavailable storage.
+  }
+  return readCookieLanguage();
+}
+
+function writeLanguagePreference(language: SiteLanguage) {
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  } catch {
+    // Ignore unavailable storage.
+  }
+  document.cookie = `${LANGUAGE_COOKIE_NAME}=${language}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+function getCurrentLanguage(
+  pathname: string,
+  savedLanguage: SiteLanguage | null
+): SiteLanguage {
+  return getPathLanguage(pathname) ?? savedLanguage ?? "en";
+}
+
+function getLanguageHref(pathname: string, language: SiteLanguage): string {
+  const normalized = normalizeLanguagePath(pathname);
+  if (language === "es") {
+    return ENGLISH_TO_SPANISH_ROUTES[normalized] ?? "/es";
+  }
+  return SPANISH_TO_ENGLISH_ROUTES[normalized] ?? "/";
+}
+
+function getLocaleAwareHref(href: string, language: SiteLanguage): string {
+  if (language === "es") {
+    return ENGLISH_TO_SPANISH_ROUTES[href] ?? href;
+  }
+  return SPANISH_TO_ENGLISH_ROUTES[href] ?? href;
+}
+
 export default function Header() {
   const pathname = usePathname() ?? "/";
+  const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
+  const currentLanguage = getCurrentLanguage(pathname, savedLanguage);
   const active = getTopLevelForPath(pathname);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Which top-level accordion is expanded in the mobile drawer.
-  // Initialised to the active category so the current section's
-  // links are immediately visible on open.
-  const [mobileOpenKey, setMobileOpenKey] = useState<string | null>(
-    active.key
-  );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
 
-  const closeMobileMenu = () => setMobileMenuOpen(false);
+  const closeMenu = () => setMenuOpen(false);
+
+  useEffect(() => {
+    window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
+  }, []);
+
+  const setLanguagePreference = (language: SiteLanguage) => {
+    writeLanguagePreference(language);
+    setSavedLanguage(language);
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const insidePanel = menuPanelRef.current?.contains(target) ?? false;
+      const insideButton = menuButtonRef.current?.contains(target) ?? false;
+      if (!insidePanel && !insideButton) {
+        closeMenu();
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-border w-full overflow-x-hidden">
@@ -61,7 +257,7 @@ export default function Header() {
         <div className="flex items-center h-16">
           {/* Brand */}
           <Link
-            href="/"
+            href={getLocaleAwareHref("/", currentLanguage)}
             aria-label="PicchuSpot — Real Estate Visuals home"
             className="text-xl font-bold text-primary tracking-tight flex-shrink-0"
           >
@@ -78,7 +274,7 @@ export default function Header() {
               return (
                 <Link
                   key={entry.key}
-                  href={entry.href}
+                  href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
                     "px-3 py-2 text-[13px] font-bold uppercase tracking-[0.10em] rounded-md transition-colors",
                     isActive
@@ -93,43 +289,42 @@ export default function Header() {
             })}
           </nav>
 
-          {/* Right-side CTAs (desktop) */}
-          <div className="hidden lg:flex items-center gap-2 ml-auto">
-            <RegionCurrencySelector compact className="mr-1" />
-            {headerCtaLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "text-[13px] font-bold uppercase tracking-[0.10em] transition-colors",
-                  link.href === "/order"
-                    ? "bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-light"
-                    : "text-foreground/70 hover:text-primary px-3 py-2"
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+          {/* Menu, account actions, and preferences */}
+          <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <button
+              ref={menuButtonRef}
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-10 sm:w-10"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-haspopup="dialog"
+            >
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <Link
+              href="/login"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em] sm:text-foreground/70 sm:hover:text-primary"
+              aria-label="Login"
+            >
+              <LogIn className="h-4 w-4 sm:hidden" aria-hidden />
+              <span className="hidden sm:inline">Login</span>
+            </Link>
+            <Link
+              href="/signup"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-4 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em]"
+              aria-label="Sign Up"
+            >
+              <UserPlus className="h-4 w-4 sm:hidden" aria-hidden />
+              <span className="hidden sm:inline">Sign Up</span>
+            </Link>
+            <LanguageSelector
+              pathname={pathname}
+              currentLanguage={currentLanguage}
+              compact
+              onLanguageChange={setLanguagePreference}
+            />
+            <RegionCurrencySelector compact tight />
           </div>
-
-          {/* Mobile menu toggle */}
-          <button
-            className="lg:hidden ml-auto p-2 -mr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-            onClick={() => {
-              const nextOpen = !mobileMenuOpen;
-              setMobileMenuOpen(nextOpen);
-              // When opening, reset the expanded accordion to the
-              // currently active top-level so the user always sees
-              // their current section's links immediately on open.
-              if (nextOpen) {
-                setMobileOpenKey(active.key);
-              }
-            }}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
         </div>
       </div>
 
@@ -139,19 +334,21 @@ export default function Header() {
           key={active.key}
           active={active}
           pathname={pathname}
+          language={currentLanguage}
         />
       )}
 
       {/* ── Mobile drawer ── */}
-      {mobileMenuOpen && (
-        <MobileDrawer
-          active={active}
-          pathname={pathname}
-          openKey={mobileOpenKey}
-          setOpenKey={setMobileOpenKey}
-          onClose={closeMobileMenu}
-        />
-      )}
+      {menuOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <BurgerMenuPanel
+            panelRef={menuPanelRef}
+            language={currentLanguage}
+            onClose={closeMenu}
+          />,
+          document.body
+        )}
     </header>
   );
 }
@@ -160,11 +357,16 @@ export default function Header() {
 // HELPERS
 // ============================================================
 
-function resolveSubLinkHref(link: SubNavLink, base: string): string {
+function resolveSubLinkHref(
+  link: SubNavLink,
+  base: string,
+  language: SiteLanguage
+): string {
   if (link.href.startsWith("#")) {
-    return `${base === "/" ? "" : base}${link.href}`;
+    const localizedBase = getLocaleAwareHref(base, language);
+    return `${localizedBase === "/" ? "" : localizedBase}${link.href}`;
   }
-  return link.href;
+  return getLocaleAwareHref(link.href, language);
 }
 
 // ============================================================
@@ -174,14 +376,17 @@ function resolveSubLinkHref(link: SubNavLink, base: string): string {
 interface MobileDrawerProps {
   active: TopLevelEntry;
   pathname: string;
+  language: SiteLanguage;
   openKey: string | null;
   setOpenKey: (key: string | null) => void;
   onClose: () => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MobileDrawer({
   active,
   pathname,
+  language,
   openKey,
   setOpenKey,
   onClose,
@@ -230,7 +435,11 @@ function MobileDrawer({
                   <div className="pl-3 pb-2 space-y-0.5">
                     {entry.subLinks.length > 0 ? (
                       entry.subLinks.map((link) => {
-                        const href = resolveSubLinkHref(link, entry.href);
+                        const href = resolveSubLinkHref(
+                          link,
+                          entry.href,
+                          language
+                        );
                         const isCurrent =
                           !href.startsWith("#") && pathname === href;
                         return (
@@ -253,7 +462,7 @@ function MobileDrawer({
                     ) : (
                       // No sub-links yet — link to the top-level page directly
                       <Link
-                        href={entry.href}
+                        href={getLocaleAwareHref(entry.href, language)}
                         onClick={onClose}
                         className="block px-3 py-2 rounded-md text-[12px] font-semibold tracking-[0.06em] text-foreground/65 hover:text-primary hover:bg-surface"
                       >
@@ -267,29 +476,194 @@ function MobileDrawer({
           })}
         </div>
 
-        {/* Separator */}
-        <div className="border-t border-border pt-3 space-y-1">
-          <div className="px-3 py-3">
-            <RegionCurrencySelector className="w-full justify-between" />
+      </div>
+    </div>
+  );
+}
+
+interface BurgerMenuPanelProps {
+  panelRef: React.RefObject<HTMLDivElement | null>;
+  language: SiteLanguage;
+  onClose: () => void;
+}
+
+function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
+  if (item.status === "coming-soon") return null;
+  if (language === "es" && item.localizedHref) return item.localizedHref;
+  return item.href ?? null;
+}
+
+function BurgerMenuPanel({
+  panelRef,
+  language,
+  onClose,
+}: BurgerMenuPanelProps) {
+  return (
+    <div
+      className="fixed inset-0 z-[10000] bg-primary/10 backdrop-blur-[2px] px-3 py-4 sm:px-6"
+      role="presentation"
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Site menu"
+        className="ml-auto mt-14 flex max-h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary-dark">
+              PicchuSpot
+            </p>
+            <h2 className="text-lg font-bold text-primary">Menu</h2>
           </div>
-          {headerCtaLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={onClose}
-              className={cn(
-                "block px-3 py-3 rounded-lg text-[13px] font-bold uppercase tracking-[0.10em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                link.href === "/order"
-                  ? "bg-primary text-white text-center mt-2"
-                  : "text-foreground/80 hover:bg-surface"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-stone-200 text-primary transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-5 sm:p-6">
+          <section>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+              Explore
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {resourceMenuItems.map((item) => (
+                <ResourceMenuLink
+                  key={item.label}
+                  item={item}
+                  href={getResourceHref(item, language)}
+                  onClose={onClose}
+                />
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>
+  );
+}
+
+function ResourceMenuLink({
+  item,
+  href,
+  onClose,
+}: {
+  item: ResourceMenuItem;
+  href: string | null;
+  onClose: () => void;
+}) {
+  const Icon = item.icon;
+  const content = (
+    <>
+      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-surface text-secondary-dark">
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-primary">{item.label}</span>
+          {item.status === "coming-soon" && (
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+              Coming soon
+            </span>
+          )}
+        </span>
+        <span className="mt-1 block text-xs leading-relaxed text-muted">
+          {item.description}
+        </span>
+      </span>
+    </>
+  );
+
+  if (!href) {
+    return (
+      <div className="flex cursor-not-allowed gap-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 opacity-80">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      onClick={onClose}
+      className="flex gap-3 rounded-lg border border-stone-200 bg-white px-4 py-3 transition-colors hover:border-primary/30 hover:bg-surface"
+    >
+      {content}
+    </Link>
+  );
+}
+
+function LanguageSelector({
+  pathname,
+  currentLanguage,
+  compact = false,
+  className,
+  onNavigate,
+  onLanguageChange,
+}: {
+  pathname: string;
+  currentLanguage: SiteLanguage;
+  compact?: boolean;
+  className?: string;
+  onNavigate?: () => void;
+  onLanguageChange: (language: SiteLanguage) => void;
+}) {
+  const options: { code: SiteLanguage; label: string }[] = [
+    { code: "en", label: "English" },
+    { code: "es", label: "Español" },
+  ];
+
+  return (
+    <nav
+      aria-label="Select language"
+      className={cn(
+        "inline-flex items-center rounded-lg border border-stone-200 bg-white/95 p-0.5 shadow-sm",
+        compact && "h-9 flex-shrink-0",
+        className
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex items-center px-2 text-primary",
+          compact && "hidden lg:inline-flex"
+        )}
+      >
+        <Globe2 className="h-4 w-4" aria-hidden />
+      </span>
+      {options.map((option) => {
+        const active = option.code === currentLanguage;
+        return (
+          <Link
+            key={option.code}
+            href={getLanguageHref(pathname, option.code)}
+            onClick={() => {
+              onLanguageChange(option.code);
+              onNavigate?.();
+            }}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "inline-flex flex-1 items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors",
+              compact && "min-w-7 px-2",
+              active
+                ? "bg-primary text-white"
+                : "text-foreground/70 hover:bg-surface hover:text-primary"
+            )}
+          >
+            {compact
+              ? option.code.toUpperCase()
+              : option.code === "es"
+                ? "Español"
+                : option.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -305,9 +679,10 @@ function MobileDrawer({
 interface DesktopSubNavProps {
   active: TopLevelEntry;
   pathname: string;
+  language: SiteLanguage;
 }
 
-function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
+function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const measureLayerRef = useRef<HTMLDivElement | null>(null);
   const measureMoreRef = useRef<HTMLSpanElement | null>(null);
@@ -465,7 +840,7 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
             className="flex items-stretch gap-x-6 xl:gap-x-7 flex-1 min-w-0 overflow-hidden"
           >
             {visible.map((link) => {
-              const href = resolveSubLinkHref(link, active.href);
+              const href = resolveSubLinkHref(link, active.href, language);
               const isCurrent = !href.startsWith("#") && pathname === href;
               return (
                 <SubNavItem
@@ -519,6 +894,7 @@ function DesktopSubNav({ active, pathname }: DesktopSubNavProps) {
                   links={overflow}
                   active={active}
                   pathname={pathname}
+                  language={language}
                   top={dropdownPos.top}
                   right={dropdownPos.right}
                   onClose={closeMore}
@@ -539,6 +915,7 @@ interface MoreDropdownProps {
   links: SubNavLink[];
   active: TopLevelEntry;
   pathname: string;
+  language: SiteLanguage;
   top: number;
   right: number;
   onClose: () => void;
@@ -551,6 +928,7 @@ function MoreDropdown({
   links,
   active,
   pathname,
+  language,
   top,
   right,
   onClose,
@@ -571,7 +949,7 @@ function MoreDropdown({
       className="bg-white border border-border rounded-lg shadow-xl py-2"
     >
       {links.map((link) => {
-        const href = resolveSubLinkHref(link, active.href);
+        const href = resolveSubLinkHref(link, active.href, language);
         const isCurrent = !href.startsWith("#") && pathname === href;
         return (
           <Link
