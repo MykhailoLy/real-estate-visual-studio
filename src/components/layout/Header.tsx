@@ -3,7 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Menu, X, ChevronDown, Globe2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import {
+  BookOpen,
+  ChevronDown,
+  FileText,
+  Globe2,
+  HelpCircle,
+  Image as ImageIcon,
+  Info,
+  LogIn,
+  Mail,
+  Menu,
+  Newspaper,
+  Tags,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { RegionCurrencySelector } from "@/components/pricing/currency-client";
 import { cn } from "@/lib/utils";
 import {
@@ -59,6 +75,68 @@ const SPANISH_TO_ENGLISH_ROUTES: Record<string, string> = {
   "/es/pricing": "/pricing",
   "/es/contact": "/contact",
 };
+
+type ResourceMenuItem = {
+  label: string;
+  description: string;
+  href?: string;
+  localizedHref?: string;
+  icon: typeof Info;
+  status?: "coming-soon";
+};
+
+const resourceMenuItems: ResourceMenuItem[] = [
+  {
+    label: "About",
+    description: "Who PicchuSpot is and how we work.",
+    href: "/about",
+    icon: Info,
+  },
+  {
+    label: "Contact Us",
+    description: "Quotes, local work, and order support.",
+    href: "/contact",
+    localizedHref: "/es/contact",
+    icon: Mail,
+  },
+  {
+    label: "Pricing",
+    description: "Transparent rates for core visual services.",
+    href: "/pricing",
+    localizedHref: "/es/pricing",
+    icon: Tags,
+  },
+  {
+    label: "Gallery",
+    description: "Before-and-after examples and selected work.",
+    icon: ImageIcon,
+    status: "coming-soon",
+  },
+  {
+    label: "Resources",
+    description: "Guides and practical property marketing notes.",
+    icon: BookOpen,
+    status: "coming-soon",
+  },
+  {
+    label: "FAQ",
+    description: "Common questions about services and delivery.",
+    href: "/faq",
+    icon: HelpCircle,
+  },
+  {
+    label: "Blog",
+    description: "Articles and market notes.",
+    icon: Newspaper,
+    status: "coming-soon",
+  },
+  {
+    label: "Press Kit",
+    description: "Brand assets and media information.",
+    icon: FileText,
+    status: "coming-soon",
+  },
+];
 
 function normalizeLanguagePath(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, "");
@@ -131,15 +209,11 @@ export default function Header() {
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const currentLanguage = getCurrentLanguage(pathname, savedLanguage);
   const active = getTopLevelForPath(pathname);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Which top-level accordion is expanded in the mobile drawer.
-  // Initialised to the active category so the current section's
-  // links are immediately visible on open.
-  const [mobileOpenKey, setMobileOpenKey] = useState<string | null>(
-    active.key
-  );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
 
-  const closeMobileMenu = () => setMobileMenuOpen(false);
+  const closeMenu = () => setMenuOpen(false);
 
   useEffect(() => {
     window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
@@ -149,6 +223,33 @@ export default function Header() {
     writeLanguagePreference(language);
     setSavedLanguage(language);
   };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const insidePanel = menuPanelRef.current?.contains(target) ?? false;
+      const insideButton = menuButtonRef.current?.contains(target) ?? false;
+      if (!insidePanel && !insideButton) {
+        closeMenu();
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-border w-full overflow-x-hidden">
@@ -189,47 +290,31 @@ export default function Header() {
             })}
           </nav>
 
-          {/* Right-side CTAs (desktop) */}
-          <div className="hidden lg:flex items-center gap-2 ml-auto">
-            <RegionCurrencySelector compact className="mr-1" />
-            <LanguageSelector
-              pathname={pathname}
-              currentLanguage={currentLanguage}
-              onLanguageChange={setLanguagePreference}
-            />
-            {headerCtaLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={getLocaleAwareHref(link.href, currentLanguage)}
-                className={cn(
-                  "text-[13px] font-bold uppercase tracking-[0.10em] transition-colors",
-                  link.href === "/order"
-                    ? "bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-light"
-                    : "text-foreground/70 hover:text-primary px-3 py-2"
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+          {/* Account actions + menu */}
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              href="/login"
+              className="hidden sm:inline-flex items-center justify-center px-3 py-2 text-[13px] font-bold uppercase tracking-[0.10em] text-foreground/70 hover:text-primary transition-colors"
+            >
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="hidden sm:inline-flex items-center justify-center px-4 py-2 rounded-md bg-primary text-white text-[13px] font-bold uppercase tracking-[0.10em] hover:bg-primary-light transition-colors shadow-sm"
+            >
+              Sign Up
+            </Link>
           </div>
 
-          {/* Mobile menu toggle */}
           <button
-            className="lg:hidden ml-auto p-2 -mr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-            onClick={() => {
-              const nextOpen = !mobileMenuOpen;
-              setMobileMenuOpen(nextOpen);
-              // When opening, reset the expanded accordion to the
-              // currently active top-level so the user always sees
-              // their current section's links immediately on open.
-              if (nextOpen) {
-                setMobileOpenKey(active.key);
-              }
-            }}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
+            ref={menuButtonRef}
+            className="ml-2 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-haspopup="dialog"
           >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            {menuOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </div>
       </div>
@@ -245,17 +330,18 @@ export default function Header() {
       )}
 
       {/* ── Mobile drawer ── */}
-      {mobileMenuOpen && (
-        <MobileDrawer
-          active={active}
-          pathname={pathname}
-          language={currentLanguage}
-          openKey={mobileOpenKey}
-          setOpenKey={setMobileOpenKey}
-          onClose={closeMobileMenu}
-          onLanguageChange={setLanguagePreference}
-        />
-      )}
+      {menuOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <BurgerMenuPanel
+            panelRef={menuPanelRef}
+            pathname={pathname}
+            language={currentLanguage}
+            onClose={closeMenu}
+            onLanguageChange={setLanguagePreference}
+          />,
+          document.body
+        )}
     </header>
   );
 }
@@ -290,6 +376,7 @@ interface MobileDrawerProps {
   onLanguageChange: (language: SiteLanguage) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MobileDrawer({
   active,
   pathname,
@@ -416,6 +503,209 @@ function MobileDrawer({
         </div>
       </div>
     </div>
+  );
+}
+
+interface BurgerMenuPanelProps {
+  panelRef: React.RefObject<HTMLDivElement | null>;
+  pathname: string;
+  language: SiteLanguage;
+  onClose: () => void;
+  onLanguageChange: (language: SiteLanguage) => void;
+}
+
+function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
+  if (item.status === "coming-soon") return null;
+  if (language === "es" && item.localizedHref) return item.localizedHref;
+  return item.href ?? null;
+}
+
+function BurgerMenuPanel({
+  panelRef,
+  pathname,
+  language,
+  onClose,
+  onLanguageChange,
+}: BurgerMenuPanelProps) {
+  return (
+    <div
+      className="fixed inset-0 z-[10000] bg-primary/10 backdrop-blur-[2px] px-3 py-4 sm:px-6"
+      role="presentation"
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Site menu"
+        className="ml-auto mt-14 flex max-h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary-dark">
+              PicchuSpot
+            </p>
+            <h2 className="text-lg font-bold text-primary">Menu</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-stone-200 text-primary transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-5 sm:p-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="space-y-6">
+              <section>
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                  Explore
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {resourceMenuItems.map((item) => (
+                    <ResourceMenuLink
+                      key={item.label}
+                      item={item}
+                      href={getResourceHref(item, language)}
+                      onClose={onClose}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                  Services
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {topLevels.map((entry) => {
+                    const href = getLocaleAwareHref(entry.href, language);
+                    const isCurrent = pathname === href;
+                    return (
+                      <Link
+                        key={entry.key}
+                        href={href}
+                        onClick={onClose}
+                        aria-current={isCurrent ? "page" : undefined}
+                        className={cn(
+                          "rounded-lg border border-stone-200 px-4 py-3 transition-colors hover:border-primary/30 hover:bg-surface",
+                          isCurrent && "border-primary/30 bg-primary/5"
+                        )}
+                      >
+                        <span className="block text-sm font-bold text-primary">
+                          {entry.label}
+                        </span>
+                        <span className="mt-1 block text-xs leading-relaxed text-muted">
+                          {entry.tagline}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+
+            <aside className="space-y-5 rounded-xl border border-stone-200 bg-surface p-5">
+              <section>
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                  Account
+                </p>
+                <div className="space-y-2">
+                  <Link
+                    href="/signup"
+                    onClick={onClose}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-light"
+                  >
+                    <UserPlus className="h-4 w-4" aria-hidden />
+                    Sign Up
+                  </Link>
+                  <Link
+                    href="/login"
+                    onClick={onClose}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-5 py-3 text-sm font-bold text-primary transition-colors hover:border-primary/30 hover:bg-white"
+                  >
+                    <LogIn className="h-4 w-4" aria-hidden />
+                    Login
+                  </Link>
+                </div>
+              </section>
+
+              <section className="border-t border-stone-200 pt-5">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                  Language
+                </p>
+                <LanguageSelector
+                  pathname={pathname}
+                  currentLanguage={language}
+                  className="w-full"
+                  onNavigate={onClose}
+                  onLanguageChange={onLanguageChange}
+                />
+              </section>
+
+              <section className="border-t border-stone-200 pt-5">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                  Region and currency
+                </p>
+                <RegionCurrencySelector className="w-full justify-between" />
+              </section>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResourceMenuLink({
+  item,
+  href,
+  onClose,
+}: {
+  item: ResourceMenuItem;
+  href: string | null;
+  onClose: () => void;
+}) {
+  const Icon = item.icon;
+  const content = (
+    <>
+      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-surface text-secondary-dark">
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-primary">{item.label}</span>
+          {item.status === "coming-soon" && (
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+              Coming soon
+            </span>
+          )}
+        </span>
+        <span className="mt-1 block text-xs leading-relaxed text-muted">
+          {item.description}
+        </span>
+      </span>
+    </>
+  );
+
+  if (!href) {
+    return (
+      <div className="flex cursor-not-allowed gap-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 opacity-80">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      onClick={onClose}
+      className="flex gap-3 rounded-lg border border-stone-200 bg-white px-4 py-3 transition-colors hover:border-primary/30 hover:bg-surface"
+    >
+      {content}
+    </Link>
   );
 }
 
