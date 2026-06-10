@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import {
   CURRENCY_COOKIE_NAME,
@@ -159,17 +160,33 @@ export function RegionCurrencySelector({
 }) {
   const [region, setRegion] = useDisplayRegion();
   const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const activeOption =
     REGION_OPTIONS.find((option) => option.code === region) ??
     REGION_OPTIONS[0];
 
+  const updatePanelPosition = useCallback(() => {
+    if (!buttonRef.current || !compact) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPanelPos({
+      top: rect.bottom + 8,
+      right: Math.max(12, window.innerWidth - rect.right),
+    });
+  }, [compact]);
+
   useEffect(() => {
     if (!open) return;
 
+    updatePanelPosition();
+
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (!rootRef.current?.contains(target)) {
+      const insideRoot = rootRef.current?.contains(target) ?? false;
+      const insidePanel = panelRef.current?.contains(target) ?? false;
+      if (!insideRoot && !insidePanel) {
         setOpen(false);
       }
     };
@@ -179,19 +196,83 @@ export function RegionCurrencySelector({
 
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, { passive: true });
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition);
     };
-  }, [open]);
+  }, [open, compact, updatePanelPosition]);
+
+  const options = (
+    <div
+      ref={panelRef}
+      role="listbox"
+      aria-label="Select market region and display currency"
+      style={
+        compact && panelPos
+          ? {
+              position: "fixed",
+              top: panelPos.top,
+              right: panelPos.right,
+              zIndex: 10000,
+            }
+          : undefined
+      }
+      className={cn(
+        "overflow-hidden rounded-lg border border-stone-200 bg-white py-1.5 shadow-xl",
+        compact ? "w-64" : "mt-2 w-full shadow-sm"
+      )}
+    >
+      {REGION_OPTIONS.map((option) => {
+        const active = option.code === region;
+        return (
+          <button
+            key={option.code}
+            type="button"
+            role="option"
+            aria-selected={active}
+            onClick={() => {
+              setRegion(option.code);
+              setOpen(false);
+            }}
+            className={cn(
+              "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors",
+              active
+                ? "bg-primary/5 text-primary"
+                : "text-foreground hover:bg-surface hover:text-primary"
+            )}
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <RegionFlag code={option.code} />
+              <span className="truncate">
+                {option.label} {"\u2014"} {option.currency}
+              </span>
+            </span>
+            {active && (
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em]">
+                Selected
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div ref={rootRef} className={cn("relative inline-flex", className)}>
       <button
+        ref={buttonRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          updatePanelPosition();
+          setOpen((value) => !value);
+        }}
         className={cn(
           "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-sm transition-colors",
           "hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
@@ -203,53 +284,89 @@ export function RegionCurrencySelector({
             Region
           </span>
         )}
-        <span className="text-xs font-bold text-primary">
-          {activeOption.shortLabel}
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-primary">
+          <RegionFlag code={activeOption.code} />
+          {activeOption.currency}
         </span>
         <span aria-hidden className="text-[10px] text-primary">
           v
         </span>
       </button>
 
-      {open && (
-        <div
-          role="listbox"
-          aria-label="Select market region and display currency"
-          className="absolute right-0 top-full z-[10000] mt-2 w-64 overflow-hidden rounded-lg border border-stone-200 bg-white py-1.5 shadow-xl"
-        >
-          {REGION_OPTIONS.map((option) => {
-            const active = option.code === region;
-            return (
-              <button
-                key={option.code}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  setRegion(option.code);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors",
-                  active
-                    ? "bg-primary/5 text-primary"
-                    : "text-foreground hover:bg-surface hover:text-primary"
-                )}
-              >
-                <span>
-                  {option.flag} {option.label} {"\u2014"} {option.currency}
-                </span>
-                {active && (
-                  <span className="text-xs font-bold uppercase tracking-[0.12em]">
-                    Selected
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {open && compact && panelPos && createPortal(options, document.body)}
+      {open && !compact && options}
     </div>
+  );
+}
+
+function RegionFlag({ code }: { code: RegionCode }) {
+  if (code === "CA") {
+    return (
+      <span
+        aria-hidden
+        className="relative inline-flex h-4 w-5 shrink-0 overflow-hidden rounded-[3px] border border-stone-200 bg-white shadow-sm"
+      >
+        <span className="h-full w-[28%] bg-red-600" />
+        <svg
+          viewBox="0 0 20 20"
+          className="h-full flex-1 text-red-600"
+          fill="currentColor"
+        >
+          <path d="M10 3.2 8.8 6.5 6.4 5.3l1.1 2.8-2.8.7 2.7 1.5-1.2 2.1 2.6-.5L10 16l1.2-4.1 2.6.5-1.2-2.1 2.7-1.5-2.8-.7 1.1-2.8-2.4 1.2L10 3.2Z" />
+        </svg>
+        <span className="h-full w-[28%] bg-red-600" />
+      </span>
+    );
+  }
+
+  if (code === "EU") {
+    const dots = Array.from({ length: 12 }, (_, index) => {
+      const angle = (index / 12) * Math.PI * 2 - Math.PI / 2;
+      return {
+        cx: 10 + Math.cos(angle) * 5.6,
+        cy: 10 + Math.sin(angle) * 5.6,
+      };
+    });
+
+    return (
+      <span
+        aria-hidden
+        className="inline-flex h-4 w-5 shrink-0 overflow-hidden rounded-[3px] border border-stone-200 bg-[#1f4aa8] shadow-sm"
+      >
+        <svg viewBox="0 0 20 16" className="h-full w-full">
+          {dots.map((dot, index) => (
+            <circle
+              key={index}
+              cx={dot.cx}
+              cy={dot.cy - 2}
+              r="0.85"
+              fill="#f8d24a"
+            />
+          ))}
+        </svg>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      className="inline-flex h-4 w-5 shrink-0 overflow-hidden rounded-[3px] border border-stone-200 bg-white shadow-sm"
+    >
+      <span className="relative h-full w-[42%] bg-[#244b9b]">
+        <span className="absolute left-[3px] top-[3px] h-1 w-1 rounded-full bg-white/95" />
+        <span className="absolute left-[9px] top-[3px] h-1 w-1 rounded-full bg-white/95" />
+        <span className="absolute left-[6px] top-[8px] h-1 w-1 rounded-full bg-white/95" />
+      </span>
+      <span className="flex flex-1 flex-col">
+        {Array.from({ length: 7 }, (_, index) => (
+          <span
+            key={index}
+            className={cn("flex-1", index % 2 === 0 ? "bg-red-600" : "bg-white")}
+          />
+        ))}
+      </span>
+    </span>
   );
 }
 

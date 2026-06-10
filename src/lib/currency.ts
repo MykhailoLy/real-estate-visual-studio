@@ -12,10 +12,8 @@ export interface RegionalPrice {
 
 export interface RegionOption {
   code: RegionCode;
-  flag: string;
   label: string;
   currency: CurrencyCode;
-  shortLabel: string;
 }
 
 export const DEFAULT_CURRENCY: CurrencyCode = "USD";
@@ -28,24 +26,18 @@ export const REGION_COOKIE_NAME = "picchuspot_region";
 export const REGION_OPTIONS: RegionOption[] = [
   {
     code: "US",
-    flag: "\u{1F1FA}\u{1F1F8}",
     label: "United States",
     currency: "USD",
-    shortLabel: "\u{1F1FA}\u{1F1F8} USD",
   },
   {
     code: "CA",
-    flag: "\u{1F1E8}\u{1F1E6}",
     label: "Canada",
     currency: "CAD",
-    shortLabel: "\u{1F1E8}\u{1F1E6} CAD",
   },
   {
     code: "EU",
-    flag: "\u{1F1EA}\u{1F1FA}",
     label: "Europe",
     currency: "EUR",
-    shortLabel: "\u{1F1EA}\u{1F1FA} EUR",
   },
 ];
 
