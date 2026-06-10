@@ -134,6 +134,8 @@ export function getTopLevelForPath(pathname: string): TopLevelEntry {
 
 /** Right-side CTAs in the header's first row. */
 export const headerCtaLinks = [
+  { href: "/services", label: "Services" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/order", label: "Order" },
   { href: "/contact", label: "Contact" },
 ] as const;
