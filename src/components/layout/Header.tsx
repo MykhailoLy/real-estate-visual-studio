@@ -12,12 +12,10 @@ import {
   HelpCircle,
   Image as ImageIcon,
   Info,
-  LogIn,
   Mail,
   Menu,
   Newspaper,
   Tags,
-  UserPlus,
   X,
 } from "lucide-react";
 import { RegionCurrencySelector } from "@/components/pricing/currency-client";
@@ -309,11 +307,10 @@ export default function Header() {
             <Link
               href="/login"
               onClick={() => trackButtonClick("Login", "header")}
-              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em] sm:text-foreground/70 sm:hover:text-primary"
+              className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:py-2 sm:text-[13px] sm:text-foreground/70 sm:hover:text-primary"
               aria-label="Login"
             >
-              <LogIn className="h-4 w-4 sm:hidden" aria-hidden />
-              <span className="hidden sm:inline">Login</span>
+              Login
             </Link>
             <Link
               href="/signup"
@@ -321,19 +318,24 @@ export default function Header() {
                 trackButtonClick("Sign Up", "header");
                 trackLeadIntent("sign_up", "header");
               }}
-              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-4 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em]"
+              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:inline-flex"
               aria-label="Sign Up"
             >
-              <UserPlus className="h-4 w-4 sm:hidden" aria-hidden />
-              <span className="hidden sm:inline">Sign Up</span>
+              Sign Up
             </Link>
             <LanguageSelector
               pathname={pathname}
               currentLanguage={currentLanguage}
               compact
+              className="hidden lg:inline-flex"
               onLanguageChange={setLanguagePreference}
             />
-            <RegionCurrencySelector compact tight analyticsLocation="header" />
+            <RegionCurrencySelector
+              compact
+              tight
+              className="hidden lg:inline-flex"
+              analyticsLocation="header"
+            />
           </div>
         </div>
       </div>
@@ -355,6 +357,8 @@ export default function Header() {
           <BurgerMenuPanel
             panelRef={menuPanelRef}
             language={currentLanguage}
+            pathname={pathname}
+            onLanguageChange={setLanguagePreference}
             onClose={closeMenu}
           />,
           document.body
@@ -494,6 +498,8 @@ function MobileDrawer({
 interface BurgerMenuPanelProps {
   panelRef: React.RefObject<HTMLDivElement | null>;
   language: SiteLanguage;
+  pathname: string;
+  onLanguageChange: (language: SiteLanguage) => void;
   onClose: () => void;
 }
 
@@ -506,6 +512,8 @@ function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
 function BurgerMenuPanel({
   panelRef,
   language,
+  pathname,
+  onLanguageChange,
   onClose,
 }: BurgerMenuPanelProps) {
   return (
@@ -538,6 +546,35 @@ function BurgerMenuPanel({
         </div>
 
         <div className="overflow-y-auto p-5 sm:p-6">
+          <section className="mb-5 rounded-xl border border-stone-200 bg-surface/60 p-4 lg:hidden">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+              Preferences
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
+                  Language
+                </p>
+                <LanguageSelector
+                  pathname={pathname}
+                  currentLanguage={language}
+                  className="w-full"
+                  onNavigate={onClose}
+                  onLanguageChange={onLanguageChange}
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
+                  Region
+                </p>
+                <RegionCurrencySelector
+                  className="w-full"
+                  analyticsLocation="mobile_menu"
+                />
+              </div>
+            </div>
+          </section>
+
           <section>
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
               Explore
