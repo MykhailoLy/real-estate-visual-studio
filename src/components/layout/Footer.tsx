@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 
 const footerLinks = {
   services: [
@@ -118,6 +119,7 @@ export default function Footer() {
                 {link.label}
               </Link>
             ))}
+            <CookieSettingsButton />
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
+import CookieConsentBanner from "@/components/privacy/CookieConsentBanner";
 import "./globals.css";
 
 // NOTE: Header and Footer are rendered by the (public) route-group layout.
@@ -63,6 +64,7 @@ export default function RootLayout({
       >
         {children}
         <GoogleAnalytics />
+        <CookieConsentBanner />
       </body>
     </html>
   );
