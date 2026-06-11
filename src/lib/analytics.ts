@@ -1,5 +1,8 @@
+import { hasAnalyticsConsent } from "@/lib/cookie-consent";
+
 type AnalyticsValue = string | number | boolean | null | undefined;
 type AnalyticsParams = Record<string, AnalyticsValue>;
+const EXCLUDED_ANALYTICS_PREFIXES = ["/admin", "/dashboard"];
 
 declare global {
   interface Window {
@@ -14,8 +17,19 @@ function cleanParams(params: AnalyticsParams): AnalyticsParams {
   );
 }
 
+function isExcludedAnalyticsPath(pathname: string) {
+  return EXCLUDED_ANALYTICS_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 export function trackEvent(name: string, params: AnalyticsParams = {}) {
-  if (typeof window === "undefined" || typeof window.gtag !== "function") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.gtag !== "function" ||
+    !hasAnalyticsConsent() ||
+    isExcludedAnalyticsPath(window.location.pathname)
+  ) {
     return;
   }
 
