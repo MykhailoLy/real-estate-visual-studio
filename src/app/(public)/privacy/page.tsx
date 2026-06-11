@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import TrackedOutboundLink from "@/components/analytics/TrackedOutboundLink";
 import Container from "@/components/layout/Container";
 
 export const metadata: Metadata = {
@@ -145,12 +146,13 @@ const sections = [
         </p>
         <p>
           For privacy questions, email{" "}
-          <a
+          <TrackedOutboundLink
             href={`mailto:${contactEmail}?subject=Privacy%20question`}
+            analyticsLocation="contact_page"
             className="font-semibold text-primary hover:text-primary-light"
           >
             {contactEmail}
-          </a>
+          </TrackedOutboundLink>
           .
         </p>
       </>
@@ -226,12 +228,13 @@ export default function PrivacyPage() {
               For questions about this policy or your PicchuSpot account,
               contact us by email.
             </p>
-            <a
+            <TrackedOutboundLink
               href={`mailto:${contactEmail}?subject=Privacy%20question`}
+              analyticsLocation="contact_page"
               className="inline-flex items-center justify-center w-full px-5 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors"
             >
               Email PicchuSpot
-            </a>
+            </TrackedOutboundLink>
             <Link
               href="/terms"
               className="mt-3 inline-flex items-center justify-center w-full px-5 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"

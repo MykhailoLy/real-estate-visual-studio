@@ -1,4 +1,4 @@
-import Link from "next/link";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
 import SectionHeader from "./SectionHeader";
 import {
@@ -53,23 +53,27 @@ export default function ServiceCategories() {
                 const Icon = svc.icon;
                 return (
                   <li key={svc.name}>
-                    <Link
+                    <TrackedLink
                       href={svc.href}
+                      analyticsLabel={svc.name}
+                      analyticsLocation="cta_section"
                       className="flex items-center gap-3 text-sm text-foreground hover:text-primary transition-colors"
                     >
                       <Icon className="w-4 h-4 text-muted" />
                       {svc.name}
-                    </Link>
+                    </TrackedLink>
                   </li>
                 );
               })}
             </ul>
-            <Link
+            <TrackedLink
               href="/order"
+              analyticsLabel="Order Online"
+              analyticsLocation="cta_section"
               className="inline-flex px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
             >
               Order Online →
-            </Link>
+            </TrackedLink>
           </div>
 
           {/* Local */}
@@ -93,12 +97,14 @@ export default function ServiceCategories() {
                 );
               })}
             </ul>
-            <Link
+            <TrackedLink
               href="/contact"
+              analyticsLabel="Book a Shoot"
+              analyticsLocation="cta_section"
               className="inline-flex px-5 py-2.5 border border-primary text-primary text-sm font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors"
             >
               Book a Shoot →
-            </Link>
+            </TrackedLink>
           </div>
         </div>
       </Container>

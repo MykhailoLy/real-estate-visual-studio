@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import PricingHero from "./PricingHero";
 import ServiceCTA from "./ServiceCTA";
 import SectionLead from "./SectionLead";
@@ -177,20 +177,25 @@ export default function SimplePricingPage({
               {/* Quick CTA inline so the user doesn't have to scroll
                   back up to start an order from this section. */}
               <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                <Link
+                <TrackedLink
                   href={primaryHref}
+                  analyticsLabel={primaryLabel}
+                  analyticsLocation="pricing_inline"
+                  analyticsEvent="pricing_cta"
                   className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-sm"
                 >
                   {primaryLabel}
                   <ArrowRight className="w-4 h-4" />
-                </Link>
+                </TrackedLink>
                 {secondaryHref && secondaryLabel && (
-                  <Link
+                  <TrackedLink
                     href={secondaryHref}
+                    analyticsLabel={secondaryLabel}
+                    analyticsLocation="pricing_inline"
                     className="inline-flex items-center justify-center px-7 py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-all text-sm"
                   >
                     {secondaryLabel}
-                  </Link>
+                  </TrackedLink>
                 )}
               </div>
             </div>

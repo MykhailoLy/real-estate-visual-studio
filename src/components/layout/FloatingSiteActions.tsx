@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowUp, MessageCircle, UserPlus } from "lucide-react";
-import { trackButtonClick, trackLeadIntent } from "@/lib/analytics";
+import { trackSignUpClick } from "@/lib/analytics";
 
 export default function FloatingSiteActions() {
   const pathname = usePathname() ?? "/";
@@ -24,7 +24,6 @@ export default function FloatingSiteActions() {
   if (isAdminRoute) return null;
 
   const scrollToTop = () => {
-    trackButtonClick("Back to top", "floating_action");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -39,10 +38,7 @@ export default function FloatingSiteActions() {
         <div className="mx-auto flex max-w-md items-center gap-3">
           <Link
             href="/signup"
-            onClick={() => {
-              trackButtonClick("Sign Up", "mobile_sticky_cta");
-              trackLeadIntent("sign_up", "mobile_sticky_cta");
-            }}
+            onClick={() => trackSignUpClick("mobile_sticky_cta")}
             className="inline-flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-md bg-primary px-5 text-[15px] font-bold uppercase tracking-[0.10em] text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <UserPlus className="h-4 w-4 flex-shrink-0" aria-hidden />

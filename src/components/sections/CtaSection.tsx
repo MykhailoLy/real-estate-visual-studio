@@ -6,8 +6,10 @@ interface CtaSectionProps {
   subtitle?: string;
   primaryLabel?: string;
   primaryHref?: string;
+  primaryAnalyticsEvent?: "order_intent" | "pricing_cta" | "contact_intent";
   secondaryLabel?: string;
   secondaryHref?: string;
+  secondaryAnalyticsEvent?: "order_intent" | "pricing_cta" | "contact_intent";
 }
 
 export default function CtaSection({
@@ -15,8 +17,10 @@ export default function CtaSection({
   subtitle = "Professional visual marketing that helps you sell properties faster.",
   primaryLabel = "Order Online",
   primaryHref = "/order",
+  primaryAnalyticsEvent,
   secondaryLabel = "Contact Us",
   secondaryHref = "/contact",
+  secondaryAnalyticsEvent,
 }: CtaSectionProps) {
   const primaryIntentType = primaryHref.startsWith("/order")
     ? "order"
@@ -39,6 +43,7 @@ export default function CtaSection({
               analyticsLabel={primaryLabel}
               analyticsLocation="cta_section"
               analyticsIntentType={primaryIntentType}
+              analyticsEvent={primaryAnalyticsEvent}
               className="px-8 py-3.5 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-sm"
             >
               {primaryLabel}
@@ -48,6 +53,7 @@ export default function CtaSection({
               analyticsLabel={secondaryLabel}
               analyticsLocation="cta_section"
               analyticsIntentType={secondaryIntentType}
+              analyticsEvent={secondaryAnalyticsEvent}
               className="px-8 py-3.5 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-sm"
             >
               {secondaryLabel}

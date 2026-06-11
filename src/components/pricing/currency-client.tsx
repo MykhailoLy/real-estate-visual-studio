@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { trackEvent } from "@/lib/analytics";
+import { trackRegionCurrencySwitch } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import {
   CURRENCY_COOKIE_NAME,
@@ -242,8 +242,8 @@ export function RegionCurrencySelector({
             aria-selected={active}
             onClick={() => {
               setRegion(option.code);
-              trackEvent("region_currency_switch", {
-                region: option.code,
+              trackRegionCurrencySwitch({
+                selectedRegion: option.code,
                 currency: option.currency,
                 location: analyticsLocation,
               });

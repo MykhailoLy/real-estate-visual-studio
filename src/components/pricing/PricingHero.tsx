@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import Wide from "./Wide";
 
 interface PricingHeroProps {
@@ -44,21 +44,26 @@ export default function PricingHero({
           {(primaryHref || secondaryHref) && (
             <div className="flex flex-col sm:flex-row gap-3">
               {primaryHref && primaryLabel && (
-                <Link
+                <TrackedLink
                   href={primaryHref}
+                  analyticsLabel={primaryLabel}
+                  analyticsLocation="pricing_hero"
+                  analyticsEvent="pricing_cta"
                   className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
                 >
                   {primaryLabel}
                   <ArrowRight className="w-4 h-4" />
-                </Link>
+                </TrackedLink>
               )}
               {secondaryHref && secondaryLabel && (
-                <Link
+                <TrackedLink
                   href={secondaryHref}
+                  analyticsLabel={secondaryLabel}
+                  analyticsLocation="pricing_hero"
                   className="inline-flex items-center justify-center px-7 py-3.5 border border-primary/25 text-primary font-semibold rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all text-sm"
                 >
                   {secondaryLabel}
-                </Link>
+                </TrackedLink>
               )}
             </div>
           )}

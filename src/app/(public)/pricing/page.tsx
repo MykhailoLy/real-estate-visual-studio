@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
 import SectionHeader from "@/components/sections/SectionHeader";
 import CtaSection from "@/components/sections/CtaSection";
@@ -159,12 +159,15 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <Link
+            <TrackedLink
               href="/order/virtual-staging"
+              analyticsLabel="Order Virtual Staging"
+              analyticsLocation="pricing_card"
+              analyticsEvent="pricing_cta"
               className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
             >
               Order Virtual Staging →
-            </Link>
+            </TrackedLink>
           </div>
         </Container>
       </section>
@@ -231,12 +234,15 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <Link
+            <TrackedLink
               href="/order/virtual-renovation"
+              analyticsLabel="Order Virtual Renovation"
+              analyticsLocation="pricing_card"
+              analyticsEvent="pricing_cta"
               className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
             >
               Order Virtual Renovation →
-            </Link>
+            </TrackedLink>
           </div>
         </Container>
       </section>
@@ -293,12 +299,15 @@ export default function PricingPage() {
               </p>
             </div>
 
-            <Link
+            <TrackedLink
               href="/order/3d-floor-plans"
+              analyticsLabel="Order Floor Plans"
+              analyticsLocation="pricing_card"
+              analyticsEvent="pricing_cta"
               className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
             >
               Order Floor Plans →
-            </Link>
+            </TrackedLink>
           </div>
         </Container>
       </section>
@@ -335,12 +344,15 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <Link
+            <TrackedLink
               href="/order/photo-editing"
+              analyticsLabel="Order Photo Editing"
+              analyticsLocation="pricing_card"
+              analyticsEvent="pricing_cta"
               className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
             >
               Order Photo Editing →
-            </Link>
+            </TrackedLink>
           </div>
         </Container>
       </section>
@@ -413,12 +425,14 @@ export default function PricingPage() {
               </p>
             </div>
 
-            <Link
+            <TrackedLink
               href="/contact"
+              analyticsLabel="Request a Quote"
+              analyticsLocation="pricing_card"
               className="inline-flex px-6 py-3 border border-primary text-primary text-sm font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors"
             >
               Request a Quote →
-            </Link>
+            </TrackedLink>
           </div>
         </Container>
       </section>
@@ -499,6 +513,7 @@ export default function PricingPage() {
         subtitle="Choose your service and get started in minutes. No upfront payment required."
         primaryLabel="Order Online"
         primaryHref="/order"
+        primaryAnalyticsEvent="pricing_cta"
         secondaryLabel="View Services"
         secondaryHref="/services"
       />

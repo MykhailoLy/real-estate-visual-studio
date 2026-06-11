@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
 import CtaSection from "@/components/sections/CtaSection";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
@@ -223,13 +223,16 @@ export default function SpanishPricingPage() {
                     {section.subtitle}
                   </p>
                   <PricingTable rows={section.rows} />
-                  <Link
+                  <TrackedLink
                     href={section.href}
+                    analyticsLabel={section.cta}
+                    analyticsLocation="pricing_card"
+                    analyticsEvent="pricing_cta"
                     className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
                   >
                     {section.cta}
                     <ArrowRight className="w-4 h-4" aria-hidden />
-                  </Link>
+                  </TrackedLink>
                 </article>
               ))}
             </div>
@@ -271,13 +274,15 @@ export default function SpanishPricingPage() {
             </p>
             <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 shadow-sm">
               <PricingTable rows={localRows} />
-              <Link
+              <TrackedLink
                 href="/es/contact"
+                analyticsLabel="Solicitar presupuesto"
+                analyticsLocation="pricing_card"
                 className="mt-6 inline-flex items-center gap-2 px-6 py-3 border border-primary text-primary text-sm font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors"
               >
                 Solicitar presupuesto
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </TrackedLink>
             </div>
           </div>
         </Container>
@@ -288,6 +293,7 @@ export default function SpanishPricingPage() {
         subtitle="Elige un servicio digital o escríbenos para trabajos locales y encargos a medida."
         primaryLabel="Pedir online"
         primaryHref="/order"
+        primaryAnalyticsEvent="pricing_cta"
         secondaryLabel="Ver servicios"
         secondaryHref="/es/services"
       />
