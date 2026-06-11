@@ -228,7 +228,7 @@ export function RegionCurrencySelector({
           : undefined
       }
       className={cn(
-        "overflow-hidden rounded-lg border border-stone-200 bg-white py-1.5 shadow-xl",
+        "max-w-full overflow-hidden rounded-lg border border-stone-200 bg-white py-1.5 shadow-xl",
         compact ? (tight ? "w-56" : "w-64") : "mt-2 w-full shadow-sm"
       )}
     >
@@ -263,7 +263,7 @@ export function RegionCurrencySelector({
               </span>
             </span>
             {active && (
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em]">
+              <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-[0.12em]">
                 Selected
               </span>
             )}
@@ -274,7 +274,14 @@ export function RegionCurrencySelector({
   );
 
   return (
-    <div ref={rootRef} className={cn("relative inline-flex", className)}>
+    <div
+      ref={rootRef}
+      className={cn(
+        "relative",
+        compact ? "inline-flex" : "flex w-full min-w-0 flex-col",
+        className
+      )}
+    >
       <button
         ref={buttonRef}
         type="button"
