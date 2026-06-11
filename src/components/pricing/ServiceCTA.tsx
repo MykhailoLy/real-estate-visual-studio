@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import Wide from "./Wide";
 
 interface ServiceCTAProps {
@@ -39,20 +39,25 @@ export default function ServiceCTA({
             </p>
           )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
+            <TrackedLink
               href={primaryHref}
+              analyticsLabel={primaryLabel}
+              analyticsLocation="cta_section"
+              analyticsEvent="pricing_cta"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-sm shadow-sm"
             >
               {primaryLabel}
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </TrackedLink>
             {secondaryHref && secondaryLabel && (
-              <Link
+              <TrackedLink
                 href={secondaryHref}
+                analyticsLabel={secondaryLabel}
+                analyticsLocation="cta_section"
                 className="inline-flex items-center justify-center px-8 py-4 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-sm"
               >
                 {secondaryLabel}
-              </Link>
+              </TrackedLink>
             )}
           </div>
         </div>

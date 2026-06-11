@@ -1,4 +1,5 @@
 import Link from "next/link";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 
 const footerLinks = {
@@ -82,12 +83,23 @@ export default function Footer() {
             <ul className="space-y-2">
               {footerLinks.pages.map((link) => (
                 <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-white/70 hover:text-white transition-colors"
-                  >
-                    {link.label}
-                  </Link>
+                  {link.href === "/order" || link.href === "/contact" ? (
+                    <TrackedLink
+                      href={link.href}
+                      analyticsLabel={link.label}
+                      analyticsLocation="footer"
+                      className="text-sm text-white/70 hover:text-white transition-colors"
+                    >
+                      {link.label}
+                    </TrackedLink>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      className="text-sm text-white/70 hover:text-white transition-colors"
+                    >
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

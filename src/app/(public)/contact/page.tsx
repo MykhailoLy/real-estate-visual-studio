@@ -8,6 +8,8 @@ import {
   Mail,
   MapPin,
 } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
+import TrackedOutboundLink from "@/components/analytics/TrackedOutboundLink";
 import Container from "@/components/layout/Container";
 import { localizedAlternates } from "@/lib/seo";
 
@@ -70,19 +72,23 @@ export default function ContactPage() {
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link
+              <TrackedLink
                 href="/order"
+                analyticsLabel="Start an order"
+                analyticsLocation="contact_page"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
               >
                 Start an order
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
-              <Link
+              </TrackedLink>
+              <TrackedLink
                 href="/pricing"
+                analyticsLabel="View pricing"
+                analyticsLocation="contact_page"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
               >
                 View pricing
-              </Link>
+              </TrackedLink>
               <Link
                 href="/dashboard/jobs"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
@@ -99,12 +105,13 @@ export default function ContactPage() {
             <h2 className="text-xl font-bold text-primary mb-3">
               Email PicchuSpot
             </h2>
-            <a
+            <TrackedOutboundLink
               href={`mailto:${contactEmail}?subject=PicchuSpot%20inquiry`}
+              analyticsLocation="contact_page"
               className="text-lg font-bold text-primary hover:text-primary-light break-all"
             >
               {contactEmail}
-            </a>
+            </TrackedOutboundLink>
             <p className="mt-4 text-sm text-muted leading-relaxed">
               Share the service you need, the number of images or plans, your
               deadline, and any project notes. For order support, include your
@@ -128,15 +135,16 @@ export default function ContactPage() {
               <p className="text-sm text-muted leading-relaxed mb-5">
                 {card.description}
               </p>
-              <a
+              <TrackedOutboundLink
                 href={`mailto:${contactEmail}?subject=${encodeURIComponent(
                   card.subject
                 )}&body=${card.body}`}
+                analyticsLocation="contact_page"
                 className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors"
               >
                 Email about this
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </a>
+              </TrackedOutboundLink>
             </article>
           ))}
         </div>

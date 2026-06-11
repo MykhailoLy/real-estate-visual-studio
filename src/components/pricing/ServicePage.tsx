@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
@@ -250,13 +251,16 @@ export default async function ServicePage({
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-              <Link
+              <TrackedLink
                 href={orderHref}
+                analyticsLabel={orderLabel}
+                analyticsLocation="pricing_intro"
+                analyticsEvent="pricing_cta"
                 className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
               >
                 {orderLabel}
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </TrackedLink>
               <Link
                 href="/services"
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
@@ -381,13 +385,16 @@ export default async function ServicePage({
             </p>
           )}
           <div className="mt-8">
-            <Link
+            <TrackedLink
               href={orderHref}
+              analyticsLabel={orderLabel}
+              analyticsLocation="pricing_card"
+              analyticsEvent="pricing_cta"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
             >
               {orderLabel}
               <ArrowRight className="w-4 h-4" aria-hidden />
-            </Link>
+            </TrackedLink>
           </div>
         </Wide>
       </section>

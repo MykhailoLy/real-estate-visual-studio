@@ -8,6 +8,8 @@ import {
   Mail,
   MapPin,
 } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
+import TrackedOutboundLink from "@/components/analytics/TrackedOutboundLink";
 import Container from "@/components/layout/Container";
 import { spanishMetadata } from "../seo";
 
@@ -67,13 +69,15 @@ export default function SpanishContactPage() {
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link
+              <TrackedLink
                 href="/order"
+                analyticsLabel="Iniciar pedido"
+                analyticsLocation="contact_page"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
               >
                 Iniciar pedido
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </TrackedLink>
               <Link
                 href="/es/pricing"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
@@ -96,12 +100,13 @@ export default function SpanishContactPage() {
             <h2 className="text-xl font-bold text-primary mb-3">
               Escribe a PicchuSpot
             </h2>
-            <a
+            <TrackedOutboundLink
               href={`mailto:${contactEmail}?subject=Consulta%20PicchuSpot`}
+              analyticsLocation="contact_page"
               className="text-lg font-bold text-primary hover:text-primary-light break-all"
             >
               {contactEmail}
-            </a>
+            </TrackedOutboundLink>
             <p className="mt-4 text-sm text-muted leading-relaxed">
               Indica el servicio, número de imágenes o planos, plazo y notas
               del proyecto. Para soporte, incluye la referencia del pedido.
@@ -124,15 +129,16 @@ export default function SpanishContactPage() {
               <p className="text-sm text-muted leading-relaxed mb-5">
                 {card.description}
               </p>
-              <a
+              <TrackedOutboundLink
                 href={`mailto:${contactEmail}?subject=${encodeURIComponent(
                   card.subject
                 )}&body=${card.body}`}
+                analyticsLocation="contact_page"
                 className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors"
               >
                 Enviar email
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </a>
+              </TrackedOutboundLink>
             </article>
           ))}
         </div>

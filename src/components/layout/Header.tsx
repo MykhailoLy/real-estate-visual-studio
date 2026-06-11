@@ -19,7 +19,12 @@ import {
   X,
 } from "lucide-react";
 import { RegionCurrencySelector } from "@/components/pricing/currency-client";
-import { trackButtonClick, trackEvent, trackLeadIntent } from "@/lib/analytics";
+import {
+  trackContactIntentClick,
+  trackLanguageSwitch,
+  trackLoginClick,
+  trackSignUpClick,
+} from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import {
   getTopLevelForPath,
@@ -220,10 +225,7 @@ export default function Header() {
   const setLanguagePreference = (language: SiteLanguage) => {
     writeLanguagePreference(language);
     setSavedLanguage(language);
-    trackEvent("language_switch", {
-      language,
-      location: "header",
-    });
+    trackLanguageSwitch(language, "header");
   };
 
   useEffect(() => {
@@ -306,7 +308,7 @@ export default function Header() {
             </button>
             <Link
               href="/login"
-              onClick={() => trackButtonClick("Login", "header")}
+              onClick={() => trackLoginClick("header")}
               className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:py-2 sm:text-[13px] sm:text-foreground/70 sm:hover:text-primary"
               aria-label="Login"
             >
@@ -314,10 +316,7 @@ export default function Header() {
             </Link>
             <Link
               href="/signup"
-              onClick={() => {
-                trackButtonClick("Sign Up", "header");
-                trackLeadIntent("sign_up", "header");
-              }}
+              onClick={() => trackSignUpClick("header")}
               className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:inline-flex"
               aria-label="Sign Up"
             >
@@ -638,7 +637,12 @@ function ResourceMenuLink({
   return (
     <Link
       href={href}
-      onClick={onClose}
+      onClick={() => {
+        if (href === "/contact" || href === "/es/contact") {
+          trackContactIntentClick("header");
+        }
+        onClose();
+      }}
       className="flex gap-3 rounded-lg border border-stone-200 bg-white px-4 py-3 transition-colors hover:border-primary/30 hover:bg-surface"
     >
       {content}
