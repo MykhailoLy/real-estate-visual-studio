@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import "./globals.css";
 
 // NOTE: Header and Footer are rendered by the (public) route-group layout.
@@ -61,6 +62,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen w-full overflow-x-hidden`}
       >
         {children}
+        <GoogleAnalytics />
       </body>
     </html>
   );

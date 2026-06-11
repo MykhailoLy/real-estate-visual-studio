@@ -1,4 +1,4 @@
-import Link from "next/link";
+import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
 
 interface CtaSectionProps {
@@ -18,6 +18,13 @@ export default function CtaSection({
   secondaryLabel = "Contact Us",
   secondaryHref = "/contact",
 }: CtaSectionProps) {
+  const primaryIntentType = primaryHref.startsWith("/order")
+    ? "order"
+    : undefined;
+  const secondaryIntentType = secondaryHref.startsWith("/contact")
+    ? "contact"
+    : undefined;
+
   return (
     <section className="bg-primary py-16 lg:py-20">
       <Container>
@@ -27,18 +34,24 @@ export default function CtaSection({
           </h2>
           <p className="text-white/70 text-base lg:text-lg mb-8">{subtitle}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
+            <TrackedLink
               href={primaryHref}
+              analyticsLabel={primaryLabel}
+              analyticsLocation="cta_section"
+              analyticsIntentType={primaryIntentType}
               className="px-8 py-3.5 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-sm"
             >
               {primaryLabel}
-            </Link>
-            <Link
+            </TrackedLink>
+            <TrackedLink
               href={secondaryHref}
+              analyticsLabel={secondaryLabel}
+              analyticsLocation="cta_section"
+              analyticsIntentType={secondaryIntentType}
               className="px-8 py-3.5 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-sm"
             >
               {secondaryLabel}
-            </Link>
+            </TrackedLink>
           </div>
         </div>
       </Container>

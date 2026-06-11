@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import {
   CURRENCY_COOKIE_NAME,
@@ -156,10 +157,12 @@ export function RegionCurrencySelector({
   className,
   compact = false,
   tight = false,
+  analyticsLocation = "region_currency_selector",
 }: {
   className?: string;
   compact?: boolean;
   tight?: boolean;
+  analyticsLocation?: string;
 }) {
   const [region, setRegion] = useDisplayRegion();
   const [open, setOpen] = useState(false);
@@ -239,6 +242,11 @@ export function RegionCurrencySelector({
             aria-selected={active}
             onClick={() => {
               setRegion(option.code);
+              trackEvent("region_currency_switch", {
+                region: option.code,
+                currency: option.currency,
+                location: analyticsLocation,
+              });
               setOpen(false);
             }}
             className={cn(

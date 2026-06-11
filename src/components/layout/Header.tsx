@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { RegionCurrencySelector } from "@/components/pricing/currency-client";
+import { trackButtonClick, trackEvent, trackLeadIntent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import {
   getTopLevelForPath,
@@ -221,6 +222,10 @@ export default function Header() {
   const setLanguagePreference = (language: SiteLanguage) => {
     writeLanguagePreference(language);
     setSavedLanguage(language);
+    trackEvent("language_switch", {
+      language,
+      location: "header",
+    });
   };
 
   useEffect(() => {
@@ -303,6 +308,7 @@ export default function Header() {
             </button>
             <Link
               href="/login"
+              onClick={() => trackButtonClick("Login", "header")}
               className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em] sm:text-foreground/70 sm:hover:text-primary"
               aria-label="Login"
             >
@@ -311,6 +317,10 @@ export default function Header() {
             </Link>
             <Link
               href="/signup"
+              onClick={() => {
+                trackButtonClick("Sign Up", "header");
+                trackLeadIntent("sign_up", "header");
+              }}
               className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:w-auto sm:px-4 sm:py-2 sm:text-[13px] sm:font-bold sm:uppercase sm:tracking-[0.10em]"
               aria-label="Sign Up"
             >
@@ -323,7 +333,7 @@ export default function Header() {
               compact
               onLanguageChange={setLanguagePreference}
             />
-            <RegionCurrencySelector compact tight />
+            <RegionCurrencySelector compact tight analyticsLocation="header" />
           </div>
         </div>
       </div>
