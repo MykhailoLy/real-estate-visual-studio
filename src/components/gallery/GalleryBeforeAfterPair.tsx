@@ -4,6 +4,10 @@
 // Desktop (sm+):  two equal columns, side by side
 // Mobile:         stacked vertically (one column)
 //
+// Images use object-contain so the full room/property composition
+// is always visible — no cropping. A neutral bg-stone-50 fills
+// any letterbox area so the frame looks clean without distortion.
+//
 // Both images must be available (non-null) to render. If either
 // URL is missing the component returns null so a single-sided
 // pair is never shown to the public.
@@ -48,17 +52,23 @@ export default function GalleryBeforeAfterPair({
       {/* ── Image pair ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         {/* Before */}
-        <div className="relative">
-          <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-100 ring-1 ring-stone-200">
+        <div>
+          {/*
+           * aspect-[4/3] provides a consistent shared height between
+           * Before and After on desktop so they stay visually aligned.
+           * object-contain ensures the full image is visible without
+           * cropping; bg-stone-50 provides a neutral letterbox background.
+           */}
+          <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-50 ring-1 ring-stone-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={beforeUrl}
               alt={beforeAlt}
               loading={loading}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-contain"
             />
           </div>
-          {/* Label pill — sits just below the image */}
+          {/* Label sits just below the image */}
           <p className="mt-2 flex items-center gap-1.5 px-0.5">
             <span className="inline-block w-2 h-2 rounded-full bg-stone-400 flex-shrink-0" />
             <span className="text-[11px] font-bold tracking-[0.16em] uppercase text-muted">
@@ -68,17 +78,17 @@ export default function GalleryBeforeAfterPair({
         </div>
 
         {/* After */}
-        <div className="relative">
-          <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-100 ring-1 ring-stone-200">
+        <div>
+          <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-50 ring-1 ring-stone-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={afterUrl}
               alt={afterAlt}
               loading={loading}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-contain"
             />
           </div>
-          {/* Label pill */}
+          {/* Label */}
           <p className="mt-2 flex items-center gap-1.5 px-0.5">
             <span className="inline-block w-2 h-2 rounded-full bg-primary flex-shrink-0" />
             <span className="text-[11px] font-bold tracking-[0.16em] uppercase text-primary">

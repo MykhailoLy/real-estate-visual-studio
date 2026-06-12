@@ -10,6 +10,7 @@ import {
   PORTFOLIO_SERVICES,
   PORTFOLIO_SERVICE_SLUGS,
   getPublishedItemsForService,
+  getFeaturedHomeItems,
   getPortfolioPublicUrl,
   getPortfolioService,
   isPortfolioServiceSlug,
@@ -69,7 +70,10 @@ export default async function GalleryServicePage({
   if (!isPortfolioServiceSlug(serviceSlug)) notFound();
 
   const service = getPortfolioService(serviceSlug);
-  const items = await getPublishedItemsForService(serviceSlug);
+  const [items, featuredItems] = await Promise.all([
+    getPublishedItemsForService(serviceSlug),
+    getFeaturedHomeItems(),
+  ]);
 
   // BreadcrumbList JSON-LD
   const breadcrumbJsonLd = {
@@ -82,8 +86,11 @@ export default async function GalleryServicePage({
     ],
   };
 
-  // Service nav items — all services link to their EN gallery page
-  const navServices = PORTFOLIO_SERVICES.map((svc) => ({
+  // Service nav — only show services that have published items, plus always
+  // include the current service so the nav stays coherent on empty-state pages.
+  const navServices = PORTFOLIO_SERVICES.filter(
+    (svc) => featuredItems.has(svc.slug) || svc.slug === serviceSlug,
+  ).map((svc) => ({
     slug: svc.slug,
     label: svc.label,
     href: `/gallery/${svc.slug}`,
