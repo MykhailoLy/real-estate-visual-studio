@@ -4,6 +4,9 @@ import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Day to Dusk",
@@ -18,7 +21,26 @@ export const metadata: Metadata = {
 
 export default function DayToDuskPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Day to Dusk",
+            description:
+              "Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots and premium presentation.",
+            url: absoluteUrl("/pricing/day-to-dusk"),
+            price: "5.00",
+            priceCurrency: "USD",
+            offerNote: "Starting price per image",
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            { name: "Day to Dusk", item: absoluteUrl("/pricing/day-to-dusk") },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="day-to-dusk"
       placeholderVariant="day-to-dusk"
       eyebrow="Day to Dusk"
@@ -144,5 +166,6 @@ export default function DayToDuskPricingPage() {
       ctaTitle="Make the hero photo unmissable."
       ctaSubtitle="A single dusk shot can change how a listing reads online. Upload your exterior and we'll handle the rest."
     />
+    </>
   );
 }

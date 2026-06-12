@@ -4,6 +4,9 @@ import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Eliminación de objetos y limpieza virtual",
@@ -15,7 +18,29 @@ export const metadata = spanishMetadata({
 
 export default function SpanishPhotoEditingPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Eliminación de objetos y limpieza virtual",
+            description:
+              "Elimina objetos que distraen, desorden e imperfecciones de fotos inmobiliarias para imágenes más limpias y listas para publicar.",
+            url: absoluteUrl("/es/pricing/photo-editing"),
+            price: "8.00",
+            priceCurrency: "USD",
+            offerNote: "Precio inicial por imagen",
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Eliminación de objetos",
+              item: absoluteUrl("/es/pricing/photo-editing"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="item-removal-virtual-cleaning"
       placeholderVariant="item-removal"
       eyebrow="Eliminación de objetos y limpieza virtual"
@@ -165,5 +190,6 @@ export default function SpanishPhotoEditingPricingPage() {
           "Ejemplos antes y después de Eliminación de objetos y limpieza virtual",
       }}
     />
+    </>
   );
 }

@@ -9,6 +9,9 @@ import {
 } from "@/lib/site-media";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Precios de Virtual Staging 360°",
@@ -63,7 +66,26 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
     );
 
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Virtual Staging 360°",
+            description:
+              "Amuebla un panorama 360 para que los tours virtuales muestren espacios amueblados y habitados, sin el coste ni la coordinación del staging físico.",
+            url: absoluteUrl("/es/pricing/360-virtual-staging"),
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Virtual Staging 360°",
+              item: absoluteUrl("/es/pricing/360-virtual-staging"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="360-virtual-staging"
       placeholderVariant="panorama-staging"
       eyebrow="Virtual Staging 360°"
@@ -196,5 +218,6 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
         heroAriaLabel: "Ejemplos antes y después de Virtual Staging 360",
       }}
     />
+    </>
   );
 }

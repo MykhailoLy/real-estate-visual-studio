@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Map, Building, LayoutGrid, FileText } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Development Site Plans",
@@ -16,7 +19,26 @@ export const metadata: Metadata = {
 
 export default function DevelopmentSitePlansPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Development Site Plans",
+            description:
+              "Clear visual site plans for land, development, subdivision, multi-unit, or project presentation.",
+            url: absoluteUrl("/pricing/development-site-plans"),
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "Development Site Plans",
+              item: absoluteUrl("/pricing/development-site-plans"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="development-site-plans"
       placeholderVariant="site-plans"
       eyebrow="Development Site Plans"
@@ -151,5 +173,6 @@ export default function DevelopmentSitePlansPricingPage() {
       ctaTitle="A clear site plan does the heavy lifting in development marketing."
       ctaSubtitle="Send your source files — we'll quote in writing within 24 hours."
     />
+    </>
   );
 }

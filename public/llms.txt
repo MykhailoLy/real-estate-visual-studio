@@ -1,0 +1,76 @@
+# PicchuSpot — Real Estate Visual Services
+
+PicchuSpot is an online real estate visual services studio. We help real estate
+agents, photographers, property marketers, and agencies produce market-ready
+property visuals through a streamlined online ordering system with fast delivery.
+
+## Services
+
+- Virtual Staging: Furnish empty or outdated rooms with realistic digital
+  furniture and decor. 9 interior styles, delivered in 24–48 hours.
+- Virtual Renovation: Show renovation potential with realistic visual updates
+  for finishes, fixtures, flooring, kitchens, bathrooms, pools, and landscaping.
+- Floor Plans: 2D and 3D floor plan redraws from sketches, scans, PDFs, or
+  measurements. Listing-ready JPG and PDF delivery.
+- Image Enhancement / Real Estate Photo Editing: Color correction, exposure
+  balance, white balance, lens cleanup, and window view recovery for listing
+  photos. From $2 per image.
+- Item Removal & Virtual Cleaning: Remove clutter, personal items, and visual
+  distractions from property photos for cleaner listing images.
+- Day to Dusk: Transform daytime exterior photos into warm twilight-style
+  listing images for stronger hero shots and premium presentation.
+- 360° Image Enhancement: Color, exposure, and stitch cleanup for
+  equirectangular panoramas used in virtual tours.
+- 360° Virtual Staging: Stage furniture inside 360° panoramic room images so
+  virtual tours show furnished, lived-in spaces.
+- Aerial Editing: Enhance drone and aerial property visuals for cleaner land,
+  exterior, neighborhood, and listing presentation.
+- Development Site Plans: Visual site plans for land, development, subdivision,
+  multi-unit, and project presentation.
+
+## Audience
+
+Real estate agents, real estate photographers, property marketers, and real
+estate agencies seeking professional property visuals produced remotely with
+fast turnaround times.
+
+## Delivery
+
+Many standard digital orders are delivered within 24 to 48 hours after files
+and instructions are received. Complex or custom work may take longer.
+
+## Key URLs
+
+Homepage:                    https://picchuspot.com/
+Services overview:           https://picchuspot.com/services
+Pricing overview:            https://picchuspot.com/pricing
+Virtual Staging pricing:     https://picchuspot.com/pricing/virtual-staging
+Virtual Renovation pricing:  https://picchuspot.com/pricing/virtual-renovation
+Floor Plans pricing:         https://picchuspot.com/pricing/floor-plans
+Image Enhancement pricing:   https://picchuspot.com/pricing/image-enhancement
+Photo Editing pricing:       https://picchuspot.com/pricing/photo-editing
+Day to Dusk pricing:         https://picchuspot.com/pricing/day-to-dusk
+360° Enhancement pricing:    https://picchuspot.com/pricing/360-image-enhancement
+360° Staging pricing:        https://picchuspot.com/pricing/360-virtual-staging
+Aerial Editing pricing:      https://picchuspot.com/pricing/aerial-editing
+Site Plans pricing:          https://picchuspot.com/pricing/development-site-plans
+FAQ:                         https://picchuspot.com/faq
+About:                       https://picchuspot.com/about
+Contact:                     https://picchuspot.com/contact
+Order:                       https://picchuspot.com/order
+
+Spanish homepage:            https://picchuspot.com/es
+Spanish services:            https://picchuspot.com/es/services
+Spanish pricing:             https://picchuspot.com/es/pricing
+Spanish FAQ:                 https://picchuspot.com/es/faq
+Spanish contact:             https://picchuspot.com/es/contact
+
+## Contact
+
+Email: hello@picchuspot.com
+
+## Not intended as public knowledge sources
+
+The following areas are not intended for AI indexing or public knowledge
+extraction: /admin, /dashboard, /login, /signup, /forgot-password,
+/reset-password, /api/* routes, and private order and client areas.

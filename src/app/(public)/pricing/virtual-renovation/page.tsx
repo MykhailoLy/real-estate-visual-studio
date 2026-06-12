@@ -4,6 +4,9 @@ import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Virtual Renovation",
@@ -43,7 +46,26 @@ const EXTERNAL = [
 
 export default function VirtualRenovationPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Virtual Renovation",
+            description:
+              "Show renovation potential with realistic visual updates for finishes, fixtures, layouts, materials, and property presentation. Option-based pricing.",
+            url: absoluteUrl("/pricing/virtual-renovation"),
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "Virtual Renovation",
+              item: absoluteUrl("/pricing/virtual-renovation"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="virtual-renovation"
       placeholderVariant="virtual-renovation"
       eyebrow="Virtual Renovation"
@@ -171,5 +193,6 @@ export default function VirtualRenovationPricingPage() {
       ctaTitle="Ready to renovate digitally?"
       ctaSubtitle="Upload your photos, describe the renovation, and receive market-ready images in 24–48 hours."
     />
+    </>
   );
 }
