@@ -115,8 +115,9 @@ const resourceMenuItems: ResourceMenuItem[] = [
     esLabel: "Galería",
     description: "Before-and-after examples and selected work.",
     esDescription: "Ejemplos antes/después y trabajos seleccionados.",
+    href: "/gallery",
+    localizedHref: "/es/gallery",
     icon: ImageIcon,
-    status: "coming-soon",
   },
   {
     label: "Resources",
