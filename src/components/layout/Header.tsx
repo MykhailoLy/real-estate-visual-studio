@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -19,12 +19,17 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { RegionCurrencySelector } from "@/components/pricing/currency-client";
+import {
+  RegionFlag,
+  useDisplayRegion,
+} from "@/components/pricing/currency-client";
+import { REGION_OPTIONS, currencyForRegion } from "@/lib/currency";
 import { getEnglishPath, getSpanishPath } from "@/lib/localized-routes";
 import {
   trackContactIntentClick,
   trackLanguageSwitch,
   trackLoginClick,
+  trackRegionCurrencySwitch,
   trackSignUpClick,
 } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
@@ -389,7 +394,7 @@ export default function Header() {
           {/* Top-level categories (desktop) */}
           <nav
             aria-label="Service categories"
-            className="hidden lg:flex items-center gap-1 ml-8 xl:ml-12"
+            className="hidden 2xl:ml-10 2xl:flex 2xl:min-w-0 2xl:items-center 2xl:gap-1"
           >
             {topLevels.map((entry) => {
               const isActive = entry.key === active.key;
@@ -398,7 +403,7 @@ export default function Header() {
                   key={entry.key}
                   href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
-                    "px-3 py-2 text-[13px] font-bold uppercase tracking-[0.10em] rounded-md transition-colors",
+                    "whitespace-nowrap rounded-md px-2.5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
                     isActive
                       ? "text-primary bg-primary/5"
                       : "text-foreground/70 hover:text-primary hover:bg-surface"
@@ -434,22 +439,16 @@ export default function Header() {
             <Link
               href={getLocaleAwareHref("/signup", currentLanguage)}
               onClick={() => trackSignUpClick("header")}
-              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:inline-flex"
+              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary 2xl:inline-flex"
               aria-label={currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
             >
               {currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
             </Link>
-            <LanguageSelector
+            <MarketLanguageSelector
               pathname={pathname}
               currentLanguage={currentLanguage}
-              compact
               className="hidden lg:inline-flex"
               onLanguageChange={setLanguagePreference}
-            />
-            <RegionCurrencySelector
-              compact
-              tight
-              className="hidden lg:inline-flex"
               analyticsLocation="header"
             />
           </div>
@@ -668,7 +667,7 @@ function BurgerMenuPanel({
         </div>
 
         <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
-          <section>
+          <section className="2xl:hidden">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
@@ -736,7 +735,7 @@ function BurgerMenuPanel({
             </div>
           </section>
 
-          <section>
+          <section className="2xl:hidden">
             <div className="mb-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
                 {copy.futureEyebrow}
@@ -781,28 +780,16 @@ function BurgerMenuPanel({
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
               {language === "es" ? "Preferencias" : "Preferences"}
             </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
-                  {language === "es" ? "Idioma" : "Language"}
-                </p>
-                <LanguageSelector
-                  pathname={pathname}
-                  currentLanguage={language}
-                  className="w-full"
-                  onNavigate={onClose}
-                  onLanguageChange={onLanguageChange}
-                />
-              </div>
-              <div>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
-                  {language === "es" ? "Región" : "Region"}
-                </p>
-                <RegionCurrencySelector
-                  className="w-full"
-                  analyticsLocation="mobile_menu"
-                />
-              </div>
+            <div>
+              <MarketLanguageSelector
+                pathname={pathname}
+                currentLanguage={language}
+                className="w-full"
+                placement="panel"
+                onNavigate={onClose}
+                onLanguageChange={onLanguageChange}
+                analyticsLocation="mobile_menu"
+              />
             </div>
           </section>
 
@@ -823,7 +810,7 @@ function BurgerMenuPanel({
             </div>
           </section>
 
-          <section className="rounded-xl border border-stone-200 bg-primary p-4 text-white shadow-sm">
+          <section className="rounded-xl border border-stone-200 bg-primary p-4 text-white shadow-sm 2xl:hidden">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">
@@ -923,6 +910,251 @@ function ResourceMenuLink({
   );
 }
 
+type MarketLanguageSelectorPlacement = "header" | "panel";
+
+function MarketLanguageSelector({
+  pathname,
+  currentLanguage,
+  className,
+  placement = "header",
+  onNavigate,
+  onLanguageChange,
+  analyticsLocation,
+}: {
+  pathname: string;
+  currentLanguage: SiteLanguage;
+  className?: string;
+  placement?: MarketLanguageSelectorPlacement;
+  onNavigate?: () => void;
+  onLanguageChange: (language: SiteLanguage) => void;
+  analyticsLocation: string;
+}) {
+  const [region, setRegion] = useDisplayRegion();
+  const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const activeOption =
+    REGION_OPTIONS.find((option) => option.code === region) ??
+    REGION_OPTIONS[0];
+  const usePortal = placement === "header";
+
+  const updatePanelPosition = useCallback(() => {
+    if (!buttonRef.current || !usePortal) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPanelPos({
+      top: rect.bottom + 8,
+      right: Math.max(12, window.innerWidth - rect.right),
+    });
+  }, [usePortal]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    updatePanelPosition();
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const insideRoot = rootRef.current?.contains(target) ?? false;
+      const insidePanel = panelRef.current?.contains(target) ?? false;
+      if (!insideRoot && !insidePanel) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition);
+    };
+  }, [open, updatePanelPosition]);
+
+  const copy =
+    currentLanguage === "es"
+      ? {
+          aria: "Seleccionar mercado, moneda e idioma",
+          market: "Mercado",
+          language: "Idioma",
+          selected: "Seleccionado",
+          english: "Ingl\u00e9s",
+          spanish: "Espa\u00f1ol",
+        }
+      : {
+          aria: "Select market, currency, and language",
+          market: "Market",
+          language: "Language",
+          selected: "Selected",
+          english: "English",
+          spanish: "Spanish",
+        };
+  const languageOptions: { code: SiteLanguage; label: string }[] = [
+    { code: "en", label: copy.english },
+    { code: "es", label: copy.spanish },
+  ];
+  const marketLabelsEs: Record<string, string> = {
+    US: "Estados Unidos",
+    CA: "Canad\u00e1",
+    EU: "Europa",
+  };
+  const getMarketLabel = (option: (typeof REGION_OPTIONS)[number]) =>
+    currentLanguage === "es"
+      ? (marketLabelsEs[option.code] ?? option.label)
+      : option.label;
+
+  const panel = (
+    <div
+      ref={panelRef}
+      style={
+        usePortal && panelPos
+          ? {
+              position: "fixed",
+              top: panelPos.top,
+              right: panelPos.right,
+              zIndex: 10000,
+            }
+          : undefined
+      }
+      className={cn(
+        "overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl",
+        usePortal ? "w-[min(21rem,calc(100vw-1.5rem))]" : "mt-2 w-full shadow-sm"
+      )}
+    >
+      <div className="border-b border-border p-2.5">
+        <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+          {copy.market}
+        </p>
+        <div className="space-y-1">
+          {REGION_OPTIONS.map((option) => {
+            const active = option.code === region;
+            return (
+              <button
+                key={option.code}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setRegion(option.code);
+                  trackRegionCurrencySwitch({
+                    selectedRegion: option.code,
+                    currency: option.currency,
+                    location: analyticsLocation,
+                  });
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2.5 text-left text-sm transition-colors",
+                  active
+                    ? "bg-primary/5 text-primary"
+                    : "text-foreground hover:bg-surface hover:text-primary"
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <RegionFlag code={option.code} />
+                  <span className="truncate">
+                    {getMarketLabel(option)} {"\u2014"} {option.currency}
+                  </span>
+                </span>
+                {active && (
+                  <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-[0.12em]">
+                    {copy.selected}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="p-2.5">
+        <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+          {copy.language}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {languageOptions.map((option) => {
+            const active = option.code === currentLanguage;
+            return (
+              <Link
+                key={option.code}
+                href={getLanguageHref(pathname, option.code)}
+                onClick={() => {
+                  onLanguageChange(option.code);
+                  setOpen(false);
+                  onNavigate?.();
+                }}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "inline-flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
+                  active
+                    ? "bg-primary text-white"
+                    : "bg-surface text-foreground/75 hover:bg-primary/5 hover:text-primary"
+                )}
+              >
+                {option.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      ref={rootRef}
+      className={cn(
+        "relative",
+        placement === "header" ? "inline-flex flex-shrink-0" : "block",
+        className
+      )}
+    >
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={copy.aria}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => {
+          updatePanelPosition();
+          setOpen((value) => !value);
+        }}
+        className={cn(
+          "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-sm transition-colors hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          placement === "header" ? "h-9 min-w-[8rem]" : "w-full"
+        )}
+      >
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-primary">
+          <RegionFlag code={activeOption.code} />
+          <span>{currencyForRegion(region)}</span>
+          <span className="text-muted">{"\u00b7"}</span>
+          <span>{currentLanguage.toUpperCase()}</span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 flex-shrink-0 text-primary transition-transform",
+            open && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {open && usePortal && panelPos && createPortal(panel, document.body)}
+      {open && !usePortal && panel}
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function LanguageSelector({
   pathname,
   currentLanguage,
@@ -1130,7 +1362,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
   const overflow = active.subLinks.slice(overflowAt);
 
   return (
-    <div className="hidden lg:block border-t border-border bg-white">
+    <div className="hidden border-t border-border bg-white 2xl:block">
       <div className={cn("relative", NAV_X_PADDING)}>
         {/* Hidden measurement mirror */}
         <div
