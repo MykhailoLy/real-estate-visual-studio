@@ -7,6 +7,7 @@ import {
   type PortfolioServiceSlug,
   type PortfolioItem,
 } from "@/lib/portfolio";
+import { normalizeGalleryFilter } from "@/lib/gallery";
 import {
   deletePortfolioFiles,
   isValidPortfolioObjectPath,
@@ -52,6 +53,7 @@ const PatchBody = z.object({
   after_image_path: z.string().min(1).max(512).optional(),
   before_alt: z.union([z.string().trim().max(200), z.null()]).optional(),
   after_alt: z.union([z.string().trim().max(200), z.null()]).optional(),
+  gallery_filter: z.union([z.string().trim().max(64), z.null()]).optional(),
   sort_order: z.number().int().min(-9999).max(9999).optional(),
   featured_home: z.boolean().optional(),
   published: z.boolean().optional(),
@@ -179,6 +181,21 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.description !== undefined) update.description = nullable(body.description);
   if (body.before_alt !== undefined) update.before_alt = nullable(body.before_alt);
   if (body.after_alt !== undefined) update.after_alt = nullable(body.after_alt);
+  // Gallery filter: validate against the (possibly new) service slug.
+  // If the client sent a value, normalize it. If the service slug
+  // changed without an explicit filter, re-validate the existing
+  // value so an incompatible category is reset to null.
+  if (body.gallery_filter !== undefined) {
+    update.gallery_filter = normalizeGalleryFilter(nextSlug, body.gallery_filter);
+  } else if (
+    body.service_slug !== undefined &&
+    body.service_slug !== existing.service_slug
+  ) {
+    update.gallery_filter = normalizeGalleryFilter(
+      nextSlug,
+      existing.gallery_filter,
+    );
+  }
   if (body.sort_order !== undefined) update.sort_order = body.sort_order;
   if (body.featured_home !== undefined) update.featured_home = body.featured_home;
   if (body.published !== undefined) update.published = body.published;

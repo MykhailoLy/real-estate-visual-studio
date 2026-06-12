@@ -57,6 +57,7 @@ export default async function AdminPortfolioPage() {
     after_image_path: row.after_image_path,
     before_alt: row.before_alt,
     after_alt: row.after_alt,
+    gallery_filter: row.gallery_filter,
     sort_order: row.sort_order,
     featured_home: row.featured_home,
     published: row.published,

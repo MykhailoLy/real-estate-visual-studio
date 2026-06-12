@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Container from "@/components/layout/Container";
 import JsonLd from "@/components/seo/JsonLd";
-import GalleryBeforeAfterPair from "@/components/gallery/GalleryBeforeAfterPair";
-import GalleryServiceNav from "@/components/gallery/GalleryServiceNav";
+import FilteredGalleryResults, {
+  type GalleryResultItem,
+} from "@/components/gallery/FilteredGalleryResults";
 import {
-  PORTFOLIO_SERVICES,
   PORTFOLIO_SERVICE_SLUGS,
   getPublishedItemsForService,
-  getFeaturedHomeItems,
   getPortfolioPublicUrl,
   getPortfolioService,
   isPortfolioServiceSlug,
@@ -18,7 +17,10 @@ import {
 import {
   GALLERY_SERVICE_INTROS_ES,
   GALLERY_LABELS_ES,
+  GALLERY_FILTER_ALL_LABEL,
   galleryServiceMetaDescriptionEs,
+  getGalleryPairLabels,
+  getGalleryFilterOptions,
 } from "@/lib/gallery";
 import { absoluteUrl } from "@/lib/seo";
 import { getSpanishPath } from "@/lib/localized-routes";
@@ -27,8 +29,8 @@ import { getSpanishPath } from "@/lib/localized-routes";
 // /es/gallery/[serviceSlug]  —  Service gallery detail page (ES)
 //
 // Mirror of /gallery/[serviceSlug] with Spanish copy throughout.
-// Same data source (portfolio_items), same slug list.
-// Pricing CTA links to the localised ES pricing page.
+// Same data source, same layout (one full-width example per row,
+// optional client-side filter). Pricing CTA links to the ES page.
 // ============================================================
 
 export function generateStaticParams() {
@@ -49,6 +51,8 @@ export async function generateMetadata({
   return {
     title: `${labelEs} — Galería`,
     description: galleryServiceMetaDescriptionEs(labelEs),
+    // Canonical is the clean ES gallery URL — filter query never
+    // produces a separate canonical.
     alternates: {
       canonical: esUrl,
       languages: {
@@ -79,16 +83,13 @@ export default async function SpanishGalleryServicePage({
 
   const service = getPortfolioService(serviceSlug);
   const labelEs = GALLERY_LABELS_ES[serviceSlug];
-  const [items, featuredItems] = await Promise.all([
-    getPublishedItemsForService(serviceSlug),
-    getFeaturedHomeItems(),
-  ]);
+  const items = await getPublishedItemsForService(serviceSlug);
 
-  // Resolve ES pricing href (fall back to EN href if not mapped)
+  // Resolve ES pricing href (fall back to EN href if not mapped).
   const esPricingHref =
     getSpanishPath(service.pricingHref as never) ?? service.pricingHref;
 
-  // BreadcrumbList JSON-LD (Spanish labels, canonical ES URLs)
+  // BreadcrumbList JSON-LD (Spanish labels, canonical ES URLs).
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -99,96 +100,81 @@ export default async function SpanishGalleryServicePage({
     ],
   };
 
-  // Service nav — only published services, plus always include current service.
-  const navServices = PORTFOLIO_SERVICES.filter(
-    (svc) => featuredItems.has(svc.slug) || svc.slug === serviceSlug,
-  ).map((svc) => ({
-    slug: svc.slug,
-    label: GALLERY_LABELS_ES[svc.slug],
-    href: `/es/gallery/${svc.slug}`,
-  }));
+  const resultItems: GalleryResultItem[] = items
+    .map<GalleryResultItem | null>((item) => {
+      const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
+      const afterUrl = getPortfolioPublicUrl(item.after_image_path);
+      if (!beforeUrl || !afterUrl) return null;
+      return {
+        id: item.id,
+        beforeUrl,
+        afterUrl,
+        beforeAlt: item.before_alt ?? `${item.title} — antes`,
+        afterAlt: item.after_alt ?? `${item.title} — después`,
+        galleryFilter: item.gallery_filter,
+      };
+    })
+    .filter((x): x is GalleryResultItem => x !== null);
 
-  // Only pairs where both images are available
-  const renderablePairs = items.filter((item) => {
-    const before = getPortfolioPublicUrl(item.before_image_path);
-    const after = getPortfolioPublicUrl(item.after_image_path);
-    return before !== null && after !== null;
-  });
+  const pairLabels = getGalleryPairLabels(serviceSlug, "es");
+  const filterOptions = (getGalleryFilterOptions(serviceSlug) ?? []).map(
+    (o) => ({ value: o.value, label: o.labelEs }),
+  );
+
+  const hasItems = resultItems.length > 0;
 
   return (
     <>
       <JsonLd data={breadcrumbJsonLd} />
 
-      {/* ── Breadcrumb strip ──────────────────────────────── */}
-      <div className="bg-stone-50 border-b border-border">
-        <Container className="py-3">
-          <nav
-            aria-label="Ruta de navegación"
-            className="flex items-center gap-1.5 text-xs text-muted flex-wrap"
+      {/* ── Main content — wide container ─────────────────── */}
+      <section className="bg-white py-8 lg:py-12">
+        <div className="mx-auto max-w-[1720px] px-4 sm:px-6 lg:px-10">
+          {/* Volver a la galería (arriba) */}
+          <Link
+            href="/es/gallery"
+            className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded mb-6 lg:mb-8"
           >
-            <Link
-              href="/es/gallery"
-              className="hover:text-primary transition-colors font-medium"
-            >
-              Galería
-            </Link>
-            <ChevronRight className="w-3 h-3 flex-shrink-0" aria-hidden />
-            <span className="text-foreground font-semibold" aria-current="page">
-              {labelEs}
-            </span>
-          </nav>
-        </Container>
-      </div>
+            <ArrowLeft className="w-4 h-4" aria-hidden />
+            Volver a la galería
+          </Link>
 
-      {/* ── Service intro ─────────────────────────────────── */}
-      <section className="bg-white border-b border-border">
-        <Container className="py-10 lg:py-14">
-          <div className="max-w-3xl mb-8">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
-              Galería
-            </p>
-            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary tracking-tight leading-[1.05] mb-4">
-              Galería de {labelEs}
-            </h1>
-            <p className="text-base lg:text-lg text-muted leading-relaxed">
-              {GALLERY_SERVICE_INTROS_ES[serviceSlug]}
-            </p>
-          </div>
-          <GalleryServiceNav
-            services={navServices}
-            currentSlug={serviceSlug}
-            eyebrow="Ver servicios"
-          />
-        </Container>
-      </section>
+          {hasItems ? (
+            <>
+              <FilteredGalleryResults
+                serviceSlug={serviceSlug}
+                language="es"
+                items={resultItems}
+                eyebrow="Galería"
+                title={`Galería de ${labelEs}`}
+                intro={GALLERY_SERVICE_INTROS_ES[serviceSlug]}
+                beforeLabel={pairLabels.before}
+                afterLabel={pairLabels.after}
+                filterOptions={filterOptions}
+                allLabel={GALLERY_FILTER_ALL_LABEL.es}
+                filterLabel="Filtrar"
+              />
 
-      {/* ── Portfolio items ───────────────────────────────── */}
-      {renderablePairs.length > 0 ? (
-        <section className="bg-stone-50 py-12 lg:py-16">
-          <Container>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10 xl:gap-12">
-              {renderablePairs.map((item, index) => (
-                <GalleryBeforeAfterPair
-                  key={item.id}
-                  beforeUrl={getPortfolioPublicUrl(item.before_image_path)}
-                  afterUrl={getPortfolioPublicUrl(item.after_image_path)}
-                  beforeAlt={item.before_alt ?? `${item.title} — antes`}
-                  afterAlt={item.after_alt ?? `${item.title} — después`}
-                  title={item.title}
-                  description={item.description}
-                  beforeLabel="Antes"
-                  afterLabel="Después"
-                  loading={index === 0 ? "eager" : "lazy"}
-                />
-              ))}
-            </div>
-          </Container>
-        </section>
-      ) : (
-        /* ── Empty state ─────────────────────────────────── */
-        <section className="bg-white py-16 lg:py-24">
-          <Container>
-            <div className="max-w-2xl">
+              {/* Volver a la galería (tras el último ejemplo) */}
+              <div className="mt-12 lg:mt-16">
+                <Link
+                  href="/es/gallery"
+                  className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                >
+                  <ArrowLeft className="w-4 h-4" aria-hidden />
+                  Volver a la galería
+                </Link>
+              </div>
+            </>
+          ) : (
+            /* ── Empty state ─────────────────────────────── */
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+                Galería
+              </p>
+              <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary tracking-tight leading-[1.05] mb-4">
+                Galería de {labelEs}
+              </h1>
               <p className="text-base lg:text-lg text-muted leading-relaxed mb-8">
                 Los ejemplos de {labelEs} aparecerán aquí cuando se publiquen.
                 Contacta con nosotros para solicitar muestras o pedir un
@@ -210,9 +196,9 @@ export default async function SpanishGalleryServicePage({
                 </Link>
               </div>
             </div>
-          </Container>
-        </section>
-      )}
+          )}
+        </div>
+      </section>
 
       {/* ── CTA ───────────────────────────────────────────── */}
       <section className="bg-primary text-white">

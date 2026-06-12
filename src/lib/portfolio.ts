@@ -188,6 +188,12 @@ export interface PortfolioItem {
   after_image_path: string;
   before_alt: string | null;
   after_alt: string | null;
+  /**
+   * Optional gallery filter category. Nullable for all items and
+   * always null for services without a configured filter (see
+   * GALLERY_FILTERS in src/lib/gallery.ts).
+   */
+  gallery_filter: string | null;
   sort_order: number;
   featured_home: boolean;
   published: boolean;
