@@ -2,11 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, HelpCircle } from "lucide-react";
 import Container from "@/components/layout/Container";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "FAQ",
   description:
     "Answers about PicchuSpot ordering, turnaround times, revisions, file formats, delivery, billing summaries, and custom real estate visual services.",
+  alternates: localizedAlternates({
+    canonicalPath: "/faq",
+    englishPath: "/faq",
+    spanishPath: "/es/faq",
+  }),
 };
 
 const faqs = [

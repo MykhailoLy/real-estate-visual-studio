@@ -4,9 +4,29 @@ export const localizedRoutes = [
   { englishPath: "/pricing", spanishPath: "/es/pricing", priority: 0.9 },
   { englishPath: "/contact", spanishPath: "/es/contact", priority: 0.8 },
   { englishPath: "/about", spanishPath: "/es/about", priority: 0.7 },
+  { englishPath: "/faq", spanishPath: "/es/faq", priority: 0.6 },
+  { englishPath: "/terms", spanishPath: "/es/terms", priority: 0.4 },
+  { englishPath: "/privacy", spanishPath: "/es/privacy", priority: 0.4 },
+  {
+    englishPath: "/login",
+    spanishPath: "/es/login",
+    priority: 0,
+    includeInSitemap: false,
+  },
+  {
+    englishPath: "/signup",
+    spanishPath: "/es/signup",
+    priority: 0,
+    includeInSitemap: false,
+  },
   {
     englishPath: "/pricing/virtual-staging",
     spanishPath: "/es/pricing/virtual-staging",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/pricing/photo-editing",
+    spanishPath: "/es/pricing/photo-editing",
     priority: 0.7,
   },
   {
@@ -49,7 +69,12 @@ export const localizedRoutes = [
     spanishPath: "/es/pricing/development-site-plans",
     priority: 0.7,
   },
-] as const;
+] as const satisfies readonly {
+  englishPath: string;
+  spanishPath: string;
+  priority: number;
+  includeInSitemap?: boolean;
+}[];
 
 export type LocalizedRoute = (typeof localizedRoutes)[number];
 export type EnglishLocalizedPath = LocalizedRoute["englishPath"];

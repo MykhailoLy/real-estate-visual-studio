@@ -1,190 +1,312 @@
 import Link from "next/link";
-import { ArrowRight, Check, Clock, Home, ImagePlus, MapPin } from "lucide-react";
-import Container from "@/components/layout/Container";
+import { ArrowRight } from "lucide-react";
+import BeforeAfterShowcase, {
+  type ShowcaseSlide,
+} from "@/components/home/BeforeAfterShowcase";
+import BenefitsRow, {
+  type BenefitsRowCopy,
+} from "@/components/home/BenefitsRow";
+import ServiceGrid, {
+  type ServiceGridCopy,
+} from "@/components/home/ServiceGrid";
+import HowItWorksDetailed, {
+  type HowItWorksDetailedCopy,
+} from "@/components/home/HowItWorksDetailed";
+import AboutPicchuSpot, {
+  type AboutCollageTile,
+  type AboutPicchuSpotCopy,
+} from "@/components/home/AboutPicchuSpot";
+import Testimonials, {
+  type TestimonialsCopy,
+} from "@/components/home/Testimonials";
 import CtaSection from "@/components/sections/CtaSection";
+import {
+  getAboutCollageItems,
+  getHomepageSliderItems,
+  getSiteMediaPublicUrl,
+} from "@/lib/site-media";
+import { regionalPrice } from "@/lib/currency";
 import { spanishMetadata } from "./seo";
 
 export const metadata = spanishMetadata({
-  title: "Visuales inmobiliarios para vender mejor",
+  title: "PicchuSpot - Visuales inmobiliarios",
   description:
-    "PicchuSpot crea home staging virtual, retoque fotográfico, planos 2D/3D y contenido inmobiliario local para agencias, fotógrafos y equipos comerciales.",
+    "Visuales inmobiliarios que hacen destacar los anuncios. Virtual Staging, renovación virtual, planos, edición fotográfica y media inmobiliaria local.",
   path: "/es",
   englishPath: "/",
 });
 
-const highlights = [
-  "Servicios digitales remotos para clientes internacionales",
-  "Fotografía y tours locales en Alicante y Costa Blanca",
-  "Entrega estándar en 24-48 horas para la mayoría de encargos digitales",
-];
+const benefitsCopy: BenefitsRowCopy = {
+  heading: "Por qué trabajar con PicchuSpot",
+  description: "Creado para anuncios inmobiliarios, no para retoque genérico.",
+  benefits: [
+    {
+      title: "Entrega rápida",
+      body: "Entrega estándar en 24-48 horas desde el momento en que tenemos todo lo necesario.",
+    },
+    {
+      title: "Sin suscripciones",
+      body: "Paga por imagen o por proyecto. Sin cuotas mensuales ni compromisos mínimos.",
+    },
+    {
+      title: "Revisiones incluidas",
+      body: "Cada elemento incluye una revisión para que el resultado final encaje con tu briefing.",
+    },
+    {
+      title: "Revisión humana real",
+      body: "Cada pedido lo revisa un editor para comprobar realismo y presentación de calidad para anuncios.",
+    },
+    {
+      title: "Subidas seguras",
+      body: "Los archivos van directamente a almacenamiento privado mediante URL firmadas. Tus fotos siguen siendo tuyas.",
+    },
+    {
+      title: "Remoto + local",
+      body: "Edición remota en todo el mundo y fotografía presencial en Alicante y Costa Blanca.",
+    },
+  ],
+};
 
-const services = [
-  {
-    icon: ImagePlus,
-    title: "Home staging virtual",
-    text: "Amuebla espacios vacíos con un estilo realista y comercial, listo para portales inmobiliarios.",
+const serviceGridCopy: ServiceGridCopy = {
+  eyebrow: "Qué hacemos",
+  title: "Servicios digitales remotos para anuncios inmobiliarios.",
+  description:
+    "Toca cualquier servicio para ver precios, explorar estilos y empezar un pedido.",
+  requestQuoteLabel: "Solicitar presupuesto",
+  beforeLabel: "Antes",
+  afterLabel: "Después",
+  services: {
+    "image-enhancement": {
+      name: "Mejora de imagen",
+      description:
+        "Corrección de color, exposición y ventanas para que las fotos del anuncio se vean luminosas, nítidas y naturales.",
+      price: regionalPrice("Desde $2.00 / imagen", "Desde €2.00 / imagen"),
+    },
+    "day-to-dusk": {
+      name: "Day to Dusk",
+      description:
+        "Convierte un exterior diurno en una imagen cálida al atardecer, perfecta como foto principal de un anuncio.",
+      price: regionalPrice("Desde $5.00 / imagen", "Desde €5.00 / imagen"),
+    },
+    "virtual-staging": {
+      name: "Virtual Staging",
+      description:
+        "Amuebla habitaciones vacías con un estilo realista y orientado al mercado para que los compradores visualicen el espacio.",
+      price: regionalPrice("Desde $19.00 / imagen", "Desde €19.00 / imagen"),
+    },
+    "item-removal": {
+      name: "Eliminación de objetos y limpieza virtual",
+      description:
+        "Elimina desorden, objetos personales o elementos que distraen para que la habitación sea la protagonista.",
+      price: regionalPrice("Desde $8.00 / imagen", "Desde €8.00 / imagen"),
+    },
+    "floor-plans": {
+      name: "Planos",
+      description:
+        "Bocetos, planos existentes o fotos convertidos en planos 2D y 3D limpios para marketing.",
+      price: regionalPrice("Desde $16.00 / plano", "Desde €16.00 / plano"),
+    },
+    "virtual-renovation": {
+      name: "Renovación virtual",
+      description:
+        "Muestra cómo podría verse una cocina, baño o fachada tras una reforma, sin levantar un martillo.",
+      price: "Precios por opciones",
+    },
+    "360-image-enhancement": {
+      name: "Mejora de imagen 360°",
+      description:
+        "Mejora panoramas equirectangulares para que cada dirección tenga calidad de anuncio.",
+    },
+    "360-virtual-staging": {
+      name: "Virtual Staging 360°",
+      description:
+        "Añade mobiliario dentro de un panorama 360 para que los tours virtuales muestren espacios amueblados y habitables.",
+    },
+    "aerial-editing": {
+      name: "Edición aérea",
+      description:
+        "Cielos más limpios, mayor detalle y color equilibrado para exteriores con dron e imágenes aéreas de anuncios.",
+      price: "Solicitar presupuesto",
+    },
+    "development-site-plans": {
+      name: "Planos de desarrollo",
+      description:
+        "Planos cenitales que muestran límites de parcela, unidades y servicios para marketing de promociones.",
+    },
   },
-  {
-    icon: Home,
-    title: "Renovación virtual",
-    text: "Muestra el potencial de una vivienda cambiando suelos, paredes, cocinas, baños, exteriores y más.",
-  },
-  {
-    icon: Check,
-    title: "Retoque y limpieza visual",
-    text: "Mejora imágenes, elimina objetos, corrige distracciones y prepara fotos más claras para vender.",
-  },
-  {
-    icon: MapPin,
-    title: "Media local",
-    text: "Fotografía, vídeo y tours 360 para propiedades en Alicante y la Costa Blanca.",
-  },
-];
+};
 
-const steps = [
-  "Sube tus fotos o cuéntanos qué necesita la propiedad.",
-  "Elige el servicio, el estilo y las indicaciones principales.",
-  "Recibe visuales editados, revisables y listos para publicar.",
-];
+const processCopy: HowItWorksDetailedCopy = {
+  eyebrow: "Proceso",
+  title: "Cómo funciona",
+  description: "Desde la subida hasta la entrega en cuatro pasos sencillos.",
+  stepLabel: "Paso",
+  steps: [
+    {
+      title: "Sube",
+      body: "Sube tus fotos o archivos de proyecto desde cualquier dispositivo. Los archivos van directamente a almacenamiento privado.",
+    },
+    {
+      title: "Editamos",
+      body: "Preparamos tus visuales según el servicio seleccionado y las instrucciones que enviaste.",
+    },
+    {
+      title: "Revisión de calidad",
+      body: "Cada pedido se revisa para comprobar realismo, claridad y calidad de presentación antes de la entrega.",
+    },
+    {
+      title: "Listo",
+      body: "Recibes archivos listos para el mercado para tu anuncio, MLS, web o paquete de marketing.",
+    },
+  ],
+};
 
-export default function SpanishHomePage() {
+const aboutCopy: AboutPicchuSpotCopy = {
+  eyebrow: "Sobre PicchuSpot",
+  title:
+    "Visuales listos para anuncios, creados por personas que entienden el sector inmobiliario.",
+  paragraphs: [
+    "PicchuSpot crea visuales listos para anuncios inmobiliarios. Con formación arquitectónica y experiencia práctica en visualización 3D, edición fotográfica y Virtual Staging, nos centramos en resultados realistas que ayudan a presentar mejor las propiedades online.",
+    "Ofrecemos servicios digitales remotos en todo el mundo y media inmobiliaria local en Alicante y Costa Blanca. Ya sea una sola imagen editada o un paquete completo de media para una propiedad, el objetivo es siempre el mismo: visuales claros y pulidos que ayuden a destacar los anuncios.",
+  ],
+};
+
+const testimonialsCopy: TestimonialsCopy = {
+  eyebrow: "Testimonios",
+  title: "Qué dicen nuestros clientes",
+  previousLabel: "Testimonio anterior",
+  nextLabel: "Testimonio siguiente",
+  chooseLabel: "Elegir testimonio",
+  slideLabel: "Testimonio",
+  showLabel: "Mostrar testimonio",
+  testimonials: [
+    {
+      name: "Sarah Mitchell",
+      role: "Agente inmobiliaria",
+      initials: "SM",
+      quote:
+        "PicchuSpot nos ayudó a presentar los anuncios de una forma más limpia y cuidada. Las ediciones se veían realistas, la comunicación fue clara y la entrega rápida.",
+    },
+    {
+      name: "Daniel Foster",
+      role: "Marketing inmobiliario",
+      initials: "DF",
+      quote:
+        "Los visuales quedaron naturales y listos para publicar. Nos gustó especialmente la atención al detalle y la consistencia entre varias imágenes.",
+    },
+    {
+      name: "Elena Ruiz",
+      role: "Broker Associate",
+      initials: "ER",
+      quote:
+        "El proceso fue sencillo y las imágenes finales se veían profesionales sin parecer demasiado retocadas.",
+    },
+  ],
+};
+
+export default async function SpanishHomePage() {
+  const [sliderRows, collageRows] = await Promise.all([
+    getHomepageSliderItems(),
+    getAboutCollageItems(),
+  ]);
+
+  const sliderSlides: ShowcaseSlide[] = sliderRows
+    .map<ShowcaseSlide | null>((row) => {
+      const beforeUrl = getSiteMediaPublicUrl(row.before_image_path);
+      const afterUrl = getSiteMediaPublicUrl(row.after_image_path);
+      if (!beforeUrl || !afterUrl) return null;
+      return {
+        kind: "image",
+        id: row.id,
+        beforeUrl,
+        afterUrl,
+        beforeAlt: row.alt_text || row.title || "Antes",
+        afterAlt: row.alt_text || row.title || "Después",
+      };
+    })
+    .filter((slide): slide is ShowcaseSlide => slide !== null);
+
+  const collageTiles: AboutCollageTile[] = collageRows
+    .map<AboutCollageTile | null>((row) => {
+      const url =
+        getSiteMediaPublicUrl(row.image_path) ||
+        getSiteMediaPublicUrl(row.after_image_path) ||
+        getSiteMediaPublicUrl(row.before_image_path) ||
+        getSiteMediaPublicUrl(row.poster_image_path) ||
+        getSiteMediaPublicUrl(row.panorama_image_path);
+      if (!url) return null;
+      return {
+        kind: "image",
+        id: row.id,
+        url,
+        alt: row.alt_text || row.title || "Sobre PicchuSpot",
+      };
+    })
+    .filter((tile): tile is AboutCollageTile => tile !== null);
+
   return (
     <>
-      <section className="bg-stone-50 py-16 lg:py-24">
-        <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-10 lg:gap-16 items-center">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
-                PicchuSpot en español
-              </p>
-              <h1 className="text-4xl lg:text-6xl font-bold text-primary leading-[1.05] tracking-tight mb-6">
-                Visuales inmobiliarios que ayudan a vender más rápido
-              </h1>
-              <p className="text-base lg:text-xl text-muted leading-relaxed max-w-3xl mb-8">
-                Creamos imágenes, planos y contenido visual para que tus
-                anuncios destaquen: home staging virtual, renovación virtual,
-                retoque fotográfico y servicios locales en Alicante y Costa
-                Blanca.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Link
-                  href="/order"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
-                >
-                  Pedir online
-                  <ArrowRight className="w-4 h-4" aria-hidden />
-                </Link>
-                <Link
-                  href="/es/services"
-                  className="inline-flex items-center justify-center px-7 py-3.5 border border-primary/25 text-primary font-semibold rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all text-sm"
-                >
-                  Ver servicios
-                </Link>
-              </div>
-            </div>
-
-            <aside className="bg-white border border-border rounded-2xl p-6 lg:p-8 shadow-sm">
-              <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center mb-5">
-                <Clock className="w-5 h-5" aria-hidden />
-              </div>
-              <h2 className="text-xl font-bold text-primary mb-4">
-                Un flujo sencillo para equipos inmobiliarios
-              </h2>
-              <ul className="space-y-3">
-                {highlights.map((item) => (
-                  <li key={item} className="flex gap-3 text-sm text-foreground">
-                    <Check className="w-4 h-4 text-secondary-dark mt-0.5 flex-shrink-0" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </aside>
-          </div>
-        </Container>
+      <section className="bg-white overflow-hidden">
+        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
+          <BeforeAfterShowcase slides={sliderSlides} />
+        </div>
       </section>
 
-      <section className="py-16 lg:py-24 bg-white">
-        <Container>
-          <div className="max-w-3xl mb-10 lg:mb-14">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
-              Servicios principales
-            </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight mb-4">
-              Todo lo necesario para presentar mejor una propiedad
-            </h2>
-            <p className="text-base lg:text-lg text-muted leading-relaxed">
-              Trabajamos con agentes, fotógrafos inmobiliarios, promotoras y
-              equipos de alquiler que necesitan resultados claros, consistentes
-              y fáciles de pedir.
-            </p>
-          </div>
+      <BenefitsRow copy={benefitsCopy} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 lg:gap-6">
-            {services.map((service) => {
-              const Icon = service.icon;
-              return (
-                <article
-                  key={service.title}
-                  className="bg-white border border-border rounded-2xl p-6 shadow-sm"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center mb-5">
-                    <Icon className="w-5 h-5 text-secondary-dark" aria-hidden />
-                  </div>
-                  <h3 className="text-lg font-bold text-primary mb-2">
-                    {service.title}
-                  </h3>
-                  <p className="text-sm text-muted leading-relaxed">
-                    {service.text}
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-        </Container>
-      </section>
-
-      <section className="py-16 lg:py-24 bg-surface">
-        <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-10 lg:gap-16">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
-                Cómo funciona
+      <section className="bg-white border-y border-border">
+        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-10">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
+            <div className="lg:max-w-2xl">
+              <p className="text-secondary-dark text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2">
+                Servicios digitales remotos
               </p>
-              <h2 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight mb-4">
-                De tus archivos a visuales listos para publicar
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+                Ayuda a que tus anuncios destaquen y vendan más rápido
               </h2>
-              <p className="text-muted leading-relaxed">
-                Para encargos digitales, el pedido online actual sigue en
-                inglés en esta fase. Si prefieres explicarlo en español,
-                escríbenos y te orientamos.
+              <p className="mt-2 text-sm sm:text-base lg:text-lg text-muted leading-snug">
+                Virtual Staging, edición fotográfica, planos, visuales 360 y
+                media inmobiliaria local para anuncios de propiedades listos
+                para el mercado.
               </p>
             </div>
-
-            <ol className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {steps.map((step, index) => (
-                <li
-                  key={step}
-                  className="bg-white border border-border rounded-2xl p-6 shadow-sm"
-                >
-                  <span className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold mb-5">
-                    {index + 1}
-                  </span>
-                  <p className="text-sm lg:text-base text-foreground leading-relaxed">
-                    {step}
-                  </p>
-                </li>
-              ))}
-            </ol>
+            <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
+              <Link
+                href="/order"
+                className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
+              >
+                Pedir online
+                <ArrowRight className="w-4 h-4" aria-hidden />
+              </Link>
+              <Link
+                href="/es/services"
+                className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-bold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
+              >
+                Ver servicios
+              </Link>
+            </div>
           </div>
-        </Container>
+        </div>
       </section>
+
+      <ServiceGrid copy={serviceGridCopy} locale="es" />
+
+      <HowItWorksDetailed copy={processCopy} />
+
+      <AboutPicchuSpot
+        tiles={collageTiles}
+        copy={aboutCopy}
+        placeholderLabels={{ left: "Antes", right: "Después" }}
+      />
+
+      <Testimonials copy={testimonialsCopy} />
 
       <CtaSection
-        title="Prepara tu próxima propiedad con mejores visuales."
-        subtitle="Pide online los servicios digitales o escríbenos para trabajos locales y presupuestos a medida."
+        title="Empieza tu próximo anuncio con los visuales ya resueltos."
+        subtitle="Sube tus fotos y nosotros nos encargamos del resto."
         primaryLabel="Pedir online"
         primaryHref="/order"
-        secondaryLabel="Contactar"
+        secondaryLabel="Habla con nosotros"
         secondaryHref="/es/contact"
       />
     </>

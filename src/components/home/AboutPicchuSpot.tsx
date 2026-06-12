@@ -37,7 +37,19 @@ interface Props {
    *  the default placeholder set so the layout still feels
    *  populated. */
   tiles?: AboutCollageTile[];
+  copy?: AboutPicchuSpotCopy;
+  placeholderLabels?: {
+    left?: string;
+    right?: string;
+    ariaLabel?: string;
+  };
 }
+
+export type AboutPicchuSpotCopy = {
+  eyebrow: string;
+  title: string;
+  paragraphs: string[];
+};
 
 /** Defaults that mirror the original hardcoded collage so
  *  fresh deploys without admin uploads still ship a polished
@@ -57,7 +69,20 @@ function tileAt(tiles: AboutCollageTile[], i: number): AboutCollageTile {
   return tiles[i] ?? FALLBACK_TILES[i] ?? FALLBACK_TILES[0];
 }
 
-export default function AboutPicchuSpot({ tiles = [] }: Props) {
+const DEFAULT_COPY: AboutPicchuSpotCopy = {
+  eyebrow: "About PicchuSpot",
+  title: "Listing-ready visuals, built by people who know real estate.",
+  paragraphs: [
+    "PicchuSpot creates listing-ready visuals for real estate marketing. With an architectural background and hands-on experience in 3D visualization, photo editing, and virtual staging, we focus on realistic results that help properties present better online.",
+    "We provide remote digital services worldwide and local real estate media across Alicante and Costa Blanca. Whether it is a single image edit or a complete property media package, the goal is always the same: clear, polished visuals that help listings stand out.",
+  ],
+};
+
+export default function AboutPicchuSpot({
+  tiles = [],
+  copy = DEFAULT_COPY,
+  placeholderLabels,
+}: Props) {
   // Only the first 5 admin tiles drive the collage. Anything
   // beyond that is ignored at render time but still visible in
   // /admin/media — admins can demote a tile by lowering its
@@ -78,41 +103,38 @@ export default function AboutPicchuSpot({ tiles = [] }: Props) {
           <div className="lg:col-span-7 order-2 lg:order-1">
             <div className="grid grid-cols-3 grid-rows-3 gap-3 lg:gap-4 h-[440px] sm:h-[540px] lg:h-[640px]">
               {/* Big anchor tile (top-left, 2x2) */}
-              <CollageCell tile={t0} className="col-span-2 row-span-2" />
+              <CollageCell
+                tile={t0}
+                className="col-span-2 row-span-2"
+                placeholderLabels={placeholderLabels}
+              />
 
               {/* Top-right column (1x1 + 1x1) */}
-              <CollageCell tile={t1} />
-              <CollageCell tile={t2} />
+              <CollageCell tile={t1} placeholderLabels={placeholderLabels} />
+              <CollageCell tile={t2} placeholderLabels={placeholderLabels} />
 
               {/* Bottom row (1x1 + 2x1) */}
-              <CollageCell tile={t3} />
-              <CollageCell tile={t4} className="col-span-2" />
+              <CollageCell tile={t3} placeholderLabels={placeholderLabels} />
+              <CollageCell
+                tile={t4}
+                className="col-span-2"
+                placeholderLabels={placeholderLabels}
+              />
             </div>
           </div>
 
           {/* Narrative */}
           <div className="lg:col-span-5 order-1 lg:order-2">
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
-              About PicchuSpot
+              {copy.eyebrow}
             </p>
             <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
-              Listing-ready visuals, built by people who know real estate.
+              {copy.title}
             </h2>
             <div className="mt-6 lg:mt-8 space-y-5 text-base lg:text-lg text-muted leading-relaxed">
-              <p>
-                PicchuSpot creates listing-ready visuals for real estate
-                marketing. With an architectural background and hands-on
-                experience in 3D visualization, photo editing, and
-                virtual staging, we focus on realistic results that help
-                properties present better online.
-              </p>
-              <p>
-                We provide remote digital services worldwide and local
-                real estate media across Alicante and Costa Blanca.
-                Whether it is a single image edit or a complete property
-                media package, the goal is always the same: clear,
-                polished visuals that help listings stand out.
-              </p>
+              {copy.paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
             </div>
           </div>
         </div>
@@ -130,9 +152,15 @@ export default function AboutPicchuSpot({ tiles = [] }: Props) {
 function CollageCell({
   tile,
   className,
+  placeholderLabels,
 }: {
   tile: AboutCollageTile;
   className?: string;
+  placeholderLabels?: {
+    left?: string;
+    right?: string;
+    ariaLabel?: string;
+  };
 }) {
   return (
     <div
@@ -150,7 +178,7 @@ function CollageCell({
           decoding="async"
         />
       ) : (
-        <ServicePlaceholder variant={tile.variant} />
+        <ServicePlaceholder variant={tile.variant} labels={placeholderLabels} />
       )}
     </div>
   );

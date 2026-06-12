@@ -15,6 +15,7 @@ import {
   resolveRegionalPrice,
   type RegionalPrice,
 } from "@/lib/currency";
+import { getSpanishPath } from "@/lib/localized-routes";
 
 // ============================================================
 // REMOTE DIGITAL SERVICES — "This is what we do" grid
@@ -44,6 +45,23 @@ interface ServiceEntry {
   /** Single destination for the whole card. */
   href: string;
 }
+
+export type ServiceGridCopy = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  requestQuoteLabel: string;
+  beforeLabel?: string;
+  afterLabel?: string;
+  services: Record<
+    string,
+    {
+      name: string;
+      description: string;
+      price?: RegionalPrice | string;
+    }
+  >;
+};
 
 const SERVICES: ServiceEntry[] = [
   {
@@ -145,16 +163,45 @@ const SERVICES: ServiceEntry[] = [
   },
 ];
 
+const DEFAULT_COPY: ServiceGridCopy = {
+  eyebrow: "What We Do",
+  title: "Remote digital services for property listings.",
+  description: "Tap any service to see pricing, browse styles, and start an order.",
+  requestQuoteLabel: "Request a quote",
+  beforeLabel: "Before",
+  afterLabel: "After",
+  services: Object.fromEntries(
+    SERVICES.map((service) => [
+      service.id,
+      {
+        name: service.name,
+        description: service.description,
+        price: service.price,
+      },
+    ]),
+  ),
+};
+
 /** Card-level data resolved on the server before render. */
 interface ResolvedCard {
   svc: ServiceEntry;
+  name: string;
+  description: string;
+  price?: RegionalPrice | string;
+  href: string;
   beforeUrl: string | null;
   afterUrl: string | null;
   beforeAlt: string;
   afterAlt: string;
 }
 
-export default async function ServiceGrid() {
+export default async function ServiceGrid({
+  copy = DEFAULT_COPY,
+  locale = "en",
+}: {
+  copy?: ServiceGridCopy;
+  locale?: "en" | "es";
+}) {
   // Single DB round trip for all 10 cards. Helper returns an
   // empty Map (not an error) when Supabase isn't configured, so
   // the marketing site builds cleanly in sandbox/preview without
@@ -162,22 +209,37 @@ export default async function ServiceGrid() {
   const featured = await getFeaturedHomeItems();
 
   const cards: ResolvedCard[] = SERVICES.map((svc) => {
+    const localized = copy.services[svc.id] ?? {
+      name: svc.name,
+      description: svc.description,
+      price: svc.price,
+    };
+    const href =
+      locale === "es" ? (getSpanishPath(svc.href) ?? svc.href) : svc.href;
     const item = featured.get(svc.portfolioSlug);
     if (!item) {
       return {
         svc,
+        name: localized.name,
+        description: localized.description,
+        price: localized.price,
+        href,
         beforeUrl: null,
         afterUrl: null,
-        beforeAlt: `${svc.name} before`,
-        afterAlt: `${svc.name} after`,
+        beforeAlt: `${localized.name} ${copy.beforeLabel ?? "before"}`,
+        afterAlt: `${localized.name} ${copy.afterLabel ?? "after"}`,
       };
     }
     return {
       svc,
+      name: localized.name,
+      description: localized.description,
+      price: localized.price,
+      href,
       beforeUrl: getPortfolioPublicUrl(item.before_image_path),
       afterUrl: getPortfolioPublicUrl(item.after_image_path),
-      beforeAlt: item.before_alt || `${svc.name} before`,
-      afterAlt: item.after_alt || `${svc.name} after`,
+      beforeAlt: item.before_alt || `${localized.name} ${copy.beforeLabel ?? "before"}`,
+      afterAlt: item.after_alt || `${localized.name} ${copy.afterLabel ?? "after"}`,
     };
   });
 
@@ -186,19 +248,19 @@ export default async function ServiceGrid() {
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-12 lg:mb-16">
           <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
-            What We Do
+            {copy.eyebrow}
           </p>
           <h2 className="text-4xl lg:text-6xl font-bold text-primary tracking-tight leading-[1.02]">
-            Remote digital services for property listings.
+            {copy.title}
           </h2>
           <p className="mt-6 text-base lg:text-xl text-muted leading-relaxed">
-            Tap any service to see pricing, browse styles, and start an order.
+            {copy.description}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
           {cards.map((card) => (
-            <ServiceCard key={card.svc.id} card={card} />
+            <ServiceCard key={card.svc.id} card={card} copy={copy} />
           ))}
         </div>
       </div>
@@ -206,21 +268,37 @@ export default async function ServiceGrid() {
   );
 }
 
-function ServiceCard({ card }: { card: ResolvedCard }) {
-  const { svc, beforeUrl, afterUrl, beforeAlt, afterAlt } = card;
+function ServiceCard({
+  card,
+  copy,
+}: {
+  card: ResolvedCard;
+  copy: ServiceGridCopy;
+}) {
+  const {
+    svc,
+    name,
+    description,
+    price,
+    href,
+    beforeUrl,
+    afterUrl,
+    beforeAlt,
+    afterAlt,
+  } = card;
   const priceText =
-    typeof svc.price === "string"
-      ? svc.price
-      : svc.price
-        ? resolveRegionalPrice(svc.price, "USD")
-        : "Request a quote";
+    typeof price === "string"
+      ? price
+      : price
+        ? resolveRegionalPrice(price, "USD")
+        : copy.requestQuoteLabel;
 
   return (
     <Link
-      href={svc.href}
+      href={href}
       id={svc.id}
       className="group relative flex flex-col bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 hover:border-primary/40 transition-all duration-300 scroll-mt-32 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
-      aria-label={`${svc.name} — ${priceText}`}
+      aria-label={`${name} - ${priceText}`}
     >
       {/* Visual — wide before/after comparison frame.
           Aspect 5:2 gives each side roughly 5:4, suitable for two
@@ -234,6 +312,12 @@ function ServiceCard({ card }: { card: ResolvedCard }) {
           beforeAlt={beforeAlt}
           afterAlt={afterAlt}
           placeholderVariant={svc.variant}
+          beforeLabel={copy.beforeLabel}
+          afterLabel={copy.afterLabel}
+          placeholderLabels={{
+            left: copy.beforeLabel,
+            right: copy.afterLabel,
+          }}
         />
         {/* Hover overlay arrow */}
         <span
@@ -247,23 +331,23 @@ function ServiceCard({ card }: { card: ResolvedCard }) {
       {/* Content */}
       <div className="p-6 lg:p-8 flex-1 flex flex-col">
         <h3 className="text-xl lg:text-2xl font-bold text-primary leading-tight tracking-tight group-hover:text-primary-light transition-colors">
-          {svc.name}
+          {name}
         </h3>
         <p
           className={
-            svc.price
+            price
               ? "mt-2 text-sm lg:text-base font-semibold text-secondary-dark"
               : "mt-2 text-sm font-medium text-muted"
           }
         >
-          {typeof svc.price === "string" || !svc.price ? (
+          {typeof price === "string" || !price ? (
             priceText
           ) : (
-            <RegionalPriceText price={svc.price} />
+            <RegionalPriceText price={price} />
           )}
         </p>
         <p className="mt-3 text-sm lg:text-base text-muted leading-relaxed flex-1">
-          {svc.description}
+          {description}
         </p>
       </div>
     </Link>

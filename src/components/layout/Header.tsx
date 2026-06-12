@@ -68,7 +68,9 @@ const LANGUAGE_COOKIE_NAME = "picchuspot_language";
 
 type ResourceMenuItem = {
   label: string;
+  esLabel: string;
   description: string;
+  esDescription: string;
   href?: string;
   localizedHref?: string;
   icon: typeof Info;
@@ -78,55 +80,114 @@ type ResourceMenuItem = {
 const resourceMenuItems: ResourceMenuItem[] = [
   {
     label: "About",
+    esLabel: "Sobre nosotros",
     description: "Who PicchuSpot is and how we work.",
+    esDescription: "Quién es PicchuSpot y cómo trabajamos.",
     href: "/about",
     icon: Info,
   },
   {
     label: "Contact Us",
+    esLabel: "Contacto",
     description: "Quotes, local work, and order support.",
+    esDescription: "Presupuestos, trabajos locales y soporte de pedidos.",
     href: "/contact",
     localizedHref: "/es/contact",
     icon: Mail,
   },
   {
     label: "Pricing",
+    esLabel: "Precios",
     description: "Transparent rates for core visual services.",
+    esDescription: "Tarifas claras para los servicios visuales principales.",
     href: "/pricing",
     localizedHref: "/es/pricing",
     icon: Tags,
   },
   {
     label: "Gallery",
+    esLabel: "Galería",
     description: "Before-and-after examples and selected work.",
+    esDescription: "Ejemplos antes/después y trabajos seleccionados.",
     icon: ImageIcon,
     status: "coming-soon",
   },
   {
     label: "Resources",
+    esLabel: "Recursos",
     description: "Guides and practical property marketing notes.",
+    esDescription: "Guías y notas prácticas de marketing inmobiliario.",
     icon: BookOpen,
     status: "coming-soon",
   },
   {
     label: "FAQ",
+    esLabel: "Preguntas frecuentes",
     description: "Common questions about services and delivery.",
+    esDescription: "Dudas habituales sobre servicios y entregas.",
     href: "/faq",
     icon: HelpCircle,
   },
   {
     label: "Blog",
+    esLabel: "Blog",
     description: "Articles and market notes.",
+    esDescription: "Artículos y notas de mercado.",
     icon: Newspaper,
     status: "coming-soon",
   },
   {
     label: "Press Kit",
+    esLabel: "Kit de prensa",
     description: "Brand assets and media information.",
+    esDescription: "Materiales de marca e información para medios.",
     icon: FileText,
     status: "coming-soon",
   },
 ];
+
+const topLevelLabelsEs: Record<string, string> = {
+  "Remote Digital Services": "Servicios digitales remotos",
+  "Local Real Estate Media": "Media inmobiliaria local",
+  Renders: "Renders",
+  "Online Retail": "Retail online",
+};
+
+const subNavLabelsEs: Record<string, string> = {
+  "Image Enhancement": "Mejora de imagen",
+  "Day to Dusk": "Day to Dusk",
+  "Virtual Staging": "Virtual Staging",
+  "Item Removal & Virtual Cleaning": "Eliminación de objetos y limpieza virtual",
+  "Floor Plans": "Planos",
+  "Virtual Renovation": "Renovación virtual",
+  "360° Image Enhancement": "Mejora de imagen 360°",
+  "360° Virtual Staging": "Virtual Staging 360°",
+  "Aerial Editing": "Edición aérea",
+  "Development Site Plans": "Planos de desarrollo",
+  "Real Estate Photography": "Fotografía inmobiliaria",
+  "360 Virtual Tours": "Tours virtuales 360",
+  "Property Video Tours": "Vídeos inmobiliarios",
+  "Drone / Aerial Media": "Media con dron / aérea",
+  "Full Listing Media Packages": "Paquetes completos para anuncios",
+  "Exterior Renders": "Renders exteriores",
+  "Interior Renders": "Renders interiores",
+  "360° Renders": "Renders 360°",
+  "360° Virtual Tours": "Tours virtuales 360°",
+  "Development Marketing": "Marketing de promociones",
+  "Product Photo Editing": "Edición de fotos de producto",
+  "Background Removal": "Eliminación de fondo",
+  "Lifestyle Compositing": "Composiciones lifestyle",
+  "Color Variations": "Variaciones de color",
+  "Marketplace Images": "Imágenes para marketplaces",
+};
+
+function getHeaderLabel(label: string, language: SiteLanguage): string {
+  return language === "es" ? (topLevelLabelsEs[label] ?? label) : label;
+}
+
+function getSubNavLabel(label: string, language: SiteLanguage): string {
+  return language === "es" ? (subNavLabelsEs[label] ?? label) : label;
+}
 
 function normalizeLanguagePath(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, "");
@@ -275,7 +336,7 @@ export default function Header() {
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  {entry.label}
+                  {getHeaderLabel(entry.label, currentLanguage)}
                 </Link>
               );
             })}
@@ -294,20 +355,20 @@ export default function Header() {
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <Link
-              href="/login"
+              href={getLocaleAwareHref("/login", currentLanguage)}
               onClick={() => trackLoginClick("header")}
               className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:py-2 sm:text-[13px] sm:text-foreground/70 sm:hover:text-primary"
-              aria-label="Login"
+              aria-label={currentLanguage === "es" ? "Iniciar sesión" : "Login"}
             >
-              Login
+              {currentLanguage === "es" ? "Iniciar sesión" : "Login"}
             </Link>
             <Link
-              href="/signup"
+              href={getLocaleAwareHref("/signup", currentLanguage)}
               onClick={() => trackSignUpClick("header")}
               className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:inline-flex"
-              aria-label="Sign Up"
+              aria-label={currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
             >
-              Sign Up
+              {currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
             </Link>
             <LanguageSelector
               pathname={pathname}
@@ -511,7 +572,7 @@ function BurgerMenuPanel({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Site menu"
+        aria-label={language === "es" ? "Menú del sitio" : "Site menu"}
         className="ml-auto mt-14 flex max-h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
@@ -519,13 +580,15 @@ function BurgerMenuPanel({
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary-dark">
               PicchuSpot
             </p>
-            <h2 className="text-lg font-bold text-primary">Menu</h2>
+            <h2 className="text-lg font-bold text-primary">
+              {language === "es" ? "Menú" : "Menu"}
+            </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-stone-200 text-primary transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Close menu"
+            aria-label={language === "es" ? "Cerrar menú" : "Close menu"}
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
@@ -534,12 +597,12 @@ function BurgerMenuPanel({
         <div className="overflow-y-auto p-5 sm:p-6">
           <section className="mb-5 rounded-xl border border-stone-200 bg-surface/60 p-4 lg:hidden">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-              Preferences
+              {language === "es" ? "Preferencias" : "Preferences"}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
-                  Language
+                  {language === "es" ? "Idioma" : "Language"}
                 </p>
                 <LanguageSelector
                   pathname={pathname}
@@ -551,7 +614,7 @@ function BurgerMenuPanel({
               </div>
               <div>
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
-                  Region
+                  {language === "es" ? "Región" : "Region"}
                 </p>
                 <RegionCurrencySelector
                   className="w-full"
@@ -563,13 +626,14 @@ function BurgerMenuPanel({
 
           <section>
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-              Explore
+              {language === "es" ? "Explorar" : "Explore"}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {resourceMenuItems.map((item) => (
                 <ResourceMenuLink
                   key={item.label}
                   item={item}
+                  language={language}
                   href={getResourceHref(item, language)}
                   onClose={onClose}
                 />
@@ -584,14 +648,19 @@ function BurgerMenuPanel({
 
 function ResourceMenuLink({
   item,
+  language,
   href,
   onClose,
 }: {
   item: ResourceMenuItem;
+  language: SiteLanguage;
   href: string | null;
   onClose: () => void;
 }) {
   const Icon = item.icon;
+  const label = language === "es" ? item.esLabel : item.label;
+  const description =
+    language === "es" ? item.esDescription : item.description;
   const content = (
     <>
       <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-surface text-secondary-dark">
@@ -599,15 +668,15 @@ function ResourceMenuLink({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-bold text-primary">{item.label}</span>
+          <span className="text-sm font-bold text-primary">{label}</span>
           {item.status === "coming-soon" && (
             <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
-              Coming soon
+              {language === "es" ? "Próximamente" : "Coming soon"}
             </span>
           )}
         </span>
         <span className="mt-1 block text-xs leading-relaxed text-muted">
-          {item.description}
+          {description}
         </span>
       </span>
     </>
@@ -858,7 +927,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
               data-subnav-measure="link"
               className="text-[12px] font-bold uppercase tracking-[0.10em]"
             >
-              {link.label}
+              {getSubNavLabel(link.label, language)}
             </span>
           ))}
           <span
@@ -866,7 +935,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
             data-subnav-measure="more"
             className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.10em]"
           >
-            More
+            {language === "es" ? "Más" : "More"}
             <ChevronDown className="w-3.5 h-3.5" aria-hidden />
           </span>
         </div>
@@ -874,7 +943,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
         {/* Visible row */}
         <div ref={containerRef} className="flex items-stretch">
           <nav
-            aria-label={`${active.label} services`}
+            aria-label={`${getHeaderLabel(active.label, language)} services`}
             className="flex items-stretch gap-x-6 xl:gap-x-7 flex-1 min-w-0 overflow-hidden"
           >
             {visible.map((link) => {
@@ -884,7 +953,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                 <SubNavItem
                   key={link.label}
                   href={href}
-                  label={link.label}
+                  label={getSubNavLabel(link.label, language)}
                   current={isCurrent}
                 />
               );
@@ -906,7 +975,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                     : "text-foreground/65 hover:text-primary"
                 )}
               >
-                More
+                {language === "es" ? "Más" : "More"}
                 <ChevronDown
                   className={cn(
                     "w-3.5 h-3.5 transition-transform duration-200",
@@ -976,7 +1045,9 @@ function MoreDropdown({
     <div
       ref={panelRef}
       role="menu"
-      aria-label={`${active.label} more services`}
+      aria-label={`${getHeaderLabel(active.label, language)} ${
+        language === "es" ? "más servicios" : "more services"
+      }`}
       style={{
         position: "fixed",
         top,
@@ -1003,7 +1074,7 @@ function MoreDropdown({
                 : "text-foreground/75 hover:text-primary hover:bg-surface"
             )}
           >
-            {link.label}
+            {getSubNavLabel(link.label, language)}
           </Link>
         );
       })}
