@@ -23,6 +23,17 @@ interface Testimonial {
   quote: string;
 }
 
+export type TestimonialsCopy = {
+  eyebrow: string;
+  title: string;
+  previousLabel: string;
+  nextLabel: string;
+  chooseLabel: string;
+  slideLabel: string;
+  showLabel: string;
+  testimonials: Testimonial[];
+};
+
 const TESTIMONIALS: Testimonial[] = [
   {
     name: "Sarah Mitchell",
@@ -47,10 +58,25 @@ const TESTIMONIALS: Testimonial[] = [
   },
 ];
 
-export default function Testimonials() {
+const DEFAULT_COPY: TestimonialsCopy = {
+  eyebrow: "Testimonials",
+  title: "What Our Clients Say",
+  previousLabel: "Previous testimonial",
+  nextLabel: "Next testimonial",
+  chooseLabel: "Choose testimonial",
+  slideLabel: "Testimonial",
+  showLabel: "Show testimonial",
+  testimonials: TESTIMONIALS,
+};
+
+export default function Testimonials({
+  copy = DEFAULT_COPY,
+}: {
+  copy?: TestimonialsCopy;
+}) {
   const [idx, setIdx] = useState(0);
-  const total = TESTIMONIALS.length;
-  const current = TESTIMONIALS[idx];
+  const total = copy.testimonials.length;
+  const current = copy.testimonials[idx];
 
   const goPrev = () => setIdx((i) => (i - 1 + total) % total);
   const goNext = () => setIdx((i) => (i + 1) % total);
@@ -63,13 +89,13 @@ export default function Testimonials() {
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-10 lg:mb-14">
           <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
-            Testimonials
+            {copy.eyebrow}
           </p>
           <h2
             id="testimonials-heading"
             className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]"
           >
-            What Our Clients Say
+            {copy.title}
           </h2>
         </div>
 
@@ -79,7 +105,7 @@ export default function Testimonials() {
             className="relative bg-white border border-stone-200 rounded-3xl shadow-sm p-8 sm:p-12 lg:p-16"
             role="group"
             aria-roledescription="slide"
-            aria-label={`Testimonial ${idx + 1} of ${total}`}
+            aria-label={`${copy.slideLabel} ${idx + 1} of ${total}`}
           >
             <Quote
               className="w-10 h-10 lg:w-14 lg:h-14 text-secondary mb-6 lg:mb-8"
@@ -111,7 +137,7 @@ export default function Testimonials() {
             <button
               type="button"
               onClick={goPrev}
-              aria-label="Previous testimonial"
+              aria-label={copy.previousLabel}
               className="w-11 h-11 rounded-full border border-stone-300 bg-white flex items-center justify-center text-foreground hover:border-primary hover:text-primary hover:bg-white transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
             >
               <ChevronLeft className="w-5 h-5" aria-hidden />
@@ -120,9 +146,9 @@ export default function Testimonials() {
             <div
               className="flex items-center gap-2"
               role="tablist"
-              aria-label="Choose testimonial"
+              aria-label={copy.chooseLabel}
             >
-              {TESTIMONIALS.map((t, i) => {
+              {copy.testimonials.map((t, i) => {
                 const isActive = i === idx;
                 return (
                   <button
@@ -130,7 +156,7 @@ export default function Testimonials() {
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    aria-label={`Show testimonial ${i + 1}: ${t.name}`}
+                    aria-label={`${copy.showLabel} ${i + 1}: ${t.name}`}
                     onClick={() => setIdx(i)}
                     className={cn(
                       "h-2.5 rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
@@ -146,7 +172,7 @@ export default function Testimonials() {
             <button
               type="button"
               onClick={goNext}
-              aria-label="Next testimonial"
+              aria-label={copy.nextLabel}
               className="w-11 h-11 rounded-full border border-stone-300 bg-white flex items-center justify-center text-foreground hover:border-primary hover:text-primary hover:bg-white transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
             >
               <ChevronRight className="w-5 h-5" aria-hidden />

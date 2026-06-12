@@ -3,11 +3,17 @@ import { SlidersHorizontal, ImageIcon, Aperture, CheckCircle } from "lucide-reac
 import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Image Enhancement",
   description:
     "Real-estate-grade image enhancement: exposure balance, white balance, lens correction, and recovered window views. From US$2 / image.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/image-enhancement",
+    englishPath: "/pricing/image-enhancement",
+    spanishPath: "/es/pricing/image-enhancement",
+  }),
 };
 
 export default function ImageEnhancementPricingPage() {

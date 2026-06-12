@@ -37,6 +37,13 @@ export interface BeforeAfterFrameProps {
   placeholderVariant: ServiceVariant;
   /** Render the small "Before" / "After" corner pills. Defaults true. */
   showLabels?: boolean;
+  beforeLabel?: string;
+  afterLabel?: string;
+  placeholderLabels?: {
+    left?: string;
+    right?: string;
+    ariaLabel?: string;
+  };
   className?: string;
   /** Pass-through to <img loading=...>. Defaults to "lazy". */
   loading?: "lazy" | "eager";
@@ -49,6 +56,9 @@ export default function BeforeAfterFrame({
   afterAlt,
   placeholderVariant,
   showLabels = true,
+  beforeLabel = "Before",
+  afterLabel = "After",
+  placeholderLabels,
   className,
   loading = "lazy",
 }: BeforeAfterFrameProps) {
@@ -63,6 +73,7 @@ export default function BeforeAfterFrame({
       <ServicePlaceholder
         variant={placeholderVariant}
         className={className}
+        labels={placeholderLabels}
       />
     );
   }
@@ -84,7 +95,7 @@ export default function BeforeAfterFrame({
         />
         {showLabels && (
           <span className="absolute bottom-3 left-3 inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-stone-700 shadow-sm">
-            Before
+            {beforeLabel}
           </span>
         )}
       </div>
@@ -100,7 +111,7 @@ export default function BeforeAfterFrame({
         />
         {showLabels && (
           <span className="absolute bottom-3 right-3 inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-primary shadow-sm">
-            After
+            {afterLabel}
           </span>
         )}
       </div>

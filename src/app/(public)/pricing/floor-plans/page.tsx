@@ -30,6 +30,7 @@ import {
   type PortfolioExampleCard,
   type StyleOptionCard,
 } from "./FloorPlansInteractive";
+import { localizedAlternates } from "@/lib/seo";
 
 // ============================================================
 // /pricing/floor-plans  —  Floor Plans service page
@@ -56,6 +57,11 @@ export const metadata: Metadata = {
   title: "Floor Plans",
   description:
     "Professional 2D and 3D floor plans from US$16 per floor. Send a sketch, scan, PDF, or measurements and receive clean, listing-ready floor plans in JPG and PDF.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/floor-plans",
+    englishPath: "/pricing/floor-plans",
+    spanishPath: "/es/pricing/floor-plans",
+  }),
 };
 
 // ── Static data ──────────────────────────────────────────────

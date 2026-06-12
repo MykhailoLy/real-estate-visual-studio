@@ -2,11 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import TrackedOutboundLink from "@/components/analytics/TrackedOutboundLink";
 import Container from "@/components/layout/Container";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
     "How PicchuSpot collects, uses, protects, and retains client account, order, communication, and uploaded real estate media information.",
+  alternates: localizedAlternates({
+    canonicalPath: "/privacy",
+    englishPath: "/privacy",
+    spanishPath: "/es/privacy",
+  }),
 };
 
 const contactEmail = "hello@picchuspot.com";

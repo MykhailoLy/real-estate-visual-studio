@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -15,14 +15,21 @@ import {
   Mail,
   Menu,
   Newspaper,
+  ShieldCheck,
   Tags,
   X,
 } from "lucide-react";
-import { RegionCurrencySelector } from "@/components/pricing/currency-client";
+import {
+  RegionFlag,
+  useDisplayRegion,
+} from "@/components/pricing/currency-client";
+import { REGION_OPTIONS, currencyForRegion } from "@/lib/currency";
+import { getEnglishPath, getSpanishPath } from "@/lib/localized-routes";
 import {
   trackContactIntentClick,
   trackLanguageSwitch,
   trackLoginClick,
+  trackRegionCurrencySwitch,
   trackSignUpClick,
 } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
@@ -65,23 +72,11 @@ type SiteLanguage = "en" | "es";
 const LANGUAGE_STORAGE_KEY = "picchuspot-language";
 const LANGUAGE_COOKIE_NAME = "picchuspot_language";
 
-const ENGLISH_TO_SPANISH_ROUTES: Record<string, string> = {
-  "/": "/es",
-  "/services": "/es/services",
-  "/pricing": "/es/pricing",
-  "/contact": "/es/contact",
-};
-
-const SPANISH_TO_ENGLISH_ROUTES: Record<string, string> = {
-  "/es": "/",
-  "/es/services": "/services",
-  "/es/pricing": "/pricing",
-  "/es/contact": "/contact",
-};
-
 type ResourceMenuItem = {
   label: string;
+  esLabel: string;
   description: string;
+  esDescription: string;
   href?: string;
   localizedHref?: string;
   icon: typeof Info;
@@ -91,55 +86,182 @@ type ResourceMenuItem = {
 const resourceMenuItems: ResourceMenuItem[] = [
   {
     label: "About",
+    esLabel: "Sobre nosotros",
     description: "Who PicchuSpot is and how we work.",
+    esDescription: "Quién es PicchuSpot y cómo trabajamos.",
     href: "/about",
     icon: Info,
   },
   {
     label: "Contact Us",
+    esLabel: "Contacto",
     description: "Quotes, local work, and order support.",
+    esDescription: "Presupuestos, trabajos locales y soporte de pedidos.",
     href: "/contact",
     localizedHref: "/es/contact",
     icon: Mail,
   },
   {
     label: "Pricing",
+    esLabel: "Precios",
     description: "Transparent rates for core visual services.",
+    esDescription: "Tarifas claras para los servicios visuales principales.",
     href: "/pricing",
     localizedHref: "/es/pricing",
     icon: Tags,
   },
   {
     label: "Gallery",
+    esLabel: "Galería",
     description: "Before-and-after examples and selected work.",
+    esDescription: "Ejemplos antes/después y trabajos seleccionados.",
     icon: ImageIcon,
     status: "coming-soon",
   },
   {
     label: "Resources",
+    esLabel: "Recursos",
     description: "Guides and practical property marketing notes.",
+    esDescription: "Guías y notas prácticas de marketing inmobiliario.",
     icon: BookOpen,
     status: "coming-soon",
   },
   {
     label: "FAQ",
+    esLabel: "Preguntas frecuentes",
     description: "Common questions about services and delivery.",
+    esDescription: "Dudas habituales sobre servicios y entregas.",
     href: "/faq",
     icon: HelpCircle,
   },
   {
     label: "Blog",
+    esLabel: "Blog",
     description: "Articles and market notes.",
+    esDescription: "Artículos y notas de mercado.",
     icon: Newspaper,
     status: "coming-soon",
   },
   {
     label: "Press Kit",
+    esLabel: "Kit de prensa",
     description: "Brand assets and media information.",
+    esDescription: "Materiales de marca e información para medios.",
     icon: FileText,
     status: "coming-soon",
   },
+  {
+    label: "Terms & Conditions",
+    esLabel: "Términos y condiciones",
+    description: "Service terms, revisions, delivery, and client responsibilities.",
+    esDescription:
+      "Condiciones del servicio, revisiones, entregas y responsabilidades del cliente.",
+    href: "/terms",
+    icon: FileText,
+  },
+  {
+    label: "Privacy Policy",
+    esLabel: "Política de privacidad",
+    description: "How PicchuSpot handles account, order, and uploaded file data.",
+    esDescription:
+      "Cómo PicchuSpot gestiona datos de cuenta, pedidos y archivos subidos.",
+    href: "/privacy",
+    icon: ShieldCheck,
+  },
 ];
+
+const topLevelLabelsEs: Record<string, string> = {
+  "Remote Digital Services": "Servicios digitales remotos",
+  "Local Real Estate Media": "Media inmobiliaria local",
+  Renders: "Renders",
+  "Online Retail": "Retail online",
+};
+
+const subNavLabelsEs: Record<string, string> = {
+  "Image Enhancement": "Mejora de imagen",
+  "Day to Dusk": "Day to Dusk",
+  "Virtual Staging": "Virtual Staging",
+  "Item Removal & Virtual Cleaning": "Eliminación de objetos y limpieza virtual",
+  "Floor Plans": "Planos",
+  "Virtual Renovation": "Renovación virtual",
+  "360° Image Enhancement": "Mejora de imagen 360°",
+  "360° Virtual Staging": "Virtual Staging 360°",
+  "Aerial Editing": "Edición aérea",
+  "Development Site Plans": "Planos de desarrollo",
+  "Real Estate Photography": "Fotografía inmobiliaria",
+  "360 Virtual Tours": "Tours virtuales 360",
+  "Property Video Tours": "Vídeos inmobiliarios",
+  "Drone / Aerial Media": "Media con dron / aérea",
+  "Full Listing Media Packages": "Paquetes completos para anuncios",
+  "Exterior Renders": "Renders exteriores",
+  "Interior Renders": "Renders interiores",
+  "360° Renders": "Renders 360°",
+  "360° Virtual Tours": "Tours virtuales 360°",
+  "Development Marketing": "Marketing de promociones",
+  "Product Photo Editing": "Edición de fotos de producto",
+  "Background Removal": "Eliminación de fondo",
+  "Lifestyle Compositing": "Composiciones lifestyle",
+  "Color Variations": "Variaciones de color",
+  "Marketplace Images": "Imágenes para marketplaces",
+};
+
+function getHeaderLabel(label: string, language: SiteLanguage): string {
+  return language === "es" ? (topLevelLabelsEs[label] ?? label) : label;
+}
+
+function getSubNavLabel(label: string, language: SiteLanguage): string {
+  return language === "es" ? (subNavLabelsEs[label] ?? label) : label;
+}
+
+function getDrawerCopy(language: SiteLanguage) {
+  return language === "es"
+    ? {
+        menu: "Menú",
+        siteMenu: "Menú del sitio",
+        closeMenu: "Cerrar menú",
+        preferences: "Preferencias",
+        language: "Idioma",
+        region: "Región",
+        servicesEyebrow: "Servicios",
+        servicesTitle: "Servicios digitales remotos",
+        servicesDescription:
+          "Accede a los servicios y páginas de precios aunque la navegación superior esté oculta.",
+        futureEyebrow: "Próximamente",
+        futureTitle: "Más secciones",
+        futureDescription:
+          "Estas áreas están en preparación y se mantienen sin página traducida en esta PR.",
+        explore: "Explorar",
+        account: "Cuenta",
+        accountDescription:
+          "Accede al portal de cliente o crea una cuenta para gestionar pedidos.",
+        login: "Iniciar sesión",
+        signUp: "Crear cuenta",
+        comingSoon: "Próximamente",
+      }
+    : {
+        menu: "Menu",
+        siteMenu: "Site menu",
+        closeMenu: "Close menu",
+        preferences: "Preferences",
+        language: "Language",
+        region: "Region",
+        servicesEyebrow: "Services",
+        servicesTitle: "Remote Digital Services",
+        servicesDescription:
+          "Access the service and pricing pages when the top navigation is hidden.",
+        futureEyebrow: "Coming soon",
+        futureTitle: "More sections",
+        futureDescription:
+          "These areas are still being prepared and remain disabled in this drawer.",
+        explore: "Explore",
+        account: "Account",
+        accountDescription:
+          "Access the client portal or create an account to manage orders.",
+        login: "Login",
+        signUp: "Sign Up",
+        comingSoon: "Coming soon",
+      };
+}
 
 function normalizeLanguagePath(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, "");
@@ -195,16 +317,16 @@ function getCurrentLanguage(
 function getLanguageHref(pathname: string, language: SiteLanguage): string {
   const normalized = normalizeLanguagePath(pathname);
   if (language === "es") {
-    return ENGLISH_TO_SPANISH_ROUTES[normalized] ?? "/es";
+    return getSpanishPath(normalized) ?? "/es";
   }
-  return SPANISH_TO_ENGLISH_ROUTES[normalized] ?? "/";
+  return getEnglishPath(normalized) ?? "/";
 }
 
 function getLocaleAwareHref(href: string, language: SiteLanguage): string {
   if (language === "es") {
-    return ENGLISH_TO_SPANISH_ROUTES[href] ?? href;
+    return getSpanishPath(href) ?? href;
   }
-  return SPANISH_TO_ENGLISH_ROUTES[href] ?? href;
+  return getEnglishPath(href) ?? href;
 }
 
 export default function Header() {
@@ -272,7 +394,7 @@ export default function Header() {
           {/* Top-level categories (desktop) */}
           <nav
             aria-label="Service categories"
-            className="hidden lg:flex items-center gap-1 ml-8 xl:ml-12"
+            className="hidden 2xl:ml-10 2xl:flex 2xl:min-w-0 2xl:items-center 2xl:gap-1"
           >
             {topLevels.map((entry) => {
               const isActive = entry.key === active.key;
@@ -281,14 +403,14 @@ export default function Header() {
                   key={entry.key}
                   href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
-                    "px-3 py-2 text-[13px] font-bold uppercase tracking-[0.10em] rounded-md transition-colors",
+                    "whitespace-nowrap rounded-md px-2.5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
                     isActive
                       ? "text-primary bg-primary/5"
                       : "text-foreground/70 hover:text-primary hover:bg-surface"
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  {entry.label}
+                  {getHeaderLabel(entry.label, currentLanguage)}
                 </Link>
               );
             })}
@@ -307,32 +429,26 @@ export default function Header() {
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <Link
-              href="/login"
+              href={getLocaleAwareHref("/login", currentLanguage)}
               onClick={() => trackLoginClick("header")}
               className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:py-2 sm:text-[13px] sm:text-foreground/70 sm:hover:text-primary"
-              aria-label="Login"
+              aria-label={currentLanguage === "es" ? "Iniciar sesión" : "Login"}
             >
-              Login
+              {currentLanguage === "es" ? "Iniciar sesión" : "Login"}
             </Link>
             <Link
-              href="/signup"
+              href={getLocaleAwareHref("/signup", currentLanguage)}
               onClick={() => trackSignUpClick("header")}
-              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:inline-flex"
-              aria-label="Sign Up"
+              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary 2xl:inline-flex"
+              aria-label={currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
             >
-              Sign Up
+              {currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
             </Link>
-            <LanguageSelector
+            <MarketLanguageSelector
               pathname={pathname}
               currentLanguage={currentLanguage}
-              compact
               className="hidden lg:inline-flex"
               onLanguageChange={setLanguagePreference}
-            />
-            <RegionCurrencySelector
-              compact
-              tight
-              className="hidden lg:inline-flex"
               analyticsLocation="header"
             />
           </div>
@@ -504,8 +620,8 @@ interface BurgerMenuPanelProps {
 
 function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
   if (item.status === "coming-soon") return null;
-  if (language === "es" && item.localizedHref) return item.localizedHref;
-  return item.href ?? null;
+  if (!item.href) return null;
+  return getLocaleAwareHref(item.href, language);
 }
 
 function BurgerMenuPanel({
@@ -515,6 +631,10 @@ function BurgerMenuPanel({
   onLanguageChange,
   onClose,
 }: BurgerMenuPanelProps) {
+  const copy = getDrawerCopy(language);
+  const remoteEntry = topLevels[0];
+  const futureEntries = topLevels.slice(1);
+
   return (
     <div
       className="fixed inset-0 z-[10000] bg-primary/10 backdrop-blur-[2px] px-3 py-4 sm:px-6"
@@ -524,7 +644,7 @@ function BurgerMenuPanel({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Site menu"
+        aria-label={language === "es" ? "Menú del sitio" : "Site menu"}
         className="ml-auto mt-14 flex max-h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
@@ -532,61 +652,196 @@ function BurgerMenuPanel({
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary-dark">
               PicchuSpot
             </p>
-            <h2 className="text-lg font-bold text-primary">Menu</h2>
+            <h2 className="text-lg font-bold text-primary">
+              {language === "es" ? "Menú" : "Menu"}
+            </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-stone-200 text-primary transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Close menu"
+            aria-label={language === "es" ? "Cerrar menú" : "Close menu"}
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
 
-        <div className="overflow-y-auto p-5 sm:p-6">
+        <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
+          <section className="2xl:hidden">
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                  {copy.servicesEyebrow}
+                </p>
+                <h3 className="mt-1 text-xl font-bold text-primary">
+                  {copy.servicesTitle}
+                </h3>
+              </div>
+              <p className="max-w-xl text-sm leading-relaxed text-muted">
+                {copy.servicesDescription}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+              <Link
+                href={getLocaleAwareHref(remoteEntry.href, language)}
+                onClick={onClose}
+                className="group flex items-center justify-between gap-3 rounded-lg bg-surface px-4 py-3 transition-colors hover:bg-primary hover:text-white"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-primary group-hover:text-white">
+                    {getHeaderLabel(remoteEntry.label, language)}
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted group-hover:text-white/75">
+                    {language === "es"
+                      ? "Ediciones entregadas en todo el mundo en 24-48 horas."
+                      : remoteEntry.tagline}
+                  </span>
+                </span>
+                <span className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-dark group-hover:text-white">
+                  {language === "es" ? "Ver" : "View"}
+                </span>
+              </Link>
+
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {remoteEntry.subLinks.map((link) => {
+                  const href = resolveSubLinkHref(
+                    link,
+                    remoteEntry.href,
+                    language
+                  );
+                  const isCurrent =
+                    !href.startsWith("#") &&
+                    normalizeLanguagePath(pathname) ===
+                      normalizeLanguagePath(href);
+                  return (
+                    <Link
+                      key={link.label}
+                      href={href}
+                      onClick={onClose}
+                      aria-current={isCurrent ? "page" : undefined}
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-sm font-semibold leading-snug transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        isCurrent
+                          ? "border-primary/30 bg-primary/5 text-primary"
+                          : "border-stone-200 text-foreground/75 hover:border-primary/30 hover:bg-surface hover:text-primary"
+                      )}
+                    >
+                      {getSubNavLabel(link.label, language)}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section className="2xl:hidden">
+            <div className="mb-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                {copy.futureEyebrow}
+              </p>
+              <h3 className="mt-1 text-lg font-bold text-primary">
+                {copy.futureTitle}
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                {copy.futureDescription}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {futureEntries.map((entry) => (
+                <div
+                  key={entry.key}
+                  className="rounded-xl border border-stone-200 bg-stone-50 p-4 opacity-85"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-sm font-bold text-primary">
+                      {getHeaderLabel(entry.label, language)}
+                    </h4>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+                      {copy.comingSoon}
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-1.5">
+                    {entry.subLinks.slice(0, 3).map((link) => (
+                      <li
+                        key={link.label}
+                        className="text-xs font-medium text-muted"
+                      >
+                        {getSubNavLabel(link.label, language)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="mb-5 rounded-xl border border-stone-200 bg-surface/60 p-4 lg:hidden">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-              Preferences
+              {language === "es" ? "Preferencias" : "Preferences"}
             </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
-                  Language
-                </p>
-                <LanguageSelector
-                  pathname={pathname}
-                  currentLanguage={language}
-                  className="w-full"
-                  onNavigate={onClose}
-                  onLanguageChange={onLanguageChange}
-                />
-              </div>
-              <div>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-dark">
-                  Region
-                </p>
-                <RegionCurrencySelector
-                  className="w-full"
-                  analyticsLocation="mobile_menu"
-                />
-              </div>
+            <div>
+              <MarketLanguageSelector
+                pathname={pathname}
+                currentLanguage={language}
+                className="w-full"
+                placement="panel"
+                onNavigate={onClose}
+                onLanguageChange={onLanguageChange}
+                analyticsLocation="mobile_menu"
+              />
             </div>
           </section>
 
           <section>
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-              Explore
+              {language === "es" ? "Explorar" : "Explore"}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {resourceMenuItems.map((item) => (
                 <ResourceMenuLink
                   key={item.label}
                   item={item}
+                  language={language}
                   href={getResourceHref(item, language)}
                   onClose={onClose}
                 />
               ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-stone-200 bg-primary p-4 text-white shadow-sm 2xl:hidden">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">
+                  {copy.account}
+                </p>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/75">
+                  {copy.accountDescription}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:min-w-64 sm:flex-row">
+                <Link
+                  href={getLocaleAwareHref("/login", language)}
+                  onClick={() => {
+                    trackLoginClick("burger_menu");
+                    onClose();
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg border border-white/25 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"
+                >
+                  {copy.login}
+                </Link>
+                <Link
+                  href={getLocaleAwareHref("/signup", language)}
+                  onClick={() => {
+                    trackSignUpClick("burger_menu");
+                    onClose();
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-white/90"
+                >
+                  {copy.signUp}
+                </Link>
+              </div>
             </div>
           </section>
         </div>
@@ -597,14 +852,19 @@ function BurgerMenuPanel({
 
 function ResourceMenuLink({
   item,
+  language,
   href,
   onClose,
 }: {
   item: ResourceMenuItem;
+  language: SiteLanguage;
   href: string | null;
   onClose: () => void;
 }) {
   const Icon = item.icon;
+  const label = language === "es" ? item.esLabel : item.label;
+  const description =
+    language === "es" ? item.esDescription : item.description;
   const content = (
     <>
       <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-surface text-secondary-dark">
@@ -612,15 +872,15 @@ function ResourceMenuLink({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-bold text-primary">{item.label}</span>
+          <span className="text-sm font-bold text-primary">{label}</span>
           {item.status === "coming-soon" && (
             <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
-              Coming soon
+              {language === "es" ? "Próximamente" : "Coming soon"}
             </span>
           )}
         </span>
         <span className="mt-1 block text-xs leading-relaxed text-muted">
-          {item.description}
+          {description}
         </span>
       </span>
     </>
@@ -650,6 +910,251 @@ function ResourceMenuLink({
   );
 }
 
+type MarketLanguageSelectorPlacement = "header" | "panel";
+
+function MarketLanguageSelector({
+  pathname,
+  currentLanguage,
+  className,
+  placement = "header",
+  onNavigate,
+  onLanguageChange,
+  analyticsLocation,
+}: {
+  pathname: string;
+  currentLanguage: SiteLanguage;
+  className?: string;
+  placement?: MarketLanguageSelectorPlacement;
+  onNavigate?: () => void;
+  onLanguageChange: (language: SiteLanguage) => void;
+  analyticsLocation: string;
+}) {
+  const [region, setRegion] = useDisplayRegion();
+  const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const activeOption =
+    REGION_OPTIONS.find((option) => option.code === region) ??
+    REGION_OPTIONS[0];
+  const usePortal = placement === "header";
+
+  const updatePanelPosition = useCallback(() => {
+    if (!buttonRef.current || !usePortal) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPanelPos({
+      top: rect.bottom + 8,
+      right: Math.max(12, window.innerWidth - rect.right),
+    });
+  }, [usePortal]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    updatePanelPosition();
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const insideRoot = rootRef.current?.contains(target) ?? false;
+      const insidePanel = panelRef.current?.contains(target) ?? false;
+      if (!insideRoot && !insidePanel) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition);
+    };
+  }, [open, updatePanelPosition]);
+
+  const copy =
+    currentLanguage === "es"
+      ? {
+          aria: "Seleccionar mercado, moneda e idioma",
+          market: "Mercado",
+          language: "Idioma",
+          selected: "Seleccionado",
+          english: "Ingl\u00e9s",
+          spanish: "Espa\u00f1ol",
+        }
+      : {
+          aria: "Select market, currency, and language",
+          market: "Market",
+          language: "Language",
+          selected: "Selected",
+          english: "English",
+          spanish: "Spanish",
+        };
+  const languageOptions: { code: SiteLanguage; label: string }[] = [
+    { code: "en", label: copy.english },
+    { code: "es", label: copy.spanish },
+  ];
+  const marketLabelsEs: Record<string, string> = {
+    US: "Estados Unidos",
+    CA: "Canad\u00e1",
+    EU: "Europa",
+  };
+  const getMarketLabel = (option: (typeof REGION_OPTIONS)[number]) =>
+    currentLanguage === "es"
+      ? (marketLabelsEs[option.code] ?? option.label)
+      : option.label;
+
+  const panel = (
+    <div
+      ref={panelRef}
+      style={
+        usePortal && panelPos
+          ? {
+              position: "fixed",
+              top: panelPos.top,
+              right: panelPos.right,
+              zIndex: 10000,
+            }
+          : undefined
+      }
+      className={cn(
+        "overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl",
+        usePortal ? "w-[min(21rem,calc(100vw-1.5rem))]" : "mt-2 w-full shadow-sm"
+      )}
+    >
+      <div className="border-b border-border p-2.5">
+        <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+          {copy.market}
+        </p>
+        <div className="space-y-1">
+          {REGION_OPTIONS.map((option) => {
+            const active = option.code === region;
+            return (
+              <button
+                key={option.code}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setRegion(option.code);
+                  trackRegionCurrencySwitch({
+                    selectedRegion: option.code,
+                    currency: option.currency,
+                    location: analyticsLocation,
+                  });
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2.5 text-left text-sm transition-colors",
+                  active
+                    ? "bg-primary/5 text-primary"
+                    : "text-foreground hover:bg-surface hover:text-primary"
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <RegionFlag code={option.code} />
+                  <span className="truncate">
+                    {getMarketLabel(option)} {"\u2014"} {option.currency}
+                  </span>
+                </span>
+                {active && (
+                  <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-[0.12em]">
+                    {copy.selected}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="p-2.5">
+        <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+          {copy.language}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {languageOptions.map((option) => {
+            const active = option.code === currentLanguage;
+            return (
+              <Link
+                key={option.code}
+                href={getLanguageHref(pathname, option.code)}
+                onClick={() => {
+                  onLanguageChange(option.code);
+                  setOpen(false);
+                  onNavigate?.();
+                }}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "inline-flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
+                  active
+                    ? "bg-primary text-white"
+                    : "bg-surface text-foreground/75 hover:bg-primary/5 hover:text-primary"
+                )}
+              >
+                {option.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      ref={rootRef}
+      className={cn(
+        "relative",
+        placement === "header" ? "inline-flex flex-shrink-0" : "block",
+        className
+      )}
+    >
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={copy.aria}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => {
+          updatePanelPosition();
+          setOpen((value) => !value);
+        }}
+        className={cn(
+          "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-sm transition-colors hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          placement === "header" ? "h-9 min-w-[8rem]" : "w-full"
+        )}
+      >
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-primary">
+          <RegionFlag code={activeOption.code} />
+          <span>{currencyForRegion(region)}</span>
+          <span className="text-muted">{"\u00b7"}</span>
+          <span>{currentLanguage.toUpperCase()}</span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 flex-shrink-0 text-primary transition-transform",
+            open && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {open && usePortal && panelPos && createPortal(panel, document.body)}
+      {open && !usePortal && panel}
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function LanguageSelector({
   pathname,
   currentLanguage,
@@ -857,7 +1362,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
   const overflow = active.subLinks.slice(overflowAt);
 
   return (
-    <div className="hidden lg:block border-t border-border bg-white">
+    <div className="hidden border-t border-border bg-white 2xl:block">
       <div className={cn("relative", NAV_X_PADDING)}>
         {/* Hidden measurement mirror */}
         <div
@@ -871,7 +1376,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
               data-subnav-measure="link"
               className="text-[12px] font-bold uppercase tracking-[0.10em]"
             >
-              {link.label}
+              {getSubNavLabel(link.label, language)}
             </span>
           ))}
           <span
@@ -879,7 +1384,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
             data-subnav-measure="more"
             className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.10em]"
           >
-            More
+            {language === "es" ? "Más" : "More"}
             <ChevronDown className="w-3.5 h-3.5" aria-hidden />
           </span>
         </div>
@@ -887,7 +1392,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
         {/* Visible row */}
         <div ref={containerRef} className="flex items-stretch">
           <nav
-            aria-label={`${active.label} services`}
+            aria-label={`${getHeaderLabel(active.label, language)} services`}
             className="flex items-stretch gap-x-6 xl:gap-x-7 flex-1 min-w-0 overflow-hidden"
           >
             {visible.map((link) => {
@@ -897,7 +1402,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                 <SubNavItem
                   key={link.label}
                   href={href}
-                  label={link.label}
+                  label={getSubNavLabel(link.label, language)}
                   current={isCurrent}
                 />
               );
@@ -919,7 +1424,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                     : "text-foreground/65 hover:text-primary"
                 )}
               >
-                More
+                {language === "es" ? "Más" : "More"}
                 <ChevronDown
                   className={cn(
                     "w-3.5 h-3.5 transition-transform duration-200",
@@ -989,7 +1494,9 @@ function MoreDropdown({
     <div
       ref={panelRef}
       role="menu"
-      aria-label={`${active.label} more services`}
+      aria-label={`${getHeaderLabel(active.label, language)} ${
+        language === "es" ? "más servicios" : "more services"
+      }`}
       style={{
         position: "fixed",
         top,
@@ -1016,7 +1523,7 @@ function MoreDropdown({
                 : "text-foreground/75 hover:text-primary hover:bg-surface"
             )}
           >
-            {link.label}
+            {getSubNavLabel(link.label, language)}
           </Link>
         );
       })}

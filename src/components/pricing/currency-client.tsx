@@ -110,7 +110,7 @@ function writeRegion(region: RegionCode) {
   window.dispatchEvent(new CustomEvent(REGION_EVENT, { detail: { region } }));
 }
 
-function useDisplayRegion(): [RegionCode, (region: RegionCode) => void] {
+export function useDisplayRegion(): [RegionCode, (region: RegionCode) => void] {
   const [region, setRegionState] = useState<RegionCode>(DEFAULT_REGION);
 
   useEffect(() => {
@@ -321,7 +321,7 @@ export function RegionCurrencySelector({
   );
 }
 
-function RegionFlag({ code }: { code: RegionCode }) {
+export function RegionFlag({ code }: { code: RegionCode }) {
   if (code === "CA") {
     return (
       <span

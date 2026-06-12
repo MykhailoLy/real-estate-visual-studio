@@ -20,6 +20,7 @@ import {
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { regionalPrice } from "@/lib/currency";
+import { localizedAlternates } from "@/lib/seo";
 
 // ============================================================
 // /pricing/virtual-staging  —  Virtual Staging service page
@@ -48,6 +49,11 @@ export const metadata: Metadata = {
   title: "Virtual Staging",
   description:
     "Virtual staging from US$19 per image. Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/virtual-staging",
+    englishPath: "/pricing/virtual-staging",
+    spanishPath: "/es/pricing/virtual-staging",
+  }),
 };
 
 // ── Static data ──────────────────────────────────────────────

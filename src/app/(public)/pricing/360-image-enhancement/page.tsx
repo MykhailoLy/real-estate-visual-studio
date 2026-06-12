@@ -6,11 +6,17 @@ import {
   getServiceHeroBeforeAfterItem,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "360° Image Enhancement",
   description:
     "Enhance equirectangular panoramas for cleaner virtual tours. Balanced color, exposure, and stitch cleanup. Quote-based.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/360-image-enhancement",
+    englishPath: "/pricing/360-image-enhancement",
+    spanishPath: "/es/pricing/360-image-enhancement",
+  }),
 };
 
 export default async function ThreeSixtyImageEnhancementPricingPage() {

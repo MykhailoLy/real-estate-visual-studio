@@ -111,6 +111,26 @@ export interface ServicePageProps {
 
   // Optional custom hero visual. Defaults to the standard before/after slider.
   heroContent?: ReactNode;
+  labels?: {
+    heroAriaLabel?: string;
+    bestForEyebrow?: string;
+    backToServices?: string;
+    backToServicesHref?: string;
+    whatItIsEyebrow?: string;
+    beforeYouOrderEyebrow?: string;
+    beforeYouOrderTitle?: string;
+    pricingEyebrow?: string;
+    basePriceBadge?: string;
+    faqEyebrow?: string;
+    beforeLabel?: string;
+    afterLabel?: string;
+    viewExamplePrefix?: string;
+    viewExampleSuffix?: string;
+    translateExampleTitle?: (title: string) => string;
+    translateExampleDescription?: (description: string) => string;
+    secondaryCtaLabel?: string;
+    secondaryCtaHref?: string;
+  };
 }
 
 // ── Slider data helper ────────────────────────────────────────
@@ -166,6 +186,7 @@ export default async function ServicePage({
   ctaTitle,
   ctaSubtitle,
   heroContent,
+  labels,
 }: ServicePageProps) {
   const slidesPromise = heroContent
     ? Promise.resolve<ServicePageSlide[] | null>(null)
@@ -178,8 +199,11 @@ export default async function ServicePage({
 
   const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => ({
     id: item.id,
-    title: item.title,
-    description: item.description,
+    title: labels?.translateExampleTitle?.(item.title) ?? item.title,
+    description: item.description
+      ? (labels?.translateExampleDescription?.(item.description) ??
+        item.description)
+      : item.description,
     beforeUrl: getPortfolioPublicUrl(item.before_image_path),
     afterUrl: getPortfolioPublicUrl(item.after_image_path),
     beforeAlt: item.before_alt ?? `${item.title} — before`,
@@ -194,7 +218,9 @@ export default async function ServicePage({
           {heroContent ?? (
             <ServicePageSlider
               slides={sliderSlides ?? []}
-              ariaLabel={`${title} before and after examples`}
+              ariaLabel={
+                labels?.heroAriaLabel ?? `${title} before and after examples`
+              }
             />
           )}
         </div>
@@ -204,7 +230,7 @@ export default async function ServicePage({
       <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
         <Wide>
           <SectionLead
-            eyebrow="Best for"
+            eyebrow={labels?.bestForEyebrow ?? "Best for"}
             title={whenToUseTitle}
             description={whenToUseDescription}
           />
@@ -262,10 +288,10 @@ export default async function ServicePage({
                 <ArrowRight className="w-4 h-4" aria-hidden />
               </TrackedLink>
               <Link
-                href="/services"
+                href={labels?.backToServicesHref ?? "/services"}
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
               >
-                Back to Services
+                {labels?.backToServices ?? "Back to Services"}
               </Link>
             </div>
           </div>
@@ -277,7 +303,7 @@ export default async function ServicePage({
         <Wide>
           <div className="max-w-3xl mb-10 lg:mb-14">
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
-              What it is
+              {labels?.whatItIsEyebrow ?? "What it is"}
             </p>
             <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
               {whatItIsTitle}
@@ -305,7 +331,16 @@ export default async function ServicePage({
 
           {/* Portfolio examples grid — client component with lightbox */}
           {portfolioCards.length > 0 ? (
-            <PortfolioExamplesGrid cards={portfolioCards} imageFit="cover" />
+            <PortfolioExamplesGrid
+              cards={portfolioCards}
+              imageFit="cover"
+              labels={{
+                before: labels?.beforeLabel,
+                after: labels?.afterLabel,
+                viewExamplePrefix: labels?.viewExamplePrefix,
+                viewExampleSuffix: labels?.viewExampleSuffix,
+              }}
+            />
           ) : (
             <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
               <BeforeAfterFrame
@@ -314,6 +349,16 @@ export default async function ServicePage({
                 beforeAlt={`${title} — before`}
                 afterAlt={`${title} — after`}
                 placeholderVariant={placeholderVariant}
+                beforeLabel={labels?.beforeLabel}
+                afterLabel={labels?.afterLabel}
+                placeholderLabels={
+                  labels?.beforeLabel || labels?.afterLabel
+                    ? {
+                        left: labels?.beforeLabel ?? "Before",
+                        right: labels?.afterLabel ?? "After",
+                      }
+                    : undefined
+                }
               />
             </div>
           )}
@@ -324,8 +369,8 @@ export default async function ServicePage({
       <section className="py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
-            eyebrow="Before you order"
-            title="What we need from you"
+            eyebrow={labels?.beforeYouOrderEyebrow ?? "Before you order"}
+            title={labels?.beforeYouOrderTitle ?? "What we need from you"}
             description={beforeYouOrderDescription}
           />
           <UploadRequirementsBlock
@@ -339,7 +384,7 @@ export default async function ServicePage({
       <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
-            eyebrow="Pricing"
+            eyebrow={labels?.pricingEyebrow ?? "Pricing"}
             title={pricingTitle}
             description={pricingDescription}
           />
@@ -355,7 +400,7 @@ export default async function ServicePage({
               >
                 {card.isBase && (
                   <span className="self-start inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold tracking-[0.18em] uppercase">
-                    Base Price
+                    {labels?.basePriceBadge ?? "Base Price"}
                   </span>
                 )}
                 <div>
@@ -402,7 +447,7 @@ export default async function ServicePage({
       {/* ── G. FAQ — white ── */}
       <section className="py-14 lg:py-20 bg-white">
         <Wide>
-          <SectionLead eyebrow="FAQ" title={faqTitle} />
+          <SectionLead eyebrow={labels?.faqEyebrow ?? "FAQ"} title={faqTitle} />
           <div className="max-w-3xl">
             <FaqAccordion items={faqItems} />
           </div>
@@ -415,8 +460,8 @@ export default async function ServicePage({
         subtitle={ctaSubtitle}
         primaryHref={orderHref}
         primaryLabel={orderLabel}
-        secondaryHref="/contact"
-        secondaryLabel="Ask a Question"
+        secondaryHref={labels?.secondaryCtaHref ?? "/contact"}
+        secondaryLabel={labels?.secondaryCtaLabel ?? "Ask a Question"}
       />
     </>
   );

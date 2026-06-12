@@ -233,6 +233,11 @@ interface ServicePlaceholderProps {
    *  Set to false on hero / collage usages where labels would be
    *  visual noise. */
   showInnerLabels?: boolean;
+  labels?: {
+    left?: string;
+    right?: string;
+    ariaLabel?: string;
+  };
   className?: string;
 }
 
@@ -240,9 +245,12 @@ export default function ServicePlaceholder({
   variant,
   showDivider = true,
   showInnerLabels = true,
+  labels,
   className,
 }: ServicePlaceholderProps) {
   const style = STYLES[variant];
+  const leftLabel = labels?.left ?? style.leftLabel;
+  const rightLabel = labels?.right ?? style.rightLabel;
   return (
     <div
       className={cn(
@@ -250,13 +258,13 @@ export default function ServicePlaceholder({
         className
       )}
       role="img"
-      aria-label={`${style.leftLabel} versus ${style.rightLabel} preview`}
+      aria-label={labels?.ariaLabel ?? `${leftLabel} versus ${rightLabel} preview`}
     >
       {/* LEFT half */}
       <div className={cn("relative w-1/2 flex items-end p-4", style.left)}>
         {showInnerLabels && (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/85 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-stone-700">
-            {style.leftLabel}
+            {leftLabel}
           </span>
         )}
       </div>
@@ -297,7 +305,7 @@ export default function ServicePlaceholder({
         )}
         {showInnerLabels && (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/85 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-primary relative">
-            {style.rightLabel}
+            {rightLabel}
           </span>
         )}
       </div>

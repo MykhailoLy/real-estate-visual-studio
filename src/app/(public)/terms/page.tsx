@@ -2,11 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Container from "@/components/layout/Container";
 import { TERMS_VERSION } from "@/components/order/OrderTermsBlock";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
   description:
     "PicchuSpot terms and conditions: scope of services, client responsibilities, revisions, turnaround, pricing, file delivery, copyright, liability, refunds, and how local services work.",
+  alternates: localizedAlternates({
+    canonicalPath: "/terms",
+    englishPath: "/terms",
+    spanishPath: "/es/terms",
+  }),
 };
 
 /**

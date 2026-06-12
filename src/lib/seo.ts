@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
+import type {
+  EnglishLocalizedPath,
+  SpanishLocalizedPath,
+} from "@/lib/localized-routes";
 
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
   "https://picchuspot.com";
 
-export type EnglishLocalizedPath = "/" | "/services" | "/pricing" | "/contact";
-export type SpanishLocalizedPath =
-  | "/es"
-  | "/es/services"
-  | "/es/pricing"
-  | "/es/contact";
+export type { EnglishLocalizedPath, SpanishLocalizedPath };
 
 export function absoluteUrl(path: string): string {
   return path === "/" ? SITE_URL : `${SITE_URL}${path}`;

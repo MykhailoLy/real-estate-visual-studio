@@ -1,28 +1,90 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import TrackedLink from "@/components/analytics/TrackedLink";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 
-const footerLinks = {
-  services: [
-    { href: "/services#virtual-staging", label: "Virtual Staging" },
-    { href: "/services#virtual-renovation", label: "Virtual Renovation" },
-    { href: "/services#floor-plans", label: "3D Floor Plans" },
-    { href: "/services#photo-editing", label: "Photo Editing" },
-    { href: "/services#photography", label: "Photography" },
-  ],
-  pages: [
-    { href: "/portfolio", label: "Portfolio" },
-    { href: "/pricing", label: "Pricing" },
-    { href: "/order", label: "Order Online" },
-    { href: "/about", label: "About Us" },
-    { href: "/faq", label: "FAQ" },
-    { href: "/contact", label: "Contact" },
-  ],
-  legal: [
-    { href: "/privacy", label: "Privacy Policy" },
-    { href: "/terms", label: "Terms & Conditions" },
-  ],
+type FooterLink = {
+  href: string;
+  label: string;
+  tracked?: boolean;
 };
+
+const footerCopy = {
+  en: {
+    tagline: "Real Estate Visuals",
+    description:
+      "Property visuals that make listings stand out. Remote digital services worldwide. Local photography in Alicante & Costa Blanca.",
+    servicesHeading: "Services",
+    pagesHeading: "Pages",
+    serviceAreaHeading: "Service Area",
+    rights: "All rights reserved.",
+    cookieSettings: "Cookie settings",
+    services: [
+      { href: "/services#virtual-staging", label: "Virtual Staging" },
+      { href: "/services#virtual-renovation", label: "Virtual Renovation" },
+      { href: "/services#floor-plans", label: "3D Floor Plans" },
+      { href: "/services#photo-editing", label: "Photo Editing" },
+      { href: "/services#photography", label: "Photography" },
+    ],
+    pages: [
+      { href: "/portfolio", label: "Portfolio" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/order", label: "Order Online", tracked: true },
+      { href: "/about", label: "About Us" },
+      { href: "/faq", label: "FAQ" },
+      { href: "/contact", label: "Contact", tracked: true },
+    ],
+    legal: [
+      { href: "/privacy", label: "Privacy Policy" },
+      { href: "/terms", label: "Terms & Conditions" },
+    ],
+  },
+  es: {
+    tagline: "Visuales inmobiliarios",
+    description:
+      "Visuales inmobiliarios que hacen destacar los anuncios. Servicios digitales remotos en todo el mundo. Fotografía local en Alicante y Costa Blanca.",
+    servicesHeading: "Servicios",
+    pagesHeading: "Páginas",
+    serviceAreaHeading: "Área de servicio",
+    rights: "Todos los derechos reservados.",
+    cookieSettings: "Configuración de cookies",
+    services: [
+      { href: "/es/services#virtual-staging", label: "Virtual Staging" },
+      { href: "/es/services#virtual-renovation", label: "Renovación virtual" },
+      { href: "/es/services#floor-plans", label: "Planos 3D" },
+      { href: "/es/services#photo-editing", label: "Edición fotográfica" },
+      { href: "/es/services#photography", label: "Fotografía" },
+    ],
+    pages: [
+      { href: "/portfolio", label: "Portfolio" },
+      { href: "/es/pricing", label: "Precios" },
+      { href: "/order", label: "Pedir online", tracked: true },
+      { href: "/es/about", label: "Sobre nosotros" },
+      { href: "/es/faq", label: "Preguntas frecuentes" },
+      { href: "/es/contact", label: "Contacto", tracked: true },
+    ],
+    legal: [
+      { href: "/es/privacy", label: "Política de privacidad" },
+      { href: "/es/terms", label: "Términos y condiciones" },
+    ],
+  },
+} satisfies Record<
+  "en" | "es",
+  {
+    tagline: string;
+    description: string;
+    servicesHeading: string;
+    pagesHeading: string;
+    serviceAreaHeading: string;
+    rights: string;
+    cookieSettings: string;
+    services: FooterLink[];
+    pages: FooterLink[];
+    legal: FooterLink[];
+  }
+>;
 
 const serviceAreaCities = [
   "Alicante",
@@ -37,78 +99,84 @@ const serviceAreaCities = [
   "Villajoyosa",
 ];
 
+function isSpanishPath(pathname: string | null): boolean {
+  return pathname === "/es" || Boolean(pathname?.startsWith("/es/"));
+}
+
+function FooterLinkItem({
+  link,
+}: {
+  link: FooterLink;
+}) {
+  if (link.tracked) {
+    return (
+      <TrackedLink
+        href={link.href}
+        analyticsLabel={link.label}
+        analyticsLocation="footer"
+        className="text-sm text-white/70 hover:text-white transition-colors"
+      >
+        {link.label}
+      </TrackedLink>
+    );
+  }
+
+  return (
+    <Link
+      href={link.href}
+      className="text-sm text-white/70 hover:text-white transition-colors"
+    >
+      {link.label}
+    </Link>
+  );
+}
+
 export default function Footer() {
+  const pathname = usePathname();
+  const language = isSpanishPath(pathname) ? "es" : "en";
+  const copy = footerCopy[language];
+
   return (
     <footer className="bg-primary text-white">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Brand */}
           <div>
             <h3 className="text-lg font-bold mb-1 tracking-tight">PicchuSpot</h3>
             <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-4">
-              Real Estate Visuals
+              {copy.tagline}
             </p>
-            <p className="text-sm text-white/70 mb-4">
-              Property visuals that make listings stand out. Remote digital
-              services worldwide. Local photography in Alicante &amp; Costa
-              Blanca.
-            </p>
-            {/* TODO: Add social media links */}
+            <p className="text-sm text-white/70 mb-4">{copy.description}</p>
           </div>
 
-          {/* Services */}
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-wider mb-4">
-              Services
+              {copy.servicesHeading}
             </h4>
             <ul className="space-y-2">
-              {footerLinks.services.map((link) => (
+              {copy.services.map((link) => (
                 <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-white/70 hover:text-white transition-colors"
-                  >
-                    {link.label}
-                  </Link>
+                  <FooterLinkItem link={link} />
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Pages */}
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-wider mb-4">
-              Pages
+              {copy.pagesHeading}
             </h4>
             <ul className="space-y-2">
-              {footerLinks.pages.map((link) => (
+              {copy.pages.map((link) => (
                 <li key={link.href}>
-                  {link.href === "/order" || link.href === "/contact" ? (
-                    <TrackedLink
-                      href={link.href}
-                      analyticsLabel={link.label}
-                      analyticsLocation="footer"
-                      className="text-sm text-white/70 hover:text-white transition-colors"
-                    >
-                      {link.label}
-                    </TrackedLink>
-                  ) : (
-                    <Link
-                      href={link.href}
-                      className="text-sm text-white/70 hover:text-white transition-colors"
-                    >
-                      {link.label}
-                    </Link>
-                  )}
+                  <FooterLinkItem link={link} />
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Service Area */}
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-wider mb-4">
-              Service Area
+              {copy.serviceAreaHeading}
             </h4>
             <p className="text-sm text-white/70">
               {serviceAreaCities.join(" · ")}
@@ -116,13 +184,12 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-white/20 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-white/60">
-            &copy; {new Date().getFullYear()} PicchuSpot. All rights reserved.
+            &copy; {new Date().getFullYear()} PicchuSpot. {copy.rights}
           </p>
-          <div className="flex gap-4">
-            {footerLinks.legal.map((link) => (
+          <div className="flex flex-wrap justify-center gap-4">
+            {copy.legal.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -131,7 +198,7 @@ export default function Footer() {
                 {link.label}
               </Link>
             ))}
-            <CookieSettingsButton />
+            <CookieSettingsButton label={copy.cookieSettings} />
           </div>
         </div>
       </div>

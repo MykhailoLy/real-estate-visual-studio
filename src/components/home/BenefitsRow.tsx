@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Globe,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // ============================================================
 // "Why work with PicchuSpot" — benefits row
@@ -23,7 +24,18 @@ import {
 // strings supplied by the spec.
 // ============================================================
 
-const BENEFITS = [
+export type BenefitCopy = {
+  title: string;
+  body: string;
+};
+
+export type BenefitsRowCopy = {
+  heading: string;
+  description: string;
+  benefits: BenefitCopy[];
+};
+
+const BENEFITS: (BenefitCopy & { icon: LucideIcon })[] = [
   {
     icon: Clock,
     title: "Fast Turnaround",
@@ -56,22 +68,32 @@ const BENEFITS = [
   },
 ];
 
-export default function BenefitsRow() {
+const DEFAULT_COPY: BenefitsRowCopy = {
+  heading: "Why work with PicchuSpot",
+  description: "Built for listings - not generic photo work.",
+  benefits: BENEFITS,
+};
+
+export default function BenefitsRow({
+  copy = DEFAULT_COPY,
+}: {
+  copy?: BenefitsRowCopy;
+}) {
   return (
     <section className="py-12 lg:py-16 bg-surface border-y border-border">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="max-w-3xl mb-8 lg:mb-12">
           <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
-            Why work with PicchuSpot
+            {copy.heading}
           </h2>
           <p className="mt-3 text-base lg:text-xl text-muted leading-relaxed">
-            Built for listings — not generic photo work.
+            {copy.description}
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-5 lg:gap-6 2xl:gap-5">
-          {BENEFITS.map((b) => {
-            const Icon = b.icon;
+          {copy.benefits.map((b, index) => {
+            const Icon = BENEFITS[index]?.icon ?? Clock;
             return (
               <div
                 key={b.title}

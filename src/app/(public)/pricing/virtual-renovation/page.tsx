@@ -3,11 +3,17 @@ import { Paintbrush, Wrench, Trees, Layers } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Virtual Renovation",
   description:
     "Show renovation potential with realistic visual updates for finishes, fixtures, layouts, materials, and property presentation. Option-based pricing.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/virtual-renovation",
+    englishPath: "/pricing/virtual-renovation",
+    spanishPath: "/es/pricing/virtual-renovation",
+  }),
 };
 
 const INTERNAL = [

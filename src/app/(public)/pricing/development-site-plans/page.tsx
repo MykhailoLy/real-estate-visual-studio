@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { Map, Building, LayoutGrid, FileText } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Development Site Plans",
   description:
     "Clear visual site plans for land, development, subdivision, multi-unit, or project presentation. Quote-based.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/development-site-plans",
+    englishPath: "/pricing/development-site-plans",
+    spanishPath: "/es/pricing/development-site-plans",
+  }),
 };
 
 export default function DevelopmentSitePlansPricingPage() {

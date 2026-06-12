@@ -11,11 +11,17 @@ import {
   Sparkles,
 } from "lucide-react";
 import Container from "@/components/layout/Container";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "About PicchuSpot",
   description:
     "PicchuSpot provides real estate visual services for agents, photographers, property managers, home sellers, and developers.",
+  alternates: localizedAlternates({
+    canonicalPath: "/about",
+    englishPath: "/about",
+    spanishPath: "/es/about",
+  }),
 };
 
 const audiences = [

@@ -6,6 +6,34 @@ import { useState, type FormEvent } from "react";
 import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
+export type LoginFormCopy = {
+  emailLabel: string;
+  emailPlaceholder: string;
+  passwordLabel: string;
+  passwordPlaceholder: string;
+  forgotPassword: string;
+  submit: string;
+  submitting: string;
+  noAccount: string;
+  createAccount: string;
+  invalidCredentials: string;
+  unexpectedError: string;
+};
+
+const DEFAULT_COPY: LoginFormCopy = {
+  emailLabel: "Email address",
+  emailPlaceholder: "you@example.com",
+  passwordLabel: "Password",
+  passwordPlaceholder: "Your password",
+  forgotPassword: "Forgot password?",
+  submit: "Sign in to your account",
+  submitting: "Signing in...",
+  noAccount: "Don't have an account?",
+  createAccount: "Create one",
+  invalidCredentials: "Incorrect email or password. Please try again.",
+  unexpectedError: "An unexpected error occurred. Please try again.",
+};
+
 // ── helpers ──────────────────────────────────────────────────
 
 /**
@@ -20,7 +48,15 @@ function safeRedirectTo(raw: string | null): string {
 
 // ── component ─────────────────────────────────────────────────
 
-export default function LoginForm() {
+export default function LoginForm({
+  copy = DEFAULT_COPY,
+  signupHref = "/signup",
+  forgotPasswordHref = "/forgot-password",
+}: {
+  copy?: LoginFormCopy;
+  signupHref?: string;
+  forgotPasswordHref?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeRedirectTo(searchParams.get("redirectTo"));
@@ -48,7 +84,7 @@ export default function LoginForm() {
       if (authError) {
         setError(
           authError.message === "Invalid login credentials"
-            ? "Incorrect email or password. Please try again."
+            ? copy.invalidCredentials
             : authError.message
         );
         return;
@@ -59,7 +95,7 @@ export default function LoginForm() {
       router.replace(redirectTo);
       router.refresh();
     } catch {
-      setError("An unexpected error occurred. Please try again.");
+      setError(copy.unexpectedError);
     } finally {
       setLoading(false);
     }
@@ -73,7 +109,7 @@ export default function LoginForm() {
           htmlFor="login-email"
           className="block text-[11px] font-bold uppercase tracking-[0.15em] text-muted mb-1.5"
         >
-          Email address
+          {copy.emailLabel}
         </label>
         <div className="relative">
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-light pointer-events-none" aria-hidden />
@@ -84,7 +120,7 @@ export default function LoginForm() {
             autoComplete="email"
             required
             disabled={loading}
-            placeholder="you@example.com"
+            placeholder={copy.emailPlaceholder}
             className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-border bg-white text-foreground text-sm placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60 transition-colors"
           />
         </div>
@@ -97,13 +133,13 @@ export default function LoginForm() {
             htmlFor="login-password"
             className="block text-[11px] font-bold uppercase tracking-[0.15em] text-muted"
           >
-            Password
+            {copy.passwordLabel}
           </label>
           <Link
-            href="/forgot-password"
+            href={forgotPasswordHref}
             className="text-[12px] font-semibold text-primary hover:text-primary-light transition-colors"
           >
-            Forgot password?
+            {copy.forgotPassword}
           </Link>
         </div>
         <div className="relative">
@@ -115,7 +151,7 @@ export default function LoginForm() {
             autoComplete="current-password"
             required
             disabled={loading}
-            placeholder="Your password"
+            placeholder={copy.passwordPlaceholder}
             className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-border bg-white text-foreground text-sm placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60 transition-colors"
           />
         </div>
@@ -139,16 +175,16 @@ export default function LoginForm() {
         className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm"
       >
         {loading ? (
-          <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />Signing in…</>
+          <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />{copy.submitting}</>
         ) : (
-          "Sign in to your account"
+          copy.submit
         )}
       </button>
 
       <p className="text-center text-sm text-muted">
-        Don&rsquo;t have an account?{" "}
-        <Link href="/signup" className="font-semibold text-primary hover:text-primary-light transition-colors">
-          Create one
+        {copy.noAccount}{" "}
+        <Link href={signupHref} className="font-semibold text-primary hover:text-primary-light transition-colors">
+          {copy.createAccount}
         </Link>
       </p>
     </form>

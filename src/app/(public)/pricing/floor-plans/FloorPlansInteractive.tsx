@@ -103,11 +103,19 @@ function StylePlaceholder({ variant, label }: { variant: string; label: string }
 interface PortfolioGridProps {
   cards: PortfolioExampleCard[];
   imageFit?: "contain" | "cover";
+  labels?: {
+    emptyExamples?: string;
+    before?: string;
+    after?: string;
+    viewExamplePrefix?: string;
+    viewExampleSuffix?: string;
+  };
 }
 
 export function PortfolioExamplesGrid({
   cards,
   imageFit = "contain",
+  labels,
 }: PortfolioGridProps) {
   const [open, setOpen] = useState<PortfolioExampleCard | null>(null);
   const imageClassName =
@@ -120,7 +128,7 @@ export function PortfolioExamplesGrid({
     return (
       <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100 flex items-center justify-center">
         <span className="text-xs font-medium tracking-[0.15em] uppercase text-muted">
-          Floor plan examples
+          {labels?.emptyExamples ?? "Floor plan examples"}
         </span>
       </div>
     );
@@ -141,7 +149,11 @@ export function PortfolioExamplesGrid({
                 type="button"
                 disabled={!hasImages}
                 aria-label={
-                  hasImages ? `View ${card.title} — before and after` : undefined
+                  hasImages
+                    ? `${labels?.viewExamplePrefix ?? "View "}${card.title}${
+                        labels?.viewExampleSuffix ?? " — before and after"
+                      }`
+                    : undefined
                 }
                 onClick={() => hasImages && setOpen(card)}
                 className={cn(
@@ -164,7 +176,7 @@ export function PortfolioExamplesGrid({
                         className={imageClassName}
                       />
                       <span className="absolute bottom-2.5 left-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-stone-700 shadow-sm">
-                        Before
+                        {labels?.before ?? "Before"}
                       </span>
                     </div>
                     {/* After half */}
@@ -178,7 +190,7 @@ export function PortfolioExamplesGrid({
                         className={imageClassName}
                       />
                       <span className="absolute bottom-2.5 right-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-primary shadow-sm">
-                        After
+                        {labels?.after ?? "After"}
                       </span>
                     </div>
                     {/* Centerline */}
@@ -256,9 +268,13 @@ export function PortfolioExamplesGrid({
 
 interface StyleGridProps {
   cards: StyleOptionCard[];
+  labels?: {
+    viewExamplePrefix?: string;
+    viewExampleSuffix?: string;
+  };
 }
 
-export function StyleOptionsGrid({ cards }: StyleGridProps) {
+export function StyleOptionsGrid({ cards, labels }: StyleGridProps) {
   const [open, setOpen] = useState<StyleOptionCard | null>(null);
 
   return (
@@ -274,7 +290,13 @@ export function StyleOptionsGrid({ cards }: StyleGridProps) {
               <button
                 type="button"
                 disabled={!hasImage}
-                aria-label={hasImage ? `View ${card.title} example` : undefined}
+                aria-label={
+                  hasImage
+                    ? `${labels?.viewExamplePrefix ?? "View "}${card.title}${
+                        labels?.viewExampleSuffix ?? " example"
+                      }`
+                    : undefined
+                }
                 onClick={() => hasImage && setOpen(card)}
                 className={cn(
                   "w-full relative aspect-video overflow-hidden bg-white block",
