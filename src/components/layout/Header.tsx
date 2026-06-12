@@ -15,6 +15,7 @@ import {
   Mail,
   Menu,
   Newspaper,
+  ShieldCheck,
   Tags,
   X,
 } from "lucide-react";
@@ -144,6 +145,24 @@ const resourceMenuItems: ResourceMenuItem[] = [
     icon: FileText,
     status: "coming-soon",
   },
+  {
+    label: "Terms & Conditions",
+    esLabel: "Términos y condiciones",
+    description: "Service terms, revisions, delivery, and client responsibilities.",
+    esDescription:
+      "Condiciones del servicio, revisiones, entregas y responsabilidades del cliente.",
+    href: "/terms",
+    icon: FileText,
+  },
+  {
+    label: "Privacy Policy",
+    esLabel: "Política de privacidad",
+    description: "How PicchuSpot handles account, order, and uploaded file data.",
+    esDescription:
+      "Cómo PicchuSpot gestiona datos de cuenta, pedidos y archivos subidos.",
+    href: "/privacy",
+    icon: ShieldCheck,
+  },
 ];
 
 const topLevelLabelsEs: Record<string, string> = {
@@ -187,6 +206,56 @@ function getHeaderLabel(label: string, language: SiteLanguage): string {
 
 function getSubNavLabel(label: string, language: SiteLanguage): string {
   return language === "es" ? (subNavLabelsEs[label] ?? label) : label;
+}
+
+function getDrawerCopy(language: SiteLanguage) {
+  return language === "es"
+    ? {
+        menu: "Menú",
+        siteMenu: "Menú del sitio",
+        closeMenu: "Cerrar menú",
+        preferences: "Preferencias",
+        language: "Idioma",
+        region: "Región",
+        servicesEyebrow: "Servicios",
+        servicesTitle: "Servicios digitales remotos",
+        servicesDescription:
+          "Accede a los servicios y páginas de precios aunque la navegación superior esté oculta.",
+        futureEyebrow: "Próximamente",
+        futureTitle: "Más secciones",
+        futureDescription:
+          "Estas áreas están en preparación y se mantienen sin página traducida en esta PR.",
+        explore: "Explorar",
+        account: "Cuenta",
+        accountDescription:
+          "Accede al portal de cliente o crea una cuenta para gestionar pedidos.",
+        login: "Iniciar sesión",
+        signUp: "Crear cuenta",
+        comingSoon: "Próximamente",
+      }
+    : {
+        menu: "Menu",
+        siteMenu: "Site menu",
+        closeMenu: "Close menu",
+        preferences: "Preferences",
+        language: "Language",
+        region: "Region",
+        servicesEyebrow: "Services",
+        servicesTitle: "Remote Digital Services",
+        servicesDescription:
+          "Access the service and pricing pages when the top navigation is hidden.",
+        futureEyebrow: "Coming soon",
+        futureTitle: "More sections",
+        futureDescription:
+          "These areas are still being prepared and remain disabled in this drawer.",
+        explore: "Explore",
+        account: "Account",
+        accountDescription:
+          "Access the client portal or create an account to manage orders.",
+        login: "Login",
+        signUp: "Sign Up",
+        comingSoon: "Coming soon",
+      };
 }
 
 function normalizeLanguagePath(pathname: string): string {
@@ -563,6 +632,10 @@ function BurgerMenuPanel({
   onLanguageChange,
   onClose,
 }: BurgerMenuPanelProps) {
+  const copy = getDrawerCopy(language);
+  const remoteEntry = topLevels[0];
+  const futureEntries = topLevels.slice(1);
+
   return (
     <div
       className="fixed inset-0 z-[10000] bg-primary/10 backdrop-blur-[2px] px-3 py-4 sm:px-6"
@@ -594,7 +667,116 @@ function BurgerMenuPanel({
           </button>
         </div>
 
-        <div className="overflow-y-auto p-5 sm:p-6">
+        <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
+          <section>
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                  {copy.servicesEyebrow}
+                </p>
+                <h3 className="mt-1 text-xl font-bold text-primary">
+                  {copy.servicesTitle}
+                </h3>
+              </div>
+              <p className="max-w-xl text-sm leading-relaxed text-muted">
+                {copy.servicesDescription}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+              <Link
+                href={getLocaleAwareHref(remoteEntry.href, language)}
+                onClick={onClose}
+                className="group flex items-center justify-between gap-3 rounded-lg bg-surface px-4 py-3 transition-colors hover:bg-primary hover:text-white"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-primary group-hover:text-white">
+                    {getHeaderLabel(remoteEntry.label, language)}
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted group-hover:text-white/75">
+                    {language === "es"
+                      ? "Ediciones entregadas en todo el mundo en 24-48 horas."
+                      : remoteEntry.tagline}
+                  </span>
+                </span>
+                <span className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-dark group-hover:text-white">
+                  {language === "es" ? "Ver" : "View"}
+                </span>
+              </Link>
+
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {remoteEntry.subLinks.map((link) => {
+                  const href = resolveSubLinkHref(
+                    link,
+                    remoteEntry.href,
+                    language
+                  );
+                  const isCurrent =
+                    !href.startsWith("#") &&
+                    normalizeLanguagePath(pathname) ===
+                      normalizeLanguagePath(href);
+                  return (
+                    <Link
+                      key={link.label}
+                      href={href}
+                      onClick={onClose}
+                      aria-current={isCurrent ? "page" : undefined}
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-sm font-semibold leading-snug transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        isCurrent
+                          ? "border-primary/30 bg-primary/5 text-primary"
+                          : "border-stone-200 text-foreground/75 hover:border-primary/30 hover:bg-surface hover:text-primary"
+                      )}
+                    >
+                      {getSubNavLabel(link.label, language)}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                {copy.futureEyebrow}
+              </p>
+              <h3 className="mt-1 text-lg font-bold text-primary">
+                {copy.futureTitle}
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                {copy.futureDescription}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {futureEntries.map((entry) => (
+                <div
+                  key={entry.key}
+                  className="rounded-xl border border-stone-200 bg-stone-50 p-4 opacity-85"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-sm font-bold text-primary">
+                      {getHeaderLabel(entry.label, language)}
+                    </h4>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+                      {copy.comingSoon}
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-1.5">
+                    {entry.subLinks.slice(0, 3).map((link) => (
+                      <li
+                        key={link.label}
+                        className="text-xs font-medium text-muted"
+                      >
+                        {getSubNavLabel(link.label, language)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="mb-5 rounded-xl border border-stone-200 bg-surface/60 p-4 lg:hidden">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
               {language === "es" ? "Preferencias" : "Preferences"}
@@ -638,6 +820,41 @@ function BurgerMenuPanel({
                   onClose={onClose}
                 />
               ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-stone-200 bg-primary p-4 text-white shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">
+                  {copy.account}
+                </p>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/75">
+                  {copy.accountDescription}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:min-w-64 sm:flex-row">
+                <Link
+                  href={getLocaleAwareHref("/login", language)}
+                  onClick={() => {
+                    trackLoginClick("burger_menu");
+                    onClose();
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg border border-white/25 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"
+                >
+                  {copy.login}
+                </Link>
+                <Link
+                  href={getLocaleAwareHref("/signup", language)}
+                  onClick={() => {
+                    trackSignUpClick("burger_menu");
+                    onClose();
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-white/90"
+                >
+                  {copy.signUp}
+                </Link>
+              </div>
             </div>
           </section>
         </div>
