@@ -71,55 +71,68 @@ export const localizedRoutes = [
   },
   // ── Gallery ─────────────────────────────────────────────────
   { englishPath: "/gallery", spanishPath: "/es/gallery", priority: 0.8 },
+  // Gallery service detail routes are kept for language switching but excluded
+  // from the static sitemap. Content availability is dynamic (depends on what
+  // the admin has published) and empty pages should not be indexed.
   {
     englishPath: "/gallery/virtual-staging",
     spanishPath: "/es/gallery/virtual-staging",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/virtual-renovation",
     spanishPath: "/es/gallery/virtual-renovation",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/floor-plans",
     spanishPath: "/es/gallery/floor-plans",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/image-enhancement",
     spanishPath: "/es/gallery/image-enhancement",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/item-removal-virtual-cleaning",
     spanishPath: "/es/gallery/item-removal-virtual-cleaning",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/day-to-dusk",
     spanishPath: "/es/gallery/day-to-dusk",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/360-image-enhancement",
     spanishPath: "/es/gallery/360-image-enhancement",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/360-virtual-staging",
     spanishPath: "/es/gallery/360-virtual-staging",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/aerial-editing",
     spanishPath: "/es/gallery/aerial-editing",
     priority: 0.7,
+    includeInSitemap: false,
   },
   {
     englishPath: "/gallery/development-site-plans",
     spanishPath: "/es/gallery/development-site-plans",
     priority: 0.7,
+    includeInSitemap: false,
   },
 ] as const satisfies readonly {
   englishPath: string;

@@ -10,6 +10,7 @@ import {
   PORTFOLIO_SERVICES,
   PORTFOLIO_SERVICE_SLUGS,
   getPublishedItemsForService,
+  getFeaturedHomeItems,
   getPortfolioPublicUrl,
   getPortfolioService,
   isPortfolioServiceSlug,
@@ -78,7 +79,10 @@ export default async function SpanishGalleryServicePage({
 
   const service = getPortfolioService(serviceSlug);
   const labelEs = GALLERY_LABELS_ES[serviceSlug];
-  const items = await getPublishedItemsForService(serviceSlug);
+  const [items, featuredItems] = await Promise.all([
+    getPublishedItemsForService(serviceSlug),
+    getFeaturedHomeItems(),
+  ]);
 
   // Resolve ES pricing href (fall back to EN href if not mapped)
   const esPricingHref =
@@ -95,8 +99,10 @@ export default async function SpanishGalleryServicePage({
     ],
   };
 
-  // Service nav — all links use /es/gallery/ prefix with Spanish labels
-  const navServices = PORTFOLIO_SERVICES.map((svc) => ({
+  // Service nav — only published services, plus always include current service.
+  const navServices = PORTFOLIO_SERVICES.filter(
+    (svc) => featuredItems.has(svc.slug) || svc.slug === serviceSlug,
+  ).map((svc) => ({
     slug: svc.slug,
     label: GALLERY_LABELS_ES[svc.slug],
     href: `/es/gallery/${svc.slug}`,
