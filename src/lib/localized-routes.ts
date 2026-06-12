@@ -15,11 +15,6 @@ export const localizedRoutes = [
     priority: 0.7,
   },
   {
-    englishPath: "/pricing/photo-editing",
-    spanishPath: "/es/pricing/photo-editing",
-    priority: 0.7,
-  },
-  {
     englishPath: "/pricing/floor-plans",
     spanishPath: "/es/pricing/floor-plans",
     priority: 0.7,

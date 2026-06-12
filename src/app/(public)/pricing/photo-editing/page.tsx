@@ -3,17 +3,11 @@ import { Eraser, Home, Star, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
-import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Item Removal & Virtual Cleaning",
   description:
     "Remove distracting items, clutter, and imperfections from property photos for cleaner, more listing-ready images. From US$8 / image.",
-  alternates: localizedAlternates({
-    canonicalPath: "/pricing/photo-editing",
-    englishPath: "/pricing/photo-editing",
-    spanishPath: "/es/pricing/photo-editing",
-  }),
 };
 
 export default function PhotoEditingPricingPage() {

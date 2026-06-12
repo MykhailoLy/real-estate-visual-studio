@@ -11,6 +11,12 @@ interface StyleGalleryCardProps {
     alt: string;
   };
   exampleCount?: number;
+  labels?: {
+    label?: string;
+    description?: string;
+    examples?: string;
+    openGallery?: string;
+  };
   /** Called with the entry id and the image index the user clicked on. */
   onOpen: (id: string, imageIndex: number) => void;
 }
@@ -35,6 +41,7 @@ export default function StyleGalleryCard({
   entry,
   coverOverride,
   exampleCount,
+  labels,
   onOpen,
 }: StyleGalleryCardProps) {
   const [coverFailed, setCoverFailed] = useState(false);
@@ -45,7 +52,7 @@ export default function StyleGalleryCard({
     <button
       type="button"
       onClick={() => onOpen(entry.id, 0)}
-      aria-label={`Open ${entry.label} style gallery`}
+      aria-label={labels?.openGallery ?? `Open ${entry.label} style gallery`}
       className="group relative text-left rounded-2xl border border-stone-200 bg-white overflow-hidden transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
     >
       {/* ── Cover image — 16:9 horizontal ── */}
@@ -53,7 +60,7 @@ export default function StyleGalleryCard({
         {coverFailed || !cover ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200">
             <span className="text-[10px] sm:text-xs font-semibold tracking-[0.18em] uppercase text-muted px-3 text-center">
-              {entry.label}
+              {labels?.label ?? entry.label}
             </span>
           </div>
         ) : (
@@ -76,7 +83,7 @@ export default function StyleGalleryCard({
         {totalImages > 1 && (
           <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/92 backdrop-blur text-[11px] font-medium text-primary shadow-sm">
             <Images className="w-3.5 h-3.5" aria-hidden />
-            {totalImages} examples
+            {totalImages} {labels?.examples ?? "examples"}
           </span>
         )}
 
@@ -91,11 +98,11 @@ export default function StyleGalleryCard({
       {/* ── Card body ── */}
       <div className="px-4 py-3.5 lg:px-5 lg:py-4">
         <h3 className="text-sm lg:text-base font-bold text-primary tracking-tight leading-tight">
-          {entry.label}
+          {labels?.label ?? entry.label}
         </h3>
-        {entry.description && (
+        {(labels?.description ?? entry.description) && (
           <p className="text-xs text-muted mt-0.5 leading-relaxed line-clamp-1">
-            {entry.description}
+            {labels?.description ?? entry.description}
           </p>
         )}
       </div>

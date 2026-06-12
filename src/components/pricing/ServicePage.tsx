@@ -122,6 +122,12 @@ export interface ServicePageProps {
     pricingEyebrow?: string;
     basePriceBadge?: string;
     faqEyebrow?: string;
+    beforeLabel?: string;
+    afterLabel?: string;
+    viewExamplePrefix?: string;
+    viewExampleSuffix?: string;
+    translateExampleTitle?: (title: string) => string;
+    translateExampleDescription?: (description: string) => string;
     secondaryCtaLabel?: string;
     secondaryCtaHref?: string;
   };
@@ -193,8 +199,11 @@ export default async function ServicePage({
 
   const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => ({
     id: item.id,
-    title: item.title,
-    description: item.description,
+    title: labels?.translateExampleTitle?.(item.title) ?? item.title,
+    description: item.description
+      ? (labels?.translateExampleDescription?.(item.description) ??
+        item.description)
+      : item.description,
     beforeUrl: getPortfolioPublicUrl(item.before_image_path),
     afterUrl: getPortfolioPublicUrl(item.after_image_path),
     beforeAlt: item.before_alt ?? `${item.title} — before`,
@@ -322,7 +331,16 @@ export default async function ServicePage({
 
           {/* Portfolio examples grid — client component with lightbox */}
           {portfolioCards.length > 0 ? (
-            <PortfolioExamplesGrid cards={portfolioCards} imageFit="cover" />
+            <PortfolioExamplesGrid
+              cards={portfolioCards}
+              imageFit="cover"
+              labels={{
+                before: labels?.beforeLabel,
+                after: labels?.afterLabel,
+                viewExamplePrefix: labels?.viewExamplePrefix,
+                viewExampleSuffix: labels?.viewExampleSuffix,
+              }}
+            />
           ) : (
             <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
               <BeforeAfterFrame
@@ -331,6 +349,16 @@ export default async function ServicePage({
                 beforeAlt={`${title} — before`}
                 afterAlt={`${title} — after`}
                 placeholderVariant={placeholderVariant}
+                beforeLabel={labels?.beforeLabel}
+                afterLabel={labels?.afterLabel}
+                placeholderLabels={
+                  labels?.beforeLabel || labels?.afterLabel
+                    ? {
+                        left: labels?.beforeLabel ?? "Before",
+                        right: labels?.afterLabel ?? "After",
+                      }
+                    : undefined
+                }
               />
             </div>
           )}

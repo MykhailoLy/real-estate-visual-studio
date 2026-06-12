@@ -11,6 +11,14 @@ export interface StyleGalleryImageOverride {
   alt: string;
 }
 
+export type StyleGalleryCopy = Record<
+  string,
+  {
+    label: string;
+    description?: string;
+  }
+>;
+
 function normalizeStyleTitle(title: string): string {
   return title.trim().toLowerCase();
 }
@@ -29,8 +37,18 @@ function normalizeStyleTitle(title: string): string {
  */
 export default function StyleGallerySection({
   imageOverrides = [],
+  copy,
+  helperText = "Tap any style to browse multiple staged examples. You can also send a reference image or link, or ask us to match the style of a specific listing or brand.",
+  examplesLabel = "examples",
+  openGalleryPrefix = "Open ",
+  openGallerySuffix = " style gallery",
 }: {
   imageOverrides?: StyleGalleryImageOverride[];
+  copy?: StyleGalleryCopy;
+  helperText?: string;
+  examplesLabel?: string;
+  openGalleryPrefix?: string;
+  openGallerySuffix?: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [openIndex, setOpenIndex] = useState(0);
@@ -77,6 +95,14 @@ export default function StyleGallerySection({
               entry={entry}
               coverOverride={uploadedImages?.[0]}
               exampleCount={uploadedImages?.length}
+              labels={{
+                label: copy?.[entry.id]?.label,
+                description: copy?.[entry.id]?.description,
+                examples: examplesLabel,
+                openGallery: `${openGalleryPrefix}${
+                  copy?.[entry.id]?.label ?? entry.label
+                }${openGallerySuffix}`,
+              }}
               onOpen={handleOpen}
             />
           );
@@ -84,9 +110,7 @@ export default function StyleGallerySection({
       </div>
 
       <p className="text-xs lg:text-sm text-muted mt-6 leading-relaxed">
-        Tap any style to browse multiple staged examples. You can also send a
-        reference image or link, or ask us to match the style of a specific
-        listing or brand.
+        {helperText}
       </p>
 
       {activeEntry && (
@@ -97,7 +121,7 @@ export default function StyleGallerySection({
             activeEntry.images
           }
           initialIndex={openIndex}
-          title={activeEntry.label}
+          title={copy?.[activeEntry.id]?.label ?? activeEntry.label}
           onClose={handleClose}
         />
       )}
