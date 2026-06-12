@@ -29,6 +29,7 @@ const footerCopy = {
       { href: "/services#photography", label: "Photography" },
     ],
     pages: [
+      { href: "/gallery", label: "Gallery" },
       { href: "/portfolio", label: "Portfolio" },
       { href: "/pricing", label: "Pricing" },
       { href: "/order", label: "Order Online", tracked: true },
@@ -58,6 +59,7 @@ const footerCopy = {
       { href: "/es/services#photography", label: "Fotografía" },
     ],
     pages: [
+      { href: "/es/gallery", label: "Galería" },
       { href: "/portfolio", label: "Portfolio" },
       { href: "/es/pricing", label: "Precios" },
       { href: "/order", label: "Pedir online", tracked: true },

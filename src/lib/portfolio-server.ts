@@ -263,10 +263,13 @@ export function revalidatePortfolioPaths(
   affectedSlugs: PortfolioServiceSlug[]
 ): void {
   const seen = new Set<string>();
-  const queue = ["/", "/admin/portfolio"];
+  const queue = ["/", "/admin/portfolio", "/gallery", "/es/gallery"];
   for (const slug of affectedSlugs) {
     if (!isPortfolioServiceSlug(slug)) continue;
     queue.push(pricingHrefForSlug(slug));
+    // Also revalidate the gallery detail pages for this service.
+    queue.push(`/gallery/${slug}`);
+    queue.push(`/es/gallery/${slug}`);
   }
   for (const path of queue) {
     if (seen.has(path)) continue;

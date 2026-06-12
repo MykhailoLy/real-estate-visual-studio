@@ -69,6 +69,58 @@ export const localizedRoutes = [
     spanishPath: "/es/pricing/development-site-plans",
     priority: 0.7,
   },
+  // ── Gallery ─────────────────────────────────────────────────
+  { englishPath: "/gallery", spanishPath: "/es/gallery", priority: 0.8 },
+  {
+    englishPath: "/gallery/virtual-staging",
+    spanishPath: "/es/gallery/virtual-staging",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/virtual-renovation",
+    spanishPath: "/es/gallery/virtual-renovation",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/floor-plans",
+    spanishPath: "/es/gallery/floor-plans",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/image-enhancement",
+    spanishPath: "/es/gallery/image-enhancement",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/item-removal-virtual-cleaning",
+    spanishPath: "/es/gallery/item-removal-virtual-cleaning",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/day-to-dusk",
+    spanishPath: "/es/gallery/day-to-dusk",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/360-image-enhancement",
+    spanishPath: "/es/gallery/360-image-enhancement",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/360-virtual-staging",
+    spanishPath: "/es/gallery/360-virtual-staging",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/aerial-editing",
+    spanishPath: "/es/gallery/aerial-editing",
+    priority: 0.7,
+  },
+  {
+    englishPath: "/gallery/development-site-plans",
+    spanishPath: "/es/gallery/development-site-plans",
+    priority: 0.7,
+  },
 ] as const satisfies readonly {
   englishPath: string;
   spanishPath: string;
