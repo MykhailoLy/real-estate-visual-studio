@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Plane, Home, Map, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Aerial Editing",
@@ -16,7 +19,26 @@ export const metadata: Metadata = {
 
 export default function AerialEditingPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Aerial Editing",
+            description:
+              "Enhance drone and aerial property visuals for cleaner land, exterior, neighborhood, and listing presentation.",
+            url: absoluteUrl("/pricing/aerial-editing"),
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "Aerial Editing",
+              item: absoluteUrl("/pricing/aerial-editing"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="aerial-editing"
       placeholderVariant="aerial-editing"
       eyebrow="Aerial Editing"
@@ -142,5 +164,6 @@ export default function AerialEditingPricingPage() {
       ctaTitle="Make every drone shot listing-ready."
       ctaSubtitle="Send your aerial images and we'll quote the editing scope in writing within 24 hours."
     />
+    </>
   );
 }

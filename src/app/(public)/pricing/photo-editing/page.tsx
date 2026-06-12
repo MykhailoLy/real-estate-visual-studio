@@ -4,6 +4,9 @@ import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Item Removal & Virtual Cleaning",
@@ -18,7 +21,29 @@ export const metadata: Metadata = {
 
 export default function PhotoEditingPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Item Removal & Virtual Cleaning",
+            description:
+              "Remove distracting items, clutter, and imperfections from property photos for cleaner, more listing-ready images.",
+            url: absoluteUrl("/pricing/photo-editing"),
+            price: "8.00",
+            priceCurrency: "USD",
+            offerNote: "Starting price per image",
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "Item Removal & Virtual Cleaning",
+              item: absoluteUrl("/pricing/photo-editing"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="item-removal-virtual-cleaning"
       placeholderVariant="item-removal"
       eyebrow="Item Removal & Virtual Cleaning"
@@ -149,5 +174,6 @@ export default function PhotoEditingPricingPage() {
       ctaTitle="Ready to clean up your listing photos?"
       ctaSubtitle="Upload your images, mark what needs removing, and receive cleaner photos within 24–48 hours."
     />
+    </>
   );
 }

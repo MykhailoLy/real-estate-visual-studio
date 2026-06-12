@@ -21,6 +21,9 @@ import {
 } from "@/lib/site-media";
 import { regionalPrice } from "@/lib/currency";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 // ============================================================
 // /pricing/virtual-staging  —  Virtual Staging service page
@@ -231,6 +234,27 @@ export default async function VirtualStagingPage() {
 
   return (
     <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Virtual Staging",
+            description:
+              "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
+            url: absoluteUrl("/pricing/virtual-staging"),
+            price: "19.00",
+            priceCurrency: "USD",
+            offerNote: "Starting price per image",
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "Virtual Staging",
+              item: absoluteUrl("/pricing/virtual-staging"),
+            },
+          ]),
+        ]}
+      />
       {/* ═══════════════════════════════════════════════════════
           A. HERO SLIDER  —  white / near-edge (homepage feel)
           px-3 sm:px-4 lg:px-2 matches the homepage slider wrapper

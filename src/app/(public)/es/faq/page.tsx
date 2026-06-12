@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowRight, HelpCircle } from "lucide-react";
 import Container from "@/components/layout/Container";
 import { spanishMetadata } from "../seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { faqPageSchema } from "@/lib/structured-data";
 
 export const metadata = spanishMetadata({
   title: "Preguntas frecuentes",
@@ -71,7 +73,9 @@ const faqs = [
 
 export default function SpanishFaqPage() {
   return (
-    <section className="py-16 lg:py-24 bg-white">
+    <>
+      <JsonLd data={faqPageSchema(faqs)} />
+      <section className="py-16 lg:py-24 bg-white">
       <Container>
         <div className="max-w-4xl">
           <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
@@ -138,5 +142,6 @@ export default function SpanishFaqPage() {
         </div>
       </Container>
     </section>
+    </>
   );
 }

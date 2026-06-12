@@ -4,6 +4,9 @@ import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Day to Dusk",
@@ -15,7 +18,29 @@ export const metadata = spanishMetadata({
 
 export default function SpanishDayToDuskPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Day to Dusk",
+            description:
+              "Transforma fotos exteriores diurnas en imágenes cálidas de estilo atardecer para hero shots más potentes y presentación premium.",
+            url: absoluteUrl("/es/pricing/day-to-dusk"),
+            price: "5.00",
+            priceCurrency: "USD",
+            offerNote: "Precio inicial por imagen",
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Day to Dusk",
+              item: absoluteUrl("/es/pricing/day-to-dusk"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="day-to-dusk"
       placeholderVariant="day-to-dusk"
       eyebrow="Day to Dusk"
@@ -156,5 +181,6 @@ export default function SpanishDayToDuskPricingPage() {
         heroAriaLabel: "Ejemplos antes y después de Day to Dusk",
       }}
     />
+    </>
   );
 }

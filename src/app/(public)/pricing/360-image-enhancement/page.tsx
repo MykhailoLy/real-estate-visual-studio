@@ -7,6 +7,9 @@ import {
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "360° Image Enhancement",
@@ -49,7 +52,26 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
     ) : undefined;
 
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "360° Image Enhancement",
+            description:
+              "Enhance equirectangular panoramas for cleaner virtual tours. Balanced color, exposure, and stitch cleanup.",
+            url: absoluteUrl("/pricing/360-image-enhancement"),
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "360° Image Enhancement",
+              item: absoluteUrl("/pricing/360-image-enhancement"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="360-image-enhancement"
       placeholderVariant="panorama-enhancement"
       eyebrow="360° Image Enhancement"
@@ -176,5 +198,6 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
       ctaTitle="Send a sample 360 — we'll quote in 24 hours."
       ctaSubtitle="Pricing is based on resolution and correction complexity. Get an accurate quote before you commit."
     />
+    </>
   );
 }

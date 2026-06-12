@@ -4,6 +4,9 @@ import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Renovación virtual",
@@ -64,7 +67,26 @@ const EXTERNAL = [
 
 export default function SpanishVirtualRenovationPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Renovación virtual",
+            description:
+              "Muestra el potencial de renovación con actualizaciones visuales realistas de acabados, instalaciones, distribuciones, materiales y presentación de la propiedad. Precio por opciones.",
+            url: absoluteUrl("/es/pricing/virtual-renovation"),
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Renovación virtual",
+              item: absoluteUrl("/es/pricing/virtual-renovation"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="virtual-renovation"
       placeholderVariant="virtual-renovation"
       eyebrow="Renovación virtual"
@@ -214,5 +236,6 @@ export default function SpanishVirtualRenovationPricingPage() {
         heroAriaLabel: "Ejemplos antes y después de Renovación virtual",
       }}
     />
+    </>
   );
 }

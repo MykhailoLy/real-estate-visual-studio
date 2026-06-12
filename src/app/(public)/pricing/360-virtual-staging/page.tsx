@@ -9,6 +9,9 @@ import {
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "360° Virtual Staging Pricing",
@@ -66,7 +69,26 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
     );
 
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "360° Virtual Staging",
+            description:
+              "Stage furniture inside a 360° panorama so virtual tours show furnished, lived-in spaces without the cost of physical staging.",
+            url: absoluteUrl("/pricing/360-virtual-staging"),
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "360° Virtual Staging",
+              item: absoluteUrl("/pricing/360-virtual-staging"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="360-virtual-staging"
       placeholderVariant="panorama-staging"
       eyebrow="360° Virtual Staging"
@@ -195,5 +217,6 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
       ctaTitle="Furnish a 360 without lifting a sofa."
       ctaSubtitle="Pricing depends on room complexity and the number of furniture items."
     />
+    </>
   );
 }
