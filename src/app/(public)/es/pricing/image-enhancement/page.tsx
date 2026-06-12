@@ -32,7 +32,7 @@ export default function SpanishImageEnhancementPricingPage() {
               "Mejora de imagen para fotografía inmobiliaria: equilibrio de exposición, balance de blancos, corrección de lente y recuperación de vistas por ventana.",
             url: absoluteUrl("/es/pricing/image-enhancement"),
             price: "2.00",
-            priceCurrency: "EUR",
+            priceCurrency: "USD",
             offerNote: "Precio inicial por imagen",
           }),
           breadcrumbSchema([

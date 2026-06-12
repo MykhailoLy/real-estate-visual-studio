@@ -312,7 +312,7 @@ export default async function SpanishFloorPlansPage() {
               "Redibujos de planos 2D y 3D profesionales a partir de bocetos, escaneos, PDFs o medidas. Entrega en JPG y PDF lista para anuncios.",
             url: absoluteUrl("/es/pricing/floor-plans"),
             price: "16.00",
-            priceCurrency: "EUR",
+            priceCurrency: "USD",
             offerNote: "Precio inicial por planta (redibujo de plano 2D)",
           }),
           breadcrumbSchema([

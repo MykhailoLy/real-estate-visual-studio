@@ -27,7 +27,7 @@ export default function SpanishPhotoEditingPricingPage() {
               "Elimina objetos que distraen, desorden e imperfecciones de fotos inmobiliarias para imágenes más limpias y listas para publicar.",
             url: absoluteUrl("/es/pricing/photo-editing"),
             price: "8.00",
-            priceCurrency: "EUR",
+            priceCurrency: "USD",
             offerNote: "Precio inicial por imagen",
           }),
           breadcrumbSchema([

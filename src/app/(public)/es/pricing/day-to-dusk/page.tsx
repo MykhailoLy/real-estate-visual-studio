@@ -27,7 +27,7 @@ export default function SpanishDayToDuskPricingPage() {
               "Transforma fotos exteriores diurnas en imágenes cálidas de estilo atardecer para hero shots más potentes y presentación premium.",
             url: absoluteUrl("/es/pricing/day-to-dusk"),
             price: "5.00",
-            priceCurrency: "EUR",
+            priceCurrency: "USD",
             offerNote: "Precio inicial por imagen",
           }),
           breadcrumbSchema([

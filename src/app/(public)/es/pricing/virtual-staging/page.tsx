@@ -260,7 +260,7 @@ export default async function SpanishVirtualStagingPage() {
               "Transforma habitaciones vacías o anticuadas en espacios amueblados y listos para el mercado. 9 estilos interiores, 1 revisión incluida, entrega en 24-48 horas.",
             url: absoluteUrl("/es/pricing/virtual-staging"),
             price: "19.00",
-            priceCurrency: "EUR",
+            priceCurrency: "USD",
             offerNote: "Precio inicial por imagen",
           }),
           breadcrumbSchema([
