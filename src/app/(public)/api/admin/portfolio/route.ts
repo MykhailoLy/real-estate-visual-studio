@@ -6,6 +6,7 @@ import {
   PORTFOLIO_SERVICE_SLUGS,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
+import { normalizeGalleryFilter } from "@/lib/gallery";
 import {
   deletePortfolioFiles,
   isValidPortfolioObjectPath,
@@ -51,6 +52,9 @@ const Body = z.object({
     .optional(),
   after_alt: z
     .union([z.string().trim().max(200), z.null(), z.undefined()])
+    .optional(),
+  gallery_filter: z
+    .union([z.string().trim().max(64), z.null(), z.undefined()])
     .optional(),
   sort_order: z.number().int().min(-9999).max(9999).optional(),
   featured_home: z.boolean().optional(),
@@ -131,6 +135,12 @@ export async function POST(request: Request) {
     after_image_path: data.after_image_path,
     before_alt: nullable(data.before_alt ?? null),
     after_alt: nullable(data.after_alt ?? null),
+    // Server-authoritative: drop any value not valid for this
+    // service (and force null for services without a filter).
+    gallery_filter: normalizeGalleryFilter(
+      serviceSlug,
+      data.gallery_filter ?? null,
+    ),
     sort_order: data.sort_order ?? 0,
     published: data.published ?? false,
     featured_home: data.featured_home ?? false,

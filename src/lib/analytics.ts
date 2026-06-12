@@ -196,3 +196,22 @@ export function trackRegionCurrencySwitch({
     }),
   );
 }
+
+export function trackGalleryFilterChange({
+  serviceSlug,
+  filterValue,
+  language,
+}: {
+  serviceSlug: string;
+  filterValue: string;
+  language: string;
+}) {
+  trackEvent(
+    "gallery_filter_change",
+    withPagePath({
+      service_slug: serviceSlug,
+      filter_value: filterValue,
+      language,
+    }),
+  );
+}
