@@ -34,6 +34,9 @@ import {
 } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
 import { spanishMetadata } from "../../seo";
 import { translatePricingExampleTitle } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Planos",
@@ -301,6 +304,24 @@ export default async function SpanishFloorPlansPage() {
 
   return (
     <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Planos",
+            description:
+              "Redibujos de planos 2D y 3D profesionales a partir de bocetos, escaneos, PDFs o medidas. Entrega en JPG y PDF lista para anuncios.",
+            url: absoluteUrl("/es/pricing/floor-plans"),
+            price: "16.00",
+            priceCurrency: "EUR",
+            offerNote: "Precio inicial por planta (redibujo de plano 2D)",
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            { name: "Planos", item: absoluteUrl("/es/pricing/floor-plans") },
+          ]),
+        ]}
+      />
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
           <ServicePageSlider

@@ -31,6 +31,9 @@ import {
   type StyleOptionCard,
 } from "./FloorPlansInteractive";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 // ============================================================
 // /pricing/floor-plans  —  Floor Plans service page
@@ -343,6 +346,24 @@ export default async function FloorPlansPage() {
 
   return (
     <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Floor Plans",
+            description:
+              "Professional 2D and 3D floor plan redraws from sketches, scans, PDFs, or measurements. Listing-ready JPG and PDF delivery.",
+            url: absoluteUrl("/pricing/floor-plans"),
+            price: "16.00",
+            priceCurrency: "USD",
+            offerNote: "Starting price per floor (2D floor plan redraw)",
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            { name: "Floor Plans", item: absoluteUrl("/pricing/floor-plans") },
+          ]),
+        ]}
+      />
       {/* ═══════════════════════════════════════════════════════
           A. HERO SLIDER  —  white / near-edge
           Source: /admin/media → service-hero / floor-plans

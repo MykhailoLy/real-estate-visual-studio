@@ -7,6 +7,9 @@ import {
 } from "@/lib/site-media";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Mejora de imagen 360°",
@@ -46,7 +49,26 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
     ) : undefined;
 
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Mejora de imagen 360°",
+            description:
+              "Mejora panoramas equirectangulares para tours virtuales más limpios. Color equilibrado, exposición y limpieza de uniones.",
+            url: absoluteUrl("/es/pricing/360-image-enhancement"),
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Mejora de imagen 360°",
+              item: absoluteUrl("/es/pricing/360-image-enhancement"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="360-image-enhancement"
       placeholderVariant="panorama-enhancement"
       eyebrow="Mejora de imagen 360°"
@@ -188,5 +210,6 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
         heroAriaLabel: "Ejemplos antes y después de Mejora de imagen 360",
       }}
     />
+    </>
   );
 }

@@ -18,6 +18,8 @@ import {
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: "PicchuSpot - Real Estate Visuals",
@@ -106,6 +108,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd data={[organizationSchema(), webSiteSchema()]} />
       {/* 1. Slider — wide banner strip directly under the nav. */}
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
@@ -126,9 +129,9 @@ export default async function HomePage() {
               <p className="text-secondary-dark text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2">
                 Remote Digital Services
               </p>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
                 Help Your Listings Stand Out and Sell Faster
-              </h2>
+              </h1>
               <p className="mt-2 text-sm sm:text-base lg:text-lg text-muted leading-snug">
                 Virtual staging, photo editing, floor plans, 360 visuals, and
                 local real estate media for market-ready property listings.

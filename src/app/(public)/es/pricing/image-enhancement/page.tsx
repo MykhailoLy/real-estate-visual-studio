@@ -9,6 +9,9 @@ import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Mejora de imagen",
@@ -20,7 +23,29 @@ export const metadata = spanishMetadata({
 
 export default function SpanishImageEnhancementPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Mejora de imagen",
+            description:
+              "Mejora de imagen para fotografía inmobiliaria: equilibrio de exposición, balance de blancos, corrección de lente y recuperación de vistas por ventana.",
+            url: absoluteUrl("/es/pricing/image-enhancement"),
+            price: "2.00",
+            priceCurrency: "EUR",
+            offerNote: "Precio inicial por imagen",
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Mejora de imagen",
+              item: absoluteUrl("/es/pricing/image-enhancement"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="image-enhancement"
       placeholderVariant="image-enhancement"
       eyebrow="Mejora de imagen"
@@ -163,5 +188,6 @@ export default function SpanishImageEnhancementPricingPage() {
         heroAriaLabel: "Ejemplos antes y después de Mejora de imagen",
       }}
     />
+    </>
   );
 }

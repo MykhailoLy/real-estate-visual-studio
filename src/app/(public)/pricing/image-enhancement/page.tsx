@@ -4,6 +4,9 @@ import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
 import { localizedAlternates } from "@/lib/seo";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Image Enhancement",
@@ -18,7 +21,29 @@ export const metadata: Metadata = {
 
 export default function ImageEnhancementPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Image Enhancement",
+            description:
+              "Real-estate-grade image enhancement: exposure balance, white balance, lens correction, and recovered window views.",
+            url: absoluteUrl("/pricing/image-enhancement"),
+            price: "2.00",
+            priceCurrency: "USD",
+            offerNote: "Starting price per image",
+          }),
+          breadcrumbSchema([
+            { name: "Home", item: absoluteUrl("/") },
+            { name: "Pricing", item: absoluteUrl("/pricing") },
+            {
+              name: "Image Enhancement",
+              item: absoluteUrl("/pricing/image-enhancement"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="image-enhancement"
       placeholderVariant="image-enhancement"
       eyebrow="Image Enhancement"
@@ -144,5 +169,6 @@ export default function ImageEnhancementPricingPage() {
       ctaTitle="Ready to brighten your listing photos?"
       ctaSubtitle="Upload your images and we'll return market-ready files in 24–48 hours."
     />
+    </>
   );
 }

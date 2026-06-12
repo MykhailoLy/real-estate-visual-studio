@@ -2,6 +2,9 @@ import { Home, ImageIcon, Map, Plane } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Edición aérea",
@@ -13,7 +16,26 @@ export const metadata = spanishMetadata({
 
 export default function SpanishAerialEditingPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Edición aérea",
+            description:
+              "Mejora imágenes de dron y vistas aéreas de propiedades para una presentación más limpia de terrenos, exteriores, barrios y anuncios.",
+            url: absoluteUrl("/es/pricing/aerial-editing"),
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Edición aérea",
+              item: absoluteUrl("/es/pricing/aerial-editing"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="aerial-editing"
       placeholderVariant="aerial-editing"
       eyebrow="Edición aérea"
@@ -154,5 +176,6 @@ export default function SpanishAerialEditingPricingPage() {
         heroAriaLabel: "Ejemplos antes y después de Edición aérea",
       }}
     />
+    </>
   );
 }

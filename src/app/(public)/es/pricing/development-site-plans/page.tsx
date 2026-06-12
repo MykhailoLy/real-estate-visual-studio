@@ -2,6 +2,9 @@ import { Building, FileText, LayoutGrid, Map } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
+import JsonLd from "@/components/seo/JsonLd";
+import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
   title: "Planos de emplazamiento para promociones",
@@ -13,7 +16,26 @@ export const metadata = spanishMetadata({
 
 export default function SpanishDevelopmentSitePlansPricingPage() {
   return (
-    <ServicePage
+    <>
+      <JsonLd
+        data={[
+          serviceSchema({
+            name: "Planos de emplazamiento para promociones",
+            description:
+              "Planos visuales claros para terrenos, promociones, subdivisiones, proyectos multiunidad o presentaciones de proyecto.",
+            url: absoluteUrl("/es/pricing/development-site-plans"),
+          }),
+          breadcrumbSchema([
+            { name: "Inicio", item: absoluteUrl("/es") },
+            { name: "Precios", item: absoluteUrl("/es/pricing") },
+            {
+              name: "Planos de emplazamiento",
+              item: absoluteUrl("/es/pricing/development-site-plans"),
+            },
+          ]),
+        ]}
+      />
+      <ServicePage
       serviceSlug="development-site-plans"
       placeholderVariant="site-plans"
       eyebrow="Planos de emplazamiento para promociones"
@@ -164,5 +186,6 @@ export default function SpanishDevelopmentSitePlansPricingPage() {
           "Ejemplos antes y después de Planos de emplazamiento para promociones",
       }}
     />
+    </>
   );
 }
