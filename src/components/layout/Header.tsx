@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { RegionCurrencySelector } from "@/components/pricing/currency-client";
+import { getEnglishPath, getSpanishPath } from "@/lib/localized-routes";
 import {
   trackContactIntentClick,
   trackLanguageSwitch,
@@ -64,20 +65,6 @@ type SiteLanguage = "en" | "es";
 
 const LANGUAGE_STORAGE_KEY = "picchuspot-language";
 const LANGUAGE_COOKIE_NAME = "picchuspot_language";
-
-const ENGLISH_TO_SPANISH_ROUTES: Record<string, string> = {
-  "/": "/es",
-  "/services": "/es/services",
-  "/pricing": "/es/pricing",
-  "/contact": "/es/contact",
-};
-
-const SPANISH_TO_ENGLISH_ROUTES: Record<string, string> = {
-  "/es": "/",
-  "/es/services": "/services",
-  "/es/pricing": "/pricing",
-  "/es/contact": "/contact",
-};
 
 type ResourceMenuItem = {
   label: string;
@@ -195,16 +182,16 @@ function getCurrentLanguage(
 function getLanguageHref(pathname: string, language: SiteLanguage): string {
   const normalized = normalizeLanguagePath(pathname);
   if (language === "es") {
-    return ENGLISH_TO_SPANISH_ROUTES[normalized] ?? "/es";
+    return getSpanishPath(normalized) ?? "/es";
   }
-  return SPANISH_TO_ENGLISH_ROUTES[normalized] ?? "/";
+  return getEnglishPath(normalized) ?? "/";
 }
 
 function getLocaleAwareHref(href: string, language: SiteLanguage): string {
   if (language === "es") {
-    return ENGLISH_TO_SPANISH_ROUTES[href] ?? href;
+    return getSpanishPath(href) ?? href;
   }
-  return SPANISH_TO_ENGLISH_ROUTES[href] ?? href;
+  return getEnglishPath(href) ?? href;
 }
 
 export default function Header() {
@@ -504,8 +491,8 @@ interface BurgerMenuPanelProps {
 
 function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
   if (item.status === "coming-soon") return null;
-  if (language === "es" && item.localizedHref) return item.localizedHref;
-  return item.href ?? null;
+  if (!item.href) return null;
+  return getLocaleAwareHref(item.href, language);
 }
 
 function BurgerMenuPanel({

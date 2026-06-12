@@ -8,11 +8,17 @@ import {
   getServiceHeroPanoramaItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "360° Virtual Staging Pricing",
   description:
     "Stage furniture inside a 360 panorama so virtual tours show furnished, lived-in spaces. Quote-based — send a sample for an exact price.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/360-virtual-staging",
+    englishPath: "/pricing/360-virtual-staging",
+    spanishPath: "/es/pricing/360-virtual-staging",
+  }),
 };
 
 export default async function ThreeSixtyVirtualStagingPricingPage() {

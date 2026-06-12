@@ -3,11 +3,17 @@ import { Home, Star, Sunset, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { RegionalPriceText } from "@/components/pricing/currency-client";
 import { regionalPrice } from "@/lib/currency";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Day to Dusk",
   description:
     "Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots. From US$5 / image.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/day-to-dusk",
+    englishPath: "/pricing/day-to-dusk",
+    spanishPath: "/es/pricing/day-to-dusk",
+  }),
 };
 
 export default function DayToDuskPricingPage() {

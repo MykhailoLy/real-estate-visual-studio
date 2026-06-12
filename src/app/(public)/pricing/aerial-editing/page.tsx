@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { Plane, Home, Map, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { localizedAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Aerial Editing",
   description:
     "Enhance drone and aerial property visuals for cleaner land, exterior, neighborhood, and listing presentation. Quote-based.",
+  alternates: localizedAlternates({
+    canonicalPath: "/pricing/aerial-editing",
+    englishPath: "/pricing/aerial-editing",
+    spanishPath: "/es/pricing/aerial-editing",
+  }),
 };
 
 export default function AerialEditingPricingPage() {
