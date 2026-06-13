@@ -1,11 +1,24 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "@/components/home/ServicePlaceholder";
 import { cn } from "@/lib/utils";
+
+// Only the active slide and its immediate neighbours (with wrap-
+// around) are mounted, so distant slides never request images on
+// initial load. Adjacent slides stay mounted so the crossfade and
+// prev/next navigation remain immediate.
+function isSlideMounted(i: number, idx: number, total: number): boolean {
+  if (total <= 1) return true;
+  if (i === idx) return true;
+  const next = (idx + 1) % total;
+  const prev = (idx - 1 + total) % total;
+  return i === next || i === prev;
+}
 
 // ============================================================
 // SERVICE PAGE HERO SLIDER
@@ -168,33 +181,38 @@ export default function ServicePageSlider({
         onPointerCancel={handlePointerCancel}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
-        {slides.map((slide, i) => (
-          <div
-            key={slide.id}
-            className={cn(
-              "absolute inset-0 transition-opacity duration-700 ease-in-out",
-              i === idx ? "opacity-100" : "opacity-0"
-            )}
-            aria-hidden={i !== idx}
-          >
-            {slide.kind === "image" ? (
-              <RealSlide
-                beforeUrl={slide.beforeUrl}
-                afterUrl={slide.afterUrl}
-                beforeAlt={slide.beforeAlt}
-                afterAlt={slide.afterAlt}
-                eager={i === 0}
-                imageFit={imageFit}
-                imageBackground={imageBackground}
-              />
-            ) : (
-              <ServicePlaceholder
-                variant={slide.variant}
-                showInnerLabels={false}
-              />
-            )}
-          </div>
-        ))}
+        {slides.map((slide, i) => {
+          const active = i === idx;
+          const mounted = isSlideMounted(i, idx, total);
+          return (
+            <div
+              key={slide.id}
+              className={cn(
+                "absolute inset-0 transition-opacity duration-700 ease-in-out",
+                active ? "opacity-100" : "opacity-0"
+              )}
+              aria-hidden={!active}
+            >
+              {mounted &&
+                (slide.kind === "image" ? (
+                  <RealSlide
+                    beforeUrl={slide.beforeUrl}
+                    afterUrl={slide.afterUrl}
+                    beforeAlt={slide.beforeAlt}
+                    afterAlt={slide.afterAlt}
+                    eager={i === 0}
+                    imageFit={imageFit}
+                    imageBackground={imageBackground}
+                  />
+                ) : (
+                  <ServicePlaceholder
+                    variant={slide.variant}
+                    showInnerLabels={false}
+                  />
+                ))}
+            </div>
+          );
+        })}
 
         {/* ── Arrow controls — bare icons, no white circle ── */}
         {showNav && (
@@ -284,32 +302,32 @@ function RealSlide({
   // breathing room against the frame edge and centerline divider.
   const imgCls =
     imageFit === "contain"
-      ? "absolute inset-0 w-full h-full object-contain p-3 sm:p-4"
-      : "absolute inset-0 w-full h-full object-cover";
+      ? "object-contain p-3 sm:p-4"
+      : "object-cover";
 
   return (
     <div className="absolute inset-0 flex">
       {/* Before half */}
       <div className={`relative w-1/2 overflow-hidden ${imageBackground}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={beforeUrl}
           alt={beforeAlt}
-          loading={eager ? "eager" : "lazy"}
-          decoding="async"
+          fill
+          sizes="50vw"
           className={imgCls}
+          priority={eager}
         />
       </div>
 
       {/* After half */}
       <div className={`relative w-1/2 overflow-hidden ${imageBackground}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={afterUrl}
           alt={afterAlt}
-          loading={eager ? "eager" : "lazy"}
-          decoding="async"
+          fill
+          sizes="50vw"
           className={imgCls}
+          priority={eager}
         />
       </div>
 
