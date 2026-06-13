@@ -562,6 +562,7 @@ function PortfolioEditor({
         .from(PORTFOLIO_BUCKET)
         .uploadToSignedUrl(info.path, info.token, file, {
           contentType: file.type,
+          cacheControl: "31536000",
           upsert: false,
         });
       if (error) {
