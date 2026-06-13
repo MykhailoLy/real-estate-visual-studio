@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "@/components/home/ServicePlaceholder";
@@ -16,12 +17,10 @@ import ServicePlaceholder, {
 // pricing-page strips can switch between placeholder and real
 // imagery without a visual jump.
 //
-// We use a plain <img> here (not next/image) for two reasons:
-//   1. NEXT_PUBLIC_SUPABASE_URL is project-specific and we'd
-//      otherwise need to hard-code remotePatterns at build time
-//      to allow Supabase Storage URLs through next/image.
-//   2. These are admin-curated portfolio JPGs; the optimisation
-//      win for next/image is small relative to the deploy cost.
+// Images use next/image (fill) so the public Supabase Storage
+// originals are resized/served as AVIF/WebP via the Next.js image
+// optimizer instead of being downloaded full-size from Supabase.
+// The Supabase public host is allow-listed in next.config.ts.
 // ============================================================
 
 export interface BeforeAfterFrameProps {
@@ -86,12 +85,15 @@ export default function BeforeAfterFrame({
     >
       {/* LEFT half — before */}
       <div className="relative w-1/2 overflow-hidden bg-stone-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={beforeUrl ?? ""}
           alt={beforeAlt}
-          loading={loading}
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          // Frame is one grid card; each half is 50% of the card.
+          // Cards are ~2-up on desktop → half ≈ 25vw, full-width on mobile.
+          sizes="(min-width: 1024px) 25vw, 50vw"
+          className="object-cover"
+          priority={loading === "eager"}
         />
         {showLabels && (
           <span className="absolute bottom-3 left-3 inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-stone-700 shadow-sm">
@@ -102,12 +104,13 @@ export default function BeforeAfterFrame({
 
       {/* RIGHT half — after */}
       <div className="relative w-1/2 overflow-hidden bg-stone-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={afterUrl ?? ""}
           alt={afterAlt}
-          loading={loading}
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          sizes="(min-width: 1024px) 25vw, 50vw"
+          className="object-cover"
+          priority={loading === "eager"}
         />
         {showLabels && (
           <span className="absolute bottom-3 right-3 inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-primary shadow-sm">

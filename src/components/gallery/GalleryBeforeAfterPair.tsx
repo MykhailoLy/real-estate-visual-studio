@@ -12,11 +12,13 @@
 // URL is missing the component returns null so a single-sided
 // pair is never shown to the public.
 //
-// Uses plain <img> (not next/image) for the same reason as
-// BeforeAfterFrame: Supabase Storage URLs are project-specific
-// and cannot be added to next.config.js remotePatterns at build
-// time without leaking the project URL.
+// Uses next/image (fill, object-contain) so the public Supabase
+// Storage originals are resized and served as AVIF/WebP via the
+// Next.js optimizer. The Supabase public host is allow-listed in
+// next.config.ts.
 // ============================================================
+
+import Image from "next/image";
 
 interface GalleryBeforeAfterPairProps {
   beforeUrl: string | null;
@@ -60,12 +62,14 @@ export default function GalleryBeforeAfterPair({
            * cropping; bg-stone-50 provides a neutral letterbox background.
            */}
           <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-50 ring-1 ring-stone-200">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={beforeUrl}
               alt={beforeAlt}
-              loading={loading}
-              className="absolute inset-0 w-full h-full object-contain"
+              fill
+              // Detail grid: 2-up on sm+, full width on mobile.
+              sizes="(min-width: 640px) 50vw, 100vw"
+              className="object-contain"
+              priority={loading === "eager"}
             />
           </div>
           {/* Label sits just below the image */}
@@ -80,12 +84,13 @@ export default function GalleryBeforeAfterPair({
         {/* After */}
         <div>
           <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-50 ring-1 ring-stone-200">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={afterUrl}
               alt={afterAlt}
-              loading={loading}
-              className="absolute inset-0 w-full h-full object-contain"
+              fill
+              sizes="(min-width: 640px) 50vw, 100vw"
+              className="object-contain"
+              priority={loading === "eager"}
             />
           </div>
           {/* Label */}

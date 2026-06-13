@@ -26,6 +26,7 @@
  */
 
 import { useState } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import ImageLightbox from "@/components/pricing/ImageLightbox";
 
@@ -120,8 +121,8 @@ export function PortfolioExamplesGrid({
   const [open, setOpen] = useState<PortfolioExampleCard | null>(null);
   const imageClassName =
     imageFit === "cover"
-      ? "absolute inset-0 w-full h-full object-cover"
-      : "absolute inset-0 w-full h-full object-contain p-2 sm:p-3";
+      ? "object-cover"
+      : "object-contain p-2 sm:p-3";
   const halfBg = imageFit === "cover" ? "bg-stone-100" : "bg-white";
 
   if (cards.length === 0) {
@@ -167,12 +168,11 @@ export function PortfolioExamplesGrid({
                   <div className="absolute inset-0 flex">
                     {/* Before half */}
                     <div className={`relative w-1/2 overflow-hidden ${halfBg}`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={card.beforeUrl!}
                         alt={card.beforeAlt}
-                        loading="lazy"
-                        decoding="async"
+                        fill
+                        sizes="(min-width: 768px) 25vw, 50vw"
                         className={imageClassName}
                       />
                       <span className="absolute bottom-2.5 left-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-stone-700 shadow-sm">
@@ -181,12 +181,11 @@ export function PortfolioExamplesGrid({
                     </div>
                     {/* After half */}
                     <div className={`relative w-1/2 overflow-hidden ${halfBg}`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={card.afterUrl!}
                         alt={card.afterAlt}
-                        loading="lazy"
-                        decoding="async"
+                        fill
+                        sizes="(min-width: 768px) 25vw, 50vw"
                         className={imageClassName}
                       />
                       <span className="absolute bottom-2.5 right-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-primary shadow-sm">
@@ -307,13 +306,12 @@ export function StyleOptionsGrid({ cards, labels }: StyleGridProps) {
               >
                 {hasImage ? (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={card.imageUrl!}
                       alt={card.imageAlt}
-                      loading="lazy"
-                      decoding="async"
-                      className="absolute inset-0 w-full h-full object-contain p-2 sm:p-3"
+                      fill
+                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                      className="object-contain p-2 sm:p-3"
                     />
                     <span
                       aria-hidden

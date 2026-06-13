@@ -11,6 +11,7 @@
 // ============================================================
 
 import Link from "next/link";
+import Image from "next/image";
 
 interface GalleryCategoryCardProps {
   /** Target gallery detail URL, e.g. /gallery/virtual-staging */
@@ -40,12 +41,13 @@ export default function GalleryCategoryCard({
       {/* ── Image / placeholder ──────────────────────────── */}
       <div className="aspect-[4/3] relative bg-stone-200 overflow-hidden">
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={imageUrl}
             alt={imageAlt}
-            loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 will-change-transform group-hover:scale-[1.04]"
+            fill
+            // Cards: 3-up desktop, 2-up tablet, 1-up mobile.
+            sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+            className="object-cover transition-transform duration-500 will-change-transform group-hover:scale-[1.04]"
           />
         ) : (
           /* Placeholder gradient when no image URL is available */
