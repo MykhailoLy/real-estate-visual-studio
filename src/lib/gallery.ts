@@ -147,3 +147,243 @@ export function galleryServiceMetaDescription(label: string): string {
 export function galleryServiceMetaDescriptionEs(labelEs: string): string {
   return `Explora ejemplos antes y después de ${labelEs.toLowerCase()} de PicchuSpot para anuncios inmobiliarios.`;
 }
+
+export type GalleryLanguage = "en" | "es";
+
+// ============================================================
+// BEFORE / RESULT LABEL BARS
+// ============================================================
+//
+// Each gallery example shows a dark label bar under the left
+// (before) and right (result) image. The result label is
+// service-specific. Durations are only used where they reflect
+// turnaround already stated in visible site content (24–48h for
+// digital edits). Quote-based services that don't advertise a
+// fixed turnaround use the neutral AFTER / DESPUÉS label.
+
+export interface GalleryPairLabels {
+  beforeEn: string;
+  afterEn: string;
+  beforeEs: string;
+  afterEs: string;
+}
+
+const NEUTRAL_LABELS: GalleryPairLabels = {
+  beforeEn: "BEFORE",
+  afterEn: "AFTER",
+  beforeEs: "ANTES",
+  afterEs: "DESPUÉS",
+};
+
+export const GALLERY_PAIR_LABELS: Record<
+  PortfolioServiceSlug,
+  GalleryPairLabels
+> = {
+  "virtual-staging": {
+    beforeEn: "BEFORE",
+    afterEn: "24–48 HOURS LATER",
+    beforeEs: "ANTES",
+    afterEs: "24–48 HORAS DESPUÉS",
+  },
+  "virtual-renovation": {
+    beforeEn: "BEFORE",
+    afterEn: "48 HOURS LATER",
+    beforeEs: "ANTES",
+    afterEs: "48 HORAS DESPUÉS",
+  },
+  "image-enhancement": {
+    beforeEn: "BEFORE",
+    afterEn: "24 HOURS LATER",
+    beforeEs: "ANTES",
+    afterEs: "24 HORAS DESPUÉS",
+  },
+  "item-removal-virtual-cleaning": {
+    beforeEn: "BEFORE",
+    afterEn: "24 HOURS LATER",
+    beforeEs: "ANTES",
+    afterEs: "24 HORAS DESPUÉS",
+  },
+  "day-to-dusk": {
+    beforeEn: "BEFORE",
+    afterEn: "24 HOURS LATER",
+    beforeEs: "ANTES",
+    afterEs: "24 HORAS DESPUÉS",
+  },
+  "floor-plans": {
+    beforeEn: "SOURCE",
+    afterEn: "FINAL PLAN",
+    beforeEs: "ORIGINAL",
+    afterEs: "PLANO FINAL",
+  },
+  // Quote-based services without a fixed advertised turnaround.
+  "360-image-enhancement": NEUTRAL_LABELS,
+  "360-virtual-staging": NEUTRAL_LABELS,
+  "aerial-editing": NEUTRAL_LABELS,
+  "development-site-plans": NEUTRAL_LABELS,
+};
+
+/** Resolve the before/result label pair for a service + language. */
+export function getGalleryPairLabels(
+  slug: PortfolioServiceSlug,
+  lang: GalleryLanguage,
+): { before: string; after: string } {
+  const labels = GALLERY_PAIR_LABELS[slug] ?? NEUTRAL_LABELS;
+  return lang === "es"
+    ? { before: labels.beforeEs, after: labels.afterEs }
+    : { before: labels.beforeEn, after: labels.afterEn };
+}
+
+// ============================================================
+// PORTFOLIO GALLERY FILTERS
+// ============================================================
+//
+// A single nullable `gallery_filter` column on portfolio_items
+// stores one of the values below. Only a subset of services have
+// configured filters; everything else keeps gallery_filter = null
+// and shows no filter UI.
+//
+// Stored values are stable internal identifiers. Display labels
+// are localized separately so we never persist a translated
+// string. Spanish keeps established English interior style names
+// where the marketing site already does.
+
+export interface GalleryFilterOption {
+  /** Stable value stored in portfolio_items.gallery_filter. */
+  value: string;
+  labelEn: string;
+  labelEs: string;
+}
+
+/** Admin field label per service (shown above the admin dropdown). */
+export interface GalleryFilterFieldLabel {
+  en: string;
+  es: string;
+}
+
+const VIRTUAL_STAGING_FILTERS: GalleryFilterOption[] = [
+  { value: "modern", labelEn: "Modern", labelEs: "Modern" },
+  { value: "contemporary", labelEn: "Contemporary", labelEs: "Contemporary" },
+  { value: "scandinavian", labelEn: "Scandinavian", labelEs: "Scandinavian" },
+  {
+    value: "mid-century-modern",
+    labelEn: "Mid-Century Modern",
+    labelEs: "Mid-Century Modern",
+  },
+  { value: "farmhouse", labelEn: "Farmhouse", labelEs: "Farmhouse" },
+  { value: "hamptons", labelEn: "Hamptons", labelEs: "Hamptons" },
+  { value: "traditional", labelEn: "Traditional", labelEs: "Traditional" },
+  {
+    value: "urban-industrial",
+    labelEn: "Urban / Industrial",
+    labelEs: "Urban / Industrial",
+  },
+  {
+    value: "commercial-office",
+    labelEn: "Commercial — Office",
+    labelEs: "Comercial — Oficina",
+  },
+  {
+    value: "commercial-non-office",
+    labelEn: "Commercial — Non-office",
+    labelEs: "Comercial — No oficina",
+  },
+];
+
+const VIRTUAL_RENOVATION_FILTERS: GalleryFilterOption[] = [
+  { value: "interior", labelEn: "Interior", labelEs: "Interior" },
+  { value: "exterior", labelEn: "Exterior", labelEs: "Exterior" },
+  { value: "commercial", labelEn: "Commercial", labelEs: "Comercial" },
+];
+
+const FLOOR_PLANS_FILTERS: GalleryFilterOption[] = [
+  {
+    value: "2d-black-white",
+    labelEn: "2D Black & White",
+    labelEs: "2D Blanco y negro",
+  },
+  { value: "2d-color", labelEn: "2D Color", labelEs: "2D Color" },
+  { value: "3d", labelEn: "3D", labelEs: "3D" },
+  { value: "3d-premium", labelEn: "3D Premium", labelEs: "3D Premium" },
+];
+
+/**
+ * Services with a configured gallery filter. Services NOT present
+ * here must keep gallery_filter = null and show no filter UI.
+ */
+export const GALLERY_FILTERS: Partial<
+  Record<PortfolioServiceSlug, GalleryFilterOption[]>
+> = {
+  "virtual-staging": VIRTUAL_STAGING_FILTERS,
+  "virtual-renovation": VIRTUAL_RENOVATION_FILTERS,
+  "floor-plans": FLOOR_PLANS_FILTERS,
+};
+
+/** Admin field label per filtered service. */
+export const GALLERY_FILTER_FIELD_LABELS: Partial<
+  Record<PortfolioServiceSlug, GalleryFilterFieldLabel>
+> = {
+  "virtual-staging": { en: "Gallery style", es: "Estilo de galería" },
+  "virtual-renovation": {
+    en: "Gallery category",
+    es: "Categoría de galería",
+  },
+  "floor-plans": { en: "Floor plan type", es: "Tipo de plano" },
+};
+
+/** The "All" / "Todos" option label, used in the public filter select. */
+export const GALLERY_FILTER_ALL_LABEL = { en: "All", es: "Todos" } as const;
+
+/** Returns the configured filter options for a service, or null. */
+export function getGalleryFilterOptions(
+  slug: PortfolioServiceSlug,
+): GalleryFilterOption[] | null {
+  return GALLERY_FILTERS[slug] ?? null;
+}
+
+/** Whether a service supports gallery filtering at all. */
+export function serviceHasGalleryFilter(slug: PortfolioServiceSlug): boolean {
+  return Boolean(GALLERY_FILTERS[slug]);
+}
+
+/**
+ * Server-side validation: is `value` a valid gallery_filter for
+ * the given service? `null`/empty is always valid (means "unset").
+ * Services without a configured filter must always store null.
+ */
+export function isValidGalleryFilterValue(
+  slug: PortfolioServiceSlug,
+  value: string | null | undefined,
+): boolean {
+  if (value == null || value === "") return true;
+  const options = GALLERY_FILTERS[slug];
+  if (!options) return false; // service has no filter → only null allowed
+  return options.some((o) => o.value === value);
+}
+
+/**
+ * Normalize an incoming gallery_filter for a service:
+ *   - returns the value if valid for the service
+ *   - returns null for unset/empty or for services without filters
+ *   - returns null (drop) if the value is not in the service's set
+ */
+export function normalizeGalleryFilter(
+  slug: PortfolioServiceSlug,
+  value: string | null | undefined,
+): string | null {
+  if (value == null || value === "") return null;
+  const options = GALLERY_FILTERS[slug];
+  if (!options) return null;
+  return options.some((o) => o.value === value) ? value : null;
+}
+
+/** Localized display label for a stored filter value (fallback: value). */
+export function getGalleryFilterLabel(
+  slug: PortfolioServiceSlug,
+  value: string,
+  lang: GalleryLanguage,
+): string {
+  const options = GALLERY_FILTERS[slug];
+  const match = options?.find((o) => o.value === value);
+  if (!match) return value;
+  return lang === "es" ? match.labelEs : match.labelEn;
+}

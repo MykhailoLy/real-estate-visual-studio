@@ -1,38 +1,67 @@
 // ============================================================
-// GalleryBeforeAfterPair — gallery-optimised before/after display
+// GalleryBeforeAfterPair — full-width before/after example row
 //
-// Desktop (sm+):  two equal columns, side by side
-// Mobile:         stacked vertically (one column)
+// Desktop / large tablet (sm+):
+//   Before and After sit side by side, each ~50% of the row,
+//   separated by a narrow gap. The pair is intended to span
+//   nearly the full page width (the parent provides the wide
+//   container).
 //
-// Images use object-contain so the full room/property composition
-// is always visible — no cropping. A neutral bg-stone-50 fills
-// any letterbox area so the frame looks clean without distortion.
+// Mobile:
+//   Stacked vertically, each image full content width.
 //
-// Both images must be available (non-null) to render. If either
-// URL is missing the component returns null so a single-sided
-// pair is never shown to the public.
+// Images render at their natural aspect ratio (width:100%,
+// height:auto) so nothing is cropped or distorted. Before/After
+// uploads are expected to share dimensions; if they unexpectedly
+// differ, items align at the top (items-start).
 //
-// Uses next/image (fill, object-contain) so the public Supabase
-// Storage originals are resized and served as AVIF/WebP via the
-// Next.js optimizer. The Supabase public host is allow-listed in
-// next.config.ts.
+// A dark PicchuSpot-navy label bar sits directly beneath each
+// image (BEFORE / result label). No title or description is shown
+// on the public page — the focus is the visual comparison.
+//
+// Both images must be available (non-null) to render; otherwise
+// the component returns null so a single-sided pair is never
+// shown to the public.
+//
+// Images use next/image so the public Supabase Storage originals
+// are resized and served as AVIF/WebP via the Next.js optimizer
+// (the Supabase public host is allow-listed in next.config.ts).
+// We keep the natural-aspect, full-width presentation: width/height
+// are only an intrinsic-ratio hint and CSS `w-full h-auto` makes the
+// image fluid and lets it reflow to its true ratio — no object-fit,
+// so nothing is cropped or distorted.
 // ============================================================
 
 import Image from "next/image";
+
+// Intrinsic-ratio hint for the optimizer / CLS reservation only.
+// Real-estate photography is most commonly ~3:2; `h-auto` overrides
+// this to the true ratio once the image is known, so it never
+// crops or distorts regardless of the actual dimensions.
+const RATIO_HINT_WIDTH = 1600;
+const RATIO_HINT_HEIGHT = 1067;
 
 interface GalleryBeforeAfterPairProps {
   beforeUrl: string | null;
   afterUrl: string | null;
   beforeAlt: string;
   afterAlt: string;
-  title: string;
-  description?: string | null;
-  /** Localised label for the "Before" pill. Defaults to "Before". */
-  beforeLabel?: string;
-  /** Localised label for the "After" pill.  Defaults to "After". */
-  afterLabel?: string;
+  /** Dark-bar label under the left image (e.g. "BEFORE" / "SOURCE"). */
+  beforeLabel: string;
+  /** Dark-bar label under the right image (service-specific result). */
+  afterLabel: string;
   /** Pass "eager" for the first pair above the fold. Defaults to "lazy". */
   loading?: "lazy" | "eager";
+}
+
+function LabelBar({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-primary text-white text-center py-2.5 px-3">
+      <span className="text-[11px] sm:text-xs font-bold tracking-[0.18em] uppercase">
+        {children}
+      </span>
+    </div>
+  );
 }
 
 export default function GalleryBeforeAfterPair({
@@ -40,80 +69,44 @@ export default function GalleryBeforeAfterPair({
   afterUrl,
   beforeAlt,
   afterAlt,
-  title,
-  description,
-  beforeLabel = "Before",
-  afterLabel = "After",
+  beforeLabel,
+  afterLabel,
   loading = "lazy",
 }: GalleryBeforeAfterPairProps) {
   // Both images must be present — never show a single-sided pair.
   if (!beforeUrl || !afterUrl) return null;
 
   return (
-    <article className="group">
-      {/* ── Image pair ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-        {/* Before */}
-        <div>
-          {/*
-           * aspect-[4/3] provides a consistent shared height between
-           * Before and After on desktop so they stay visually aligned.
-           * object-contain ensures the full image is visible without
-           * cropping; bg-stone-50 provides a neutral letterbox background.
-           */}
-          <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-50 ring-1 ring-stone-200">
-            <Image
-              src={beforeUrl}
-              alt={beforeAlt}
-              fill
-              // Detail grid: 2-up on sm+, full width on mobile.
-              sizes="(min-width: 640px) 50vw, 100vw"
-              className="object-contain"
-              priority={loading === "eager"}
-            />
-          </div>
-          {/* Label sits just below the image */}
-          <p className="mt-2 flex items-center gap-1.5 px-0.5">
-            <span className="inline-block w-2 h-2 rounded-full bg-stone-400 flex-shrink-0" />
-            <span className="text-[11px] font-bold tracking-[0.16em] uppercase text-muted">
-              {beforeLabel}
-            </span>
-          </p>
-        </div>
+    <article className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 items-start">
+      {/* Before */}
+      <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
+        <Image
+          src={beforeUrl}
+          alt={beforeAlt}
+          width={RATIO_HINT_WIDTH}
+          height={RATIO_HINT_HEIGHT}
+          // One example per row; each image is 50% of the wide
+          // container on sm+, full content width on mobile.
+          sizes="(min-width: 640px) 50vw, 100vw"
+          className="block w-full h-auto"
+          priority={loading === "eager"}
+        />
+        <LabelBar>{beforeLabel}</LabelBar>
+      </figure>
 
-        {/* After */}
-        <div>
-          <div className="aspect-[4/3] relative overflow-hidden rounded-xl bg-stone-50 ring-1 ring-stone-200">
-            <Image
-              src={afterUrl}
-              alt={afterAlt}
-              fill
-              sizes="(min-width: 640px) 50vw, 100vw"
-              className="object-contain"
-              priority={loading === "eager"}
-            />
-          </div>
-          {/* Label */}
-          <p className="mt-2 flex items-center gap-1.5 px-0.5">
-            <span className="inline-block w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-            <span className="text-[11px] font-bold tracking-[0.16em] uppercase text-primary">
-              {afterLabel}
-            </span>
-          </p>
-        </div>
-      </div>
-
-      {/* ── Caption ─────────────────────────────────────────── */}
-      <div className="mt-3 px-0.5">
-        <h3 className="text-base font-bold text-primary leading-snug">
-          {title}
-        </h3>
-        {description && (
-          <p className="mt-1 text-sm text-muted leading-relaxed line-clamp-3">
-            {description}
-          </p>
-        )}
-      </div>
+      {/* After / result */}
+      <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
+        <Image
+          src={afterUrl}
+          alt={afterAlt}
+          width={RATIO_HINT_WIDTH}
+          height={RATIO_HINT_HEIGHT}
+          sizes="(min-width: 640px) 50vw, 100vw"
+          className="block w-full h-auto"
+          priority={loading === "eager"}
+        />
+        <LabelBar>{afterLabel}</LabelBar>
+      </figure>
     </article>
   );
 }

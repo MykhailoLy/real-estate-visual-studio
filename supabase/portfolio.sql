@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS portfolio_items (
   after_image_path TEXT NOT NULL,
   before_alt TEXT,
   after_alt TEXT,
+  -- Optional public-gallery filter category (e.g. virtual-staging
+  -- style, renovation category, floor-plan type). Nullable; values
+  -- are validated in the app layer (src/lib/gallery.ts).
+  gallery_filter TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   featured_home BOOLEAN NOT NULL DEFAULT FALSE,
   published BOOLEAN NOT NULL DEFAULT TRUE,
@@ -81,6 +85,8 @@ CREATE INDEX IF NOT EXISTS idx_portfolio_items_featured_home
   ON portfolio_items(featured_home);
 CREATE INDEX IF NOT EXISTS idx_portfolio_items_sort_order
   ON portfolio_items(service_slug, sort_order);
+CREATE INDEX IF NOT EXISTS idx_portfolio_items_gallery_filter
+  ON portfolio_items(service_slug, gallery_filter);
 
 -- -----------------------------------------------------------
 -- ROW-LEVEL SECURITY

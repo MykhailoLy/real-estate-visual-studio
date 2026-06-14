@@ -17,6 +17,11 @@ import {
   PORTFOLIO_SERVICES,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
+import {
+  GALLERY_FILTERS,
+  GALLERY_FILTER_FIELD_LABELS,
+  getGalleryFilterLabel,
+} from "@/lib/gallery";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 // ============================================================
@@ -53,6 +58,7 @@ export interface AdminItemView {
   after_image_path: string;
   before_alt: string | null;
   after_alt: string | null;
+  gallery_filter: string | null;
   sort_order: number;
   featured_home: boolean;
   published: boolean;
@@ -278,6 +284,9 @@ interface ItemRowProps {
 
 function ItemRow({ item, busy, onEdit, onDelete }: ItemRowProps) {
   const meta = PORTFOLIO_SERVICES.find((s) => s.slug === item.service_slug);
+  const galleryFilterLabel = item.gallery_filter
+    ? getGalleryFilterLabel(item.service_slug, item.gallery_filter, "en")
+    : null;
   return (
     <li className="p-4 lg:p-5 flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-center">
       <div className="flex gap-2 flex-shrink-0">
@@ -304,6 +313,11 @@ function ItemRow({ item, busy, onEdit, onDelete }: ItemRowProps) {
           <span className="font-medium text-foreground">
             {meta?.label ?? item.service_slug}
           </span>
+          {galleryFilterLabel && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-secondary/15 text-secondary-dark font-semibold">
+              {galleryFilterLabel}
+            </span>
+          )}
           <span>Sort {item.sort_order}</span>
           <span className="hidden sm:inline truncate">
             Updated {formatDate(item.updated_at)}
@@ -434,6 +448,7 @@ interface EditorValues {
   description: string;
   before_alt: string;
   after_alt: string;
+  gallery_filter: string;
   sort_order: number;
   featured_home: boolean;
   published: boolean;
@@ -456,6 +471,28 @@ function PortfolioEditor({
   const [stage, setStage] = useState<Stage>("idle");
   const [localError, setLocalError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
+
+  // Service + gallery_filter are controlled so the filter dropdown
+  // reflects the selected service and resets when the service
+  // changes to one where the current value is invalid.
+  const [serviceSlug, setServiceSlug] = useState<PortfolioServiceSlug>(
+    initial?.service_slug ?? DEFAULT_SLUG,
+  );
+  const [galleryFilter, setGalleryFilter] = useState<string>(
+    initial?.gallery_filter ?? "",
+  );
+
+  const galleryFilterOptions = GALLERY_FILTERS[serviceSlug] ?? null;
+  const galleryFilterFieldLabel = GALLERY_FILTER_FIELD_LABELS[serviceSlug];
+
+  function onServiceChange(next: PortfolioServiceSlug) {
+    setServiceSlug(next);
+    // Reset an incompatible gallery_filter when the service changes.
+    const opts = GALLERY_FILTERS[next];
+    if (!opts || !opts.some((o) => o.value === galleryFilter)) {
+      setGalleryFilter("");
+    }
+  }
 
   const isEdit = mode === "edit" && initial !== null;
   const submitting = stage !== "idle";
@@ -588,6 +625,7 @@ function PortfolioEditor({
     const description = String(fd.get("description") ?? "").trim();
     const before_alt = String(fd.get("before_alt") ?? "").trim();
     const after_alt = String(fd.get("after_alt") ?? "").trim();
+    const gallery_filter = String(fd.get("gallery_filter") ?? "").trim();
     const sortRaw = String(fd.get("sort_order") ?? "0").trim();
     const sortNum = parseInt(sortRaw, 10);
     const featured_home =
@@ -602,6 +640,7 @@ function PortfolioEditor({
       description,
       before_alt,
       after_alt,
+      gallery_filter,
       sort_order: Number.isFinite(sortNum) ? sortNum : 0,
       featured_home,
       published,
@@ -740,6 +779,7 @@ function PortfolioEditor({
         after_image_path: afterPath,
         before_alt: values.before_alt || null,
         after_alt: values.after_alt || null,
+        gallery_filter: values.gallery_filter || null,
         sort_order: values.sort_order,
         featured_home: values.featured_home,
         published: values.published,
@@ -821,7 +861,10 @@ function PortfolioEditor({
               id="service_slug"
               name="service_slug"
               required
-              defaultValue={initial?.service_slug ?? DEFAULT_SLUG}
+              value={serviceSlug}
+              onChange={(e) =>
+                onServiceChange(e.target.value as PortfolioServiceSlug)
+              }
               className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             >
               {PORTFOLIO_SERVICES.map((s) => (
@@ -831,6 +874,28 @@ function PortfolioEditor({
               ))}
             </select>
           </Field>
+
+          {galleryFilterOptions && (
+            <Field
+              label={galleryFilterFieldLabel?.en ?? "Gallery category"}
+              htmlFor="gallery_filter"
+            >
+              <select
+                id="gallery_filter"
+                name="gallery_filter"
+                value={galleryFilter}
+                onChange={(e) => setGalleryFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">— None —</option>
+                {galleryFilterOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.labelEn}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           <Field label="Title" htmlFor="title" required>
             <input
