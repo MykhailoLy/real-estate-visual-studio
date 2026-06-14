@@ -1,11 +1,25 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "./ServicePlaceholder";
 import { cn } from "@/lib/utils";
+
+// Only the active slide and its immediate neighbours (with wrap-
+// around) are mounted. Distant slides render an empty box and
+// therefore never request their images until navigated near —
+// this is what stops every slider image downloading on page load.
+// The crossfade still works because adjacent slides stay mounted.
+function isSlideMounted(i: number, idx: number, total: number): boolean {
+  if (total <= 1) return true;
+  if (i === idx) return true;
+  const next = (idx + 1) % total;
+  const prev = (idx - 1 + total) % total;
+  return i === next || i === prev;
+}
 
 // ============================================================
 // HERO BEFORE/AFTER SLIDER
@@ -153,31 +167,36 @@ export default function BeforeAfterShowcase({ slides }: Props) {
         // Prevent text/image selection while swiping
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
-        {effective.map((slide, i) => (
-          <div
-            key={slide.id}
-            className={cn(
-              "absolute inset-0 transition-opacity duration-700 ease-in-out",
-              i === idx ? "opacity-100" : "opacity-0"
-            )}
-            aria-hidden={i !== idx}
-          >
-            {slide.kind === "image" ? (
-              <ImageBeforeAfter
-                beforeUrl={slide.beforeUrl}
-                afterUrl={slide.afterUrl}
-                beforeAlt={slide.beforeAlt}
-                afterAlt={slide.afterAlt}
-                eager={i === 0}
-              />
-            ) : (
-              <ServicePlaceholder
-                variant={slide.variant}
-                showInnerLabels={false}
-              />
-            )}
-          </div>
-        ))}
+        {effective.map((slide, i) => {
+          const active = i === idx;
+          const mounted = isSlideMounted(i, idx, effective.length);
+          return (
+            <div
+              key={slide.id}
+              className={cn(
+                "absolute inset-0 transition-opacity duration-700 ease-in-out",
+                active ? "opacity-100" : "opacity-0"
+              )}
+              aria-hidden={!active}
+            >
+              {mounted &&
+                (slide.kind === "image" ? (
+                  <ImageBeforeAfter
+                    beforeUrl={slide.beforeUrl}
+                    afterUrl={slide.afterUrl}
+                    beforeAlt={slide.beforeAlt}
+                    afterAlt={slide.afterAlt}
+                    eager={i === 0}
+                  />
+                ) : (
+                  <ServicePlaceholder
+                    variant={slide.variant}
+                    showInnerLabels={false}
+                  />
+                ))}
+            </div>
+          );
+        })}
 
         {/* ── Arrow controls — bare icons, no white circle ── */}
         {showNav && (
@@ -264,23 +283,24 @@ function ImageBeforeAfter({
   return (
     <div className="absolute inset-0 flex">
       <div className="relative w-1/2 overflow-hidden bg-stone-200">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={beforeUrl}
           alt={beforeAlt}
-          className="absolute inset-0 w-full h-full object-cover"
-          loading={eager ? "eager" : "lazy"}
-          decoding="async"
+          fill
+          // Each half is ~50% of the banner width at every breakpoint.
+          sizes="50vw"
+          className="object-cover"
+          priority={eager}
         />
       </div>
       <div className="relative w-1/2 overflow-hidden bg-stone-200">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={afterUrl}
           alt={afterAlt}
-          className="absolute inset-0 w-full h-full object-cover"
-          loading={eager ? "eager" : "lazy"}
-          decoding="async"
+          fill
+          sizes="50vw"
+          className="object-cover"
+          priority={eager}
         />
       </div>
       <div

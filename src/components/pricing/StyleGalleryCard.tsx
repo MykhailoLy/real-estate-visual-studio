@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Maximize2, Images } from "lucide-react";
 import type { StyleGalleryEntry } from "@/data/staging-style-gallery";
 
@@ -64,13 +65,14 @@ export default function StyleGalleryCard({
             </span>
           </div>
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={cover.src}
             alt={cover.alt}
-            loading="lazy"
+            fill
+            // Cards: 3-up desktop, 2-up tablet, 1-up mobile.
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             onError={() => setCoverFailed(true)}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         )}
 

@@ -23,10 +23,23 @@
 // the component returns null so a single-sided pair is never
 // shown to the public.
 //
-// Uses plain <img> (not next/image) because Supabase Storage URLs
-// are project-specific and can't be added to next.config
-// remotePatterns at build time without leaking the project URL.
+// Images use next/image so the public Supabase Storage originals
+// are resized and served as AVIF/WebP via the Next.js optimizer
+// (the Supabase public host is allow-listed in next.config.ts).
+// We keep the natural-aspect, full-width presentation: width/height
+// are only an intrinsic-ratio hint and CSS `w-full h-auto` makes the
+// image fluid and lets it reflow to its true ratio — no object-fit,
+// so nothing is cropped or distorted.
 // ============================================================
+
+import Image from "next/image";
+
+// Intrinsic-ratio hint for the optimizer / CLS reservation only.
+// Real-estate photography is most commonly ~3:2; `h-auto` overrides
+// this to the true ratio once the image is known, so it never
+// crops or distorts regardless of the actual dimensions.
+const RATIO_HINT_WIDTH = 1600;
+const RATIO_HINT_HEIGHT = 1067;
 
 interface GalleryBeforeAfterPairProps {
   beforeUrl: string | null;
@@ -67,24 +80,30 @@ export default function GalleryBeforeAfterPair({
     <article className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 items-start">
       {/* Before */}
       <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={beforeUrl}
           alt={beforeAlt}
-          loading={loading}
+          width={RATIO_HINT_WIDTH}
+          height={RATIO_HINT_HEIGHT}
+          // One example per row; each image is 50% of the wide
+          // container on sm+, full content width on mobile.
+          sizes="(min-width: 640px) 50vw, 100vw"
           className="block w-full h-auto"
+          priority={loading === "eager"}
         />
         <LabelBar>{beforeLabel}</LabelBar>
       </figure>
 
       {/* After / result */}
       <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={afterUrl}
           alt={afterAlt}
-          loading={loading}
+          width={RATIO_HINT_WIDTH}
+          height={RATIO_HINT_HEIGHT}
+          sizes="(min-width: 640px) 50vw, 100vw"
           className="block w-full h-auto"
+          priority={loading === "eager"}
         />
         <LabelBar>{afterLabel}</LabelBar>
       </figure>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "./ServicePlaceholder";
@@ -169,13 +170,14 @@ function CollageCell({
       }`}
     >
       {tile.kind === "image" ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={tile.url}
           alt={tile.alt}
-          className="absolute inset-0 w-full h-full object-cover"
-          loading="lazy"
-          decoding="async"
+          fill
+          // Collage lives in a ~58vw column on desktop, full width on
+          // mobile; the largest (anchor) tile is ~40vw on desktop.
+          sizes="(min-width: 1024px) 40vw, 90vw"
+          className="object-cover"
         />
       ) : (
         <ServicePlaceholder variant={tile.variant} labels={placeholderLabels} />
