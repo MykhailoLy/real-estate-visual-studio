@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     // media URLs are versioned (timestamp + random nonce), so a
     // replacement always gets a new URL — a long optimizer TTL can
     // never serve a stale image.
-    minimumCacheTTL: 2678400, // 31 days
+    minimumCacheTTL: 2678400, // 31-day cache for versioned public media
 
     // Strictly allow ONLY the public Supabase Storage object path on
     // the project's host. No wildcard hostnames. Private buckets are
