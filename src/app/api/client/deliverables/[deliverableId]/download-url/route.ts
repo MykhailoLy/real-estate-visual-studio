@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getClientUser } from "@/lib/client-auth";
 import { getDeliverableDownloadUrl } from "@/lib/client-deliverables";
+import { toOrderOwnership } from "@/lib/order-ownership";
 
 // ============================================================
 // POST /api/client/deliverables/[deliverableId]/download-url
@@ -48,7 +49,7 @@ export async function POST(
   }
 
   // Ownership-guarded signed URL — null = not found or wrong owner
-  const result = await getDeliverableDownloadUrl(deliverableId, user.email, {
+  const result = await getDeliverableDownloadUrl(deliverableId, toOrderOwnership(user), {
     download: intent !== "preview",
   });
 

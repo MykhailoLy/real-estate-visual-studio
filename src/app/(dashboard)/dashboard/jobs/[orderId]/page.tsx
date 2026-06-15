@@ -21,7 +21,7 @@ import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewAc
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import FilePreviewCard from "@/components/FilePreviewCard";
 import { getClientUser } from "@/lib/client-auth";
-import { getDeliverablesByClientEmail } from "@/lib/client-deliverables";
+import { getDeliverablesForClient } from "@/lib/client-deliverables";
 import {
   getCurrentDeliverableRows,
   type CurrentDeliverableRow,
@@ -29,12 +29,12 @@ import {
 import {
   deriveDashboardStatusFromReviews,
   deriveEstimatedCompletion,
-  getOrderByIdForClient,
+  getOrderForClient,
   getProgressFromStatus,
   getServiceLabel,
 } from "@/lib/client-orders";
 import {
-  getReviewsByClientEmail,
+  getReviewsForClient,
   type DeliverableReview,
   type ReviewStatus,
 } from "@/lib/client-reviews";
@@ -42,6 +42,7 @@ import {
   getClientSourceFilesForOrder,
   type ClientSourceFile,
 } from "@/lib/client-source-files";
+import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatBytes, itemLabel } from "@/lib/display/file-format";
 import { formatUSD } from "@/lib/utils";
 
@@ -173,13 +174,14 @@ export default async function OrderDetailPage({
   const user = await getClientUser();
   if (!user) notFound();
 
-  const order = await getOrderByIdForClient(orderId, user.email);
+  const ownership = toOrderOwnership(user);
+  const order = await getOrderForClient(orderId, ownership);
   if (!order) notFound();
 
   const [allDeliverables, allReviews, sourceFiles] = await Promise.all([
-    getDeliverablesByClientEmail(user.email),
-    getReviewsByClientEmail(user.email),
-    getClientSourceFilesForOrder(order.id, user.email),
+    getDeliverablesForClient(ownership),
+    getReviewsForClient(ownership),
+    getClientSourceFilesForOrder(order.id, ownership),
   ]);
 
   const orderDeliverables = allDeliverables.filter((deliverable) => deliverable.order_id === order.id);

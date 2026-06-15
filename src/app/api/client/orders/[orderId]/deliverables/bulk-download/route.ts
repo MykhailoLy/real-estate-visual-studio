@@ -13,6 +13,7 @@ import {
   type ZipSourceFile,
 } from "@/lib/server-zip-download";
 import { createServerClient } from "@/lib/supabase";
+import { isOrderOwned, toOrderOwnership } from "@/lib/order-ownership";
 
 export const runtime = "nodejs";
 
@@ -42,16 +43,21 @@ export async function POST(
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id, order_number")
+    .select("id, order_number, user_id, client_email")
     .eq("id", orderId)
-    .eq("client_email", user.email)
     .maybeSingle();
 
   if (orderErr) {
     console.error("[client/deliverables/bulk-download] Order lookup:", orderErr.message);
     return NextResponse.json({ error: "Could not verify order." }, { status: 500 });
   }
-  if (!order) {
+  if (
+    !order ||
+    !isOrderOwned(
+      order as { user_id: string | null; client_email: string | null },
+      toOrderOwnership(user)
+    )
+  ) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 

@@ -1,19 +1,20 @@
 import "server-only";
 import {
-  getDeliverablesByClientEmail,
+  getDeliverablesForClient,
   type ClientDeliverable,
 } from "@/lib/client-deliverables";
 import { getCurrentDeliverableRows } from "@/lib/client-deliverable-display";
 import {
-  getOrdersByClientEmail,
+  getOrdersForClient,
   type ClientOrder,
 } from "@/lib/client-orders";
 import { getServiceLabel } from "@/lib/display/service-labels";
-import { getReviewsByClientEmail } from "@/lib/client-reviews";
+import { getReviewsForClient } from "@/lib/client-reviews";
 import {
   getClientSourceFilesForOrder,
   type ClientSourceFile,
 } from "@/lib/client-source-files";
+import type { OrderOwnership } from "@/lib/order-ownership";
 
 export interface ClientFileOrderSummary {
   id: string;
@@ -81,16 +82,16 @@ function mapSourceFile(
 }
 
 export async function getClientFilesHubData(
-  email: string,
+  ownership: OrderOwnership,
 ): Promise<ClientFilesHubData> {
-  if (!email) {
+  if (!ownership?.userId || !ownership?.email) {
     return { orders: [], deliveredFiles: [], uploadedFiles: [] };
   }
 
   const [orders, allDeliverables, reviews] = await Promise.all([
-    getOrdersByClientEmail(email),
-    getDeliverablesByClientEmail(email),
-    getReviewsByClientEmail(email),
+    getOrdersForClient(ownership),
+    getDeliverablesForClient(ownership),
+    getReviewsForClient(ownership),
   ]);
 
   const ordersById = new Map(orders.map((order) => [order.id, order]));
@@ -110,7 +111,7 @@ export async function getClientFilesHubData(
 
   const sourceFileGroups = await Promise.all(
     orders.map(async (order) => {
-      const files = await getClientSourceFilesForOrder(order.id, email);
+      const files = await getClientSourceFilesForOrder(order.id, ownership);
       return files.map((file) => mapSourceFile(file, order));
     }),
   );

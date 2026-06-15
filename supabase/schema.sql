@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS orders (
   client_phone TEXT NOT NULL,
   client_company TEXT,
 
+  -- Authenticated-account ownership (added in PR 1 — order account
+  -- ownership foundation). Nullable so historical / guest orders and
+  -- any order created before authenticated ordering remain valid.
+  -- Set from the verified Supabase session at order creation when a
+  -- session is present; never from the request body. The client_*
+  -- snapshot columns above are retained regardless of user_id.
+  -- Existing databases get this column via
+  -- supabase/order-account-ownership-foundation.sql.
+  user_id UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+
   -- Order summary (prices in USD cents for precision)
   item_count INTEGER NOT NULL CHECK (item_count > 0),
   estimated_total_cents INTEGER NOT NULL DEFAULT 0,
@@ -180,6 +190,7 @@ CREATE TRIGGER orders_updated_at
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_service_type ON orders(service_type);
 CREATE INDEX IF NOT EXISTS idx_orders_client_email ON orders(client_email);
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 
@@ -191,6 +202,39 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.orders TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.order_items TO service_role;
 GRANT SELECT, UPDATE ON public.order_sequences TO service_role;
 GRANT EXECUTE ON FUNCTION public.generate_order_number(TEXT) TO service_role;
+
+-- -----------------------------------------------------------
+-- ROW LEVEL SECURITY (defensive — added in PR 1)
+-- -----------------------------------------------------------
+-- The service-role client bypasses RLS, so all server APIs (order
+-- creation, dashboard reads, admin) are unaffected. These own-row
+-- SELECT policies are a forward-looking safety net: anon/authenticated
+-- roles have no direct table grants today, but if one is ever added a
+-- client could still only see its own orders. No INSERT/UPDATE/DELETE
+-- policies are defined — writes must stay on the service-role path.
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "orders_select_own" ON orders;
+CREATE POLICY "orders_select_own"
+  ON orders
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "order_items_select_own" ON order_items;
+CREATE POLICY "order_items_select_own"
+  ON order_items
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM orders
+      WHERE orders.id = order_items.order_id
+        AND orders.user_id = auth.uid()
+    )
+  );
 
 -- -----------------------------------------------------------
 -- STORAGE BUCKET SETUP (manual via Supabase Dashboard)

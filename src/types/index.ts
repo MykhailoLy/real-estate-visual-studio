@@ -46,6 +46,13 @@ export interface Order {
   order_number: string;
   service_type: RemoteServiceType;
   status: OrderStatus;
+  /**
+   * Authenticated-account owner (auth.users.id), or null for
+   * historical / guest orders and orders created before
+   * authenticated ordering. Set only from the verified server-side
+   * session — never from client input.
+   */
+  user_id: string | null;
   client_name: string;
   client_email: string;
   client_phone: string;

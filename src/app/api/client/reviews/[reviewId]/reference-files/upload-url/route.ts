@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getClientUser } from "@/lib/client-auth";
 import { createReworkReferenceUploadSlot } from "@/lib/rework-reference-files";
+import { toOrderOwnership } from "@/lib/order-ownership";
 import {
   REWORK_REFERENCE_MAX_BYTES,
   REWORK_REFERENCE_MAX_MB,
@@ -93,7 +94,7 @@ export async function POST(
   // ── Delegate to helper ──────────────────────────────────────
   const result = await createReworkReferenceUploadSlot(
     reviewId,
-    user.email,
+    toOrderOwnership(user),
     { filename, contentType: content_type, fileSize: file_size },
   );
 

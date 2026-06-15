@@ -1,5 +1,6 @@
 import "server-only";
 import { createServerClient } from "@/lib/supabase";
+import { isOrderOwned, type OrderOwnership } from "@/lib/order-ownership";
 
 export type ClientSourceFileKind = "original" | "reference";
 
@@ -93,9 +94,9 @@ export function getClientSourceFileSlot(
 
 export async function getClientSourceFilesForOrder(
   orderId: string,
-  email: string
+  ownership: OrderOwnership
 ): Promise<ClientSourceFile[]> {
-  if (!orderId || !email) return [];
+  if (!orderId || !ownership?.userId || !ownership?.email) return [];
 
   let supabase;
   try {
@@ -107,9 +108,8 @@ export async function getClientSourceFilesForOrder(
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id")
+    .select("id, user_id, client_email")
     .eq("id", orderId)
-    .eq("client_email", email)
     .maybeSingle();
 
   if (orderErr) {
@@ -117,6 +117,10 @@ export async function getClientSourceFilesForOrder(
     return [];
   }
   if (!order) return [];
+  // Ownership check — user_id, or legacy NULL+email.
+  if (!isOrderOwned(order as { user_id: string | null; client_email: string | null }, ownership)) {
+    return [];
+  }
 
   const { data: items, error: itemErr } = await supabase
     .from("order_items")

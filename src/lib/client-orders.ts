@@ -1,27 +1,23 @@
 // ============================================================
-// CLIENT ORDERS — server-side read helper (Phase 5A)
+// CLIENT ORDERS — server-side read helper
 //
 // Fetches orders from the `orders` table using the Supabase
-// service role key, filtered strictly by the authenticated
-// user's confirmed email address.
+// service role key, scoped to the AUTHENTICATED ACCOUNT.
 //
-// ⚠️  SECURITY — email-only matching (Phase 5A limitation)
+// OWNERSHIP MODEL (PR 1 — account ownership foundation)
 // ─────────────────────────────────────────────────────────
-// The `orders` table pre-dates client auth and has NO user_id
-// column and NO RLS. Orders are matched via:
+// An order belongs to the client when EITHER:
+//   (a) orders.user_id === authenticated user id            (strong)
+//   (b) orders.user_id IS NULL AND client_email matches the
+//       verified session email, case-insensitively          (legacy)
 //
-//   WHERE client_email = <email from verified Supabase session>
+// An order with a non-null user_id belonging to ANOTHER user is
+// never returned, even if its client_email matches this user's
+// email. See src/lib/order-ownership.ts for the shared rule.
 //
-// The email is ALWAYS read server-side from supabase.auth.getUser()
-// (via getClientUser()) — it is NEVER accepted from the client,
+// The userId + email ALWAYS come from getClientUser() (the verified
+// SSR session) via an OrderOwnership object — NEVER from the client,
 // query string, cookies, localStorage, or request body.
-//
-// Supabase requires email confirmation before a session is valid
-// (PR #31), so only the confirmed email owner sees their orders.
-//
-// TODO (Phase 5B): add `user_id UUID REFERENCES auth.users(id)`
-// column + RLS to `orders`, backfill from client_email, and
-// switch this query to filter by user_id instead.
 //
 // Server-only. Never import from a "use client" file.
 // ============================================================
@@ -30,6 +26,11 @@ import { createClient } from "@supabase/supabase-js";
 import type { DashboardJob, DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 import type { ReviewStatus } from "@/lib/client-reviews";
 import { getServiceLabel as getDisplayServiceLabel } from "@/lib/display/service-labels";
+import {
+  isOrderOwned,
+  ownedOrdersOrFilter,
+  type OrderOwnership,
+} from "@/lib/order-ownership";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -329,19 +330,22 @@ export function mapOrdersToDashboardJobs(
 }
 
 /**
- * Fetches all orders for the authenticated user, matched by confirmed email.
+ * Fetches all orders owned by the authenticated account.
  *
  * SECURITY CONTRACT:
- *  ✓ `email` MUST come from `getClientUser()` (server-validated SSR session).
- *  ✗ NEVER pass an email from URL params, query string, cookies, or client input.
+ *  ✓ `ownership` MUST be built from `getClientUser()` (server-validated SSR session).
+ *  ✗ NEVER pass identity from URL params, query string, cookies, or client input.
  *  ✓ Uses service role key — server-side only, never exposed to the client.
- *  ✓ Strict `.eq("client_email", email)` — no wildcard, no OR conditions.
- *  ✓ SELECTs summary columns only — no JSONB details, no storage paths.
+ *  ✓ DB pre-filter via ownedOrdersOrFilter(), then an authoritative
+ *    JS re-check via isOrderOwned() (defense-in-depth) so an order
+ *    owned by another user is never returned.
+ *  ✓ SELECTs summary columns only (+ user_id/client_email needed for
+ *    the ownership re-check) — no JSONB details, no storage paths.
  *
  * Returns [] on any error so the dashboard degrades gracefully.
  */
-export async function getOrdersByClientEmail(
-  email: string
+export async function getOrdersForClient(
+  ownership: OrderOwnership
 ): Promise<ClientOrder[]> {
   const url        = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -355,14 +359,14 @@ export async function getOrdersByClientEmail(
     return [];
   }
 
-  if (!email) {
-    console.warn("[client-orders] Called with empty email — returning [].");
+  if (!ownership?.userId || !ownership?.email) {
+    console.warn("[client-orders] Called without a valid ownership — returning [].");
     return [];
   }
 
   try {
-    // Service-role client — intentional, orders table has no RLS.
-    // The email guard below limits results to this user's orders only.
+    // Service-role client — intentional. The ownership filter + JS
+    // re-check below limit results to this account's orders only.
     const supabase = createClient(url, serviceKey, {
       auth: { persistSession: false },
     });
@@ -372,9 +376,9 @@ export async function getOrdersByClientEmail(
       .select(
         "id, order_number, service_type, status, " +
         "item_count, estimated_total_cents, currency, " +
-        "created_at, updated_at"
+        "created_at, updated_at, user_id, client_email"
       )
-      .eq("client_email", email)           // ← strict server-side email guard
+      .or(ownedOrdersOrFilter(ownership))   // ← user_id OR (NULL + email)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -382,39 +386,92 @@ export async function getOrdersByClientEmail(
       return [];
     }
 
-    return (data ?? []) as unknown as ClientOrder[];
+    const rows = (data ?? []) as unknown as Array<
+      ClientOrder & { user_id: string | null; client_email: string | null }
+    >;
+    // Authoritative JS ownership re-check (never trust the DB filter alone),
+    // then project to the safe ClientOrder summary shape.
+    return rows
+      .filter((row) => isOrderOwned(row, ownership))
+      .map((row) => ({
+        id: row.id,
+        order_number: row.order_number,
+        service_type: row.service_type,
+        status: row.status,
+        item_count: row.item_count,
+        estimated_total_cents: row.estimated_total_cents,
+        currency: row.currency,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
   } catch (err) {
     console.error("[client-orders] Unexpected error:", err);
     return [];
   }
 }
 
+/**
+ * Returns just the IDs of orders owned by the authenticated account.
+ * Used by deliverables/reviews/source-file helpers to scope their
+ * own queries to the user's orders via `order_id IN (...)`.
+ */
+export async function getOwnedOrderIds(
+  ownership: OrderOwnership
+): Promise<string[]> {
+  const url        = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return [];
+  if (!ownership?.userId || !ownership?.email) return [];
+
+  try {
+    const supabase = createClient(url, serviceKey, {
+      auth: { persistSession: false },
+    });
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id, user_id, client_email")
+      .or(ownedOrdersOrFilter(ownership));
+
+    if (error) {
+      console.error("[client-orders] Owned-id query error:", error.message);
+      return [];
+    }
+
+    return ((data ?? []) as Array<{
+      id: string;
+      user_id: string | null;
+      client_email: string | null;
+    }>)
+      .filter((row) => isOrderOwned(row, ownership))
+      .map((row) => row.id);
+  } catch (err) {
+    console.error("[client-orders] Unexpected error in getOwnedOrderIds:", err);
+    return [];
+  }
+}
+
 
 /**
- * Fetches a single order by its UUID, **only** if client_email matches the
- * authenticated user's confirmed email.  This is the ownership check.
+ * Fetches a single order by its UUID, **only** if it is owned by the
+ * authenticated account (per the user_id / legacy-email rule). This is
+ * the ownership check for the order detail page.
  *
  * SECURITY CONTRACT:
  *  ✓ `orderId` comes from the URL route param — treated as untrusted input.
- *  ✓ `email`   MUST come from `getClientUser()` on the server — never from
+ *  ✓ `ownership` MUST come from `getClientUser()` on the server — never from
  *              URL params, query string, cookies, or client input.
- *  ✓ The query filters on BOTH id AND client_email simultaneously.
- *    If the orderId belongs to a different user, no row is returned —
- *    the caller cannot distinguish "wrong owner" from "not found", which
- *    is intentional to avoid leaking order existence to other users.
+ *  ✓ The row is fetched by id, then ownership is enforced in JS via
+ *    isOrderOwned(). A wrong owner receives the same null response as
+ *    "not found", which is intentional to avoid leaking order existence.
  *  ✓ SELECTs summary columns + order_items (safe fields only).
  *  ✗ original_photo_path and reference_image_path are NOT selected.
  *  ✓ JSONB details are sanitized via sanitizeDetails() before return.
  *
- * Returns null when:
- *  - Order not found
- *  - Email does not match (ownership check fails)
- *  - Env vars absent
- *  - Any DB error
+ * Returns null when: not found, ownership fails, env vars absent, or DB error.
  */
-export async function getOrderByIdForClient(
+export async function getOrderForClient(
   orderId: string,
-  email: string
+  ownership: OrderOwnership
 ): Promise<ClientOrderDetail | null> {
   const url        = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -424,8 +481,8 @@ export async function getOrderByIdForClient(
     return null;
   }
 
-  if (!orderId || !email) {
-    console.warn("[client-orders] getOrderByIdForClient called with empty orderId or email.");
+  if (!orderId || !ownership?.userId || !ownership?.email) {
+    console.warn("[client-orders] getOrderForClient called with empty orderId or ownership.");
     return null;
   }
 
@@ -434,25 +491,31 @@ export async function getOrderByIdForClient(
       auth: { persistSession: false },
     });
 
-    // ── Ownership-guarded order query ──────────────────────────
-    // Filtering on BOTH id AND client_email means a wrong owner
-    // receives exactly the same null response as "not found".
+    // ── Fetch by id, then enforce ownership in JS ──────────────
+    // We select user_id + client_email so isOrderOwned() can make the
+    // authoritative decision. A wrong owner yields the same null
+    // response as "not found".
     const { data: orderRow, error: orderErr } = await supabase
       .from("orders")
       .select(
         "id, order_number, service_type, status, " +
         "item_count, estimated_total_cents, currency, " +
-        "client_company, created_at, updated_at"
+        "client_company, created_at, updated_at, user_id, client_email"
       )
       .eq("id", orderId)
-      .eq("client_email", email)   // ← ownership check
       .maybeSingle();
 
     if (orderErr) {
       console.error("[client-orders] Order detail query error:", orderErr.message);
       return null;
     }
-    if (!orderRow) return null; // not found or wrong owner
+    if (!orderRow) return null; // not found
+
+    const ownedCheck = orderRow as unknown as {
+      user_id: string | null;
+      client_email: string | null;
+    };
+    if (!isOrderOwned(ownedCheck, ownership)) return null; // wrong owner
 
     // ── Order items — safe fields only ─────────────────────────
     // original_photo_path and reference_image_path are intentionally
@@ -482,15 +545,25 @@ export async function getOrderByIdForClient(
       details:       sanitizeDetails(item.details ?? {}),
     }));
 
-    const order = orderRow as unknown as ClientOrder & { client_company: string | null };
+    const order = orderRow as unknown as ClientOrder & {
+      client_company: string | null;
+    };
 
     return {
-      ...order,
+      id: order.id,
+      order_number: order.order_number,
+      service_type: order.service_type,
+      status: order.status,
+      item_count: order.item_count,
+      estimated_total_cents: order.estimated_total_cents,
+      currency: order.currency,
+      created_at: order.created_at,
+      updated_at: order.updated_at,
       client_company: order.client_company ?? null,
       items: safeItems,
     };
   } catch (err) {
-    console.error("[client-orders] Unexpected error in getOrderByIdForClient:", err);
+    console.error("[client-orders] Unexpected error in getOrderForClient:", err);
     return null;
   }
 }
