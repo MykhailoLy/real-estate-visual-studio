@@ -1,6 +1,6 @@
 import {
   getPortfolioPublicUrl,
-  getPublishedItemsForService,
+  getServicePageItemsForService,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
@@ -46,7 +46,7 @@ export default async function PortfolioExamples({
   description = "Recent work uploaded by the PicchuSpot team. New examples are added regularly.",
   background = "white",
 }: PortfolioExamplesProps) {
-  const items = await getPublishedItemsForService(serviceSlug);
+  const items = await getServicePageItemsForService(serviceSlug);
 
   // No portfolio items uploaded yet → render nothing. The page's
   // existing hero/preview already supplies a placeholder visual,

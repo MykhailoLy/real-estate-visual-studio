@@ -14,7 +14,7 @@ import ServicePageSlider, {
 } from "@/components/pricing/ServicePageSlider";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
-import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
+import { getPortfolioPublicUrl, getServicePageItemsForService } from "@/lib/portfolio";
 import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
@@ -41,10 +41,10 @@ import { absoluteUrl } from "@/lib/seo";
 //   I  Final CTA                 navy  (ServiceCTA)
 //
 // Data loading:
-//   - getPublishedItemsForService returns [] when Supabase is
+//   - getServicePageItemsForService returns [] when Supabase is
 //     unconfigured → page still builds/renders statically.
-//   - Portfolio examples fill both the slider (up to 5 slides)
-//     and the examples grid (all items).
+//   - Service-page examples (published AND show_on_service_page)
+//     fill both the slider (up to 5 slides) and the examples grid.
 //   - service-options media fills style-card covers and galleries by title.
 // ============================================================
 
@@ -186,7 +186,7 @@ const FAQ_ITEMS: FaqItem[] = [
 // ── Data helpers ─────────────────────────────────────────────
 
 async function buildSliderSlides(
-  items: Awaited<ReturnType<typeof getPublishedItemsForService>>
+  items: Awaited<ReturnType<typeof getServicePageItemsForService>>
 ): Promise<ServicePageSlide[]> {
   const usable = items
     .filter((it) => it.before_image_path && it.after_image_path)
@@ -211,7 +211,7 @@ async function buildSliderSlides(
 
 export default async function VirtualStagingPage() {
   const [allItems, optionImages] = await Promise.all([
-    getPublishedItemsForService("virtual-staging"),
+    getServicePageItemsForService("virtual-staging"),
     getServiceOptionsImages("virtual-staging"),
   ]);
   const sliderSlides = await buildSliderSlides(allItems);

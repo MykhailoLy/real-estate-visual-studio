@@ -17,7 +17,7 @@ import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
-import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
+import { getPortfolioPublicUrl, getServicePageItemsForService } from "@/lib/portfolio";
 import {
   getServiceHeroSliderItems,
   getServiceOptionsImages,
@@ -306,7 +306,7 @@ async function buildSliderSlides(): Promise<ServicePageSlide[]> {
 
 export default async function FloorPlansPage() {
   const [allItems, optionImages, sliderSlides] = await Promise.all([
-    getPublishedItemsForService("floor-plans"),   // → section D (examples)
+    getServicePageItemsForService("floor-plans"), // → section D (examples)
     getServiceOptionsImages("floor-plans"),        // → section F (style options)
     buildSliderSlides(),                           // → section A (hero slider)
   ]);

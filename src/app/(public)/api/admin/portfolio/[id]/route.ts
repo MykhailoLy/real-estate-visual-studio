@@ -56,6 +56,8 @@ const PatchBody = z.object({
   gallery_filter: z.union([z.string().trim().max(64), z.null()]).optional(),
   sort_order: z.number().int().min(-9999).max(9999).optional(),
   featured_home: z.boolean().optional(),
+  show_in_gallery: z.boolean().optional(),
+  show_on_service_page: z.boolean().optional(),
   published: z.boolean().optional(),
 });
 
@@ -198,6 +200,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
   if (body.sort_order !== undefined) update.sort_order = body.sort_order;
   if (body.featured_home !== undefined) update.featured_home = body.featured_home;
+  if (body.show_in_gallery !== undefined)
+    update.show_in_gallery = body.show_in_gallery;
+  if (body.show_on_service_page !== undefined)
+    update.show_on_service_page = body.show_on_service_page;
   if (body.published !== undefined) update.published = body.published;
 
   let supabase;

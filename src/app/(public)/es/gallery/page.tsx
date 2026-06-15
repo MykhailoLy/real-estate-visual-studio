@@ -5,7 +5,7 @@ import Container from "@/components/layout/Container";
 import GalleryCategoryCard from "@/components/gallery/GalleryCategoryCard";
 import {
   PORTFOLIO_SERVICES,
-  getFeaturedHomeItems,
+  getGalleryCoverItems,
   getPortfolioPublicUrl,
 } from "@/lib/portfolio";
 import {
@@ -18,8 +18,8 @@ import { spanishMetadata } from "../seo";
 // /es/gallery  —  Gallery landing page (ES)
 //
 // Same structure as /gallery. Spanish copy throughout.
-// Uses featured_home items (or first published) per service
-// to populate category cards — same Supabase data, same rules.
+// Uses gallery-enabled items (published AND show_in_gallery)
+// per service to populate category cards.
 // ============================================================
 
 export const metadata: Metadata = spanishMetadata({
@@ -31,7 +31,7 @@ export const metadata: Metadata = spanishMetadata({
 });
 
 export default async function SpanishGalleryPage() {
-  const featuredItems = await getFeaturedHomeItems();
+  const featuredItems = await getGalleryCoverItems();
 
   const visibleServices = PORTFOLIO_SERVICES.filter((svc) =>
     featuredItems.has(svc.slug)

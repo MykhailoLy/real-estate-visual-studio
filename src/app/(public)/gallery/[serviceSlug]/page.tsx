@@ -9,7 +9,7 @@ import FilteredGalleryResults, {
 } from "@/components/gallery/FilteredGalleryResults";
 import {
   PORTFOLIO_SERVICE_SLUGS,
-  getPublishedItemsForService,
+  getGalleryItemsForService,
   getPortfolioPublicUrl,
   getPortfolioService,
   isPortfolioServiceSlug,
@@ -77,7 +77,7 @@ export default async function GalleryServicePage({
   if (!isPortfolioServiceSlug(serviceSlug)) notFound();
 
   const service = getPortfolioService(serviceSlug);
-  const items = await getPublishedItemsForService(serviceSlug);
+  const items = await getGalleryItemsForService(serviceSlug);
 
   // BreadcrumbList JSON-LD (kept for SEO; visible nav is the
   // prominent "Back to Gallery" control below).

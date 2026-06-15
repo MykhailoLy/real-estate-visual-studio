@@ -58,6 +58,8 @@ const Body = z.object({
     .optional(),
   sort_order: z.number().int().min(-9999).max(9999).optional(),
   featured_home: z.boolean().optional(),
+  show_in_gallery: z.boolean().optional(),
+  show_on_service_page: z.boolean().optional(),
   published: z.boolean().optional(),
 });
 
@@ -144,6 +146,10 @@ export async function POST(request: Request) {
     sort_order: data.sort_order ?? 0,
     published: data.published ?? false,
     featured_home: data.featured_home ?? false,
+    // Display locations are independent of featured_home. Defaults
+    // match the DB column defaults: gallery ON, service page OFF.
+    show_in_gallery: data.show_in_gallery ?? true,
+    show_on_service_page: data.show_on_service_page ?? false,
   };
 
   const { data: row, error } = await supabase

@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS portfolio_items (
   gallery_filter TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   featured_home BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Independent public display-location flags. show_in_gallery
+  -- controls the public Gallery; show_on_service_page controls the
+  -- pricing/service page examples. New items default to gallery-only
+  -- (see supabase/portfolio-display-locations.sql for the migration
+  -- that backfills pre-existing rows to TRUE/TRUE).
+  show_in_gallery BOOLEAN NOT NULL DEFAULT TRUE,
+  show_on_service_page BOOLEAN NOT NULL DEFAULT FALSE,
   published BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -87,6 +94,11 @@ CREATE INDEX IF NOT EXISTS idx_portfolio_items_sort_order
   ON portfolio_items(service_slug, sort_order);
 CREATE INDEX IF NOT EXISTS idx_portfolio_items_gallery_filter
   ON portfolio_items(service_slug, gallery_filter);
+-- Composite indexes for the public display-location read patterns.
+CREATE INDEX IF NOT EXISTS idx_portfolio_items_gallery_read
+  ON portfolio_items(service_slug, published, show_in_gallery, sort_order);
+CREATE INDEX IF NOT EXISTS idx_portfolio_items_service_page_read
+  ON portfolio_items(service_slug, published, show_on_service_page, sort_order);
 
 -- -----------------------------------------------------------
 -- ROW-LEVEL SECURITY

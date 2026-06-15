@@ -23,7 +23,7 @@ import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBloc
 import Wide from "@/components/pricing/Wide";
 import {
   getPortfolioPublicUrl,
-  getPublishedItemsForService,
+  getServicePageItemsForService,
 } from "@/lib/portfolio";
 import {
   getServiceOptionsImages,
@@ -206,7 +206,7 @@ const STYLE_COPY: StyleGalleryCopy = {
 };
 
 async function buildSliderSlides(
-  items: Awaited<ReturnType<typeof getPublishedItemsForService>>,
+  items: Awaited<ReturnType<typeof getServicePageItemsForService>>,
 ): Promise<ServicePageSlide[]> {
   const usable = items
     .filter((it) => it.before_image_path && it.after_image_path)
@@ -229,7 +229,7 @@ async function buildSliderSlides(
 
 export default async function SpanishVirtualStagingPage() {
   const [allItems, optionImages] = await Promise.all([
-    getPublishedItemsForService("virtual-staging"),
+    getServicePageItemsForService("virtual-staging"),
     getServiceOptionsImages("virtual-staging"),
   ]);
   const sliderSlides = await buildSliderSlides(allItems);

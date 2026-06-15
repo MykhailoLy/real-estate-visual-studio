@@ -61,6 +61,8 @@ export interface AdminItemView {
   gallery_filter: string | null;
   sort_order: number;
   featured_home: boolean;
+  show_in_gallery: boolean;
+  show_on_service_page: boolean;
   published: boolean;
   created_at: string;
   updated_at: string;
@@ -302,12 +304,25 @@ function ItemRow({ item, busy, onEdit, onDelete }: ItemRowProps) {
           <Badge tone={item.published ? "good" : "neutral"}>
             {item.published ? "Published" : "Draft"}
           </Badge>
+          {item.show_in_gallery && <Badge tone="gallery">Gallery</Badge>}
+          {item.show_on_service_page && (
+            <Badge tone="service">Service</Badge>
+          )}
           {item.featured_home && (
             <Badge tone="accent">
               <Star className="w-3 h-3" aria-hidden />
               Home
             </Badge>
           )}
+          {item.published &&
+            !item.show_in_gallery &&
+            !item.show_on_service_page &&
+            !item.featured_home && (
+              <Badge tone="warn">
+                <AlertTriangle className="w-3 h-3" aria-hidden />
+                No public location
+              </Badge>
+            )}
         </div>
         <div className="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1">
           <span className="font-medium text-foreground">
@@ -383,13 +398,19 @@ function Badge({
   tone,
 }: {
   children: React.ReactNode;
-  tone: "good" | "accent" | "neutral";
+  tone: "good" | "accent" | "neutral" | "gallery" | "service" | "warn";
 }) {
   const styles =
     tone === "good"
       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
       : tone === "accent"
       ? "bg-secondary/15 text-secondary-dark border border-secondary/40"
+      : tone === "gallery"
+      ? "bg-blue-50 text-blue-700 border border-blue-200"
+      : tone === "service"
+      ? "bg-violet-50 text-violet-700 border border-violet-200"
+      : tone === "warn"
+      ? "bg-amber-50 text-amber-800 border border-amber-300"
       : "bg-stone-100 text-muted border border-border";
   return (
     <span
@@ -451,6 +472,8 @@ interface EditorValues {
   gallery_filter: string;
   sort_order: number;
   featured_home: boolean;
+  show_in_gallery: boolean;
+  show_on_service_page: boolean;
   published: boolean;
 }
 
@@ -631,6 +654,15 @@ function PortfolioEditor({
     const featured_home =
       (form.elements.namedItem("featured_home") as HTMLInputElement | null)
         ?.checked ?? false;
+    const show_in_gallery =
+      (form.elements.namedItem("show_in_gallery") as HTMLInputElement | null)
+        ?.checked ?? false;
+    const show_on_service_page =
+      (
+        form.elements.namedItem(
+          "show_on_service_page"
+        ) as HTMLInputElement | null
+      )?.checked ?? false;
     const published =
       (form.elements.namedItem("published") as HTMLInputElement | null)
         ?.checked ?? false;
@@ -643,6 +675,8 @@ function PortfolioEditor({
       gallery_filter,
       sort_order: Number.isFinite(sortNum) ? sortNum : 0,
       featured_home,
+      show_in_gallery,
+      show_on_service_page,
       published,
     };
   }
@@ -782,6 +816,8 @@ function PortfolioEditor({
         gallery_filter: values.gallery_filter || null,
         sort_order: values.sort_order,
         featured_home: values.featured_home,
+        show_in_gallery: values.show_in_gallery,
+        show_on_service_page: values.show_on_service_page,
         published: values.published,
       };
 
@@ -920,7 +956,7 @@ function PortfolioEditor({
             />
           </Field>
 
-          <Field label="Visibility">
+          <Field label="Publication">
             <div className="flex flex-wrap gap-4 pt-1">
               <Toggle
                 id="published"
@@ -928,15 +964,46 @@ function PortfolioEditor({
                 label="Published"
                 defaultChecked={initial?.published ?? true}
               />
-              <Toggle
-                id="featured_home"
-                name="featured_home"
-                label="Featured on homepage"
-                defaultChecked={initial?.featured_home ?? false}
-              />
             </div>
+            <p className="mt-1.5 text-[11px] text-muted-light leading-relaxed">
+              Master switch. An unpublished item never appears on any
+              public page, regardless of the display locations below.
+            </p>
           </Field>
         </div>
+
+        {/* Display locations — independent public destinations.
+            Published is the master switch above; these decide WHERE
+            a published item appears. */}
+        <fieldset className="rounded-lg border border-border bg-surface/50 p-4">
+          <legend className="px-1.5 text-xs font-semibold tracking-[0.15em] uppercase text-muted">
+            Display locations
+          </legend>
+          <div className="flex flex-wrap gap-x-6 gap-y-3 pt-1">
+            <Toggle
+              id="show_in_gallery"
+              name="show_in_gallery"
+              label="Show in Gallery"
+              defaultChecked={initial?.show_in_gallery ?? true}
+            />
+            <Toggle
+              id="show_on_service_page"
+              name="show_on_service_page"
+              label="Show on Service Page"
+              defaultChecked={initial?.show_on_service_page ?? false}
+            />
+            <Toggle
+              id="featured_home"
+              name="featured_home"
+              label="Feature on Homepage"
+              defaultChecked={initial?.featured_home ?? false}
+            />
+          </div>
+          <p className="mt-2.5 text-[11px] text-muted-light leading-relaxed">
+            New items default to <strong>Gallery only</strong>. Homepage
+            feature is independent of the Gallery and Service Page settings.
+          </p>
+        </fieldset>
 
         <Field label="Description" htmlFor="description">
           <textarea
