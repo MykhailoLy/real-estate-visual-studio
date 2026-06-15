@@ -17,6 +17,8 @@
 
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { getOwnedOrderIds } from "@/lib/client-orders";
+import { isOrderOwned, type OrderOwnership } from "@/lib/order-ownership";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -83,13 +85,14 @@ function stripJoin(row: RawRow): DeliverableReview {
 // ── Public API ────────────────────────────────────────────────
 
 /**
- * All reviews for deliverables owned by `email`. Newest-first.
- * Ownership: JOIN orders WHERE client_email = email.
+ * All reviews for deliverables owned by the authenticated account.
+ * Newest-first. Ownership resolved via getOwnedOrderIds() and scoped
+ * with `order_id IN (ownedIds)`.
  */
-export async function getReviewsByClientEmail(
-  email: string,
+export async function getReviewsForClient(
+  ownership: OrderOwnership,
 ): Promise<DeliverableReview[]> {
-  if (!email) return [];
+  if (!ownership?.userId || !ownership?.email) return [];
   let supabase;
   try {
     supabase = makeClient();
@@ -99,14 +102,17 @@ export async function getReviewsByClientEmail(
   }
 
   try {
+    const ownedOrderIds = await getOwnedOrderIds(ownership);
+    if (ownedOrderIds.length === 0) return [];
+
     const { data, error } = await supabase
       .from("deliverable_reviews")
       .select(
         "id, deliverable_id, order_id, order_number, item_index, " +
           "client_email, status, comment, created_at, updated_at, " +
-          "replacement_deliverable_id, orders!inner(client_email)",
+          "replacement_deliverable_id",
       )
-      .eq("orders.client_email", email)
+      .in("order_id", ownedOrderIds)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -125,9 +131,9 @@ export async function getReviewsByClientEmail(
  */
 export async function getLatestReviewForDeliverable(
   deliverableId: string,
-  email: string,
+  ownership: OrderOwnership,
 ): Promise<DeliverableReview | null> {
-  if (!deliverableId || !email) return null;
+  if (!deliverableId || !ownership?.userId || !ownership?.email) return null;
   let supabase;
   try {
     supabase = makeClient();
@@ -142,16 +148,20 @@ export async function getLatestReviewForDeliverable(
       .select(
         "id, deliverable_id, order_id, order_number, item_index, " +
           "client_email, status, comment, created_at, updated_at, " +
-          "replacement_deliverable_id, orders!inner(client_email)",
+          "replacement_deliverable_id, orders!inner(user_id, client_email)",
       )
       .eq("deliverable_id", deliverableId)
-      .eq("orders.client_email", email)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error || !data) return null;
-    return stripJoin(data as unknown as RawRow);
+
+    const row = data as unknown as RawRow & {
+      orders: { user_id: string | null; client_email: string | null };
+    };
+    if (!isOrderOwned(row.orders, ownership)) return null;
+    return stripJoin(row);
   } catch (err) {
     console.error("[client-reviews] Unexpected:", err);
     return null;
@@ -165,11 +175,11 @@ type SubmitFail = { ok: false; error: string; status: number };
 
 export async function submitDeliverableReview(
   deliverableId: string,
-  email: string,
+  ownership: OrderOwnership,
   action: "approve" | "rework_requested",
   comment?: string,
 ): Promise<SubmitOk | SubmitFail> {
-  if (!deliverableId || !email) {
+  if (!deliverableId || !ownership?.userId || !ownership?.email) {
     return { ok: false, error: "Missing required parameters.", status: 400 };
   }
 
@@ -202,20 +212,31 @@ export async function submitDeliverableReview(
     const { data: delivData, error: delivErr } = await supabase
       .from("order_deliverables")
       .select(
-        "id, order_id, order_number, item_index, orders!inner(client_email)",
+        "id, order_id, order_number, item_index, orders!inner(user_id, client_email)",
       )
       .eq("id", deliverableId)
-      .eq("orders.client_email", email)
       .maybeSingle();
 
     if (delivErr || !delivData)
       return { ok: false, error: "Deliverable not found.", status: 404 };
 
-    const delivRow = delivData as unknown as {
+    const delivJoinRow = delivData as unknown as {
       id: string;
       order_id: string;
       order_number: string;
       item_index: number | null;
+      orders: { user_id: string | null; client_email: string | null };
+    };
+
+    // Ownership check — wrong owner is indistinguishable from not found.
+    if (!isOrderOwned(delivJoinRow.orders, ownership))
+      return { ok: false, error: "Deliverable not found.", status: 404 };
+
+    const delivRow = {
+      id: delivJoinRow.id,
+      order_id: delivJoinRow.order_id,
+      order_number: delivJoinRow.order_number,
+      item_index: delivJoinRow.item_index,
     };
 
     // 2. Load latest review
@@ -272,7 +293,7 @@ export async function submitDeliverableReview(
         order_id: delivRow.order_id,
         order_number: delivRow.order_number,
         item_index: delivRow.item_index,
-        client_email: email,
+        client_email: ownership.email,
         status: newStatus,
         comment: action === "rework_requested" ? (comment ?? "").trim() : null,
       })

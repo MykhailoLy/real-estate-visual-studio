@@ -13,9 +13,10 @@ import Link from "next/link";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import { getClientUser } from "@/lib/client-auth";
 import {
-  getOrdersByClientEmail,
+  getOrdersForClient,
   type ClientOrder,
 } from "@/lib/client-orders";
+import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatDate } from "@/lib/display/file-format";
 import {
   getBillingStatusLabel,
@@ -178,7 +179,7 @@ export default async function DashboardInvoicesPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  const orders = user?.email ? await getOrdersByClientEmail(user.email) : [];
+  const orders = user ? await getOrdersForClient(toOrderOwnership(user)) : [];
   const totalOrders = orders.length;
   const estimatedTotalCents = orders.reduce(
     (sum, order) => sum + order.estimated_total_cents,

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getClientUser } from "@/lib/client-auth";
 import { getReworkReferenceFilesForReview } from "@/lib/rework-reference-files";
+import { toOrderOwnership } from "@/lib/order-ownership";
 
 // ============================================================
 // GET /api/client/reviews/[reviewId]/reference-files
@@ -44,7 +45,7 @@ export async function GET(
   }
 
   // ── Delegate to helper ──────────────────────────────────────
-  const result = await getReworkReferenceFilesForReview(reviewId, user.email);
+  const result = await getReworkReferenceFilesForReview(reviewId, toOrderOwnership(user));
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

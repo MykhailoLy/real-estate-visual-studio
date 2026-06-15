@@ -22,6 +22,7 @@
 
 import "server-only";
 import { createServerClient } from "@/lib/supabase";
+import { isOrderOwned, type OrderOwnership } from "@/lib/order-ownership";
 import {
   ORDER_FILES_BUCKET,
   buildReworkReferencePath,
@@ -99,12 +100,13 @@ function toPublicFile(row: ReviewFileRow): ReworkReferenceFile {
 }
 
 /**
- * Load a review row, verifying it belongs to `email`.
- * Returns null if not found or ownership fails.
+ * Load a review row, verifying it belongs to the authenticated account.
+ * Returns null if not found or ownership fails (user_id, or legacy
+ * NULL+email via isOrderOwned()).
  */
 async function getOwnedReview(
   reviewId: string,
-  email: string,
+  ownership: OrderOwnership,
 ): Promise<ReviewOwnershipRow | null> {
   let supabase;
   try {
@@ -117,17 +119,17 @@ async function getOwnedReview(
     .from("deliverable_reviews")
     .select(
       "id, status, deliverable_id, order_id, item_index, " +
-        "orders!inner(client_email)",
+        "orders!inner(user_id, client_email)",
     )
     .eq("id", reviewId)
-    .eq("orders.client_email", email)
     .maybeSingle();
 
   if (error || !data) return null;
 
   const row = data as unknown as ReviewOwnershipRow & {
-    orders?: unknown;
+    orders?: { user_id: string | null; client_email: string | null };
   };
+  if (!row.orders || !isOrderOwned(row.orders, ownership)) return null;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { orders: _o, ...clean } = row;
   return clean as ReviewOwnershipRow;
@@ -173,7 +175,7 @@ async function storageObjectExists(storagePath: string): Promise<boolean> {
  */
 export async function createReworkReferenceUploadSlot(
   reviewId: string,
-  email: string,
+  ownership: OrderOwnership,
   meta: { filename: string; contentType: string; fileSize: number },
 ): Promise<SlotOk | SlotFail> {
   const { filename, contentType, fileSize } = meta;
@@ -209,7 +211,7 @@ export async function createReworkReferenceUploadSlot(
   try {
     // ── Ownership + status check ──────────────────────────
 
-    const review = await getOwnedReview(reviewId, email);
+    const review = await getOwnedReview(reviewId, ownership);
     if (!review) {
       return { ok: false, error: "Review not found.", status: 404 };
     }
@@ -324,7 +326,7 @@ export async function createReworkReferenceUploadSlot(
 export async function markReworkReferenceUploaded(
   reviewId: string,
   fileId: string,
-  email: string,
+  ownership: OrderOwnership,
 ): Promise<CompleteOk | CompleteFail> {
   let supabase;
   try {
@@ -337,7 +339,7 @@ export async function markReworkReferenceUploaded(
   try {
     // ── Verify review ownership ───────────────────────────
 
-    const review = await getOwnedReview(reviewId, email);
+    const review = await getOwnedReview(reviewId, ownership);
     if (!review) {
       return { ok: false, error: "Review not found.", status: 404 };
     }
@@ -389,7 +391,7 @@ export async function markReworkReferenceUploaded(
  */
 export async function getReworkReferenceFilesForReview(
   reviewId: string,
-  email: string,
+  ownership: OrderOwnership,
 ): Promise<ListOk | ListFail> {
   let supabase;
   try {
@@ -402,7 +404,7 @@ export async function getReworkReferenceFilesForReview(
   try {
     // ── Verify review ownership ───────────────────────────
 
-    const review = await getOwnedReview(reviewId, email);
+    const review = await getOwnedReview(reviewId, ownership);
     if (!review) {
       return { ok: false, error: "Review not found.", status: 404 };
     }

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getClientUser } from "@/lib/client-auth";
 import { submitDeliverableReview, REVIEW_COMMENT_MIN, REVIEW_COMMENT_MAX } from "@/lib/client-reviews";
+import { toOrderOwnership } from "@/lib/order-ownership";
 import { sendReviewWorkflowEmail } from "@/lib/email/review-workflow-notifications";
 
 // ============================================================
@@ -50,7 +51,7 @@ export async function POST(
   const body = parsed.data;
   const result = await submitDeliverableReview(
     deliverableId,
-    user.email,
+    toOrderOwnership(user),
     body.action,
     body.action === "rework_requested" ? body.comment : undefined
   );

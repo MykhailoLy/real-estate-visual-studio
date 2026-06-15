@@ -11,10 +11,11 @@
 
 import { getClientUser } from "@/lib/client-auth";
 import {
-  getOrdersByClientEmail,
+  getOrdersForClient,
   mapOrdersToDashboardJobs,
 } from "@/lib/client-orders";
-import { getReviewsByClientEmail } from "@/lib/client-reviews";
+import { getReviewsForClient } from "@/lib/client-reviews";
+import { toOrderOwnership } from "@/lib/order-ownership";
 import ClientJobsShell from "@/components/dashboard/ClientJobsShell";
 
 export const metadata = {
@@ -22,16 +23,16 @@ export const metadata = {
 };
 
 export default async function DashboardJobsPage() {
-  // Validate session server-side — email never comes from the client
+  // Validate session server-side — identity never comes from the client
   const user = await getClientUser();
 
-  // Fetch real orders. Email comes exclusively from the verified session.
-  // Returns [] when SUPABASE_SERVICE_ROLE_KEY is absent or on any error,
-  // so the page degrades gracefully to the empty state.
-  const [rawOrders, reviews] = user?.email
+  // Fetch real orders. Ownership comes exclusively from the verified
+  // session. Returns [] when SUPABASE_SERVICE_ROLE_KEY is absent or on
+  // any error, so the page degrades gracefully to the empty state.
+  const [rawOrders, reviews] = user
     ? await Promise.all([
-        getOrdersByClientEmail(user.email),
-        getReviewsByClientEmail(user.email),
+        getOrdersForClient(toOrderOwnership(user)),
+        getReviewsForClient(toOrderOwnership(user)),
       ])
     : [[], []];
 

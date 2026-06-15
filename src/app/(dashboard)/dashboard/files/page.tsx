@@ -19,6 +19,7 @@ import {
   type ClientDeliveredFileHubItem,
   type ClientUploadedFileHubItem,
 } from "@/lib/client-files";
+import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatBytes, formatDate, itemLabel } from "@/lib/display/file-format";
 import { getOrderStatusLabel } from "@/lib/display/status-labels";
 import { cn } from "@/lib/utils";
@@ -181,8 +182,8 @@ export default async function DashboardFilesPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  const data = user?.email
-    ? await getClientFilesHubData(user.email)
+  const data = user
+    ? await getClientFilesHubData(toOrderOwnership(user))
     : { orders: [], deliveredFiles: [], uploadedFiles: [] };
 
   const { orders, deliveredFiles, uploadedFiles } = data;

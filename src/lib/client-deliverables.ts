@@ -4,13 +4,14 @@
 // Reads order_deliverables rows and generates short-lived
 // signed download URLs for the `deliverables` Storage bucket.
 //
-// ⚠️  SECURITY CONTRACT (same as client-orders.ts)
+// ⚠️  SECURITY CONTRACT (see src/lib/order-ownership.ts)
 // ─────────────────────────────────────────────────────────
-// • `email` MUST come from getClientUser() on the server.
-//   NEVER accept email from URL params, query string, cookies,
+// • `ownership` MUST come from getClientUser() on the server.
+//   NEVER accept identity from URL params, query string, cookies,
 //   localStorage, or request body.
-// • Ownership is checked by joining order_deliverables → orders
-//   and filtering WHERE orders.client_email = verified email.
+// • Ownership = orders.user_id === user id, OR (user_id IS NULL AND
+//   client_email matches the verified session email). Enforced via
+//   getOwnedOrderIds() for lists and isOrderOwned() for single rows.
 // • storage_path is NEVER forwarded to the client.
 // • Signed URLs are generated server-side with a 300-second TTL.
 //
@@ -23,6 +24,8 @@ import {
   DELIVERABLES_BUCKET,
   SIGNED_URL_TTL_SECONDS,
 } from "@/lib/deliverables-config";
+import { getOwnedOrderIds } from "@/lib/client-orders";
+import { isOrderOwned, type OrderOwnership } from "@/lib/order-ownership";
 
 // Re-export so callers that already import from this module keep working.
 export {
@@ -69,16 +72,17 @@ function makeClient() {
 // ── Public API ────────────────────────────────────────────────
 
 /**
- * Returns all deliverables for orders owned by `email`.
- * Ownership enforced by JOIN: orders.client_email = email.
+ * Returns all deliverables for orders owned by the authenticated account.
+ * Ownership is resolved via getOwnedOrderIds() (user_id OR legacy
+ * NULL+email) and the query is scoped with `order_id IN (ownedIds)`.
  *
  * Returns [] on missing env vars or any DB error.
  */
-export async function getDeliverablesByClientEmail(
-  email: string
+export async function getDeliverablesForClient(
+  ownership: OrderOwnership
 ): Promise<ClientDeliverable[]> {
-  if (!email) {
-    console.warn("[client-deliverables] Called with empty email.");
+  if (!ownership?.userId || !ownership?.email) {
+    console.warn("[client-deliverables] Called without a valid ownership.");
     return [];
   }
 
@@ -89,16 +93,20 @@ export async function getDeliverablesByClientEmail(
   }
 
   try {
-    // Join through orders to enforce email ownership server-side.
+    // Resolve the account's owned order IDs first, then scope the
+    // deliverables query to them. This applies the full ownership rule
+    // (user_id, or legacy NULL+email) without relying on join filters.
+    const ownedOrderIds = await getOwnedOrderIds(ownership);
+    if (ownedOrderIds.length === 0) return [];
+
     // SELECT only safe columns — storage_path excluded.
     const { data, error } = await supabase
       .from("order_deliverables")
       .select(
         "id, order_id, order_number, item_index, " +
-        "filename, file_size, mime_type, uploaded_at, " +
-        "orders!inner(client_email)"
+        "filename, file_size, mime_type, uploaded_at"
       )
-      .eq("orders.client_email", email)
+      .in("order_id", ownedOrderIds)
       .order("uploaded_at", { ascending: false });
 
     if (error) {
@@ -106,10 +114,7 @@ export async function getDeliverablesByClientEmail(
       return [];
     }
 
-    return ((data ?? []) as unknown as Array<ClientDeliverable & {
-      orders: { client_email: string }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    }>).map(({ orders: _orders, ...row }) => row);
+    return (data ?? []) as unknown as ClientDeliverable[];
   } catch (err) {
     console.error("[client-deliverables] Unexpected error:", err);
     return [];
@@ -142,10 +147,10 @@ interface DeliverableSignedUrlOptions {
  */
 export async function getDeliverableDownloadUrl(
   deliverableId: string,
-  email: string,
+  ownership: OrderOwnership,
   options: DeliverableSignedUrlOptions = { download: true }
 ): Promise<DeliverableDownloadResult | null> {
-  if (!deliverableId || !email) return null;
+  if (!deliverableId || !ownership?.userId || !ownership?.email) return null;
 
   let supabase;
   try { supabase = makeClient(); } catch (e) {
@@ -154,19 +159,28 @@ export async function getDeliverableDownloadUrl(
   }
 
   try {
-    // Ownership-guarded query: deliverable + order email in one shot.
-    // Also fetch filename so we can pass it to createSignedUrl.
+    // Fetch the deliverable joined to its order, then enforce ownership
+    // in JS via isOrderOwned() (user_id, or legacy NULL+email).
     const { data, error } = await supabase
       .from("order_deliverables")
-      .select("storage_path, filename, orders!inner(client_email)")
+      .select(
+        "storage_path, filename, orders!inner(user_id, client_email)"
+      )
       .eq("id", deliverableId)
-      .eq("orders.client_email", email)      // ← ownership check
       .maybeSingle();
 
     if (error || !data) return null;
 
-    const { storage_path: storagePath, filename } =
-      data as unknown as { storage_path: string; filename: string };
+    const row = data as unknown as {
+      storage_path: string;
+      filename: string;
+      orders: { user_id: string | null; client_email: string | null };
+    };
+
+    // Ownership check — wrong owner is indistinguishable from not found.
+    if (!isOrderOwned(row.orders, ownership)) return null;
+
+    const { storage_path: storagePath, filename } = row;
 
     // Generate signed URL with forced download filename so Storage sets
     // Content-Disposition: attachment — never stored, never logged, 300s TTL.

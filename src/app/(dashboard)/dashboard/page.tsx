@@ -31,10 +31,11 @@ import type { DashboardJob } from "@/lib/client-dashboard/mock-data";
 import { getClientUser } from "@/lib/client-auth";
 import { getClientProfile } from "@/lib/client-profile";
 import {
-  getOrdersByClientEmail,
+  getOrdersForClient,
   mapOrdersToDashboardJobs,
 } from "@/lib/client-orders";
-import { getReviewsByClientEmail } from "@/lib/client-reviews";
+import { getReviewsForClient } from "@/lib/client-reviews";
+import { toOrderOwnership } from "@/lib/order-ownership";
 
 export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
@@ -106,8 +107,8 @@ export default async function DashboardPage() {
   // Fetch real orders. Returns [] on missing env vars or any error.
   const [rawOrders, reviews] = user?.email
     ? await Promise.all([
-        getOrdersByClientEmail(user.email),
-        getReviewsByClientEmail(user.email),
+        getOrdersForClient(toOrderOwnership(user)),
+        getReviewsForClient(toOrderOwnership(user)),
       ])
     : [[], []];
 

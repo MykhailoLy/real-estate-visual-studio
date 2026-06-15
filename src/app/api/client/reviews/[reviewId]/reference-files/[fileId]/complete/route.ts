@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getClientUser } from "@/lib/client-auth";
 import { markReworkReferenceUploaded } from "@/lib/rework-reference-files";
+import { toOrderOwnership } from "@/lib/order-ownership";
 
 // ============================================================
 // POST /api/client/reviews/[reviewId]/reference-files/[fileId]/complete
@@ -52,7 +53,7 @@ export async function POST(
   }
 
   // ── Delegate to helper ──────────────────────────────────────
-  const result = await markReworkReferenceUploaded(reviewId, fileId, user.email);
+  const result = await markReworkReferenceUploaded(reviewId, fileId, toOrderOwnership(user));
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

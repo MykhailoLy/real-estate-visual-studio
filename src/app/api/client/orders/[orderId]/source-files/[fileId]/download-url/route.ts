@@ -6,6 +6,7 @@ import {
   type ClientOrderItemSourceFileRow,
 } from "@/lib/client-source-files";
 import { createServerClient } from "@/lib/supabase";
+import { isOrderOwned, toOrderOwnership } from "@/lib/order-ownership";
 import { ORDER_FILES_BUCKET } from "@/lib/upload-config";
 
 export const runtime = "nodejs";
@@ -43,16 +44,21 @@ export async function POST(
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id")
+    .select("id, user_id, client_email")
     .eq("id", orderId)
-    .eq("client_email", user.email)
     .maybeSingle();
 
   if (orderErr) {
     console.error("[client/source-files/download-url] Order lookup:", orderErr.message);
     return NextResponse.json({ error: "Could not verify order." }, { status: 500 });
   }
-  if (!order) {
+  if (
+    !order ||
+    !isOrderOwned(
+      order as { user_id: string | null; client_email: string | null },
+      toOrderOwnership(user)
+    )
+  ) {
     return NextResponse.json({ error: "Source file not found." }, { status: 404 });
   }
 
