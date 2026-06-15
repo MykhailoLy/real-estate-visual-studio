@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,11 @@ export async function GET(req: NextRequest) {
   const type  = searchParams.get("type");   // "recovery" | "signup" | null
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
+
+  // Intended post-auth destination (e.g. a selected order route),
+  // sanitized to an internal path. Defaults to /dashboard.
+  const nextPath = safeInternalPath(searchParams.get("next"));
+  const hasNext = nextPath !== "/dashboard";
 
   // ── Error forwarded by Supabase ───────────────────────────
   if (error) {
@@ -88,8 +94,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Email confirmation (type=signup or default after signUp) →
-  // check if the user already has a profile row. If not, send them
-  // to the onboarding flow so they can fill in their details.
+  // check if the user already has a profile row. If not, send them to
+  // onboarding, preserving the intended destination so they return to
+  // the selected order form after completing their profile.
   if (type === "signup" || !type) {
     try {
       const { data: profile } = await supabase
@@ -98,16 +105,16 @@ export async function GET(req: NextRequest) {
         .maybeSingle();
 
       if (!profile) {
-        // No profile yet — new user, send to onboarding
-        return NextResponse.redirect(
-          new URL("/dashboard/profile?onboarding=1", origin)
-        );
+        const onboarding = new URL("/dashboard/profile", origin);
+        onboarding.searchParams.set("onboarding", "1");
+        if (hasNext) onboarding.searchParams.set("next", nextPath);
+        return NextResponse.redirect(onboarding);
       }
     } catch {
-      // DB unavailable (e.g. env missing in build) — fall through to /dashboard
+      // DB unavailable (e.g. env missing in build) — fall through.
     }
   }
 
-  // Profile exists or unrecognised flow → normal dashboard
-  return NextResponse.redirect(new URL("/dashboard", origin));
+  // Profile exists or unrecognised flow → intended destination (or dashboard).
+  return NextResponse.redirect(new URL(nextPath, origin));
 }

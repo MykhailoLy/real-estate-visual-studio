@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 export type LoginFormCopy = {
   emailLabel: string;
@@ -37,13 +38,14 @@ const DEFAULT_COPY: LoginFormCopy = {
 // ── helpers ──────────────────────────────────────────────────
 
 /**
- * Validates a redirectTo value so we never redirect to an external URL.
- * Must start with "/" but NOT "//" (protocol-relative open-redirect).
+ * Append a redirectTo query param to an internal href, preserving any
+ * existing query string. Used so navigating login → signup keeps the
+ * intended post-auth destination.
  */
-function safeRedirectTo(raw: string | null): string {
-  if (!raw) return "/dashboard";
-  if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
-  return "/dashboard";
+function withRedirect(href: string, redirectTo: string): string {
+  if (redirectTo === "/dashboard") return href;
+  const sep = href.includes("?") ? "&" : "?";
+  return `${href}${sep}redirectTo=${encodeURIComponent(redirectTo)}`;
 }
 
 // ── component ─────────────────────────────────────────────────
@@ -59,7 +61,8 @@ export default function LoginForm({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = safeRedirectTo(searchParams.get("redirectTo"));
+  const redirectTo = safeInternalPath(searchParams.get("redirectTo"));
+  const signupHrefWithRedirect = withRedirect(signupHref, redirectTo);
 
   // Show inline error forwarded from /auth/callback (e.g. expired link)
   const callbackError = searchParams.get("error");
@@ -183,7 +186,7 @@ export default function LoginForm({
 
       <p className="text-center text-sm text-muted">
         {copy.noAccount}{" "}
-        <Link href={signupHref} className="font-semibold text-primary hover:text-primary-light transition-colors">
+        <Link href={signupHrefWithRedirect} className="font-semibold text-primary hover:text-primary-light transition-colors">
           {copy.createAccount}
         </Link>
       </p>
