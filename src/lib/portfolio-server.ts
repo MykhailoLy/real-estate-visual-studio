@@ -76,7 +76,7 @@ export function isPortfolioImageKind(
  *   - cap the total length so we never produce a 1KB path
  *
  * Always returns at least "file" so the path stays well-formed
- * even if the input is empty.
+ * even if the input is empty..
  */
 export function safeFilename(input: string): string {
   const raw = (input ?? "").trim().toLowerCase();
