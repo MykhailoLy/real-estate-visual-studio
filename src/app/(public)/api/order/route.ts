@@ -28,6 +28,7 @@ import {
   type UploadKind,
 } from "@/lib/upload-config";
 import { sendOrderEmails } from "@/lib/email/send-order-emails";
+import { getClientUser } from "@/lib/client-auth";
 
 // File bytes no longer flow through this route — clients upload directly
 // to Supabase Storage via signed URLs from /api/upload-url. This route
@@ -153,6 +154,21 @@ export async function POST(request: Request) {
     // --- 6. Connect to Supabase ---
     const supabase = getSupabaseAdmin();
 
+    // --- 6b. OPTIONAL authenticated-account linking (PR 1) ---
+    // Backward-compatible: this route is still PUBLIC and does NOT
+    // require authentication (no 401 for guests — public forms remain
+    // fully usable until PR 2). If a verified Supabase session is
+    // present we link the order to that account via user_id.
+    //
+    // SECURITY: user_id is derived ONLY from getClientUser() (the
+    // server-validated SSR session). It is NEVER read from the request
+    // JSON, query string, hidden form fields, or any cookie other than
+    // the Supabase session cookies the SSR client validates. The
+    // body-supplied contact fields are still stored as snapshots in
+    // this PR (identity-from-profile happens in PR 2).
+    const sessionUser = await getClientUser();
+    const ownerUserId = sessionUser?.id ?? null;
+
     // --- 7. Generate order number ---
     const { data: orderNumber, error: rpcError } = await supabase.rpc(
       "generate_order_number",
@@ -209,6 +225,8 @@ export async function POST(request: Request) {
         order_number: orderNumber,
         service_type: serviceType,
         status: "pending",
+        // Verified-session account link (null for guests). Never from body.
+        user_id: ownerUserId,
         client_name: contact.name,
         client_email: contact.email,
         client_phone: contact.phone,
