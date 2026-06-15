@@ -8,6 +8,7 @@ import {
   isPortfolioServiceSlug,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
+import { getSpanishPath } from "@/lib/localized-routes";
 
 // ============================================================
 // PORTFOLIO — server-side helpers
@@ -249,10 +250,16 @@ function pricingHrefForSlug(slug: PortfolioServiceSlug): string {
 }
 
 /**
- * Always-safe revalidation after a portfolio mutation. Refreshes:
- *   - the homepage (which renders the featured-home items grid)
- *   - the pricing pages for the slugs that changed (one if a
- *     simple create/update, two if the slug was edited)
+ * Always-safe revalidation after a portfolio mutation. Refreshes
+ * EVERY public destination an item can appear on, so toggling any
+ * display-location flag (show_in_gallery / show_on_service_page /
+ * featured_home) takes effect without a redeploy:
+ *   - the homepages (EN `/` and ES `/es`) — featured_home grid
+ *   - the pricing/service pages for the changed slugs (EN + ES) —
+ *     show_on_service_page examples
+ *   - the gallery landing pages (EN + ES) — gallery covers
+ *   - the gallery detail pages for the changed slugs (EN + ES) —
+ *     show_in_gallery items
  *   - the admin portfolio list itself
  *
  * Wrapped in try/catch because revalidatePath is a no-op outside
@@ -263,11 +270,15 @@ export function revalidatePortfolioPaths(
   affectedSlugs: PortfolioServiceSlug[]
 ): void {
   const seen = new Set<string>();
-  const queue = ["/", "/admin/portfolio", "/gallery", "/es/gallery"];
+  const queue = ["/", "/es", "/admin/portfolio", "/gallery", "/es/gallery"];
   for (const slug of affectedSlugs) {
     if (!isPortfolioServiceSlug(slug)) continue;
-    queue.push(pricingHrefForSlug(slug));
-    // Also revalidate the gallery detail pages for this service.
+    // Pricing/service page — EN, plus the ES equivalent if mapped.
+    const enPricing = pricingHrefForSlug(slug);
+    queue.push(enPricing);
+    const esPricing = getSpanishPath(enPricing);
+    if (esPricing) queue.push(esPricing);
+    // Gallery detail pages for this service (EN + ES).
     queue.push(`/gallery/${slug}`);
     queue.push(`/es/gallery/${slug}`);
   }

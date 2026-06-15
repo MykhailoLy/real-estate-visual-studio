@@ -196,6 +196,16 @@ export interface PortfolioItem {
   gallery_filter: string | null;
   sort_order: number;
   featured_home: boolean;
+  /**
+   * Public display-location flags, controlled independently in the
+   * admin. They do NOT gate the homepage — that stays on
+   * featured_home. See supabase/portfolio-display-locations.sql.
+   *   - show_in_gallery: appears in the public Gallery
+   *   - show_on_service_page: appears in the pricing/service page
+   *     examples
+   */
+  show_in_gallery: boolean;
+  show_on_service_page: boolean;
   published: boolean;
   created_at: string;
   updated_at: string;
@@ -258,10 +268,61 @@ export async function getFeaturedHomeItems(): Promise<
 }
 
 /**
- * All published items for a single service slug, in the order the
- * admin set via sort_order (then created_at).
+ * Gallery landing-page covers: the single representative item to
+ * show on each service's category card on /gallery and /es/gallery.
+ *
+ * Only considers items eligible for the public Gallery
+ * (published = TRUE AND show_in_gallery = TRUE). A service with no
+ * gallery-eligible item simply has no entry, so its category card
+ * is hidden. Ordering mirrors getFeaturedHomeItems so the cover
+ * prefers a homepage-featured gallery item, then the admin's
+ * sort_order, then oldest-first.
  */
-export async function getPublishedItemsForService(
+export async function getGalleryCoverItems(): Promise<
+  Map<PortfolioServiceSlug, PortfolioItem>
+> {
+  const out = new Map<PortfolioServiceSlug, PortfolioItem>();
+  if (!isSupabaseConfigured()) return out;
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return out;
+  }
+
+  const { data, error } = await supabase
+    .from("portfolio_items")
+    .select("*")
+    .eq("published", true)
+    .eq("show_in_gallery", true)
+    .order("featured_home", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn("portfolio: getGalleryCoverItems query failed:", error);
+    return out;
+  }
+
+  for (const row of (data ?? []) as PortfolioItem[]) {
+    if (!isPortfolioServiceSlug(row.service_slug)) continue;
+    if (out.has(row.service_slug)) continue; // first match wins per slug
+    out.set(row.service_slug, row);
+  }
+  return out;
+}
+
+/**
+ * Public GALLERY reader. Published items for a service that are
+ * flagged show_in_gallery = TRUE. Used only by the public gallery
+ * detail pages (/gallery/[slug], /es/gallery/[slug]).
+ *
+ * Ordering preserves the prior shared reader's behaviour exactly
+ * (featured_home first, then sort_order, then created_at) so the
+ * gallery image order is unchanged for existing items.
+ */
+export async function getGalleryItemsForService(
   slug: PortfolioServiceSlug
 ): Promise<PortfolioItem[]> {
   if (!isSupabaseConfigured()) return [];
@@ -278,13 +339,58 @@ export async function getPublishedItemsForService(
     .select("*")
     .eq("service_slug", slug)
     .eq("published", true)
+    .eq("show_in_gallery", true)
     .order("featured_home", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) {
     console.warn(
-      `portfolio: getPublishedItemsForService(${slug}) query failed:`,
+      `portfolio: getGalleryItemsForService(${slug}) query failed:`,
+      error
+    );
+    return [];
+  }
+  return (data ?? []) as PortfolioItem[];
+}
+
+/**
+ * Public SERVICE-PAGE reader. Published items for a service that
+ * are flagged show_on_service_page = TRUE. Used only by the
+ * pricing/service pages' example sections.
+ *
+ * Ordering preserves the prior shared reader's behaviour exactly
+ * (featured_home first, then sort_order, then created_at) so the
+ * service-page image order is unchanged for existing items.
+ *
+ * NOTE: deliberately a SEPARATE query from getGalleryItemsForService
+ * — the two destinations are filtered independently.
+ */
+export async function getServicePageItemsForService(
+  slug: PortfolioServiceSlug
+): Promise<PortfolioItem[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("portfolio_items")
+    .select("*")
+    .eq("service_slug", slug)
+    .eq("published", true)
+    .eq("show_on_service_page", true)
+    .order("featured_home", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn(
+      `portfolio: getServicePageItemsForService(${slug}) query failed:`,
       error
     );
     return [];
