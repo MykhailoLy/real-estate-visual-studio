@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import SignUpForm from "./SignUpForm";
@@ -47,7 +48,10 @@ export default function SignUpPage() {
 
         {/* Card */}
         <div className="bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
-          <SignUpForm />
+          {/* useSearchParams (redirectTo) needs Suspense in the App Router */}
+          <Suspense fallback={<SignUpFormSkeleton />}>
+            <SignUpForm />
+          </Suspense>
         </div>
 
         {/* Footer note */}
@@ -63,6 +67,18 @@ export default function SignUpPage() {
           .
         </p>
       </div>
+    </div>
+  );
+}
+
+function SignUpFormSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-10 bg-surface rounded-lg" />
+      <div className="h-10 bg-surface rounded-lg" />
+      <div className="h-10 bg-surface rounded-lg" />
+      <div className="h-10 bg-surface rounded-lg" />
+      <div className="h-11 bg-primary/20 rounded-xl" />
     </div>
   );
 }

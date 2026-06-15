@@ -60,7 +60,7 @@ export default function ClientDashboardSidebar({
         <div className="space-y-0.5">
           {DASHBOARD_NAV_ITEMS.map((item) => {
             const active = isActive(item.href, item.exact);
-            const isNewOrder = item.href === "/order";
+            const isNewOrder = item.href === "/dashboard/orders/new";
             return (
               <Link
                 key={item.href}

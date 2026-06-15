@@ -72,6 +72,12 @@ interface ClientProfileFormProps {
   authFullName: string | null;
   authEmail: string;
   isOnboarding: boolean;
+  /**
+   * Where to send the client after a successful onboarding save (e.g.
+   * back to the selected order form). Already sanitized server-side.
+   * Falls back to /dashboard when null.
+   */
+  nextPath?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -89,6 +95,7 @@ export default function ClientProfileForm({
   authFullName,
   authEmail,
   isOnboarding,
+  nextPath = null,
 }: ClientProfileFormProps) {
   const router = useRouter();
 
@@ -139,8 +146,10 @@ export default function ClientProfileForm({
       }
 
       if (isOnboarding) {
-        // Hard navigate so the server layout re-fetches the profile
-        window.location.href = "/dashboard";
+        // Hard navigate so the server layout re-fetches the profile.
+        // Return to the intended destination (e.g. the selected order
+        // form) when provided, otherwise the dashboard.
+        window.location.href = nextPath ?? "/dashboard";
         return;
       }
 

@@ -150,7 +150,7 @@ export default async function DashboardPage() {
             )}
           </div>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
@@ -271,7 +271,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
@@ -297,7 +297,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <Link
-          href="/order"
+          href="/dashboard/orders/new"
           className="relative inline-flex items-center gap-2 px-6 py-3 bg-secondary text-primary-dark font-bold rounded-xl hover:bg-secondary-light transition-colors text-sm whitespace-nowrap flex-shrink-0 shadow-sm"
         >
           <PlusCircle className="w-4 h-4" aria-hidden />

@@ -119,7 +119,7 @@ export default function ClientDashboardMobileNav({
             <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">Menu</p>
             {DASHBOARD_NAV_ITEMS.map((item) => {
               const active = isActive(item.href, item.exact);
-              const isNewOrder = item.href === "/order";
+              const isNewOrder = item.href === "/dashboard/orders/new";
               return (
                 <Link
                   key={item.href}

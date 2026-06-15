@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { ServiceTypeSchema } from "@/lib/server-validation";
+import { getClientUser } from "@/lib/client-auth";
 import {
   ORDER_FILES_BUCKET,
   MAX_FILE_SIZE_BYTES,
@@ -66,6 +67,16 @@ function getSupabaseAdmin() {
  * keeping the service-role key on the server.
  */
 export async function POST(request: Request) {
+  // Authenticated-only (PR 2). No signed upload URL is issued without a
+  // verified Supabase session. Identity is never trusted from the body.
+  const sessionUser = await getClientUser();
+  if (!sessionUser) {
+    return NextResponse.json(
+      { error: "You must be signed in to upload files." },
+      { status: 401 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

@@ -158,7 +158,10 @@ export const ItemFilesSchema = z.object({
 // route enforces this length match and refuses orders without it.
 export const OrderMetadataSchema = z.object({
   serviceType: ServiceTypeSchema,
-  contact: ContactSchema,
+  // NOTE: client contact identity is NO LONGER accepted from the body.
+  // /api/order resolves client_name / client_email / client_phone /
+  // client_company server-side from the verified session + client_profiles.
+  // (ContactSchema is retained as a type export for legacy references.)
   deliveryPreferences: DeliveryPreferencesSchema.optional(),
   termsAcceptance: TermsAcceptanceSchema,
   portfolioPermission: PortfolioPermissionSchema.optional(),

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
   AlertCircle,
@@ -12,6 +12,7 @@ import {
   User,
 } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 export type SignUpFormCopy = {
   fullNameLabel: string;
@@ -66,6 +67,12 @@ export default function SignUpForm({
   loginHref?: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeInternalPath(searchParams.get("redirectTo"));
+  const hasRedirect = redirectTo !== "/dashboard";
+  const loginHrefWithRedirect = hasRedirect
+    ? `${loginHref}${loginHref.includes("?") ? "&" : "?"}redirectTo=${encodeURIComponent(redirectTo)}`
+    : loginHref;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -100,12 +107,18 @@ export default function SignUpForm({
 
     try {
       const supabase = createBrowserSupabaseClient();
+      // Preserve the intended order destination across email confirmation
+      // by passing it as ?next= on the callback URL. The callback
+      // sanitizes it again server-side.
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+      if (hasRedirect) callbackUrl.searchParams.set("next", redirectTo);
+
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { full_name: name },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl.toString(),
         },
       });
 
@@ -115,7 +128,8 @@ export default function SignUpForm({
       }
 
       if (data?.session) {
-        router.replace("/dashboard");
+        // Rare: email confirmation disabled → immediate session.
+        router.replace(redirectTo);
         router.refresh();
         return;
       }
@@ -143,7 +157,7 @@ export default function SignUpForm({
           </p>
         </div>
         <Link
-          href={loginHref}
+          href={loginHrefWithRedirect}
           className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors"
         >
           {copy.backToSignIn}
@@ -255,7 +269,7 @@ export default function SignUpForm({
 
       <p className="text-center text-sm text-muted">
         {copy.alreadyHaveAccount}{" "}
-        <Link href={loginHref} className="font-semibold text-primary hover:text-primary-light transition-colors">
+        <Link href={loginHrefWithRedirect} className="font-semibold text-primary hover:text-primary-light transition-colors">
           {copy.signIn}
         </Link>
       </p>

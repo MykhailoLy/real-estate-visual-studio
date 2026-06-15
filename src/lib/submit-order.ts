@@ -1,6 +1,5 @@
 "use client";
 
-import type { ContactData } from "@/components/order/ContactDetails";
 import type { DeliveryPreferencesData } from "@/components/order/DeliveryPreferences";
 import type { OrderTermsData } from "@/components/order/OrderTermsBlock";
 import { TERMS_VERSION } from "@/components/order/OrderTermsBlock";
@@ -19,10 +18,11 @@ import {
 // metadata, including a reference to each uploaded file's storage
 // path) is then POSTed to /api/order.
 //
-// This avoids streaming file bytes through Vercel Functions, which
-// has a small request body limit and was returning 413
-// FUNCTION_PAYLOAD_TOO_LARGE in production for ordinary 4–5 MB
-// listing photos.
+// IDENTITY: the order forms no longer collect or send any contact
+// fields. /api/order and /api/upload-url require a verified Supabase
+// session and source client identity server-side from the session +
+// client_profiles. The browser never sends name/email/phone/company
+// or user_id.
 // ============================================================
 
 export interface OrderSubmitResult {
@@ -51,6 +51,8 @@ export type OrderErrorCode =
   | "upload-failed"
   | "payload-too-large"
   | "validation-failed"
+  | "unauthorized"
+  | "profile-incomplete"
   | "server-error"
   | "network-error";
 
@@ -230,7 +232,6 @@ function localFileCheck(
  */
 export async function submitOrder(
   serviceType: string,
-  contact: ContactData,
   items: Record<string, unknown>[],
   files: FileRef[],
   orderTerms: OrderTermsData,
@@ -276,7 +277,9 @@ export async function submitOrder(
         success: false,
         error: origUrl.message,
         errorCode:
-          origUrl.status === 413
+          origUrl.status === 401
+            ? "unauthorized"
+            : origUrl.status === 413
             ? "payload-too-large"
             : origUrl.status === 400
             ? "file-type-not-allowed"
@@ -321,7 +324,9 @@ export async function submitOrder(
           success: false,
           error: `Reference image upload could not start for item ${i + 1}: ${refUrl.message}`,
           errorCode:
-            refUrl.status === 413
+            refUrl.status === 401
+              ? "unauthorized"
+              : refUrl.status === 413
               ? "payload-too-large"
               : refUrl.status === 400
               ? "file-type-not-allowed"
@@ -357,12 +362,6 @@ export async function submitOrder(
   // ---- 3. Submit lightweight order metadata ----
   const payload = {
     serviceType,
-    contact: {
-      name: contact.name,
-      email: contact.email,
-      phone: contact.phone,
-      company: contact.company,
-    },
     termsAcceptance: {
       accepted: orderTerms.accepted,
       version: TERMS_VERSION,
@@ -413,6 +412,7 @@ export async function submitOrder(
 
   let result: {
     error?: string;
+    code?: string;
     orderNumber?: string;
     details?: unknown;
     emailNotifications?: {
@@ -427,6 +427,24 @@ export async function submitOrder(
   }
 
   if (!response.ok) {
+    // Not signed in (or session expired) → caller sends user to login.
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: result.error || "Please sign in to submit your order.",
+        errorCode: "unauthorized",
+      };
+    }
+    // Profile missing required fields → caller sends user to profile completion.
+    if (result.code === "profile-incomplete") {
+      return {
+        success: false,
+        error:
+          result.error ||
+          "Please complete your profile before submitting an order.",
+        errorCode: "profile-incomplete",
+      };
+    }
     if (response.status >= 500) {
       return {
         success: false,

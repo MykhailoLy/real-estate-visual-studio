@@ -1,5 +1,6 @@
 import { getClientUser } from "@/lib/client-auth";
 import { getClientProfile } from "@/lib/client-profile";
+import { safeInternalPath } from "@/lib/safe-redirect";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import ClientProfileForm from "@/components/dashboard/ClientProfileForm";
 
@@ -8,12 +9,15 @@ export const metadata = {
 };
 
 interface ProfilePageProps {
-  searchParams: Promise<{ onboarding?: string }>;
+  searchParams: Promise<{ onboarding?: string; next?: string }>;
 }
 
 export default async function DashboardProfilePage({ searchParams }: ProfilePageProps) {
-  const { onboarding } = await searchParams;
+  const { onboarding, next } = await searchParams;
   const isOnboarding = onboarding === "1";
+  // Where to send the client after completing their profile (e.g. back to
+  // the selected order form). Sanitized to an internal path.
+  const nextPath = next ? safeInternalPath(next) : null;
 
   const [user, profile] = await Promise.all([
     getClientUser(),
@@ -53,6 +57,7 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
           authFullName={metaFullName}
           authEmail={authEmail}
           isOnboarding={isOnboarding}
+          nextPath={nextPath}
         />
       </div>
     </ClientDashboardLayout>
