@@ -9,7 +9,7 @@ import FilteredGalleryResults, {
 } from "@/components/gallery/FilteredGalleryResults";
 import {
   PORTFOLIO_SERVICE_SLUGS,
-  getPublishedItemsForService,
+  getGalleryItemsForService,
   getPortfolioPublicUrl,
   getPortfolioService,
   isPortfolioServiceSlug,
@@ -83,7 +83,7 @@ export default async function SpanishGalleryServicePage({
 
   const service = getPortfolioService(serviceSlug);
   const labelEs = GALLERY_LABELS_ES[serviceSlug];
-  const items = await getPublishedItemsForService(serviceSlug);
+  const items = await getGalleryItemsForService(serviceSlug);
 
   // Resolve ES pricing href (fall back to EN href if not mapped).
   const esPricingHref =

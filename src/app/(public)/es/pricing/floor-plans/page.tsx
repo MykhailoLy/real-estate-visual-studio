@@ -18,7 +18,7 @@ import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBloc
 import Wide from "@/components/pricing/Wide";
 import {
   getPortfolioPublicUrl,
-  getPublishedItemsForService,
+  getServicePageItemsForService,
 } from "@/lib/portfolio";
 import {
   getServiceHeroSliderItems,
@@ -272,7 +272,7 @@ async function buildSliderSlides(): Promise<ServicePageSlide[]> {
 
 export default async function SpanishFloorPlansPage() {
   const [allItems, optionImages, sliderSlides] = await Promise.all([
-    getPublishedItemsForService("floor-plans"),
+    getServicePageItemsForService("floor-plans"),
     getServiceOptionsImages("floor-plans"),
     buildSliderSlides(),
   ]);

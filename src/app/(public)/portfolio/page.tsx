@@ -13,7 +13,7 @@ import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
 import {
   getPortfolioPublicUrl,
   getPortfolioService,
-  getPublishedItemsForService,
+  getGalleryItemsForService,
   type PortfolioItem,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
@@ -76,7 +76,7 @@ const featuredCategories: {
 async function getSelectedPortfolioItems(): Promise<PortfolioItem[]> {
   const grouped = await Promise.all(
     featuredCategories.map(async (category) => {
-      const items = await getPublishedItemsForService(category.slug);
+      const items = await getGalleryItemsForService(category.slug);
       return items.slice(0, 2);
     })
   );

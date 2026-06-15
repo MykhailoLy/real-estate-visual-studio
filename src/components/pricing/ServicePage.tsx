@@ -13,7 +13,7 @@ import ServicePageSlider, {
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
 import type { ServiceVariant } from "@/components/home/ServicePlaceholder";
-import { getPortfolioPublicUrl, getPublishedItemsForService } from "@/lib/portfolio";
+import { getPortfolioPublicUrl, getServicePageItemsForService } from "@/lib/portfolio";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
 import {
   getServiceHeroSliderItems,
@@ -194,7 +194,7 @@ export default async function ServicePage({
 
   const [sliderSlides, allItems] = await Promise.all([
     slidesPromise,
-    getPublishedItemsForService(serviceSlug),
+    getServicePageItemsForService(serviceSlug),
   ]);
 
   const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => ({

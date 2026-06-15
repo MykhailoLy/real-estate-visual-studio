@@ -5,7 +5,7 @@ import Container from "@/components/layout/Container";
 import GalleryCategoryCard from "@/components/gallery/GalleryCategoryCard";
 import {
   PORTFOLIO_SERVICES,
-  getFeaturedHomeItems,
+  getGalleryCoverItems,
   getPortfolioPublicUrl,
 } from "@/lib/portfolio";
 import {
@@ -17,12 +17,12 @@ import { localizedAlternates } from "@/lib/seo";
 // /gallery  —  Gallery landing page (EN)
 //
 // Renders a grid of service category cards. Only categories
-// that have at least one published portfolio item are shown.
-// The category image is the first featured/published item's
-// after-image for that service.
+// that have at least one published, gallery-enabled portfolio
+// item are shown. The category image is that item's after-image.
 //
 // Data flow:
-//   getFeaturedHomeItems() → Map<slug, PortfolioItem>
+//   getGalleryCoverItems() → Map<slug, PortfolioItem>
+//     (published = TRUE AND show_in_gallery = TRUE)
 //   Filter PORTFOLIO_SERVICES to slugs in the Map
 //   Render one GalleryCategoryCard per visible service
 // ============================================================
@@ -39,9 +39,10 @@ export const metadata: Metadata = {
 };
 
 export default async function GalleryPage() {
-  const featuredItems = await getFeaturedHomeItems();
+  const featuredItems = await getGalleryCoverItems();
 
-  // Only show categories that have at least one published item.
+  // Only show categories that have at least one published,
+  // gallery-enabled item.
   const visibleServices = PORTFOLIO_SERVICES.filter((svc) =>
     featuredItems.has(svc.slug)
   );
