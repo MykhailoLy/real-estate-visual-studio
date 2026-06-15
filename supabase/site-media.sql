@@ -51,8 +51,10 @@ CREATE TABLE IF NOT EXISTS site_media_items (
       'homepage-slider',
       'about-collage',
       'service-hero',
+      'service-options',
       '360-tour',
-      'general'
+      'general',
+      'order-card'
     )
   ),
 
