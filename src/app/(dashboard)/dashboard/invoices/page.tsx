@@ -211,7 +211,7 @@ export default async function DashboardInvoicesPage() {
             </p>
           </div>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
@@ -296,7 +296,7 @@ export default async function DashboardInvoicesPage() {
             read-only summaries for now, not official tax invoices.
           </p>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />

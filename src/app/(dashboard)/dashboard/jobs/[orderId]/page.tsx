@@ -235,7 +235,7 @@ export default async function OrderDetailPage({
             Contact support
           </Link>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
@@ -453,7 +453,7 @@ export default async function OrderDetailPage({
             All jobs
           </Link>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />

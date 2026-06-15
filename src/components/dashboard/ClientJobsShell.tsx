@@ -48,7 +48,7 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
           </p>
         </div>
         <Link
-          href="/order"
+          href="/dashboard/orders/new"
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0"
         >
           <PlusCircle className="w-4 h-4" aria-hidden />
@@ -109,7 +109,7 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
             revision, and file status updates.
           </p>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />

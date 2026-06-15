@@ -31,7 +31,7 @@ export interface DashboardNavItem {
 export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/order", label: "New Order", icon: PlusCircle },
+  { href: "/dashboard/orders/new", label: "New Order", icon: PlusCircle },
   { href: "/dashboard/files", label: "Files", icon: FolderOpen },
   { href: "/dashboard/invoices", label: "Invoices", icon: Receipt },
   { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
@@ -88,7 +88,7 @@ export default function ClientDashboardTopNav({
       >
         {DASHBOARD_NAV_ITEMS.map((item) => {
           const active = isActive(item);
-          const isNewOrder = item.href === "/order";
+          const isNewOrder = item.href === "/dashboard/orders/new";
           return (
             <Link
               key={item.href}

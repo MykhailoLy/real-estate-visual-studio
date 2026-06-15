@@ -219,7 +219,7 @@ export default async function DashboardFilesPage() {
             </p>
           </div>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
@@ -298,7 +298,7 @@ export default async function DashboardFilesPage() {
             deliverables from the PicchuSpot team.
           </p>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
@@ -392,7 +392,7 @@ export default async function DashboardFilesPage() {
             appear in this hub.
           </p>
           <Link
-            href="/order"
+            href="/dashboard/orders/new"
             className="inline-flex items-center gap-1.5 text-[12px] font-bold text-primary hover:text-primary-light transition-colors"
           >
             Create a new order
