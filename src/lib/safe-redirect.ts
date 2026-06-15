@@ -10,7 +10,7 @@
 // Rejected:  "//evil.com", "https://evil.com", "javascript:...",
 //            "\\evil.com", "" / null  → fallback
 //
-// Pure + isomorphic (safe in both client and server code).
+// Pure + isomorphic (safe in both client and server code)..
 // ============================================================
 
 /** Default landing when no valid internal destination is provided. */
