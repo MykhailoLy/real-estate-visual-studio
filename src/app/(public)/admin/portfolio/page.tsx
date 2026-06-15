@@ -60,6 +60,8 @@ export default async function AdminPortfolioPage() {
     gallery_filter: row.gallery_filter,
     sort_order: row.sort_order,
     featured_home: row.featured_home,
+    show_in_gallery: row.show_in_gallery,
+    show_on_service_page: row.show_on_service_page,
     published: row.published,
     created_at: row.created_at,
     updated_at: row.updated_at,
