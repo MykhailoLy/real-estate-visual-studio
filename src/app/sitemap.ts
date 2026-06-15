@@ -6,7 +6,9 @@ import {
 import { localizedRoutes } from "@/lib/localized-routes";
 
 const englishMarketingRoutes = [
-  { path: "/portfolio", priority: 0.7 },
+  // /portfolio is intentionally omitted: the obsolete public
+  // /portfolio route now permanently redirects (308) to /gallery,
+  // so it must not appear in the sitemap.
   { path: "/local", priority: 0.7 },
   { path: "/renders", priority: 0.7 },
   { path: "/online-retail", priority: 0.6 },
