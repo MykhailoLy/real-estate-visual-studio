@@ -252,10 +252,28 @@ export function buildItemSummary(
         pushIf(rows, row("Exterior lights", yesNo(details.turn_on_exterior_lights)));
         pushIf(rows, row("Pool lights", yesNo(details.add_pool_lights)));
       }
-      pushIf(
-        rows,
-        multilineRow("Notes", asString(details.additional_info))
-      );
+      // Item Removal & Virtual Cleaning. Work types + instructions +
+      // whether a markup/reference image was included. The instructions
+      // are the item's additional_info, so the generic "Notes" row is
+      // skipped below to avoid showing the same text twice.
+      const isItemRemoval =
+        asString(details.sub_service) === "item-removal-virtual-cleaning";
+      if (isItemRemoval) {
+        pushIf(
+          rows,
+          row("Work requested", asStringArray(details.removal_task_labels).join(", "))
+        );
+        pushIf(rows, multilineRow("Instructions", asString(details.additional_info)));
+        pushIf(
+          rows,
+          row("Markup/reference", files.referenceImagePath ? "Included" : "None")
+        );
+      } else {
+        pushIf(
+          rows,
+          multilineRow("Notes", asString(details.additional_info))
+        );
+      }
       break;
     }
   }
