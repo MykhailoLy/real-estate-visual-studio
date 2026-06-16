@@ -9,6 +9,9 @@ import OrderTermsBlock, {
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
+import OrderJobTitleField, {
+  isJobTitleValid,
+} from "@/components/order/OrderJobTitleField";
 import PhotoEditItemCard, {
   type PhotoEditItemData,
   emptyPhotoEditItem,
@@ -31,6 +34,7 @@ export default function PhotoEditingOrderForm({
   orderRoute,
 }: PhotoEditingOrderFormProps) {
   const [items, setItems] = useState<PhotoEditItemData[]>([emptyPhotoEditItem()]);
+  const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -78,7 +82,8 @@ export default function PhotoEditingOrderForm({
       "photo-editing",
       itemsMetadata,
       files,
-      orderTerms
+      orderTerms,
+      jobTitle
     );
 
     if (result.success && result.orderNumber) {
@@ -97,6 +102,7 @@ export default function PhotoEditingOrderForm({
 
   const handleNewOrder = () => {
     setItems([emptyPhotoEditItem()]);
+    setJobTitle("");
     setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
@@ -108,7 +114,8 @@ export default function PhotoEditingOrderForm({
     (item) => item.file !== null && item.selectedOptions.length > 0
   );
   const termsAccepted = orderTerms.accepted;
-  const canSubmit = items.length > 0 && allItemsValid && termsAccepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -123,6 +130,7 @@ export default function PhotoEditingOrderForm({
           <Confirmation
             orderNumber={orderNumber}
             email={clientEmail}
+            jobTitle={jobTitle}
             confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
@@ -150,6 +158,8 @@ export default function PhotoEditingOrderForm({
           {submitError}
         </div>
       )}
+
+      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
 
       <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
         <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />

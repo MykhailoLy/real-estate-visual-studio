@@ -32,6 +32,12 @@ import { getClientUser } from "@/lib/client-auth";
 import { getClientProfile } from "@/lib/client-profile";
 import { resolveClientIdentity } from "@/lib/profile-completion";
 import { getDedicatedSubServiceLabel } from "@/lib/dedicated-photo-editing";
+import {
+  getThreeStateLabel,
+  getDaySkyStyleLabel,
+  isDaySkyStyleId,
+  DAY_SKY_STYLE_DEFAULT,
+} from "@/lib/image-enhancement";
 
 // File bytes no longer flow through this route — clients upload directly
 // to Supabase Storage via signed URLs from /api/upload-url. This route
@@ -102,6 +108,7 @@ export async function POST(request: Request) {
       portfolioPermission,
       items: rawItems,
       itemFiles,
+      jobTitle,
     } = metaResult.data;
 
     // --- 2b. REQUIRE a verified session + complete profile (PR 2) ---
@@ -240,6 +247,9 @@ export async function POST(request: Request) {
         order_number: orderNumber,
         service_type: serviceType,
         status: "pending",
+        // Validated order-level Job Title (3–120 trimmed chars).
+        // Schema-validated above; trim once more defensively.
+        job_title: jobTitle.trim(),
         // Verified-session account link + server-sourced snapshots.
         // None of these come from the request body.
         user_id: ownerUserId,
@@ -311,6 +321,7 @@ export async function POST(request: Request) {
       supabase,
       orderNumber,
       serviceType,
+      jobTitle: jobTitle.trim(),
       client: {
         name: identity.name,
         email: identity.email,
@@ -529,6 +540,20 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
       if (p.subService && subServiceLabel) {
         base.sub_service = p.subService;
         base.sub_service_label = subServiceLabel;
+      }
+      // Image Enhancement — Single Exposure preferences. Labels are
+      // derived SERVER-SIDE from the validated typed enums; no client
+      // label strings are trusted. Stored alongside the existing fixed
+      // option (which never changes the subtotal).
+      if (p.subService === "image-enhancement-single-exposure") {
+        base.grass_repair = getThreeStateLabel(p.grassRepair);
+        base.sky_replacement = getThreeStateLabel(p.skyReplacement);
+        base.tv_screen_replacement = getThreeStateLabel(p.tvScreenReplacement);
+        base.add_fire_to_fireplace = getThreeStateLabel(p.addFireToFireplace);
+        base.day_sky_style = isDaySkyStyleId(p.daySkyStyle)
+          ? p.daySkyStyle
+          : DAY_SKY_STYLE_DEFAULT;
+        base.day_sky_style_label = getDaySkyStyleLabel(p.daySkyStyle);
       }
       return base;
     }

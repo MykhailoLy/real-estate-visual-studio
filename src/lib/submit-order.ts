@@ -235,6 +235,12 @@ export async function submitOrder(
   items: Record<string, unknown>[],
   files: FileRef[],
   orderTerms: OrderTermsData,
+  /**
+   * Required order-level Job Title. Sent as a top-level field (NOT item
+   * metadata). Trimmed before submission; the server re-validates it
+   * (3–120 trimmed chars) and persists it to orders.job_title.
+   */
+  jobTitle: string,
   deliveryPreferences?: DeliveryPreferencesData
 ): Promise<OrderSubmitResult> {
   // ---- 1. Local pre-flight ----
@@ -362,6 +368,9 @@ export async function submitOrder(
   // ---- 3. Submit lightweight order metadata ----
   const payload = {
     serviceType,
+    // Order-level Job Title — trimmed here, re-validated + persisted
+    // server-side. Kept separate from item metadata on purpose.
+    jobTitle: jobTitle.trim(),
     termsAcceptance: {
       accepted: orderTerms.accepted,
       version: TERMS_VERSION,

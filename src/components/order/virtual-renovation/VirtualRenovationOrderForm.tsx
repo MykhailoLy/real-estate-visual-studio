@@ -9,6 +9,9 @@ import OrderTermsBlock, {
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
+import OrderJobTitleField, {
+  isJobTitleValid,
+} from "@/components/order/OrderJobTitleField";
 import RenovationItemCard, {
   type RenovationItemData,
   emptyRenovationItem,
@@ -31,6 +34,7 @@ export default function VirtualRenovationOrderForm({
   orderRoute,
 }: VirtualRenovationOrderFormProps) {
   const [items, setItems] = useState<RenovationItemData[]>([emptyRenovationItem()]);
+  const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -72,7 +76,8 @@ export default function VirtualRenovationOrderForm({
       "virtual-renovation",
       itemsMetadata,
       files,
-      orderTerms
+      orderTerms,
+      jobTitle
     );
 
     if (result.success && result.orderNumber) {
@@ -91,6 +96,7 @@ export default function VirtualRenovationOrderForm({
 
   const handleNewOrder = () => {
     setItems([emptyRenovationItem()]);
+    setJobTitle("");
     setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
@@ -105,7 +111,8 @@ export default function VirtualRenovationOrderForm({
       (item.selectedInternal.length > 0 || item.selectedExternal.length > 0)
   );
   const termsAccepted = orderTerms.accepted;
-  const canSubmit = items.length > 0 && allItemsValid && termsAccepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -120,6 +127,7 @@ export default function VirtualRenovationOrderForm({
           <Confirmation
             orderNumber={orderNumber}
             email={clientEmail}
+            jobTitle={jobTitle}
             confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
@@ -147,6 +155,8 @@ export default function VirtualRenovationOrderForm({
           {submitError}
         </div>
       )}
+
+      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
 
       <div className="flex gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
         <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
