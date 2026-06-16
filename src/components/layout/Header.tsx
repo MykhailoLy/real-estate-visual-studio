@@ -395,6 +395,8 @@ export default function Header() {
               className="h-7 w-auto"
               width={56}
               height={28}
+              alt=""
+              priority
             />
             <span className="text-xl font-bold text-primary tracking-tight hidden sm:inline">
               PicchuSpot

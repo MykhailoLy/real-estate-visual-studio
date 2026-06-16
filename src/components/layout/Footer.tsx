@@ -148,6 +148,7 @@ export default function Footer() {
                 className="h-6 w-auto"
                 width={48}
                 height={24}
+                alt=""
               />
               <span className="text-lg font-bold tracking-tight">PicchuSpot</span>
             </Link>

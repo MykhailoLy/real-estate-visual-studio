@@ -77,7 +77,7 @@ export default function ClientDashboardTopNav({
           className="h-6 w-auto"
           width={48}
           height={24}
-          alt="PicchuSpot"
+          alt=""
         />
         <span className="text-white font-bold text-[15px] tracking-tight leading-none group-hover:text-white/90 transition-colors">
           PicchuSpot

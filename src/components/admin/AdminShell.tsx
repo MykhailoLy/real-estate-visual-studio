@@ -101,7 +101,7 @@ export default function AdminShell({
                 className="h-8 w-auto flex-shrink-0"
                 width={64}
                 height={32}
-                alt="PicchuSpot"
+                alt=""
               />
               <span className="min-w-0">
                 <span className="block text-sm font-bold leading-tight text-primary">

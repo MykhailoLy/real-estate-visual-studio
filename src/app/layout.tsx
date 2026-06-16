@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import CookieConsentBanner from "@/components/privacy/CookieConsentBanner";
@@ -28,6 +28,10 @@ const SITE_TAGLINE = "Property visuals that make listings stand out.";
 const DEFAULT_TITLE = `${SITE_NAME} — ${SITE_DESCRIPTOR}`;
 const DEFAULT_DESCRIPTION =
   "PicchuSpot — Real Estate Visuals. Property visuals that make listings stand out. Virtual staging, virtual renovation, 3D floor plans, and photo editing delivered in 24-48 hours. Local photography in Alicante & Costa Blanca.";
+
+export const viewport: Viewport = {
+  themeColor: "#0B1F3A",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

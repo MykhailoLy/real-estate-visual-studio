@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
               className="h-7 w-auto"
               width={56}
               height={28}
-              alt="PicchuSpot"
+              alt=""
             />
             <span className="text-xl font-bold text-primary tracking-tight group-hover:text-primary-light transition-colors">
               PicchuSpot

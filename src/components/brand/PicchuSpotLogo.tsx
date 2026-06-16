@@ -27,6 +27,8 @@ interface PicchuSpotLogoProps {
   width?: number;
   /** Height in pixels for Next/Image (only for image variants) */
   height?: number;
+  /** Whether to preload the image (default: false). Enable only for above-the-fold logos. */
+  priority?: boolean;
 }
 
 const LOGO_SOURCES: Record<Exclude<LogoVariant, "wordmark">, string> = {
@@ -50,6 +52,7 @@ export default function PicchuSpotLogo({
   alt = "PicchuSpot",
   width,
   height,
+  priority = false,
 }: PicchuSpotLogoProps) {
   if (variant === "wordmark") {
     return (
@@ -74,7 +77,7 @@ export default function PicchuSpotLogo({
       width={width ?? defaults.width}
       height={height ?? defaults.height}
       className={cn("h-auto w-auto", className)}
-      priority
+      priority={priority}
     />
   );
 }
