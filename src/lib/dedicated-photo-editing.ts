@@ -14,9 +14,10 @@
 // details, display labels, email).
 // ============================================================
 
-/** The three dedicated photo-editing sub-services. */
+/** The dedicated photo-editing sub-services. */
 export const DEDICATED_PHOTO_EDITING_SUB_SERVICES = [
   "image-enhancement",
+  "image-enhancement-single-exposure",
   "day-to-dusk",
   "item-removal-virtual-cleaning",
 ] as const;
@@ -85,6 +86,22 @@ export const DEDICATED_PHOTO_EDITING_CONFIGS: Record<
     notice: null,
     summaryServiceName: "Image Enhancement",
   },
+  "image-enhancement-single-exposure": {
+    subService: "image-enhancement-single-exposure",
+    subServiceLabel: "Image Enhancement \u2014 Single Exposure",
+    optionId: "image-enhancement-re",
+    title: "Image Enhancement \u2014 Single Exposure",
+    subtitle:
+      "Professional colour, exposure, white balance, contrast and detail correction for standard real-estate photographs.",
+    route: "/dashboard/orders/new/image-enhancement/single-exposure",
+    uploadLabel: "Upload Original Photo",
+    notesLabel: "Additional Instructions",
+    notesPlaceholder:
+      "Optional: any specific enhancement notes for this photo (e.g. brighten interior, recover window view)...",
+    notesRequired: false,
+    notice: null,
+    summaryServiceName: "Image Enhancement \u2014 Single Exposure",
+  },
   "day-to-dusk": {
     subService: "day-to-dusk",
     subServiceLabel: "Day to Dusk",
@@ -126,6 +143,7 @@ export const SUB_SERVICE_REQUIRED_OPTION: Record<
   string
 > = {
   "image-enhancement": "image-enhancement-re",
+  "image-enhancement-single-exposure": "image-enhancement-re",
   "day-to-dusk": "day-to-dusk-pe",
   "item-removal-virtual-cleaning": "item-removal-cleaning-pe",
 };
@@ -134,6 +152,7 @@ export const SUB_SERVICE_REQUIRED_OPTION: Record<
 export const SUB_SERVICE_LABEL: Record<DedicatedPhotoEditingSubService, string> =
   {
     "image-enhancement": "Image Enhancement",
+    "image-enhancement-single-exposure": "Image Enhancement \u2014 Single Exposure",
     "day-to-dusk": "Day to Dusk",
     "item-removal-virtual-cleaning": "Item Removal & Virtual Cleaning",
   };
