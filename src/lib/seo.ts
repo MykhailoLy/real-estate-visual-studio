@@ -41,3 +41,9 @@ export function localizedAlternates({
     languages: localizedLanguages(englishPath, spanishPath),
   };
 }
+
+export function canonicalAlternates(path: string): Metadata["alternates"] {
+  return {
+    canonical: absoluteUrl(path),
+  };
+}

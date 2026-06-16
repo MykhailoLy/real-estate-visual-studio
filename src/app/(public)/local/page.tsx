@@ -6,6 +6,7 @@ import CategoryServiceList, {
   type CategoryServiceItem,
 } from "@/components/home/CategoryServiceList";
 import CtaSection from "@/components/sections/CtaSection";
+import { canonicalAlternates } from "@/lib/seo";
 
 // ============================================================
 // /local — Local Real Estate Media (Alicante & Costa Blanca)
@@ -20,6 +21,13 @@ export const metadata: Metadata = {
   title: "Local Real Estate Media — Alicante & Costa Blanca",
   description:
     "On-location real estate photography, video tours, 360 tours, drone media, and full listing packages across Alicante and Costa Blanca.",
+  alternates: canonicalAlternates("/local"),
+  openGraph: {
+    title: "Local Real Estate Media - Alicante & Costa Blanca",
+    description:
+      "On-location real estate photography, video tours, 360 tours, drone media, and full listing packages across Alicante and Costa Blanca.",
+    url: "/local",
+  },
 };
 
 const ITEMS: CategoryServiceItem[] = [

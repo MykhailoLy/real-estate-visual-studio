@@ -6,6 +6,7 @@ import CategoryServiceList, {
   type CategoryServiceItem,
 } from "@/components/home/CategoryServiceList";
 import CtaSection from "@/components/sections/CtaSection";
+import { canonicalAlternates } from "@/lib/seo";
 
 // ============================================================
 // /online-retail — Online Retail Visuals
@@ -16,6 +17,13 @@ export const metadata: Metadata = {
   title: "Online Retail — Product Visuals",
   description:
     "Product photo editing, background removal, lifestyle compositing, color variations, and marketplace-ready images.",
+  alternates: canonicalAlternates("/online-retail"),
+  openGraph: {
+    title: "Online Retail - Product Visuals",
+    description:
+      "Product photo editing, background removal, lifestyle compositing, color variations, and marketplace-ready images.",
+    url: "/online-retail",
+  },
 };
 
 const ITEMS: CategoryServiceItem[] = [

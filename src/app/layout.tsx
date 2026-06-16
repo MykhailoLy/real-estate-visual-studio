@@ -28,6 +28,12 @@ const SITE_TAGLINE = "Property visuals that make listings stand out.";
 const DEFAULT_TITLE = `${SITE_NAME} — ${SITE_DESCRIPTOR}`;
 const DEFAULT_DESCRIPTION =
   "PicchuSpot — Real Estate Visuals. Property visuals that make listings stand out. Virtual staging, virtual renovation, 3D floor plans, and photo editing delivered in 24-48 hours. Local photography in Alicante & Costa Blanca.";
+const DEFAULT_OG_IMAGE = {
+  url: "/brand/picchuspot-mark-1200.png",
+  width: 1200,
+  height: 600,
+  alt: "PicchuSpot real estate visuals",
+};
 
 export const viewport: Viewport = {
   themeColor: "#0B1F3A",
@@ -60,11 +66,13 @@ export const metadata: Metadata = {
     title: DEFAULT_TITLE,
     description: SITE_TAGLINE,
     locale: "en_US",
+    images: [DEFAULT_OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: DEFAULT_TITLE,
     description: SITE_TAGLINE,
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 

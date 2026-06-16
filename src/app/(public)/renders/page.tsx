@@ -6,6 +6,7 @@ import CategoryServiceList, {
   type CategoryServiceItem,
 } from "@/components/home/CategoryServiceList";
 import CtaSection from "@/components/sections/CtaSection";
+import { canonicalAlternates } from "@/lib/seo";
 
 // ============================================================
 // /renders — Renders / Architectural Visualization
@@ -16,6 +17,13 @@ export const metadata: Metadata = {
   title: "Renders — Architectural Visualization",
   description:
     "Exterior and interior renders, 360 renders, virtual tours, and development marketing visuals.",
+  alternates: canonicalAlternates("/renders"),
+  openGraph: {
+    title: "Renders - Architectural Visualization",
+    description:
+      "Exterior and interior renders, 360 renders, virtual tours, and development marketing visuals.",
+    url: "/renders",
+  },
 };
 
 const ITEMS: CategoryServiceItem[] = [
