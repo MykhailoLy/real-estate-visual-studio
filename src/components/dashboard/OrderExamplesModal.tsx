@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import GalleryBeforeAfterPair from "@/components/gallery/GalleryBeforeAfterPair";
 import { getGalleryPairLabels } from "@/lib/gallery";
@@ -10,16 +11,21 @@ import type { OrderExamplePair } from "@/lib/order-card-examples";
 // ============================================================
 // OrderExamplesModal — in-dashboard Before/After gallery dialog.
 //
-// Accessible dialog (role="dialog", aria-modal, labelled title):
-//   - Escape closes; backdrop click closes; close button closes
-//   - body scroll locked while open
-//   - focus moves to the close button on open and is restored to
-//     the previously-focused element (the trigger) on close
-//   - max-height with internal scrolling; responsive
+// Rendered via a React portal into document.body so it is NEVER a
+// descendant of the transformed / overflow-hidden service card (which
+// previously clipped and mis-positioned the fixed overlay). The
+// trigger button stays inside the card.
 //
-// Reuses the public GalleryBeforeAfterPair for each example row and
-// the service-specific labels from getGalleryPairLabels(). No new
-// dialog dependency.
+// Accessible dialog (role="dialog", aria-modal, labelled title):
+//   - Escape / backdrop / close button all close
+//   - body scroll locked while open; restored on close
+//   - focus moves to the close button on open, restored to the
+//     trigger on close
+//   - viewport-sized, centered, single internal scrollbar (the body),
+//     sticky header.
+//
+// Reuses the public GalleryBeforeAfterPair + getGalleryPairLabels.
+// No new dialog dependency.
 // ============================================================
 
 interface OrderExamplesModalProps {
@@ -66,14 +72,20 @@ export default function OrderExamplesModal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  // The modal only renders after a client-side open (user click), never
+  // during SSR, so guarding on `document` avoids any hydration mismatch
+  // without needing client-mounted state.
+  if (!open || typeof document === "undefined") return null;
 
   const labels = getGalleryPairLabels(serviceSlug, "en");
   const count = pairs.length;
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:p-6 lg:p-8"
+      // Full-viewport backdrop. High, stable z-index above the dashboard
+      // top nav / sidebar / cards. The backdrop itself does not scroll —
+      // the panel body owns the single scrollbar.
+      className="fixed inset-0 z-[100] flex h-[100dvh] w-screen items-center justify-center bg-black/60 p-2 sm:p-6"
       onMouseDown={(e) => {
         // Close only when the backdrop itself is pressed, not the panel.
         if (e.target === e.currentTarget) onClose();
@@ -83,10 +95,10 @@ export default function OrderExamplesModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
-        className="my-auto flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="flex w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] flex-col overflow-hidden rounded-xl bg-white shadow-2xl sm:max-h-[calc(100dvh-48px)] sm:w-[min(1200px,calc(100vw-48px))] sm:rounded-2xl"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+        {/* Sticky header — stays visible while the body scrolls */}
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border bg-white px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h2
               id={headingId}
@@ -109,8 +121,8 @@ export default function OrderExamplesModal({
           </button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+        {/* Single scroll region — vertical only, contained */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-5 sm:px-6">
           <div className="space-y-6">
             {pairs.map((pair, index) => (
               <GalleryBeforeAfterPair
@@ -129,4 +141,6 @@ export default function OrderExamplesModal({
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }
