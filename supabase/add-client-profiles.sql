@@ -4,7 +4,7 @@
 --
 -- Creates client_profiles table (one row per auth user) with
 -- safe RLS policies — users can only read/write their own row.
--- Does NOT touch any existing order, admin, or sequence tables.
+-- Does NOT touch any existing order, admin, or sequence tables..
 -- ============================================================
 
 -- -----------------------------------------------------------
