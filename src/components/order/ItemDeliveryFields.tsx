@@ -27,6 +27,13 @@ interface ItemDeliveryFieldsProps {
   onChange: (data: ItemDeliveryFieldsData) => void;
   /** Optional id prefix used to keep label/select associations unique per item. */
   idPrefix?: string;
+  /**
+   * When true, the File Size Limit select is read-only (used when a photo
+   * inherits a shared file-size preference). The disclaimer text remains
+   * editable because it is never shared between photos. Defaults to false
+   * so existing callers are unaffected.
+   */
+  disableFileSizeLimit?: boolean;
 }
 
 /**
@@ -41,6 +48,7 @@ export default function ItemDeliveryFields({
   data,
   onChange,
   idPrefix,
+  disableFileSizeLimit = false,
 }: ItemDeliveryFieldsProps) {
   const sizeId = idPrefix ? `${idPrefix}-file-size-limit` : undefined;
   const discId = idPrefix ? `${idPrefix}-disclaimer-text` : undefined;
@@ -61,10 +69,11 @@ export default function ItemDeliveryFields({
         <select
           id={sizeId}
           value={data.fileSizeLimit}
+          disabled={disableFileSizeLimit}
           onChange={(e) =>
             onChange({ ...data, fileSizeLimit: e.target.value })
           }
-          className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <option value="">Please Select...</option>
           {FILE_SIZE_LIMIT_OPTIONS.map((opt) => (

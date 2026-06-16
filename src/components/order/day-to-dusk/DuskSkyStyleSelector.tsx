@@ -29,6 +29,11 @@ interface DuskSkyStyleSelectorProps {
   images: Record<string, ServiceOptionImage>;
   /** Unique id prefix so multiple item cards don't collide. */
   idPrefix: string;
+  /**
+   * When true the selector is read-only (used while a photo inherits
+   * Photo #1's shared preferences). The selected value stays visible.
+   */
+  disabled?: boolean;
 }
 
 export default function DuskSkyStyleSelector({
@@ -36,6 +41,7 @@ export default function DuskSkyStyleSelector({
   onChange,
   images,
   idPrefix,
+  disabled = false,
 }: DuskSkyStyleSelectorProps) {
   const groupName = `${idPrefix}-dusk-sky`;
 
@@ -47,7 +53,10 @@ export default function DuskSkyStyleSelector({
       <div
         role="radiogroup"
         aria-label="Select a Dusk Sky Style"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+        aria-disabled={disabled || undefined}
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${
+          disabled ? "opacity-60" : ""
+        }`}
       >
         {DUSK_STYLES.map((style) => {
           const id = `${idPrefix}-${style.id}`;
@@ -58,10 +67,14 @@ export default function DuskSkyStyleSelector({
             <label
               key={style.id}
               htmlFor={id}
-              className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-white transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${
+              className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${
+                disabled ? "cursor-default" : "cursor-pointer"
+              } ${
                 selected
                   ? "border-secondary border-2 shadow-md"
-                  : "border-border hover:border-primary/40"
+                  : `border-border ${
+                      disabled ? "" : "hover:border-primary/40"
+                    }`
               }`}
             >
               <input
@@ -70,6 +83,7 @@ export default function DuskSkyStyleSelector({
                 name={groupName}
                 value={style.id}
                 checked={selected}
+                disabled={disabled}
                 onChange={() => onChange(style.id)}
                 className="sr-only"
               />
