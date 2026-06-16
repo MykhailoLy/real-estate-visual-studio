@@ -19,7 +19,7 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { PicchuSpotLogo } from "@/components/brand";
+import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import {
   RegionFlag,
   useDisplayRegion,
@@ -398,9 +398,7 @@ export default function Header() {
               alt=""
               priority
             />
-            <span className="text-xl font-bold text-primary tracking-tight hidden sm:inline">
-              PicchuSpot
-            </span>
+            <BrandWordmark theme="light" className="text-xl hidden sm:inline" />
           </Link>
 
           {/* Top-level categories (desktop) */}

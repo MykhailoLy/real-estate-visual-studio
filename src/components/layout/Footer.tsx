@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PicchuSpotLogo } from "@/components/brand";
+import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import TrackedLink from "@/components/analytics/TrackedLink";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 
@@ -150,7 +150,7 @@ export default function Footer() {
                 height={24}
                 alt=""
               />
-              <span className="text-lg font-bold tracking-tight">PicchuSpot</span>
+              <BrandWordmark theme="dark" className="text-lg" />
             </Link>
             <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-4">
               {copy.tagline}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
-import { PicchuSpotLogo } from "@/components/brand";
+import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import ForgotPasswordForm from "./ForgotPasswordForm";
 
 export const metadata: Metadata = {
@@ -38,9 +38,7 @@ export default function ForgotPasswordPage() {
               height={28}
               alt=""
             />
-            <span className="text-xl font-bold text-primary tracking-tight group-hover:text-primary-light transition-colors">
-              PicchuSpot
-            </span>
+            <BrandWordmark theme="light" className="text-xl group-hover:opacity-80 transition-opacity" />
             <span className="inline-flex items-center px-1.5 py-0.5 bg-primary/8 border border-primary/15 rounded text-primary text-[9px] font-bold uppercase tracking-[0.18em]">
               Portal
             </span>
