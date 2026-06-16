@@ -23,7 +23,6 @@ import {
   Compass,
   Plane,
   Map as MapIcon,
-  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
@@ -85,9 +84,9 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     title: "Image Enhancement",
     description:
       "Professional color, exposure, white balance, and detail correction for listing photos.",
-    route: null,
+    route: "/dashboard/orders/new/image-enhancement",
     publicServiceSlug: "image-enhancement",
-    availability: "coming-soon",
+    availability: "active",
     portfolioServiceSlug: "image-enhancement",
     priceLabel: "From $2 / image",
     turnaroundLabel: DIGITAL_TURNAROUND,
@@ -101,9 +100,9 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     title: "Day to Dusk",
     description:
       "Convert daytime exterior shots into warm, twilight hero images with glowing windows.",
-    route: null,
+    route: "/dashboard/orders/new/day-to-dusk",
     publicServiceSlug: "day-to-dusk",
-    availability: "coming-soon",
+    availability: "active",
     portfolioServiceSlug: "day-to-dusk",
     priceLabel: "From $5 / image",
     turnaroundLabel: DIGITAL_TURNAROUND,
@@ -133,9 +132,9 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     title: "Item Removal & Virtual Cleaning",
     description:
       "Remove clutter, objects, and distractions for clean, listing-ready spaces.",
-    route: null,
+    route: "/dashboard/orders/new/item-removal-virtual-cleaning",
     publicServiceSlug: "item-removal-virtual-cleaning",
-    availability: "coming-soon",
+    availability: "active",
     portfolioServiceSlug: "item-removal-virtual-cleaning",
     priceLabel: "From $8 / image",
     turnaroundLabel: DIGITAL_TURNAROUND,
@@ -239,26 +238,6 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     mediaServiceSlug: "development-site-plans",
     icon: MapIcon,
     sortOrder: 10,
-  },
-  // TEMPORARY (PR 3 only): the generic Photo Editing umbrella form.
-  // Removed in PR 4 once Image Enhancement, Day to Dusk, and Item
-  // Removal get dedicated forms. Uses a CSS fallback (no media slot).
-  {
-    slug: "photo-editing",
-    title: "Photo Editing",
-    description:
-      "All photo edits in one form: enhancement, day to dusk, item removal, and more.",
-    route: "/dashboard/orders/new/photo-editing",
-    publicServiceSlug: "photo-editing",
-    availability: "active",
-    portfolioServiceSlug: null,
-    priceLabel: "Option-based pricing",
-    turnaroundLabel: DIGITAL_TURNAROUND,
-    badge: "Temporary",
-    mediaServiceSlug: null,
-    icon: SlidersHorizontal,
-    temporary: true,
-    sortOrder: 11,
   },
 ];
 

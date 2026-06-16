@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  DEDICATED_PHOTO_EDITING_SUB_SERVICES,
+  SUB_SERVICE_REQUIRED_OPTION,
+  ITEM_REMOVAL_MIN_INSTRUCTIONS,
+} from "@/lib/dedicated-photo-editing";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS
@@ -83,11 +88,50 @@ export const FloorPlanItemSchema = z.object({
 });
 
 // --- Photo Editing Item ---
-export const PhotoEditItemSchema = z.object({
-  selectedOptions: z.array(z.string()).min(1, "At least one editing option is required"),
-  additionalInfo: z.string().optional().default(""),
-  ...itemDeliveryFields,
-});
+// Supports BOTH the legacy generic form (multi-option, no subService) and
+// the dedicated forms (Image Enhancement / Day to Dusk / Item Removal),
+// which pin a single sub-service via `subService`. All still post under the
+// broad service_type = "photo-editing".
+export const PhotoEditItemSchema = z
+  .object({
+    selectedOptions: z
+      .array(z.string())
+      .min(1, "At least one editing option is required"),
+    subService: z.enum(DEDICATED_PHOTO_EDITING_SUB_SERVICES).optional(),
+    additionalInfo: z.string().optional().default(""),
+    ...itemDeliveryFields,
+  })
+  .superRefine((data, ctx) => {
+    // Legacy generic Photo Editing: no subService → any valid combination
+    // of PHOTO_EDIT_OPTIONS is allowed (unchanged behaviour).
+    if (!data.subService) return;
+
+    // Dedicated sub-service: selectedOptions MUST be exactly the one
+    // option mapped to that sub-service. Reject tampered combinations.
+    const required = SUB_SERVICE_REQUIRED_OPTION[data.subService];
+    if (
+      data.selectedOptions.length !== 1 ||
+      data.selectedOptions[0] !== required
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["selectedOptions"],
+        message: `For ${data.subService}, selectedOptions must be exactly ["${required}"].`,
+      });
+    }
+
+    // Item Removal & Virtual Cleaning requires meaningful removal instructions.
+    if (
+      data.subService === "item-removal-virtual-cleaning" &&
+      (data.additionalInfo ?? "").trim().length < ITEM_REMOVAL_MIN_INSTRUCTIONS
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["additionalInfo"],
+        message: "Please describe what should be removed or cleaned.",
+      });
+    }
+  });
 
 // --- Order-level Delivery Preferences ---
 // Kept for backward compatibility with earlier clients. The current UI

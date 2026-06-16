@@ -25,7 +25,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { DashboardJob, DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 import type { ReviewStatus } from "@/lib/client-reviews";
-import { getServiceLabel as getDisplayServiceLabel } from "@/lib/display/service-labels";
+import { getServiceLabel as getDisplayServiceLabel, getOrderServiceLabel } from "@/lib/display/service-labels";
 import {
   isOrderOwned,
   ownedOrdersOrFilter,
@@ -49,6 +49,12 @@ export interface ClientOrder {
   currency: string;
   created_at: string;
   updated_at: string;
+  /**
+   * Dedicated sub-service slug from the first order item's details
+   * (e.g. "image-enhancement"). Null for generic/legacy orders. Used to
+   * display the dedicated label without an extra query per order.
+   */
+  sub_service?: string | null;
 }
 
 /**
@@ -294,7 +300,7 @@ export function mapOrderToDashboardJob(
   order: ClientOrder,
   reviews: Array<Pick<DeliverableReviewSummary, "status">> = []
 ): DashboardJob {
-  const serviceLabel = getServiceLabel(order.service_type);
+  const serviceLabel = getOrderServiceLabel(order.service_type, order.sub_service);
   const dashboardStatus = deriveDashboardStatusFromReviews(order.status, reviews);
   const progress = getProgressForDashboardStatus(order.status, dashboardStatus);
 
@@ -391,7 +397,7 @@ export async function getOrdersForClient(
     >;
     // Authoritative JS ownership re-check (never trust the DB filter alone),
     // then project to the safe ClientOrder summary shape.
-    return rows
+    const orders: ClientOrder[] = rows
       .filter((row) => isOrderOwned(row, ownership))
       .map((row) => ({
         id: row.id,
@@ -403,7 +409,38 @@ export async function getOrdersForClient(
         currency: row.currency,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        sub_service: null,
       }));
+
+    // Batched sub-service lookup (ONE query, not per-order). Reads the
+    // first item's details.sub_service for each owned order so dedicated
+    // photo-editing orders can show their dedicated label.
+    const orderIds = orders.map((o) => o.id);
+    if (orderIds.length > 0) {
+      const { data: itemRows, error: itemErr } = await supabase
+        .from("order_items")
+        .select("order_id, details")
+        .eq("item_index", 0)
+        .in("order_id", orderIds);
+
+      if (itemErr) {
+        console.warn("[client-orders] sub_service lookup failed:", itemErr.message);
+      } else {
+        const byOrder = new Map<string, string | null>();
+        for (const row of (itemRows ?? []) as Array<{
+          order_id: string;
+          details: Record<string, unknown> | null;
+        }>) {
+          const sub = row.details?.sub_service;
+          byOrder.set(row.order_id, typeof sub === "string" ? sub : null);
+        }
+        for (const order of orders) {
+          order.sub_service = byOrder.get(order.id) ?? null;
+        }
+      }
+    }
+
+    return orders;
   } catch (err) {
     console.error("[client-orders] Unexpected error:", err);
     return [];
@@ -549,6 +586,10 @@ export async function getOrderForClient(
       client_company: string | null;
     };
 
+    // Dedicated sub-service comes from the first item's details (kept by
+    // sanitizeDetails — it's a plain scalar). Null for generic/legacy orders.
+    const firstSub = safeItems[0]?.details?.sub_service;
+
     return {
       id: order.id,
       order_number: order.order_number,
@@ -559,6 +600,7 @@ export async function getOrderForClient(
       currency: order.currency,
       created_at: order.created_at,
       updated_at: order.updated_at,
+      sub_service: typeof firstSub === "string" ? firstSub : null,
       client_company: order.client_company ?? null,
       items: safeItems,
     };

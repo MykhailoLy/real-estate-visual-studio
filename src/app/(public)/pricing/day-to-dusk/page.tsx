@@ -51,7 +51,7 @@ export default function DayToDuskPricingPage() {
           price={regionalPrice("From $5 / image", "From €5 / image")}
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/order/day-to-dusk"
       orderLabel="Order Day to Dusk"
       whenToUseTitle="When to use Day to Dusk"
       whenToUseDescription="Day to Dusk is most effective on exterior shots where the sky and property lighting can be transformed for a premium listing feel."

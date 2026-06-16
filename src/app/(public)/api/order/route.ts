@@ -31,6 +31,7 @@ import { sendOrderEmails } from "@/lib/email/send-order-emails";
 import { getClientUser } from "@/lib/client-auth";
 import { getClientProfile } from "@/lib/client-profile";
 import { resolveClientIdentity } from "@/lib/profile-completion";
+import { getDedicatedSubServiceLabel } from "@/lib/dedicated-photo-editing";
 
 // File bytes no longer flow through this route — clients upload directly
 // to Supabase Storage via signed URLs from /api/upload-url. This route
@@ -515,11 +516,21 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
     }
     case "photo-editing": {
       const p = item as Parameters<typeof recalcPhotoEditSubtotal>[0];
-      return {
+      const base: Record<string, unknown> = {
         selected_options: p.selectedOptions,
         option_labels: getPhotoEditOptionLabels(p.selectedOptions),
         additional_info: p.additionalInfo || "",
       };
+      // Dedicated sub-service (Image Enhancement / Day to Dusk / Item
+      // Removal) → persist sub_service + sub_service_label so dashboards,
+      // admin and emails can show the dedicated name. Legacy generic
+      // orders have no subService and keep the current details shape.
+      const subServiceLabel = getDedicatedSubServiceLabel(p.subService);
+      if (p.subService && subServiceLabel) {
+        base.sub_service = p.subService;
+        base.sub_service_label = subServiceLabel;
+      }
+      return base;
     }
   }
 }

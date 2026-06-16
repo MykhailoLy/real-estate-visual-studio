@@ -34,6 +34,8 @@ export interface AdminOrderItem {
 export interface AdminNotificationInput {
   orderNumber: string;
   serviceType: ServiceType;
+  /** Optional dedicated label (e.g. "Day to Dusk") overriding the broad service label. */
+  serviceLabelOverride?: string;
   client: {
     name: string;
     email: string;
@@ -73,7 +75,7 @@ export function renderAdminNotification(
     items,
   } = input;
 
-  const service = serviceLabel(serviceType);
+  const service = input.serviceLabelOverride ?? serviceLabel(serviceType);
   const total = formatCents(estimatedTotalCents);
   const subject = `New Order: ${orderNumber} — ${service}`;
 

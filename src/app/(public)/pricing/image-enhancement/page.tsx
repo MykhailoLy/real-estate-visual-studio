@@ -54,7 +54,7 @@ export default function ImageEnhancementPricingPage() {
           price={regionalPrice("From $2 / image", "From €2 / image")}
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/order/image-enhancement"
       orderLabel="Order Image Enhancement"
       whenToUseTitle="When to use Image Enhancement"
       whenToUseDescription="Image enhancement is the baseline edit that makes every listing photo look professionally shot and listing-ready."

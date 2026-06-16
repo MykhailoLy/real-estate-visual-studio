@@ -14,6 +14,7 @@ import {
   renderAdminNotification,
   type AdminOrderItem,
 } from "./order-admin-notification";
+import { getDedicatedSubServiceLabel } from "@/lib/dedicated-photo-editing";
 
 // ============================================================
 // SEND ORDER EMAILS
@@ -125,6 +126,12 @@ export async function sendOrderEmails(
     );
 
     // 2. Build payloads for both templates.
+    // Dedicated photo-editing orders carry sub_service on the first item;
+    // when present, both emails show the dedicated service name.
+    const firstSub = args.items[0]?.details?.sub_service;
+    const serviceLabelOverride =
+      getDedicatedSubServiceLabel(firstSub) ?? undefined;
+
     const clientItems: ClientConfirmationItem[] = args.items.map((item) => ({
       index: item.index,
       details: item.details,
@@ -134,6 +141,7 @@ export async function sendOrderEmails(
     const clientEmail = renderClientConfirmation({
       orderNumber: args.orderNumber,
       serviceType: args.serviceType,
+      serviceLabelOverride,
       clientName: args.client.name,
       clientEmail: args.client.email,
       itemCount: args.itemCount,
@@ -144,6 +152,7 @@ export async function sendOrderEmails(
     const adminEmail = renderAdminNotification({
       orderNumber: args.orderNumber,
       serviceType: args.serviceType,
+      serviceLabelOverride,
       client: args.client,
       itemCount: args.itemCount,
       estimatedTotalCents: args.estimatedTotalCents,
