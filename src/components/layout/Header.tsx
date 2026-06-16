@@ -398,7 +398,7 @@ export default function Header() {
               alt=""
               priority
             />
-            <BrandWordmark theme="light" className="text-xl hidden sm:inline" />
+            <BrandWordmark theme="light" className="text-lg sm:text-xl" />
           </Link>
 
           {/* Top-level categories (desktop) */}
