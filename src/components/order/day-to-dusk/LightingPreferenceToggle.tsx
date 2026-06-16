@@ -16,6 +16,11 @@ interface LightingPreferenceToggleProps {
   onChange: (value: boolean) => void;
   /** Unique id prefix so multiple controls per item don't collide. */
   idPrefix: string;
+  /**
+   * When true the control is read-only (used while a photo inherits
+   * Photo #1's shared preferences). The selected value stays visible.
+   */
+  disabled?: boolean;
 }
 
 const OPTIONS: { value: boolean; label: string }[] = [
@@ -28,6 +33,7 @@ export default function LightingPreferenceToggle({
   value,
   onChange,
   idPrefix,
+  disabled = false,
 }: LightingPreferenceToggleProps) {
   const groupName = `${idPrefix}-group`;
 
@@ -39,7 +45,8 @@ export default function LightingPreferenceToggle({
       <div
         role="radiogroup"
         aria-label={label}
-        className="grid grid-cols-2 gap-2"
+        aria-disabled={disabled || undefined}
+        className={`grid grid-cols-2 gap-2 ${disabled ? "opacity-60" : ""}`}
       >
         {OPTIONS.map((option) => {
           const optionKey = option.value ? "yes" : "no";
@@ -49,10 +56,14 @@ export default function LightingPreferenceToggle({
             <label
               key={optionKey}
               htmlFor={id}
-              className={`relative flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 text-center text-[12px] font-semibold transition-colors focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 ${
+              className={`relative flex items-center justify-center rounded-lg border px-2 py-2 text-center text-[12px] font-semibold transition-colors focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 ${
+                disabled ? "cursor-default" : "cursor-pointer"
+              } ${
                 selected
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-white text-foreground/70 hover:border-primary/40"
+                  : `border-border bg-white text-foreground/70 ${
+                      disabled ? "" : "hover:border-primary/40"
+                    }`
               }`}
             >
               <input
@@ -61,6 +72,7 @@ export default function LightingPreferenceToggle({
                 name={groupName}
                 value={optionKey}
                 checked={selected}
+                disabled={disabled}
                 onChange={() => onChange(option.value)}
                 className="sr-only"
               />

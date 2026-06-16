@@ -13,7 +13,19 @@ interface OrderSummaryProps {
   onSubmit: () => void;
   isSubmitting: boolean;
   canSubmit: boolean;
+  /** CTA label. Defaults to "Submit Order" so existing forms are unchanged. */
+  submitLabel?: string;
+  /** CTA label while submitting. Defaults to "Submitting...". */
+  submittingLabel?: string;
+  /**
+   * Footer note under the CTA. Defaults to the "No payment now" copy.
+   * Pass null to hide it (e.g. on a Configure step that only advances
+   * to Review).
+   */
+  footerNote?: React.ReactNode;
 }
+
+const DEFAULT_FOOTER_NOTE = "No payment now. We confirm & invoice after review.";
 
 export default function OrderSummary({
   serviceName,
@@ -21,6 +33,9 @@ export default function OrderSummary({
   onSubmit,
   isSubmitting,
   canSubmit,
+  submitLabel = "Submit Order",
+  submittingLabel = "Submitting...",
+  footerNote = DEFAULT_FOOTER_NOTE,
 }: OrderSummaryProps) {
   const orderTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
 
@@ -76,12 +91,12 @@ export default function OrderSummary({
         disabled={!canSubmit || isSubmitting}
         className="mt-6 w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold text-sm hover:bg-primary-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isSubmitting ? "Submitting..." : "Submit Order"}
+        {isSubmitting ? submittingLabel : submitLabel}
       </button>
 
-      <p className="text-xs text-muted text-center mt-3">
-        No payment now. We confirm &amp; invoice after review.
-      </p>
+      {footerNote != null && (
+        <p className="text-xs text-muted text-center mt-3">{footerNote}</p>
+      )}
     </div>
   );
 }
