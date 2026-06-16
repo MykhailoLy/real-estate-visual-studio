@@ -16,6 +16,7 @@ import {
   Coins,
   Menu,
 } from "lucide-react";
+import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
@@ -71,9 +72,14 @@ export default function ClientDashboardTopNav({
         className="flex items-center gap-2.5 flex-shrink-0 group"
         aria-label="PicchuSpot Dashboard home"
       >
-        <span className="text-white font-bold text-[15px] tracking-tight leading-none group-hover:text-white/90 transition-colors">
-          PicchuSpot
-        </span>
+        <PicchuSpotLogo
+          variant="mark-light"
+          className="h-6 w-auto"
+          width={48}
+          height={24}
+          alt=""
+        />
+        <BrandWordmark theme="dark" className="text-[15px] group-hover:opacity-90 transition-opacity" />
         <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-secondary text-[9px] font-bold uppercase tracking-[0.18em] leading-none">
           Portal
         </span>

@@ -13,6 +13,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
+import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 
 const adminNav = [
@@ -95,13 +96,15 @@ export default function AdminShell({
               className="group flex min-w-0 items-center gap-3"
               aria-label="PicchuSpot admin dashboard"
             >
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
-                <LayoutDashboard className="h-5 w-5" aria-hidden />
-              </span>
+              <PicchuSpotLogo
+                variant="mark"
+                className="h-8 w-auto flex-shrink-0"
+                width={64}
+                height={32}
+                alt=""
+              />
               <span className="min-w-0">
-                <span className="block text-sm font-bold leading-tight text-primary">
-                  PicchuSpot
-                </span>
+                <BrandWordmark theme="light" className="block text-sm" />
                 <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-secondary-dark">
                   Admin workspace
                 </span>

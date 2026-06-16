@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
+import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import SignUpForm, { type SignUpFormCopy } from "../../signup/SignUpForm";
 
 export const metadata: Metadata = {
@@ -52,9 +53,14 @@ export default function SpanishSignUpPage() {
             className="inline-flex items-center gap-2 mb-5 group"
             aria-label="Inicio de PicchuSpot"
           >
-            <span className="text-xl font-bold text-primary tracking-tight group-hover:text-primary-light transition-colors">
-              PicchuSpot
-            </span>
+            <PicchuSpotLogo
+              variant="mark"
+              className="h-7 w-auto"
+              width={56}
+              height={28}
+              alt=""
+            />
+            <BrandWordmark theme="light" className="text-xl group-hover:opacity-80 transition-opacity" />
             <span className="inline-flex items-center px-1.5 py-0.5 bg-primary/8 border border-primary/15 rounded text-primary text-[9px] font-bold uppercase tracking-[0.18em]">
               Portal
             </span>
