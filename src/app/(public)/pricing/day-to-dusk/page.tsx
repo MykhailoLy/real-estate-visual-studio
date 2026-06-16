@@ -9,7 +9,7 @@ import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Day to Dusk",
+  title: "Day to Dusk Editing from $5",
   description:
     "Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots. From US$5 / image.",
   alternates: localizedAlternates({

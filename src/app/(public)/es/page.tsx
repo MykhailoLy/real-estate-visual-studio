@@ -261,9 +261,9 @@ export default async function SpanishHomePage() {
               <p className="text-secondary-dark text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2">
                 Servicios digitales remotos
               </p>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
                 Ayuda a que tus anuncios destaquen y vendan más rápido
-              </h2>
+              </h1>
               <p className="mt-2 text-sm sm:text-base lg:text-lg text-muted leading-snug">
                 Virtual Staging, edición fotográfica, planos, visuales 360 y
                 media inmobiliaria local para anuncios de propiedades listos
