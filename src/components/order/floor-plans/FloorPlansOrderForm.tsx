@@ -9,6 +9,9 @@ import OrderTermsBlock, {
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
+import OrderJobTitleField, {
+  isJobTitleValid,
+} from "@/components/order/OrderJobTitleField";
 import FloorPlanItemCard, {
   type FloorPlanItemData,
   emptyFloorPlanItem,
@@ -31,6 +34,7 @@ export default function FloorPlansOrderForm({
   orderRoute,
 }: FloorPlansOrderFormProps) {
   const [items, setItems] = useState<FloorPlanItemData[]>([emptyFloorPlanItem()]);
+  const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -81,7 +85,8 @@ export default function FloorPlansOrderForm({
       "3d-floor-plans",
       itemsMetadata,
       files,
-      orderTerms
+      orderTerms,
+      jobTitle
     );
 
     if (result.success && result.orderNumber) {
@@ -100,6 +105,7 @@ export default function FloorPlansOrderForm({
 
   const handleNewOrder = () => {
     setItems([emptyFloorPlanItem()]);
+    setJobTitle("");
     setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
@@ -116,7 +122,8 @@ export default function FloorPlansOrderForm({
       item.planOrientation !== ""
   );
   const termsAccepted = orderTerms.accepted;
-  const canSubmit = items.length > 0 && allItemsValid && termsAccepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -131,6 +138,7 @@ export default function FloorPlansOrderForm({
           <Confirmation
             orderNumber={orderNumber}
             email={clientEmail}
+            jobTitle={jobTitle}
             confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
@@ -158,6 +166,8 @@ export default function FloorPlansOrderForm({
           {submitError}
         </div>
       )}
+
+      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
 
       <div className="space-y-5">
         {items.map((item, index) => (

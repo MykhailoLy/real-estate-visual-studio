@@ -9,6 +9,9 @@ import OrderTermsBlock, {
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
+import OrderJobTitleField, {
+  isJobTitleValid,
+} from "@/components/order/OrderJobTitleField";
 import StagingItemCard, {
   type StagingItemData,
   emptyStagingItem,
@@ -40,6 +43,7 @@ export default function VirtualStagingOrderForm({
   orderRoute,
 }: VirtualStagingOrderFormProps) {
   const [items, setItems] = useState<StagingItemData[]>([emptyStagingItem()]);
+  const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -80,7 +84,8 @@ export default function VirtualStagingOrderForm({
       "virtual-staging",
       itemsMetadata,
       files,
-      orderTerms
+      orderTerms,
+      jobTitle
     );
 
     if (result.success && result.orderNumber) {
@@ -100,6 +105,7 @@ export default function VirtualStagingOrderForm({
 
   const handleNewOrder = () => {
     setItems([emptyStagingItem()]);
+    setJobTitle("");
     setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
@@ -111,7 +117,8 @@ export default function VirtualStagingOrderForm({
     (item) => item.file !== null && item.roomName !== "" && item.furnitureStyle !== ""
   );
   const termsAccepted = orderTerms.accepted;
-  const canSubmit = items.length > 0 && allItemsValid && termsAccepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -126,6 +133,7 @@ export default function VirtualStagingOrderForm({
           <Confirmation
             orderNumber={orderNumber}
             email={clientEmail}
+            jobTitle={jobTitle}
             confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
@@ -159,6 +167,8 @@ export default function VirtualStagingOrderForm({
           {submitError}
         </div>
       )}
+
+      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
 
       <div className="space-y-5">
         {items.map((item, index) => (

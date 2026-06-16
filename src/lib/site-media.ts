@@ -332,6 +332,66 @@ export async function getServiceOptionsImages(
 }
 
 /**
+ * Resolved service-option image: a public URL + alt text.
+ */
+export interface ServiceOptionImage {
+  url: string;
+  alt: string | null;
+}
+
+/**
+ * Focused BATCH reader for service-option images keyed by `service_slug`.
+ *
+ * Reads, in a SINGLE query (no per-card N+1), every published
+ * `section = "service-options"`, `media_type = "image"` row whose
+ * service_slug is in `keys`, and returns a Map keyed by service_slug.
+ * First published image per key (lowest sort_order) wins.
+ *
+ * Used by the Image Enhancement type selector and Day Sky Style cards
+ * so a missing key simply has no entry and the caller renders its CSS
+ * fallback (never a broken image). Returns an empty Map when Supabase
+ * is unconfigured.
+ */
+export async function getServiceOptionImagesByKeys(
+  keys: string[]
+): Promise<Map<string, ServiceOptionImage>> {
+  const out = new Map<string, ServiceOptionImage>();
+  if (keys.length === 0 || !isSupabaseConfigured()) return out;
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return out;
+  }
+
+  const { data, error } = await supabase
+    .from("site_media_items")
+    .select("*")
+    .eq("section", "service-options")
+    .eq("media_type", "image")
+    .eq("published", true)
+    .in("service_slug", keys)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn("site-media: getServiceOptionImagesByKeys failed", error);
+    return out;
+  }
+
+  for (const item of (data ?? []) as SiteMediaItem[]) {
+    if (!item.service_slug || !item.image_path) continue;
+    if (out.has(item.service_slug)) continue; // first (lowest sort_order) wins
+    const url = getSiteMediaPublicUrl(item.image_path);
+    if (!url) continue;
+    out.set(item.service_slug, { url, alt: item.alt_text });
+  }
+
+  return out;
+}
+
+/**
  * Service-hero before/after slider items for a specific service page.
  *
  * Reads from site_media_items where:

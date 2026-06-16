@@ -38,6 +38,19 @@ CREATE TABLE IF NOT EXISTS orders (
   -- supabase/order-account-ownership-foundation.sql.
   user_id UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL,
 
+  -- Order-level Job Title (added in the Image Enhancement types PR).
+  -- A human label the client gives the whole order, e.g.
+  -- "123 Main Street — Exterior Photos". Stored once per order (NOT
+  -- per item). Nullable so historical orders created before this
+  -- column remain valid; new orders are required to supply a valid
+  -- value via the API. The CHECK allows NULL but requires a trimmed
+  -- length of 3–120 chars for any non-null value. Existing databases
+  -- get this column via supabase/add-order-job-title.sql.
+  job_title TEXT NULL CHECK (
+    job_title IS NULL
+    OR char_length(btrim(job_title)) BETWEEN 3 AND 120
+  ),
+
   -- Order summary (prices in USD cents for precision)
   item_count INTEGER NOT NULL CHECK (item_count > 0),
   estimated_total_cents INTEGER NOT NULL DEFAULT 0,

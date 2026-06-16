@@ -44,6 +44,7 @@ export interface AdminOrderRow {
   client_company: string | null;
   item_count: number;
   estimated_total_cents: number;
+  job_title: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -270,6 +271,11 @@ function OrderRow({
     <tr className="hover:bg-surface/50 transition-colors group">
       {/* Order number */}
       <td className="px-4 py-4 whitespace-nowrap">
+        {order.job_title && (
+          <p className="text-[13px] font-bold text-foreground leading-snug max-w-[220px] truncate">
+            {order.job_title}
+          </p>
+        )}
         <p className="font-mono text-[12px] font-bold text-foreground group-hover:text-primary transition-colors">
           {order.order_number}
         </p>

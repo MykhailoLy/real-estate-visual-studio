@@ -9,6 +9,9 @@ import OrderTermsBlock, {
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
 import Confirmation from "@/components/order/Confirmation";
+import OrderJobTitleField, {
+  isJobTitleValid,
+} from "@/components/order/OrderJobTitleField";
 import DedicatedPhotoEditItemCard, {
   type DedicatedPhotoEditItemData,
   emptyDedicatedPhotoEditItem,
@@ -46,6 +49,7 @@ export default function DedicatedPhotoEditingOrderForm({
   const [items, setItems] = useState<DedicatedPhotoEditItemData[]>([
     emptyDedicatedPhotoEditItem(),
   ]);
+  const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -88,7 +92,8 @@ export default function DedicatedPhotoEditingOrderForm({
       "photo-editing",
       itemsMetadata,
       files,
-      orderTerms
+      orderTerms,
+      jobTitle
     );
 
     if (result.success && result.orderNumber) {
@@ -107,6 +112,7 @@ export default function DedicatedPhotoEditingOrderForm({
 
   const handleNewOrder = () => {
     setItems([emptyDedicatedPhotoEditItem()]);
+    setJobTitle("");
     setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
     setOrderNumber("");
@@ -122,7 +128,8 @@ export default function DedicatedPhotoEditingOrderForm({
     return true;
   });
   const termsAccepted = orderTerms.accepted;
-  const canSubmit = items.length > 0 && allItemsValid && termsAccepted;
+  const canSubmit =
+    items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
 
   // --- Summary ---
   const fixedSubtotal = calculatePhotoEditItemTotal([config.optionId]);
@@ -138,6 +145,7 @@ export default function DedicatedPhotoEditingOrderForm({
           <Confirmation
             orderNumber={orderNumber}
             email={clientEmail}
+            jobTitle={jobTitle}
             confirmationEmailSent={confirmationEmailSent}
             onNewOrder={handleNewOrder}
           />
@@ -165,6 +173,8 @@ export default function DedicatedPhotoEditingOrderForm({
           {submitError}
         </div>
       )}
+
+      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
 
       {config.notice && (
         <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">

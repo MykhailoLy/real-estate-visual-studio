@@ -192,6 +192,7 @@ export default async function OrderDetailPage({
   const orderLevelDeliverables = getOrderLevelDeliverables(currentDeliverables);
 
   const serviceLabel = getOrderServiceLabel(order.service_type, order.sub_service);
+  const jobTitle = order.job_title?.trim() || "";
   const dashStatus = deriveDashboardStatusFromReviews(order.status, orderReviews);
   const progress = getProgressFromStatus(order.status);
   const estimatedComp = deriveEstimatedCompletion(order.status, order.created_at);
@@ -215,8 +216,11 @@ export default async function OrderDetailPage({
             Order detail
           </p>
           <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
-            {serviceLabel}
+            {jobTitle || serviceLabel}
           </h1>
+          {jobTitle && (
+            <p className="text-sm font-medium text-muted mt-1">{serviceLabel}</p>
+          )}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className="font-mono text-[12px] bg-surface border border-border px-2 py-0.5 rounded text-muted">
               {order.order_number}
@@ -253,6 +257,7 @@ export default async function OrderDetailPage({
           <dl className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
             <SummaryRow label="Order number" value={order.order_number} mono />
             <SummaryRow label="Service" value={serviceLabel} />
+            {jobTitle && <SummaryRow label="Job title" value={jobTitle} />}
             <SummaryRow label="Submitted" value={formatDisplayDate(order.created_at)} />
             <SummaryRow
               label="Est. completion"

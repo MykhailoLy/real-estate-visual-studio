@@ -29,6 +29,12 @@ const KEY_LABELS: Record<string, string> = {
   disclaimer_option: "Disclaimer",
   custom_disclaimer: "Custom disclaimer",
   flooring_by_room: "Flooring by room",
+  // Image Enhancement — Single Exposure preferences
+  grass_repair: "Grass repair",
+  sky_replacement: "Sky replacement",
+  tv_screen_replacement: "TV screen replacement",
+  add_fire_to_fireplace: "Add fire to fireplace",
+  day_sky_style_label: "Day sky style",
 };
 
 const SKIP_KEYS = new Set([
@@ -37,6 +43,10 @@ const SKIP_KEYS = new Set([
   "selected_internal",
   "selected_external",
   "plan_type",
+  // Raw machine values / labels already shown as the order's service title
+  "sub_service",
+  "sub_service_label",
+  "day_sky_style",
 ]);
 
 export default function OrderItemDetails({ details }: Props) {

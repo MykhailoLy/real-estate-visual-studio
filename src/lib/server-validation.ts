@@ -4,6 +4,10 @@ import {
   SUB_SERVICE_REQUIRED_OPTION,
   ITEM_REMOVAL_MIN_INSTRUCTIONS,
 } from "@/lib/dedicated-photo-editing";
+import {
+  THREE_STATE_VALUES,
+  DAY_SKY_STYLE_ID_VALUES,
+} from "@/lib/image-enhancement";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS
@@ -99,6 +103,16 @@ export const PhotoEditItemSchema = z
       .min(1, "At least one editing option is required"),
     subService: z.enum(DEDICATED_PHOTO_EDITING_SUB_SERVICES).optional(),
     additionalInfo: z.string().optional().default(""),
+    // --- Image Enhancement — Single Exposure preferences ---
+    // All optional + typed enums so other photo-editing sub-services
+    // and the legacy generic form are unaffected. Validated below only
+    // for the single-exposure sub-service. Browser-supplied labels are
+    // never trusted; labels are derived server-side from these enums.
+    grassRepair: z.enum(THREE_STATE_VALUES).optional(),
+    skyReplacement: z.enum(THREE_STATE_VALUES).optional(),
+    tvScreenReplacement: z.enum(THREE_STATE_VALUES).optional(),
+    addFireToFireplace: z.enum(THREE_STATE_VALUES).optional(),
+    daySkyStyle: z.enum(DAY_SKY_STYLE_ID_VALUES).optional(),
     ...itemDeliveryFields,
   })
   .superRefine((data, ctx) => {
@@ -202,6 +216,14 @@ export const ItemFilesSchema = z.object({
 // route enforces this length match and refuses orders without it.
 export const OrderMetadataSchema = z.object({
   serviceType: ServiceTypeSchema,
+  // Required order-level Job Title. Trimmed, 3–120 chars. Persisted to
+  // orders.job_title. NEVER trust the client value alone — this schema
+  // is the authoritative gate. Kept separate from item metadata.
+  jobTitle: z
+    .string({ message: "Job Title is required" })
+    .trim()
+    .min(3, "Job Title must be at least 3 characters")
+    .max(120, "Job Title must be at most 120 characters"),
   // NOTE: client contact identity is NO LONGER accepted from the body.
   // /api/order resolves client_name / client_email / client_phone /
   // client_company server-side from the verified session + client_profiles.
