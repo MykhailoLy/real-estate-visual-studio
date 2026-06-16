@@ -56,7 +56,7 @@ export default function SpanishImageEnhancementPricingPage() {
           price={regionalPrice("Desde $2 / imagen", "Desde €2 / imagen")}
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/order/image-enhancement"
       orderLabel="Pedir Mejora de imagen"
       whenToUseTitle="Cuándo usar Mejora de imagen"
       whenToUseDescription="La mejora de imagen es la edición base que hace que cada foto del anuncio parezca tomada de forma profesional y lista para publicar."
