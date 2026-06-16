@@ -38,6 +38,11 @@ import {
   isDaySkyStyleId,
   DAY_SKY_STYLE_DEFAULT,
 } from "@/lib/image-enhancement";
+import {
+  getDuskStyleLabel,
+  isDuskStyleId,
+  DUSK_STYLE_DEFAULT,
+} from "@/lib/day-to-dusk";
 
 // File bytes no longer flow through this route — clients upload directly
 // to Supabase Storage via signed URLs from /api/upload-url. This route
@@ -554,6 +559,20 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
           ? p.daySkyStyle
           : DAY_SKY_STYLE_DEFAULT;
         base.day_sky_style_label = getDaySkyStyleLabel(p.daySkyStyle);
+      }
+      // Day to Dusk preferences. The dusk-style label is derived
+      // SERVER-SIDE from the validated typed enum; no client label
+      // strings are trusted. Lighting preferences are persisted as real
+      // booleans. All are stored alongside the existing fixed option
+      // (which never changes the subtotal).
+      if (p.subService === "day-to-dusk") {
+        base.dusk_style = isDuskStyleId(p.duskStyle)
+          ? p.duskStyle
+          : DUSK_STYLE_DEFAULT;
+        base.dusk_style_label = getDuskStyleLabel(p.duskStyle);
+        base.turn_on_interior_lights = p.turnOnInteriorLights === true;
+        base.turn_on_exterior_lights = p.turnOnExteriorLights === true;
+        base.add_pool_lights = p.addPoolLights === true;
       }
       return base;
     }
