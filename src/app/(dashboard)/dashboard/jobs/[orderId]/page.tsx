@@ -31,8 +31,8 @@ import {
   deriveEstimatedCompletion,
   getOrderForClient,
   getProgressFromStatus,
-  getServiceLabel,
 } from "@/lib/client-orders";
+import { getOrderServiceLabel } from "@/lib/display/service-labels";
 import {
   getReviewsForClient,
   type DeliverableReview,
@@ -191,7 +191,7 @@ export default async function OrderDetailPage({
   const imageSourceFiles = groupSourceFilesByItem(sourceFiles);
   const orderLevelDeliverables = getOrderLevelDeliverables(currentDeliverables);
 
-  const serviceLabel = getServiceLabel(order.service_type);
+  const serviceLabel = getOrderServiceLabel(order.service_type, order.sub_service);
   const dashStatus = deriveDashboardStatusFromReviews(order.status, orderReviews);
   const progress = getProgressFromStatus(order.status);
   const estimatedComp = deriveEstimatedCompletion(order.status, order.created_at);

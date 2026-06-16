@@ -5,7 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import AdminOrdersClient, {
   type AdminOrderRow,
 } from "./AdminOrdersClient";
-import { getServiceLabel } from "@/lib/display/service-labels";
+import { getOrderServiceLabel } from "@/lib/display/service-labels";
 
 // ============================================================
 // /admin/orders
@@ -32,12 +32,9 @@ export const metadata: Metadata = {
 };
 
 // ── Service slug → human label ─────────────────────────────────
-// Mirrors the map in client-orders.ts so both sides stay in sync.
-// Kept here so the server component can annotate rows before
-// passing them to the client.
-function toServiceLabel(slug: string): string {
-  return getServiceLabel(slug);
-}
+// Dedicated photo-editing orders resolve their label from the first
+// item's sub_service (looked up in a single batched query below);
+// everything else falls back to the broad service_type label.
 
 // ── Page ──────────────────────────────────────────────────────
 
@@ -75,7 +72,7 @@ export default async function AdminOrdersPage() {
         console.error("[admin/orders] Fetch error:", error.message);
       } else {
         totalCount = count ?? 0;
-        orders = ((data ?? []) as unknown as Array<{
+        const rows = (data ?? []) as unknown as Array<{
           id: string;
           order_number: string;
           service_type: string;
@@ -87,11 +84,34 @@ export default async function AdminOrdersPage() {
           estimated_total_cents: number;
           created_at: string;
           updated_at: string;
-        }>).map((row) => ({
+        }>;
+
+        // Batched dedicated sub-service lookup (ONE query, not per-order):
+        // first item's details.sub_service for every order in this page.
+        const subByOrder = new Map<string, string | null>();
+        if (rows.length > 0) {
+          const { data: itemRows } = await supabase
+            .from("order_items")
+            .select("order_id, details")
+            .eq("item_index", 0)
+            .in(
+              "order_id",
+              rows.map((r) => r.id)
+            );
+          for (const it of (itemRows ?? []) as Array<{
+            order_id: string;
+            details: Record<string, unknown> | null;
+          }>) {
+            const sub = it.details?.sub_service;
+            subByOrder.set(it.order_id, typeof sub === "string" ? sub : null);
+          }
+        }
+
+        orders = rows.map((row) => ({
           id:                     row.id,
           order_number:           row.order_number,
           service_type:           row.service_type,
-          service_label:          toServiceLabel(row.service_type),
+          service_label:          getOrderServiceLabel(row.service_type, subByOrder.get(row.id)),
           status:                 row.status as AdminOrderRow["status"],
           client_name:            row.client_name,
           client_email:           row.client_email,

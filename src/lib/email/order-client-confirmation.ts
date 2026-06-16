@@ -23,6 +23,8 @@ export interface ClientConfirmationItem {
 export interface ClientConfirmationInput {
   orderNumber: string;
   serviceType: ServiceType;
+  /** Optional dedicated label (e.g. "Image Enhancement") overriding the broad service label. */
+  serviceLabelOverride?: string;
   clientName: string;
   clientEmail: string;
   itemCount: number;
@@ -50,7 +52,7 @@ export function renderClientConfirmation(
     items,
   } = input;
 
-  const service = serviceLabel(serviceType);
+  const service = input.serviceLabelOverride ?? serviceLabel(serviceType);
   const total = formatCents(estimatedTotalCents);
   const subject = `Order ${orderNumber} Received — PicchuSpot`;
 

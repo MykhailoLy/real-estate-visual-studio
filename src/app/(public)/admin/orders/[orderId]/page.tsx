@@ -31,7 +31,7 @@ import AdminOrderImageCard, {
 } from "@/components/admin/AdminOrderImageCard";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 import { formatDateTime } from "@/lib/display/file-format";
-import { getServiceLabel } from "@/lib/display/service-labels";
+import { getOrderServiceLabel } from "@/lib/display/service-labels";
 import {
   getOrderStatusLabel,
   getReviewStatusLabel,
@@ -75,10 +75,6 @@ export async function generateMetadata({
 }
 
 // ── Helpers ────────────────────────────────────────────────────
-
-function toLabel(slug: string): string {
-  return getServiceLabel(slug);
-}
 
 function formatDate(iso: string): string {
   return formatDateTime(iso);
@@ -466,7 +462,7 @@ export default async function AdminOrderDetailPage({
                 <dl className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
                   {[
                     ["Order #", order.order_number],
-                    ["Service", toLabel(order.service_type)],
+                    ["Service", getOrderServiceLabel(order.service_type, orderItems.find((it) => it.item_index === 0)?.details?.sub_service as string | undefined)],
                     ["Client", order.client_name],
                     ["Email", order.client_email],
                     ["Company", order.client_company ?? "—"],
