@@ -91,6 +91,11 @@ function asString(value: unknown): string {
   return String(value);
 }
 
+/** Render a stored boolean preference as a "Yes" / "No" label. */
+function yesNo(value: unknown): string {
+  return value === true ? "Yes" : "No";
+}
+
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -238,6 +243,15 @@ export function buildItemSummary(
         row("Add fire to fireplace", asString(details.add_fire_to_fireplace))
       );
       pushIf(rows, row("Day sky style", asString(details.day_sky_style_label)));
+      // Day to Dusk preferences (labels derived server-side; lighting
+      // preferences are stored as real booleans). Rendered only for
+      // Day to Dusk items so other photo-editing orders are unaffected.
+      if (asString(details.sub_service) === "day-to-dusk") {
+        pushIf(rows, row("Dusk style", asString(details.dusk_style_label)));
+        pushIf(rows, row("Interior lights", yesNo(details.turn_on_interior_lights)));
+        pushIf(rows, row("Exterior lights", yesNo(details.turn_on_exterior_lights)));
+        pushIf(rows, row("Pool lights", yesNo(details.add_pool_lights)));
+      }
       pushIf(
         rows,
         multilineRow("Notes", asString(details.additional_info))

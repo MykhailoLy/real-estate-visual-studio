@@ -8,6 +8,7 @@ import {
   THREE_STATE_VALUES,
   DAY_SKY_STYLE_ID_VALUES,
 } from "@/lib/image-enhancement";
+import { DUSK_STYLE_ID_VALUES } from "@/lib/day-to-dusk";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS
@@ -113,6 +114,16 @@ export const PhotoEditItemSchema = z
     tvScreenReplacement: z.enum(THREE_STATE_VALUES).optional(),
     addFireToFireplace: z.enum(THREE_STATE_VALUES).optional(),
     daySkyStyle: z.enum(DAY_SKY_STYLE_ID_VALUES).optional(),
+    // --- Day to Dusk preferences ---
+    // All optional + typed so other photo-editing sub-services and the
+    // legacy generic form are unaffected. Validated below only for the
+    // day-to-dusk sub-service. Browser-supplied labels are never trusted;
+    // labels are derived server-side from the dusk-style enum. Every one
+    // of these is included in the base price (never changes the subtotal).
+    duskStyle: z.enum(DUSK_STYLE_ID_VALUES).optional(),
+    turnOnInteriorLights: z.boolean().optional(),
+    turnOnExteriorLights: z.boolean().optional(),
+    addPoolLights: z.boolean().optional(),
     ...itemDeliveryFields,
   })
   .superRefine((data, ctx) => {
@@ -144,6 +155,42 @@ export const PhotoEditItemSchema = z
         path: ["additionalInfo"],
         message: "Please describe what should be removed or cleaned.",
       });
+    }
+
+    // Day to Dusk requires a known dusk style + real boolean lighting
+    // preferences. The dusk-style enum already rejects unknown keys when
+    // present; here we additionally require the fields to be supplied so a
+    // tampered payload cannot omit them. Unknown dusk styles, missing
+    // preference fields, and arbitrary labels are all rejected.
+    if (data.subService === "day-to-dusk") {
+      if (data.duskStyle === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["duskStyle"],
+          message: "A dusk sky style is required for Day to Dusk.",
+        });
+      }
+      if (typeof data.turnOnInteriorLights !== "boolean") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["turnOnInteriorLights"],
+          message: "Interior lights preference must be true or false.",
+        });
+      }
+      if (typeof data.turnOnExteriorLights !== "boolean") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["turnOnExteriorLights"],
+          message: "Exterior lights preference must be true or false.",
+        });
+      }
+      if (typeof data.addPoolLights !== "boolean") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["addPoolLights"],
+          message: "Pool lights preference must be true or false.",
+        });
+      }
     }
   });
 

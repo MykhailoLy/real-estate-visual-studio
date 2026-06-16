@@ -35,6 +35,11 @@ const KEY_LABELS: Record<string, string> = {
   tv_screen_replacement: "TV screen replacement",
   add_fire_to_fireplace: "Add fire to fireplace",
   day_sky_style_label: "Day sky style",
+  // Day to Dusk preferences
+  dusk_style_label: "Dusk style",
+  turn_on_interior_lights: "Interior lights",
+  turn_on_exterior_lights: "Exterior lights",
+  add_pool_lights: "Pool lights",
 };
 
 const SKIP_KEYS = new Set([
@@ -47,6 +52,7 @@ const SKIP_KEYS = new Set([
   "sub_service",
   "sub_service_label",
   "day_sky_style",
+  "dusk_style",
 ]);
 
 export default function OrderItemDetails({ details }: Props) {
