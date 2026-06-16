@@ -35,6 +35,7 @@ export const SITE_MEDIA_SECTIONS = [
   "service-options",
   "360-tour",
   "general",
+  "order-card",
 ] as const;
 
 export type SiteMediaSection = (typeof SITE_MEDIA_SECTIONS)[number];
@@ -98,6 +99,13 @@ export const SITE_MEDIA_SECTION_META: SiteMediaSectionMeta[] = [
     label: "General",
     description:
       "Anything that doesn't belong in the sections above yet. Acts as a holding area.",
+    defaultMediaType: "image",
+  },
+  {
+    section: "order-card",
+    label: "Order card",
+    description:
+      "Service card images for the authenticated New Order hub (/dashboard/orders/new). Media type Image, and set Service slug to the order service slug (e.g. image-enhancement, day-to-dusk, virtual-staging, item-removal-virtual-cleaning, floor-plans, virtual-renovation, 360-image-enhancement, 360-virtual-staging, aerial-editing, development-site-plans). One published image per slug; first by sort order wins.",
     defaultMediaType: "image",
   },
 ];
