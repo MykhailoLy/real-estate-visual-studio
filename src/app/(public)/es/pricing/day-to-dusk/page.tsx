@@ -9,7 +9,7 @@ import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
-  title: "Day to Dusk",
+  title: "Edición Day to Dusk desde $5",
   description:
     "Transforma fotos exteriores diurnas en imágenes cálidas de estilo atardecer para anuncios inmobiliarios más potentes. Desde US$5 por imagen.",
   path: "/es/pricing/day-to-dusk",

@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "www.picchuspot.com",
+          },
+        ],
+        destination: "https://picchuspot.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     // Modern formats — Next.js negotiates AVIF/WebP per request and
     // falls back to the original format for unsupported browsers.

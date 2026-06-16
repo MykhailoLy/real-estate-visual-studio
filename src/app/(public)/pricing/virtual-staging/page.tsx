@@ -49,7 +49,7 @@ import { absoluteUrl } from "@/lib/seo";
 // ============================================================
 
 export const metadata: Metadata = {
-  title: "Virtual Staging",
+  title: "Virtual Staging Services from $19",
   description:
     "Virtual staging from US$19 per image. Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
   alternates: localizedAlternates({

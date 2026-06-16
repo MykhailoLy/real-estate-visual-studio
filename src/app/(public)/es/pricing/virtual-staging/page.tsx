@@ -37,7 +37,7 @@ import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 
 export const metadata = spanishMetadata({
-  title: "Virtual Staging",
+  title: "Precios de Virtual Staging desde $19",
   description:
     "Virtual Staging desde US$19 por imagen. Transforma habitaciones vacías o anticuadas en espacios amueblados y listos para el mercado. 9 estilos interiores, 1 revisión incluida y entrega en 24-48 horas.",
   path: "/es/pricing/virtual-staging",
