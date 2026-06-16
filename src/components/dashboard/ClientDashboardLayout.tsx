@@ -16,12 +16,24 @@ interface ClientDashboardLayoutProps {
    */
   statusFilter?: DashboardJobStatus | "all";
   onStatusFilterChange?: (status: DashboardJobStatus | "all") => void;
+  /**
+   * Opt-in override for the main content wrapper classes. Defaults to the
+   * centered max-w-6xl container every dashboard page uses. The New Order
+   * hub passes a full-width variant so its card grid fills the main area on
+   * large screens. Existing pages are unaffected.
+   */
+  contentClassName?: string;
 }
+
+/** Default centered container — unchanged behaviour for every other page. */
+const DEFAULT_CONTENT_CLASSNAME =
+  "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8";
 
 export default function ClientDashboardLayout({
   children,
   statusFilter,
   onStatusFilterChange,
+  contentClassName,
 }: ClientDashboardLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -53,7 +65,7 @@ export default function ClientDashboardLayout({
 
         {/* Scrollable main content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <div className={contentClassName ?? DEFAULT_CONTENT_CLASSNAME}>
             {children}
           </div>
         </main>

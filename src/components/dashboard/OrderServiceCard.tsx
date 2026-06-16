@@ -1,134 +1,224 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Clock, Lock } from "lucide-react";
-import type { OrderServiceCard as OrderServiceCardData } from "@/lib/order-services";
+import { ArrowRight, Clock, Images, Lock } from "lucide-react";
+import {
+  ORDER_SERVICE_CARDS,
+  type OrderServiceCard as OrderServiceCardData,
+} from "@/lib/order-services";
+import { getGalleryPairLabels } from "@/lib/gallery";
 import type { OrderCardImage } from "@/lib/order-card-media";
+import type { OrderExamplePair } from "@/lib/order-card-examples";
+import OrderExamplesModal from "./OrderExamplesModal";
 
 // ============================================================
 // OrderServiceCard — one service tile in the New Order hub.
 //
-// Active services render as a fully-clickable Link with a
-// "Start Order" CTA, hover lift, and image zoom. Inactive
-// services (coming-soon / custom-quote) render as a
-// non-interactive card with a disabled CTA; they never navigate
-// and are not keyboard-focusable, but their status is conveyed by
-// text + icon (not colour alone) and remains screen-reader
-// friendly via an explicit label.
+// The shell is a NON-interactive <article> (not a Link), so the
+// nested "View Examples" <button> and "Start Order" <Link> are both
+// valid and never conflict. Active services get a clickable Start
+// Order link; inactive services get a disabled Coming Soon / Custom
+// Quote pill and never navigate. Any service with complete Portfolio
+// examples (active or inactive, excluding the temporary Photo Editing
+// card) shows a View Examples button that opens an in-dashboard modal.
+//
+// Media priority: Portfolio Before/After preview → order-card image
+// → branded CSS fallback. All non-serializable bits (the icon) are
+// resolved client-side from the registry by slug.
 // ============================================================
 
 interface OrderServiceCardProps {
-  service: OrderServiceCardData;
-  image: OrderCardImage | null;
+  slug: string;
+  /** Complete Before/After pairs for this service (may be empty). */
+  examples: OrderExamplePair[];
+  /** Admin-managed order-card cover image, or null. */
+  cardImage: OrderCardImage | null;
 }
 
-function CardMedia({
-  service,
-  image,
-}: OrderServiceCardProps) {
-  const Icon = service.icon;
+const HALF_SIZES =
+  "(min-width: 1536px) 13vw, (min-width: 1280px) 17vw, (min-width: 640px) 25vw, 50vw";
+const COVER_SIZES =
+  "(min-width: 1536px) 25vw, (min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw";
+
+function PortfolioPreview({
+  pair,
+  beforeLabel,
+  afterLabel,
+}: {
+  pair: OrderExamplePair;
+  beforeLabel: string;
+  afterLabel: string;
+}) {
   return (
-    <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-100">
-      {image ? (
-        <Image
-          src={image.url}
-          alt={image.alt ?? service.title}
-          fill
-          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
-          loading="lazy"
-        />
-      ) : (
-        // Branded CSS fallback — never a broken-image element.
-        <div
-          aria-hidden
-          className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 via-surface to-secondary/10"
-        >
-          <Icon className="w-9 h-9 text-primary/60" />
-          <span className="px-4 text-center text-xs font-semibold tracking-wide text-primary/70">
-            {service.title}
+    <div className="relative aspect-[3/1] w-full overflow-hidden bg-stone-100">
+      <div className="grid h-full grid-cols-2">
+        <div className="relative h-full overflow-hidden">
+          <Image
+            src={pair.beforeUrl}
+            alt={pair.beforeAlt}
+            fill
+            sizes={HALF_SIZES}
+            className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+            loading="lazy"
+          />
+          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-[9px] font-bold uppercase tracking-[0.14em] text-white">
+            {beforeLabel}
           </span>
         </div>
-      )}
-
-      {service.badge && (
-        <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-primary/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm">
-          {service.badge}
-        </span>
-      )}
+        <div className="relative h-full overflow-hidden border-l-2 border-white">
+          <Image
+            src={pair.afterUrl}
+            alt={pair.afterAlt}
+            fill
+            sizes={HALF_SIZES}
+            className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+            loading="lazy"
+          />
+          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-[9px] font-bold uppercase tracking-[0.14em] text-white">
+            {afterLabel}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
 
-function CardBody({ service }: { service: OrderServiceCardData }) {
-  const isActive = service.availability === "active";
+function CoverImage({ image, title }: { image: OrderCardImage; title: string }) {
   return (
-    <div className="flex flex-1 flex-col p-5">
-      <h2 className="text-lg font-semibold text-foreground">{service.title}</h2>
-      <p className="mt-1.5 line-clamp-3 flex-1 text-sm text-muted">
-        {service.description}
-      </p>
+    <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-100">
+      <Image
+        src={image.url}
+        alt={image.alt ?? title}
+        fill
+        sizes={COVER_SIZES}
+        className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+        loading="lazy"
+      />
+    </div>
+  );
+}
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-primary">
-            {service.priceLabel}
-          </p>
-          {service.turnaroundLabel && (
-            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-              <Clock className="h-3 w-3" aria-hidden />
-              {service.turnaroundLabel}
-            </p>
-          )}
-        </div>
-
-        {isActive ? (
-          <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-bold text-white transition-colors group-hover:bg-primary-light">
-            Start Order
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </span>
-        ) : (
-          <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-stone-100 px-3.5 py-2 text-sm font-semibold text-muted">
-            <Lock className="h-3.5 w-3.5" aria-hidden />
-            {service.availability === "custom-quote" ? "Custom Quote" : "Coming Soon"}
-          </span>
-        )}
+function FallbackVisual({ service }: { service: OrderServiceCardData }) {
+  const Icon = service.icon;
+  return (
+    <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-100">
+      <div
+        aria-hidden
+        className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 via-surface to-secondary/10"
+      >
+        <Icon className="h-9 w-9 text-primary/60" />
+        <span className="px-4 text-center text-xs font-semibold tracking-wide text-primary/70">
+          {service.title}
+        </span>
       </div>
     </div>
   );
 }
 
 export default function OrderServiceCard({
-  service,
-  image,
+  slug,
+  examples,
+  cardImage,
 }: OrderServiceCardProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const service = ORDER_SERVICE_CARDS.find((s) => s.slug === slug);
+  if (!service) return null;
+
   const isActive = service.availability === "active" && service.route !== null;
+  const hasExamples =
+    examples.length > 0 && service.portfolioServiceSlug !== null && !service.temporary;
+  const labels = service.portfolioServiceSlug
+    ? getGalleryPairLabels(service.portfolioServiceSlug, "en")
+    : null;
 
-  const cardShell =
-    "group flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-white";
-
-  if (isActive) {
-    return (
-      <Link
-        href={service.route as string}
-        className={`${cardShell} transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
-      >
-        <CardMedia service={service} image={image} />
-        <CardBody service={service} />
-      </Link>
-    );
-  }
-
-  // Inactive: non-interactive, not focusable, status conveyed by text + icon.
-  const statusWord =
-    service.availability === "custom-quote" ? "Custom quote" : "Coming soon";
   return (
-    <div
-      className={`${cardShell} cursor-default opacity-95`}
-      aria-disabled="true"
-    >
-      <CardMedia service={service} image={image} />
-      <CardBody service={service} />
-      <span className="sr-only">{service.title}: {statusWord}, not yet available to order.</span>
-    </div>
+    <article className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      {/* ── Media region ── */}
+      <div className="relative">
+        {hasExamples && labels ? (
+          <PortfolioPreview
+            pair={examples[0]}
+            beforeLabel={labels.before}
+            afterLabel={labels.after}
+          />
+        ) : cardImage ? (
+          <CoverImage image={cardImage} title={service.title} />
+        ) : (
+          <FallbackVisual service={service} />
+        )}
+
+        {service.badge && (
+          <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-primary/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm">
+            {service.badge}
+          </span>
+        )}
+
+        {hasExamples && (
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            aria-label={`View ${service.title} examples`}
+            title="View examples"
+            className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-primary shadow-sm backdrop-blur transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <Images className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">Examples</span>
+          </button>
+        )}
+      </div>
+
+      {/* ── Body ── */}
+      <div className="flex flex-1 flex-col p-5">
+        <h2 className="text-lg font-semibold text-foreground">{service.title}</h2>
+        <p className="mt-1.5 line-clamp-3 flex-1 text-sm text-muted">
+          {service.description}
+        </p>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-primary">
+              {service.priceLabel}
+            </p>
+            {service.turnaroundLabel && (
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
+                <Clock className="h-3 w-3" aria-hidden />
+                {service.turnaroundLabel}
+              </p>
+            )}
+          </div>
+
+          {isActive ? (
+            <Link
+              href={service.route as string}
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Start Order
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          ) : (
+            <span
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-stone-100 px-3.5 py-2 text-sm font-semibold text-muted"
+              aria-disabled="true"
+            >
+              <Lock className="h-3.5 w-3.5" aria-hidden />
+              {service.availability === "custom-quote" ? "Custom Quote" : "Coming Soon"}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {hasExamples && labels && service.portfolioServiceSlug && (
+        <OrderExamplesModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          title={service.title}
+          serviceSlug={service.portfolioServiceSlug}
+          pairs={examples}
+        />
+      )}
+    </article>
   );
 }
