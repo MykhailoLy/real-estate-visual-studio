@@ -24,6 +24,13 @@ interface OrderReviewItemProps {
   rows: ReviewRow[];
   subtotalCents: number;
   onEdit: () => void;
+  /**
+   * Optional secondary file preview (e.g. a markup / reference image),
+   * shown beneath the original. Omit for flows without a second file.
+   */
+  secondaryFile?: File | null;
+  /** Caption for the secondary preview, e.g. "Markup / reference". */
+  secondaryLabel?: string;
 }
 
 function formatFileSize(bytes: number): string {
@@ -38,6 +45,8 @@ export default function OrderReviewItem({
   rows,
   subtotalCents,
   onEdit,
+  secondaryFile = null,
+  secondaryLabel = "Markup / reference",
 }: OrderReviewItemProps) {
   return (
     <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
@@ -78,6 +87,28 @@ export default function OrderReviewItem({
                 {file.name}
               </p>
               <p className="text-[11px] text-muted">{formatFileSize(file.size)}</p>
+            </div>
+          )}
+
+          {secondaryFile && (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light mb-1">
+                {secondaryLabel}
+              </p>
+              <LocalFilePreview
+                file={secondaryFile}
+                alt={`Photo ${index + 1} ${secondaryLabel}`}
+                className="aspect-video w-full"
+              />
+              <p
+                className="mt-1 text-[12px] font-semibold text-foreground truncate"
+                title={secondaryFile.name}
+              >
+                {secondaryFile.name}
+              </p>
+              <p className="text-[11px] text-muted">
+                {formatFileSize(secondaryFile.size)}
+              </p>
             </div>
           )}
         </div>
