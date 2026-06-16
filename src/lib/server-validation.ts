@@ -9,6 +9,7 @@ import {
   DAY_SKY_STYLE_ID_VALUES,
 } from "@/lib/image-enhancement";
 import { DUSK_STYLE_ID_VALUES } from "@/lib/day-to-dusk";
+import { REMOVAL_TASK_ID_VALUES } from "@/lib/item-removal";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS
@@ -124,6 +125,13 @@ export const PhotoEditItemSchema = z
     turnOnInteriorLights: z.boolean().optional(),
     turnOnExteriorLights: z.boolean().optional(),
     addPoolLights: z.boolean().optional(),
+    // --- Item Removal & Virtual Cleaning work types ---
+    // Optional + typed enum so other photo-editing sub-services and the
+    // legacy generic form are unaffected. Validated below only for the
+    // item-removal sub-service. Unknown task values are rejected at parse
+    // time by the enum; presence/non-empty/no-duplicates are enforced in
+    // superRefine. Labels are derived server-side, never trusted.
+    removalTasks: z.array(z.enum(REMOVAL_TASK_ID_VALUES)).optional(),
     ...itemDeliveryFields,
   })
   .superRefine((data, ctx) => {
@@ -155,6 +163,28 @@ export const PhotoEditItemSchema = z
         path: ["additionalInfo"],
         message: "Please describe what should be removed or cleaned.",
       });
+    }
+
+    // Item Removal & Virtual Cleaning also requires at least one known
+    // work-type task, with no duplicates. Unknown task keys are already
+    // rejected at parse time by the z.enum above; here we enforce that
+    // the list is present, non-empty and free of duplicates so a tampered
+    // payload cannot omit it or repeat values.
+    if (data.subService === "item-removal-virtual-cleaning") {
+      const tasks = data.removalTasks ?? [];
+      if (tasks.length < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["removalTasks"],
+          message: "Select at least one work type (item removal, decluttering or virtual cleaning).",
+        });
+      } else if (new Set(tasks).size !== tasks.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["removalTasks"],
+          message: "Work types must not contain duplicates.",
+        });
+      }
     }
 
     // Day to Dusk requires a known dusk style + real boolean lighting

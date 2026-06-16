@@ -40,6 +40,8 @@ const KEY_LABELS: Record<string, string> = {
   turn_on_interior_lights: "Interior lights",
   turn_on_exterior_lights: "Exterior lights",
   add_pool_lights: "Pool lights",
+  // Item Removal & Virtual Cleaning
+  removal_task_labels: "Work requested",
 };
 
 const SKIP_KEYS = new Set([
@@ -53,6 +55,8 @@ const SKIP_KEYS = new Set([
   "sub_service_label",
   "day_sky_style",
   "dusk_style",
+  // Raw machine task ids (readable labels shown via removal_task_labels)
+  "removal_tasks",
 ]);
 
 export default function OrderItemDetails({ details }: Props) {

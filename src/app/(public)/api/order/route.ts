@@ -43,6 +43,7 @@ import {
   isDuskStyleId,
   DUSK_STYLE_DEFAULT,
 } from "@/lib/day-to-dusk";
+import { getRemovalTaskLabels, isRemovalTaskId } from "@/lib/item-removal";
 
 // File bytes no longer flow through this route — clients upload directly
 // to Supabase Storage via signed URLs from /api/upload-url. This route
@@ -573,6 +574,18 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
         base.turn_on_interior_lights = p.turnOnInteriorLights === true;
         base.turn_on_exterior_lights = p.turnOnExteriorLights === true;
         base.add_pool_lights = p.addPoolLights === true;
+      }
+      // Item Removal & Virtual Cleaning work types. Readable labels are
+      // derived SERVER-SIDE from the validated typed enum; no client label
+      // strings are trusted. additional_info (the required instructions)
+      // and the optional markup/reference upload metadata are persisted by
+      // the existing shared paths.
+      if (p.subService === "item-removal-virtual-cleaning") {
+        const tasks = Array.isArray(p.removalTasks)
+          ? p.removalTasks.filter(isRemovalTaskId)
+          : [];
+        base.removal_tasks = tasks;
+        base.removal_task_labels = getRemovalTaskLabels(tasks);
       }
       return base;
     }
