@@ -41,8 +41,12 @@ export default function ClientDashboardLayout({
     statusFilter !== undefined && onStatusFilterChange !== undefined;
 
   return (
-    <div className="flex flex-col h-screen bg-surface overflow-hidden">
-      {/* Top nav — sticky at top */}
+    // Outer shell is pinned to the dynamic viewport height and never
+    // scrolls itself. `min-h-0` lets the inner flex children shrink so the
+    // single scroll owner (main, below) can actually overflow instead of
+    // pushing the whole shell past the viewport.
+    <div className="flex flex-col h-[100dvh] min-h-0 bg-surface overflow-hidden">
+      {/* Top nav — fixed within the shell, never scrolls away */}
       <ClientDashboardTopNav
         onMobileMenuToggle={() => setMobileMenuOpen((v) => !v)}
         mobileMenuOpen={mobileMenuOpen}
@@ -56,15 +60,21 @@ export default function ClientDashboardLayout({
         onStatusFilter={showStatusFilter ? onStatusFilterChange : undefined}
       />
 
-      {/* Body: sidebar + main content */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Body: sidebar + main content. `min-h-0` is required so the row can
+          shrink and the main column becomes the scroll container. */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <ClientDashboardSidebar
           activeStatusFilter={showStatusFilter ? statusFilter : undefined}
           onStatusFilter={showStatusFilter ? onStatusFilterChange : undefined}
         />
 
-        {/* Scrollable main content */}
-        <main className="flex-1 overflow-y-auto">
+        {/* The dashboard's single intended vertical scroll owner. The
+            stable data attribute lets the order flow scroll this container
+            (not the window) on step transitions. */}
+        <main
+          data-dashboard-scroll-container
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+        >
           <div className={contentClassName ?? DEFAULT_CONTENT_CLASSNAME}>
             {children}
           </div>
