@@ -87,7 +87,7 @@ export default function GalleryBeforeAfterPair({
           height={RATIO_HINT_HEIGHT}
           // One example per row; each image is 50% of the wide
           // container on sm+, full content width on mobile.
-          sizes="(min-width: 640px) 50vw, 100vw"
+          sizes="(min-width: 1720px) 814px, (min-width: 1024px) calc(50vw - 46px), (min-width: 640px) calc(50vw - 30px), calc(100vw - 32px)"
           className="block w-full h-auto"
           priority={loading === "eager"}
         />
@@ -101,7 +101,7 @@ export default function GalleryBeforeAfterPair({
           alt={afterAlt}
           width={RATIO_HINT_WIDTH}
           height={RATIO_HINT_HEIGHT}
-          sizes="(min-width: 640px) 50vw, 100vw"
+          sizes="(min-width: 1720px) 814px, (min-width: 1024px) calc(50vw - 46px), (min-width: 640px) calc(50vw - 30px), calc(100vw - 32px)"
           className="block w-full h-auto"
           priority={loading === "eager"}
         />

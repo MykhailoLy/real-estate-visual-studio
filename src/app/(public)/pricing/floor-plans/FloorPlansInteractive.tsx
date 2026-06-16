@@ -172,7 +172,7 @@ export function PortfolioExamplesGrid({
                         src={card.beforeUrl!}
                         alt={card.beforeAlt}
                         fill
-                        sizes="(min-width: 768px) 25vw, 50vw"
+                        sizes="(min-width: 1400px) 318px, (min-width: 1024px) calc(25vw - 32px), (min-width: 768px) calc(25vw - 22px), calc(50vw - 24px)"
                         className={imageClassName}
                       />
                       <span className="absolute bottom-2.5 left-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-stone-700 shadow-sm">
@@ -185,7 +185,7 @@ export function PortfolioExamplesGrid({
                         src={card.afterUrl!}
                         alt={card.afterAlt}
                         fill
-                        sizes="(min-width: 768px) 25vw, 50vw"
+                        sizes="(min-width: 1400px) 318px, (min-width: 1024px) calc(25vw - 32px), (min-width: 768px) calc(25vw - 22px), calc(50vw - 24px)"
                         className={imageClassName}
                       />
                       <span className="absolute bottom-2.5 right-2.5 inline-flex items-center px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-[9px] font-bold tracking-[0.18em] uppercase text-primary shadow-sm">
@@ -310,7 +310,7 @@ export function StyleOptionsGrid({ cards, labels }: StyleGridProps) {
                       src={card.imageUrl!}
                       alt={card.imageAlt}
                       fill
-                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                      sizes="(min-width: 1400px) 417px, (min-width: 1024px) calc(33.333vw - 48px), (min-width: 640px) calc(50vw - 42px), calc(100vw - 48px)"
                       className="object-contain p-2 sm:p-3"
                     />
                     <span

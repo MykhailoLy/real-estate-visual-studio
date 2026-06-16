@@ -91,7 +91,7 @@ export default function BeforeAfterFrame({
           fill
           // Frame is one grid card; each half is 50% of the card.
           // Cards are ~2-up on desktop → half ≈ 25vw, full-width on mobile.
-          sizes="(min-width: 1024px) 25vw, 50vw"
+          sizes="(min-width: 1500px) 341px, (min-width: 1024px) calc(25vw - 34px), calc(50vw - 16px)"
           className="object-cover"
           priority={loading === "eager"}
         />
@@ -108,7 +108,7 @@ export default function BeforeAfterFrame({
           src={afterUrl ?? ""}
           alt={afterAlt}
           fill
-          sizes="(min-width: 1024px) 25vw, 50vw"
+          sizes="(min-width: 1500px) 341px, (min-width: 1024px) calc(25vw - 34px), calc(50vw - 16px)"
           className="object-cover"
           priority={loading === "eager"}
         />
