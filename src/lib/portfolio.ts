@@ -355,6 +355,56 @@ export async function getGalleryItemsForService(
 }
 
 /**
+ * BATCH gallery reader — one query for ALL services. Returns every
+ * published, show_in_gallery=TRUE item grouped by service slug, with
+ * the same ordering each per-service reader uses (featured_home
+ * first, then sort_order, then created_at). Used by the authenticated
+ * New Order hub so it can show Before/After previews + example
+ * galleries without issuing one query per card.
+ *
+ * Degrades to an empty Map when Supabase is unconfigured or on error.
+ */
+export async function getGalleryItemsGroupedByService(): Promise<
+  Map<PortfolioServiceSlug, PortfolioItem[]>
+> {
+  const out = new Map<PortfolioServiceSlug, PortfolioItem[]>();
+  if (!isSupabaseConfigured()) return out;
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return out;
+  }
+
+  const { data, error } = await supabase
+    .from("portfolio_items")
+    .select("*")
+    .eq("published", true)
+    .eq("show_in_gallery", true)
+    .order("service_slug", { ascending: true })
+    .order("featured_home", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn(
+      "portfolio: getGalleryItemsGroupedByService query failed:",
+      error
+    );
+    return out;
+  }
+
+  for (const row of (data ?? []) as PortfolioItem[]) {
+    if (!isPortfolioServiceSlug(row.service_slug)) continue;
+    const existing = out.get(row.service_slug);
+    if (existing) existing.push(row);
+    else out.set(row.service_slug, [row]);
+  }
+  return out;
+}
+
+/**
  * Public SERVICE-PAGE reader. Published items for a service that
  * are flagged show_on_service_page = TRUE. Used only by the
  * pricing/service pages' example sections.

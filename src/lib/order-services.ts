@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
+import type { PortfolioServiceSlug } from "@/lib/portfolio";
 
 /**
  * Availability drives the card CTA treatment:
@@ -51,6 +52,12 @@ export interface OrderServiceCard {
   availability: OrderServiceAvailability;
   /** Display-only price/availability label. Not used for billing. */
   priceLabel: string;
+  /**
+   * Canonical portfolio service slug used to look up Before/After
+   * gallery examples. null for the temporary Photo Editing umbrella
+   * card (no canonical portfolio slug).
+   */
+  portfolioServiceSlug: PortfolioServiceSlug | null;
   /** Turnaround/availability sub-label, or null. */
   turnaroundLabel: string | null;
   /** Optional small badge shown over the image (e.g. "360°", "Quote"). */
@@ -81,6 +88,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: null,
     publicServiceSlug: "image-enhancement",
     availability: "coming-soon",
+    portfolioServiceSlug: "image-enhancement",
     priceLabel: "From $2 / image",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
@@ -96,6 +104,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: null,
     publicServiceSlug: "day-to-dusk",
     availability: "coming-soon",
+    portfolioServiceSlug: "day-to-dusk",
     priceLabel: "From $5 / image",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
@@ -111,6 +120,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: "/dashboard/orders/new/virtual-staging",
     publicServiceSlug: "virtual-staging",
     availability: "active",
+    portfolioServiceSlug: "virtual-staging",
     priceLabel: "From $19 / image",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
@@ -126,6 +136,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: null,
     publicServiceSlug: "item-removal-virtual-cleaning",
     availability: "coming-soon",
+    portfolioServiceSlug: "item-removal-virtual-cleaning",
     priceLabel: "From $8 / image",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
@@ -141,6 +152,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: "/dashboard/orders/new/3d-floor-plans",
     publicServiceSlug: "floor-plans",
     availability: "active",
+    portfolioServiceSlug: "floor-plans",
     priceLabel: "From $16 / floor",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
@@ -156,6 +168,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: "/dashboard/orders/new/virtual-renovation",
     publicServiceSlug: "virtual-renovation",
     availability: "active",
+    portfolioServiceSlug: "virtual-renovation",
     priceLabel: "Option-based pricing",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
@@ -171,6 +184,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: null,
     publicServiceSlug: "360-image-enhancement",
     availability: "coming-soon",
+    portfolioServiceSlug: "360-image-enhancement",
     priceLabel: "Coming Soon",
     turnaroundLabel: null,
     badge: "360\u00b0",
@@ -186,6 +200,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: null,
     publicServiceSlug: "360-virtual-staging",
     availability: "coming-soon",
+    portfolioServiceSlug: "360-virtual-staging",
     priceLabel: "Coming Soon",
     turnaroundLabel: null,
     badge: "360\u00b0",
@@ -201,6 +216,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: null,
     publicServiceSlug: "aerial-editing",
     availability: "custom-quote",
+    portfolioServiceSlug: "aerial-editing",
     priceLabel: "Custom Quote",
     turnaroundLabel: null,
     badge: "Quote",
@@ -216,6 +232,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: null,
     publicServiceSlug: "development-site-plans",
     availability: "custom-quote",
+    portfolioServiceSlug: "development-site-plans",
     priceLabel: "Custom Quote",
     turnaroundLabel: null,
     badge: "Quote",
@@ -234,6 +251,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     route: "/dashboard/orders/new/photo-editing",
     publicServiceSlug: "photo-editing",
     availability: "active",
+    portfolioServiceSlug: null,
     priceLabel: "Option-based pricing",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: "Temporary",
