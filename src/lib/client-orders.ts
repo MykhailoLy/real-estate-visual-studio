@@ -50,6 +50,12 @@ export interface ClientOrder {
   created_at: string;
   updated_at: string;
   /**
+   * Order-level Job Title (orders.job_title). Null for historical
+   * orders created before the column existed — callers fall back to
+   * the generated "<Service> — <Order #>" title.
+   */
+  job_title?: string | null;
+  /**
    * Dedicated sub-service slug from the first order item's details
    * (e.g. "image-enhancement"). Null for generic/legacy orders. Used to
    * display the dedicated label without an extra query per order.
@@ -304,9 +310,20 @@ export function mapOrderToDashboardJob(
   const dashboardStatus = deriveDashboardStatusFromReviews(order.status, reviews);
   const progress = getProgressForDashboardStatus(order.status, dashboardStatus);
 
+  // Job Title is the PRIMARY headline when present. Historical orders
+  // (job_title NULL/blank) keep the generated "<Service> — <Order #>"
+  // title so they still read well.
+  const generatedTitle = `${serviceLabel} — ${order.order_number}`;
+  const jobTitle = order.job_title?.trim() ? order.job_title.trim() : "";
+  const title = jobTitle || generatedTitle;
+
   return {
     id:                  order.id,
-    title:               `${serviceLabel} — ${order.order_number}`,
+    title,
+    // Secondary line: "<Service> · <Order #>" — always shown beneath the
+    // title so the order number + service stay visible even when a Job
+    // Title is the headline.
+    secondaryLabel:      `${serviceLabel} · ${order.order_number}`,
     reference:           order.order_number,
     serviceType:         serviceLabel,
     status:              dashboardStatus,
@@ -382,7 +399,7 @@ export async function getOrdersForClient(
       .select(
         "id, order_number, service_type, status, " +
         "item_count, estimated_total_cents, currency, " +
-        "created_at, updated_at, user_id, client_email"
+        "created_at, updated_at, job_title, user_id, client_email"
       )
       .or(ownedOrdersOrFilter(ownership))   // ← user_id OR (NULL + email)
       .order("created_at", { ascending: false });
@@ -409,6 +426,7 @@ export async function getOrdersForClient(
         currency: row.currency,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        job_title: row.job_title ?? null,
         sub_service: null,
       }));
 
@@ -537,7 +555,7 @@ export async function getOrderForClient(
       .select(
         "id, order_number, service_type, status, " +
         "item_count, estimated_total_cents, currency, " +
-        "client_company, created_at, updated_at, user_id, client_email"
+        "client_company, created_at, updated_at, job_title, user_id, client_email"
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -584,6 +602,7 @@ export async function getOrderForClient(
 
     const order = orderRow as unknown as ClientOrder & {
       client_company: string | null;
+      job_title: string | null;
     };
 
     // Dedicated sub-service comes from the first item's details (kept by
@@ -600,6 +619,7 @@ export async function getOrderForClient(
       currency: order.currency,
       created_at: order.created_at,
       updated_at: order.updated_at,
+      job_title: order.job_title ?? null,
       sub_service: typeof firstSub === "string" ? firstSub : null,
       client_company: order.client_company ?? null,
       items: safeItems,

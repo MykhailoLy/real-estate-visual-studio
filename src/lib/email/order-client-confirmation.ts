@@ -25,6 +25,8 @@ export interface ClientConfirmationInput {
   serviceType: ServiceType;
   /** Optional dedicated label (e.g. "Image Enhancement") overriding the broad service label. */
   serviceLabelOverride?: string;
+  /** Order-level Job Title shown prominently in the body. */
+  jobTitle?: string;
   clientName: string;
   clientEmail: string;
   itemCount: number;
@@ -53,6 +55,7 @@ export function renderClientConfirmation(
   } = input;
 
   const service = input.serviceLabelOverride ?? serviceLabel(serviceType);
+  const jobTitle = input.jobTitle?.trim() ?? "";
   const total = formatCents(estimatedTotalCents);
   const subject = `Order ${orderNumber} Received — PicchuSpot`;
 
@@ -74,6 +77,7 @@ export function renderClientConfirmation(
     "",
     `Order number: ${orderNumber}`,
     `Service: ${service}`,
+    ...(jobTitle ? [`Job title: ${jobTitle}`] : []),
     `Items: ${itemCount}`,
     `Estimated total: ${total}`,
     "",
@@ -129,6 +133,13 @@ export function renderClientConfirmation(
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Service</td><td style="padding:4px 0;">${escapeHtml(
             service
           )}</td></tr>
+          ${
+            jobTitle
+              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Job title</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
+                  jobTitle
+                )}</td></tr>`
+              : ""
+          }
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Items</td><td style="padding:4px 0;">${itemCount}</td></tr>
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Estimated total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
             total

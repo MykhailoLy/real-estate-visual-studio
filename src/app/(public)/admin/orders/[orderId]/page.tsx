@@ -164,6 +164,7 @@ export default async function AdminOrderDetailPage({
     client_company: string | null;
     item_count: number;
     estimated_total_cents: number;
+    job_title: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -199,7 +200,7 @@ export default async function AdminOrderDetailPage({
         .select(
           "id, order_number, service_type, status, " +
             "client_name, client_email, client_company, " +
-            "item_count, estimated_total_cents, created_at, updated_at",
+            "item_count, estimated_total_cents, job_title, created_at, updated_at",
         )
         .eq("id", orderId)
         .maybeSingle();
@@ -462,6 +463,7 @@ export default async function AdminOrderDetailPage({
                 <dl className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
                   {[
                     ["Order #", order.order_number],
+                    ["Job title", order.job_title ?? "—"],
                     ["Service", getOrderServiceLabel(order.service_type, orderItems.find((it) => it.item_index === 0)?.details?.sub_service as string | undefined)],
                     ["Client", order.client_name],
                     ["Email", order.client_email],

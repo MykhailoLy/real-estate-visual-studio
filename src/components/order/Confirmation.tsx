@@ -6,6 +6,8 @@ import { CheckCircle2, Mail } from "lucide-react";
 interface ConfirmationProps {
   orderNumber: string;
   email: string;
+  /** Order-level Job Title to echo back on the confirmation screen. */
+  jobTitle?: string;
   /**
    * True when the post-submit confirmation email was actually
    * accepted by Resend. We only surface "we emailed you" when this
@@ -19,6 +21,7 @@ interface ConfirmationProps {
 export default function Confirmation({
   orderNumber,
   email,
+  jobTitle,
   confirmationEmailSent,
   onNewOrder,
 }: ConfirmationProps) {
@@ -36,6 +39,13 @@ export default function Confirmation({
         Your order has been received. We&apos;ll review your files and contact
         you shortly to confirm the final details.
       </p>
+
+      {jobTitle?.trim() ? (
+        <p className="text-sm text-foreground mb-6">
+          <span className="text-muted">Job title: </span>
+          <span className="font-semibold">{jobTitle.trim()}</span>
+        </p>
+      ) : null}
 
       {confirmationEmailSent && email ? (
         <div className="inline-flex items-start gap-2 bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 mb-6 text-sm text-left">

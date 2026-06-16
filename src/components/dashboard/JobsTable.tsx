@@ -112,7 +112,8 @@ export default function JobsTable({
       search === "" ||
       job.title.toLowerCase().includes(search.toLowerCase()) ||
       job.reference.toLowerCase().includes(search.toLowerCase()) ||
-      job.serviceType.toLowerCase().includes(search.toLowerCase());
+      job.serviceType.toLowerCase().includes(search.toLowerCase()) ||
+      (job.secondaryLabel?.toLowerCase().includes(search.toLowerCase()) ?? false);
     const matchesStatus =
       statusFilter === "all" || job.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -240,6 +241,11 @@ export default function JobsTable({
                         <p className="font-semibold text-foreground group-hover/link:text-primary transition-colors leading-snug text-[13px]">
                           {job.title}
                         </p>
+                        {job.secondaryLabel && (
+                          <p className="text-[11px] text-muted mt-0.5 truncate">
+                            {job.secondaryLabel}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded group-hover/link:bg-primary/8 transition-colors">
                             {job.reference}

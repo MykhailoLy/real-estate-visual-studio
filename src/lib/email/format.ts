@@ -225,6 +225,19 @@ export function buildItemSummary(
         rows,
         row("Editing options", asStringArray(details.option_labels).join(", "))
       );
+      // Image Enhancement — Single Exposure preferences (labels were
+      // derived server-side at persistence time; rendered when present).
+      pushIf(rows, row("Grass repair", asString(details.grass_repair)));
+      pushIf(rows, row("Sky replacement", asString(details.sky_replacement)));
+      pushIf(
+        rows,
+        row("TV screen replacement", asString(details.tv_screen_replacement))
+      );
+      pushIf(
+        rows,
+        row("Add fire to fireplace", asString(details.add_fire_to_fireplace))
+      );
+      pushIf(rows, row("Day sky style", asString(details.day_sky_style_label)));
       pushIf(
         rows,
         multilineRow("Notes", asString(details.additional_info))

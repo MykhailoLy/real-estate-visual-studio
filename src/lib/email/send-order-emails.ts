@@ -36,6 +36,8 @@ interface SendOrderEmailsArgs {
   supabase: SupabaseClient;
   orderNumber: string;
   serviceType: ServiceType;
+  /** Order-level Job Title (validated + persisted). Shown in both emails. */
+  jobTitle: string;
   client: {
     name: string;
     email: string;
@@ -142,6 +144,7 @@ export async function sendOrderEmails(
       orderNumber: args.orderNumber,
       serviceType: args.serviceType,
       serviceLabelOverride,
+      jobTitle: args.jobTitle,
       clientName: args.client.name,
       clientEmail: args.client.email,
       itemCount: args.itemCount,
@@ -153,6 +156,7 @@ export async function sendOrderEmails(
       orderNumber: args.orderNumber,
       serviceType: args.serviceType,
       serviceLabelOverride,
+      jobTitle: args.jobTitle,
       client: args.client,
       itemCount: args.itemCount,
       estimatedTotalCents: args.estimatedTotalCents,

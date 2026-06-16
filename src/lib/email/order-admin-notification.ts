@@ -36,6 +36,8 @@ export interface AdminNotificationInput {
   serviceType: ServiceType;
   /** Optional dedicated label (e.g. "Day to Dusk") overriding the broad service label. */
   serviceLabelOverride?: string;
+  /** Order-level Job Title shown prominently in the body. */
+  jobTitle?: string;
   client: {
     name: string;
     email: string;
@@ -76,6 +78,7 @@ export function renderAdminNotification(
   } = input;
 
   const service = input.serviceLabelOverride ?? serviceLabel(serviceType);
+  const jobTitle = input.jobTitle?.trim() ?? "";
   const total = formatCents(estimatedTotalCents);
   const subject = `New Order: ${orderNumber} — ${service}`;
 
@@ -105,6 +108,7 @@ export function renderAdminNotification(
     "ORDER",
     `  Order number: ${orderNumber}`,
     `  Service: ${service}`,
+    ...(jobTitle ? [`  Job title: ${jobTitle}`] : []),
     `  Items: ${itemCount}`,
     `  Estimated total: ${total}`,
     "",
@@ -202,6 +206,13 @@ export function renderAdminNotification(
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Service</td><td style="padding:4px 0;">${escapeHtml(
             service
           )}</td></tr>
+          ${
+            jobTitle
+              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Job title</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
+                  jobTitle
+                )}</td></tr>`
+              : ""
+          }
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Items</td><td style="padding:4px 0;">${itemCount}</td></tr>
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Estimated total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
             total

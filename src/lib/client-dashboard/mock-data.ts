@@ -25,6 +25,13 @@ export type DashboardServiceType =
 export interface DashboardJob {
   id: string;
   title: string;
+  /**
+   * Optional secondary line shown beneath the title in the Jobs list,
+   * e.g. "Image Enhancement — Single Exposure · PE-0004". Lets the
+   * Job Title act as the headline while keeping the service + order
+   * number visible. Omitted for mock jobs.
+   */
+  secondaryLabel?: string;
   reference: string;
   /**
    * Human-readable service label.
