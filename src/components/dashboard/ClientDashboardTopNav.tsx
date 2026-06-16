@@ -16,6 +16,7 @@ import {
   Coins,
   Menu,
 } from "lucide-react";
+import { PicchuSpotLogo } from "@/components/brand";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
@@ -71,6 +72,13 @@ export default function ClientDashboardTopNav({
         className="flex items-center gap-2.5 flex-shrink-0 group"
         aria-label="PicchuSpot Dashboard home"
       >
+        <PicchuSpotLogo
+          variant="mark-light"
+          className="h-6 w-auto"
+          width={48}
+          height={24}
+          alt="PicchuSpot"
+        />
         <span className="text-white font-bold text-[15px] tracking-tight leading-none group-hover:text-white/90 transition-colors">
           PicchuSpot
         </span>

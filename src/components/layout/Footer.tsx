@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PicchuSpotLogo } from "@/components/brand";
 import TrackedLink from "@/components/analytics/TrackedLink";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 
@@ -141,7 +142,15 @@ export default function Footer() {
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-lg font-bold mb-1 tracking-tight">PicchuSpot</h3>
+            <Link href="/" className="inline-flex items-center gap-2 mb-1" aria-label="PicchuSpot home">
+              <PicchuSpotLogo
+                variant="mark-light"
+                className="h-6 w-auto"
+                width={48}
+                height={24}
+              />
+              <span className="text-lg font-bold tracking-tight">PicchuSpot</span>
+            </Link>
             <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-4">
               {copy.tagline}
             </p>

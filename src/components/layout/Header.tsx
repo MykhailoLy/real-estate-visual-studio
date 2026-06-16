@@ -19,6 +19,7 @@ import {
   Tags,
   X,
 } from "lucide-react";
+import { PicchuSpotLogo } from "@/components/brand";
 import {
   RegionFlag,
   useDisplayRegion,
@@ -387,9 +388,17 @@ export default function Header() {
           <Link
             href={getLocaleAwareHref("/", currentLanguage)}
             aria-label="PicchuSpot — Real Estate Visuals home"
-            className="text-xl font-bold text-primary tracking-tight flex-shrink-0"
+            className="flex items-center gap-2 flex-shrink-0"
           >
-            PicchuSpot
+            <PicchuSpotLogo
+              variant="mark"
+              className="h-7 w-auto"
+              width={56}
+              height={28}
+            />
+            <span className="text-xl font-bold text-primary tracking-tight hidden sm:inline">
+              PicchuSpot
+            </span>
           </Link>
 
           {/* Top-level categories (desktop) */}

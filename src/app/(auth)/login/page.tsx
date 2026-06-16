@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
+import { PicchuSpotLogo } from "@/components/brand";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -31,6 +32,13 @@ export default function LoginPage() {
             className="inline-flex items-center gap-2 mb-5 group"
             aria-label="PicchuSpot home"
           >
+            <PicchuSpotLogo
+              variant="mark"
+              className="h-7 w-auto"
+              width={56}
+              height={28}
+              alt="PicchuSpot"
+            />
             <span className="text-xl font-bold text-primary tracking-tight group-hover:text-primary-light transition-colors">
               PicchuSpot
             </span>
