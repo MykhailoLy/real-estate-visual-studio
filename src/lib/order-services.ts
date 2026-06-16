@@ -9,7 +9,7 @@
 // price LABELS, routes, availability, card-image slug). It does
 // NOT define prices — pricing remains in src/data/order-options.ts
 // and the pricing calculators. The price strings below are display
-// labels only and mirror the current public pricing.
+// labels only and mirror the current public pricing..
 // ============================================================
 
 import {
