@@ -1,21 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "./ServicePlaceholder";
 import { cn } from "@/lib/utils";
 
-// Only the active slide and its immediate neighbours (with wrap-
-// around) are mounted. Distant slides render an empty box and
-// therefore never request their images until navigated near —
-// this is what stops every slider image downloading on page load.
-// The crossfade still works because adjacent slides stay mounted.
-function isSlideMounted(i: number, idx: number, total: number): boolean {
+// Initial render mounts active slide content only. Neighbouring
+// content is enabled after page load, or immediately before any
+// navigation, while distant slides stay unmounted.
+function isSlideMounted(
+  i: number,
+  idx: number,
+  total: number,
+  neighborsReady: boolean
+): boolean {
   if (total <= 1) return true;
   if (i === idx) return true;
+  if (!neighborsReady) return false;
   const next = (idx + 1) % total;
   const prev = (idx - 1 + total) % total;
   return i === next || i === prev;
@@ -81,6 +85,7 @@ export default function BeforeAfterShowcase({ slides }: Props) {
   const [rawIdx, setRawIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [neighborsReady, setNeighborsReady] = useState(false);
 
   const idx = effective.length > 0 ? rawIdx % effective.length : 0;
 
@@ -99,20 +104,49 @@ export default function BeforeAfterShowcase({ slides }: Props) {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  const goPrev = useCallback(() => {
+    setNeighborsReady(true);
+    setRawIdx((i) => (i - 1 + effective.length) % effective.length);
+  }, [effective.length]);
+  const goNext = useCallback(() => {
+    setNeighborsReady(true);
+    setRawIdx((i) => (i + 1) % effective.length);
+  }, [effective.length]);
+  const goTo = useCallback((i: number) => {
+    setNeighborsReady(true);
+    setRawIdx(i);
+  }, []);
+
   // Autoplay
   useEffect(() => {
     if (paused || reducedMotion) return;
     if (effective.length <= 1) return;
     const t = window.setTimeout(() => {
-      setRawIdx((i) => (i + 1) % effective.length);
+      goNext();
     }, AUTOPLAY_MS);
     return () => window.clearTimeout(t);
-  }, [idx, paused, reducedMotion, effective.length]);
+  }, [idx, paused, reducedMotion, effective.length, goNext]);
 
-  const goPrev = () =>
-    setRawIdx((i) => (i - 1 + effective.length) % effective.length);
-  const goNext = () => setRawIdx((i) => (i + 1) % effective.length);
-  const goTo = (i: number) => setRawIdx(i);
+  useEffect(() => {
+    let timeout: number | undefined;
+
+    const schedule = () => {
+      timeout = window.setTimeout(() => {
+        setNeighborsReady(true);
+      }, 500);
+    };
+
+    if (document.readyState === "complete") {
+      schedule();
+    } else {
+      window.addEventListener("load", schedule, { once: true });
+    }
+
+    return () => {
+      window.removeEventListener("load", schedule);
+      if (timeout !== undefined) window.clearTimeout(timeout);
+    };
+  }, []);
 
   const showNav = effective.length > 1;
 
@@ -169,7 +203,12 @@ export default function BeforeAfterShowcase({ slides }: Props) {
       >
         {effective.map((slide, i) => {
           const active = i === idx;
-          const mounted = isSlideMounted(i, idx, effective.length);
+          const mounted = isSlideMounted(
+            i,
+            idx,
+            effective.length,
+            neighborsReady
+          );
           return (
             <div
               key={slide.id}

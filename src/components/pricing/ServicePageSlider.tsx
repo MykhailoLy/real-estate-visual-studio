@@ -1,20 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "@/components/home/ServicePlaceholder";
 import { cn } from "@/lib/utils";
 
-// Only the active slide and its immediate neighbours (with wrap-
-// around) are mounted, so distant slides never request images on
-// initial load. Adjacent slides stay mounted so the crossfade and
-// prev/next navigation remain immediate.
-function isSlideMounted(i: number, idx: number, total: number): boolean {
+// Initial render mounts active slide content only. Neighbouring
+// content is enabled after page load, or immediately before any
+// navigation, while distant slides stay unmounted.
+function isSlideMounted(
+  i: number,
+  idx: number,
+  total: number,
+  neighborsReady: boolean
+): boolean {
   if (total <= 1) return true;
   if (i === idx) return true;
+  if (!neighborsReady) return false;
   const next = (idx + 1) % total;
   const prev = (idx - 1 + total) % total;
   return i === next || i === prev;
@@ -93,6 +98,7 @@ export default function ServicePageSlider({
   const [rawIdx, setRawIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [neighborsReady, setNeighborsReady] = useState(false);
 
   const idx = total > 0 ? rawIdx % total : 0;
 
@@ -108,22 +114,52 @@ export default function ServicePageSlider({
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  const goPrev = useCallback(() => {
+    setNeighborsReady(true);
+    setRawIdx((i) => (i - 1 + total) % total);
+  }, [total]);
+  const goNext = useCallback(() => {
+    setNeighborsReady(true);
+    setRawIdx((i) => (i + 1) % total);
+  }, [total]);
+  const goTo = useCallback((i: number) => {
+    setNeighborsReady(true);
+    setRawIdx(i);
+  }, []);
+
   // Autoplay
   useEffect(() => {
     if (paused || reducedMotion || total <= 1) return;
-    const t = window.setTimeout(
-      () => setRawIdx((i) => (i + 1) % total),
-      autoplayMs
-    );
+    const t = window.setTimeout(() => {
+      goNext();
+    }, autoplayMs);
     return () => window.clearTimeout(t);
-  }, [idx, paused, reducedMotion, total, autoplayMs]);
+  }, [idx, paused, reducedMotion, total, autoplayMs, goNext]);
+
+  useEffect(() => {
+    let timeout: number | undefined;
+
+    const schedule = () => {
+      timeout = window.setTimeout(() => {
+        setNeighborsReady(true);
+      }, 500);
+    };
+
+    if (document.readyState === "complete") {
+      schedule();
+    } else {
+      window.addEventListener("load", schedule, { once: true });
+    }
+
+    return () => {
+      window.removeEventListener("load", schedule);
+      if (timeout !== undefined) window.clearTimeout(timeout);
+    };
+  }, []);
 
   if (total === 0) return null;
 
   const showNav = total > 1;
-
-  const goPrev = () => setRawIdx((i) => (i - 1 + total) % total);
-  const goNext = () => setRawIdx((i) => (i + 1) % total);
 
   // ── Swipe handlers ──────────────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -183,7 +219,7 @@ export default function ServicePageSlider({
       >
         {slides.map((slide, i) => {
           const active = i === idx;
-          const mounted = isSlideMounted(i, idx, total);
+          const mounted = isSlideMounted(i, idx, total, neighborsReady);
           return (
             <div
               key={slide.id}
@@ -265,7 +301,7 @@ export default function ServicePageSlider({
                 role="tab"
                 aria-selected={isActive}
                 aria-label={`Show slide ${i + 1} of ${total}`}
-                onClick={() => setRawIdx(i)}
+                onClick={() => goTo(i)}
                 className={cn(
                   "h-2.5 rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
                   isActive
