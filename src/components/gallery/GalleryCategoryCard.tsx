@@ -46,7 +46,7 @@ export default function GalleryCategoryCard({
             alt={imageAlt}
             fill
             // Cards: 3-up desktop, 2-up tablet, 1-up mobile.
-            sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+            sizes="(min-width: 1500px) 452px, (min-width: 1024px) calc(33.333vw - 48px), (min-width: 768px) calc(50vw - 34px), calc(100vw - 32px)"
             className="object-cover transition-transform duration-500 will-change-transform group-hover:scale-[1.04]"
           />
         ) : (

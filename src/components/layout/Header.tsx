@@ -396,7 +396,6 @@ export default function Header() {
               width={56}
               height={28}
               alt=""
-              priority
             />
             <BrandWordmark theme="light" className="text-lg sm:text-xl" />
           </Link>
