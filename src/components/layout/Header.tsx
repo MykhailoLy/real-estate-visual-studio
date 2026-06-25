@@ -6,19 +6,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
+  Briefcase,
   ChevronDown,
   FileText,
   Globe2,
   HelpCircle,
   Image as ImageIcon,
   Info,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
   Mail,
   Menu,
   Newspaper,
+  PlusCircle,
   ShieldCheck,
   Tags,
+  User,
   X,
 } from "lucide-react";
+import { usePublicAuth } from "@/components/auth/PublicAuthContext";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import {
   RegionFlag,
@@ -33,6 +40,7 @@ import {
   trackRegionCurrencySwitch,
   trackSignUpClick,
 } from "@/lib/analytics";
+import { getInitials } from "@/lib/client-auth-utils";
 import { cn } from "@/lib/utils";
 import {
   getTopLevelForPath,
@@ -437,14 +445,7 @@ export default function Header() {
             >
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <Link
-              href={getLocaleAwareHref("/login", currentLanguage)}
-              onClick={() => trackLoginClick("header")}
-              className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:hidden"
-              aria-label={currentLanguage === "es" ? "Iniciar sesión" : "Login"}
-            >
-              {currentLanguage === "es" ? "Iniciar sesión" : "Login"}
-            </Link>
+            <MobileHeaderAuthControl language={currentLanguage} />
             <HeaderAccountControls
               pathname={pathname}
               language={currentLanguage}
@@ -494,11 +495,45 @@ function HeaderAccountControls({
   className?: string;
   onLanguageChange: (language: SiteLanguage) => void;
 }) {
+  const { status } = usePublicAuth();
+
   return (
     <div className={cn("min-w-0 items-center gap-1.5 md:gap-2", className)}>
+      {status === "authenticated" ? (
+        <PublicAccountMenu />
+      ) : (
+        <GuestDesktopAuthActions
+          language={language}
+          loading={status === "loading"}
+        />
+      )}
+      <MarketLanguageSelector
+        pathname={pathname}
+        currentLanguage={language}
+        compact
+        onLanguageChange={onLanguageChange}
+        analyticsLocation="header"
+      />
+    </div>
+  );
+}
+
+function GuestDesktopAuthActions({
+  language,
+  loading,
+}: {
+  language: SiteLanguage;
+  loading: boolean;
+}) {
+  return (
+    <div
+      aria-hidden={loading}
+      className={cn("contents", loading && "invisible")}
+    >
       <Link
         href={getLocaleAwareHref("/login", language)}
         onClick={() => trackLoginClick("header")}
+        tabIndex={loading ? -1 : undefined}
         className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md px-2 text-[11px] font-bold uppercase tracking-[0.06em] text-foreground/70 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:text-[13px] 2xl:tracking-[0.10em]"
         aria-label={language === "es" ? "Iniciar sesión" : "Login"}
       >
@@ -507,18 +542,238 @@ function HeaderAccountControls({
       <Link
         href={getLocaleAwareHref("/signup", language)}
         onClick={() => trackSignUpClick("header")}
+        tabIndex={loading ? -1 : undefined}
         className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-primary px-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
         aria-label={language === "es" ? "Crear cuenta" : "Sign Up"}
       >
         {language === "es" ? "Crear cuenta" : "Sign Up"}
       </Link>
-      <MarketLanguageSelector
-        pathname={pathname}
-        currentLanguage={language}
-        compact
-        onLanguageChange={onLanguageChange}
-        analyticsLocation="header"
-      />
+    </div>
+  );
+}
+
+function MobileHeaderAuthControl({ language }: { language: SiteLanguage }) {
+  const { status } = usePublicAuth();
+
+  if (status === "authenticated") {
+    return <PublicAccountMenu compact />;
+  }
+
+  return (
+    <Link
+      href={getLocaleAwareHref("/login", language)}
+      onClick={() => trackLoginClick("header")}
+      aria-hidden={status === "loading"}
+      tabIndex={status === "loading" ? -1 : undefined}
+      className={cn(
+        "inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:hidden",
+        status === "loading" && "invisible"
+      )}
+      aria-label={language === "es" ? "Iniciar sesión" : "Login"}
+    >
+      {language === "es" ? "Iniciar sesión" : "Login"}
+    </Link>
+  );
+}
+
+const accountMenuItems = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/dashboard/orders/new", label: "New Order", icon: PlusCircle },
+  { href: "/dashboard/profile", label: "My Account", icon: User },
+] as const;
+
+function PublicAccountAvatar({
+  avatarUrl,
+  initials,
+  size,
+}: {
+  avatarUrl: string | null;
+  initials: string;
+  size: "small" | "large";
+}) {
+  return (
+    <span
+      className={cn(
+        "flex flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-secondary to-secondary-dark bg-cover bg-center font-bold text-primary-dark shadow-sm",
+        size === "small" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs"
+      )}
+      style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}
+      aria-hidden
+    >
+      {!avatarUrl && initials}
+    </span>
+  );
+}
+
+function PublicAccountMenu({ compact = false }: { compact?: boolean }) {
+  const pathname = usePathname() ?? "/";
+  const { user, signOut } = usePublicAuth();
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [panelPos, setPanelPos] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
+
+  const displayName = user?.displayName ?? "Client";
+  const firstName = user?.firstName ?? "Client";
+  const initials = getInitials(displayName);
+  const open = openPath === pathname;
+
+  const updatePanelPosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPanelPos({
+      top: rect.bottom + 8,
+      right: Math.max(12, window.innerWidth - rect.right),
+    });
+  }, []);
+
+  const close = useCallback(() => setOpenPath(null), []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePanelPosition();
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const insideButton = buttonRef.current?.contains(target) ?? false;
+      const insidePanel = panelRef.current?.contains(target) ?? false;
+      if (!insideButton && !insidePanel) close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+        buttonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition);
+    };
+  }, [close, open, updatePanelPosition]);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    const succeeded = await signOut();
+    if (succeeded) close();
+    setLoggingOut(false);
+  };
+
+  return (
+    <div className={cn("relative flex-shrink-0", compact && "sm:hidden")}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => {
+          updatePanelPosition();
+          setOpenPath(open ? null : pathname);
+        }}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Account menu for ${firstName}`}
+        className={cn(
+          "inline-flex h-9 min-w-0 items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-1.5 text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+          compact ? "max-w-[7.5rem]" : "min-w-[8.5rem] max-w-[10.5rem] pr-2"
+        )}
+      >
+        <PublicAccountAvatar
+          avatarUrl={user?.avatarUrl ?? null}
+          initials={initials}
+          size="small"
+        />
+        <span className="min-w-0 flex-1 truncate text-left text-xs font-semibold">
+          {firstName}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 flex-shrink-0 text-primary/60 transition-transform",
+            open && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {open &&
+        panelPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="menu"
+            aria-label="Account"
+            style={{
+              position: "fixed",
+              top: panelPos.top,
+              right: panelPos.right,
+              width: "15rem",
+              zIndex: 10001,
+            }}
+            className="overflow-hidden rounded-xl border border-border bg-white py-1 shadow-2xl shadow-black/10"
+          >
+            <div className="border-b border-border bg-surface/60 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <PublicAccountAvatar
+                  avatarUrl={user?.avatarUrl ?? null}
+                  initials={initials}
+                  size="large"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-foreground">
+                    {displayName}
+                  </p>
+                  {user?.email && (
+                    <p className="truncate text-[11px] text-muted">{user.email}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="py-1">
+              {accountMenuItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  role="menuitem"
+                  onClick={close}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"
+                >
+                  <item.icon className="h-4 w-4 text-muted" aria-hidden />
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="border-t border-border py-1">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-muted transition-colors hover:bg-surface hover:text-foreground focus:outline-none focus-visible:bg-surface focus-visible:text-foreground disabled:opacity-60"
+              >
+                {loggingOut ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <LogOut className="h-4 w-4" aria-hidden />
+                )}
+                {loggingOut ? "Logging out..." : "Log Out"}
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

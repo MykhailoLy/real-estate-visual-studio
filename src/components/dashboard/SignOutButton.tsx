@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LogOut, Loader2 } from "lucide-react";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { signOutBrowserSession } from "@/lib/sign-out";
 
 interface SignOutButtonProps {
   className?: string;
@@ -17,12 +17,7 @@ export default function SignOutButton({ className }: SignOutButtonProps) {
   async function handleSignOut() {
     if (loading) return;
     setLoading(true);
-    try {
-      const supabase = createBrowserSupabaseClient();
-      await supabase.auth.signOut({ scope: "local" });
-    } catch {
-      // Continue regardless — we still redirect to login
-    }
+    await signOutBrowserSession();
     window.location.href = "/login";
   }
 
