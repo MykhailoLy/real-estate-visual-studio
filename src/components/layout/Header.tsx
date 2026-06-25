@@ -437,25 +437,22 @@ export default function Header() {
             >
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
+            <Link
+              href={getLocaleAwareHref("/login", currentLanguage)}
+              onClick={() => trackLoginClick("header")}
+              className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:hidden"
+              aria-label={currentLanguage === "es" ? "Iniciar sesión" : "Login"}
+            >
+              {currentLanguage === "es" ? "Iniciar sesión" : "Login"}
+            </Link>
             <HeaderAccountControls
               pathname={pathname}
               language={currentLanguage}
               className="hidden sm:flex"
               onLanguageChange={setLanguagePreference}
-              layout="header-row"
             />
           </div>
         </div>
-      </div>
-
-      <div className={cn("h-12 border-t border-border/70 sm:hidden", NAV_X_PADDING)}>
-        <HeaderAccountControls
-          pathname={pathname}
-          language={currentLanguage}
-          className="h-full"
-          onLanguageChange={setLanguagePreference}
-          layout="mobile-utility"
-        />
       </div>
 
       {/* ── Row 2: desktop sub-nav ── */}
@@ -477,6 +474,7 @@ export default function Header() {
             activeEntry={active}
             language={currentLanguage}
             pathname={pathname}
+            onLanguageChange={setLanguagePreference}
             onClose={closeMenu}
           />,
           document.body
@@ -489,35 +487,19 @@ function HeaderAccountControls({
   pathname,
   language,
   className,
-  layout,
   onLanguageChange,
 }: {
   pathname: string;
   language: SiteLanguage;
   className?: string;
-  layout: "header-row" | "mobile-utility";
   onLanguageChange: (language: SiteLanguage) => void;
 }) {
-  const isMobileUtility = layout === "mobile-utility";
-
   return (
-    <div
-      className={cn(
-        isMobileUtility
-          ? "grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1.5"
-          : "min-w-0 items-center gap-1.5 md:gap-2",
-        className
-      )}
-    >
+    <div className={cn("min-w-0 items-center gap-1.5 md:gap-2", className)}>
       <Link
         href={getLocaleAwareHref("/login", language)}
         onClick={() => trackLoginClick("header")}
-        className={cn(
-          "inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md font-bold uppercase text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-          isMobileUtility
-            ? "w-full px-1.5 text-[10px] tracking-[0.06em]"
-            : "px-2 text-[11px] tracking-[0.06em] text-foreground/70 hover:text-primary md:px-3 md:text-[12px] 2xl:text-[13px] 2xl:tracking-[0.10em]"
-        )}
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md px-2 text-[11px] font-bold uppercase tracking-[0.06em] text-foreground/70 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:text-[13px] 2xl:tracking-[0.10em]"
         aria-label={language === "es" ? "Iniciar sesión" : "Login"}
       >
         {language === "es" ? "Iniciar sesión" : "Login"}
@@ -525,12 +507,7 @@ function HeaderAccountControls({
       <Link
         href={getLocaleAwareHref("/signup", language)}
         onClick={() => trackSignUpClick("header")}
-        className={cn(
-          "inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-primary font-bold uppercase text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-          isMobileUtility
-            ? "w-full px-1.5 text-[10px] tracking-[0.06em]"
-            : "px-2.5 text-[11px] tracking-[0.06em] md:px-3 md:text-[12px] 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
-        )}
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-primary px-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
         aria-label={language === "es" ? "Crear cuenta" : "Sign Up"}
       >
         {language === "es" ? "Crear cuenta" : "Sign Up"}
@@ -679,6 +656,7 @@ interface BurgerMenuPanelProps {
   activeEntry: TopLevelEntry;
   language: SiteLanguage;
   pathname: string;
+  onLanguageChange: (language: SiteLanguage) => void;
   onClose: () => void;
 }
 
@@ -693,6 +671,7 @@ function BurgerMenuPanel({
   activeEntry,
   language,
   pathname,
+  onLanguageChange,
   onClose,
 }: BurgerMenuPanelProps) {
   const copy = getDrawerCopy(language);
@@ -710,7 +689,7 @@ function BurgerMenuPanel({
         role="dialog"
         aria-modal="true"
         aria-label={language === "es" ? "Menú del sitio" : "Site menu"}
-        className="ml-auto mt-24 flex max-h-[calc(100vh-8rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl sm:mt-14 sm:max-h-[calc(100vh-5.5rem)]"
+        className="ml-auto mt-14 flex max-h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
           <div>
@@ -798,6 +777,21 @@ function BurgerMenuPanel({
                 })}
               </div>
             </div>
+          </section>
+
+          <section className="rounded-xl border border-stone-200 bg-surface/60 p-4 sm:hidden">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+              {language === "es" ? "Preferencias" : "Preferences"}
+            </p>
+            <MarketLanguageSelector
+              pathname={pathname}
+              currentLanguage={language}
+              className="w-full"
+              placement="panel"
+              onNavigate={onClose}
+              onLanguageChange={onLanguageChange}
+              analyticsLocation="mobile_menu"
+            />
           </section>
 
           <section>
