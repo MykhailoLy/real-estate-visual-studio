@@ -1,17 +1,17 @@
 import { Eraser, Home, ImageIcon, Star } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata = spanishMetadata({
   title: "Eliminación de objetos y limpieza virtual",
   description:
-    "Elimina objetos que distraen, desorden e imperfecciones de fotos inmobiliarias para imágenes más limpias y listas para publicar. Desde US$8 por imagen.",
+    "Elimina objetos que distraen, desorden e imperfecciones de fotos inmobiliarias para imágenes más limpias y listas para publicar.",
   path: "/es/pricing/photo-editing",
   englishPath: "/pricing/photo-editing",
 });
@@ -26,7 +26,7 @@ export default function SpanishPhotoEditingPricingPage() {
             description:
               "Elimina objetos que distraen, desorden e imperfecciones de fotos inmobiliarias para imágenes más limpias y listas para publicar.",
             url: absoluteUrl("/es/pricing/photo-editing"),
-            price: "8.00",
+            price: getCatalogPriceDecimal("item-removal-virtual-cleaning"),
             priceCurrency: "USD",
             offerNote: "Precio inicial por imagen",
           }),
@@ -47,8 +47,10 @@ export default function SpanishPhotoEditingPricingPage() {
       title="Precios de Eliminación de objetos y limpieza virtual"
       description="Elimina objetos que distraen, desorden, pequeñas imperfecciones y elementos visuales que restan calidad para que las fotos de la propiedad se vean más limpias y listas para publicar."
       priceLine={
-        <RegionalPriceText
-          price={regionalPrice("Desde $8 / imagen", "Desde €8 / imagen")}
+        <CatalogPriceText
+          priceKey="item-removal-virtual-cleaning"
+          prefix="Desde "
+          suffix=" / imagen"
         />
       }
       orderHref="/order/photo-editing"
@@ -118,21 +120,23 @@ export default function SpanishPhotoEditingPricingPage() {
       pricingCards={[
         {
           label: "Eliminación de objetos y limpieza virtual",
-          price: <RegionalPriceText price={regionalPrice("$8.00", "€8.00")} />,
+          price: (
+            <CatalogPriceText priceKey="item-removal-virtual-cleaning" />
+          ),
           unit: "por imagen",
           note: "Elimina objetos, desorden y detalles que distraen de forma limpia.",
           isBase: true,
         },
         {
           label: "Mejora de imagen",
-          price: <RegionalPriceText price={regionalPrice("+$2.00", "+€2.00")} />,
+          price: <CatalogPriceText priceKey="image-enhancement" prefix="+" />,
           unit: "por imagen",
           note: "Corrección de color y exposición aplicada después de la limpieza.",
         },
         {
           label: "Virtual Staging",
           price: (
-            <RegionalPriceText price={regionalPrice("+$19.00", "+€19.00")} />
+            <CatalogPriceText priceKey="virtual-staging" prefix="+" />
           ),
           unit: "por imagen",
           note: "Añade mobiliario después de limpiar virtualmente la habitación.",

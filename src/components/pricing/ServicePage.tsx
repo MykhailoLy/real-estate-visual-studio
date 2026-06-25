@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PUBLIC_TAX_NOTICE } from "@/lib/pricing/public";
 import { ArrowRight, Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import TrackedLink from "@/components/analytics/TrackedLink";
@@ -121,6 +122,7 @@ export interface ServicePageProps {
     beforeYouOrderTitle?: string;
     pricingEyebrow?: string;
     basePriceBadge?: string;
+    taxNotice?: string;
     faqEyebrow?: string;
     beforeLabel?: string;
     afterLabel?: string;
@@ -429,6 +431,9 @@ export default async function ServicePage({
               {pricingFootnote}
             </p>
           )}
+          <p className="mt-3 text-xs lg:text-sm text-muted leading-relaxed max-w-2xl">
+            {labels?.taxNotice ?? PUBLIC_TAX_NOTICE}
+          </p>
           <div className="mt-8">
             <TrackedLink
               href={orderHref}

@@ -65,6 +65,11 @@ const faqs = [
       "Sí. Contacta con nosotros para solicitudes visuales personalizadas, lotes grandes, sesiones locales o necesidades de media inmobiliaria que no encajen en los formularios de pedido estándar.",
   },
   {
+    question: "¿Ofrecéis descuentos por volumen?",
+    answer:
+      "Sí. Los descuentos se aplican automáticamente al subtotal del servicio base: 1–4 unidades elegibles mantienen el precio estándar, 5–9 reciben un 5%, 10–19 un 10%, 20–49 un 15% y 50+ requieren un presupuesto personalizado. Los extras no reciben descuento por volumen. Los precios no incluyen los impuestos aplicables. Los impuestos se calculan por separado cuando corresponda.",
+  },
+  {
     question: "¿Cómo contacto con soporte?",
     answer:
       "Escribe a hello@picchuspot.com con tu pregunta. Para pedidos existentes, incluye la referencia del pedido y una explicación breve para que podamos ayudarte rápido.",

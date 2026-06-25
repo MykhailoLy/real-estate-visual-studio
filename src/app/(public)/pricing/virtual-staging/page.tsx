@@ -8,7 +8,7 @@ import StyleGallerySection, {
 } from "@/components/pricing/StyleGallerySection";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
@@ -19,11 +19,12 @@ import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
-import { regionalPrice } from "@/lib/currency";
 import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import type { PriceKey } from "@/lib/pricing/types";
 
 // ============================================================
 // /pricing/virtual-staging  —  Virtual Staging service page
@@ -49,9 +50,9 @@ import { absoluteUrl } from "@/lib/seo";
 // ============================================================
 
 export const metadata: Metadata = {
-  title: "Virtual Staging Services from $19",
+  title: "Virtual Staging Services",
   description:
-    "Virtual staging from US$19 per image. Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
+    "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/virtual-staging",
     englishPath: "/pricing/virtual-staging",
@@ -95,45 +96,57 @@ const WHAT_IT_IS_BULLETS = [
   "High-resolution JPG delivery in 24–48h",
 ] as const;
 
-const PRICING_CARDS = [
+const PRICING_CARDS: Array<{
+  label: string;
+  priceKey: PriceKey;
+  prefix?: string;
+  unit: string;
+  note: string;
+  isBase: boolean;
+}> = [
   {
     label: "Base Virtual Staging",
-    price: regionalPrice("$19.00", "€19.00"),
+    priceKey: "virtual-staging",
     unit: "per image",
     note: "Furniture, decor, and styling for one room.",
     isBase: true,
   },
   {
     label: "Image Enhancement",
-    price: regionalPrice("+$2.00", "+€2.00"),
+    priceKey: "image-enhancement",
+    prefix: "+",
     unit: "per image",
     note: "Colour, exposure, and window correction.",
     isBase: false,
   },
   {
     label: "Day to Dusk",
-    price: regionalPrice("+$5.00", "+€5.00"),
+    priceKey: "day-to-dusk",
+    prefix: "+",
     unit: "per image",
     note: "Convert daytime exterior to a warm dusk shot.",
     isBase: false,
   },
   {
     label: "Item Removal & Virtual Cleaning",
-    price: regionalPrice("+$8.00", "+€8.00"),
+    priceKey: "item-removal-virtual-cleaning",
+    prefix: "+",
     unit: "per image",
     note: "Remove clutter before staging the room.",
     isBase: false,
   },
   {
     label: "Turn On Lights",
-    price: regionalPrice("+$1.00", "+€1.00"),
+    priceKey: "turn-on-lights",
+    prefix: "+",
     unit: "per image",
     note: "Make visible light sources appear switched on.",
     isBase: false,
   },
   {
     label: "Colour Change",
-    price: regionalPrice("+$3.00", "+€3.00"),
+    priceKey: "colour-change",
+    prefix: "+",
     unit: "per image",
     note: "Change wall, ceiling, or door colours.",
     isBase: false,
@@ -241,7 +254,7 @@ export default async function VirtualStagingPage() {
             description:
               "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
             url: absoluteUrl("/pricing/virtual-staging"),
-            price: "19.00",
+            price: getCatalogPriceDecimal("virtual-staging"),
             priceCurrency: "USD",
             offerNote: "Starting price per image",
           }),
@@ -329,8 +342,10 @@ export default async function VirtualStagingPage() {
                 market-ready results.
               </p>
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
-                <RegionalPriceText
-                  price={regionalPrice("From $19 / image", "From €19 / image")}
+                <CatalogPriceText
+                  priceKey="virtual-staging"
+                  prefix="From "
+                  suffix=" / image"
                 />
               </p>
             </div>
@@ -536,7 +551,10 @@ export default async function VirtualStagingPage() {
                       card.isBase ? "text-white" : "text-primary"
                     }`}
                   >
-                    <RegionalPriceText price={card.price} />
+                    <CatalogPriceText
+                      priceKey={card.priceKey}
+                      prefix={card.prefix}
+                    />
                   </p>
                   <p
                     className={`text-xs font-medium mt-0.5 ${

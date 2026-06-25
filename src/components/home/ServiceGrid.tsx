@@ -9,13 +9,9 @@ import {
   getPortfolioPublicUrl,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import {
-  regionalPrice,
-  resolveRegionalPrice,
-  type RegionalPrice,
-} from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { getSpanishPath } from "@/lib/localized-routes";
+import type { PriceKey } from "@/lib/pricing/types";
 
 // ============================================================
 // REMOTE DIGITAL SERVICES — "This is what we do" grid
@@ -40,8 +36,10 @@ interface ServiceEntry {
   portfolioSlug: PortfolioServiceSlug;
   name: string;
   description: string;
-  /** Display string for the price line. Empty = "Request a quote". */
-  price?: RegionalPrice | string;
+  priceKey?: PriceKey;
+  pricePrefix?: string;
+  priceSuffix?: string;
+  customPriceLabel?: string;
   /** Single destination for the whole card. */
   href: string;
 }
@@ -58,7 +56,9 @@ export type ServiceGridCopy = {
     {
       name: string;
       description: string;
-      price?: RegionalPrice | string;
+      pricePrefix?: string;
+      priceSuffix?: string;
+      customPriceLabel?: string;
     }
   >;
 };
@@ -71,7 +71,9 @@ const SERVICES: ServiceEntry[] = [
     name: "Image Enhancement",
     description:
       "Color, exposure, and window correction so listing photos look bright, crisp, and natural.",
-    price: regionalPrice("From $2.00 / image", "From €2.00 / image"),
+    priceKey: "image-enhancement",
+    pricePrefix: "From ",
+    priceSuffix: " / image",
     href: "/pricing/image-enhancement",
   },
   {
@@ -81,7 +83,9 @@ const SERVICES: ServiceEntry[] = [
     name: "Day to Dusk",
     description:
       "Turn a daytime exterior into a warm dusk shot — perfect for the hero photo of a listing.",
-    price: regionalPrice("From $5.00 / image", "From €5.00 / image"),
+    priceKey: "day-to-dusk",
+    pricePrefix: "From ",
+    priceSuffix: " / image",
     href: "/pricing/day-to-dusk",
   },
   {
@@ -91,7 +95,9 @@ const SERVICES: ServiceEntry[] = [
     name: "Virtual Staging",
     description:
       "Furnish empty rooms with realistic, market-aware styling so buyers can picture the space.",
-    price: regionalPrice("From $19.00 / image", "From €19.00 / image"),
+    priceKey: "virtual-staging",
+    pricePrefix: "From ",
+    priceSuffix: " / image",
     href: "/pricing/virtual-staging",
   },
   {
@@ -101,7 +107,9 @@ const SERVICES: ServiceEntry[] = [
     name: "Item Removal & Virtual Cleaning",
     description:
       "Remove distracting clutter, personal items, or stray objects so the room itself is the star.",
-    price: regionalPrice("From $8.00 / image", "From €8.00 / image"),
+    priceKey: "item-removal-virtual-cleaning",
+    pricePrefix: "From ",
+    priceSuffix: " / image",
     href: "/pricing/photo-editing",
   },
   {
@@ -111,7 +119,9 @@ const SERVICES: ServiceEntry[] = [
     name: "Floor Plans",
     description:
       "Sketches, existing plans, or photos converted into clean 2D and 3D floor plans for marketing.",
-    price: regionalPrice("From $16.00 / floor", "From €16.00 / floor"),
+    priceKey: "floor-plan-2d-bw",
+    pricePrefix: "From ",
+    priceSuffix: " / floor",
     href: "/pricing/floor-plans",
   },
   {
@@ -121,7 +131,8 @@ const SERVICES: ServiceEntry[] = [
     name: "Virtual Renovation",
     description:
       "Show how a kitchen, bathroom, or facade could look after renovation — without lifting a hammer.",
-    price: "Option-based pricing",
+    priceKey: "renovation-replace-walls",
+    pricePrefix: "From ",
     href: "/pricing/virtual-renovation",
   },
   {
@@ -131,6 +142,9 @@ const SERVICES: ServiceEntry[] = [
     name: "360° Image Enhancement",
     description:
       "Enhance equirectangular panoramas so every direction reads as listing-quality.",
+    priceKey: "360-image-enhancement",
+    pricePrefix: "From ",
+    priceSuffix: " / panorama",
     href: "/pricing/360-image-enhancement",
   },
   {
@@ -140,6 +154,9 @@ const SERVICES: ServiceEntry[] = [
     name: "360° Virtual Staging",
     description:
       "Stage furniture inside a 360 panorama so virtual tours show furnished, lived-in spaces.",
+    priceKey: "360-virtual-staging",
+    pricePrefix: "From ",
+    priceSuffix: " / panorama",
     href: "/pricing/360-virtual-staging",
   },
   {
@@ -149,7 +166,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Aerial Editing",
     description:
       "Cleaner skies, sharper detail, and balanced color for drone exteriors and listing aerials.",
-    price: "Request a quote",
+    customPriceLabel: "Request a quote",
     href: "/pricing/aerial-editing",
   },
   {
@@ -176,7 +193,9 @@ const DEFAULT_COPY: ServiceGridCopy = {
       {
         name: service.name,
         description: service.description,
-        price: service.price,
+        pricePrefix: service.pricePrefix,
+        priceSuffix: service.priceSuffix,
+        customPriceLabel: service.customPriceLabel,
       },
     ]),
   ),
@@ -187,7 +206,10 @@ interface ResolvedCard {
   svc: ServiceEntry;
   name: string;
   description: string;
-  price?: RegionalPrice | string;
+  priceKey?: PriceKey;
+  pricePrefix?: string;
+  priceSuffix?: string;
+  customPriceLabel?: string;
   href: string;
   beforeUrl: string | null;
   afterUrl: string | null;
@@ -212,7 +234,9 @@ export default async function ServiceGrid({
     const localized = copy.services[svc.id] ?? {
       name: svc.name,
       description: svc.description,
-      price: svc.price,
+      pricePrefix: svc.pricePrefix,
+      priceSuffix: svc.priceSuffix,
+      customPriceLabel: svc.customPriceLabel,
     };
     const href =
       locale === "es" ? (getSpanishPath(svc.href) ?? svc.href) : svc.href;
@@ -222,7 +246,11 @@ export default async function ServiceGrid({
         svc,
         name: localized.name,
         description: localized.description,
-        price: localized.price,
+        priceKey: svc.priceKey,
+        pricePrefix: localized.pricePrefix ?? svc.pricePrefix,
+        priceSuffix: localized.priceSuffix ?? svc.priceSuffix,
+        customPriceLabel:
+          localized.customPriceLabel ?? svc.customPriceLabel,
         href,
         beforeUrl: null,
         afterUrl: null,
@@ -234,7 +262,10 @@ export default async function ServiceGrid({
       svc,
       name: localized.name,
       description: localized.description,
-      price: localized.price,
+      priceKey: svc.priceKey,
+      pricePrefix: localized.pricePrefix ?? svc.pricePrefix,
+      priceSuffix: localized.priceSuffix ?? svc.priceSuffix,
+      customPriceLabel: localized.customPriceLabel ?? svc.customPriceLabel,
       href,
       beforeUrl: getPortfolioPublicUrl(item.before_image_path),
       afterUrl: getPortfolioPublicUrl(item.after_image_path),
@@ -279,26 +310,25 @@ function ServiceCard({
     svc,
     name,
     description,
-    price,
+    priceKey,
+    pricePrefix,
+    priceSuffix,
+    customPriceLabel,
     href,
     beforeUrl,
     afterUrl,
     beforeAlt,
     afterAlt,
   } = card;
-  const priceText =
-    typeof price === "string"
-      ? price
-      : price
-        ? resolveRegionalPrice(price, "USD")
-        : copy.requestQuoteLabel;
+  const hasCatalogPrice = Boolean(priceKey);
+  const priceText = customPriceLabel ?? copy.requestQuoteLabel;
 
   return (
     <Link
       href={href}
       id={svc.id}
       className="group relative flex flex-col bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 hover:border-primary/40 transition-all duration-300 scroll-mt-32 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
-      aria-label={`${name} - ${priceText}`}
+      aria-label={name}
     >
       {/* Visual — wide before/after comparison frame.
           Aspect 5:2 gives each side roughly 5:4, suitable for two
@@ -335,15 +365,19 @@ function ServiceCard({
         </h3>
         <p
           className={
-            price
+            hasCatalogPrice || customPriceLabel
               ? "mt-2 text-sm lg:text-base font-semibold text-secondary-dark"
               : "mt-2 text-sm font-medium text-muted"
           }
         >
-          {typeof price === "string" || !price ? (
-            priceText
+          {priceKey ? (
+            <CatalogPriceText
+              priceKey={priceKey}
+              prefix={pricePrefix}
+              suffix={priceSuffix}
+            />
           ) : (
-            <RegionalPriceText price={price} />
+            priceText
           )}
         </p>
         <p className="mt-3 text-sm lg:text-base text-muted leading-relaxed flex-1">

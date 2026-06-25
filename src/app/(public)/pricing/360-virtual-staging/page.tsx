@@ -12,11 +12,13 @@ import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata: Metadata = {
   title: "360° Virtual Staging Pricing",
   description:
-    "Stage furniture inside a 360 panorama so virtual tours show furnished, lived-in spaces. Quote-based — send a sample for an exact price.",
+    "Stage furniture inside a 360 panorama so virtual tours show furnished, lived-in spaces.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/360-virtual-staging",
     englishPath: "/pricing/360-virtual-staging",
@@ -77,6 +79,9 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
             description:
               "Stage furniture inside a 360° panorama so virtual tours show furnished, lived-in spaces without the cost of physical staging.",
             url: absoluteUrl("/pricing/360-virtual-staging"),
+            price: getCatalogPriceDecimal("360-virtual-staging"),
+            priceCurrency: "USD",
+            offerNote: "Starting price per panorama",
           }),
           breadcrumbSchema([
             { name: "Home", item: absoluteUrl("/") },
@@ -94,7 +99,13 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
       eyebrow="360° Virtual Staging"
       title="360° Virtual Staging Pricing"
       description="Stage furniture inside a 360 panorama so virtual tours show furnished, lived-in spaces — without the cost or scheduling of physical staging."
-      priceLine="Request a quote"
+      priceLine={
+        <CatalogPriceText
+          priceKey="360-virtual-staging"
+          prefix="From "
+          suffix=" / panorama"
+        />
+      }
       orderHref="/order/photo-editing"
       orderLabel="Order Online"
       heroContent={heroContent}
@@ -135,7 +146,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
         "Final delivery as equirectangular JPG ready for any 360 platform",
         "One round of revisions per panorama",
       ]}
-      beforeYouOrderDescription="Send the empty 360° room panorama and a short style brief so we can quote accurately before production."
+      beforeYouOrderDescription="Send the empty 360° room panorama and a short style brief so we can confirm the staging scope before production."
       uploadItems={[
         {
           label: "Empty equirectangular panorama",
@@ -156,13 +167,13 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
           hint: "Matterport, Kuula, or another viewer if output specs matter",
         },
       ]}
-      uploadFootnote="Required fields are marked *. Please send at least one sample panorama so we can confirm the quote."
+      uploadFootnote="Required fields are marked *. Please send at least one sample panorama so we can confirm the scope."
       pricingTitle="360° Virtual Staging pricing"
-      pricingDescription="Pricing depends on the room, furnishing complexity, and the number of panoramas in the tour."
+      pricingDescription="Standard single-panorama staging has a fixed starting price. Multi-room tours and custom style direction may be quoted separately."
       pricingCards={[
         {
           label: "Single Panorama Staging",
-          price: "Request quote",
+          price: <CatalogPriceText priceKey="360-virtual-staging" />,
           unit: "per panorama",
           note: "One empty 360° room staged with realistic furniture and styling.",
           isBase: true,
@@ -180,7 +191,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
           note: "Specific buyer profile, furniture references, or branded look requirements.",
         },
       ]}
-      pricingFootnote="Send a sample panorama and style notes for an exact written quote before we start."
+      pricingFootnote="The fixed price covers standard single-panorama staging. Multi-room tours and custom requirements remain quote-based."
       faqTitle="360° Virtual Staging questions"
       faqItems={[
         {
@@ -206,7 +217,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
         {
           question: "How is pricing calculated?",
           answer:
-            "Pricing depends on the number of panoramas, room complexity, furniture density, and any custom style direction. Send a sample for an exact quote.",
+            "Standard single-panorama staging uses the fixed price shown above. Multi-room tours, unusually complex rooms, or custom style direction can be quoted separately.",
         },
         {
           question: "Is a revision included?",

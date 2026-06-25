@@ -1,12 +1,13 @@
 import { Layers, Paintbrush, Trees, Wrench } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
   title: "Renovación virtual",
@@ -17,53 +18,53 @@ export const metadata = spanishMetadata({
 });
 
 const INTERNAL = [
-  { label: "Sustituir suelos", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Sustituir paredes", price: regionalPrice("$14.00", "€14.00") },
-  { label: "Sustituir techo", price: regionalPrice("$14.00", "€14.00") },
+  { label: "Sustituir suelos", priceKey: "renovation-replace-flooring" },
+  { label: "Sustituir paredes", priceKey: "renovation-replace-walls" },
+  { label: "Sustituir techo", priceKey: "renovation-replace-ceiling" },
   {
     label: "Eliminación de objetos y limpieza virtual",
-    price: regionalPrice("$8.00", "€8.00"),
+    priceKey: "renovation-item-removal-cleaning",
   },
-  { label: "Añadir / eliminar paredes", price: regionalPrice("$35.00", "€35.00") },
+  { label: "Añadir / eliminar paredes", priceKey: "renovation-add-remove-walls" },
   {
     label: "Añadir o completar equipamiento de cocina",
-    price: regionalPrice("$55.00", "€55.00"),
+    priceKey: "renovation-kitchen-fit-out",
   },
   {
     label: "Añadir o completar equipamiento de baño",
-    price: regionalPrice("$55.00", "€55.00"),
+    priceKey: "renovation-bathroom-fit-out",
   },
-  { label: "Añadir accesorios", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Añadir accesorios", priceKey: "renovation-add-fixtures" },
   {
     label: "Virtual Staging - residencial",
-    price: regionalPrice("$19.00", "€19.00"),
+    priceKey: "renovation-staging-residential",
   },
   {
     label: "Cambio de color - paredes / techo / puertas",
-    price: regionalPrice("$3.00", "€3.00"),
+    priceKey: "renovation-colour-change-interior",
   },
-];
+] satisfies Array<{ label: string; priceKey: PriceKey }>;
 
 const EXTERNAL = [
-  { label: "Añadir solo piscina", price: regionalPrice("$35.00", "€35.00") },
-  { label: "Añadir entorno de piscina", price: regionalPrice("$28.00", "€28.00") },
-  { label: "Añadir paisajismo básico", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Añadir paisajismo completo", price: regionalPrice("$55.00", "€55.00") },
+  { label: "Añadir solo piscina", priceKey: "renovation-add-pool" },
+  { label: "Añadir entorno de piscina", priceKey: "renovation-pool-surrounds" },
+  { label: "Añadir paisajismo básico", priceKey: "renovation-basic-landscaping" },
+  { label: "Añadir paisajismo completo", priceKey: "renovation-full-landscaping" },
   {
     label: "Cambio de estación con paisajismo completo",
-    price: regionalPrice("$55.00", "€55.00"),
+    priceKey: "renovation-season-change-landscaping",
   },
-  { label: "Sustituir entrada", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Sustituir cubierta", price: regionalPrice("$20.00", "€20.00") },
+  { label: "Sustituir entrada", priceKey: "renovation-replace-driveway" },
+  { label: "Sustituir cubierta", priceKey: "renovation-replace-roof" },
   {
     label: "Sustituir paredes exteriores",
-    price: regionalPrice("$40.00", "€40.00"),
+    priceKey: "renovation-replace-exterior-walls",
   },
   {
     label: "Eliminación de objetos y limpieza virtual",
-    price: regionalPrice("$8.00", "€8.00"),
+    priceKey: "renovation-item-removal-cleaning",
   },
-];
+] satisfies Array<{ label: string; priceKey: PriceKey }>;
 
 export default function SpanishVirtualRenovationPricingPage() {
   return (
@@ -75,6 +76,9 @@ export default function SpanishVirtualRenovationPricingPage() {
             description:
               "Muestra el potencial de renovación con actualizaciones visuales realistas de acabados, instalaciones, distribuciones, materiales y presentación de la propiedad. Precio por opciones.",
             url: absoluteUrl("/es/pricing/virtual-renovation"),
+            price: getCatalogPriceDecimal("renovation-replace-walls"),
+            priceCurrency: "USD",
+            offerNote: "Precio inicial por opción e imagen",
           }),
           breadcrumbSchema([
             { name: "Inicio", item: absoluteUrl("/es") },
@@ -92,7 +96,12 @@ export default function SpanishVirtualRenovationPricingPage() {
       eyebrow="Renovación virtual"
       title="Precios de Renovación virtual"
       description="Muestra el potencial de renovación con actualizaciones visuales realistas de acabados, instalaciones, distribuciones, materiales y presentación de la propiedad."
-      priceLine="Precio por opciones"
+      priceLine={
+        <CatalogPriceText
+          priceKey="renovation-replace-walls"
+          prefix="Desde "
+        />
+      }
       orderHref="/order/virtual-renovation"
       orderLabel="Pedir Renovación virtual"
       whenToUseTitle="Cuándo usar Renovación virtual"
@@ -168,7 +177,7 @@ export default function SpanishVirtualRenovationPricingPage() {
       pricingCards={[
         ...INTERNAL.slice(0, 6).map((row, i) => ({
           label: row.label,
-          price: <RegionalPriceText price={row.price} />,
+          price: <CatalogPriceText priceKey={row.priceKey} />,
           unit: "por imagen",
           note:
             i === 0

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice, type RegionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import type { PriceKey } from "@/lib/pricing/types";
 import {
   ImagePlus,
   Paintbrush,
@@ -201,15 +201,23 @@ type RemoteService = {
   variant: PlaceholderVariant;
   icon: typeof ImagePlus;
   title: string;
-  price: RegionalPrice | string;
+  priceKey: PriceKey;
+  pricePrefix?: string;
+  priceSuffix?: string;
   description: string;
   highlights: string[];
   pricingHref: string;
   orderHref: string;
 };
 
-function RemotePrice({ price }: { price: RemoteService["price"] }) {
-  return typeof price === "string" ? price : <RegionalPriceText price={price} />;
+function RemotePrice({ service }: { service: RemoteService }) {
+  return (
+    <CatalogPriceText
+      priceKey={service.priceKey}
+      prefix={service.pricePrefix}
+      suffix={service.priceSuffix}
+    />
+  );
 }
 
 const remoteServices: RemoteService[] = [
@@ -217,7 +225,9 @@ const remoteServices: RemoteService[] = [
     variant: "staging",
     icon: ImagePlus,
     title: "Virtual Staging",
-    price: regionalPrice("From $19 / image", "From €19 / image"),
+    priceKey: "virtual-staging",
+    pricePrefix: "From ",
+    priceSuffix: " / image",
     description:
       "Transform empty rooms into realistic, furnished spaces with professional styling and market-ready presentation.",
     highlights: [
@@ -233,7 +243,8 @@ const remoteServices: RemoteService[] = [
     variant: "renovation",
     icon: Paintbrush,
     title: "Virtual Renovation",
-    price: "Option-based pricing",
+    priceKey: "renovation-replace-walls",
+    pricePrefix: "From ",
     description:
       "Show renovation potential without construction. Update kitchens, bathrooms, flooring, walls, exteriors, pools, landscaping, and more.",
     highlights: [
@@ -250,7 +261,9 @@ const remoteServices: RemoteService[] = [
     variant: "floor-plan",
     icon: LayoutGrid,
     title: "2D / 3D Floor Plans",
-    price: regionalPrice("From $16 / floor", "From €16 / floor"),
+    priceKey: "floor-plan-2d-bw",
+    pricePrefix: "From ",
+    priceSuffix: " / floor",
     description:
       "Convert sketches, existing plans, photos, or measurements into clean 2D and 3D floor plans for property marketing.",
     highlights: [
@@ -266,7 +279,9 @@ const remoteServices: RemoteService[] = [
     variant: "editing",
     icon: SlidersHorizontal,
     title: "Photo Editing & Virtual Cleaning",
-    price: regionalPrice("From $1 / option", "From €1 / option"),
+    priceKey: "turn-on-lights",
+    pricePrefix: "From ",
+    priceSuffix: " / option",
     description:
       "Enhance listing images, remove unwanted objects, correct distractions, add dusk skies, turn on lights, change backgrounds, and clean up spaces.",
     highlights: [
@@ -531,7 +546,7 @@ export default function ServicesPage() {
                       {svc.title}
                     </h3>
                     <p className="text-base lg:text-lg font-semibold text-secondary-dark mb-5">
-                      <RemotePrice price={svc.price} />
+                      <RemotePrice service={svc} />
                     </p>
                     <p className="text-sm lg:text-base text-muted leading-relaxed mb-6">
                       {svc.description}

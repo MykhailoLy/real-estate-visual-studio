@@ -10,11 +10,13 @@ import { spanishServicePageLabels } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata = spanishMetadata({
   title: "Mejora de imagen 360°",
   description:
-    "Mejora panoramas equirectangulares para tours virtuales más limpios. Color equilibrado, exposición y limpieza de uniones. Bajo presupuesto.",
+    "Mejora panoramas equirectangulares para tours virtuales más limpios, con color equilibrado, exposición y limpieza de uniones.",
   path: "/es/pricing/360-image-enhancement",
   englishPath: "/pricing/360-image-enhancement",
 });
@@ -57,6 +59,9 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
             description:
               "Mejora panoramas equirectangulares para tours virtuales más limpios. Color equilibrado, exposición y limpieza de uniones.",
             url: absoluteUrl("/es/pricing/360-image-enhancement"),
+            price: getCatalogPriceDecimal("360-image-enhancement"),
+            priceCurrency: "USD",
+            offerNote: "Precio inicial por panorama",
           }),
           breadcrumbSchema([
             { name: "Inicio", item: absoluteUrl("/es") },
@@ -74,7 +79,13 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
       eyebrow="Mejora de imagen 360°"
       title="Precios de Mejora de imagen 360°"
       description="Mejora imágenes 360° de propiedades con color, exposición y calidad de presentación más limpios para tours virtuales y medios interactivos de anuncios."
-      priceLine="Solicitar presupuesto"
+      priceLine={
+        <CatalogPriceText
+          priceKey="360-image-enhancement"
+          prefix="Desde "
+          suffix=" / panorama"
+        />
+      }
       orderHref="/order/photo-editing"
       heroContent={heroContent}
       orderLabel="Pedir Mejora 360°"
@@ -138,11 +149,11 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
       ]}
       uploadFootnote="Los campos obligatorios están marcados con *. Envía un panorama de muestra para que podamos presupuestar con precisión."
       pricingTitle="Precios de Mejora 360°"
-      pricingDescription="El precio depende de la resolución del panorama y de la cantidad de corrección necesaria. Envía una muestra y presupuestaremos por escrito."
+      pricingDescription="La mejora estándar tiene un precio fijo por panorama. Los parches personalizados o correcciones especialmente complejas pueden requerir presupuesto."
       pricingCards={[
         {
           label: "Mejora de panorama individual",
-          price: "Solicitar presupuesto",
+          price: <CatalogPriceText priceKey="360-image-enhancement" />,
           unit: "por panorama",
           note: "Limpieza completa de color, exposición y uniones para una imagen 360.",
           isBase: true,
@@ -160,7 +171,7 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
           note: "Parche personalizado de nadir o techo integrado en el archivo.",
         },
       ]}
-      pricingFootnote="El precio depende de la resolución y la complejidad de corrección. Contacta con nosotros con un archivo de muestra para un presupuesto preciso."
+      pricingFootnote="El precio fijo cubre la mejora estándar. Los parches de nadir, techo o restauraciones especialmente complejas siguen siendo bajo presupuesto."
       faqTitle="Preguntas sobre Mejora de imagen 360°"
       faqItems={[
         {
@@ -191,7 +202,7 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
         {
           question: "¿Cómo se calcula el precio?",
           answer:
-            "El precio depende del número de panoramas, su resolución y la cantidad de corrección necesaria. Envía una muestra y presupuestaremos por escrito en 24 horas.",
+            "La mejora estándar usa el precio fijo por panorama mostrado arriba. Los parches personalizados o restauraciones especialmente complejas pueden presupuestarse aparte tras revisar una muestra.",
         },
         {
           question: "¿Cuánto tarda?",

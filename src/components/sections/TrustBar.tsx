@@ -1,6 +1,5 @@
 import { Clock, Globe, ImageIcon, DollarSign } from "lucide-react";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 
 const stats = [
   { icon: ImageIcon, label: "Properties Marketed", value: "200+" },
@@ -9,7 +8,7 @@ const stats = [
   {
     icon: DollarSign,
     label: "Starting From",
-    value: <RegionalPriceText price={regionalPrice("$1.00", "€1.00")} />,
+    value: <CatalogPriceText priceKey="turn-on-lights" />,
   },
 ];
 

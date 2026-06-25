@@ -440,16 +440,19 @@ export function RegionalCentsText({
 
 export function CatalogPriceText({
   priceKey,
+  prefix,
   suffix,
   className,
 }: {
   priceKey: PriceKey;
+  prefix?: string;
   suffix?: string;
   className?: string;
 }) {
   const currency = useDisplayCurrency();
   return (
     <span className={className}>
+      {prefix ?? ""}
       {formatMoney(getCatalogPrice(priceKey, currency), currency)}
       {suffix ?? ""}
     </span>

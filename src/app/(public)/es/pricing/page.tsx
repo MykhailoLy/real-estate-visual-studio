@@ -2,9 +2,13 @@ import { ArrowRight, Check } from "lucide-react";
 import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
 import CtaSection from "@/components/sections/CtaSection";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice, type RegionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { spanishMetadata } from "../seo";
+import {
+  PUBLIC_TAX_NOTICE_ES,
+  PUBLIC_VOLUME_DISCOUNTS_ES,
+} from "@/lib/pricing/public";
+import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
   title: "Precios de servicios visuales inmobiliarios",
@@ -16,11 +20,19 @@ export const metadata = spanishMetadata({
 
 type PricingRow = {
   label: string;
-  price: RegionalPrice | string;
+  priceKey?: PriceKey;
+  price?: string;
   unit?: string;
 };
 
-const digitalSections = [
+const digitalSections: Array<{
+  id: string;
+  title: string;
+  subtitle: string;
+  cta: string;
+  href: string;
+  rows: PricingRow[];
+}> = [
   {
     id: "home-staging-virtual",
     title: "Home staging virtual",
@@ -30,22 +42,22 @@ const digitalSections = [
     rows: [
       {
         label: "Home staging virtual",
-        price: regionalPrice("$19.00", "19,00 €"),
+        priceKey: "virtual-staging",
         unit: "por imagen",
       },
       {
         label: "Mejora de imagen",
-        price: regionalPrice("$2.00", "2,00 €"),
+        priceKey: "image-enhancement",
         unit: "extra opcional",
       },
       {
         label: "Día a atardecer",
-        price: regionalPrice("$5.00", "5,00 €"),
+        priceKey: "day-to-dusk",
         unit: "extra opcional",
       },
       {
         label: "Eliminación de objetos y limpieza virtual",
-        price: regionalPrice("$8.00", "8,00 €"),
+        priceKey: "item-removal-virtual-cleaning",
         unit: "extra opcional",
       },
     ],
@@ -59,19 +71,19 @@ const digitalSections = [
     rows: [
       {
         label: "Cambiar suelo",
-        price: regionalPrice("$20.00", "20,00 €"),
+        priceKey: "renovation-replace-flooring",
       },
       {
         label: "Cambiar paredes o techo",
-        price: regionalPrice("$14.00", "14,00 €"),
+        priceKey: "renovation-replace-walls",
       },
       {
         label: "Añadir o completar cocina",
-        price: regionalPrice("$55.00", "55,00 €"),
+        priceKey: "renovation-kitchen-fit-out",
       },
       {
-        label: "Añadir piscina o paisajismo completo",
-        price: regionalPrice("$35.00", "35,00 €"),
+        label: "Añadir piscina",
+        priceKey: "renovation-add-pool",
       },
     ],
   },
@@ -84,22 +96,22 @@ const digitalSections = [
     rows: [
       {
         label: "Plano 2D en blanco y negro",
-        price: regionalPrice("$16.00", "16,00 €"),
+        priceKey: "floor-plan-2d-bw",
         unit: "por planta",
       },
       {
         label: "Plano 2D en color",
-        price: regionalPrice("$22.00", "22,00 €"),
+        priceKey: "floor-plan-2d-colour",
         unit: "por planta",
       },
       {
         label: "Plano 3D",
-        price: regionalPrice("$39.00", "39,00 €"),
+        priceKey: "floor-plan-3d",
         unit: "por planta",
       },
       {
         label: "Pack 2D + 3D",
-        price: regionalPrice("$49.00", "49,00 €"),
+        priceKey: "floor-plan-2d-3d-bundle",
         unit: "por planta",
       },
     ],
@@ -113,19 +125,19 @@ const digitalSections = [
     rows: [
       {
         label: "Mejora de imagen inmobiliaria",
-        price: regionalPrice("$2.00", "2,00 €"),
+        priceKey: "image-enhancement",
       },
       {
         label: "Eliminación de objetos y limpieza virtual",
-        price: regionalPrice("$8.00", "8,00 €"),
+        priceKey: "item-removal-virtual-cleaning",
       },
       {
         label: "Cambio de fondo",
-        price: regionalPrice("$5.00", "5,00 €"),
+        priceKey: "background-change",
       },
       {
-        label: "Encender luces o cambiar color",
-        price: regionalPrice("$1.00", "1,00 €"),
+        label: "Encender luces",
+        priceKey: "turn-on-lights",
       },
     ],
   },
@@ -157,10 +169,6 @@ const inclusions = [
   "Sin suscripción mensual",
 ];
 
-function PriceText({ price }: { price: RegionalPrice | string }) {
-  return typeof price === "string" ? price : <RegionalPriceText price={price} />;
-}
-
 function PricingTable({ rows }: { rows: PricingRow[] }) {
   return (
     <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
@@ -170,7 +178,11 @@ function PricingTable({ rows }: { rows: PricingRow[] }) {
             <tr key={row.label} className={index % 2 === 0 ? "bg-white" : "bg-surface"}>
               <td className="px-4 py-3 text-foreground">{row.label}</td>
               <td className="px-4 py-3 text-right font-semibold text-primary whitespace-nowrap">
-                <PriceText price={row.price} />
+                {row.priceKey ? (
+                  <CatalogPriceText priceKey={row.priceKey} />
+                ) : (
+                  row.price
+                )}
                 {row.unit && (
                   <span className="text-xs text-muted font-normal ml-1">
                     {row.unit}
@@ -250,9 +262,23 @@ export default function SpanishPricingPage() {
                 ))}
               </ul>
               <p className="text-xs text-muted leading-relaxed mt-5">
-                Para pedidos grandes o necesidades recurrentes, contacta con
-                nosotros y revisaremos el alcance.
+                Los descuentos se aplican automáticamente al subtotal del
+                servicio base. Los extras no reciben descuento por volumen.{" "}
+                {PUBLIC_TAX_NOTICE_ES}
               </p>
+              <div className="mt-5 space-y-2 border-t border-border pt-5">
+                {PUBLIC_VOLUME_DISCOUNTS_ES.map((tier) => (
+                  <div
+                    key={tier.range}
+                    className="flex items-center justify-between gap-4 text-xs"
+                  >
+                    <span className="text-foreground">{tier.range}</span>
+                    <span className="font-bold text-primary">
+                      {tier.discount}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </aside>
           </div>
         </Container>

@@ -12,11 +12,13 @@ import { spanishServicePageLabels } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata = spanishMetadata({
   title: "Precios de Virtual Staging 360°",
   description:
-    "Amuebla un panorama 360 para que los tours virtuales muestren espacios amueblados y habitados. Bajo presupuesto: envía una muestra para un precio exacto.",
+    "Amuebla un panorama 360 para que los tours virtuales muestren espacios amueblados y habitados.",
   path: "/es/pricing/360-virtual-staging",
   englishPath: "/pricing/360-virtual-staging",
 });
@@ -74,6 +76,9 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
             description:
               "Amuebla un panorama 360 para que los tours virtuales muestren espacios amueblados y habitados, sin el coste ni la coordinación del staging físico.",
             url: absoluteUrl("/es/pricing/360-virtual-staging"),
+            price: getCatalogPriceDecimal("360-virtual-staging"),
+            priceCurrency: "USD",
+            offerNote: "Precio inicial por panorama",
           }),
           breadcrumbSchema([
             { name: "Inicio", item: absoluteUrl("/es") },
@@ -91,7 +96,13 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
       eyebrow="Virtual Staging 360°"
       title="Precios de Virtual Staging 360°"
       description="Amuebla un panorama 360 para que los tours virtuales muestren espacios amueblados y habitados, sin el coste ni la coordinación del staging físico."
-      priceLine="Solicitar presupuesto"
+      priceLine={
+        <CatalogPriceText
+          priceKey="360-virtual-staging"
+          prefix="Desde "
+          suffix=" / panorama"
+        />
+      }
       orderHref="/order/photo-editing"
       orderLabel="Pedir online"
       heroContent={heroContent}
@@ -155,11 +166,11 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
       ]}
       uploadFootnote="Los campos obligatorios están marcados con *. Envía al menos un panorama de muestra para que podamos confirmar el presupuesto."
       pricingTitle="Precios de Virtual Staging 360°"
-      pricingDescription="El precio depende de la habitación, la complejidad del mobiliario y el número de panoramas del tour."
+      pricingDescription="El staging estándar de un panorama tiene un precio inicial fijo. Los tours multiestancia y la dirección de estilo personalizada pueden presupuestarse aparte."
       pricingCards={[
         {
           label: "Staging de panorama individual",
-          price: "Solicitar presupuesto",
+          price: <CatalogPriceText priceKey="360-virtual-staging" />,
           unit: "por panorama",
           note: "Una habitación 360° vacía amueblada con mobiliario y estilismo realistas.",
           isBase: true,
@@ -177,7 +188,7 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
           note: "Perfil de comprador, referencias de mobiliario o requisitos de marca concretos.",
         },
       ]}
-      pricingFootnote="Envía un panorama de muestra y notas de estilo para recibir un presupuesto exacto por escrito antes de empezar."
+      pricingFootnote="El precio fijo cubre el staging estándar de un panorama. Los tours multiestancia y requisitos personalizados siguen siendo bajo presupuesto."
       faqTitle="Preguntas sobre Virtual Staging 360°"
       faqItems={[
         {
@@ -203,7 +214,7 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
         {
           question: "¿Cómo se calcula el precio?",
           answer:
-            "El precio depende del número de panoramas, la complejidad de la habitación, la densidad de mobiliario y cualquier dirección de estilo personalizada. Envía una muestra para un presupuesto exacto.",
+            "El staging estándar de un panorama usa el precio fijo mostrado arriba. Los tours multiestancia, habitaciones especialmente complejas o la dirección de estilo personalizada pueden presupuestarse aparte.",
         },
         {
           question: "¿Incluye una revisión?",

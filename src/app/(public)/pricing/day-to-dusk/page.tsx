@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 import { Home, Star, Sunset, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata: Metadata = {
-  title: "Day to Dusk Editing from $5",
+  title: "Day to Dusk Editing",
   description:
-    "Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots. From US$5 / image.",
+    "Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/day-to-dusk",
     englishPath: "/pricing/day-to-dusk",
@@ -29,7 +29,7 @@ export default function DayToDuskPricingPage() {
             description:
               "Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots and premium presentation.",
             url: absoluteUrl("/pricing/day-to-dusk"),
-            price: "5.00",
+            price: getCatalogPriceDecimal("day-to-dusk"),
             priceCurrency: "USD",
             offerNote: "Starting price per image",
           }),
@@ -47,8 +47,10 @@ export default function DayToDuskPricingPage() {
       title="Day to Dusk Pricing"
       description="Transform daytime exterior photos into warm twilight-style listing images for stronger hero shots and premium presentation."
       priceLine={
-        <RegionalPriceText
-          price={regionalPrice("From $5 / image", "From €5 / image")}
+        <CatalogPriceText
+          priceKey="day-to-dusk"
+          prefix="From "
+          suffix=" / image"
         />
       }
       orderHref="/order/day-to-dusk"
@@ -109,20 +111,25 @@ export default function DayToDuskPricingPage() {
       pricingCards={[
         {
           label: "Day to Dusk",
-          price: <RegionalPriceText price={regionalPrice("$5.00", "€5.00")} />,
+          price: <CatalogPriceText priceKey="day-to-dusk" />,
           unit: "per image",
           note: "Sky replacement, interior glow, and dusk atmosphere.",
           isBase: true,
         },
         {
           label: "Image Enhancement",
-          price: <RegionalPriceText price={regionalPrice("+$2.00", "+€2.00")} />,
+          price: <CatalogPriceText priceKey="image-enhancement" prefix="+" />,
           unit: "per image",
           note: "Color and exposure refinement on top of the dusk edit.",
         },
         {
           label: "Item Removal",
-          price: <RegionalPriceText price={regionalPrice("+$8.00", "+€8.00")} />,
+          price: (
+            <CatalogPriceText
+              priceKey="item-removal-virtual-cleaning"
+              prefix="+"
+            />
+          ),
           unit: "per image",
           note: "Remove cars, bins, or other distractions before the dusk conversion.",
         },
