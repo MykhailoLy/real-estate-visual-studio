@@ -22,6 +22,8 @@ export const spanishServicePageLabels = {
   beforeYouOrderTitle: "Qué necesitamos de ti",
   pricingEyebrow: "Precios",
   basePriceBadge: "Precio base",
+  taxNotice:
+    "Los precios no incluyen los impuestos aplicables. Los impuestos se calculan por separado cuando corresponda.",
   faqEyebrow: "FAQ",
   beforeLabel: "Antes",
   afterLabel: "Después",

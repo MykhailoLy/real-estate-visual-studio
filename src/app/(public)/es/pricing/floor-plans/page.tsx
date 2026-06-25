@@ -8,7 +8,7 @@ import {
   Wrench,
 } from "lucide-react";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import SectionLead from "@/components/pricing/SectionLead";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
 import ServicePageSlider, {
@@ -25,7 +25,6 @@ import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
-import { regionalPrice } from "@/lib/currency";
 import {
   PortfolioExamplesGrid,
   StyleOptionsGrid,
@@ -37,11 +36,13 @@ import { translatePricingExampleTitle } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
   title: "Planos",
   description:
-    "Planos 2D y 3D profesionales desde US$16 por planta. Envía un boceto, escaneo, PDF o medidas y recibe planos limpios y listos para anuncios en JPG y PDF.",
+    "Planos 2D y 3D profesionales. Envía un boceto, escaneo, PDF o medidas y recibe planos limpios y listos para anuncios en JPG y PDF.",
   path: "/es/pricing/floor-plans",
   englishPath: "/pricing/floor-plans",
 });
@@ -164,24 +165,35 @@ const FALLBACK_STYLE_OPTIONS: StyleOptionCard[] = [
   },
 ];
 
-const PRICING_CARDS = [
+const PRICING_CARDS: Array<{
+  label: string;
+  priceKey?: PriceKey;
+  prefix?: string;
+  price?: string;
+  unit: string;
+  note: string;
+  isBase: boolean;
+}> = [
   {
     label: "Redibujo de plano 2D",
-    price: regionalPrice("Desde $16", "Desde €16"),
+    priceKey: "floor-plan-2d-bw" as const,
+    prefix: "Desde ",
     unit: "por planta",
     note: "Blanco y negro o color, por nivel.",
     isBase: true,
   },
   {
     label: "Plano 3D",
-    price: regionalPrice("Desde $39", "Desde €39"),
+    priceKey: "floor-plan-3d" as const,
+    prefix: "Desde ",
     unit: "por planta",
     note: "Vista superior 3D estilizada con mobiliario y acabados.",
     isBase: false,
   },
   {
     label: "Pack 2D + 3D",
-    price: regionalPrice("Desde $49", "Desde €49"),
+    priceKey: "floor-plan-2d-3d-bundle" as const,
+    prefix: "Desde ",
     unit: "por planta",
     note: "Plano 2D en color y plano 3D juntos: la mejor relación calidad-precio.",
     isBase: false,
@@ -311,7 +323,7 @@ export default async function SpanishFloorPlansPage() {
             description:
               "Redibujos de planos 2D y 3D profesionales a partir de bocetos, escaneos, PDFs o medidas. Entrega en JPG y PDF lista para anuncios.",
             url: absoluteUrl("/es/pricing/floor-plans"),
-            price: "16.00",
+            price: getCatalogPriceDecimal("floor-plan-2d-bw"),
             priceCurrency: "USD",
             offerNote: "Precio inicial por planta (redibujo de plano 2D)",
           }),
@@ -381,8 +393,10 @@ export default async function SpanishFloorPlansPage() {
                 presentaciones a clientes.
               </p>
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
-                <RegionalPriceText
-                  price={regionalPrice("Desde $16 / planta", "Desde €16 / planta")}
+                <CatalogPriceText
+                  priceKey="floor-plan-2d-bw"
+                  prefix="Desde "
+                  suffix=" / planta"
                 />
               </p>
             </div>
@@ -534,10 +548,13 @@ export default async function SpanishFloorPlansPage() {
                       card.isBase ? "text-white" : "text-primary"
                     }`}
                   >
-                    {typeof card.price === "string" ? (
-                      card.price
+                    {card.priceKey ? (
+                      <CatalogPriceText
+                        priceKey={card.priceKey}
+                        prefix={card.prefix}
+                      />
                     ) : (
-                      <RegionalPriceText price={card.price} />
+                      card.price
                     )}
                   </p>
                   {card.unit && (

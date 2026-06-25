@@ -12,7 +12,7 @@ import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
 import UploadRequirementsBlock from "@/components/pricing/UploadRequirementsBlock";
 import ServiceCTA from "@/components/pricing/ServiceCTA";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import ServicePageSlider, {
   type ServicePageSlide,
 } from "@/components/pricing/ServicePageSlider";
@@ -23,7 +23,6 @@ import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
-import { regionalPrice } from "@/lib/currency";
 import {
   PortfolioExamplesGrid,
   StyleOptionsGrid,
@@ -34,6 +33,8 @@ import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import type { PriceKey } from "@/lib/pricing/types";
 
 // ============================================================
 // /pricing/floor-plans  —  Floor Plans service page
@@ -59,7 +60,7 @@ import { absoluteUrl } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Floor Plans",
   description:
-    "Professional 2D and 3D floor plans from US$16 per floor. Send a sketch, scan, PDF, or measurements and receive clean, listing-ready floor plans in JPG and PDF.",
+    "Professional 2D and 3D floor plans. Send a sketch, scan, PDF, or measurements and receive clean, listing-ready floor plans in JPG and PDF.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/floor-plans",
     englishPath: "/pricing/floor-plans",
@@ -188,24 +189,35 @@ const FALLBACK_STYLE_OPTIONS: StyleOptionCard[] = [
   },
 ];
 
-const PRICING_CARDS = [
+const PRICING_CARDS: Array<{
+  label: string;
+  priceKey?: PriceKey;
+  prefix?: string;
+  price?: string;
+  unit: string;
+  note: string;
+  isBase: boolean;
+}> = [
   {
     label: "2D Floor Plan Redraw",
-    price: regionalPrice("From $16", "From €16"),
+    priceKey: "floor-plan-2d-bw" as const,
+    prefix: "From ",
     unit: "per floor",
     note: "Black & white or full colour, per storey.",
     isBase: true,
   },
   {
     label: "3D Floor Plan",
-    price: regionalPrice("From $39", "From €39"),
+    priceKey: "floor-plan-3d" as const,
+    prefix: "From ",
     unit: "per floor",
     note: "Stylised 3D top-down with furniture and finishes.",
     isBase: false,
   },
   {
     label: "2D + 3D Bundle",
-    price: regionalPrice("From $49", "From €49"),
+    priceKey: "floor-plan-2d-3d-bundle" as const,
+    prefix: "From ",
     unit: "per floor",
     note: "Both 2D colour and 3D plans together — best value.",
     isBase: false,
@@ -353,7 +365,7 @@ export default async function FloorPlansPage() {
             description:
               "Professional 2D and 3D floor plan redraws from sketches, scans, PDFs, or measurements. Listing-ready JPG and PDF delivery.",
             url: absoluteUrl("/pricing/floor-plans"),
-            price: "16.00",
+            price: getCatalogPriceDecimal("floor-plan-2d-bw"),
             priceCurrency: "USD",
             offerNote: "Starting price per floor (2D floor plan redraw)",
           }),
@@ -433,8 +445,10 @@ export default async function FloorPlansPage() {
                 presentations.
               </p>
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
-                <RegionalPriceText
-                  price={regionalPrice("From $16 / floor", "From €16 / floor")}
+                <CatalogPriceText
+                  priceKey="floor-plan-2d-bw"
+                  prefix="From "
+                  suffix=" / floor"
                 />
               </p>
             </div>
@@ -590,10 +604,13 @@ export default async function FloorPlansPage() {
                       card.isBase ? "text-white" : "text-primary"
                     }`}
                   >
-                    {typeof card.price === "string" ? (
-                      card.price
+                    {card.priceKey ? (
+                      <CatalogPriceText
+                        priceKey={card.priceKey}
+                        prefix={card.prefix}
+                      />
                     ) : (
-                      <RegionalPriceText price={card.price} />
+                      card.price
                     )}
                   </p>
                   {card.unit && (

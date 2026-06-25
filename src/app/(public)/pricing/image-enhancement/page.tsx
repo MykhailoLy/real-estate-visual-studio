@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 import { SlidersHorizontal, ImageIcon, Aperture, CheckCircle } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata: Metadata = {
   title: "Image Enhancement",
   description:
-    "Real-estate-grade image enhancement: exposure balance, white balance, lens correction, and recovered window views. From US$2 / image.",
+    "Real-estate-grade image enhancement: exposure balance, white balance, lens correction, and recovered window views.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/image-enhancement",
     englishPath: "/pricing/image-enhancement",
@@ -29,7 +29,7 @@ export default function ImageEnhancementPricingPage() {
             description:
               "Real-estate-grade image enhancement: exposure balance, white balance, lens correction, and recovered window views.",
             url: absoluteUrl("/pricing/image-enhancement"),
-            price: "2.00",
+            price: getCatalogPriceDecimal("image-enhancement"),
             priceCurrency: "USD",
             offerNote: "Starting price per image",
           }),
@@ -50,8 +50,10 @@ export default function ImageEnhancementPricingPage() {
       title="Image Enhancement Pricing"
       description="Improve color, exposure, clarity, and presentation quality so listing photos look clean, natural, and market-ready."
       priceLine={
-        <RegionalPriceText
-          price={regionalPrice("From $2 / image", "From €2 / image")}
+        <CatalogPriceText
+          priceKey="image-enhancement"
+          prefix="From "
+          suffix=" / image"
         />
       }
       orderHref="/order/image-enhancement"
@@ -112,20 +114,20 @@ export default function ImageEnhancementPricingPage() {
       pricingCards={[
         {
           label: "Image Enhancement",
-          price: <RegionalPriceText price={regionalPrice("$2.00", "€2.00")} />,
+          price: <CatalogPriceText priceKey="image-enhancement" />,
           unit: "per image",
           note: "Color, exposure, white balance, and window correction.",
           isBase: true,
         },
         {
           label: "Turn On Lights",
-          price: <RegionalPriceText price={regionalPrice("+$1.00", "+€1.00")} />,
+          price: <CatalogPriceText priceKey="turn-on-lights" prefix="+" />,
           unit: "per image",
           note: "Make visible light sources appear switched on.",
         },
         {
           label: "Colour Change",
-          price: <RegionalPriceText price={regionalPrice("+$3.00", "+€3.00")} />,
+          price: <CatalogPriceText priceKey="colour-change" prefix="+" />,
           unit: "per image",
           note: "Change wall, ceiling, or door colours.",
         },

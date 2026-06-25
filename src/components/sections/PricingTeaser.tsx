@@ -2,28 +2,37 @@ import Link from "next/link";
 import Container from "@/components/layout/Container";
 import SectionHeader from "./SectionHeader";
 import { ImagePlus, LayoutGrid, SlidersHorizontal } from "lucide-react";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import type { PriceKey } from "@/lib/pricing/types";
 
-const teaserCards = [
+const teaserCards: Array<{
+  icon: typeof ImagePlus;
+  title: string;
+  priceKey: PriceKey;
+  prefix?: string;
+  unit: string;
+  href: string;
+}> = [
   {
     icon: ImagePlus,
     title: "Virtual Staging",
-    price: regionalPrice("$19.00", "€19.00"),
+    priceKey: "virtual-staging",
     unit: "per image",
     href: "/order/virtual-staging",
   },
   {
     icon: LayoutGrid,
     title: "2D / 3D Floor Plans",
-    price: regionalPrice("From $16.00", "From €16.00"),
+    priceKey: "floor-plan-2d-bw",
+    prefix: "From ",
     unit: "per floor",
     href: "/order/3d-floor-plans",
   },
   {
     icon: SlidersHorizontal,
     title: "Photo Editing",
-    price: regionalPrice("From $1.00", "From €1.00"),
+    priceKey: "turn-on-lights",
+    prefix: "From ",
     unit: "per option",
     href: "/order/photo-editing",
   },
@@ -54,7 +63,10 @@ export default function PricingTeaser() {
                   {card.title}
                 </p>
                 <p className="text-xl font-bold text-primary">
-                  <RegionalPriceText price={card.price} />
+                  <CatalogPriceText
+                    priceKey={card.priceKey}
+                    prefix={card.prefix}
+                  />
                 </p>
                 <p className="text-xs text-muted">{card.unit}</p>
               </Link>

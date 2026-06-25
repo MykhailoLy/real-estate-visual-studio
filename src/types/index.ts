@@ -4,6 +4,8 @@
 
 // --- Services ---
 
+import type { PriceKey } from "@/lib/pricing/types";
+
 export type RemoteServiceType =
   | "virtual-staging"
   | "virtual-renovation"
@@ -27,7 +29,8 @@ export interface Service {
   category: ServiceCategory;
   description: string;
   deliverables: string[];
-  priceFrom: number;
+  priceFrom?: number;
+  priceKey?: PriceKey;
   priceUnit: string; // "per image", "per plan", "per property"
   orderable: boolean; // true for remote services (can be ordered online)
 }

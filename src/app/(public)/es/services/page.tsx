@@ -12,9 +12,9 @@ import {
   Video,
 } from "lucide-react";
 import Container from "@/components/layout/Container";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice, type RegionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { spanishMetadata } from "../seo";
+import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
   title: "Servicios inmobiliarios visuales en español",
@@ -27,7 +27,9 @@ export const metadata = spanishMetadata({
 type Service = {
   icon: typeof ImagePlus;
   title: string;
-  price: RegionalPrice | string;
+  priceKey: PriceKey;
+  pricePrefix?: string;
+  priceSuffix?: string;
   description: string;
   bullets: string[];
   pricingHref: string;
@@ -38,7 +40,9 @@ const digitalServices: Service[] = [
   {
     icon: ImagePlus,
     title: "Home staging virtual",
-    price: regionalPrice("From $19 / image", "Desde 19 € / imagen"),
+    priceKey: "virtual-staging",
+    pricePrefix: "Desde ",
+    priceSuffix: " / imagen",
     description:
       "Transformamos habitaciones vacías en espacios amueblados, realistas y atractivos para compradores o inquilinos.",
     bullets: [
@@ -52,7 +56,8 @@ const digitalServices: Service[] = [
   {
     icon: Paintbrush,
     title: "Renovación virtual",
-    price: "Precio según opciones",
+    priceKey: "renovation-replace-walls",
+    pricePrefix: "Desde ",
     description:
       "Muestra posibilidades de reforma sin obra: suelos, paredes, cocinas, baños, exteriores, piscinas y paisajismo.",
     bullets: [
@@ -66,7 +71,9 @@ const digitalServices: Service[] = [
   {
     icon: LayoutGrid,
     title: "Planos 2D y 3D",
-    price: regionalPrice("From $16 / floor", "Desde 16 € / planta"),
+    priceKey: "floor-plan-2d-bw",
+    pricePrefix: "Desde ",
+    priceSuffix: " / planta",
     description:
       "Convertimos bocetos, planos existentes, fotos o mediciones en planos claros para marketing inmobiliario.",
     bullets: [
@@ -80,7 +87,9 @@ const digitalServices: Service[] = [
   {
     icon: SlidersHorizontal,
     title: "Retoque fotográfico",
-    price: regionalPrice("From $1 / option", "Desde 1 € / opción"),
+    priceKey: "turn-on-lights",
+    pricePrefix: "Desde ",
+    priceSuffix: " / opción",
     description:
       "Mejoramos fotos de anuncios, corregimos distracciones y limpiamos visualmente espacios para una presentación más cuidada.",
     bullets: [
@@ -123,10 +132,6 @@ const localServices = [
       "Dron mediante especialista autorizado cuando la normativa y la ubicación lo permiten.",
   },
 ];
-
-function PriceText({ price }: { price: RegionalPrice | string }) {
-  return typeof price === "string" ? price : <RegionalPriceText price={price} />;
-}
 
 export default function SpanishServicesPage() {
   return (
@@ -194,7 +199,11 @@ export default function SpanishServicesPage() {
                     {service.title}
                   </h3>
                   <p className="text-base font-semibold text-secondary-dark mb-4">
-                    <PriceText price={service.price} />
+                    <CatalogPriceText
+                      priceKey={service.priceKey}
+                      prefix={service.pricePrefix}
+                      suffix={service.priceSuffix}
+                    />
                   </p>
                   <p className="text-sm lg:text-base text-muted leading-relaxed mb-5">
                     {service.description}

@@ -170,8 +170,9 @@ const sections: Section[] = [
       <>
         <p>
           Prices shown on the order form and the public pricing pages are
-          in US dollars and exclude any local taxes that may apply. The
-          estimated total at submission is based on what you selected.
+          displayed in the selected supported currency. Prices exclude
+          applicable taxes. Taxes are calculated separately where applicable.
+          The estimated total at submission is based on what you selected.
           Final invoices may differ if additional work is approved or if
           a complex request requires a separate quote.
         </p>

@@ -5,18 +5,18 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata = spanishMetadata({
   title: "Mejora de imagen",
   description:
-    "Mejora de imagen para fotografía inmobiliaria: equilibrio de exposición, balance de blancos, corrección de lente y recuperación de vistas por ventana. Desde US$2 por imagen.",
+    "Mejora de imagen para fotografía inmobiliaria: equilibrio de exposición, balance de blancos, corrección de lente y recuperación de vistas por ventana.",
   path: "/es/pricing/image-enhancement",
   englishPath: "/pricing/image-enhancement",
 });
@@ -31,7 +31,7 @@ export default function SpanishImageEnhancementPricingPage() {
             description:
               "Mejora de imagen para fotografía inmobiliaria: equilibrio de exposición, balance de blancos, corrección de lente y recuperación de vistas por ventana.",
             url: absoluteUrl("/es/pricing/image-enhancement"),
-            price: "2.00",
+            price: getCatalogPriceDecimal("image-enhancement"),
             priceCurrency: "USD",
             offerNote: "Precio inicial por imagen",
           }),
@@ -52,8 +52,10 @@ export default function SpanishImageEnhancementPricingPage() {
       title="Precios de Mejora de imagen"
       description="Mejora el color, la exposición, la nitidez y la calidad de presentación para que las fotos del anuncio se vean limpias, naturales y listas para publicar."
       priceLine={
-        <RegionalPriceText
-          price={regionalPrice("Desde $2 / imagen", "Desde €2 / imagen")}
+        <CatalogPriceText
+          priceKey="image-enhancement"
+          prefix="Desde "
+          suffix=" / imagen"
         />
       }
       orderHref="/order/image-enhancement"
@@ -118,20 +120,20 @@ export default function SpanishImageEnhancementPricingPage() {
       pricingCards={[
         {
           label: "Mejora de imagen",
-          price: <RegionalPriceText price={regionalPrice("$2.00", "€2.00")} />,
+          price: <CatalogPriceText priceKey="image-enhancement" />,
           unit: "por imagen",
           note: "Color, exposición, balance de blancos y corrección de ventanas.",
           isBase: true,
         },
         {
           label: "Encender luces",
-          price: <RegionalPriceText price={regionalPrice("+$1.00", "+€1.00")} />,
+          price: <CatalogPriceText priceKey="turn-on-lights" prefix="+" />,
           unit: "por imagen",
           note: "Hace que las fuentes de luz visibles parezcan encendidas.",
         },
         {
           label: "Cambio de color",
-          price: <RegionalPriceText price={regionalPrice("+$3.00", "+€3.00")} />,
+          price: <CatalogPriceText priceKey="colour-change" prefix="+" />,
           unit: "por imagen",
           note: "Cambia colores de paredes, techos o puertas.",
         },

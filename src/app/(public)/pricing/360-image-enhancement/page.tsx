@@ -10,11 +10,13 @@ import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata: Metadata = {
   title: "360° Image Enhancement",
   description:
-    "Enhance equirectangular panoramas for cleaner virtual tours. Balanced color, exposure, and stitch cleanup. Quote-based.",
+    "Enhance equirectangular panoramas for cleaner virtual tours with balanced color, exposure, and stitch cleanup.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/360-image-enhancement",
     englishPath: "/pricing/360-image-enhancement",
@@ -60,6 +62,9 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
             description:
               "Enhance equirectangular panoramas for cleaner virtual tours. Balanced color, exposure, and stitch cleanup.",
             url: absoluteUrl("/pricing/360-image-enhancement"),
+            price: getCatalogPriceDecimal("360-image-enhancement"),
+            priceCurrency: "USD",
+            offerNote: "Starting price per panorama",
           }),
           breadcrumbSchema([
             { name: "Home", item: absoluteUrl("/") },
@@ -77,7 +82,13 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
       eyebrow="360° Image Enhancement"
       title="360° Image Enhancement Pricing"
       description="Improve 360° property images with cleaner color, exposure, and presentation quality for virtual tours and interactive listing media."
-      priceLine="Request a quote"
+      priceLine={
+        <CatalogPriceText
+          priceKey="360-image-enhancement"
+          prefix="From "
+          suffix=" / panorama"
+        />
+      }
       orderHref="/order/photo-editing"
       heroContent={heroContent}
       orderLabel="Order 360° Enhancement"
@@ -115,7 +126,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
         "1 revision included per panorama",
         "Final delivery as equirectangular JPG",
       ]}
-      beforeYouOrderDescription="Send your panoramic files and any tour platform notes — we'll quote and handle the enhancement."
+      beforeYouOrderDescription="Send your panoramic files and any tour platform notes so we can confirm the required corrections."
       uploadItems={[
         {
           label: "Equirectangular panorama file",
@@ -135,13 +146,13 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
           hint: "Optional — if you want it baked into the file",
         },
       ]}
-      uploadFootnote="Required fields are marked *. Please send a sample panorama so we can quote accurately."
+      uploadFootnote="Required fields are marked *. Please send a sample panorama so we can confirm scope accurately."
       pricingTitle="360° Enhancement pricing"
-      pricingDescription="Pricing is based on panorama resolution and the amount of correction needed. Send a sample and we'll quote in writing."
+      pricingDescription="Standard enhancement has a fixed per-panorama price. Custom patching or unusually complex corrections may require a separate quote."
       pricingCards={[
         {
           label: "Single Panorama Enhancement",
-          price: "Request quote",
+          price: <CatalogPriceText priceKey="360-image-enhancement" />,
           unit: "per panorama",
           note: "Full color, exposure, and stitch cleanup for one 360 image.",
           isBase: true,
@@ -159,7 +170,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
           note: "Custom nadir or ceiling patch baked into the file.",
         },
       ]}
-      pricingFootnote="Pricing depends on resolution and correction complexity. Contact us with a sample file for an accurate quote."
+      pricingFootnote="The fixed price covers standard enhancement. Custom nadir, ceiling, or unusually complex restoration remains quote-based."
       faqTitle="360° Image Enhancement questions"
       faqItems={[
         {
@@ -184,7 +195,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
         },
         {
           question: "How is the price calculated?",
-          answer: "Pricing is based on the number of panoramas, their resolution, and the amount of correction needed. Send a sample and we'll quote in writing within 24 hours.",
+          answer: "Standard enhancement uses the fixed per-panorama price shown above. Custom patches or unusually complex restoration can be quoted separately after reviewing a sample.",
         },
         {
           question: "How long does it take?",
@@ -195,8 +206,8 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
           answer: "Yes. One revision round is included per panorama.",
         },
       ]}
-      ctaTitle="Send a sample 360 — we'll quote in 24 hours."
-      ctaSubtitle="Pricing is based on resolution and correction complexity. Get an accurate quote before you commit."
+      ctaTitle="Ready to polish your 360 tour?"
+      ctaSubtitle="Send a panorama and any correction notes to get started."
     />
     </>
   );

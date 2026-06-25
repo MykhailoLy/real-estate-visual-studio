@@ -3,10 +3,21 @@ import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
 import SectionHeader from "@/components/sections/SectionHeader";
 import CtaSection from "@/components/sections/CtaSection";
-import { RegionalPriceText } from "@/components/pricing/currency-client";
-import { regionalPrice, type RegionalPrice } from "@/lib/currency";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { localizedAlternates } from "@/lib/seo";
 import { Check } from "lucide-react";
+import {
+  FLOOR_PLAN_TYPES,
+  PHOTO_EDIT_OPTIONS,
+  RENOVATION_EXTERNAL_OPTIONS,
+  RENOVATION_INTERNAL_OPTIONS,
+  STAGING_ADDONS,
+} from "@/data/order-options";
+import {
+  PUBLIC_TAX_NOTICE,
+  PUBLIC_VOLUME_DISCOUNTS,
+} from "@/lib/pricing/public";
+import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -19,72 +30,21 @@ export const metadata: Metadata = {
   }),
 };
 
-/* ============================================================
-   PRICING DATA — pulled from src/data/order-options.ts values
-   USD/CAD/EUR values are fixed regional display prices. Checkout
-   pricing remains owned by the order flow and is intentionally
-   not imported or changed here.
-   ============================================================ */
+type PublicPricingRow = {
+  label: string;
+  priceKey: PriceKey;
+  unit?: string;
+};
 
-const stagingAddons = [
-  { label: "Image Enhancement", price: regionalPrice("$2.00", "€2.00") },
-  { label: "Day to Dusk", price: regionalPrice("$5.00", "€5.00") },
-  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
-  { label: "Turn On Lights", price: regionalPrice("$1.00", "€1.00") },
-  { label: "Colour Change", price: regionalPrice("$3.00", "€3.00") },
-];
-
-const renovationInternal = [
-  { label: "Replace Flooring", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Replace Walls", price: regionalPrice("$14.00", "€14.00") },
-  { label: "Replace Ceiling", price: regionalPrice("$14.00", "€14.00") },
-  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
-  { label: "Add / Remove Walls", price: regionalPrice("$35.00", "€35.00") },
-  { label: "Add or Complete Kitchen Fit Out", price: regionalPrice("$55.00", "€55.00") },
-  { label: "Add or Complete Bathroom Fit Out", price: regionalPrice("$55.00", "€55.00") },
-  { label: "Add Fixtures", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Virtual Staging (Residential)", price: regionalPrice("$19.00", "€19.00") },
-  { label: "Virtual Staging (Commercial - Office)", price: regionalPrice("$19.00", "€19.00") },
-  { label: "Virtual Staging (Commercial - Non-office)", price: regionalPrice("$19.00", "€19.00") },
-  { label: "Color Change Walls/Ceiling/Doors", price: regionalPrice("$3.00", "€3.00") },
-];
-
-const renovationExternal = [
-  { label: "Add Pool Only", price: regionalPrice("$35.00", "€35.00") },
-  { label: "Add Pool Surrounds", price: regionalPrice("$28.00", "€28.00") },
-  { label: "Remove Pool Cover", price: regionalPrice("$35.00", "€35.00") },
-  { label: "Add Leaves", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Add Basic Landscaping", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Add Full Landscaping", price: regionalPrice("$55.00", "€55.00") },
-  { label: "Season Change with Full Landscaping", price: regionalPrice("$55.00", "€55.00") },
-  { label: "Virtual Staging (Residential or Commercial)", price: regionalPrice("$19.00", "€19.00") },
-  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
-  { label: "Add Fixtures", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Replace Driveway", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Replace Roof", price: regionalPrice("$20.00", "€20.00") },
-  { label: "Replace Exterior Walls", price: regionalPrice("$40.00", "€40.00") },
-  { label: "Add/Complete Patio, Balcony, Pergola, Veranda, Decking", price: regionalPrice("$40.00", "€40.00") },
-  { label: "Color Change Exterior Features", price: regionalPrice("$3.00", "€3.00") },
-];
-
-const floorPlanTypes = [
-  { label: "2D Floor Plan — Black & White", price: regionalPrice("$16.00", "€16.00"), unit: "per floor" },
-  { label: "2D Floor Plan — Full Colour", price: regionalPrice("$22.00", "€22.00"), unit: "per floor" },
-  { label: "3D Floor Plan", price: regionalPrice("$39.00", "€39.00"), unit: "per floor" },
-  { label: "2D + 3D Bundle", price: regionalPrice("$49.00", "€49.00"), unit: "per floor" },
-];
-
-const photoEditOptions = [
-  { label: "Image Enhancement — Real Estate", price: regionalPrice("$2.00", "€2.00") },
-  { label: "Item Removal & Virtual Cleaning", price: regionalPrice("$8.00", "€8.00") },
-  { label: "Shadow Removal", price: regionalPrice("$8.00", "€8.00") },
-  { label: "Background Removal", price: regionalPrice("$3.00", "€3.00") },
-  { label: "Background Change", price: regionalPrice("$5.00", "€5.00") },
-  { label: "Colour Change", price: regionalPrice("$3.00", "€3.00") },
-  { label: "Turn On Lights", price: regionalPrice("$1.00", "€1.00") },
-  { label: "Day to Dusk", price: regionalPrice("$5.00", "€5.00") },
-  { label: "Water Effect for Empty Pools & Jacuzzi", price: regionalPrice("$5.00", "€5.00") },
-];
+const stagingAddons: PublicPricingRow[] = STAGING_ADDONS;
+const renovationInternal: PublicPricingRow[] = RENOVATION_INTERNAL_OPTIONS;
+const renovationExternal: PublicPricingRow[] = RENOVATION_EXTERNAL_OPTIONS;
+const floorPlanTypes: PublicPricingRow[] = FLOOR_PLAN_TYPES.map((plan) => ({
+  label: plan.label,
+  priceKey: plan.priceKey,
+  unit: "per floor",
+}));
+const photoEditOptions: PublicPricingRow[] = PHOTO_EDIT_OPTIONS;
 
 const inclusions = [
   "1 revision included with every order",
@@ -94,10 +54,6 @@ const inclusions = [
   "No subscription or monthly fees",
   "Volume discounts for bulk orders",
 ];
-
-function PriceText({ price }: { price: RegionalPrice | string }) {
-  return typeof price === "string" ? price : <RegionalPriceText price={price} />;
-}
 
 export default function PricingPage() {
   return (
@@ -130,7 +86,7 @@ export default function PricingPage() {
             <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
               <div className="flex items-baseline gap-2 mb-6">
                 <span className="text-3xl font-bold text-primary">
-                  <RegionalPriceText price={regionalPrice("$19.00", "€19.00")} />
+                  <CatalogPriceText priceKey="virtual-staging" />
                 </span>
                 <span className="text-muted text-sm">per image</span>
               </div>
@@ -150,7 +106,10 @@ export default function PricingPage() {
                           {addon.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary">
-                          +<PriceText price={addon.price} />
+                          <CatalogPriceText
+                            priceKey={addon.priceKey}
+                            prefix="+"
+                          />
                         </td>
                       </tr>
                     ))}
@@ -199,7 +158,7 @@ export default function PricingPage() {
                           {opt.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          <PriceText price={opt.price} />
+                          <CatalogPriceText priceKey={opt.priceKey} />
                         </td>
                       </tr>
                     ))}
@@ -225,7 +184,7 @@ export default function PricingPage() {
                           {opt.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          <PriceText price={opt.price} />
+                          <CatalogPriceText priceKey={opt.priceKey} />
                         </td>
                       </tr>
                     ))}
@@ -281,7 +240,7 @@ export default function PricingPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="font-bold text-primary">
-                            <PriceText price={plan.price} />
+                            <CatalogPriceText priceKey={plan.priceKey} />
                           </span>
                           <span className="text-xs text-muted ml-1">
                             {plan.unit}
@@ -335,7 +294,7 @@ export default function PricingPage() {
                           {opt.label}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          <PriceText price={opt.price} />
+                          <CatalogPriceText priceKey={opt.priceKey} />
                         </td>
                       </tr>
                     ))}
@@ -469,37 +428,27 @@ export default function PricingPage() {
                   Ordering in bulk? Save more with volume pricing.
                 </p>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-sm text-foreground">5-9 images</span>
-                    <span className="text-sm font-bold text-primary">
-                      10% off
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-sm text-foreground">
-                      10-19 images
-                    </span>
-                    <span className="text-sm font-bold text-primary">
-                      15% off
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-sm text-foreground">20+ images</span>
-                    <span className="text-sm font-bold text-primary">
-                      20% off
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-foreground">
-                      Agency / bulk
-                    </span>
-                    <span className="text-sm font-bold text-primary">
-                      Custom quote
-                    </span>
-                  </div>
+                  {PUBLIC_VOLUME_DISCOUNTS.map((tier, index) => (
+                    <div
+                      key={tier.range}
+                      className={`flex justify-between items-center py-2 ${
+                        index < PUBLIC_VOLUME_DISCOUNTS.length - 1
+                          ? "border-b border-border"
+                          : ""
+                      }`}
+                    >
+                      <span className="text-sm text-foreground">
+                        {tier.range}
+                      </span>
+                      <span className="text-sm font-bold text-primary">
+                        {tier.discount}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <p className="text-xs text-muted mt-4">
-                  Contact us for agency-level pricing on recurring orders.
+                  Discounts apply automatically to the base service subtotal.
+                  Add-ons are not volume-discounted. {PUBLIC_TAX_NOTICE}
                 </p>
               </div>
             </div>

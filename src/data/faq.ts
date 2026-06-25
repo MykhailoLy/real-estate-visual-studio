@@ -43,7 +43,7 @@ export const faqItems: FaqItem[] = [
     id: "faq-6",
     question: "Do you offer volume discounts?",
     answer:
-      "Yes! 5-9 images: 10% off. 10-19 images: 15% off. 20+ images: 20% off or custom quote. Contact us for agency-level pricing.",
+      "Yes. Discounts apply automatically to the base service subtotal: 1–4 eligible units use the standard price, 5–9 receive 5% off, 10–19 receive 10% off, 20–49 receive 15% off, and 50+ require a custom quote. Add-ons are not volume-discounted. Prices exclude applicable taxes. Taxes are calculated separately where applicable.",
     category: "pricing",
   },
   {

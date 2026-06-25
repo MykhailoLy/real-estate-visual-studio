@@ -25,7 +25,6 @@ import {
   getHomepageSliderItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
-import { regionalPrice } from "@/lib/currency";
 import { spanishMetadata } from "./seo";
 
 export const metadata = spanishMetadata({
@@ -80,53 +79,62 @@ const serviceGridCopy: ServiceGridCopy = {
       name: "Mejora de imagen",
       description:
         "Corrección de color, exposición y ventanas para que las fotos del anuncio se vean luminosas, nítidas y naturales.",
-      price: regionalPrice("Desde $2.00 / imagen", "Desde €2.00 / imagen"),
+      pricePrefix: "Desde ",
+      priceSuffix: " / imagen",
     },
     "day-to-dusk": {
       name: "Day to Dusk",
       description:
         "Convierte un exterior diurno en una imagen cálida al atardecer, perfecta como foto principal de un anuncio.",
-      price: regionalPrice("Desde $5.00 / imagen", "Desde €5.00 / imagen"),
+      pricePrefix: "Desde ",
+      priceSuffix: " / imagen",
     },
     "virtual-staging": {
       name: "Virtual Staging",
       description:
         "Amuebla habitaciones vacías con un estilo realista y orientado al mercado para que los compradores visualicen el espacio.",
-      price: regionalPrice("Desde $19.00 / imagen", "Desde €19.00 / imagen"),
+      pricePrefix: "Desde ",
+      priceSuffix: " / imagen",
     },
     "item-removal": {
       name: "Eliminación de objetos y limpieza virtual",
       description:
         "Elimina desorden, objetos personales o elementos que distraen para que la habitación sea la protagonista.",
-      price: regionalPrice("Desde $8.00 / imagen", "Desde €8.00 / imagen"),
+      pricePrefix: "Desde ",
+      priceSuffix: " / imagen",
     },
     "floor-plans": {
       name: "Planos",
       description:
         "Bocetos, planos existentes o fotos convertidos en planos 2D y 3D limpios para marketing.",
-      price: regionalPrice("Desde $16.00 / plano", "Desde €16.00 / plano"),
+      pricePrefix: "Desde ",
+      priceSuffix: " / plano",
     },
     "virtual-renovation": {
       name: "Renovación virtual",
       description:
         "Muestra cómo podría verse una cocina, baño o fachada tras una reforma, sin levantar un martillo.",
-      price: "Precios por opciones",
+      pricePrefix: "Desde ",
     },
     "360-image-enhancement": {
       name: "Mejora de imagen 360°",
       description:
         "Mejora panoramas equirectangulares para que cada dirección tenga calidad de anuncio.",
+      pricePrefix: "Desde ",
+      priceSuffix: " / panorama",
     },
     "360-virtual-staging": {
       name: "Virtual Staging 360°",
       description:
         "Añade mobiliario dentro de un panorama 360 para que los tours virtuales muestren espacios amueblados y habitables.",
+      pricePrefix: "Desde ",
+      priceSuffix: " / panorama",
     },
     "aerial-editing": {
       name: "Edición aérea",
       description:
         "Cielos más limpios, mayor detalle y color equilibrado para exteriores con dron e imágenes aéreas de anuncios.",
-      price: "Solicitar presupuesto",
+      customPriceLabel: "Solicitar presupuesto",
     },
     "development-site-plans": {
       name: "Planos de desarrollo",

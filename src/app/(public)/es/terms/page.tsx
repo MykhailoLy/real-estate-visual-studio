@@ -155,11 +155,12 @@ const sections: Section[] = [
       <>
         <p>
           Los precios mostrados en el formulario de pedido y en las páginas
-          públicas de precios están en dólares estadounidenses y no incluyen
-          impuestos locales que puedan aplicarse. El total estimado al enviar
-          se basa en lo que seleccionaste. Las facturas finales pueden variar
-          si se aprueba trabajo adicional o si una solicitud compleja requiere
-          un presupuesto aparte.
+          públicas de precios se muestran en la moneda compatible seleccionada.
+          Los precios no incluyen los impuestos aplicables. Los impuestos se
+          calculan por separado cuando corresponda. El total estimado al enviar
+          se basa en lo que seleccionaste. Las facturas finales pueden variar si
+          se aprueba trabajo adicional o si una solicitud compleja requiere un
+          presupuesto aparte.
         </p>
         <p>
           Enviar un pedido no carga tu tarjeta. Confirmamos el alcance y te
