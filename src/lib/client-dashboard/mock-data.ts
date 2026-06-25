@@ -49,6 +49,7 @@ export interface DashboardJob {
   estimatedCompletion: string;
   progress: number; // 0–100
   costCents: number; // cost in cents for formatUSD()
+  currency?: string;
   imageCount: number;
 }
 

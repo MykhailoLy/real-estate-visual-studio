@@ -17,7 +17,6 @@ import FloorPlanItemCard, {
   emptyFloorPlanItem,
 } from "@/components/order/floor-plans/FloorPlanItemCard";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { calculateFloorPlanItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 
@@ -128,7 +127,6 @@ export default function FloorPlansOrderForm({
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
     label: `Plan #${i + 1} (${item.numberOfFloors} floor${item.numberOfFloors > 1 ? "s" : ""})`,
-    subtotal: calculateFloorPlanItemTotal(item.planType, item.numberOfFloors),
   }));
 
   if (submitted) {
@@ -155,6 +153,13 @@ export default function FloorPlansOrderForm({
         <OrderSummary
           serviceName="2D / 3D Floor Plans"
           items={summaryItems}
+          pricingInput={{
+            serviceType: "3d-floor-plans",
+            items: items.map((item) => ({
+              planType: item.planType,
+              numberOfFloors: item.numberOfFloors,
+            })),
+          }}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}

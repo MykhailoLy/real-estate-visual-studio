@@ -6,8 +6,12 @@ import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import { RegionalCentsText } from "@/components/pricing/currency-client";
+import {
+  RegionalCentsText,
+  useDisplayCurrency,
+} from "@/components/pricing/currency-client";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { PHOTO_EDIT_OPTIONS, PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 
 export interface PhotoEditItemData {
@@ -46,6 +50,7 @@ export default function PhotoEditItemCard({
   onApplyToAll,
   showApplyToAll,
 }: PhotoEditItemCardProps) {
+  const currency = useDisplayCurrency();
   const toggleOption = (id: string) => {
     const updated = data.selectedOptions.includes(id)
       ? data.selectedOptions.filter((x) => x !== id)
@@ -53,7 +58,7 @@ export default function PhotoEditItemCard({
     onChange({ ...data, selectedOptions: updated });
   };
 
-  const subtotal = calculatePhotoEditItemTotal(data.selectedOptions);
+  const subtotal = calculatePhotoEditItemTotal(data.selectedOptions, currency);
 
   return (
     <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
@@ -108,7 +113,9 @@ export default function PhotoEditItemCard({
                   <span className="text-sm text-foreground">{opt.label}</span>
                 </div>
                 <span className="text-sm font-medium text-muted flex-shrink-0 ml-2">
-                  <RegionalCentsText cents={opt.price} />
+                  <RegionalCentsText
+                    cents={getCatalogPrice(opt.priceKey, currency)}
+                  />
                 </span>
               </label>
             ))}

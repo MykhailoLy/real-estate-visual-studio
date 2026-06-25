@@ -6,8 +6,12 @@ import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import { RegionalCentsText } from "@/components/pricing/currency-client";
+import {
+  RegionalCentsText,
+  useDisplayCurrency,
+} from "@/components/pricing/currency-client";
 import { calculateRenovationItemTotal } from "@/lib/pricing";
+import { getCatalogPrice } from "@/lib/pricing/catalog";
 import {
   RENOVATION_INTERNAL_OPTIONS,
   RENOVATION_EXTERNAL_OPTIONS,
@@ -58,6 +62,7 @@ export default function RenovationItemCard({
   onRemove,
   canRemove,
 }: RenovationItemCardProps) {
+  const currency = useDisplayCurrency();
   const toggleInternal = (id: string) => {
     const updated = data.selectedInternal.includes(id)
       ? data.selectedInternal.filter((x) => x !== id)
@@ -74,7 +79,8 @@ export default function RenovationItemCard({
 
   const subtotal = calculateRenovationItemTotal(
     data.selectedInternal,
-    data.selectedExternal
+    data.selectedExternal,
+    currency
   );
 
   return (
@@ -127,7 +133,9 @@ export default function RenovationItemCard({
                   <span className="text-sm text-foreground">{opt.label}</span>
                 </div>
                 <span className="text-xs font-medium text-muted flex-shrink-0 ml-2">
-                  <RegionalCentsText cents={opt.price} />
+                  <RegionalCentsText
+                    cents={getCatalogPrice(opt.priceKey, currency)}
+                  />
                 </span>
               </label>
             ))}
@@ -155,7 +163,9 @@ export default function RenovationItemCard({
                   <span className="text-sm text-foreground">{opt.label}</span>
                 </div>
                 <span className="text-xs font-medium text-muted flex-shrink-0 ml-2">
-                  <RegionalCentsText cents={opt.price} />
+                  <RegionalCentsText
+                    cents={getCatalogPrice(opt.priceKey, currency)}
+                  />
                 </span>
               </label>
             ))}

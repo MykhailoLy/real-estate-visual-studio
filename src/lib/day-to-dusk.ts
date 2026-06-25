@@ -12,7 +12,7 @@
 //
 // SCOPE / PRICING: this module does NOT define prices. The Day to Dusk
 // subtotal is derived from the EXISTING PHOTO_EDIT_OPTIONS option
-// `day-to-dusk-pe` (500 cents). Every dusk style and lighting
+// `day-to-dusk-pe` (fixed by currency in the canonical catalog). Every dusk style and lighting
 // preference below is INCLUDED in that base price and never changes
 // the subtotal — there is no lights surcharge and no paid extra.
 // ============================================================

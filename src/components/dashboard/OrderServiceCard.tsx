@@ -12,6 +12,9 @@ import { getGalleryPairLabels } from "@/lib/gallery";
 import type { OrderCardImage } from "@/lib/order-card-media";
 import type { OrderExamplePair } from "@/lib/order-card-examples";
 import OrderExamplesModal from "./OrderExamplesModal";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
+import { getCatalogPrice } from "@/lib/pricing/catalog";
+import { formatMoney } from "@/lib/pricing/format";
 
 // ============================================================
 // OrderServiceCard — one service tile in the New Order hub.
@@ -122,6 +125,7 @@ export default function OrderServiceCard({
   examples,
   cardImage,
 }: OrderServiceCardProps) {
+  const currency = useDisplayCurrency();
   const [modalOpen, setModalOpen] = useState(false);
 
   const service = ORDER_SERVICE_CARDS.find((s) => s.slug === slug);
@@ -180,7 +184,14 @@ export default function OrderServiceCard({
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-primary">
-              {service.priceLabel}
+              {service.priceKey
+                ? `From ${formatMoney(
+                    getCatalogPrice(service.priceKey, currency),
+                    currency
+                  )} / ${
+                    service.slug === "floor-plans" ? "floor" : "image"
+                  }`
+                : service.priceLabel}
             </p>
             {service.turnaroundLabel && (
               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">

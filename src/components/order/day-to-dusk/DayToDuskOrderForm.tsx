@@ -16,7 +16,6 @@ import OrderJobTitleField, {
   isJobTitleValid,
 } from "@/components/order/OrderJobTitleField";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 import {
@@ -44,7 +43,7 @@ import ApplyToAllPreferencesToggle from "./ApplyToAllPreferencesToggle";
 //   "review"     → read-only review + terms + the only Submit Order action
 //
 // Backend model is UNCHANGED: serviceType "photo-editing", fixed option
-// day-to-dusk-pe (500 cents/image), PE order numbering, sub_service =
+// day-to-dusk-pe (canonical fixed-currency price), PE order numbering, sub_service =
 // day-to-dusk. Identity is sourced server-side (no "Your Details" block).
 //
 // FUTURE PAYMENT EXTENSION POINT: the flow is intentionally modelled as
@@ -263,10 +262,8 @@ export default function DayToDuskOrderForm({
   const reviewValid = configureValid && orderTerms.accepted;
 
   // --- Summary ---
-  const fixedSubtotal = calculatePhotoEditItemTotal([DAY_TO_DUSK_OPTION_ID]);
   const summaryItems: SummaryItem[] = items.map((_, i) => ({
     label: `Photo #${i + 1}`,
-    subtotal: fixedSubtotal,
   }));
 
   if (submitted) {
@@ -291,6 +288,12 @@ export default function DayToDuskOrderForm({
     <OrderSummary
       serviceName={SERVICE_NAME}
       items={summaryItems}
+      pricingInput={{
+        serviceType: "photo-editing",
+        items: items.map(() => ({
+          selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+        })),
+      }}
       onSubmit={handleSubmit}
       isSubmitting={isSubmitting}
       canSubmit={reviewValid}
@@ -301,6 +304,12 @@ export default function DayToDuskOrderForm({
     <OrderSummary
       serviceName={SERVICE_NAME}
       items={summaryItems}
+      pricingInput={{
+        serviceType: "photo-editing",
+        items: items.map(() => ({
+          selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+        })),
+      }}
       onSubmit={goToReview}
       isSubmitting={false}
       canSubmit={configureValid}

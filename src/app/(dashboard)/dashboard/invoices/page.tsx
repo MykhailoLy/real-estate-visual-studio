@@ -24,7 +24,8 @@ import {
   type DisplayTone,
 } from "@/lib/display/status-labels";
 import { getServiceLabel } from "@/lib/display/service-labels";
-import { cn, formatUSD } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatStoredMoney } from "@/lib/pricing/format";
 
 export const metadata = {
   title: "Invoices | PicchuSpot Client Portal",
@@ -145,7 +146,10 @@ function InvoiceOrderCard({ order }: { order: ClientOrder }) {
               Estimated total
             </p>
             <p className="text-sm font-bold text-foreground tabular-nums mt-0.5">
-              {formatUSD(order.estimated_total_cents)}
+              {formatStoredMoney(
+                order.estimated_total_cents,
+                order.currency
+              )}
             </p>
           </div>
 
@@ -185,6 +189,14 @@ export default async function DashboardInvoicesPage() {
     (sum, order) => sum + order.estimated_total_cents,
     0,
   );
+  const orderCurrencies = new Set(orders.map((order) => order.currency));
+  const estimatedTotalDisplay =
+    orderCurrencies.size <= 1
+      ? formatStoredMoney(
+          estimatedTotalCents,
+          orders[0]?.currency ?? "USD"
+        )
+      : "Multiple currencies";
   const deliveredOrders = orders.filter((order) =>
     ["delivered", "completed"].includes(order.status),
   ).length;
@@ -258,7 +270,7 @@ export default async function DashboardInvoicesPage() {
         />
         <SummaryCard
           label="Estimated total"
-          value={formatUSD(estimatedTotalCents)}
+          value={estimatedTotalDisplay}
           note="Based on order summaries"
           icon={FileText}
           iconClassName="text-secondary-dark"

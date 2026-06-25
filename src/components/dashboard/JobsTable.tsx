@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Search, SlidersHorizontal, FileX } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatUSD } from "@/lib/utils";
+import { formatStoredMoney } from "@/lib/pricing/format";
 import type {
   DashboardJob,
   DashboardJobStatus,
@@ -282,7 +282,7 @@ export default function JobsTable({
                     </td>
                     {/* Cost */}
                     <td className="px-4 py-3.5 text-right font-bold text-foreground tabular-nums text-[13px]">
-                      {formatUSD(job.costCents)}
+                      {formatStoredMoney(job.costCents, job.currency)}
                     </td>
                   </tr>
                 ))

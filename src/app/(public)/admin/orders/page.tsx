@@ -62,7 +62,7 @@ export default async function AdminOrdersPage() {
         .select(
           "id, order_number, service_type, status, " +
           "client_name, client_email, client_company, " +
-          "item_count, estimated_total_cents, job_title, " +
+          "item_count, estimated_total_cents, currency, job_title, " +
           "created_at, updated_at",
           { count: "exact" }
         )
@@ -82,6 +82,7 @@ export default async function AdminOrdersPage() {
           client_company: string | null;
           item_count: number;
           estimated_total_cents: number;
+          currency: string;
           job_title: string | null;
           created_at: string;
           updated_at: string;
@@ -119,6 +120,7 @@ export default async function AdminOrdersPage() {
           client_company:         row.client_company ?? null,
           item_count:             row.item_count,
           estimated_total_cents:  row.estimated_total_cents,
+          currency:               row.currency,
           job_title:              row.job_title ?? null,
           created_at:             row.created_at,
           updated_at:             row.updated_at,

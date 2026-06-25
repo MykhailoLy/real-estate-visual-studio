@@ -15,6 +15,10 @@ import {
   type AdminOrderItem,
 } from "./order-admin-notification";
 import { getDedicatedSubServiceLabel } from "@/lib/dedicated-photo-editing";
+import type {
+  PricingSnapshot,
+  TransactionalCurrency,
+} from "@/lib/pricing/types";
 
 // ============================================================
 // SEND ORDER EMAILS
@@ -46,6 +50,8 @@ interface SendOrderEmailsArgs {
   };
   itemCount: number;
   estimatedTotalCents: number;
+  currency: TransactionalCurrency;
+  pricingSnapshot: PricingSnapshot;
   termsAcceptance: {
     accepted: boolean;
     version: string;
@@ -149,6 +155,8 @@ export async function sendOrderEmails(
       clientEmail: args.client.email,
       itemCount: args.itemCount,
       estimatedTotalCents: args.estimatedTotalCents,
+      currency: args.currency,
+      pricingSnapshot: args.pricingSnapshot,
       items: clientItems,
     });
 
@@ -160,6 +168,8 @@ export async function sendOrderEmails(
       client: args.client,
       itemCount: args.itemCount,
       estimatedTotalCents: args.estimatedTotalCents,
+      currency: args.currency,
+      pricingSnapshot: args.pricingSnapshot,
       termsAcceptance: args.termsAcceptance,
       portfolioPermission: args.portfolioPermission,
       items: adminItems,

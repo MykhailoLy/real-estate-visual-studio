@@ -1,6 +1,7 @@
 "use client";
 
-import { RegionalCentsText } from "@/components/pricing/currency-client";
+import { formatMoney } from "@/lib/pricing/format";
+import type { OrderQuote } from "@/lib/pricing/types";
 
 // ============================================================
 // OrderReviewHeader — top-of-review summary block.
@@ -15,14 +16,14 @@ interface OrderReviewHeaderProps {
   jobTitle: string;
   serviceName: string;
   photoCount: number;
-  estimatedTotalCents: number;
+  quote: OrderQuote;
 }
 
 export default function OrderReviewHeader({
   jobTitle,
   serviceName,
   photoCount,
-  estimatedTotalCents,
+  quote,
 }: OrderReviewHeaderProps) {
   return (
     <div className="bg-white border border-border rounded-xl p-5 sm:p-6">
@@ -52,13 +53,40 @@ export default function OrderReviewHeader({
           </dt>
           <dd className="mt-0.5 font-medium text-foreground">{photoCount}</dd>
         </div>
-        <div className="sm:col-span-2 border-t border-border pt-3">
+        <div className="sm:col-span-2 border-t border-border pt-3 grid grid-cols-2 gap-2">
           <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
-            Estimated total
+            Base subtotal
           </dt>
-          <dd className="mt-0.5 text-lg font-bold text-primary">
-            <RegionalCentsText cents={estimatedTotalCents} />
+          <dd className="text-right font-medium text-foreground">
+            {formatMoney(quote.baseSubtotalCents, quote.currency)}
           </dd>
+          <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
+            Add-ons
+          </dt>
+          <dd className="text-right font-medium text-foreground">
+            {formatMoney(quote.addOnSubtotalCents, quote.currency)}
+          </dd>
+          {quote.volumeDiscountPercent > 0 && (
+            <>
+              <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-green-700">
+                Volume discount — {quote.volumeDiscountPercent}%
+              </dt>
+              <dd className="text-right font-semibold text-green-700">
+                −{formatMoney(quote.volumeDiscountCents, quote.currency)}
+              </dd>
+            </>
+          )}
+          <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
+            Estimated total before tax
+          </dt>
+          <dd className="text-right text-lg font-bold text-primary">
+            {quote.totalCents === null
+              ? "Custom quote"
+              : formatMoney(quote.totalCents, quote.currency)}
+          </dd>
+          <p className="col-span-2 text-[11px] text-muted">
+            Taxes calculated separately where applicable.
+          </p>
         </div>
       </dl>
     </div>

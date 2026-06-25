@@ -7,20 +7,30 @@ import {
   FloorPlanItemSchema,
   PhotoEditItemSchema,
   type ServiceType,
+  type StagingItem,
+  type RenovationItem,
+  type FloorPlanItem,
+  type PhotoEditItem,
   type ItemFiles,
   type UploadedFile,
 } from "@/lib/server-validation";
 import {
-  recalcStagingSubtotal,
-  recalcRenovationSubtotal,
-  recalcFloorPlanSubtotal,
-  recalcPhotoEditSubtotal,
   getStagingAddonLabels,
   getRenovationInternalLabels,
   getRenovationExternalLabels,
   getFloorPlanTypeLabel,
   getPhotoEditOptionLabels,
 } from "@/lib/server-pricing";
+import {
+  calculateOrderQuote,
+  PricingValidationError,
+} from "@/lib/pricing/calculate";
+import { createPricingSnapshot } from "@/lib/pricing/snapshot";
+import type {
+  OrderPricingInput,
+  OrderQuote,
+  TransactionalCurrency,
+} from "@/lib/pricing/types";
 import {
   ORDER_FILES_BUCKET,
   buildFinalPath,
@@ -109,6 +119,7 @@ export async function POST(request: Request) {
 
     const {
       serviceType,
+      currency,
       deliveryPreferences,
       termsAcceptance,
       portfolioPermission,
@@ -190,9 +201,37 @@ export async function POST(request: Request) {
       );
     }
 
-    // --- 5. Recalculate prices server-side ---
-    const itemSubtotals = recalculatePrices(serviceType, validatedItems.items);
-    const estimatedTotalCents = itemSubtotals.reduce((sum, s) => sum + s, 0);
+    // --- 5. Recalculate prices server-side from canonical fixed prices ---
+    let quote: OrderQuote;
+    try {
+      quote = calculateServerQuote(
+        serviceType,
+        currency,
+        validatedItems.items
+      );
+    } catch (error) {
+      if (error instanceof PricingValidationError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
+    if (quote.customQuote || quote.totalCents === null) {
+      return NextResponse.json(
+        {
+          error:
+            "Orders with 50 or more eligible units require a custom quote.",
+          code: "custom-quote-required",
+          contactPath: "/contact",
+        },
+        { status: 409 }
+      );
+    }
+    const pricingSnapshot = createPricingSnapshot(quote);
+    const itemSubtotals = quote.items.map((item) => item.lineSubtotalCents);
+    const estimatedTotalCents = quote.totalCents;
 
     // --- 6. Connect to Supabase ---
     const supabase = getSupabaseAdmin();
@@ -265,7 +304,8 @@ export async function POST(request: Request) {
         client_company: identity.company,
         item_count: validatedItems.items.length,
         estimated_total_cents: estimatedTotalCents,
-        currency: "USD",
+        currency,
+        pricing_snapshot: pricingSnapshot,
       })
       .select("id")
       .single();
@@ -289,6 +329,7 @@ export async function POST(request: Request) {
       subtotal_cents: itemSubtotals[i],
       details: {
         ...buildItemDetails(serviceType, item),
+        pricing: pricingSnapshot.items[i],
         delivery_preferences: buildDeliveryPreferences(item, deliveryPreferences),
         terms_acceptance: trustedTermsAcceptance,
         portfolio_permission: trustedPortfolioPermission,
@@ -336,6 +377,8 @@ export async function POST(request: Request) {
       },
       itemCount: validatedItems.items.length,
       estimatedTotalCents,
+      currency,
+      pricingSnapshot,
       termsAcceptance: trustedTermsAcceptance,
       portfolioPermission: trustedPortfolioPermission,
       items: validatedItems.items.map((item, i) => ({
@@ -358,6 +401,8 @@ export async function POST(request: Request) {
       success: true,
       orderNumber,
       estimatedTotalCents,
+      currency,
+      pricingSnapshot,
       itemCount: validatedItems.items.length,
       // Surface email status so the client can confirm "we emailed
       // you" only when we actually did. The order itself is success
@@ -439,25 +484,55 @@ function validateUploadedFiles(
   return { valid: true };
 }
 
-function recalculatePrices(serviceType: ServiceType, items: unknown[]): number[] {
+function calculateServerQuote(
+  serviceType: ServiceType,
+  currency: TransactionalCurrency,
+  items: unknown[]
+): OrderQuote {
+  let input: OrderPricingInput;
   switch (serviceType) {
     case "virtual-staging":
-      return items.map((item) =>
-        recalcStagingSubtotal(item as Parameters<typeof recalcStagingSubtotal>[0])
-      );
+      input = {
+        serviceType,
+        currency,
+        items: items as Extract<
+          OrderPricingInput,
+          { serviceType: "virtual-staging" }
+        >["items"],
+      };
+      break;
     case "virtual-renovation":
-      return items.map((item) =>
-        recalcRenovationSubtotal(item as Parameters<typeof recalcRenovationSubtotal>[0])
-      );
+      input = {
+        serviceType,
+        currency,
+        items: items as Extract<
+          OrderPricingInput,
+          { serviceType: "virtual-renovation" }
+        >["items"],
+      };
+      break;
     case "3d-floor-plans":
-      return items.map((item) =>
-        recalcFloorPlanSubtotal(item as Parameters<typeof recalcFloorPlanSubtotal>[0])
-      );
+      input = {
+        serviceType,
+        currency,
+        items: items as Extract<
+          OrderPricingInput,
+          { serviceType: "3d-floor-plans" }
+        >["items"],
+      };
+      break;
     case "photo-editing":
-      return items.map((item) =>
-        recalcPhotoEditSubtotal(item as Parameters<typeof recalcPhotoEditSubtotal>[0])
-      );
+      input = {
+        serviceType,
+        currency,
+        items: items as Extract<
+          OrderPricingInput,
+          { serviceType: "photo-editing" }
+        >["items"],
+      };
+      break;
   }
+  return calculateOrderQuote(input);
 }
 
 /**
@@ -487,7 +562,7 @@ function buildDeliveryPreferences(
 function buildItemDetails(serviceType: ServiceType, item: unknown): Record<string, unknown> {
   switch (serviceType) {
     case "virtual-staging": {
-      const s = item as Parameters<typeof recalcStagingSubtotal>[0];
+      const s = item as StagingItem;
       return {
         room_name: s.roomName,
         furniture_style: s.furnitureStyle,
@@ -498,7 +573,7 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
       };
     }
     case "virtual-renovation": {
-      const r = item as Parameters<typeof recalcRenovationSubtotal>[0];
+      const r = item as RenovationItem;
       return {
         room: r.room,
         presentation_style: r.presentationStyle || "",
@@ -511,7 +586,7 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
       };
     }
     case "3d-floor-plans": {
-      const f = item as Parameters<typeof recalcFloorPlanSubtotal>[0];
+      const f = item as FloorPlanItem;
       return {
         plan_type: f.planType,
         plan_type_label: getFloorPlanTypeLabel(f.planType),
@@ -532,7 +607,7 @@ function buildItemDetails(serviceType: ServiceType, item: unknown): Record<strin
       };
     }
     case "photo-editing": {
-      const p = item as Parameters<typeof recalcPhotoEditSubtotal>[0];
+      const p = item as PhotoEditItem;
       const base: Record<string, unknown> = {
         selected_options: p.selectedOptions,
         option_labels: getPhotoEditOptionLabels(p.selectedOptions),

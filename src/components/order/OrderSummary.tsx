@@ -1,15 +1,22 @@
 "use client";
 
-import { RegionalCentsText } from "@/components/pricing/currency-client";
+import Link from "next/link";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { formatMoney } from "@/lib/pricing/format";
+import type {
+  OrderPricingPreviewInput,
+  OrderQuote,
+} from "@/lib/pricing/types";
 
 export interface SummaryItem {
   label: string;
-  subtotal: number; // cents
 }
 
 interface OrderSummaryProps {
   serviceName: string;
   items: SummaryItem[];
+  pricingInput: OrderPricingPreviewInput;
   onSubmit: () => void;
   isSubmitting: boolean;
   canSubmit: boolean;
@@ -30,6 +37,7 @@ const DEFAULT_FOOTER_NOTE = "No payment now. We confirm & invoice after review."
 export default function OrderSummary({
   serviceName,
   items,
+  pricingInput,
   onSubmit,
   isSubmitting,
   canSubmit,
@@ -37,7 +45,14 @@ export default function OrderSummary({
   submittingLabel = "Submitting...",
   footerNote = DEFAULT_FOOTER_NOTE,
 }: OrderSummaryProps) {
-  const orderTotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+  const currency = useDisplayCurrency();
+  let quote: OrderQuote | null = null;
+  try {
+    quote = calculateOrderQuote({ ...pricingInput, currency });
+  } catch {
+    // Incomplete form selections are expected while the client is editing.
+    // The server remains strict and rejects invalid or unknown IDs.
+  }
 
   return (
     <div className="bg-white border border-border rounded-xl p-6 shadow-sm">
@@ -62,37 +77,76 @@ export default function OrderSummary({
               <div key={i} className="flex justify-between text-xs">
                 <span className="text-muted truncate mr-2">{item.label}</span>
                 <span className="text-foreground font-medium flex-shrink-0">
-                  <RegionalCentsText cents={item.subtotal} />
+                  {formatMoney(
+                    quote?.items[i]?.lineSubtotalCents ?? 0,
+                    currency
+                  )}
                 </span>
               </div>
             ))}
           </div>
         )}
 
-        {/* Total */}
-        <div className="border-t border-border pt-3 mt-3">
-          <div className="flex justify-between">
-            <span className="font-semibold text-foreground">
-              Estimated Total
-            </span>
-            <span className="font-bold text-lg text-primary">
-              <RegionalCentsText cents={orderTotal} />
+        {quote ? (
+        <div className="border-t border-border pt-3 mt-3 space-y-2">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted">Base subtotal</span>
+            <span className="font-medium text-foreground">
+              {formatMoney(quote.baseSubtotalCents, currency)}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-muted">
-            Prices shown for selected region.
+          <div className="flex justify-between gap-4">
+            <span className="text-muted">Add-ons</span>
+            <span className="font-medium text-foreground">
+              {formatMoney(quote.addOnSubtotalCents, currency)}
+            </span>
+          </div>
+          {quote.volumeDiscountPercent > 0 && (
+            <div className="flex justify-between gap-4 text-green-700">
+              <span>Volume discount — {quote.volumeDiscountPercent}%</span>
+              <span className="font-semibold">
+                −{formatMoney(quote.volumeDiscountCents, currency)}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between gap-4 border-t border-border pt-3">
+            <span className="font-semibold text-foreground">
+              Estimated total before tax
+            </span>
+            <span className="font-bold text-lg text-primary">
+              {quote.customQuote || quote.totalCents === null
+                ? "Custom quote"
+                : formatMoney(quote.totalCents, currency)}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted">
+            Taxes calculated separately where applicable.
           </p>
         </div>
+        ) : (
+          <div className="border-t border-border pt-3 mt-3 text-xs text-muted">
+            Complete the service selections to calculate the estimate.
+          </div>
+        )}
       </div>
 
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={!canSubmit || isSubmitting}
-        className="mt-6 w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold text-sm hover:bg-primary-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isSubmitting ? submittingLabel : submitLabel}
-      </button>
+      {quote?.customQuote ? (
+        <Link
+          href="/contact"
+          className="mt-6 block w-full rounded-lg bg-primary px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-light"
+        >
+          Request a custom quote
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!canSubmit || isSubmitting}
+          className="mt-6 w-full bg-primary text-white py-3 px-4 rounded-lg font-semibold text-sm hover:bg-primary-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? submittingLabel : submitLabel}
+        </button>
+      )}
 
       {footerNote != null && (
         <p className="text-xs text-muted text-center mt-3">{footerNote}</p>

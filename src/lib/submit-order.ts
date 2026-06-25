@@ -4,6 +4,7 @@ import type { DeliveryPreferencesData } from "@/components/order/DeliveryPrefere
 import type { OrderTermsData } from "@/components/order/OrderTermsBlock";
 import { TERMS_VERSION } from "@/components/order/OrderTermsBlock";
 import { getSupabaseBrowser } from "@/lib/supabase";
+import { readBrowserCurrency } from "@/lib/currency";
 import {
   ORDER_FILES_BUCKET,
   MAX_FILE_SIZE_BYTES,
@@ -53,6 +54,7 @@ export type OrderErrorCode =
   | "validation-failed"
   | "unauthorized"
   | "profile-incomplete"
+  | "custom-quote-required"
   | "server-error"
   | "network-error";
 
@@ -368,6 +370,7 @@ export async function submitOrder(
   // ---- 3. Submit lightweight order metadata ----
   const payload = {
     serviceType,
+    currency: readBrowserCurrency(),
     // Order-level Job Title — trimmed here, re-validated + persisted
     // server-side. Kept separate from item metadata on purpose.
     jobTitle: jobTitle.trim(),
@@ -452,6 +455,15 @@ export async function submitOrder(
           result.error ||
           "Please complete your profile before submitting an order.",
         errorCode: "profile-incomplete",
+      };
+    }
+    if (result.code === "custom-quote-required") {
+      return {
+        success: false,
+        error:
+          result.error ||
+          "This order quantity requires a custom quote. Please contact us.",
+        errorCode: "custom-quote-required",
       };
     }
     if (response.status >= 500) {

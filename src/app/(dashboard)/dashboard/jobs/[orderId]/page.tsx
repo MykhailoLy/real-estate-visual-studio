@@ -44,7 +44,8 @@ import {
 } from "@/lib/client-source-files";
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatBytes, itemLabel } from "@/lib/display/file-format";
-import { formatUSD } from "@/lib/utils";
+import { formatStoredMoney } from "@/lib/pricing/format";
+import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 
 export async function generateMetadata({
   params,
@@ -197,6 +198,7 @@ export default async function OrderDetailPage({
   const progress = getProgressFromStatus(order.status);
   const estimatedComp = deriveEstimatedCompletion(order.status, order.created_at);
   const estimatedCompDisplay = formatDisplayDate(estimatedComp);
+  const pricing = parsePricingSnapshot(order.pricing_snapshot);
 
   return (
     <ClientDashboardLayout>
@@ -274,10 +276,40 @@ export default async function OrderDetailPage({
               value={`${order.item_count} image${order.item_count !== 1 ? "s" : ""}`}
             />
             <SummaryRow
-              label="Est. total"
-              value={formatUSD(order.estimated_total_cents)}
+              label="Estimated total before tax"
+              value={formatStoredMoney(
+                order.estimated_total_cents,
+                order.currency
+              )}
               bold
             />
+            {pricing && (
+              <>
+                <SummaryRow
+                  label="Base subtotal"
+                  value={formatStoredMoney(
+                    pricing.baseSubtotalCents,
+                    pricing.currency
+                  )}
+                />
+                <SummaryRow
+                  label="Add-ons"
+                  value={formatStoredMoney(
+                    pricing.addOnSubtotalCents,
+                    pricing.currency
+                  )}
+                />
+                {pricing.volumeDiscountPercent > 0 && (
+                  <SummaryRow
+                    label={`Volume discount (${pricing.volumeDiscountPercent}%)`}
+                    value={`−${formatStoredMoney(
+                      pricing.volumeDiscountCents,
+                      pricing.currency
+                    )}`}
+                  />
+                )}
+              </>
+            )}
             {order.client_company && (
               <SummaryRow label="Company" value={order.client_company} />
             )}
@@ -346,7 +378,9 @@ export default async function OrderDetailPage({
                   imageNumber={item.item_index + 1}
                   imageCount={order.items.length}
                   subtotalLabel={
-                    item.subtotal_cents > 0 ? formatUSD(item.subtotal_cents) : null
+                    item.subtotal_cents > 0
+                      ? formatStoredMoney(item.subtotal_cents, order.currency)
+                      : null
                   }
                   details={item.details}
                   sourceFiles={imageSourceFiles.get(item.item_index) ?? []}

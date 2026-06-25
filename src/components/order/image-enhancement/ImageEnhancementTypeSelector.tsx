@@ -4,6 +4,7 @@ import Container from "@/components/layout/Container";
 import { IMAGE_ENHANCEMENT_TYPES } from "@/lib/image-enhancement";
 import { getServiceOptionImagesByKeys } from "@/lib/site-media";
 import SelectorMediaTile from "./SelectorMediaTile";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 
 // ============================================================
 // ImageEnhancementTypeSelector — protected type-selection view for
@@ -85,7 +86,14 @@ export default async function ImageEnhancementTypeSelector() {
                         isActive ? "text-foreground" : "text-amber-700"
                       }`}
                     >
-                      {type.priceLabel}
+                      {isActive ? (
+                        <CatalogPriceText
+                          priceKey="image-enhancement"
+                          suffix=" per image"
+                        />
+                      ) : (
+                        type.priceLabel
+                      )}
                     </span>
 
                     {isActive ? (
@@ -114,7 +122,7 @@ export default async function ImageEnhancementTypeSelector() {
                   key={type.id}
                   href={type.route}
                   role="listitem"
-                  aria-label={`${type.title}. ${type.priceLabel}. ${type.ctaLabel}.`}
+                  aria-label={`${type.title}. Current fixed price per image. ${type.ctaLabel}.`}
                   className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all hover:border-primary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   {cardInner}

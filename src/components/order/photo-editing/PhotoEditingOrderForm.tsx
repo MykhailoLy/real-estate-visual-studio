@@ -17,7 +17,6 @@ import PhotoEditItemCard, {
   emptyPhotoEditItem,
 } from "@/components/order/photo-editing/PhotoEditItemCard";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 
@@ -120,7 +119,6 @@ export default function PhotoEditingOrderForm({
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
     label: `Photo #${i + 1}`,
-    subtotal: calculatePhotoEditItemTotal(item.selectedOptions),
   }));
 
   if (submitted) {
@@ -147,6 +145,12 @@ export default function PhotoEditingOrderForm({
         <OrderSummary
           serviceName="Photo Editing"
           items={summaryItems}
+          pricingInput={{
+            serviceType: "photo-editing",
+            items: items.map((item) => ({
+              selectedOptions: item.selectedOptions,
+            })),
+          }}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}

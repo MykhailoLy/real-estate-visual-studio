@@ -7,6 +7,7 @@ import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 import type { ServiceOptionImage } from "@/lib/site-media";
 import {
@@ -24,7 +25,7 @@ import DaySkyStyleSelector from "./DaySkyStyleSelector";
 // SingleExposureItemCard — one uploaded photo for an Image
 // Enhancement — Single Exposure order.
 //
-// The service is fixed (image-enhancement-re, 200 cents). All
+// The service is fixed (image-enhancement-re, canonical currency price). All
 // preferences below are INCLUDED in the base price and never change
 // the subtotal. Each item carries its own preferences + day sky style.
 // ============================================================
@@ -77,7 +78,11 @@ export default function SingleExposureItemCard({
   onApplyToAll,
   showApplyToAll,
 }: SingleExposureItemCardProps) {
-  const subtotal = calculatePhotoEditItemTotal([SINGLE_EXPOSURE_OPTION_ID]);
+  const currency = useDisplayCurrency();
+  const subtotal = calculatePhotoEditItemTotal(
+    [SINGLE_EXPOSURE_OPTION_ID],
+    currency
+  );
   const idPrefix = `single-exposure-item-${index}`;
 
   return (

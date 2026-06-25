@@ -31,6 +31,7 @@ import {
   ownedOrdersOrFilter,
   type OrderOwnership,
 } from "@/lib/order-ownership";
+import type { PricingSnapshot } from "@/lib/pricing/types";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export interface ClientOrder {
   item_count: number;
   estimated_total_cents: number;
   currency: string;
+  pricing_snapshot?: PricingSnapshot | null;
   created_at: string;
   updated_at: string;
   /**
@@ -331,6 +333,7 @@ export function mapOrderToDashboardJob(
     estimatedCompletion: deriveEstimatedCompletion(order.status, order.created_at),
     progress,
     costCents:           order.estimated_total_cents,
+    currency:            order.currency,
     imageCount:          order.item_count,
   };
 }
@@ -398,7 +401,7 @@ export async function getOrdersForClient(
       .from("orders")
       .select(
         "id, order_number, service_type, status, " +
-        "item_count, estimated_total_cents, currency, " +
+        "item_count, estimated_total_cents, currency, pricing_snapshot, " +
         "created_at, updated_at, job_title, user_id, client_email"
       )
       .or(ownedOrdersOrFilter(ownership))   // ← user_id OR (NULL + email)
@@ -424,6 +427,7 @@ export async function getOrdersForClient(
         item_count: row.item_count,
         estimated_total_cents: row.estimated_total_cents,
         currency: row.currency,
+        pricing_snapshot: row.pricing_snapshot ?? null,
         created_at: row.created_at,
         updated_at: row.updated_at,
         job_title: row.job_title ?? null,
@@ -554,7 +558,7 @@ export async function getOrderForClient(
       .from("orders")
       .select(
         "id, order_number, service_type, status, " +
-        "item_count, estimated_total_cents, currency, " +
+        "item_count, estimated_total_cents, currency, pricing_snapshot, " +
         "client_company, created_at, updated_at, job_title, user_id, client_email"
       )
       .eq("id", orderId)
@@ -617,6 +621,7 @@ export async function getOrderForClient(
       item_count: order.item_count,
       estimated_total_cents: order.estimated_total_cents,
       currency: order.currency,
+      pricing_snapshot: order.pricing_snapshot ?? null,
       created_at: order.created_at,
       updated_at: order.updated_at,
       job_title: order.job_title ?? null,

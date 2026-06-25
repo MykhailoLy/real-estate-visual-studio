@@ -17,7 +17,6 @@ import RenovationItemCard, {
   emptyRenovationItem,
 } from "@/components/order/virtual-renovation/RenovationItemCard";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { calculateRenovationItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 
@@ -117,7 +116,6 @@ export default function VirtualRenovationOrderForm({
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
     label: item.room || `Image #${i + 1}`,
-    subtotal: calculateRenovationItemTotal(item.selectedInternal, item.selectedExternal),
   }));
 
   if (submitted) {
@@ -144,6 +142,13 @@ export default function VirtualRenovationOrderForm({
         <OrderSummary
           serviceName="Virtual Renovation"
           items={summaryItems}
+          pricingInput={{
+            serviceType: "virtual-renovation",
+            items: items.map((item) => ({
+              selectedInternal: item.selectedInternal,
+              selectedExternal: item.selectedExternal,
+            })),
+          }}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}

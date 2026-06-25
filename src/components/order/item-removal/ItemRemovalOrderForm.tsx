@@ -16,7 +16,6 @@ import OrderJobTitleField, {
   isJobTitleValid,
 } from "@/components/order/OrderJobTitleField";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 import {
@@ -44,7 +43,7 @@ import ItemRemovalReview from "./ItemRemovalReview";
 //   "review"    → read-only review + terms + the only Submit Order action
 //
 // Backend model is UNCHANGED: serviceType "photo-editing", fixed option
-// item-removal-cleaning-pe (800 cents per original photo), PE order
+// item-removal-cleaning-pe (canonical fixed-currency price), PE order
 // numbering, sub_service = item-removal-virtual-cleaning. Identity is
 // sourced server-side (no "Your Details" block). The optional markup /
 // reference image reuses the existing referenceFile upload pipeline and
@@ -204,10 +203,8 @@ export default function ItemRemovalOrderForm({
   const reviewValid = configureValid && orderTerms.accepted;
 
   // --- Summary ---
-  const fixedSubtotal = calculatePhotoEditItemTotal([ITEM_REMOVAL_OPTION_ID]);
   const summaryItems: SummaryItem[] = items.map((_, i) => ({
     label: `Photo #${i + 1}`,
-    subtotal: fixedSubtotal,
   }));
 
   if (submitted) {
@@ -232,6 +229,12 @@ export default function ItemRemovalOrderForm({
     <OrderSummary
       serviceName={SERVICE_NAME}
       items={summaryItems}
+      pricingInput={{
+        serviceType: "photo-editing",
+        items: items.map(() => ({
+          selectedOptions: [ITEM_REMOVAL_OPTION_ID],
+        })),
+      }}
       onSubmit={handleSubmit}
       isSubmitting={isSubmitting}
       canSubmit={reviewValid}
@@ -242,6 +245,12 @@ export default function ItemRemovalOrderForm({
     <OrderSummary
       serviceName={SERVICE_NAME}
       items={summaryItems}
+      pricingInput={{
+        serviceType: "photo-editing",
+        items: items.map(() => ({
+          selectedOptions: [ITEM_REMOVAL_OPTION_ID],
+        })),
+      }}
       onSubmit={goToReview}
       isSubmitting={false}
       canSubmit

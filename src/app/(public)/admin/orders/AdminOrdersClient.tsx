@@ -27,7 +27,7 @@ import Link from "next/link";
 import AdminOrderStatusControl from "@/components/admin/AdminOrderStatusControl";
 import { formatDateTime } from "@/lib/display/file-format";
 import { getOrderStatusLabel } from "@/lib/display/status-labels";
-import { formatUSD } from "@/lib/utils";
+import { formatStoredMoney } from "@/lib/pricing/format";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ export interface AdminOrderRow {
   client_company: string | null;
   item_count: number;
   estimated_total_cents: number;
+  currency: string;
   job_title: string | null;
   created_at: string;
   updated_at: string;
@@ -309,7 +310,7 @@ function OrderRow({
       {/* Items / Cost */}
       <td className="px-4 py-4 whitespace-nowrap">
         <p className="text-[13px] font-semibold text-foreground tabular-nums">
-          {formatUSD(order.estimated_total_cents)}
+          {formatStoredMoney(order.estimated_total_cents, order.currency)}
         </p>
         <p className="text-[11px] text-muted">
           {order.item_count} image{order.item_count !== 1 ? "s" : ""}

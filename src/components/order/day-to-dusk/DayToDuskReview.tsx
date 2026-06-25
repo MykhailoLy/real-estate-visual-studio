@@ -9,6 +9,8 @@ import OrderTermsBlock, {
   type OrderTermsData,
 } from "@/components/order/OrderTermsBlock";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { DAY_TO_DUSK_OPTION_ID, getDuskStyleLabel } from "@/lib/day-to-dusk";
 import type { DayToDuskItemData } from "./DayToDuskItemCard";
 
@@ -62,8 +64,18 @@ export default function DayToDuskReview({
   onBack,
   submitError,
 }: DayToDuskReviewProps) {
-  const perItem = calculatePhotoEditItemTotal([DAY_TO_DUSK_OPTION_ID]);
-  const estimatedTotal = perItem * items.length;
+  const currency = useDisplayCurrency();
+  const quote = calculateOrderQuote({
+    serviceType: "photo-editing",
+    currency,
+    items: items.map(() => ({
+      selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+    })),
+  });
+  const perItem = calculatePhotoEditItemTotal(
+    [DAY_TO_DUSK_OPTION_ID],
+    currency
+  );
 
   return (
     <div className="space-y-5">
@@ -82,7 +94,7 @@ export default function DayToDuskReview({
         jobTitle={jobTitle}
         serviceName={SERVICE_NAME}
         photoCount={items.length}
-        estimatedTotalCents={estimatedTotal}
+        quote={quote}
       />
 
       {submitError && (

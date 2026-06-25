@@ -19,6 +19,9 @@ import {
   type RegionCode,
   type RegionalPrice,
 } from "@/lib/currency";
+import { getCatalogPrice } from "@/lib/pricing/catalog";
+import { formatMoney } from "@/lib/pricing/format";
+import type { PriceKey } from "@/lib/pricing/types";
 
 const REGION_EVENT = "picchuspot:region-change";
 
@@ -114,9 +117,13 @@ export function useDisplayRegion(): [RegionCode, (region: RegionCode) => void] {
   const [region, setRegionState] = useState<RegionCode>(DEFAULT_REGION);
 
   useEffect(() => {
-    const preferred = readStoredRegion() ?? detectRegionFromBrowser();
+    const stored = readStoredRegion();
+    const preferred = stored ?? detectRegionFromBrowser();
     if (preferred !== DEFAULT_REGION) {
       window.queueMicrotask(() => setRegionState(preferred));
+    }
+    if (!stored) {
+      writeRegion(preferred);
     }
 
     const onStorage = (event: StorageEvent) => {
@@ -413,6 +420,11 @@ export function useRegionalCentsFormatter() {
   return (cents: number) => formatRegionalCents(cents, currencyForRegion(region));
 }
 
+export function useDisplayCurrency() {
+  const [region] = useDisplayRegion();
+  return currencyForRegion(region);
+}
+
 export function RegionalCentsText({
   cents,
   className,
@@ -424,4 +436,22 @@ export function RegionalCentsText({
   const formatCents = useRegionalCentsFormatter();
 
   return <span className={className}>{formatCents(cents)}</span>;
+}
+
+export function CatalogPriceText({
+  priceKey,
+  suffix,
+  className,
+}: {
+  priceKey: PriceKey;
+  suffix?: string;
+  className?: string;
+}) {
+  const currency = useDisplayCurrency();
+  return (
+    <span className={className}>
+      {formatMoney(getCatalogPrice(priceKey, currency), currency)}
+      {suffix ?? ""}
+    </span>
+  );
 }

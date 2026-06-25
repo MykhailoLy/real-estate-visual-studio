@@ -9,6 +9,8 @@ import OrderTermsBlock, {
   type OrderTermsData,
 } from "@/components/order/OrderTermsBlock";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import {
   ITEM_REMOVAL_OPTION_ID,
   ITEM_REMOVAL_COMPLEXITY_NOTICE,
@@ -73,8 +75,18 @@ export default function ItemRemovalReview({
   onBack,
   submitError,
 }: ItemRemovalReviewProps) {
-  const perItem = calculatePhotoEditItemTotal([ITEM_REMOVAL_OPTION_ID]);
-  const estimatedTotal = perItem * items.length;
+  const currency = useDisplayCurrency();
+  const quote = calculateOrderQuote({
+    serviceType: "photo-editing",
+    currency,
+    items: items.map(() => ({
+      selectedOptions: [ITEM_REMOVAL_OPTION_ID],
+    })),
+  });
+  const perItem = calculatePhotoEditItemTotal(
+    [ITEM_REMOVAL_OPTION_ID],
+    currency
+  );
 
   return (
     <div className="space-y-5">
@@ -93,7 +105,7 @@ export default function ItemRemovalReview({
         jobTitle={jobTitle}
         serviceName={SERVICE_NAME}
         photoCount={items.length}
-        estimatedTotalCents={estimatedTotal}
+        quote={quote}
       />
 
       {/* Brief complexity reminder on Review. */}

@@ -10,6 +10,14 @@ import {
 } from "@/lib/image-enhancement";
 import { DUSK_STYLE_ID_VALUES } from "@/lib/day-to-dusk";
 import { REMOVAL_TASK_ID_VALUES } from "@/lib/item-removal";
+import {
+  FLOOR_PLAN_TYPE_IDS,
+  PHOTO_EDIT_OPTION_IDS,
+  RENOVATION_EXTERNAL_IDS,
+  RENOVATION_INTERNAL_IDS,
+  STAGING_ADDON_IDS,
+} from "@/lib/pricing/catalog";
+import { TRANSACTIONAL_CURRENCIES } from "@/lib/pricing/types";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS
@@ -27,6 +35,21 @@ const serviceTypes = [
 ] as const;
 
 export const ServiceTypeSchema = z.enum(serviceTypes);
+export const TransactionalCurrencySchema = z.enum(TRANSACTIONAL_CURRENCIES);
+
+function rejectDuplicates(
+  values: string[],
+  ctx: z.RefinementCtx,
+  path: string
+) {
+  if (new Set(values).size !== values.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [path],
+      message: `${path} must not contain duplicate IDs.`,
+    });
+  }
+}
 
 // --- Contact Details (shared) ---
 export const ContactSchema = z.object({
@@ -50,32 +73,53 @@ const itemDeliveryFields = {
 };
 
 // --- Virtual Staging Item ---
-export const StagingItemSchema = z.object({
-  roomName: z.string().min(1, "Room name is required"),
-  furnitureStyle: z.string().min(1, "Furniture style is required"),
-  referenceLink: z.string().url().optional().or(z.literal("")),
-  additionalInfo: z.string().optional().default(""),
-  selectedAddons: z.array(z.string()).default([]),
-  ...itemDeliveryFields,
-});
+export const StagingItemSchema = z
+  .object({
+    roomName: z.string().min(1, "Room name is required"),
+    furnitureStyle: z.string().min(1, "Furniture style is required"),
+    referenceLink: z.string().url().optional().or(z.literal("")),
+    additionalInfo: z.string().optional().default(""),
+    selectedAddons: z
+      .array(z.enum(STAGING_ADDON_IDS as [string, ...string[]]))
+      .default([]),
+    ...itemDeliveryFields,
+  })
+  .superRefine((data, ctx) =>
+    rejectDuplicates(data.selectedAddons, ctx, "selectedAddons")
+  );
 
 // --- Virtual Renovation Item ---
-export const RenovationItemSchema = z.object({
-  selectedInternal: z.array(z.string()).default([]),
-  selectedExternal: z.array(z.string()).default([]),
-  room: z.string().min(1, "Room / Area is required"),
-  presentationStyle: z.string().optional().default(""),
-  referenceLink: z.string().url().optional().or(z.literal("")),
-  additionalInfo: z.string().optional().default(""),
-  ...itemDeliveryFields,
-}).refine(
-  (data) => data.selectedInternal.length > 0 || data.selectedExternal.length > 0,
-  { message: "At least one renovation option must be selected" }
-);
+export const RenovationItemSchema = z
+  .object({
+    selectedInternal: z
+      .array(z.enum(RENOVATION_INTERNAL_IDS as [string, ...string[]]))
+      .default([]),
+    selectedExternal: z
+      .array(z.enum(RENOVATION_EXTERNAL_IDS as [string, ...string[]]))
+      .default([]),
+    room: z.string().min(1, "Room / Area is required"),
+    presentationStyle: z.string().optional().default(""),
+    referenceLink: z.string().url().optional().or(z.literal("")),
+    additionalInfo: z.string().optional().default(""),
+    ...itemDeliveryFields,
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.selectedInternal.length === 0 &&
+      data.selectedExternal.length === 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one renovation option must be selected",
+      });
+    }
+    rejectDuplicates(data.selectedInternal, ctx, "selectedInternal");
+    rejectDuplicates(data.selectedExternal, ctx, "selectedExternal");
+  });
 
 // --- 3D Floor Plans Item ---
 export const FloorPlanItemSchema = z.object({
-  planType: z.string().min(1, "Plan type is required"),
+  planType: z.enum(FLOOR_PLAN_TYPE_IDS as [string, ...string[]]),
   numberOfFloors: z.number().int().min(1).max(20),
   style3d: z.string().optional().default(""),
   planView3d: z.string().optional().default(""),
@@ -101,7 +145,7 @@ export const FloorPlanItemSchema = z.object({
 export const PhotoEditItemSchema = z
   .object({
     selectedOptions: z
-      .array(z.string())
+      .array(z.enum(PHOTO_EDIT_OPTION_IDS as [string, ...string[]]))
       .min(1, "At least one editing option is required"),
     subService: z.enum(DEDICATED_PHOTO_EDITING_SUB_SERVICES).optional(),
     additionalInfo: z.string().optional().default(""),
@@ -135,6 +179,7 @@ export const PhotoEditItemSchema = z
     ...itemDeliveryFields,
   })
   .superRefine((data, ctx) => {
+    rejectDuplicates(data.selectedOptions, ctx, "selectedOptions");
     // Legacy generic Photo Editing: no subService → any valid combination
     // of PHOTO_EDIT_OPTIONS is allowed (unchanged behaviour).
     if (!data.subService) return;
@@ -293,6 +338,7 @@ export const ItemFilesSchema = z.object({
 // route enforces this length match and refuses orders without it.
 export const OrderMetadataSchema = z.object({
   serviceType: ServiceTypeSchema,
+  currency: TransactionalCurrencySchema,
   // Required order-level Job Title. Trimmed, 3–120 chars. Persisted to
   // orders.job_title. NEVER trust the client value alone — this schema
   // is the authoritative gate. Kept separate from item metadata.
@@ -317,6 +363,9 @@ export const OrderMetadataSchema = z.object({
 
 // --- Type exports ---
 export type ServiceType = z.infer<typeof ServiceTypeSchema>;
+export type TransactionalOrderCurrency = z.infer<
+  typeof TransactionalCurrencySchema
+>;
 export type ContactData = z.infer<typeof ContactSchema>;
 export type DeliveryPreferences = z.infer<typeof DeliveryPreferencesSchema>;
 export type TermsAcceptance = z.infer<typeof TermsAcceptanceSchema>;

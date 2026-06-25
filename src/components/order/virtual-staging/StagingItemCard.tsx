@@ -7,8 +7,12 @@ import StyleSelector from "@/components/order/virtual-staging/StyleSelector";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import { RegionalCentsText } from "@/components/pricing/currency-client";
+import {
+  RegionalCentsText,
+  useDisplayCurrency,
+} from "@/components/pricing/currency-client";
 import { calculateStagingItemTotal } from "@/lib/pricing";
+import { getCatalogPrice } from "@/lib/pricing/catalog";
 import {
   STAGING_ROOM_OPTIONS,
   STAGING_STYLE_OPTIONS,
@@ -56,6 +60,7 @@ export default function StagingItemCard({
   onRemove,
   canRemove,
 }: StagingItemCardProps) {
+  const currency = useDisplayCurrency();
   const toggleAddon = (id: string) => {
     const current = data.selectedAddons;
     const updated = current.includes(id)
@@ -64,7 +69,7 @@ export default function StagingItemCard({
     onChange({ ...data, selectedAddons: updated });
   };
 
-  const subtotal = calculateStagingItemTotal(data.selectedAddons);
+  const subtotal = calculateStagingItemTotal(data.selectedAddons, currency);
 
   return (
     <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
@@ -220,7 +225,9 @@ export default function StagingItemCard({
                   <span className="text-sm text-foreground">{addon.label}</span>
                 </div>
                 <span className="text-sm font-medium text-muted">
-                  +<RegionalCentsText cents={addon.price} />
+                  +<RegionalCentsText
+                    cents={getCatalogPrice(addon.priceKey, currency)}
+                  />
                 </span>
               </label>
             ))}

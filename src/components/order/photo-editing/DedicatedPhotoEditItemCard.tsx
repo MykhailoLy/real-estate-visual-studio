@@ -7,6 +7,7 @@ import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 import type { DedicatedPhotoEditingConfig } from "@/lib/dedicated-photo-editing";
 
@@ -49,8 +50,9 @@ export default function DedicatedPhotoEditItemCard({
   onRemove,
   canRemove,
 }: DedicatedPhotoEditItemCardProps) {
+  const currency = useDisplayCurrency();
   // Fixed single option → fixed subtotal. No client-editable options.
-  const subtotal = calculatePhotoEditItemTotal([config.optionId]);
+  const subtotal = calculatePhotoEditItemTotal([config.optionId], currency);
   const notesRequired = config.notesRequired;
 
   return (
