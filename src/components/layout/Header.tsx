@@ -66,7 +66,7 @@ import {
 //      any sub-link closes the entire mobile menu.
 // ============================================================
 
-const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-10";
+const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-5 2xl:px-10";
 
 type SiteLanguage = "en" | "es";
 
@@ -403,7 +403,7 @@ export default function Header() {
           {/* Top-level categories (desktop) */}
           <nav
             aria-label="Service categories"
-            className="hidden 2xl:ml-10 2xl:flex 2xl:min-w-0 2xl:items-center 2xl:gap-1"
+            className="hidden xl:ml-4 xl:flex xl:min-w-0 xl:items-center xl:gap-0.5 2xl:ml-10 2xl:gap-1"
           >
             {topLevels.map((entry) => {
               const isActive = entry.key === active.key;
@@ -412,7 +412,7 @@ export default function Header() {
                   key={entry.key}
                   href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
-                    "whitespace-nowrap rounded-md px-2.5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
+                    "whitespace-nowrap rounded-md px-1.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] transition-colors 2xl:px-2.5 2xl:text-[12px] 2xl:tracking-[0.08em]",
                     isActive
                       ? "text-primary bg-primary/5"
                       : "text-foreground/70 hover:text-primary hover:bg-surface"
@@ -448,7 +448,7 @@ export default function Header() {
             <Link
               href={getLocaleAwareHref("/signup", currentLanguage)}
               onClick={() => trackSignUpClick("header")}
-              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary 2xl:inline-flex"
+              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-3 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary xl:inline-flex 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
               aria-label={currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
             >
               {currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
@@ -676,7 +676,7 @@ function BurgerMenuPanel({
         </div>
 
         <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
-          <section className="2xl:hidden">
+          <section className="xl:hidden">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
@@ -744,7 +744,7 @@ function BurgerMenuPanel({
             </div>
           </section>
 
-          <section className="2xl:hidden">
+          <section className="xl:hidden">
             <div className="mb-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
                 {copy.futureEyebrow}
@@ -819,7 +819,7 @@ function BurgerMenuPanel({
             </div>
           </section>
 
-          <section className="rounded-xl border border-stone-200 bg-primary p-4 text-white shadow-sm 2xl:hidden">
+          <section className="rounded-xl border border-stone-200 bg-primary p-4 text-white shadow-sm xl:hidden">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">
@@ -1139,7 +1139,9 @@ function MarketLanguageSelector({
         }}
         className={cn(
           "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-sm transition-colors hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-          placement === "header" ? "h-9 min-w-[8rem]" : "w-full"
+          placement === "header"
+            ? "h-9 min-w-[7rem] px-2 2xl:min-w-[8rem] 2xl:px-3"
+            : "w-full"
         )}
       >
         <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-primary">
@@ -1371,7 +1373,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
   const overflow = active.subLinks.slice(overflowAt);
 
   return (
-    <div className="hidden border-t border-border bg-white 2xl:block">
+    <div className="hidden border-t border-border bg-white xl:block">
       <div className={cn("relative", NAV_X_PADDING)}>
         {/* Hidden measurement mirror */}
         <div
