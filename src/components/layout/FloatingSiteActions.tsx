@@ -58,15 +58,16 @@ export default function FloatingSiteActions() {
           </Link>
         )}
 
-        <div
+        <button
+          type="button"
           className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary"
-          aria-label={isSpanish ? "Chat de soporte próximamente" : "Support chat coming soon"}
+          aria-label={isSpanish ? "Estamos online" : "We're Online"}
         >
           <MessageCircle className="h-4 w-4 flex-shrink-0 text-secondary-dark" aria-hidden />
           <span className="text-xs font-bold uppercase tracking-[0.10em]">
-            {isSpanish ? "Chat pronto" : "Chat soon"}
+            {isSpanish ? "Estamos online" : "We're Online"}
           </span>
-        </div>
+        </button>
       </div>
 
       {showBackToTop && (
