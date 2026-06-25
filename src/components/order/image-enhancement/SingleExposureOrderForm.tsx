@@ -13,7 +13,6 @@ import OrderJobTitleField, {
   isJobTitleValid,
 } from "@/components/order/OrderJobTitleField";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 import type { ServiceOptionImage } from "@/lib/site-media";
@@ -30,7 +29,7 @@ import SingleExposureItemCard, {
 // SingleExposureOrderForm — Image Enhancement — Single Exposure.
 //
 // Backend model is UNCHANGED: serviceType "photo-editing", fixed
-// option image-enhancement-re (200 cents/image), PE order numbering.
+// option image-enhancement-re (canonical fixed-currency price), PE order numbering.
 // New orders pin sub_service = image-enhancement-single-exposure.
 // Identity is sourced server-side (no "Your Details" block).
 // ============================================================
@@ -157,10 +156,8 @@ export default function SingleExposureOrderForm({
     items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
 
   // --- Summary ---
-  const fixedSubtotal = calculatePhotoEditItemTotal([SINGLE_EXPOSURE_OPTION_ID]);
   const summaryItems: SummaryItem[] = items.map((_, i) => ({
     label: `Photo #${i + 1}`,
-    subtotal: fixedSubtotal,
   }));
 
   if (submitted) {
@@ -187,6 +184,12 @@ export default function SingleExposureOrderForm({
         <OrderSummary
           serviceName="Image Enhancement — Single Exposure"
           items={summaryItems}
+          pricingInput={{
+            serviceType: "photo-editing",
+            items: items.map(() => ({
+              selectedOptions: [SINGLE_EXPOSURE_OPTION_ID],
+            })),
+          }}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}

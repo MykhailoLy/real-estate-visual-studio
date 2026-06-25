@@ -17,11 +17,13 @@ import StagingItemCard, {
   emptyStagingItem,
 } from "@/components/order/virtual-staging/StagingItemCard";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { RegionalCentsText } from "@/components/pricing/currency-client";
-import { calculateStagingItemTotal } from "@/lib/pricing";
+import {
+  RegionalCentsText,
+  useDisplayCurrency,
+} from "@/components/pricing/currency-client";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
-import { STAGING_BASE_PRICE } from "@/data/order-options";
+import { getCatalogPrice } from "@/lib/pricing/catalog";
 
 // ============================================================
 // Virtual Staging order form (authenticated dashboard).
@@ -42,6 +44,7 @@ export default function VirtualStagingOrderForm({
   clientEmail,
   orderRoute,
 }: VirtualStagingOrderFormProps) {
+  const currency = useDisplayCurrency();
   const [items, setItems] = useState<StagingItemData[]>([emptyStagingItem()]);
   const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
@@ -123,7 +126,6 @@ export default function VirtualStagingOrderForm({
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
     label: item.roomName || `Image #${i + 1}`,
-    subtotal: calculateStagingItemTotal(item.selectedAddons),
   }));
 
   if (submitted) {
@@ -148,14 +150,22 @@ export default function VirtualStagingOrderForm({
       subtitle={
         <>
           Upload your empty room photos and choose a furniture style.{" "}
-          <RegionalCentsText cents={STAGING_BASE_PRICE} /> per image + optional
-          add-ons.
+          <RegionalCentsText
+            cents={getCatalogPrice("virtual-staging", currency)}
+          />{" "}
+          per image + optional add-ons.
         </>
       }
       sidebar={
         <OrderSummary
           serviceName="Virtual Staging"
           items={summaryItems}
+          pricingInput={{
+            serviceType: "virtual-staging",
+            items: items.map((item) => ({
+              selectedAddons: item.selectedAddons,
+            })),
+          }}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}

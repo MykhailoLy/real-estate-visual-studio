@@ -1,78 +1,66 @@
-import {
-  STAGING_BASE_PRICE,
-  STAGING_ADDONS,
-  RENOVATION_INTERNAL_OPTIONS,
-  RENOVATION_EXTERNAL_OPTIONS,
-  FLOOR_PLAN_TYPES,
-  PHOTO_EDIT_OPTIONS,
-  type AddOnOption,
-  type RenovationOption,
-  type PhotoEditOption,
-} from "@/data/order-options";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import type { TransactionalCurrency } from "@/lib/pricing/types";
 
-// ============================================================
-// PRICING CALCULATION FUNCTIONS
-// All amounts in cents (USD). Use formatUSD() for display.
-// ============================================================
+// Compatibility helpers for existing item cards. All formulas delegate to
+// the canonical calculator; no price values or independent arithmetic live
+// in this module.
 
-/**
- * Virtual Staging: base price + selected add-ons
- */
-export function calculateStagingItemTotal(selectedAddonIds: string[]): number {
-  let total = STAGING_BASE_PRICE;
-  for (const id of selectedAddonIds) {
-    const addon = STAGING_ADDONS.find((a: AddOnOption) => a.id === id);
-    if (addon) total += addon.price;
-  }
-  return total;
+export function calculateStagingItemTotal(
+  selectedAddonIds: string[],
+  currency: TransactionalCurrency = "USD"
+): number {
+  return calculateOrderQuote({
+    serviceType: "virtual-staging",
+    currency,
+    items: [{ selectedAddons: selectedAddonIds }],
+  }).items[0].lineSubtotalCents;
 }
 
-/**
- * Virtual Renovation: sum of selected internal + external options
- */
 export function calculateRenovationItemTotal(
   selectedInternalIds: string[],
-  selectedExternalIds: string[]
+  selectedExternalIds: string[],
+  currency: TransactionalCurrency = "USD"
 ): number {
-  let total = 0;
-  for (const id of selectedInternalIds) {
-    const opt = RENOVATION_INTERNAL_OPTIONS.find((o: RenovationOption) => o.id === id);
-    if (opt) total += opt.price;
+  if (selectedInternalIds.length === 0 && selectedExternalIds.length === 0) {
+    return 0;
   }
-  for (const id of selectedExternalIds) {
-    const opt = RENOVATION_EXTERNAL_OPTIONS.find((o: RenovationOption) => o.id === id);
-    if (opt) total += opt.price;
-  }
-  return total;
+  return calculateOrderQuote({
+    serviceType: "virtual-renovation",
+    currency,
+    items: [
+      {
+        selectedInternal: selectedInternalIds,
+        selectedExternal: selectedExternalIds,
+      },
+    ],
+  }).items[0].lineSubtotalCents;
 }
 
-/**
- * Floor Plans: plan type price × number of floors
- */
 export function calculateFloorPlanItemTotal(
   planTypeId: string,
-  numberOfFloors: number
+  numberOfFloors: number,
+  currency: TransactionalCurrency = "USD"
 ): number {
-  const planType = FLOOR_PLAN_TYPES.find((t) => t.id === planTypeId);
-  if (!planType) return 0;
-  return planType.price * Math.max(1, numberOfFloors);
+  if (!planTypeId) return 0;
+  return calculateOrderQuote({
+    serviceType: "3d-floor-plans",
+    currency,
+    items: [{ planType: planTypeId, numberOfFloors }],
+  }).items[0].lineSubtotalCents;
 }
 
-/**
- * Photo Editing: sum of selected editing options
- */
-export function calculatePhotoEditItemTotal(selectedOptionIds: string[]): number {
-  let total = 0;
-  for (const id of selectedOptionIds) {
-    const opt = PHOTO_EDIT_OPTIONS.find((o: PhotoEditOption) => o.id === id);
-    if (opt) total += opt.price;
-  }
-  return total;
+export function calculatePhotoEditItemTotal(
+  selectedOptionIds: string[],
+  currency: TransactionalCurrency = "USD"
+): number {
+  if (selectedOptionIds.length === 0) return 0;
+  return calculateOrderQuote({
+    serviceType: "photo-editing",
+    currency,
+    items: [{ selectedOptions: selectedOptionIds }],
+  }).items[0].lineSubtotalCents;
 }
 
-/**
- * Sum an array of item totals (all in cents)
- */
 export function calculateOrderTotal(itemTotals: number[]): number {
-  return itemTotals.reduce((sum, t) => sum + t, 0);
+  return itemTotals.reduce((sum, total) => sum + total, 0);
 }

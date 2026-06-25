@@ -6,6 +6,10 @@ import {
   formatCents,
   serviceLabel,
 } from "./format";
+import type {
+  PricingSnapshot,
+  TransactionalCurrency,
+} from "@/lib/pricing/types";
 
 // ============================================================
 // ADMIN ORDER NOTIFICATION EMAIL
@@ -46,6 +50,8 @@ export interface AdminNotificationInput {
   };
   itemCount: number;
   estimatedTotalCents: number;
+  currency: TransactionalCurrency;
+  pricingSnapshot: PricingSnapshot;
   termsAcceptance: {
     accepted: boolean;
     version: string;
@@ -72,6 +78,8 @@ export function renderAdminNotification(
     client,
     itemCount,
     estimatedTotalCents,
+    currency,
+    pricingSnapshot,
     termsAcceptance,
     portfolioPermission,
     items,
@@ -79,18 +87,34 @@ export function renderAdminNotification(
 
   const service = input.serviceLabelOverride ?? serviceLabel(serviceType);
   const jobTitle = input.jobTitle?.trim() ?? "";
-  const total = formatCents(estimatedTotalCents);
+  const total = formatCents(estimatedTotalCents, currency);
+  const baseSubtotal = formatCents(
+    pricingSnapshot.baseSubtotalCents,
+    currency
+  );
+  const addOns = formatCents(pricingSnapshot.addOnSubtotalCents, currency);
+  const discount = formatCents(
+    pricingSnapshot.volumeDiscountCents,
+    currency
+  );
   const subject = `New Order: ${orderNumber} — ${service}`;
 
   const itemBlocks = items.map((item) =>
-    buildItemSummary(serviceType, item.index, item.details, item.subtotalCents, {
-      originalPath: item.files.originalPath,
-      referenceImagePath: item.files.referenceImagePath,
-      originalFilename: item.files.originalFilename,
-      referenceFilename: item.files.referenceFilename,
-      originalDownloadUrl: item.files.originalDownloadUrl,
-      referenceDownloadUrl: item.files.referenceDownloadUrl,
-    })
+    buildItemSummary(
+      serviceType,
+      item.index,
+      item.details,
+      item.subtotalCents,
+      currency,
+      {
+        originalPath: item.files.originalPath,
+        referenceImagePath: item.files.referenceImagePath,
+        originalFilename: item.files.originalFilename,
+        referenceFilename: item.files.referenceFilename,
+        originalDownloadUrl: item.files.originalDownloadUrl,
+        referenceDownloadUrl: item.files.referenceDownloadUrl,
+      }
+    )
   );
 
   // ---- Plain text body ----
@@ -110,7 +134,16 @@ export function renderAdminNotification(
     `  Service: ${service}`,
     ...(jobTitle ? [`  Job title: ${jobTitle}`] : []),
     `  Items: ${itemCount}`,
-    `  Estimated total: ${total}`,
+    `  Currency: ${currency}`,
+    `  Base subtotal: ${baseSubtotal}`,
+    `  Add-ons: ${addOns}`,
+    ...(pricingSnapshot.volumeDiscountPercent > 0
+      ? [
+          `  Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
+        ]
+      : []),
+    `  Estimated total before tax: ${total}`,
+    "  Taxes calculated separately where applicable.",
     "",
     "TERMS",
     `  Accepted: ${termsAcceptance.accepted ? "yes" : "no"}`,
@@ -214,9 +247,18 @@ export function renderAdminNotification(
               : ""
           }
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Items</td><td style="padding:4px 0;">${itemCount}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Estimated total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Currency</td><td style="padding:4px 0;">${currency}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
+          ${
+            pricingSnapshot.volumeDiscountPercent > 0
+              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
+              : ""
+          }
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Estimated total before tax</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
             total
           )}</td></tr>
+          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Taxes calculated separately where applicable.</td></tr>
           ${totalBytesRow}
         </tbody>
       </table>

@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
+import type { PriceKey } from "@/lib/pricing/types";
 
 /**
  * Availability drives the card CTA treatment:
@@ -51,6 +52,7 @@ export interface OrderServiceCard {
   availability: OrderServiceAvailability;
   /** Display-only price/availability label. Not used for billing. */
   priceLabel: string;
+  priceKey?: PriceKey;
   /**
    * Canonical portfolio service slug used to look up Before/After
    * gallery examples. null for the temporary Photo Editing umbrella
@@ -89,6 +91,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     availability: "active",
     portfolioServiceSlug: "image-enhancement",
     priceLabel: "From $2 / image",
+    priceKey: "image-enhancement",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
     mediaServiceSlug: "image-enhancement",
@@ -105,6 +108,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     availability: "active",
     portfolioServiceSlug: "day-to-dusk",
     priceLabel: "From $5 / image",
+    priceKey: "day-to-dusk",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
     mediaServiceSlug: "day-to-dusk",
@@ -121,6 +125,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     availability: "active",
     portfolioServiceSlug: "virtual-staging",
     priceLabel: "From $19 / image",
+    priceKey: "virtual-staging",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
     mediaServiceSlug: "virtual-staging",
@@ -137,6 +142,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     availability: "active",
     portfolioServiceSlug: "item-removal-virtual-cleaning",
     priceLabel: "From $8 / image",
+    priceKey: "item-removal-virtual-cleaning",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
     mediaServiceSlug: "item-removal-virtual-cleaning",
@@ -153,6 +159,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     availability: "active",
     portfolioServiceSlug: "floor-plans",
     priceLabel: "From $16 / floor",
+    priceKey: "floor-plan-2d-bw",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
     mediaServiceSlug: "floor-plans",

@@ -1,11 +1,10 @@
 // ============================================================
 // ORDER OPTIONS & PRICING DATA
-// All prices in USD cents for precision, displayed as dollars
+// Labels and stable option IDs for transactional order forms.
+// Fixed currency prices live only in src/lib/pricing/catalog.ts.
 // ============================================================
 
 // --- Virtual Staging ---
-
-export const STAGING_BASE_PRICE = 1900; // US$19.00
 
 export const STAGING_ROOM_OPTIONS = [
   "Bedroom 1",
@@ -71,15 +70,15 @@ export const STAGING_STYLE_CARDS: StagingStyleCard[] = [
 export interface AddOnOption {
   id: string;
   label: string;
-  price: number; // in cents
+  priceKey: import("@/lib/pricing/types").PriceKey;
 }
 
 export const STAGING_ADDONS: AddOnOption[] = [
-  { id: "image-enhancement", label: "Image Enhancement", price: 200 },
-  { id: "day-to-dusk", label: "Day to Dusk", price: 500 },
-  { id: "item-removal", label: "Item Removal & Virtual Cleaning", price: 800 },
-  { id: "turn-on-lights", label: "Turn On Lights", price: 100 },
-  { id: "colour-change", label: "Colour Change", price: 300 },
+  { id: "image-enhancement", label: "Image Enhancement", priceKey: "image-enhancement" },
+  { id: "day-to-dusk", label: "Day to Dusk", priceKey: "day-to-dusk" },
+  { id: "item-removal", label: "Item Removal & Virtual Cleaning", priceKey: "item-removal-virtual-cleaning" },
+  { id: "turn-on-lights", label: "Turn On Lights", priceKey: "turn-on-lights" },
+  { id: "colour-change", label: "Colour Change", priceKey: "colour-change" },
 ];
 
 // --- Virtual Renovation ---
@@ -87,40 +86,40 @@ export const STAGING_ADDONS: AddOnOption[] = [
 export interface RenovationOption {
   id: string;
   label: string;
-  price: number; // in cents
+  priceKey: import("@/lib/pricing/types").PriceKey;
 }
 
 export const RENOVATION_INTERNAL_OPTIONS: RenovationOption[] = [
-  { id: "replace-flooring", label: "Replace Flooring", price: 2000 },
-  { id: "replace-walls", label: "Replace Walls", price: 1400 },
-  { id: "replace-ceiling", label: "Replace Ceiling", price: 1400 },
-  { id: "item-removal-cleaning", label: "Item Removal & Virtual Cleaning", price: 800 },
-  { id: "add-remove-walls", label: "Add / Remove Walls", price: 3500 },
-  { id: "kitchen-fit-out", label: "Add or Complete Kitchen Fit Out", price: 5500 },
-  { id: "bathroom-fit-out", label: "Add or Complete Bathroom Fit Out", price: 5500 },
-  { id: "add-fixtures", label: "Add Fixtures", price: 2000 },
-  { id: "staging-residential", label: "Virtual Staging Residential", price: 1900 },
-  { id: "staging-commercial-office", label: "Virtual Staging Commercial - Office", price: 1900 },
-  { id: "staging-commercial-non-office", label: "Virtual Staging Commercial - Non-office", price: 1900 },
-  { id: "color-change-interior", label: "Color Change of Walls, Ceiling and/or Doors", price: 300 },
+  { id: "replace-flooring", label: "Replace Flooring", priceKey: "renovation-replace-flooring" },
+  { id: "replace-walls", label: "Replace Walls", priceKey: "renovation-replace-walls" },
+  { id: "replace-ceiling", label: "Replace Ceiling", priceKey: "renovation-replace-ceiling" },
+  { id: "item-removal-cleaning", label: "Item Removal & Virtual Cleaning", priceKey: "renovation-item-removal-cleaning" },
+  { id: "add-remove-walls", label: "Add / Remove Walls", priceKey: "renovation-add-remove-walls" },
+  { id: "kitchen-fit-out", label: "Add or Complete Kitchen Fit Out", priceKey: "renovation-kitchen-fit-out" },
+  { id: "bathroom-fit-out", label: "Add or Complete Bathroom Fit Out", priceKey: "renovation-bathroom-fit-out" },
+  { id: "add-fixtures", label: "Add Fixtures", priceKey: "renovation-add-fixtures" },
+  { id: "staging-residential", label: "Virtual Staging Residential", priceKey: "renovation-staging-residential" },
+  { id: "staging-commercial-office", label: "Virtual Staging Commercial - Office", priceKey: "renovation-staging-commercial-office" },
+  { id: "staging-commercial-non-office", label: "Virtual Staging Commercial - Non-office", priceKey: "renovation-staging-commercial-non-office" },
+  { id: "color-change-interior", label: "Color Change of Walls, Ceiling and/or Doors", priceKey: "renovation-colour-change-interior" },
 ];
 
 export const RENOVATION_EXTERNAL_OPTIONS: RenovationOption[] = [
-  { id: "add-pool", label: "Add Pool Only", price: 3500 },
-  { id: "add-pool-surrounds", label: "Add Pool Surrounds", price: 2800 },
-  { id: "remove-pool-cover", label: "Remove Pool Cover", price: 3500 },
-  { id: "add-leaves", label: "Add Leaves", price: 2000 },
-  { id: "basic-landscaping", label: "Add Basic Landscaping", price: 2000 },
-  { id: "full-landscaping", label: "Add Full Landscaping", price: 5500 },
-  { id: "season-change-landscaping", label: "Season Change with Full Landscaping", price: 5500 },
-  { id: "ext-staging", label: "Virtual Staging Residential or Commercial", price: 1900 },
-  { id: "ext-item-removal", label: "Item Removal & Virtual Cleaning", price: 800 },
-  { id: "ext-add-fixtures", label: "Add Fixtures", price: 2000 },
-  { id: "replace-driveway", label: "Replace Driveway", price: 2000 },
-  { id: "replace-roof", label: "Replace Roof", price: 2000 },
-  { id: "replace-exterior-walls", label: "Replace Exterior Walls", price: 4000 },
-  { id: "add-patio-balcony", label: "Add or Complete Patio, Balcony, Pergola, Veranda and/or Decking", price: 4000 },
-  { id: "color-change-exterior", label: "Color Change Exterior Features", price: 300 },
+  { id: "add-pool", label: "Add Pool Only", priceKey: "renovation-add-pool" },
+  { id: "add-pool-surrounds", label: "Add Pool Surrounds", priceKey: "renovation-pool-surrounds" },
+  { id: "remove-pool-cover", label: "Remove Pool Cover", priceKey: "renovation-remove-pool-cover" },
+  { id: "add-leaves", label: "Add Leaves", priceKey: "renovation-add-leaves" },
+  { id: "basic-landscaping", label: "Add Basic Landscaping", priceKey: "renovation-basic-landscaping" },
+  { id: "full-landscaping", label: "Add Full Landscaping", priceKey: "renovation-full-landscaping" },
+  { id: "season-change-landscaping", label: "Season Change with Full Landscaping", priceKey: "renovation-season-change-landscaping" },
+  { id: "ext-staging", label: "Virtual Staging Residential or Commercial", priceKey: "renovation-exterior-staging" },
+  { id: "ext-item-removal", label: "Item Removal & Virtual Cleaning", priceKey: "renovation-item-removal-cleaning" },
+  { id: "ext-add-fixtures", label: "Add Fixtures", priceKey: "renovation-add-fixtures" },
+  { id: "replace-driveway", label: "Replace Driveway", priceKey: "renovation-replace-driveway" },
+  { id: "replace-roof", label: "Replace Roof", priceKey: "renovation-replace-roof" },
+  { id: "replace-exterior-walls", label: "Replace Exterior Walls", priceKey: "renovation-replace-exterior-walls" },
+  { id: "add-patio-balcony", label: "Add or Complete Patio, Balcony, Pergola, Veranda and/or Decking", priceKey: "renovation-add-patio-balcony" },
+  { id: "color-change-exterior", label: "Color Change Exterior Features", priceKey: "renovation-colour-change-exterior" },
 ];
 
 export const RENOVATION_ROOM_OPTIONS = [
@@ -155,15 +154,15 @@ export const RENOVATION_STYLE_OPTIONS = [
 export interface FloorPlanType {
   id: string;
   label: string;
-  price: number; // in cents, per floor
+  priceKey: import("@/lib/pricing/types").PriceKey;
   has3d: boolean;
 }
 
 export const FLOOR_PLAN_TYPES: FloorPlanType[] = [
-  { id: "2d-bw", label: "2D Floor Plan - Black & White", price: 1600, has3d: false },
-  { id: "2d-colour", label: "2D Floor Plan - Full Colour", price: 2200, has3d: false },
-  { id: "3d", label: "3D Floor Plan", price: 3900, has3d: true },
-  { id: "2d-3d-bundle", label: "2D + 3D Bundle", price: 4900, has3d: true },
+  { id: "2d-bw", label: "2D Floor Plan - Black & White", priceKey: "floor-plan-2d-bw", has3d: false },
+  { id: "2d-colour", label: "2D Floor Plan - Full Colour", priceKey: "floor-plan-2d-colour", has3d: false },
+  { id: "3d", label: "3D Floor Plan", priceKey: "floor-plan-3d", has3d: true },
+  { id: "2d-3d-bundle", label: "2D + 3D Bundle", priceKey: "floor-plan-2d-3d-bundle", has3d: true },
 ];
 
 export const FLOOR_PLAN_3D_STYLES = [
@@ -227,19 +226,19 @@ export const FLOOR_PLAN_DISCLAIMER_OPTIONS = [
 export interface PhotoEditOption {
   id: string;
   label: string;
-  price: number; // in cents
+  priceKey: import("@/lib/pricing/types").PriceKey;
 }
 
 export const PHOTO_EDIT_OPTIONS: PhotoEditOption[] = [
-  { id: "image-enhancement-re", label: "Image Enhancement - Real Estate", price: 200 },
-  { id: "item-removal-cleaning-pe", label: "Item Removal & Virtual Cleaning", price: 800 },
-  { id: "shadow-removal", label: "Shadow Removal", price: 800 },
-  { id: "background-removal", label: "Background Removal", price: 300 },
-  { id: "background-change", label: "Background Change", price: 500 },
-  { id: "colour-change-pe", label: "Colour Change", price: 300 },
-  { id: "turn-on-lights-pe", label: "Turn On Lights", price: 100 },
-  { id: "day-to-dusk-pe", label: "Day to Dusk", price: 500 },
-  { id: "water-effect", label: "Water Effect for Empty Pools & Jacuzzi", price: 500 },
+  { id: "image-enhancement-re", label: "Image Enhancement - Real Estate", priceKey: "image-enhancement" },
+  { id: "item-removal-cleaning-pe", label: "Item Removal & Virtual Cleaning", priceKey: "item-removal-virtual-cleaning" },
+  { id: "shadow-removal", label: "Shadow Removal", priceKey: "shadow-removal" },
+  { id: "background-removal", label: "Background Removal", priceKey: "background-removal" },
+  { id: "background-change", label: "Background Change", priceKey: "background-change" },
+  { id: "colour-change-pe", label: "Colour Change", priceKey: "colour-change" },
+  { id: "turn-on-lights-pe", label: "Turn On Lights", priceKey: "turn-on-lights" },
+  { id: "day-to-dusk-pe", label: "Day to Dusk", priceKey: "day-to-dusk" },
+  { id: "water-effect", label: "Water Effect for Empty Pools & Jacuzzi", priceKey: "water-effect" },
 ];
 
 // --- Shared file accept types ---

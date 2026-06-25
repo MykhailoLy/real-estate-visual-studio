@@ -1,4 +1,6 @@
 import type { ServiceType } from "@/lib/server-validation";
+import type { TransactionalCurrency } from "@/lib/pricing/types";
+import { formatMoney } from "@/lib/pricing/format";
 
 // ============================================================
 // EMAIL FORMATTING HELPERS
@@ -19,18 +21,13 @@ export function serviceLabel(serviceType: ServiceType): string {
   return SERVICE_LABELS[serviceType];
 }
 
-/**
- * Format a USD-cents integer as "$X.YZ" using the en-US locale.
- * Falls back to "$0.00" if the value is not a finite number.
- */
-export function formatCents(cents: number | null | undefined): string {
+/** Format a minor-unit integer in its saved transactional currency. */
+export function formatCents(
+  cents: number | null | undefined,
+  currency: TransactionalCurrency = "USD"
+): string {
   const safe = typeof cents === "number" && Number.isFinite(cents) ? cents : 0;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(safe / 100);
+  return formatMoney(safe, currency);
 }
 
 /**
@@ -143,6 +140,7 @@ export function buildItemSummary(
   itemIndex: number,
   details: ItemDetails,
   subtotalCents: number,
+  currency: TransactionalCurrency,
   files: {
     originalPath: string | null;
     referenceImagePath: string | null;
@@ -155,7 +153,7 @@ export function buildItemSummary(
   const headingTitle = headingForItem(serviceType, itemIndex, details);
   const rows: { text: string; html: string }[] = [];
 
-  pushIf(rows, row("Subtotal", formatCents(subtotalCents)));
+  pushIf(rows, row("Subtotal", formatCents(subtotalCents, currency)));
 
   switch (serviceType) {
     case "virtual-staging": {

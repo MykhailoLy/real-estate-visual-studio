@@ -7,6 +7,7 @@ import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 import {
   ITEM_REMOVAL_OPTION_ID,
@@ -19,7 +20,7 @@ import RemovalTaskSelector from "./RemovalTaskSelector";
 // ItemRemovalItemCard — one uploaded photo for an Item Removal &
 // Virtual Cleaning order.
 //
-// The service is fixed (item-removal-cleaning-pe, 800 cents per original
+// The service is fixed (item-removal-cleaning-pe, currency-priced per original
 // photo). Each item carries its own work-type tasks, required removal /
 // cleaning instructions, an OPTIONAL markup / reference image, and the
 // usual delivery preferences. Work-type and markup never change price.
@@ -77,7 +78,11 @@ export default function ItemRemovalItemCard({
   canRemove,
   showErrors,
 }: ItemRemovalItemCardProps) {
-  const subtotal = calculatePhotoEditItemTotal([ITEM_REMOVAL_OPTION_ID]);
+  const currency = useDisplayCurrency();
+  const subtotal = calculatePhotoEditItemTotal(
+    [ITEM_REMOVAL_OPTION_ID],
+    currency
+  );
   const idPrefix = itemRemovalItemDomId(index);
   const notesId = `${idPrefix}-instructions`;
   const notesErrorId = `${idPrefix}-instructions-error`;

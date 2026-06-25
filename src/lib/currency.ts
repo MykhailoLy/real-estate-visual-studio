@@ -92,3 +92,16 @@ export function formatRegionalCents(
   if (currency === "EUR") return `€${amount}`;
   return `$${amount}`;
 }
+
+export function readBrowserCurrency(): CurrencyCode {
+  if (typeof window === "undefined") return DEFAULT_CURRENCY;
+  try {
+    const storedRegion = window.localStorage.getItem(REGION_STORAGE_KEY);
+    if (isRegionCode(storedRegion)) return currencyForRegion(storedRegion);
+    const storedCurrency = window.localStorage.getItem(CURRENCY_STORAGE_KEY);
+    if (isCurrencyCode(storedCurrency)) return storedCurrency;
+  } catch {
+    // Storage may be unavailable; the transactional default remains USD.
+  }
+  return DEFAULT_CURRENCY;
+}

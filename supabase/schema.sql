@@ -55,6 +55,12 @@ CREATE TABLE IF NOT EXISTS orders (
   item_count INTEGER NOT NULL CHECK (item_count > 0),
   estimated_total_cents INTEGER NOT NULL DEFAULT 0,
   currency TEXT NOT NULL DEFAULT 'USD',
+  -- Versioned immutable quote details for orders created by the canonical
+  -- pricing system. NULL preserves compatibility with historical orders.
+  pricing_snapshot JSONB NULL CHECK (
+    pricing_snapshot IS NULL
+    OR jsonb_typeof(pricing_snapshot) = 'object'
+  ),
 
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -7,6 +7,7 @@ import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 import type { ServiceOptionImage } from "@/lib/site-media";
 import {
@@ -21,7 +22,7 @@ import LightingPreferenceToggle from "./LightingPreferenceToggle";
 // ============================================================
 // DayToDuskItemCard — one uploaded photo for a Day to Dusk order.
 //
-// The service is fixed (day-to-dusk-pe, 500 cents). The dusk style
+// The service is fixed (day-to-dusk-pe, canonical currency price). The dusk style
 // and all lighting preferences below are INCLUDED in the base price
 // and never change the subtotal. Each item carries its own dusk
 // style + lighting preferences + delivery preferences + notes.
@@ -82,7 +83,11 @@ export default function DayToDuskItemCard({
   duskStyleImages,
   sharedLocked,
 }: DayToDuskItemCardProps) {
-  const subtotal = calculatePhotoEditItemTotal([DAY_TO_DUSK_OPTION_ID]);
+  const currency = useDisplayCurrency();
+  const subtotal = calculatePhotoEditItemTotal(
+    [DAY_TO_DUSK_OPTION_ID],
+    currency
+  );
   const idPrefix = `day-to-dusk-item-${index}`;
 
   return (

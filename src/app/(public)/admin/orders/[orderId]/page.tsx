@@ -36,6 +36,9 @@ import {
   getOrderStatusLabel,
   getReviewStatusLabel,
 } from "@/lib/display/status-labels";
+import { formatStoredMoney } from "@/lib/pricing/format";
+import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
+import type { PricingSnapshot } from "@/lib/pricing/types";
 
 // ============================================================
 // /admin/orders/[orderId] — admin order detail (per-image workflow)
@@ -87,10 +90,6 @@ const STATUS_COLORS: Record<string, string> = {
   delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
   cancelled: "bg-slate-100 text-slate-500 border-slate-200",
 };
-
-function formatUSD(cents: number): string {
-  return `US$${(cents / 100).toFixed(2)}`;
-}
 
 function groupReferenceFilesByReview(
   files: AdminReworkReferenceFile[],
@@ -164,6 +163,8 @@ export default async function AdminOrderDetailPage({
     client_company: string | null;
     item_count: number;
     estimated_total_cents: number;
+    currency: string;
+    pricing_snapshot: PricingSnapshot | null;
     job_title: string | null;
     created_at: string;
     updated_at: string;
@@ -200,7 +201,7 @@ export default async function AdminOrderDetailPage({
         .select(
           "id, order_number, service_type, status, " +
             "client_name, client_email, client_company, " +
-            "item_count, estimated_total_cents, job_title, created_at, updated_at",
+            "item_count, estimated_total_cents, currency, pricing_snapshot, job_title, created_at, updated_at",
         )
         .eq("id", orderId)
         .maybeSingle();
@@ -340,6 +341,7 @@ export default async function AdminOrderDetailPage({
   const activeReviewCount = reviews.filter((review) =>
     ["rework_requested", "rework_in_progress"].includes(review.status),
   ).length;
+  const pricing = parsePricingSnapshot(order?.pricing_snapshot);
 
   // ── Render ────────────────────────────────────────────────
 
@@ -469,7 +471,13 @@ export default async function AdminOrderDetailPage({
                     ["Email", order.client_email],
                     ["Company", order.client_company ?? "—"],
                     ["Images", String(order.item_count)],
-                    ["Est. total", formatUSD(order.estimated_total_cents)],
+                    [
+                      "Est. total before tax",
+                      formatStoredMoney(
+                        order.estimated_total_cents,
+                        order.currency
+                      ),
+                    ],
                     ["Submitted", formatDate(order.created_at)],
                     ["Updated", formatDate(order.updated_at)],
                   ].map(([label, value]) => (
@@ -486,6 +494,45 @@ export default async function AdminOrderDetailPage({
                     </div>
                   ))}
                 </dl>
+                {pricing && (
+                  <div className="border-t border-border px-5 py-4 text-xs text-muted">
+                    <div className="flex justify-between gap-4">
+                      <span>Base subtotal</span>
+                      <span>
+                        {formatStoredMoney(
+                          pricing.baseSubtotalCents,
+                          pricing.currency
+                        )}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex justify-between gap-4">
+                      <span>Add-ons</span>
+                      <span>
+                        {formatStoredMoney(
+                          pricing.addOnSubtotalCents,
+                          pricing.currency
+                        )}
+                      </span>
+                    </div>
+                    {pricing.volumeDiscountPercent > 0 && (
+                      <div className="mt-1 flex justify-between gap-4 text-green-700">
+                        <span>
+                          Volume discount ({pricing.volumeDiscountPercent}%)
+                        </span>
+                        <span>
+                          −
+                          {formatStoredMoney(
+                            pricing.volumeDiscountCents,
+                            pricing.currency
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    <p className="mt-2">
+                      Taxes calculated separately where applicable.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Right: Status + admin downloads */}

@@ -11,7 +11,7 @@
 //
 // SCOPE / PRICING: this module does NOT define prices. The Item Removal
 // subtotal is derived from the EXISTING PHOTO_EDIT_OPTIONS option
-// `item-removal-cleaning-pe` (800 cents per original photo). Work-type
+// `item-removal-cleaning-pe` (fixed by currency in the canonical catalog). Work-type
 // selection NEVER changes the subtotal, and the optional markup /
 // reference image is not billed as a separate item.
 // ============================================================

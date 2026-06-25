@@ -17,7 +17,6 @@ import DedicatedPhotoEditItemCard, {
   emptyDedicatedPhotoEditItem,
 } from "@/components/order/photo-editing/DedicatedPhotoEditItemCard";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
-import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 import {
@@ -132,10 +131,8 @@ export default function DedicatedPhotoEditingOrderForm({
     items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
 
   // --- Summary ---
-  const fixedSubtotal = calculatePhotoEditItemTotal([config.optionId]);
   const summaryItems: SummaryItem[] = items.map((_, i) => ({
     label: `Photo #${i + 1}`,
-    subtotal: fixedSubtotal,
   }));
 
   if (submitted) {
@@ -162,6 +159,12 @@ export default function DedicatedPhotoEditingOrderForm({
         <OrderSummary
           serviceName={config.summaryServiceName}
           items={summaryItems}
+          pricingInput={{
+            serviceType: "photo-editing",
+            items: items.map(() => ({
+              selectedOptions: [config.optionId],
+            })),
+          }}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}

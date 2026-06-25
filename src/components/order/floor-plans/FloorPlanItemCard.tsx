@@ -6,8 +6,12 @@ import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import { useRegionalCentsFormatter } from "@/components/pricing/currency-client";
+import {
+  useDisplayCurrency,
+  useRegionalCentsFormatter,
+} from "@/components/pricing/currency-client";
 import { calculateFloorPlanItemTotal } from "@/lib/pricing";
+import { getCatalogPrice } from "@/lib/pricing/catalog";
 import {
   FLOOR_PLAN_TYPES,
   FLOOR_PLAN_3D_STYLES,
@@ -79,10 +83,15 @@ export default function FloorPlanItemCard({
   onRemove,
   canRemove,
 }: FloorPlanItemCardProps) {
+  const currency = useDisplayCurrency();
   const formatCents = useRegionalCentsFormatter();
   const selectedType = FLOOR_PLAN_TYPES.find((t) => t.id === data.planType);
   const show3dOptions = selectedType?.has3d ?? false;
-  const subtotal = calculateFloorPlanItemTotal(data.planType, data.numberOfFloors);
+  const subtotal = calculateFloorPlanItemTotal(
+    data.planType,
+    data.numberOfFloors,
+    currency
+  );
 
   const updateFlooring = (room: string, value: string) => {
     onChange({
@@ -135,7 +144,8 @@ export default function FloorPlanItemCard({
               <option value="">Select plan type...</option>
               {FLOOR_PLAN_TYPES.map((type) => (
                 <option key={type.id} value={type.id}>
-                  {type.label} ({formatCents(type.price)} / floor)
+                  {type.label} (
+                  {formatCents(getCatalogPrice(type.priceKey, currency))} / floor)
                 </option>
               ))}
             </select>

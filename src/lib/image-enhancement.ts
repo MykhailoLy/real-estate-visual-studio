@@ -7,7 +7,8 @@
 //
 // SCOPE / PRICING: this module does NOT define prices. The Single
 // Exposure subtotal is derived from the existing PHOTO_EDIT_OPTIONS
-// option `image-enhancement-re` (200 cents). HDR has no price yet and
+// option `image-enhancement-re` (fixed by currency in the canonical catalog).
+// HDR has no active order form yet and
 // is intentionally non-submittable.
 // ============================================================
 
@@ -196,7 +197,7 @@ export const IMAGE_ENHANCEMENT_TYPES: ImageEnhancementType[] = [
     description:
       "For standard real-estate photographs. One uploaded source image produces one professionally enhanced final image.",
     relationship: "1 source image = 1 final image",
-    priceLabel: "US$2 per image",
+    priceLabel: "Fixed price per image",
     ctaLabel: "Start Single Exposure Order",
     route: "/dashboard/orders/new/image-enhancement/single-exposure",
     status: "active",
