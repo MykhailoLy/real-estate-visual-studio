@@ -66,7 +66,7 @@ import {
 //      any sub-link closes the entire mobile menu.
 // ============================================================
 
-const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-10";
+const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-5 2xl:px-10";
 
 type SiteLanguage = "en" | "es";
 
@@ -403,7 +403,7 @@ export default function Header() {
           {/* Top-level categories (desktop) */}
           <nav
             aria-label="Service categories"
-            className="hidden 2xl:ml-10 2xl:flex 2xl:min-w-0 2xl:items-center 2xl:gap-1"
+            className="hidden xl:ml-4 xl:flex xl:min-w-0 xl:items-center xl:gap-0.5 2xl:ml-10 2xl:gap-1"
           >
             {topLevels.map((entry) => {
               const isActive = entry.key === active.key;
@@ -412,7 +412,7 @@ export default function Header() {
                   key={entry.key}
                   href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
-                    "whitespace-nowrap rounded-md px-2.5 py-2 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
+                    "whitespace-nowrap rounded-md px-1.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] transition-colors 2xl:px-2.5 2xl:text-[12px] 2xl:tracking-[0.08em]",
                     isActive
                       ? "text-primary bg-primary/5"
                       : "text-foreground/70 hover:text-primary hover:bg-surface"
@@ -440,25 +440,16 @@ export default function Header() {
             <Link
               href={getLocaleAwareHref("/login", currentLanguage)}
               onClick={() => trackLoginClick("header")}
-              className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-auto sm:py-2 sm:text-[13px] sm:text-foreground/70 sm:hover:text-primary"
+              className="inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:hidden"
               aria-label={currentLanguage === "es" ? "Iniciar sesión" : "Login"}
             >
               {currentLanguage === "es" ? "Iniciar sesión" : "Login"}
             </Link>
-            <Link
-              href={getLocaleAwareHref("/signup", currentLanguage)}
-              onClick={() => trackSignUpClick("header")}
-              className="hidden h-9 flex-shrink-0 items-center justify-center rounded-md bg-primary px-4 text-[13px] font-bold uppercase tracking-[0.10em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary 2xl:inline-flex"
-              aria-label={currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
-            >
-              {currentLanguage === "es" ? "Crear cuenta" : "Sign Up"}
-            </Link>
-            <MarketLanguageSelector
+            <HeaderAccountControls
               pathname={pathname}
-              currentLanguage={currentLanguage}
-              className="hidden lg:inline-flex"
+              language={currentLanguage}
+              className="hidden sm:flex"
               onLanguageChange={setLanguagePreference}
-              analyticsLocation="header"
             />
           </div>
         </div>
@@ -480,6 +471,7 @@ export default function Header() {
         createPortal(
           <BurgerMenuPanel
             panelRef={menuPanelRef}
+            activeEntry={active}
             language={currentLanguage}
             pathname={pathname}
             onLanguageChange={setLanguagePreference}
@@ -488,6 +480,46 @@ export default function Header() {
           document.body
         )}
     </header>
+  );
+}
+
+function HeaderAccountControls({
+  pathname,
+  language,
+  className,
+  onLanguageChange,
+}: {
+  pathname: string;
+  language: SiteLanguage;
+  className?: string;
+  onLanguageChange: (language: SiteLanguage) => void;
+}) {
+  return (
+    <div className={cn("min-w-0 items-center gap-1.5 md:gap-2", className)}>
+      <Link
+        href={getLocaleAwareHref("/login", language)}
+        onClick={() => trackLoginClick("header")}
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md px-2 text-[11px] font-bold uppercase tracking-[0.06em] text-foreground/70 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:text-[13px] 2xl:tracking-[0.10em]"
+        aria-label={language === "es" ? "Iniciar sesión" : "Login"}
+      >
+        {language === "es" ? "Iniciar sesión" : "Login"}
+      </Link>
+      <Link
+        href={getLocaleAwareHref("/signup", language)}
+        onClick={() => trackSignUpClick("header")}
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-primary px-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
+        aria-label={language === "es" ? "Crear cuenta" : "Sign Up"}
+      >
+        {language === "es" ? "Crear cuenta" : "Sign Up"}
+      </Link>
+      <MarketLanguageSelector
+        pathname={pathname}
+        currentLanguage={language}
+        compact
+        onLanguageChange={onLanguageChange}
+        analyticsLocation="header"
+      />
+    </div>
   );
 }
 
@@ -621,6 +653,7 @@ function MobileDrawer({
 
 interface BurgerMenuPanelProps {
   panelRef: React.RefObject<HTMLDivElement | null>;
+  activeEntry: TopLevelEntry;
   language: SiteLanguage;
   pathname: string;
   onLanguageChange: (language: SiteLanguage) => void;
@@ -635,14 +668,16 @@ function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
 
 function BurgerMenuPanel({
   panelRef,
+  activeEntry,
   language,
   pathname,
   onLanguageChange,
   onClose,
 }: BurgerMenuPanelProps) {
   const copy = getDrawerCopy(language);
-  const remoteEntry = topLevels[0];
-  const futureEntries = topLevels.slice(1);
+  const activeResourceMenuItems = resourceMenuItems.filter(
+    (item) => item.status !== "coming-soon" && Boolean(item.href)
+  );
 
   return (
     <div
@@ -676,14 +711,14 @@ function BurgerMenuPanel({
         </div>
 
         <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
-          <section className="2xl:hidden">
+          <section className="xl:hidden">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
                   {copy.servicesEyebrow}
                 </p>
                 <h3 className="mt-1 text-xl font-bold text-primary">
-                  {copy.servicesTitle}
+                  {getHeaderLabel(activeEntry.label, language)}
                 </h3>
               </div>
               <p className="max-w-xl text-sm leading-relaxed text-muted">
@@ -693,18 +728,18 @@ function BurgerMenuPanel({
 
             <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
               <Link
-                href={getLocaleAwareHref(remoteEntry.href, language)}
+                href={getLocaleAwareHref(activeEntry.href, language)}
                 onClick={onClose}
                 className="group flex items-center justify-between gap-3 rounded-lg bg-surface px-4 py-3 transition-colors hover:bg-primary hover:text-white"
               >
                 <span>
                   <span className="block text-sm font-bold text-primary group-hover:text-white">
-                    {getHeaderLabel(remoteEntry.label, language)}
+                    {getHeaderLabel(activeEntry.label, language)}
                   </span>
                   <span className="mt-1 block text-xs leading-relaxed text-muted group-hover:text-white/75">
-                    {language === "es"
+                    {language === "es" && activeEntry.key === "remote"
                       ? "Ediciones entregadas en todo el mundo en 24-48 horas."
-                      : remoteEntry.tagline}
+                      : activeEntry.tagline}
                   </span>
                 </span>
                 <span className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-dark group-hover:text-white">
@@ -713,10 +748,10 @@ function BurgerMenuPanel({
               </Link>
 
               <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {remoteEntry.subLinks.map((link) => {
+                {activeEntry.subLinks.map((link) => {
                   const href = resolveSubLinkHref(
                     link,
-                    remoteEntry.href,
+                    activeEntry.href,
                     language
                   );
                   const isCurrent =
@@ -744,62 +779,19 @@ function BurgerMenuPanel({
             </div>
           </section>
 
-          <section className="2xl:hidden">
-            <div className="mb-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
-                {copy.futureEyebrow}
-              </p>
-              <h3 className="mt-1 text-lg font-bold text-primary">
-                {copy.futureTitle}
-              </h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted">
-                {copy.futureDescription}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {futureEntries.map((entry) => (
-                <div
-                  key={entry.key}
-                  className="rounded-xl border border-stone-200 bg-stone-50 p-4 opacity-85"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-sm font-bold text-primary">
-                      {getHeaderLabel(entry.label, language)}
-                    </h4>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
-                      {copy.comingSoon}
-                    </span>
-                  </div>
-                  <ul className="mt-3 space-y-1.5">
-                    {entry.subLinks.slice(0, 3).map((link) => (
-                      <li
-                        key={link.label}
-                        className="text-xs font-medium text-muted"
-                      >
-                        {getSubNavLabel(link.label, language)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="mb-5 rounded-xl border border-stone-200 bg-surface/60 p-4 lg:hidden">
+          <section className="rounded-xl border border-stone-200 bg-surface/60 p-4 sm:hidden">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
               {language === "es" ? "Preferencias" : "Preferences"}
             </p>
-            <div>
-              <MarketLanguageSelector
-                pathname={pathname}
-                currentLanguage={language}
-                className="w-full"
-                placement="panel"
-                onNavigate={onClose}
-                onLanguageChange={onLanguageChange}
-                analyticsLocation="mobile_menu"
-              />
-            </div>
+            <MarketLanguageSelector
+              pathname={pathname}
+              currentLanguage={language}
+              className="w-full"
+              placement="panel"
+              onNavigate={onClose}
+              onLanguageChange={onLanguageChange}
+              analyticsLocation="mobile_menu"
+            />
           </section>
 
           <section>
@@ -807,50 +799,19 @@ function BurgerMenuPanel({
               {language === "es" ? "Explorar" : "Explore"}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {resourceMenuItems.map((item) => (
-                <ResourceMenuLink
-                  key={item.label}
-                  item={item}
-                  language={language}
-                  href={getResourceHref(item, language)}
-                  onClose={onClose}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-stone-200 bg-primary p-4 text-white shadow-sm 2xl:hidden">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">
-                  {copy.account}
-                </p>
-                <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/75">
-                  {copy.accountDescription}
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 sm:min-w-64 sm:flex-row">
-                <Link
-                  href={getLocaleAwareHref("/login", language)}
-                  onClick={() => {
-                    trackLoginClick("burger_menu");
-                    onClose();
-                  }}
-                  className="inline-flex items-center justify-center rounded-lg border border-white/25 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"
-                >
-                  {copy.login}
-                </Link>
-                <Link
-                  href={getLocaleAwareHref("/signup", language)}
-                  onClick={() => {
-                    trackSignUpClick("burger_menu");
-                    onClose();
-                  }}
-                  className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-white/90"
-                >
-                  {copy.signUp}
-                </Link>
-              </div>
+              {activeResourceMenuItems.map((item) => {
+                const href = getResourceHref(item, language);
+                if (!href) return null;
+                return (
+                  <ResourceMenuLink
+                    key={item.label}
+                    item={item}
+                    language={language}
+                    href={href}
+                    onClose={onClose}
+                  />
+                );
+              })}
             </div>
           </section>
         </div>
@@ -867,7 +828,7 @@ function ResourceMenuLink({
 }: {
   item: ResourceMenuItem;
   language: SiteLanguage;
-  href: string | null;
+  href: string;
   onClose: () => void;
 }) {
   const Icon = item.icon;
@@ -882,11 +843,6 @@ function ResourceMenuLink({
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-bold text-primary">{label}</span>
-          {item.status === "coming-soon" && (
-            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
-              {language === "es" ? "Próximamente" : "Coming soon"}
-            </span>
-          )}
         </span>
         <span className="mt-1 block text-xs leading-relaxed text-muted">
           {description}
@@ -894,14 +850,6 @@ function ResourceMenuLink({
       </span>
     </>
   );
-
-  if (!href) {
-    return (
-      <div className="flex cursor-not-allowed gap-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 opacity-80">
-        {content}
-      </div>
-    );
-  }
 
   return (
     <Link
@@ -925,6 +873,7 @@ function MarketLanguageSelector({
   pathname,
   currentLanguage,
   className,
+  compact = false,
   placement = "header",
   onNavigate,
   onLanguageChange,
@@ -933,6 +882,7 @@ function MarketLanguageSelector({
   pathname: string;
   currentLanguage: SiteLanguage;
   className?: string;
+  compact?: boolean;
   placement?: MarketLanguageSelectorPlacement;
   onNavigate?: () => void;
   onLanguageChange: (language: SiteLanguage) => void;
@@ -943,6 +893,7 @@ function MarketLanguageSelector({
   const [panelPos, setPanelPos] = useState<{
     top: number;
     right: number;
+    width: number;
   } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -955,9 +906,14 @@ function MarketLanguageSelector({
   const updatePanelPosition = useCallback(() => {
     if (!buttonRef.current || !usePortal) return;
     const rect = buttonRef.current.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+    const panelWidth = Math.min(336, viewportWidth - 24);
+    const desiredRight = viewportWidth - rect.right;
+    const maxRight = viewportWidth - panelWidth - 12;
     setPanelPos({
       top: rect.bottom + 8,
-      right: Math.max(12, window.innerWidth - rect.right),
+      right: Math.max(12, Math.min(desiredRight, maxRight)),
+      width: panelWidth,
     });
   }, [usePortal]);
 
@@ -1031,13 +987,14 @@ function MarketLanguageSelector({
               position: "fixed",
               top: panelPos.top,
               right: panelPos.right,
+              width: panelPos.width,
               zIndex: 10000,
             }
           : undefined
       }
       className={cn(
         "overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl",
-        usePortal ? "w-[min(21rem,calc(100vw-1.5rem))]" : "mt-2 w-full shadow-sm"
+        usePortal ? null : "mt-2 w-full shadow-sm"
       )}
     >
       <div className="border-b border-border p-2.5">
@@ -1138,8 +1095,12 @@ function MarketLanguageSelector({
           setOpen((value) => !value);
         }}
         className={cn(
-          "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 shadow-sm transition-colors hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-          placement === "header" ? "h-9 min-w-[8rem]" : "w-full"
+          "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 py-2 shadow-sm transition-colors hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          placement === "header"
+            ? compact
+              ? "h-9 min-w-[6.5rem] px-2 xl:min-w-[7rem] 2xl:min-w-[8rem] 2xl:px-3"
+              : "h-9 min-w-[7rem] px-2 2xl:min-w-[8rem] 2xl:px-3"
+            : "w-full px-3"
         )}
       >
         <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-primary">
@@ -1371,7 +1332,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
   const overflow = active.subLinks.slice(overflowAt);
 
   return (
-    <div className="hidden border-t border-border bg-white 2xl:block">
+    <div className="hidden border-t border-border bg-white xl:block">
       <div className={cn("relative", NAV_X_PADDING)}>
         {/* Hidden measurement mirror */}
         <div

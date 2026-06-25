@@ -115,7 +115,7 @@ function FooterLinkItem({
         href={link.href}
         analyticsLabel={link.label}
         analyticsLocation="footer"
-        className="text-sm text-white/70 hover:text-white transition-colors"
+        className="text-base text-white/70 hover:text-white transition-colors"
       >
         {link.label}
       </TrackedLink>
@@ -125,7 +125,7 @@ function FooterLinkItem({
   return (
     <Link
       href={link.href}
-      className="text-sm text-white/70 hover:text-white transition-colors"
+      className="text-base text-white/70 hover:text-white transition-colors"
     >
       {link.label}
     </Link>
@@ -139,27 +139,29 @@ export default function Footer() {
 
   return (
     <footer className="bg-primary text-white">
-      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-14 lg:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2 mb-1" aria-label="PicchuSpot home">
+            <Link href="/" className="inline-flex items-center gap-2.5 mb-2" aria-label="PicchuSpot home">
               <PicchuSpotLogo
                 variant="mark-light"
-                className="h-6 w-auto"
-                width={48}
-                height={24}
+                className="h-7 w-auto lg:h-9"
+                width={72}
+                height={36}
                 alt=""
               />
-              <BrandWordmark theme="dark" className="text-lg" />
+              <BrandWordmark theme="dark" className="text-xl lg:text-2xl" />
             </Link>
-            <p className="text-xs uppercase tracking-[0.18em] text-white/60 mb-4">
+            <p className="text-sm uppercase tracking-[0.18em] text-white/60 mb-4">
               {copy.tagline}
             </p>
-            <p className="text-sm text-white/70 mb-4">{copy.description}</p>
+            <p className="text-base leading-relaxed text-white/70 mb-4">
+              {copy.description}
+            </p>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider mb-4">
+            <h4 className="text-base font-semibold uppercase tracking-wider mb-4">
               {copy.servicesHeading}
             </h4>
             <ul className="space-y-2">
@@ -172,7 +174,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider mb-4">
+            <h4 className="text-base font-semibold uppercase tracking-wider mb-4">
               {copy.pagesHeading}
             </h4>
             <ul className="space-y-2">
@@ -185,10 +187,10 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider mb-4">
+            <h4 className="text-base font-semibold uppercase tracking-wider mb-4">
               {copy.serviceAreaHeading}
             </h4>
-            <p className="text-sm text-white/70">
+            <p className="text-base leading-relaxed text-white/70">
               {serviceAreaCities.join(" · ")}
             </p>
           </div>
