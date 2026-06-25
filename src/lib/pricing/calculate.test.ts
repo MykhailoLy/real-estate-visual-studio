@@ -54,6 +54,30 @@ test("discount applies to base only and add-ons remain undiscounted", () => {
   assert.equal(quote.totalCents, 16_280);
 });
 
+test("generic Photo Editing uses the highest-priced option as the discounted base", () => {
+  const quote = calculateOrderQuote({
+    serviceType: "photo-editing",
+    currency: "USD",
+    items: photoItems(10, [
+      "image-enhancement-re",
+      "shadow-removal",
+      "turn-on-lights-pe",
+    ]),
+  });
+
+  assert.equal(quote.items[0].priceKey, "shadow-removal");
+  assert.equal(quote.items[0].unitPriceCents, 700);
+  assert.deepEqual(
+    quote.items[0].addOns.map((addOn) => addOn.priceKey),
+    ["image-enhancement", "turn-on-lights"]
+  );
+  assert.equal(quote.baseSubtotalCents, 7_000);
+  assert.equal(quote.addOnSubtotalCents, 2_500);
+  assert.equal(quote.volumeDiscountPercent, 10);
+  assert.equal(quote.volumeDiscountCents, 700);
+  assert.equal(quote.totalCents, 8_800);
+});
+
 test("USD, EUR, and CAD use fixed catalog prices", () => {
   const totals = (["USD", "EUR", "CAD"] as const).map(
     (currency) =>

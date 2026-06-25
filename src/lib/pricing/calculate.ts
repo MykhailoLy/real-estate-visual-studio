@@ -204,6 +204,8 @@ function calculatePhotoEditingItems(
         input.currency
       ),
     }));
+    // Generic Photo Editing treats the highest-priced selected option as the
+    // base service; every other selected option is an undiscounted add-on.
     const [base] = [...priced].sort(
       (a, b) => b.unitPriceCents - a.unitPriceCents
     );
