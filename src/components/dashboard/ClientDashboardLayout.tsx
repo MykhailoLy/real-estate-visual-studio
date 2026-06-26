@@ -2,6 +2,7 @@
 
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
 import ClientDashboardSidebar from "./ClientDashboardSidebar";
+import ClientDashboardMobileBottomBar from "./ClientDashboardMobileBottomBar";
 import ClientDashboardMobileStatusFilters from "./ClientDashboardMobileStatusFilters";
 import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 
@@ -58,7 +59,7 @@ export default function ClientDashboardLayout({
             (not the window) on step transitions. */}
         <main
           data-dashboard-scroll-container
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+          className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"
         >
           {showStatusFilter && (
             <ClientDashboardMobileStatusFilters
@@ -71,6 +72,8 @@ export default function ClientDashboardLayout({
           </div>
         </main>
       </div>
+
+      <ClientDashboardMobileBottomBar />
     </div>
   );
 }

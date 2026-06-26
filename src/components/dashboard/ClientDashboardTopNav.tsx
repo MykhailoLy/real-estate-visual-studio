@@ -56,6 +56,20 @@ const accountMenuItems = [
   { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
 ] as const;
 
+interface PanelPosition {
+  top?: number;
+  bottom?: number;
+  right: number;
+  width: number;
+  maxHeight: number;
+}
+
+interface DashboardAccountMenuProps {
+  placement?: "bottom" | "top";
+  variant?: "header" | "mobile-bottom";
+  className?: string;
+}
+
 export default function ClientDashboardTopNav() {
   const pathname = usePathname() ?? "/dashboard";
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
@@ -90,7 +104,7 @@ export default function ClientDashboardTopNav() {
 
         <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
           <PublicResourcesMenu language={language} />
-          <DashboardAccountMenu />
+          <DashboardAccountMenu className="hidden md:block" />
           <MarketLanguageSelector
             pathname={pathname}
             currentLanguage={language}
@@ -128,6 +142,7 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
               aria-current={active && !isNewOrder ? "page" : undefined}
               className={cn(
                 "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+                item.href === "/dashboard/support" && "hidden md:inline-flex",
                 isNewOrder
                   ? "bg-secondary text-primary-dark shadow-sm hover:bg-secondary-light"
                   : active
@@ -295,29 +310,30 @@ function DashboardAccountAvatar({
   );
 }
 
-function DashboardAccountMenu() {
+export function DashboardAccountMenu({
+  placement = "bottom",
+  variant = "header",
+  className,
+}: DashboardAccountMenuProps) {
   const pathname = usePathname() ?? "/dashboard";
   const user = useDashboardUser();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [panelPos, setPanelPos] = useState<{
-    top: number;
-    right: number;
-    width: number;
-    maxHeight: number;
-  } | null>(null);
+  const [panelPos, setPanelPos] = useState<PanelPosition | null>(null);
 
   const displayName = user?.displayName || "Client";
   const firstName =
     user?.profileName || user?.firstName || displayName.split(" ")[0];
   const initials = getInitials(displayName);
   const open = openPath === pathname;
+  const mobileBottom = variant === "mobile-bottom";
 
   const updatePanelPosition = useCallback(() => {
     if (!buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
     const gutter = 12;
+    const panelGap = 8;
     const width = Math.min(256, window.innerWidth - gutter * 2);
     const right = Math.max(
       gutter,
@@ -326,14 +342,26 @@ function DashboardAccountMenu() {
         window.innerWidth - width - gutter
       )
     );
-    const top = rect.bottom + 8;
+
+    if (placement === "top") {
+      const bottom = Math.max(gutter, window.innerHeight - rect.top + panelGap);
+      setPanelPos({
+        bottom,
+        right,
+        width,
+        maxHeight: Math.max(160, window.innerHeight - bottom - gutter),
+      });
+      return;
+    }
+
+    const top = rect.bottom + panelGap;
     setPanelPos({
       top,
       right,
       width,
       maxHeight: Math.max(160, window.innerHeight - top - gutter),
     });
-  }, []);
+  }, [placement]);
 
   useEffect(() => {
     if (!open) return;
@@ -364,7 +392,13 @@ function DashboardAccountMenu() {
   }, [open, updatePanelPosition]);
 
   return (
-    <>
+    <div
+      className={cn(
+        "relative min-w-0 flex-shrink-0",
+        mobileBottom && "w-full",
+        className
+      )}
+    >
       <button
         ref={buttonRef}
         type="button"
@@ -375,18 +409,31 @@ function DashboardAccountMenu() {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Account menu for ${firstName}`}
-        className="inline-flex h-9 min-w-0 flex-shrink-0 items-center gap-1 rounded-lg border border-stone-200 bg-white px-1.5 text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:gap-1.5 sm:pr-2"
+        className={cn(
+          "inline-flex min-w-0 items-center transition-colors focus:outline-none focus-visible:ring-2",
+          mobileBottom
+            ? "h-[calc(3.5rem+env(safe-area-inset-bottom))] w-full justify-center gap-2 bg-primary px-4 pb-[env(safe-area-inset-bottom)] text-white hover:bg-primary-light focus-visible:ring-inset focus-visible:ring-white"
+            : "h-9 flex-shrink-0 gap-1 rounded-lg border border-stone-200 bg-white px-1.5 text-primary shadow-sm hover:border-primary/30 hover:bg-surface focus-visible:ring-primary sm:gap-1.5 sm:pr-2"
+        )}
       >
         <DashboardAccountAvatar
           avatarUrl={user?.avatarUrl ?? null}
           initials={initials}
         />
-        <span className="hidden max-w-24 truncate text-xs font-semibold sm:block">
+        <span
+          className={cn(
+            "min-w-0 truncate font-semibold",
+            mobileBottom
+              ? "max-w-[7.5rem] flex-1 text-left text-sm"
+              : "hidden max-w-24 text-xs sm:block"
+          )}
+        >
           {firstName}
         </span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 flex-shrink-0 text-primary/60 transition-transform",
+            "h-3.5 w-3.5 flex-shrink-0 transition-transform",
+            mobileBottom ? "text-white/75" : "text-primary/60",
             open && "rotate-180"
           )}
           aria-hidden
@@ -404,6 +451,7 @@ function DashboardAccountMenu() {
             style={{
               position: "fixed",
               top: panelPos.top,
+              bottom: panelPos.bottom,
               right: panelPos.right,
               width: panelPos.width,
               maxHeight: panelPos.maxHeight,
@@ -454,6 +502,6 @@ function DashboardAccountMenu() {
           </div>,
           document.body
         )}
-    </>
+    </div>
   );
 }
