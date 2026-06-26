@@ -61,7 +61,7 @@ export interface OrderDraftRow {
   currentStep: string;
   state: JsonObject;
   stateSchemaVersion: number;
-  pricingPreview: PricingPreview | JsonObject | null;
+  pricingPreview: PricingPreview | null;
   pricingVersionSeen: string | null;
   currency: TransactionalOrderCurrency;
   region: RegionCode | null;
@@ -113,14 +113,17 @@ export interface OrderDraftSummary {
 export interface CreateOrderDraftInput<
   TState extends BaseDraftStateEnvelope = BaseDraftStateEnvelope,
 > {
-  userId: string;
+  // Ownership comes from the verified server session. Future repository
+  // shape: createOrderDraftForUser(userId, input). Timestamps, lifecycle
+  // status, expiry, and version fields are set by trusted server/database
+  // code, never by browser/request payloads.
   serviceType: ServiceType;
   subService?: string | null;
   route: string;
   title?: string | null;
   currentStep?: string;
   state: TState;
-  pricingPreview?: PricingPreview | JsonObject | null;
+  pricingPreview?: PricingPreview | null;
   pricingVersionSeen?: string | null;
   currency: TransactionalOrderCurrency;
   region?: RegionCode | null;
@@ -129,15 +132,25 @@ export interface CreateOrderDraftInput<
 export interface UpdateOrderDraftInput<
   TState extends BaseDraftStateEnvelope = BaseDraftStateEnvelope,
 > {
-  draftId: string;
+  // Ownership, draft identity, timestamps, lifecycle status, and version
+  // increments are trusted server/repository concerns. The repository/database
+  // update owns last_autosaved_at and version increments. Future repository
+  // shape: updateOrderDraftForUser(userId, draftId, input).
   expectedVersion: number;
   currentStep?: string;
   title?: string | null;
   state?: TState;
-  pricingPreview?: PricingPreview | JsonObject | null;
+  pricingPreview?: PricingPreview | null;
   pricingVersionSeen?: string | null;
-  status?: OrderDraftStatus;
-  lastAutosavedAt?: string | null;
+  currency?: TransactionalOrderCurrency;
+  region?: RegionCode | null;
+}
+
+export interface OrderDraftStatusTransition {
+  // Trusted internal lifecycle transition input only; generic editable
+  // autosave/update payloads must not accept status changes.
+  status: OrderDraftStatus;
+  expectedVersion: number;
 }
 
 export type DraftUpdatePublicErrorCode =

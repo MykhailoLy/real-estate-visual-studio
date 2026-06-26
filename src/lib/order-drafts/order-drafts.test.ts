@@ -9,10 +9,14 @@ import {
 } from "./constants.ts";
 import {
   BaseDraftStateEnvelopeSchema,
+  CreateOrderDraftInputSchema,
+  DraftJobTitleSchema,
   DraftFileReferenceSchema,
   OrderDraftFileKindSchema,
   OrderDraftFileStatusSchema,
   OrderDraftStatusSchema,
+  PricingPreviewSchema,
+  UpdateOrderDraftInputSchema,
   UuidSchema,
 } from "./schema.ts";
 import {
@@ -59,6 +63,39 @@ function validEnvelope() {
   };
 }
 
+function validCreateInput() {
+  return {
+    serviceType: "virtual-staging",
+    route: "/dashboard/orders/new/virtual-staging",
+    title: "",
+    currentStep: "configure",
+    state: validEnvelope(),
+    pricingPreview: {
+      nonAuthoritative: true,
+      preview: { totalCents: 1200, currency: "USD" },
+    },
+    pricingVersionSeen: "pricing-v1",
+    currency: "USD",
+    region: "US",
+  };
+}
+
+function validUpdateInput() {
+  return {
+    expectedVersion: 1,
+    currentStep: "configure",
+    title: "12",
+    state: validEnvelope(),
+    pricingPreview: {
+      nonAuthoritative: true,
+      preview: { totalCents: 1200 },
+    },
+    pricingVersionSeen: "pricing-v1",
+    currency: "USD",
+    region: "US",
+  };
+}
+
 test("allowed status constants match schemas", () => {
   for (const status of ORDER_DRAFT_STATUSES) {
     assert.equal(OrderDraftStatusSchema.parse(status), status);
@@ -75,6 +112,75 @@ test("draft state schema accepts valid JSON-safe state", () => {
   const parsed = BaseDraftStateEnvelopeSchema.parse(validEnvelope());
   assert.equal(parsed.schemaVersion, 1);
   assert.equal(parsed.items[0]?.clientItemId, UUID_A);
+});
+
+test("draft state requires at least one item", () => {
+  assert.equal(
+    BaseDraftStateEnvelopeSchema.safeParse({
+      ...validEnvelope(),
+      items: [],
+    }).success,
+    false,
+  );
+});
+
+test("draft job title allows empty and partial values", () => {
+  assert.equal(DraftJobTitleSchema.parse(""), "");
+  assert.equal(DraftJobTitleSchema.parse("A"), "A");
+  assert.equal(DraftJobTitleSchema.parse("AB"), "AB");
+  assert.equal(DraftJobTitleSchema.parse("  123 Main Street  "), "123 Main Street");
+});
+
+test("draft job title rejects values over 120 characters", () => {
+  assert.equal(DraftJobTitleSchema.safeParse("a".repeat(120)).success, true);
+  assert.equal(DraftJobTitleSchema.safeParse("a".repeat(121)).success, false);
+});
+
+test("create input rejects browser-controlled ownership", () => {
+  const result = CreateOrderDraftInputSchema.safeParse({
+    ...validCreateInput(),
+    userId: UUID_A,
+  });
+  assert.equal(result.success, false);
+});
+
+test("update input rejects trusted ownership, route, and lifecycle fields", () => {
+  for (const field of ["userId", "draftId", "status", "lastAutosavedAt"] as const) {
+    const result = UpdateOrderDraftInputSchema.safeParse({
+      ...validUpdateInput(),
+      [field]: field === "draftId" ? UUID_A : "active",
+    });
+    assert.equal(result.success, false, `${field} should be rejected`);
+  }
+});
+
+test("editable input schemas accept only editable draft fields", () => {
+  assert.equal(CreateOrderDraftInputSchema.safeParse(validCreateInput()).success, true);
+  assert.equal(UpdateOrderDraftInputSchema.safeParse(validUpdateInput()).success, true);
+});
+
+test("pricing preview must be explicitly non-authoritative", () => {
+  assert.equal(
+    PricingPreviewSchema.safeParse({
+      nonAuthoritative: true,
+      preview: { totalCents: 1200 },
+    }).success,
+    true,
+  );
+  assert.equal(
+    CreateOrderDraftInputSchema.safeParse({
+      ...validCreateInput(),
+      pricingPreview: { totalCents: 1200 },
+    }).success,
+    false,
+  );
+  assert.equal(
+    UpdateOrderDraftInputSchema.safeParse({
+      ...validUpdateInput(),
+      pricingPreview: { nonAuthoritative: false, preview: {} },
+    }).success,
+    false,
+  );
 });
 
 test("UUID validation accepts IDs and rejects non-UUID values", () => {

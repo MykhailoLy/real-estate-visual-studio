@@ -35,6 +35,15 @@ export const JobTitleSchema = z
   .min(JOB_TITLE_MIN, "Job Title must be at least 3 characters")
   .max(JOB_TITLE_MAX, "Job Title must be at most 120 characters");
 
+export const DraftJobTitleSchema = z
+  .string({ message: "Draft Job Title must be a string" })
+  .transform((value) => value.trim())
+  .pipe(
+    z
+      .string()
+      .max(JOB_TITLE_MAX, "Draft Job Title must be at most 120 characters"),
+  );
+
 export const DashboardNewOrderRouteSchema = z
   .string()
   .min(1)
@@ -89,7 +98,7 @@ export const BaseDraftStateEnvelopeSchema = z.object({
     .int()
     .min(1)
     .default(ORDER_DRAFT_STATE_SCHEMA_VERSION),
-  jobTitle: JobTitleSchema,
+  jobTitle: DraftJobTitleSchema,
   currentStep: z.string().min(1).max(100),
   items: z.array(BaseDraftItemSchema).min(1).max(50),
   notes: z.string().max(5000).optional(),
@@ -117,31 +126,40 @@ export const PricingPreviewSchema = z.object({
   preview: JsonObjectSchema,
 });
 
-export const CreateOrderDraftInputSchema = z.object({
-  userId: UuidSchema,
-  serviceType: ServiceTypeSchema,
-  subService: z.string().min(1).max(100).nullable().optional(),
-  route: DashboardNewOrderRouteSchema,
-  title: z.string().min(1).max(200).nullable().optional(),
-  currentStep: z.string().min(1).max(100).optional(),
-  state: BaseDraftStateEnvelopeSchema,
-  pricingPreview: PricingPreviewSchema.or(JsonObjectSchema).nullable().optional(),
-  pricingVersionSeen: z.string().min(1).max(100).nullable().optional(),
-  currency: TransactionalCurrencySchema,
-  region: RegionCodeSchema.nullable().optional(),
-});
+export const CreateOrderDraftInputSchema = z
+  .object({
+    serviceType: ServiceTypeSchema,
+    subService: z.string().min(1).max(100).nullable().optional(),
+    route: DashboardNewOrderRouteSchema,
+    title: DraftJobTitleSchema.nullable().optional(),
+    currentStep: z.string().min(1).max(100).optional(),
+    state: BaseDraftStateEnvelopeSchema,
+    pricingPreview: PricingPreviewSchema.nullable().optional(),
+    pricingVersionSeen: z.string().min(1).max(100).nullable().optional(),
+    currency: TransactionalCurrencySchema,
+    region: RegionCodeSchema.nullable().optional(),
+  })
+  .strict();
 
-export const UpdateOrderDraftInputSchema = z.object({
-  draftId: UuidSchema,
-  expectedVersion: z.number().int().min(1),
-  currentStep: z.string().min(1).max(100).optional(),
-  title: z.string().min(1).max(200).nullable().optional(),
-  state: BaseDraftStateEnvelopeSchema.optional(),
-  pricingPreview: PricingPreviewSchema.or(JsonObjectSchema).nullable().optional(),
-  pricingVersionSeen: z.string().min(1).max(100).nullable().optional(),
-  status: OrderDraftStatusSchema.optional(),
-  lastAutosavedAt: z.string().datetime().nullable().optional(),
-});
+export const UpdateOrderDraftInputSchema = z
+  .object({
+    expectedVersion: z.number().int().min(1),
+    currentStep: z.string().min(1).max(100).optional(),
+    title: DraftJobTitleSchema.nullable().optional(),
+    state: BaseDraftStateEnvelopeSchema.optional(),
+    pricingPreview: PricingPreviewSchema.nullable().optional(),
+    pricingVersionSeen: z.string().min(1).max(100).nullable().optional(),
+    currency: TransactionalCurrencySchema.optional(),
+    region: RegionCodeSchema.nullable().optional(),
+  })
+  .strict();
+
+export const OrderDraftStatusTransitionSchema = z
+  .object({
+    status: OrderDraftStatusSchema,
+    expectedVersion: z.number().int().min(1),
+  })
+  .strict();
 
 export const OrderDraftFileRowSchema = z.object({
   id: UuidSchema,
