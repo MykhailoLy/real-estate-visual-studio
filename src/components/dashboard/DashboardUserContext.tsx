@@ -19,6 +19,7 @@ export interface DashboardUser {
   firstName: string;
   /** First name from client_profiles row; null if onboarding not yet complete */
   profileName: string | null;
+  avatarUrl: string | null;
 }
 
 const DashboardUserContext = createContext<DashboardUser | null>(null);

@@ -1,18 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
 import ClientDashboardSidebar from "./ClientDashboardSidebar";
-import ClientDashboardMobileNav from "./ClientDashboardMobileNav";
+import ClientDashboardMobileBottomBar from "./ClientDashboardMobileBottomBar";
+import ClientDashboardMobileStatusFilters from "./ClientDashboardMobileStatusFilters";
 import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 
 interface ClientDashboardLayoutProps {
   children: React.ReactNode;
   /**
-   * When provided, the layout renders sidebar/mobile status filter controls
-   * and keeps them in sync with the external controlled state.
-   * The page owns the state and passes it in — this lets the sidebar filters
-   * actually drive the jobs table on the same page.
+   * When both are provided, the layout renders controlled status filters in
+   * the desktop sidebar and in a compact row above the content below `lg`.
+   * The page owns the state so every filter surface drives the same jobs table.
    */
   statusFilter?: DashboardJobStatus | "all";
   onStatusFilterChange?: (status: DashboardJobStatus | "all") => void;
@@ -35,8 +34,6 @@ export default function ClientDashboardLayout({
   onStatusFilterChange,
   contentClassName,
 }: ClientDashboardLayoutProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const showStatusFilter =
     statusFilter !== undefined && onStatusFilterChange !== undefined;
 
@@ -47,18 +44,7 @@ export default function ClientDashboardLayout({
     // pushing the whole shell past the viewport.
     <div className="flex flex-col h-[100dvh] min-h-0 bg-surface overflow-hidden">
       {/* Top nav — fixed within the shell, never scrolls away */}
-      <ClientDashboardTopNav
-        onMobileMenuToggle={() => setMobileMenuOpen((v) => !v)}
-        mobileMenuOpen={mobileMenuOpen}
-      />
-
-      {/* Mobile drawer */}
-      <ClientDashboardMobileNav
-        open={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        activeStatusFilter={showStatusFilter ? statusFilter : undefined}
-        onStatusFilter={showStatusFilter ? onStatusFilterChange : undefined}
-      />
+      <ClientDashboardTopNav />
 
       {/* Body: sidebar + main content. `min-h-0` is required so the row can
           shrink and the main column becomes the scroll container. */}
@@ -73,13 +59,21 @@ export default function ClientDashboardLayout({
             (not the window) on step transitions. */}
         <main
           data-dashboard-scroll-container
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+          className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0"
         >
+          {showStatusFilter && (
+            <ClientDashboardMobileStatusFilters
+              activeStatusFilter={statusFilter}
+              onStatusFilter={onStatusFilterChange}
+            />
+          )}
           <div className={contentClassName ?? DEFAULT_CONTENT_CLASSNAME}>
             {children}
           </div>
         </main>
       </div>
+
+      <ClientDashboardMobileBottomBar />
     </div>
   );
 }
