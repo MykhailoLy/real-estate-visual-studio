@@ -2,15 +2,15 @@
 
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
 import ClientDashboardSidebar from "./ClientDashboardSidebar";
+import ClientDashboardMobileStatusFilters from "./ClientDashboardMobileStatusFilters";
 import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 
 interface ClientDashboardLayoutProps {
   children: React.ReactNode;
   /**
-   * When provided, the layout renders sidebar/mobile status filter controls
-   * and keeps them in sync with the external controlled state.
-   * The page owns the state and passes it in — this lets the sidebar filters
-   * actually drive the jobs table on the same page.
+   * When both are provided, the layout renders controlled status filters in
+   * the desktop sidebar and in a compact row above the content below `lg`.
+   * The page owns the state so every filter surface drives the same jobs table.
    */
   statusFilter?: DashboardJobStatus | "all";
   onStatusFilterChange?: (status: DashboardJobStatus | "all") => void;
@@ -60,6 +60,12 @@ export default function ClientDashboardLayout({
           data-dashboard-scroll-container
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
         >
+          {showStatusFilter && (
+            <ClientDashboardMobileStatusFilters
+              activeStatusFilter={statusFilter}
+              onStatusFilter={onStatusFilterChange}
+            />
+          )}
           <div className={contentClassName ?? DEFAULT_CONTENT_CLASSNAME}>
             {children}
           </div>

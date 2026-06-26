@@ -5,37 +5,15 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { DASHBOARD_NAV_ITEMS } from "./ClientDashboardTopNav";
 import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
-import { STATUS_LABELS } from "@/lib/client-dashboard/mock-data";
+import {
+  JOB_STATUS_DOT_CLASSES,
+  JOB_STATUS_FILTERS,
+} from "./job-status-filters";
 
 interface ClientDashboardSidebarProps {
   activeStatusFilter?: DashboardJobStatus | "all";
   onStatusFilter?: (status: DashboardJobStatus | "all") => void;
 }
-
-const STATUS_FILTERS: Array<{
-  value: DashboardJobStatus | "all";
-  label: string;
-}> = [
-  { value: "all", label: "All Jobs" },
-  { value: "awaiting-submission", label: STATUS_LABELS["awaiting-submission"] },
-  { value: "in-progress", label: STATUS_LABELS["in-progress"] },
-  { value: "pending-rework", label: STATUS_LABELS["pending-rework"] },
-  { value: "rework-in-progress", label: STATUS_LABELS["rework-in-progress"] },
-  { value: "new-version-ready", label: STATUS_LABELS["new-version-ready"] },
-  { value: "completed", label: STATUS_LABELS["completed"] },
-];
-
-const statusDotColor: Record<DashboardJobStatus | "all", string> = {
-  all: "bg-muted-light",
-  "awaiting-submission": "bg-amber-400",
-  "in-progress": "bg-blue-500",
-  "revision-requested": "bg-orange-400",
-  "pending-rework": "bg-orange-400",
-  "rework-in-progress": "bg-sky-500",
-  "new-version-ready": "bg-violet-500",
-  completed: "bg-emerald-500",
-  cancelled: "bg-slate-400",
-};
 
 export default function ClientDashboardSidebar({
   activeStatusFilter = "all",
@@ -107,7 +85,7 @@ export default function ClientDashboardSidebar({
               Filter jobs
             </p>
             <div className="space-y-0.5">
-              {STATUS_FILTERS.map((f) => {
+              {JOB_STATUS_FILTERS.map((f) => {
                 const active = activeStatusFilter === f.value;
                 return (
                   <button
@@ -124,7 +102,7 @@ export default function ClientDashboardSidebar({
                     <span
                       className={cn(
                         "w-2 h-2 rounded-full flex-shrink-0 transition-colors",
-                        active ? statusDotColor[f.value] : "bg-border"
+                        active ? JOB_STATUS_DOT_CLASSES[f.value] : "bg-border"
                       )}
                       aria-hidden
                     />
