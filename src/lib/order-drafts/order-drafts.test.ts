@@ -20,6 +20,14 @@ import {
   UuidSchema,
 } from "./schema.ts";
 import {
+  buildCreateOrderDraftInsertPayload,
+  mapOrderDraftDatabaseRow,
+  mapOrderDraftFileDatabaseRow,
+  mapOrderDraftSummary,
+  normalizeDraftListLimit,
+  notFound,
+} from "./database.ts";
+import {
   createDraftClientItemId,
   mapDraftUpdateOutcome,
 } from "./utils.ts";
@@ -93,6 +101,58 @@ function validUpdateInput() {
     pricingVersionSeen: "pricing-v1",
     currency: "USD",
     region: "US",
+  };
+}
+
+function draftDatabaseRow() {
+  return {
+    id: UUID_B,
+    user_id: UUID_A,
+    service_type: "virtual-staging",
+    sub_service: null,
+    route: "/dashboard/orders/new/virtual-staging",
+    title: "123 Main Street",
+    current_step: "configure",
+    state: validEnvelope(),
+    state_schema_version: 1,
+    pricing_preview: {
+      nonAuthoritative: true,
+      preview: { totalCents: 1200 },
+    },
+    pricing_version_seen: "pricing-v1",
+    currency: "USD",
+    region: "US",
+    status: "active",
+    version: 1,
+    finalization_key: null,
+    converted_order_id: null,
+    created_at: "2026-06-26T10:00:00.000Z",
+    updated_at: "2026-06-26T10:00:00.000Z",
+    last_autosaved_at: "2026-06-26T10:00:00.000Z",
+    expires_at: "2026-07-26T10:00:00.000Z",
+    converted_at: null,
+    deleted_at: null,
+  };
+}
+
+function draftFileDatabaseRow() {
+  return {
+    id: UUID_C,
+    draft_id: UUID_B,
+    item_client_id: UUID_A,
+    item_index: 0,
+    kind: "original",
+    bucket: "order-files",
+    storage_path: "drafts/user/draft/file/photo.jpg",
+    original_filename: "photo.jpg",
+    file_size: 12345,
+    mime_type: "image/jpeg",
+    content_hash: null,
+    upload_status: "uploaded",
+    created_at: "2026-06-26T10:00:00.000Z",
+    updated_at: "2026-06-26T10:00:00.000Z",
+    deleted_at: null,
+    moved_at: null,
   };
 }
 
@@ -181,6 +241,116 @@ test("pricing preview must be explicitly non-authoritative", () => {
     }).success,
     false,
   );
+});
+
+test("create insert payload uses trusted ownership and server fields", () => {
+  const payload = buildCreateOrderDraftInsertPayload(
+    UUID_A,
+    {
+      ...validCreateInput(),
+      state: {
+        ...validEnvelope(),
+        metadata: { userId: UUID_B },
+      },
+    },
+    new Date("2026-06-26T10:00:00.000Z"),
+  );
+
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.equal(payload.data.user_id, UUID_A);
+  assert.equal(payload.data.status, "active");
+  assert.equal(payload.data.version, 1);
+  assert.equal(payload.data.last_autosaved_at, "2026-06-26T10:00:00.000Z");
+  assert.equal(payload.data.expires_at, "2026-07-26T10:00:00.000Z");
+});
+
+test("create insert payload rejects contradictory currentStep values", () => {
+  const payload = buildCreateOrderDraftInsertPayload(UUID_A, {
+    ...validCreateInput(),
+    currentStep: "review",
+  });
+  assert.equal(payload.ok, false);
+  if (payload.ok) return;
+  assert.equal(payload.code, "invalid_input");
+});
+
+test("create insert payload title falls back to state jobTitle", () => {
+  const payload = buildCreateOrderDraftInsertPayload(UUID_A, {
+    ...validCreateInput(),
+    title: "",
+    state: {
+      ...validEnvelope(),
+      jobTitle: "  Draft fallback title  ",
+    },
+  });
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.equal(payload.data.title, "Draft fallback title");
+});
+
+test("create insert payload stores null title for empty draft title", () => {
+  const payload = buildCreateOrderDraftInsertPayload(UUID_A, {
+    ...validCreateInput(),
+    title: "",
+    state: {
+      ...validEnvelope(),
+      jobTitle: "",
+    },
+  });
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.equal(payload.data.title, null);
+});
+
+test("create insert payload keeps pricing preview marked non-authoritative", () => {
+  const payload = buildCreateOrderDraftInsertPayload(UUID_A, validCreateInput());
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.deepEqual(payload.data.pricing_preview, {
+    nonAuthoritative: true,
+    preview: { totalCents: 1200, currency: "USD" },
+  });
+});
+
+test("snake_case draft row maps to camelCase domain row", () => {
+  const mapped = mapOrderDraftDatabaseRow(draftDatabaseRow());
+  assert.equal(mapped.userId, UUID_A);
+  assert.equal(mapped.currentStep, "configure");
+  assert.equal(mapped.stateSchemaVersion, 1);
+  assert.equal(mapped.pricingPreview?.nonAuthoritative, true);
+  assert.equal(mapped.lastAutosavedAt, "2026-06-26T10:00:00.000Z");
+});
+
+test("snake_case file row maps to camelCase file row", () => {
+  const mapped = mapOrderDraftFileDatabaseRow(draftFileDatabaseRow());
+  assert.equal(mapped.draftId, UUID_B);
+  assert.equal(mapped.itemClientId, UUID_A);
+  assert.equal(mapped.storagePath, "drafts/user/draft/file/photo.jpg");
+  assert.equal(mapped.uploadStatus, "uploaded");
+});
+
+test("summary mapping excludes state payload", () => {
+  const mapped = mapOrderDraftSummary(draftDatabaseRow());
+  assert.equal(mapped.id, UUID_B);
+  assert.equal("state" in mapped, false);
+  assert.equal("pricingPreview" in mapped, false);
+});
+
+test("list limit normalization uses defaults and bounds", () => {
+  assert.equal(normalizeDraftListLimit(), 20);
+  assert.equal(normalizeDraftListLimit(0), 1);
+  assert.equal(normalizeDraftListLimit(-10), 1);
+  assert.equal(normalizeDraftListLimit(10.8), 10);
+  assert.equal(normalizeDraftListLimit(200), 100);
+});
+
+test("public not-found result hides ownership mismatch detail", () => {
+  const result = notFound();
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.code, "not_found");
+  assert.equal(result.message.includes("ownership"), false);
 });
 
 test("UUID validation accepts IDs and rejects non-UUID values", () => {

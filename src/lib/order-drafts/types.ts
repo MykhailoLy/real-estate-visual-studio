@@ -178,3 +178,16 @@ export type DraftUpdateDataAccessOutcome<T = OrderDraftRow> =
   | { kind: "version_conflict" }
   | { kind: "invalid_status"; status: string }
   | { kind: "database_error"; message: string };
+
+export type OrderDraftRepositoryErrorCode =
+  | "not_found"
+  | "invalid_input"
+  | "database_error";
+
+export type OrderDraftRepositoryResult<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      code: OrderDraftRepositoryErrorCode;
+      message: string;
+    };
