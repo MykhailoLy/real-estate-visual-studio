@@ -6,7 +6,12 @@ import {
 } from "../supabase-admin.ts";
 import {
   buildCreateOrderDraftInsertPayload,
+  buildSoftDeleteOrderDraftPayload,
+  buildUpdateOrderDraftPayload,
+  classifyZeroRowDraftUpdate,
   databaseError,
+  draftUpdateDatabaseError,
+  draftUpdateInvalidInput,
   mapOrderDraftDatabaseRow,
   mapOrderDraftFileDatabaseRow,
   mapOrderDraftSummary,
@@ -19,10 +24,12 @@ import {
 import { UuidSchema } from "./schema.ts";
 import type {
   CreateOrderDraftInput,
+  DraftUpdateResult,
   OrderDraftFileRow,
   OrderDraftRepositoryResult,
   OrderDraftRow,
   OrderDraftSummary,
+  UpdateOrderDraftInput,
 } from "./types.ts";
 
 interface ListActiveDraftOptions {
@@ -48,6 +55,41 @@ function handleRepositoryException(
   if (error instanceof SupabaseAdminConfigurationError) throw error;
   console.error(`[order-drafts] ${scope} failed:`, error);
   return databaseError();
+}
+
+function handleDraftUpdateException(
+  scope: string,
+  error: unknown,
+): DraftUpdateResult<never> {
+  if (error instanceof SupabaseAdminConfigurationError) throw error;
+  console.error(`[order-drafts] ${scope} failed:`, error);
+  return draftUpdateDatabaseError();
+}
+
+async function classifyZeroRowUpdateForUser(
+  userId: string,
+  draftId: string,
+  expectedVersion: number,
+  now: Date,
+): Promise<DraftUpdateResult<never>> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("order_drafts")
+      .select("version, status, deleted_at, expires_at")
+      .eq("id", draftId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[order-drafts] update diagnostic failed:", error.message);
+      return draftUpdateDatabaseError();
+    }
+
+    return classifyZeroRowDraftUpdate(data, expectedVersion, now);
+  } catch (error) {
+    return handleDraftUpdateException("update diagnostic", error);
+  }
 }
 
 export async function createOrderDraftForUser(
@@ -161,5 +203,96 @@ export async function listDraftFilesForUser(
     return { ok: true, data: (data ?? []).map(mapOrderDraftFileDatabaseRow) };
   } catch (error) {
     return handleRepositoryException("list files", error);
+  }
+}
+
+export async function updateOrderDraftForUser(
+  userId: string,
+  draftId: string,
+  input: UpdateOrderDraftInput,
+): Promise<DraftUpdateResult<OrderDraftRow>> {
+  if (!validateUuid(userId) || !validateUuid(draftId)) {
+    return draftUpdateInvalidInput("Invalid order draft identifier.");
+  }
+
+  const now = new Date();
+  const payloadResult = buildUpdateOrderDraftPayload(input, now);
+  if (!payloadResult.ok) return payloadResult;
+
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("order_drafts")
+      .update(payloadResult.draft)
+      .eq("id", draftId)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .gt("expires_at", now.toISOString())
+      .eq("version", input.expectedVersion)
+      .select(ORDER_DRAFT_SELECT)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[order-drafts] update failed:", error.message);
+      return draftUpdateDatabaseError();
+    }
+
+    if (!data) {
+      return classifyZeroRowUpdateForUser(
+        userId,
+        draftId,
+        input.expectedVersion,
+        now,
+      );
+    }
+
+    const draft = mapOrderDraftDatabaseRow(data);
+    return { ok: true, draft, version: draft.version };
+  } catch (error) {
+    return handleDraftUpdateException("update", error);
+  }
+}
+
+export async function softDeleteOrderDraftForUser(
+  userId: string,
+  draftId: string,
+  expectedVersion: number,
+): Promise<DraftUpdateResult<OrderDraftRow>> {
+  if (!validateUuid(userId) || !validateUuid(draftId)) {
+    return draftUpdateInvalidInput("Invalid order draft identifier.");
+  }
+
+  const now = new Date();
+  const payloadResult = buildSoftDeleteOrderDraftPayload(expectedVersion, now);
+  if (!payloadResult.ok) return payloadResult;
+
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("order_drafts")
+      .update(payloadResult.draft)
+      .eq("id", draftId)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .gt("expires_at", now.toISOString())
+      .eq("version", expectedVersion)
+      .select(ORDER_DRAFT_SELECT)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[order-drafts] soft delete failed:", error.message);
+      return draftUpdateDatabaseError();
+    }
+
+    if (!data) {
+      return classifyZeroRowUpdateForUser(userId, draftId, expectedVersion, now);
+    }
+
+    const draft = mapOrderDraftDatabaseRow(data);
+    return { ok: true, draft, version: draft.version };
+  } catch (error) {
+    return handleDraftUpdateException("soft delete", error);
   }
 }

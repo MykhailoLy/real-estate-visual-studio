@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { calculateActiveDraftExpiry } from "./constants.ts";
+import { ORDER_FILES_BUCKET } from "../upload-config.ts";
 import {
   CreateOrderDraftInputSchema,
+  UpdateOrderDraftInputSchema,
   OrderDraftFileKindSchema,
   OrderDraftFileStatusSchema,
   OrderDraftStatusSchema,
@@ -14,12 +16,15 @@ import {
 import { normalizeJsonValue } from "./serialization.ts";
 import type {
   CreateOrderDraftInput,
+  DraftUpdateResult,
   JsonObject,
   OrderDraftFileRow,
+  OrderDraftStatus,
   OrderDraftRepositoryResult,
   OrderDraftRow,
   OrderDraftSummary,
   PricingPreview,
+  UpdateOrderDraftInput,
 } from "./types.ts";
 
 export const ORDER_DRAFT_COLUMNS = [
@@ -172,6 +177,35 @@ export interface OrderDraftInsertPayload {
   deleted_at: null;
 }
 
+export interface OrderDraftUpdatePayload {
+  title?: string | null;
+  current_step?: string;
+  state?: JsonObject;
+  state_schema_version?: number;
+  pricing_preview?: PricingPreview | null;
+  pricing_version_seen?: string | null;
+  currency?: string;
+  region?: string | null;
+  updated_at: string;
+  last_autosaved_at: string;
+  expires_at: string;
+  version: number;
+}
+
+export interface OrderDraftSoftDeletePayload {
+  status: "deleted";
+  deleted_at: string;
+  updated_at: string;
+  version: number;
+}
+
+export interface OrderDraftZeroRowDiagnostic {
+  version: number;
+  status: OrderDraftStatus;
+  deleted_at: string | null;
+  expires_at: string;
+}
+
 const DraftDatabaseRowSchema = z.object({
   id: UuidSchema,
   user_id: UuidSchema,
@@ -218,7 +252,7 @@ const DraftFileDatabaseRowSchema = z.object({
   item_client_id: UuidSchema,
   item_index: z.number().int().nullable(),
   kind: OrderDraftFileKindSchema,
-  bucket: z.string(),
+  bucket: z.literal(ORDER_FILES_BUCKET),
   storage_path: z.string(),
   original_filename: z.string(),
   file_size: z.number().int().positive(),
@@ -229,6 +263,13 @@ const DraftFileDatabaseRowSchema = z.object({
   updated_at: ISO_DATE_SCHEMA,
   deleted_at: ISO_DATE_SCHEMA.nullable(),
   moved_at: ISO_DATE_SCHEMA.nullable(),
+});
+
+const ZeroRowDiagnosticSchema = z.object({
+  version: z.number().int().min(1),
+  status: OrderDraftStatusSchema,
+  deleted_at: ISO_DATE_SCHEMA.nullable(),
+  expires_at: ISO_DATE_SCHEMA,
 });
 
 function success<T>(data: T): OrderDraftRepositoryResult<T> {
@@ -249,6 +290,28 @@ export function databaseError<T = never>(
   message = "Order draft database operation failed.",
 ): OrderDraftRepositoryResult<T> {
   return { ok: false, code: "database_error", message };
+}
+
+export function draftUpdateInvalidInput<T = never>(
+  message = "Invalid order draft update input.",
+): DraftUpdateResult<T> {
+  return {
+    ok: false,
+    code: "invalid_input",
+    message,
+    internalDiagnostic: "invalid_input",
+  };
+}
+
+export function draftUpdateDatabaseError<T = never>(
+  message = "Order draft update failed.",
+): DraftUpdateResult<T> {
+  return {
+    ok: false,
+    code: "database_error",
+    message,
+    internalDiagnostic: "database_error",
+  };
 }
 
 function normalizeJsonObject(value: unknown, path: string): JsonObject {
@@ -333,6 +396,34 @@ export function mapOrderDraftFileDatabaseRow(row: unknown): OrderDraftFileRow {
   };
 }
 
+export function canTransitionOrderDraftStatus(
+  from: OrderDraftStatus,
+  to: OrderDraftStatus,
+): boolean {
+  return from === "active" && to === "deleted";
+}
+
+export function buildSoftDeleteOrderDraftPayload(
+  expectedVersion: number,
+  now = new Date(),
+): DraftUpdateResult<OrderDraftSoftDeletePayload> {
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+    return draftUpdateInvalidInput("Invalid expected draft version.");
+  }
+
+  const nowIso = now.toISOString();
+  return {
+    ok: true,
+    draft: {
+      status: "deleted",
+      deleted_at: nowIso,
+      updated_at: nowIso,
+      version: expectedVersion + 1,
+    },
+    version: expectedVersion + 1,
+  };
+}
+
 export function normalizeDraftListLimit(limit?: number): number {
   if (limit === undefined) return 20;
   if (!Number.isFinite(limit)) return 20;
@@ -393,4 +484,133 @@ export function buildCreateOrderDraftInsertPayload(
   } catch {
     return invalidInput("Order draft JSON fields are not valid.");
   }
+}
+
+export function buildUpdateOrderDraftPayload(
+  input: unknown,
+  now = new Date(),
+): DraftUpdateResult<OrderDraftUpdatePayload> {
+  const inputResult = UpdateOrderDraftInputSchema.safeParse(input);
+  if (!inputResult.success) return draftUpdateInvalidInput();
+
+  const parsed = inputResult.data satisfies UpdateOrderDraftInput;
+  const hasState = Object.hasOwn(parsed, "state");
+  const hasCurrentStep = Object.hasOwn(parsed, "currentStep");
+
+  if (hasCurrentStep && !hasState) {
+    return draftUpdateInvalidInput(
+      "currentStep can only be updated with draft state.",
+    );
+  }
+
+  if (
+    hasState &&
+    hasCurrentStep &&
+    parsed.currentStep !== undefined &&
+    parsed.currentStep !== parsed.state?.currentStep
+  ) {
+    return draftUpdateInvalidInput(
+      "currentStep must match state.currentStep when both are provided.",
+    );
+  }
+
+  try {
+    const nowIso = now.toISOString();
+    const payload: OrderDraftUpdatePayload = {
+      updated_at: nowIso,
+      last_autosaved_at: nowIso,
+      expires_at: calculateActiveDraftExpiry(now).toISOString(),
+      version: parsed.expectedVersion + 1,
+    };
+
+    if (Object.hasOwn(parsed, "title")) {
+      payload.title = parsed.title?.trim() || null;
+    }
+
+    if (hasState && parsed.state) {
+      payload.state = normalizeJsonObject(parsed.state, "state");
+      payload.state_schema_version = parsed.state.schemaVersion;
+      payload.current_step = parsed.state.currentStep;
+    }
+
+    if (Object.hasOwn(parsed, "pricingPreview")) {
+      payload.pricing_preview = normalizePricingPreview(parsed.pricingPreview ?? null);
+    }
+
+    if (Object.hasOwn(parsed, "pricingVersionSeen")) {
+      payload.pricing_version_seen = parsed.pricingVersionSeen ?? null;
+    }
+
+    if (Object.hasOwn(parsed, "currency") && parsed.currency) {
+      payload.currency = parsed.currency;
+    }
+
+    if (Object.hasOwn(parsed, "region")) {
+      payload.region = parsed.region ?? null;
+    }
+
+    return {
+      ok: true,
+      draft: payload,
+      version: payload.version,
+    };
+  } catch {
+    return draftUpdateInvalidInput("Order draft update JSON fields are not valid.");
+  }
+}
+
+export function classifyZeroRowDraftUpdate(
+  diagnosticRow: unknown | null,
+  expectedVersion: number,
+  now = new Date(),
+): DraftUpdateResult<never> {
+  if (!diagnosticRow) {
+    return {
+      ok: false,
+      code: "not_found",
+      message: "Draft was not found.",
+      internalDiagnostic: "not_found",
+    };
+  }
+
+  const parsed = ZeroRowDiagnosticSchema.safeParse(diagnosticRow);
+  if (!parsed.success) return draftUpdateDatabaseError();
+
+  if (parsed.data.status !== "active") {
+    return {
+      ok: false,
+      code: "invalid_status",
+      message: "Draft is not editable.",
+      internalDiagnostic: "invalid_status",
+    };
+  }
+
+  if (parsed.data.deleted_at !== null) {
+    return {
+      ok: false,
+      code: "invalid_status",
+      message: "Draft is not editable.",
+      internalDiagnostic: "invalid_status",
+    };
+  }
+
+  if (new Date(parsed.data.expires_at).getTime() <= now.getTime()) {
+    return {
+      ok: false,
+      code: "invalid_status",
+      message: "Draft is expired.",
+      internalDiagnostic: "invalid_status",
+    };
+  }
+
+  if (parsed.data.version !== expectedVersion) {
+    return {
+      ok: false,
+      code: "version_conflict",
+      message: "Draft has changed since it was loaded.",
+      internalDiagnostic: "version_conflict",
+    };
+  }
+
+  return draftUpdateDatabaseError();
 }

@@ -152,11 +152,31 @@ export const UpdateOrderDraftInputSchema = z
     currency: TransactionalCurrencySchema.optional(),
     region: RegionCodeSchema.nullable().optional(),
   })
+  .superRefine((data, ctx) => {
+    const hasEditableField = (
+      [
+        "currentStep",
+        "title",
+        "state",
+        "pricingPreview",
+        "pricingVersionSeen",
+        "currency",
+        "region",
+      ] as const
+    ).some((key) => Object.hasOwn(data, key));
+
+    if (!hasEditableField) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one editable draft field is required.",
+      });
+    }
+  })
   .strict();
 
 export const OrderDraftStatusTransitionSchema = z
   .object({
-    status: OrderDraftStatusSchema,
+    status: z.literal("deleted"),
     expectedVersion: z.number().int().min(1),
   })
   .strict();

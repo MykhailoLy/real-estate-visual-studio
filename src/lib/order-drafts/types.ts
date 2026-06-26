@@ -1,5 +1,6 @@
 import type { ServiceType, TransactionalOrderCurrency } from "../server-validation.ts";
 import type { RegionCode } from "../currency.ts";
+import type { ORDER_FILES_BUCKET } from "../upload-config.ts";
 import type {
   ORDER_DRAFT_FILE_KINDS,
   ORDER_DRAFT_FILE_STATUSES,
@@ -83,7 +84,7 @@ export interface OrderDraftFileRow {
   itemClientId: string;
   itemIndex: number | null;
   kind: OrderDraftFileKind;
-  bucket: string;
+  bucket: typeof ORDER_FILES_BUCKET;
   storagePath: string;
   originalFilename: string;
   fileSize: number;
@@ -149,11 +150,12 @@ export interface UpdateOrderDraftInput<
 export interface OrderDraftStatusTransition {
   // Trusted internal lifecycle transition input only; generic editable
   // autosave/update payloads must not accept status changes.
-  status: OrderDraftStatus;
+  status: Extract<OrderDraftStatus, "deleted">;
   expectedVersion: number;
 }
 
 export type DraftUpdatePublicErrorCode =
+  | "invalid_input"
   | "not_found"
   | "version_conflict"
   | "invalid_status"

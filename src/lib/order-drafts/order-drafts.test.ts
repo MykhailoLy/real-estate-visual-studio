@@ -15,12 +15,17 @@ import {
   OrderDraftFileKindSchema,
   OrderDraftFileStatusSchema,
   OrderDraftStatusSchema,
+  OrderDraftStatusTransitionSchema,
   PricingPreviewSchema,
   UpdateOrderDraftInputSchema,
   UuidSchema,
 } from "./schema.ts";
 import {
   buildCreateOrderDraftInsertPayload,
+  buildSoftDeleteOrderDraftPayload,
+  buildUpdateOrderDraftPayload,
+  canTransitionOrderDraftStatus,
+  classifyZeroRowDraftUpdate,
   mapOrderDraftDatabaseRow,
   mapOrderDraftFileDatabaseRow,
   mapOrderDraftSummary,
@@ -219,6 +224,11 @@ test("editable input schemas accept only editable draft fields", () => {
   assert.equal(UpdateOrderDraftInputSchema.safeParse(validUpdateInput()).success, true);
 });
 
+test("update input requires at least one editable field", () => {
+  const result = UpdateOrderDraftInputSchema.safeParse({ expectedVersion: 3 });
+  assert.equal(result.success, false);
+});
+
 test("pricing preview must be explicitly non-authoritative", () => {
   assert.equal(
     PricingPreviewSchema.safeParse({
@@ -313,6 +323,188 @@ test("create insert payload keeps pricing preview marked non-authoritative", () 
   });
 });
 
+test("update payload increments version and sets trusted timestamps", () => {
+  const payload = buildUpdateOrderDraftPayload(
+    {
+      expectedVersion: 3,
+      title: " Updated title ",
+    },
+    new Date("2026-06-26T10:00:00.000Z"),
+  );
+
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.equal(payload.version, 4);
+  assert.equal(payload.draft.version, 4);
+  assert.equal(payload.draft.updated_at, "2026-06-26T10:00:00.000Z");
+  assert.equal(payload.draft.last_autosaved_at, "2026-06-26T10:00:00.000Z");
+  assert.equal(payload.draft.expires_at, "2026-07-26T10:00:00.000Z");
+});
+
+test("update payload omits unsupplied fields and preserves explicit nulls", () => {
+  const omitted = buildUpdateOrderDraftPayload(
+    { expectedVersion: 1, title: "New title" },
+    new Date("2026-06-26T10:00:00.000Z"),
+  );
+  assert.equal(omitted.ok, true);
+  if (!omitted.ok) return;
+  assert.equal("pricing_preview" in omitted.draft, false);
+  assert.equal("pricing_version_seen" in omitted.draft, false);
+  assert.equal("region" in omitted.draft, false);
+
+  const explicitNulls = buildUpdateOrderDraftPayload(
+    {
+      expectedVersion: 1,
+      title: null,
+      pricingPreview: null,
+      pricingVersionSeen: null,
+      region: null,
+    },
+    new Date("2026-06-26T10:00:00.000Z"),
+  );
+  assert.equal(explicitNulls.ok, true);
+  if (!explicitNulls.ok) return;
+  assert.equal(explicitNulls.draft.title, null);
+  assert.equal(explicitNulls.draft.pricing_preview, null);
+  assert.equal(explicitNulls.draft.pricing_version_seen, null);
+  assert.equal(explicitNulls.draft.region, null);
+});
+
+test("update payload normalizes state and updates schema version/current step", () => {
+  const state = {
+    ...validEnvelope(),
+    schemaVersion: 2,
+    currentStep: "review",
+    metadata: { keep: true },
+  };
+  const payload = buildUpdateOrderDraftPayload(
+    { expectedVersion: 1, state },
+    new Date("2026-06-26T10:00:00.000Z"),
+  );
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.equal(payload.draft.state_schema_version, 2);
+  assert.equal(payload.draft.current_step, "review");
+  assert.deepEqual(payload.draft.state?.metadata, { keep: true });
+});
+
+test("update payload normalizes pricing preview", () => {
+  const payload = buildUpdateOrderDraftPayload(
+    {
+      expectedVersion: 1,
+      pricingPreview: {
+        nonAuthoritative: true,
+        preview: { totalCents: 1200 },
+      },
+    },
+    new Date("2026-06-26T10:00:00.000Z"),
+  );
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.deepEqual(payload.draft.pricing_preview, {
+    nonAuthoritative: true,
+    preview: { totalCents: 1200 },
+  });
+});
+
+test("update payload rejects contradictory or standalone currentStep", () => {
+  assert.equal(
+    buildUpdateOrderDraftPayload({
+      expectedVersion: 1,
+      currentStep: "review",
+    }).ok,
+    false,
+  );
+
+  assert.equal(
+    buildUpdateOrderDraftPayload({
+      expectedVersion: 1,
+      currentStep: "review",
+      state: validEnvelope(),
+    }).ok,
+    false,
+  );
+});
+
+test("soft-delete payload sets trusted deletion fields", () => {
+  const payload = buildSoftDeleteOrderDraftPayload(
+    2,
+    new Date("2026-06-26T10:00:00.000Z"),
+  );
+  assert.equal(payload.ok, true);
+  if (!payload.ok) return;
+  assert.deepEqual(payload.draft, {
+    status: "deleted",
+    deleted_at: "2026-06-26T10:00:00.000Z",
+    updated_at: "2026-06-26T10:00:00.000Z",
+    version: 3,
+  });
+});
+
+test("lifecycle transition helper only allows active to deleted", () => {
+  assert.equal(canTransitionOrderDraftStatus("active", "deleted"), true);
+  assert.equal(canTransitionOrderDraftStatus("active", "converted"), false);
+  assert.equal(canTransitionOrderDraftStatus("converted", "deleted"), false);
+  assert.equal(OrderDraftStatusTransitionSchema.safeParse({
+    status: "deleted",
+    expectedVersion: 1,
+  }).success, true);
+  assert.equal(OrderDraftStatusTransitionSchema.safeParse({
+    status: "converted",
+    expectedVersion: 1,
+  }).success, false);
+});
+
+test("zero-row diagnostic classifies safe public outcomes", () => {
+  const now = new Date("2026-06-26T10:00:00.000Z");
+  assert.equal(classifyZeroRowDraftUpdate(null, 3, now).code, "not_found");
+  assert.equal(
+    classifyZeroRowDraftUpdate({
+      version: 4,
+      status: "active",
+      deleted_at: null,
+      expires_at: "2026-07-26T10:00:00.000Z",
+    }, 3, now).code,
+    "version_conflict",
+  );
+  assert.equal(
+    classifyZeroRowDraftUpdate({
+      version: 3,
+      status: "converted",
+      deleted_at: null,
+      expires_at: "2026-07-26T10:00:00.000Z",
+    }, 3, now).code,
+    "invalid_status",
+  );
+  assert.equal(
+    classifyZeroRowDraftUpdate({
+      version: 3,
+      status: "active",
+      deleted_at: null,
+      expires_at: "2026-06-26T09:59:59.999Z",
+    }, 3, now).code,
+    "invalid_status",
+  );
+  assert.equal(
+    classifyZeroRowDraftUpdate({
+      version: 3,
+      status: "active",
+      deleted_at: "2026-06-26T09:00:00.000Z",
+      expires_at: "2026-07-26T10:00:00.000Z",
+    }, 3, now).code,
+    "invalid_status",
+  );
+  assert.equal(
+    classifyZeroRowDraftUpdate({
+      version: 3,
+      status: "active",
+      deleted_at: null,
+      expires_at: "2026-07-26T10:00:00.000Z",
+    }, 3, now).code,
+    "database_error",
+  );
+});
+
 test("snake_case draft row maps to camelCase domain row", () => {
   const mapped = mapOrderDraftDatabaseRow(draftDatabaseRow());
   assert.equal(mapped.userId, UUID_A);
@@ -328,6 +520,15 @@ test("snake_case file row maps to camelCase file row", () => {
   assert.equal(mapped.itemClientId, UUID_A);
   assert.equal(mapped.storagePath, "drafts/user/draft/file/photo.jpg");
   assert.equal(mapped.uploadStatus, "uploaded");
+});
+
+test("draft file mapping rejects unexpected buckets", () => {
+  assert.throws(() =>
+    mapOrderDraftFileDatabaseRow({
+      ...draftFileDatabaseRow(),
+      bucket: "public-files",
+    }),
+  );
 });
 
 test("summary mapping excludes state payload", () => {
