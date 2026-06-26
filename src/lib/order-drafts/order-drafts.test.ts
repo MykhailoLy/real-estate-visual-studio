@@ -1,0 +1,265 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  calculateActiveDraftExpiry,
+  isInsideDraftExpiryWarningWindow,
+  ORDER_DRAFT_FILE_KINDS,
+  ORDER_DRAFT_FILE_STATUSES,
+  ORDER_DRAFT_STATUSES,
+} from "./constants.ts";
+import {
+  BaseDraftStateEnvelopeSchema,
+  DraftFileReferenceSchema,
+  OrderDraftFileKindSchema,
+  OrderDraftFileStatusSchema,
+  OrderDraftStatusSchema,
+  UuidSchema,
+} from "./schema.ts";
+import {
+  createDraftClientItemId,
+  mapDraftUpdateOutcome,
+} from "./utils.ts";
+import {
+  JsonNormalizationError,
+  normalizeJsonValue,
+  stableStringifyJson,
+} from "./serialization.ts";
+import {
+  buildOrderDraftFilePath,
+  ORDER_FILES_BUCKET,
+  sanitizeOrderDraftFilename,
+} from "./storage-paths.ts";
+
+const UUID_A = "11111111-1111-4111-8111-111111111111";
+const UUID_B = "22222222-2222-4222-8222-222222222222";
+const UUID_C = "33333333-3333-4333-8333-333333333333";
+
+function validEnvelope() {
+  return {
+    schemaVersion: 1,
+    jobTitle: "123 Main Street",
+    currentStep: "configure",
+    notes: "Client notes",
+    termsUi: { expanded: false },
+    metadata: { source: "unit-test" },
+    items: [
+      {
+        clientItemId: UUID_A,
+        state: { room: "Living Room", count: 1, enabled: true },
+        files: {
+          original: {
+            draftFileId: UUID_B,
+            kind: "original",
+            originalFilename: "photo.jpg",
+          },
+          reference: null,
+        },
+      },
+    ],
+  };
+}
+
+test("allowed status constants match schemas", () => {
+  for (const status of ORDER_DRAFT_STATUSES) {
+    assert.equal(OrderDraftStatusSchema.parse(status), status);
+  }
+  for (const status of ORDER_DRAFT_FILE_STATUSES) {
+    assert.equal(OrderDraftFileStatusSchema.parse(status), status);
+  }
+  for (const kind of ORDER_DRAFT_FILE_KINDS) {
+    assert.equal(OrderDraftFileKindSchema.parse(kind), kind);
+  }
+});
+
+test("draft state schema accepts valid JSON-safe state", () => {
+  const parsed = BaseDraftStateEnvelopeSchema.parse(validEnvelope());
+  assert.equal(parsed.schemaVersion, 1);
+  assert.equal(parsed.items[0]?.clientItemId, UUID_A);
+});
+
+test("UUID validation accepts IDs and rejects non-UUID values", () => {
+  assert.equal(UuidSchema.parse(UUID_A), UUID_A);
+  assert.throws(() => UuidSchema.parse("not-a-uuid"));
+  assert.equal(DraftFileReferenceSchema.parse({
+    draftFileId: UUID_B,
+    kind: "reference",
+  }).draftFileId, UUID_B);
+});
+
+test("stable item ID generation returns unique UUID strings", () => {
+  const ids = Array.from({ length: 100 }, () => createDraftClientItemId());
+  assert.equal(new Set(ids).size, ids.length);
+  for (const id of ids) {
+    assert.equal(UuidSchema.safeParse(id).success, true);
+  }
+});
+
+test("object undefined properties are omitted", () => {
+  assert.deepEqual(normalizeJsonValue({ a: 1, b: undefined }), { a: 1 });
+});
+
+test("array undefined entries are rejected", () => {
+  assert.throws(
+    () => normalizeJsonValue([1, undefined]),
+    (error) =>
+      error instanceof JsonNormalizationError &&
+      error.path === "$[1]",
+  );
+});
+
+test("unsupported runtime values are rejected", () => {
+  for (const value of [
+    Number.NaN,
+    Infinity,
+    -Infinity,
+    BigInt(1),
+    Symbol("x"),
+    () => null,
+    new Date("2026-06-26T00:00:00.000Z"),
+    new Map(),
+    new Set(),
+    new Uint8Array([1]),
+    new (class DraftState {})(),
+  ]) {
+    assert.throws(() => normalizeJsonValue(value), JsonNormalizationError);
+  }
+});
+
+test("circular references are rejected", () => {
+  const value: Record<string, unknown> = {};
+  value.self = value;
+  assert.throws(
+    () => normalizeJsonValue(value),
+    (error) =>
+      error instanceof JsonNormalizationError &&
+      error.path === "$.self",
+  );
+});
+
+test("error paths identify nested failures", () => {
+  assert.throws(
+    () => normalizeJsonValue({ items: [{ file: new Date() }] }),
+    (error) =>
+      error instanceof JsonNormalizationError &&
+      error.path === "$.items[0].file",
+  );
+});
+
+test("stable serialization sorts object keys recursively", () => {
+  const left = { z: 1, a: { d: true, c: false } };
+  const right = { a: { c: false, d: true }, z: 1 };
+  assert.equal(stableStringifyJson(left), stableStringifyJson(right));
+});
+
+test("stable serialization preserves array order", () => {
+  assert.notEqual(
+    stableStringifyJson({ items: [1, 2] }),
+    stableStringifyJson({ items: [2, 1] }),
+  );
+});
+
+test("filename sanitization handles common and hostile names", () => {
+  const cases = [
+    ["photo.jpg", "photo.jpg"],
+    ["front elevation final.JPG", "front_elevation_final.jpg"],
+    ["casa ñandú.png", "casa_nandu.png"],
+    ["living.room.v2.jpeg", "living.room.v2.jpeg"],
+    ["floorplan", "floorplan"],
+    [".hidden", "hidden"],
+    ["../../secret.jpg", "secret.jpg"],
+    ["C:\\fakepath\\photo.JPG", "photo.jpg"],
+    ["a/b\\c.png", "c.png"],
+    ["bad\u0000name.jpg", "badname.jpg"],
+    ["***.jpg", "file.jpg"],
+  ] as const;
+
+  for (const [input, expected] of cases) {
+    assert.equal(sanitizeOrderDraftFilename(input), expected);
+  }
+});
+
+test("filename sanitization caps long names and strips separators", () => {
+  const sanitized = sanitizeOrderDraftFilename(`${"a".repeat(200)}.JPG`);
+  assert.equal(sanitized.length, 100);
+  assert.match(sanitized, /\.jpg$/);
+  assert.equal(sanitized.includes("/"), false);
+  assert.equal(sanitized.includes("\\"), false);
+});
+
+test("draft storage path output is deterministic and scoped", () => {
+  const input = {
+    userId: UUID_A,
+    draftId: UUID_B,
+    fileId: UUID_C,
+    originalFilename: "C:\\fakepath\\Front Photo.JPG",
+  };
+  const expected =
+    "drafts/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333/Front_Photo.jpg";
+  assert.equal(ORDER_FILES_BUCKET, "order-files");
+  assert.equal(buildOrderDraftFilePath(input), expected);
+  assert.equal(buildOrderDraftFilePath(input), expected);
+});
+
+test("draft storage path validates UUID segments", () => {
+  assert.throws(() =>
+    buildOrderDraftFilePath({
+      userId: "not-a-uuid",
+      draftId: UUID_B,
+      fileId: UUID_C,
+      originalFilename: "photo.jpg",
+    }),
+  );
+});
+
+test("30-day expiry calculation is UTC-millisecond deterministic", () => {
+  const from = new Date("2026-06-26T00:00:00.000Z");
+  assert.equal(
+    calculateActiveDraftExpiry(from).toISOString(),
+    "2026-07-26T00:00:00.000Z",
+  );
+});
+
+test("7-day warning calculation uses supplied now", () => {
+  const expiresAt = new Date("2026-07-26T00:00:00.000Z");
+  assert.equal(
+    isInsideDraftExpiryWarningWindow(
+      expiresAt,
+      new Date("2026-07-18T23:59:59.999Z"),
+    ),
+    false,
+  );
+  assert.equal(
+    isInsideDraftExpiryWarningWindow(
+      expiresAt,
+      new Date("2026-07-19T00:00:00.000Z"),
+    ),
+    true,
+  );
+});
+
+test("optimistic concurrency result mapping is safe", () => {
+  const draft = { id: UUID_A };
+  assert.deepEqual(mapDraftUpdateOutcome({ kind: "updated", draft, version: 2 }), {
+    ok: true,
+    draft,
+    version: 2,
+  });
+  assert.deepEqual(mapDraftUpdateOutcome({ kind: "not_found_or_ownership_mismatch" }), {
+    ok: false,
+    code: "not_found",
+    message: "Draft was not found.",
+    internalDiagnostic: "not_found",
+  });
+  assert.equal(
+    mapDraftUpdateOutcome({ kind: "version_conflict" }).code,
+    "version_conflict",
+  );
+  assert.equal(
+    mapDraftUpdateOutcome({ kind: "invalid_status", status: "converted" }).code,
+    "invalid_status",
+  );
+  assert.equal(
+    mapDraftUpdateOutcome({ kind: "database_error", message: "boom" }).code,
+    "database_error",
+  );
+});
