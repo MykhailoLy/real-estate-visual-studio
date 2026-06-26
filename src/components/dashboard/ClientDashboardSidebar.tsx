@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DASHBOARD_NAV_ITEMS } from "./ClientDashboardTopNav";
 import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
@@ -140,14 +139,7 @@ export default function ClientDashboardSidebar({
       )}
 
       {/* ── Footer ── */}
-      <div className="mt-auto px-2 pb-4 pt-2 space-y-0.5">
-        <Link
-          href="/"
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-semibold text-muted hover:text-primary hover:bg-surface transition-colors"
-        >
-          <ArrowUpRight className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
-          Back to website
-        </Link>
+      <div className="mt-auto px-2 pb-4 pt-2">
         <div className="flex items-center gap-2 px-3 py-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0" aria-hidden />
           <span className="text-[10px] text-muted-light font-medium select-none">Client Portal</span>

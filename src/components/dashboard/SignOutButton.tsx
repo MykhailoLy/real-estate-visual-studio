@@ -6,12 +6,18 @@ import { signOutBrowserSession } from "@/lib/sign-out";
 
 interface SignOutButtonProps {
   className?: string;
+  label?: string;
+  loadingLabel?: string;
 }
 
 // Signs out via the SSR cookie-based Supabase browser client, then
 // hard-navigates to /login so the server session cookie is cleared too.
 // Always redirects even if signOut throws, so the button never gets stuck.
-export default function SignOutButton({ className }: SignOutButtonProps) {
+export default function SignOutButton({
+  className,
+  label = "Sign out",
+  loadingLabel = "Signing out...",
+}: SignOutButtonProps) {
   const [loading, setLoading] = useState(false);
 
   async function handleSignOut() {
@@ -34,7 +40,7 @@ export default function SignOutButton({ className }: SignOutButtonProps) {
       ) : (
         <LogOut className="w-4 h-4" aria-hidden />
       )}
-      {loading ? "Signing out…" : "Sign out"}
+      {loading ? loadingLabel : label}
     </button>
   );
 }

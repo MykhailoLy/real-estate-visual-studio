@@ -70,12 +70,12 @@ import {
 
 const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-5 2xl:px-10";
 
-type SiteLanguage = "en" | "es";
+export type SiteLanguage = "en" | "es";
 
 const LANGUAGE_STORAGE_KEY = "picchuspot-language";
 const LANGUAGE_COOKIE_NAME = "picchuspot_language";
 
-type ResourceMenuItem = {
+export type ResourceMenuItem = {
   label: string;
   esLabel: string;
   description: string;
@@ -86,7 +86,7 @@ type ResourceMenuItem = {
   status?: "coming-soon";
 };
 
-const resourceMenuItems: ResourceMenuItem[] = [
+export const resourceMenuItems: ResourceMenuItem[] = [
   {
     label: "About",
     esLabel: "Sobre nosotros",
@@ -291,7 +291,7 @@ function readCookieLanguage(): SiteLanguage | null {
   return isSiteLanguage(value) ? value : null;
 }
 
-function readStoredLanguage(): SiteLanguage | null {
+export function readStoredLanguage(): SiteLanguage | null {
   if (typeof window === "undefined") return null;
   try {
     const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
@@ -302,7 +302,7 @@ function readStoredLanguage(): SiteLanguage | null {
   return readCookieLanguage();
 }
 
-function writeLanguagePreference(language: SiteLanguage) {
+export function writeLanguagePreference(language: SiteLanguage) {
   try {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
   } catch {
@@ -311,7 +311,7 @@ function writeLanguagePreference(language: SiteLanguage) {
   document.cookie = `${LANGUAGE_COOKIE_NAME}=${language}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 
-function getCurrentLanguage(
+export function getCurrentLanguage(
   pathname: string,
   savedLanguage: SiteLanguage | null
 ): SiteLanguage {
@@ -326,7 +326,7 @@ function getLanguageHref(pathname: string, language: SiteLanguage): string {
   return getEnglishPath(normalized) ?? "/";
 }
 
-function getLocaleAwareHref(href: string, language: SiteLanguage): string {
+export function getLocaleAwareHref(href: string, language: SiteLanguage): string {
   if (language === "es") {
     return getSpanishPath(href) ?? href;
   }
@@ -707,7 +707,7 @@ interface BurgerMenuPanelProps {
   onClose: () => void;
 }
 
-function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
+export function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
   if (item.status === "coming-soon") return null;
   if (!item.href) return null;
   return getLocaleAwareHref(item.href, language);
@@ -916,24 +916,28 @@ function ResourceMenuLink({
 
 type MarketLanguageSelectorPlacement = "header" | "panel";
 
-function MarketLanguageSelector({
+export function MarketLanguageSelector({
   pathname,
   currentLanguage,
   className,
   compact = false,
+  tight = false,
   placement = "header",
   onNavigate,
   onLanguageChange,
   analyticsLocation,
+  getLanguageOptionHref,
 }: {
   pathname: string;
   currentLanguage: SiteLanguage;
   className?: string;
   compact?: boolean;
+  tight?: boolean;
   placement?: MarketLanguageSelectorPlacement;
   onNavigate?: () => void;
   onLanguageChange: (language: SiteLanguage) => void;
   analyticsLocation: string;
+  getLanguageOptionHref?: (language: SiteLanguage) => string;
 }) {
   const [region, setRegion] = useDisplayRegion();
   const [open, setOpen] = useState(false);
@@ -1099,7 +1103,10 @@ function MarketLanguageSelector({
             return (
               <Link
                 key={option.code}
-                href={getLanguageHref(pathname, option.code)}
+                href={
+                  getLanguageOptionHref?.(option.code) ??
+                  getLanguageHref(pathname, option.code)
+                }
                 onClick={() => {
                   onLanguageChange(option.code);
                   setOpen(false);
@@ -1145,13 +1152,17 @@ function MarketLanguageSelector({
           "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 py-2 shadow-sm transition-colors hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
           placement === "header"
             ? compact
-              ? "h-9 min-w-[6.5rem] px-2 xl:min-w-[7rem] 2xl:min-w-[8rem] 2xl:px-3"
+              ? tight
+                ? "h-9 min-w-[4.75rem] gap-1 px-1.5 sm:min-w-[6.5rem] sm:px-2"
+                : "h-9 min-w-[6.5rem] px-2 xl:min-w-[7rem] 2xl:min-w-[8rem] 2xl:px-3"
               : "h-9 min-w-[7rem] px-2 2xl:min-w-[8rem] 2xl:px-3"
             : "w-full px-3"
         )}
       >
-        <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-primary">
-          <RegionFlag code={activeOption.code} />
+        <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em] text-primary sm:gap-1.5 sm:text-xs sm:tracking-[0.08em]">
+          <span className={cn(tight && "hidden sm:inline-flex")}>
+            <RegionFlag code={activeOption.code} />
+          </span>
           <span>{currencyForRegion(region)}</span>
           <span className="text-muted">{"\u00b7"}</span>
           <span>{currentLanguage.toUpperCase()}</span>

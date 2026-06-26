@@ -19,6 +19,8 @@ export interface ClientUser {
   displayName: string;
   /** First word of displayName */
   firstName: string;
+  /** Valid public avatar URL from trusted auth metadata, when available. */
+  avatarUrl: string | null;
 }
 
 // ── Session helpers ───────────────────────────────────────────
@@ -42,12 +44,30 @@ export async function getClientUser(): Promise<ClientUser | null> {
       typeof meta.full_name === "string" && meta.full_name.trim()
         ? meta.full_name.trim()
         : email.split("@")[0];
+    const avatarCandidate =
+      typeof meta.avatar_url === "string"
+        ? meta.avatar_url
+        : typeof meta.picture === "string"
+          ? meta.picture
+          : null;
+    let avatarUrl: string | null = null;
+    if (avatarCandidate) {
+      try {
+        const parsed = new URL(avatarCandidate);
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+          avatarUrl = parsed.toString();
+        }
+      } catch {
+        avatarUrl = null;
+      }
+    }
 
     return {
       id:          user.id,
       email,
       displayName: rawName,
       firstName:   rawName.split(" ")[0],
+      avatarUrl,
     };
   } catch {
     return null;
