@@ -2,6 +2,7 @@ import type {
   CreateOrderDraftInput,
   DraftUpdatePublicErrorCode,
   OrderDraftRow,
+  OrderDraftSummary,
   UpdateOrderDraftInput,
 } from "./types.ts";
 
@@ -109,6 +110,17 @@ export function getOrderDraft(
 ): Promise<OrderDraftClientResult<OrderDraftRow>> {
   return requestOrderDraftApi<OrderDraftRow>(
     `/api/order-drafts/${encodeURIComponent(draftId)}`,
+    { method: "GET", signal },
+  );
+}
+
+export function listOrderDrafts(
+  limit = 3,
+  signal?: AbortSignal,
+): Promise<OrderDraftClientResult<OrderDraftSummary[]>> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return requestOrderDraftApi<OrderDraftSummary[]>(
+    `/api/order-drafts?${params.toString()}`,
     { method: "GET", signal },
   );
 }

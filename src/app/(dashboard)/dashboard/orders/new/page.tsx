@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import OrderServiceCard from "@/components/dashboard/OrderServiceCard";
+import SavedDraftsSection from "@/components/dashboard/SavedDraftsSection";
 import { getOrderServiceCards } from "@/lib/order-services";
 import { getOrderCardImages } from "@/lib/order-card-media";
 import { getOrderServiceExamples } from "@/lib/order-card-examples";
@@ -52,6 +53,8 @@ export default async function NewOrderHubPage() {
           receive professional results, typically within 24-48 hours.
         </p>
       </div>
+
+      <SavedDraftsSection />
 
       <ul
         role="list"
