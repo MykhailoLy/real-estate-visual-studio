@@ -13,6 +13,7 @@
 import type { Metadata } from "next";
 import { getClientUser } from "@/lib/client-auth";
 import { getClientProfile } from "@/lib/client-profile";
+import DashboardDocumentScrollLock from "@/components/dashboard/DashboardDocumentScrollLock";
 import { DashboardUserProvider } from "@/components/dashboard/DashboardUserContext";
 import type { DashboardUser } from "@/components/dashboard/DashboardUserContext";
 
@@ -48,6 +49,7 @@ export default async function DashboardGroupLayout({
 
   return (
     <DashboardUserProvider user={user}>
+      <DashboardDocumentScrollLock />
       {children}
     </DashboardUserProvider>
   );
