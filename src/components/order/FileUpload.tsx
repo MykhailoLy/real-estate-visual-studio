@@ -260,7 +260,7 @@ export default function FileUpload({
           onDragLeave={onDragLeave}
           onDrop={onDrop}
           className={cn(
-            "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all select-none",
+            "w-full border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all select-none",
             isDragActive
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/40 hover:bg-surface"
@@ -283,7 +283,7 @@ export default function FileUpload({
       )}
 
       {rejected && (
-        <p id={rejectedId} className="text-xs text-red-700 mt-1">
+        <p id={rejectedId} role="alert" className="text-xs text-red-700 mt-1">
           File rejected. Please check format and size.
         </p>
       )}
