@@ -25,6 +25,7 @@ import {
 import type { OrderDraftSummary } from "@/lib/order-drafts/types";
 
 type LoadState = "loading" | "success" | "error";
+type DeleteRefreshResult = "refreshed" | "failed" | "redirected" | "aborted";
 
 interface DraftsPageCopy {
   heading: string;
@@ -138,10 +139,13 @@ export default function ClientDraftsPage() {
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("");
   const mountedRef = useRef(true);
+  const activeDeleteControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      activeDeleteControllerRef.current?.abort();
     };
   }, []);
 
@@ -186,20 +190,32 @@ export default function ClientDraftsPage() {
     setReloadKey((key) => key + 1);
   }, []);
 
-  const refreshDraftsAfterDeleteError = useCallback(async () => {
-    const result = await listOrderDrafts(100);
-    if (!mountedRef.current) return;
-    if (!result.ok) {
-      if (result.code === "unauthenticated") {
-        router.push(LOGIN_REDIRECT);
+  const refreshDraftsAfterDeleteError = useCallback(async (
+    signal: AbortSignal,
+  ): Promise<DeleteRefreshResult> => {
+    try {
+      const result = await listOrderDrafts(100, signal);
+      if (signal.aborted || !mountedRef.current) return "aborted";
+      if (!result.ok) {
+        if (result.code === "unauthenticated") {
+          router.push(LOGIN_REDIRECT);
+          return "redirected";
+        }
+        return "failed";
       }
-      return;
+      setDrafts(result.data);
+      setLoadState("success");
+      return "refreshed";
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return "aborted";
+      }
+      return "failed";
     }
-    setDrafts(result.data);
-    setLoadState("success");
   }, [router]);
 
   const beginDelete = (draftId: string) => {
+    if (activeDeleteControllerRef.current) return;
     setConfirmDraftId(draftId);
     setCardErrors({});
     setStatusMessage("");
@@ -211,8 +227,9 @@ export default function ClientDraftsPage() {
   };
 
   const confirmDelete = async (draft: OrderDraftSummary) => {
-    if (deletingDraftId) return;
+    if (deletingDraftId || activeDeleteControllerRef.current) return;
     const controller = new AbortController();
+    activeDeleteControllerRef.current = controller;
     setDeletingDraftId(draft.id);
     setCardErrors({});
     setStatusMessage("");
@@ -239,10 +256,19 @@ export default function ClientDraftsPage() {
 
       if (shouldRefreshDraftListAfterDeleteError(result.code)) {
         setConfirmDraftId(null);
-        setStatusMessage(
-          getRefreshMessageForDeleteError(result.code, copy),
+        const refreshResult = await refreshDraftsAfterDeleteError(
+          controller.signal,
         );
-        await refreshDraftsAfterDeleteError();
+        if (!mountedRef.current || refreshResult === "aborted") return;
+        if (refreshResult === "refreshed") {
+          setStatusMessage(
+            getRefreshMessageForDeleteError(result.code, copy),
+          );
+          return;
+        }
+        if (refreshResult === "failed") {
+          setCardErrors({ [draft.id]: copy.deleteFailed });
+        }
         return;
       }
 
@@ -252,7 +278,11 @@ export default function ClientDraftsPage() {
       if (!mountedRef.current) return;
       setCardErrors({ [draft.id]: copy.deleteFailed });
     } finally {
-      if (mountedRef.current) setDeletingDraftId(null);
+      const ownsActiveDelete = activeDeleteControllerRef.current === controller;
+      if (ownsActiveDelete) {
+        activeDeleteControllerRef.current = null;
+      }
+      if (mountedRef.current && ownsActiveDelete) setDeletingDraftId(null);
     }
   };
 
@@ -327,6 +357,7 @@ export default function ClientDraftsPage() {
                 language={language}
                 confirming={confirmDraftId === draft.id}
                 deleting={deletingDraftId === draft.id}
+                deleteInteractionDisabled={deletingDraftId !== null}
                 error={cardErrors[draft.id] ?? ""}
                 onDelete={() => beginDelete(draft.id)}
                 onCancel={cancelDelete}
@@ -354,6 +385,7 @@ function DraftCard({
   language,
   confirming,
   deleting,
+  deleteInteractionDisabled,
   error,
   onDelete,
   onCancel,
@@ -364,6 +396,7 @@ function DraftCard({
   language: SiteLanguage;
   confirming: boolean;
   deleting: boolean;
+  deleteInteractionDisabled: boolean;
   error: string;
   onDelete: () => void;
   onCancel: () => void;
@@ -437,7 +470,8 @@ function DraftCard({
             <button
               type="button"
               onClick={onDelete}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              disabled={deleteInteractionDisabled}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
             >
               <Trash2 className="h-4 w-4" aria-hidden />
               {copy.delete}
