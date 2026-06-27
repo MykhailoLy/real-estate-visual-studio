@@ -191,8 +191,8 @@ export async function listDraftFilesForUser(
       .from("order_draft_files")
       .select(ORDER_DRAFT_FILE_SELECT)
       .eq("draft_id", draftId)
+      .eq("upload_status", "uploaded")
       .is("deleted_at", null)
-      .neq("upload_status", "deleted")
       .order("created_at", { ascending: true });
 
     if (error) {

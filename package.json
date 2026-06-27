@@ -11,6 +11,8 @@
     "test:drafts-page": "node --experimental-strip-types --test src/lib/order-drafts/drafts-page.test.ts",
     "test:order-drafts": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts.test.ts",
     "test:order-drafts-api": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts-api.test.ts",
+    "test:order-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files.test.ts",
+    "test:order-draft-files-api": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files-api.test.ts",
     "test:saved-drafts": "node --experimental-strip-types --test src/lib/order-drafts/saved-drafts.test.ts",
     "test:virtual-staging-drafts": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging.test.ts"
   },
