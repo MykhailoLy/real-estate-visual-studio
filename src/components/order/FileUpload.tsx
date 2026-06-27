@@ -92,6 +92,11 @@ export default function FileUpload({
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputId = useId();
+  const labelId = `${inputId}-label`;
+  const uploadActionId = `${inputId}-upload-action`;
+  const maxSizeId = `${inputId}-max-size`;
+  const helperTextId = helperText ? `${inputId}-helper` : undefined;
+  const rejectedId = `${inputId}-error`;
   const [isDragActive, setIsDragActive] = useState(false);
   const [rejected, setRejected] = useState(false);
 
@@ -143,55 +148,61 @@ export default function FileUpload({
     inputRef.current?.click();
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openPicker();
-    }
-  };
-
-  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const onDragOver = (e: React.DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isDragActive) setIsDragActive(true);
   };
 
-  const onDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+  const onDragEnter = (e: React.DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(true);
   };
 
-  const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const onDragLeave = (e: React.DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
   };
 
-  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const onDrop = (e: React.DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
     handleFiles(e.dataTransfer?.files ?? null);
   };
 
-  const removeFile = (e: React.MouseEvent) => {
+  const removeFile = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setRejected(false);
     onFileChange(null);
   };
 
+  const describedBy = [
+    helperTextId,
+    !file ? maxSizeId : undefined,
+    rejected ? rejectedId : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div>
       <label
+        id={labelId}
         htmlFor={inputId}
         className="block text-sm font-medium text-foreground mb-1.5"
       >
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
-      {helperText && <p className="text-xs text-muted mb-2">{helperText}</p>}
+      {helperText && (
+        <p id={helperTextId} className="text-xs text-foreground/75 mb-2">
+          {helperText}
+        </p>
+      )}
 
       {/* Hidden file input — always rendered so click + keyboard pickers work
           regardless of the visible state. */}
@@ -200,9 +211,8 @@ export default function FileUpload({
         id={inputId}
         type="file"
         accept={acceptString}
-        className="sr-only"
+        className="hidden"
         onChange={handleInputChange}
-        aria-hidden="true"
         tabIndex={-1}
       />
 
@@ -219,14 +229,14 @@ export default function FileUpload({
             />
           ) : (
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-md bg-stone-100 flex items-center justify-center flex-shrink-0">
-              <FileImage className="w-6 h-6 text-primary" />
+              <FileImage className="w-6 h-6 text-primary" aria-hidden="true" />
             </div>
           )}
           <div className="min-w-0 flex-1 flex flex-col justify-center">
             <p className="text-sm font-medium text-foreground truncate">
               {file.name}
             </p>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-foreground/75">
               {(file.size / 1024 / 1024).toFixed(2)} MB
             </p>
           </div>
@@ -236,39 +246,44 @@ export default function FileUpload({
             className="flex-shrink-0 self-start p-1 text-muted hover:text-red-500 transition-colors"
             aria-label="Remove file"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       ) : (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={`${label}. Click or press Enter to choose a file, or drop a file here.`}
+        <button
+          type="button"
+          aria-labelledby={`${labelId} ${uploadActionId}`}
+          aria-describedby={describedBy || undefined}
           onClick={openPicker}
-          onKeyDown={onKeyDown}
           onDragOver={onDragOver}
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
           className={cn(
-            "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all select-none",
+            "w-full border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all select-none",
             isDragActive
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/40 hover:bg-surface"
           )}
         >
-          <Upload className="w-8 h-8 text-muted mx-auto mb-2" />
-          <p className="text-sm text-foreground font-medium">
+          <Upload
+            className="w-8 h-8 text-foreground/70 mx-auto mb-2"
+            aria-hidden="true"
+          />
+          <span
+            id={uploadActionId}
+            className="block text-sm text-foreground font-medium"
+          >
             {isDragActive ? "Drop file here" : "Click or drag to upload"}
-          </p>
-          <p className="text-xs text-muted mt-1">
+          </span>
+          <span id={maxSizeId} className="block text-xs text-foreground/75 mt-1">
             Max {Math.round(maxSize / 1024 / 1024)}MB
-          </p>
-        </div>
+          </span>
+        </button>
       )}
 
       {rejected && (
-        <p className="text-xs text-red-500 mt-1">
+        <p id={rejectedId} role="alert" className="text-xs text-red-700 mt-1">
           File rejected. Please check format and size.
         </p>
       )}
