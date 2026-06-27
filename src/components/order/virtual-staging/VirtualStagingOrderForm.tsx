@@ -124,7 +124,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   },
   es: {
     draft: "Borrador",
-    not_saved: "Aun no guardado",
+    not_saved: "Aún no guardado",
     saving: "Guardando...",
     saved: "Guardado",
     save_failed: "Error al guardar",
@@ -273,6 +273,7 @@ export default function VirtualStagingOrderForm({
     }
 
     draftSessionRef.current += 1;
+    saveChainRef.current = Promise.resolve();
     const reset = resetVirtualStagingDraftIdentity(searchParams.toString());
 
     setItems([emptyStagingItem()]);
@@ -297,12 +298,21 @@ export default function VirtualStagingOrderForm({
 
   const saveDraftNow = useCallback(
     (options: { force?: boolean } = {}) => {
+      const sessionAtEnqueue = draftSessionRef.current;
+
       const run = async (): Promise<boolean> => {
+        if (
+          !shouldApplyVirtualStagingSaveResult(
+            sessionAtEnqueue,
+            draftSessionRef.current,
+          )
+        ) {
+          return false;
+        }
         if (isRestoringRef.current || resumeState === "loading") return false;
         if (!options.force && !hasMeaningfulDraft) return true;
         if (saveStatus === "conflict") return false;
 
-        const sessionAtStart = draftSessionRef.current;
         const fingerprint = buildVirtualStagingDraftFingerprint(draftSource);
         if (
           !options.force &&
@@ -325,7 +335,7 @@ export default function VirtualStagingOrderForm({
           );
           if (
             !shouldApplyVirtualStagingSaveResult(
-              sessionAtStart,
+              sessionAtEnqueue,
               draftSessionRef.current,
             )
           ) {
@@ -359,7 +369,7 @@ export default function VirtualStagingOrderForm({
         );
         if (
           !shouldApplyVirtualStagingSaveResult(
-            sessionAtStart,
+            sessionAtEnqueue,
             draftSessionRef.current,
           )
         ) {

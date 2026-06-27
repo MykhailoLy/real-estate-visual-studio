@@ -246,6 +246,39 @@ test("stale save results cannot restore an old draft session", () => {
   assert.equal(shouldApplyVirtualStagingSaveResult(1, 2), false);
 });
 
+test("queued save token captured before execution rejects stale work", async () => {
+  let currentSession = 7;
+  const sessionAtEnqueue = currentSession;
+  let staleWorkAppliedToNewSession = false;
+
+  currentSession += 1;
+
+  const queuedSave = async (): Promise<boolean> => {
+    if (
+      !shouldApplyVirtualStagingSaveResult(
+        sessionAtEnqueue,
+        currentSession,
+      )
+    ) {
+      return false;
+    }
+
+    staleWorkAppliedToNewSession = true;
+    return true;
+  };
+
+  assert.equal(await queuedSave(), false);
+  assert.equal(staleWorkAppliedToNewSession, false);
+  assert.equal(
+    shouldApplyVirtualStagingSaveResult(currentSession, currentSession),
+    true,
+  );
+  assert.equal(
+    shouldApplyVirtualStagingSaveResult(sessionAtEnqueue, currentSession),
+    false,
+  );
+});
+
 test("resume resolves region from consistent region/currency and normalizes mismatches", () => {
   assert.equal(
     resolveVirtualStagingDraftRegion({
