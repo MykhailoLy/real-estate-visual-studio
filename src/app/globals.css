@@ -44,6 +44,11 @@ html {
   overflow-x: hidden;
 }
 
+html.dashboard-scroll-locked,
+html.dashboard-scroll-locked body {
+  overflow: hidden;
+}
+
 /* Focus styles */
 *:focus-visible {
   outline: 2px solid var(--color-primary);
