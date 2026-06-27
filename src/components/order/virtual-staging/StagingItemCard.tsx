@@ -19,8 +19,10 @@ import {
   STAGING_ADDONS,
   STAGING_FILE_ACCEPT,
 } from "@/data/order-options";
+import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 
 export interface StagingItemData {
+  clientItemId: string;
   file: File | null;
   roomName: string;
   furnitureStyle: string;
@@ -32,9 +34,13 @@ export interface StagingItemData {
   referenceFile: File | null;
   additionalInfo: string;
   selectedAddons: string[];
+  originalFilename: string | null;
+  referenceFilename: string | null;
+  needsOriginalFileReselection: boolean;
 }
 
 export const emptyStagingItem = (): StagingItemData => ({
+  clientItemId: createDraftClientItemId(),
   file: null,
   roomName: "",
   furnitureStyle: "",
@@ -43,6 +49,9 @@ export const emptyStagingItem = (): StagingItemData => ({
   referenceFile: null,
   additionalInfo: "",
   selectedAddons: [],
+  originalFilename: null,
+  referenceFilename: null,
+  needsOriginalFileReselection: false,
 });
 
 interface StagingItemCardProps {
@@ -95,9 +104,21 @@ export default function StagingItemCard({
         <FileUpload
           label="Upload Original Photo"
           file={data.file}
-          onFileChange={(file) => onChange({ ...data, file })}
+          onFileChange={(file) =>
+            onChange({
+              ...data,
+              file,
+              originalFilename: file?.name ?? data.originalFilename,
+              needsOriginalFileReselection: false,
+            })
+          }
           accept={STAGING_FILE_ACCEPT}
           required
+          helperText={
+            data.needsOriginalFileReselection && data.originalFilename
+              ? `Saved draft file: ${data.originalFilename}. Please select it again to submit.`
+              : undefined
+          }
         />
 
         {/* Furniture Style — visual picker (kept in sync with the dropdown below) */}
@@ -185,7 +206,18 @@ export default function StagingItemCard({
         <FileUpload
           label="Reference Image (optional)"
           file={data.referenceFile}
-          onFileChange={(file) => onChange({ ...data, referenceFile: file })}
+          onFileChange={(file) =>
+            onChange({
+              ...data,
+              referenceFile: file,
+              referenceFilename: file?.name ?? data.referenceFilename,
+            })
+          }
+          helperText={
+            !data.referenceFile && data.referenceFilename
+              ? `Saved draft reference: ${data.referenceFilename}. Select it again if it is still needed.`
+              : undefined
+          }
         />
 
         {/* Additional Information */}
