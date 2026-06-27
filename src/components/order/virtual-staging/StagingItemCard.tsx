@@ -20,6 +20,10 @@ import {
   STAGING_FILE_ACCEPT,
 } from "@/data/order-options";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
+import {
+  updateOriginalFileDraftMetadata,
+  updateReferenceFileDraftMetadata,
+} from "@/lib/order-drafts/virtual-staging";
 
 export interface StagingItemData {
   clientItemId: string;
@@ -60,7 +64,18 @@ interface StagingItemCardProps {
   onChange: (data: StagingItemData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  draftCopy?: {
+    savedOriginalFile: (filename: string) => string;
+    savedReferenceFile: (filename: string) => string;
+  };
 }
+
+const DEFAULT_DRAFT_COPY = {
+  savedOriginalFile: (filename: string) =>
+    `Saved draft file: ${filename}. Please select it again to submit.`,
+  savedReferenceFile: (filename: string) =>
+    `Saved draft reference: ${filename}. Select it again if it is still needed.`,
+};
 
 export default function StagingItemCard({
   index,
@@ -68,6 +83,7 @@ export default function StagingItemCard({
   onChange,
   onRemove,
   canRemove,
+  draftCopy = DEFAULT_DRAFT_COPY,
 }: StagingItemCardProps) {
   const currency = useDisplayCurrency();
   const toggleAddon = (id: string) => {
@@ -108,15 +124,14 @@ export default function StagingItemCard({
             onChange({
               ...data,
               file,
-              originalFilename: file?.name ?? data.originalFilename,
-              needsOriginalFileReselection: false,
+              ...updateOriginalFileDraftMetadata(data, file),
             })
           }
           accept={STAGING_FILE_ACCEPT}
           required
           helperText={
             data.needsOriginalFileReselection && data.originalFilename
-              ? `Saved draft file: ${data.originalFilename}. Please select it again to submit.`
+              ? draftCopy.savedOriginalFile(data.originalFilename)
               : undefined
           }
         />
@@ -210,12 +225,12 @@ export default function StagingItemCard({
             onChange({
               ...data,
               referenceFile: file,
-              referenceFilename: file?.name ?? data.referenceFilename,
+              ...updateReferenceFileDraftMetadata(data, file),
             })
           }
           helperText={
             !data.referenceFile && data.referenceFilename
-              ? `Saved draft reference: ${data.referenceFilename}. Select it again if it is still needed.`
+              ? draftCopy.savedReferenceFile(data.referenceFilename)
               : undefined
           }
         />

@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { currencyForRegion, DEFAULT_REGION, isRegionCode, type RegionCode } from "../currency.ts";
+import {
+  currencyForRegion,
+  DEFAULT_REGION,
+  isRegionCode,
+  type RegionCode,
+} from "../currency.ts";
 import { calculateOrderQuote } from "../pricing/calculate.ts";
 import type { TransactionalCurrency } from "../pricing/types.ts";
 import { createDraftClientItemId } from "./utils.ts";
@@ -140,6 +145,20 @@ export type VirtualStagingResumeValidation =
 
 export type VirtualStagingSaveMethod = "create" | "patch";
 
+export interface VirtualStagingDraftIdentity {
+  draftId: string | null;
+  draftVersion: number | null;
+  savedFingerprint: string | null;
+  saveStatus: VirtualStagingAutosaveStatus;
+  conflictMessage: string;
+  resumeState: "ready";
+}
+
+export interface VirtualStagingResetResult {
+  identity: VirtualStagingDraftIdentity;
+  nextSearch: string;
+}
+
 const DraftItemStateSchema = z
   .object({
     roomName: z.string().max(200).default(""),
@@ -234,6 +253,16 @@ export function mapVirtualStagingFormToDraftState(
   };
 }
 
+export function buildVirtualStagingDraftFingerprint(
+  source: VirtualStagingFormDraftSource,
+): string {
+  return stableStringifyJson({
+    state: mapVirtualStagingFormToDraftState(source),
+    currency: source.currency,
+    region: source.region ?? regionForCurrency(source.currency),
+  });
+}
+
 export function mapVirtualStagingDraftToFormState(
   state: unknown,
 ): VirtualStagingResumeResult["form"] {
@@ -278,8 +307,8 @@ export function hasMeaningfulVirtualStagingDraftChange(
       item.referenceLink.trim() !== "" ||
       item.additionalInfo.trim() !== "" ||
       item.selectedAddons.length > 0 ||
-      item.originalFilename !== null ||
-      item.referenceFilename !== null
+      item.originalFilename != null ||
+      item.referenceFilename != null
     );
   });
 }
@@ -350,9 +379,9 @@ export function selectVirtualStagingSaveMethod(
 
 export function shouldSkipDuplicateVirtualStagingSave(
   previousSerialized: string | null,
-  nextState: VirtualStagingDraftState,
+  nextFingerprint: string,
 ): boolean {
-  return previousSerialized === stableStringifyJson(nextState);
+  return previousSerialized === nextFingerprint;
 }
 
 export function markVirtualStagingSaveSuccess(
@@ -368,6 +397,65 @@ export function markVirtualStagingSaveConflict(): {
   canRetryAutomatically: false;
 } {
   return { status: "conflict", canRetryAutomatically: false };
+}
+
+export function shouldApplyVirtualStagingSaveResult(
+  startedSession: number,
+  currentSession: number,
+): boolean {
+  return startedSession === currentSession;
+}
+
+export function resetVirtualStagingDraftIdentity(
+  currentSearch: string,
+): VirtualStagingResetResult {
+  const next = new URLSearchParams(currentSearch);
+  next.delete("draft");
+  return {
+    identity: {
+      draftId: null,
+      draftVersion: null,
+      savedFingerprint: null,
+      saveStatus: "not_saved",
+      conflictMessage: "",
+      resumeState: "ready",
+    },
+    nextSearch: next.toString(),
+  };
+}
+
+export function updateOriginalFileDraftMetadata<T extends {
+  originalFilename: string | null;
+  needsOriginalFileReselection: boolean;
+}>(
+  item: T,
+  file: { name?: string } | null,
+): Pick<T, "originalFilename" | "needsOriginalFileReselection"> {
+  void item;
+  return {
+    originalFilename: fileNameFromValue(file),
+    needsOriginalFileReselection: false,
+  };
+}
+
+export function updateReferenceFileDraftMetadata<T extends {
+  referenceFilename: string | null;
+}>(
+  item: T,
+  file: { name?: string } | null,
+): Pick<T, "referenceFilename"> {
+  void item;
+  return {
+    referenceFilename: fileNameFromValue(file),
+  };
+}
+
+export function shouldShowVirtualStagingResumedFileWarning(
+  items: Array<{ needsOriginalFileReselection?: boolean; file?: unknown | null }>,
+): boolean {
+  return items.some(
+    (item) => item.needsOriginalFileReselection === true && item.file == null,
+  );
 }
 
 export function isVirtualStagingFinalSubmissionReady(
@@ -425,6 +513,19 @@ function regionForCurrency(currency: TransactionalCurrency): RegionCode {
   const region =
     currency === "CAD" ? "CA" : currency === "EUR" ? "EU" : DEFAULT_REGION;
   return isRegionCode(region) ? region : DEFAULT_REGION;
+}
+
+export function resolveVirtualStagingDraftRegion(
+  draft: Pick<OrderDraftRow, "currency" | "region">,
+): RegionCode {
+  if (
+    draft.region &&
+    isRegionCode(draft.region) &&
+    currencyForRegion(draft.region) === draft.currency
+  ) {
+    return draft.region;
+  }
+  return regionForCurrency(draft.currency);
 }
 
 export function currencyForDraftRegion(region: RegionCode | null): TransactionalCurrency {

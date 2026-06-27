@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildVirtualStagingDraftFingerprint,
   buildVirtualStagingCreateDraftInput,
   buildVirtualStagingPricingPreview,
   buildVirtualStagingUpdateDraftInput,
@@ -10,14 +11,19 @@ import {
   mapVirtualStagingFormToDraftState,
   markVirtualStagingSaveConflict,
   markVirtualStagingSaveSuccess,
+  resetVirtualStagingDraftIdentity,
+  resolveVirtualStagingDraftRegion,
   selectVirtualStagingSaveMethod,
+  shouldApplyVirtualStagingSaveResult,
+  shouldShowVirtualStagingResumedFileWarning,
   shouldSkipDuplicateVirtualStagingSave,
+  updateOriginalFileDraftMetadata,
+  updateReferenceFileDraftMetadata,
   validateVirtualStagingDraftForResume,
   VIRTUAL_STAGING_DRAFT_CURRENT_STEP,
   VIRTUAL_STAGING_DRAFT_ROUTE,
   VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION,
 } from "./virtual-staging.ts";
-import { stableStringifyJson } from "./serialization.ts";
 import type { OrderDraftRow } from "./types.ts";
 
 const ITEM_ID = "11111111-1111-4111-8111-111111111111";
@@ -164,12 +170,48 @@ test("meaningful-change detection avoids empty abandoned drafts", () => {
 });
 
 test("stable serialization prevents duplicate saves", () => {
-  const state = mapVirtualStagingFormToDraftState(source());
+  const fingerprint = buildVirtualStagingDraftFingerprint(source());
   assert.equal(
-    shouldSkipDuplicateVirtualStagingSave(stableStringifyJson(state), state),
+    shouldSkipDuplicateVirtualStagingSave(fingerprint, fingerprint),
     true,
   );
-  assert.equal(shouldSkipDuplicateVirtualStagingSave(null, state), false);
+  assert.equal(shouldSkipDuplicateVirtualStagingSave(null, fingerprint), false);
+});
+
+test("fingerprint includes currency and region but ignores object insertion order", () => {
+  const base = source();
+  const sameDifferentOrder = {
+    ...base,
+    items: [
+      {
+        selectedAddons: ["turn-on-lights"],
+        additionalInfo: "Keep the view visible",
+        referenceFile: fileLike("reference.png"),
+        referenceLink: "https://example.com/style",
+        disclaimerText: "Use MLS size",
+        fileSizeLimit: "MLS",
+        furnitureStyle: "Modern",
+        roomName: "Living Room",
+        file: fileLike("living.jpg"),
+        clientItemId: ITEM_ID,
+        originalFilename: null,
+        referenceFilename: null,
+      },
+    ],
+  };
+
+  assert.equal(
+    buildVirtualStagingDraftFingerprint(base),
+    buildVirtualStagingDraftFingerprint(sameDifferentOrder),
+  );
+  assert.notEqual(
+    buildVirtualStagingDraftFingerprint(base),
+    buildVirtualStagingDraftFingerprint({ ...base, currency: "EUR" }),
+  );
+  assert.notEqual(
+    buildVirtualStagingDraftFingerprint(base),
+    buildVirtualStagingDraftFingerprint({ ...base, region: "CA" }),
+  );
 });
 
 test("save method selects first POST versus later PATCH", () => {
@@ -186,6 +228,92 @@ test("optimistic save success and conflict states are explicit", () => {
     status: "conflict",
     canRetryAutomatically: false,
   });
+});
+
+test("new-order reset clears draft identity and preserves unrelated query params", () => {
+  const reset = resetVirtualStagingDraftIdentity("draft=abc&campaign=spring&tab=form");
+  assert.equal(reset.identity.draftId, null);
+  assert.equal(reset.identity.draftVersion, null);
+  assert.equal(reset.identity.savedFingerprint, null);
+  assert.equal(reset.identity.saveStatus, "not_saved");
+  assert.equal(reset.identity.conflictMessage, "");
+  assert.equal(reset.identity.resumeState, "ready");
+  assert.equal(reset.nextSearch, "campaign=spring&tab=form");
+});
+
+test("stale save results cannot restore an old draft session", () => {
+  assert.equal(shouldApplyVirtualStagingSaveResult(1, 1), true);
+  assert.equal(shouldApplyVirtualStagingSaveResult(1, 2), false);
+});
+
+test("resume resolves region from consistent region/currency and normalizes mismatches", () => {
+  assert.equal(
+    resolveVirtualStagingDraftRegion({
+      ...draftRow(),
+      currency: "EUR",
+      region: "EU",
+    } as OrderDraftRow),
+    "EU",
+  );
+  assert.equal(
+    resolveVirtualStagingDraftRegion({
+      ...draftRow(),
+      currency: "EUR",
+      region: "US",
+    } as OrderDraftRow),
+    "EU",
+  );
+  assert.equal(
+    resolveVirtualStagingDraftRegion({
+      ...draftRow(),
+      currency: "CAD",
+      region: null,
+    } as OrderDraftRow),
+    "CA",
+  );
+});
+
+test("file metadata removal clears stale filenames", () => {
+  const item = {
+    originalFilename: "old.jpg",
+    referenceFilename: "old-ref.png",
+    needsOriginalFileReselection: true,
+  };
+  assert.deepEqual(updateOriginalFileDraftMetadata(item, null), {
+    originalFilename: null,
+    needsOriginalFileReselection: false,
+  });
+  assert.deepEqual(updateOriginalFileDraftMetadata(item, fileLike("new.jpg")), {
+    originalFilename: "new.jpg",
+    needsOriginalFileReselection: false,
+  });
+  assert.deepEqual(updateReferenceFileDraftMetadata(item, null), {
+    referenceFilename: null,
+  });
+  assert.deepEqual(updateReferenceFileDraftMetadata(item, fileLike("ref.jpg")), {
+    referenceFilename: "ref.jpg",
+  });
+});
+
+test("resumed-file warning disappears after replacement selection", () => {
+  assert.equal(
+    shouldShowVirtualStagingResumedFileWarning([
+      { needsOriginalFileReselection: true, file: null },
+    ]),
+    true,
+  );
+  assert.equal(
+    shouldShowVirtualStagingResumedFileWarning([
+      { needsOriginalFileReselection: false, file: fileLike("living.jpg") },
+    ]),
+    false,
+  );
+  assert.equal(
+    shouldShowVirtualStagingResumedFileWarning([
+      { needsOriginalFileReselection: false, file: null },
+    ]),
+    false,
+  );
 });
 
 test("save inputs use draft API shape and non-authoritative pricing preview", () => {
