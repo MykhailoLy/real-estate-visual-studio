@@ -17,6 +17,7 @@ import {
   shouldApplyVirtualStagingSaveResult,
   shouldShowVirtualStagingResumedFileWarning,
   shouldSkipDuplicateVirtualStagingSave,
+  shouldSkipFailedVirtualStagingAutosave,
   updateOriginalFileDraftMetadata,
   updateReferenceFileDraftMetadata,
   validateVirtualStagingDraftForResume,
@@ -178,6 +179,35 @@ test("stable serialization prevents duplicate saves", () => {
   assert.equal(shouldSkipDuplicateVirtualStagingSave(null, fingerprint), false);
 });
 
+test("failed autosave fingerprint skips unchanged automatic retries", () => {
+  const fingerprint = buildVirtualStagingDraftFingerprint(source());
+  assert.equal(
+    shouldSkipFailedVirtualStagingAutosave(fingerprint, fingerprint, false),
+    true,
+  );
+});
+
+test("failed autosave fingerprint allows changed or forced saves", () => {
+  const fingerprint = buildVirtualStagingDraftFingerprint(source());
+  const changedFingerprint = buildVirtualStagingDraftFingerprint({
+    ...source(),
+    jobTitle: "Changed title",
+  });
+
+  assert.equal(
+    shouldSkipFailedVirtualStagingAutosave(
+      fingerprint,
+      changedFingerprint,
+      false,
+    ),
+    false,
+  );
+  assert.equal(
+    shouldSkipFailedVirtualStagingAutosave(fingerprint, fingerprint, true),
+    false,
+  );
+});
+
 test("fingerprint includes currency and region but ignores object insertion order", () => {
   const base = source();
   const sameDifferentOrder = {
@@ -235,6 +265,7 @@ test("new-order reset clears draft identity and preserves unrelated query params
   assert.equal(reset.identity.draftId, null);
   assert.equal(reset.identity.draftVersion, null);
   assert.equal(reset.identity.savedFingerprint, null);
+  assert.equal(reset.identity.failedAutosaveFingerprint, null);
   assert.equal(reset.identity.saveStatus, "not_saved");
   assert.equal(reset.identity.conflictMessage, "");
   assert.equal(reset.identity.resumeState, "ready");

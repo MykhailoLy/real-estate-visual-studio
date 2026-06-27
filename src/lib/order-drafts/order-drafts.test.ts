@@ -514,12 +514,79 @@ test("snake_case draft row maps to camelCase domain row", () => {
   assert.equal(mapped.lastAutosavedAt, "2026-06-26T10:00:00.000Z");
 });
 
+test("draft timestamp mapping accepts Z, offsets, fractional seconds, and nullable fields", () => {
+  const timestampCases = [
+    "2026-06-27T11:22:36Z",
+    "2026-06-27T11:22:36.123456+00:00",
+    "2026-06-27T13:22:36.123456+02:00",
+  ];
+
+  for (const timestamp of timestampCases) {
+    const mapped = mapOrderDraftDatabaseRow({
+      ...draftDatabaseRow(),
+      created_at: timestamp,
+      updated_at: timestamp,
+      last_autosaved_at: null,
+      expires_at: timestamp,
+      converted_at: null,
+      deleted_at: null,
+    });
+
+    assert.equal(mapped.createdAt, timestamp);
+    assert.equal(mapped.updatedAt, timestamp);
+    assert.equal(mapped.lastAutosavedAt, null);
+    assert.equal(mapped.expiresAt, timestamp);
+    assert.equal(mapped.convertedAt, null);
+    assert.equal(mapped.deletedAt, null);
+  }
+});
+
+test("draft timestamp mapping rejects malformed timestamps", () => {
+  assert.throws(() =>
+    mapOrderDraftDatabaseRow({
+      ...draftDatabaseRow(),
+      created_at: "2026-06-27 11:22:36",
+    }),
+  );
+  assert.throws(() =>
+    mapOrderDraftDatabaseRow({
+      ...draftDatabaseRow(),
+      updated_at: "not-a-date",
+    }),
+  );
+});
+
 test("snake_case file row maps to camelCase file row", () => {
   const mapped = mapOrderDraftFileDatabaseRow(draftFileDatabaseRow());
   assert.equal(mapped.draftId, UUID_B);
   assert.equal(mapped.itemClientId, UUID_A);
   assert.equal(mapped.storagePath, "drafts/user/draft/file/photo.jpg");
   assert.equal(mapped.uploadStatus, "uploaded");
+});
+
+test("draft file timestamp mapping accepts offset timestamps and nullable fields", () => {
+  const timestamp = "2026-06-27T13:22:36.123456+02:00";
+  const mapped = mapOrderDraftFileDatabaseRow({
+    ...draftFileDatabaseRow(),
+    created_at: timestamp,
+    updated_at: timestamp,
+    deleted_at: null,
+    moved_at: null,
+  });
+
+  assert.equal(mapped.createdAt, timestamp);
+  assert.equal(mapped.updatedAt, timestamp);
+  assert.equal(mapped.deletedAt, null);
+  assert.equal(mapped.movedAt, null);
+});
+
+test("draft file timestamp mapping rejects malformed timestamps", () => {
+  assert.throws(() =>
+    mapOrderDraftFileDatabaseRow({
+      ...draftFileDatabaseRow(),
+      updated_at: "2026-06-27",
+    }),
+  );
 });
 
 test("draft file mapping rejects unexpected buckets", () => {

@@ -149,6 +149,7 @@ export interface VirtualStagingDraftIdentity {
   draftId: string | null;
   draftVersion: number | null;
   savedFingerprint: string | null;
+  failedAutosaveFingerprint: string | null;
   saveStatus: VirtualStagingAutosaveStatus;
   conflictMessage: string;
   resumeState: "ready";
@@ -384,6 +385,14 @@ export function shouldSkipDuplicateVirtualStagingSave(
   return previousSerialized === nextFingerprint;
 }
 
+export function shouldSkipFailedVirtualStagingAutosave(
+  failedFingerprint: string | null,
+  nextFingerprint: string,
+  force: boolean,
+): boolean {
+  return !force && failedFingerprint === nextFingerprint;
+}
+
 export function markVirtualStagingSaveSuccess(
   currentVersion: number | null,
   nextVersion: number,
@@ -416,6 +425,7 @@ export function resetVirtualStagingDraftIdentity(
       draftId: null,
       draftVersion: null,
       savedFingerprint: null,
+      failedAutosaveFingerprint: null,
       saveStatus: "not_saved",
       conflictMessage: "",
       resumeState: "ready",

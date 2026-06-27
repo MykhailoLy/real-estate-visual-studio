@@ -50,6 +50,7 @@ import {
   shouldApplyVirtualStagingSaveResult,
   shouldShowVirtualStagingResumedFileWarning,
   shouldSkipDuplicateVirtualStagingSave,
+  shouldSkipFailedVirtualStagingAutosave,
   validateVirtualStagingDraftForResume,
   type VirtualStagingAutosaveStatus,
 } from "@/lib/order-drafts/virtual-staging";
@@ -191,6 +192,7 @@ export default function VirtualStagingOrderForm({
   const draftIdRef = useRef(draftId);
   const draftVersionRef = useRef(draftVersion);
   const savedFingerprintRef = useRef<string | null>(null);
+  const failedAutosaveFingerprintRef = useRef<string | null>(null);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const isRestoringRef = useRef(resumeState === "loading");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -290,6 +292,8 @@ export default function VirtualStagingOrderForm({
     draftIdRef.current = reset.identity.draftId;
     draftVersionRef.current = reset.identity.draftVersion;
     savedFingerprintRef.current = reset.identity.savedFingerprint;
+    failedAutosaveFingerprintRef.current =
+      reset.identity.failedAutosaveFingerprint;
     setSaveStatus(reset.identity.saveStatus);
     setResumeState(reset.identity.resumeState);
     isRestoringRef.current = false;
@@ -314,6 +318,15 @@ export default function VirtualStagingOrderForm({
         if (saveStatus === "conflict") return false;
 
         const fingerprint = buildVirtualStagingDraftFingerprint(draftSource);
+        if (
+          shouldSkipFailedVirtualStagingAutosave(
+            failedAutosaveFingerprintRef.current,
+            fingerprint,
+            options.force === true,
+          )
+        ) {
+          return false;
+        }
         if (
           !options.force &&
           shouldSkipDuplicateVirtualStagingSave(
@@ -344,6 +357,7 @@ export default function VirtualStagingOrderForm({
           if (!result.ok) {
             setSaveStatus("save_failed");
             setDraftError(result.message);
+            failedAutosaveFingerprintRef.current = fingerprint;
             return false;
           }
           draftIdRef.current = result.data.id;
@@ -351,6 +365,7 @@ export default function VirtualStagingOrderForm({
           setDraftId(result.data.id);
           setDraftVersion(result.data.version);
           savedFingerprintRef.current = fingerprint;
+          failedAutosaveFingerprintRef.current = null;
           setDraftQueryParam(result.data.id);
           setSaveStatus("saved");
           return true;
@@ -383,12 +398,14 @@ export default function VirtualStagingOrderForm({
           }
           setSaveStatus("save_failed");
           setDraftError(result.message);
+          failedAutosaveFingerprintRef.current = fingerprint;
           return false;
         }
 
         draftVersionRef.current = result.data.version;
         setDraftVersion(result.data.version);
         savedFingerprintRef.current = fingerprint;
+        failedAutosaveFingerprintRef.current = null;
         setSaveStatus("saved");
         return true;
       };
@@ -484,6 +501,7 @@ export default function VirtualStagingOrderForm({
           currency: restoredCurrency,
           region: restoredRegion,
         });
+        failedAutosaveFingerprintRef.current = null;
         setSaveStatus("saved");
         setResumeState("ready");
       })
@@ -549,6 +567,7 @@ export default function VirtualStagingOrderForm({
       currency: restoredCurrency,
       region: restoredRegion,
     });
+    failedAutosaveFingerprintRef.current = null;
     setSaveStatus("saved");
     setResumeState("ready");
   };
