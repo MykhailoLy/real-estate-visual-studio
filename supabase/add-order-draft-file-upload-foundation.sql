@@ -83,7 +83,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_draft public.order_drafts%ROWTYPE;
@@ -257,7 +257,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_draft public.order_drafts%ROWTYPE;
@@ -374,7 +374,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_draft public.order_drafts%ROWTYPE;

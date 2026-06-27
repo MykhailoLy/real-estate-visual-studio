@@ -494,6 +494,18 @@ test("migration wraps the index replacement and RPC definitions in a transaction
   );
 });
 
+test("RPC search paths prefer pg_catalog and exclude pg_temp", () => {
+  const hardenedSearchPathCount = MIGRATION_SQL.match(
+    /SET search_path = pg_catalog, public/g,
+  )?.length ?? 0;
+
+  assert.equal(hardenedSearchPathCount, 3);
+  assert.equal(
+    MIGRATION_SQL.includes("SET search_path = public, pg_temp"),
+    false,
+  );
+});
+
 test("prepare RPC checks draft version and item before inserting metadata", () => {
   const versionCheck = MIGRATION_SQL.indexOf("v_draft.version <> p_expected_version");
   const itemLookup = MIGRATION_SQL.indexOf("jsonb_array_elements(v_draft.state->'items')");
