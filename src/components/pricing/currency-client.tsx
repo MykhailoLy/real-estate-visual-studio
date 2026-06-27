@@ -152,10 +152,10 @@ export function useDisplayRegion(): [RegionCode, (region: RegionCode) => void] {
     };
   }, []);
 
-  const setRegion = (next: RegionCode) => {
+  const setRegion = useCallback((next: RegionCode) => {
     setRegionState(next);
     writeRegion(next);
-  };
+  }, []);
 
   return [region, setRegion];
 }

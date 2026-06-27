@@ -163,6 +163,7 @@ export default function VirtualStagingOrderForm({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const requestedDraftId = searchParams.get("draft");
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
@@ -177,8 +178,9 @@ export default function VirtualStagingOrderForm({
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [draftId, setDraftId] = useState<string | null>(() => {
-    const value = searchParams.get("draft");
-    return value && UuidSchema.safeParse(value).success ? value : null;
+    return requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
+      ? requestedDraftId
+      : null;
   });
   const [draftVersion, setDraftVersion] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] =
@@ -186,7 +188,7 @@ export default function VirtualStagingOrderForm({
   const [draftError, setDraftError] = useState("");
   const [resumeState, setResumeState] = useState<
     "idle" | "loading" | "ready" | "not_found" | "unsupported" | "error"
-  >(() => (searchParams.get("draft") ? "loading" : "ready"));
+  >(() => (requestedDraftId ? "loading" : "ready"));
   const [conflictMessage, setConflictMessage] = useState("");
 
   const draftIdRef = useRef(draftId);
@@ -428,7 +430,6 @@ export default function VirtualStagingOrderForm({
   );
 
   useEffect(() => {
-    const requestedDraftId = searchParams.get("draft");
     if (!requestedDraftId) {
       return;
     }
@@ -515,7 +516,7 @@ export default function VirtualStagingOrderForm({
       });
 
     return () => controller.abort();
-  }, [copy, searchParams, setRegion]);
+  }, [copy, requestedDraftId, setRegion]);
 
   useEffect(() => {
     if (resumeState !== "ready" || !hasMeaningfulDraft || saveStatus === "conflict") {
