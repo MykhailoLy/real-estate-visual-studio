@@ -24,6 +24,7 @@ export type OrderDraftFilePublicErrorCode =
   | "invalid_input"
   | "not_found"
   | "invalid_status"
+  | "version_conflict"
   | "item_not_found"
   | "file_too_large"
   | "file_type_not_allowed"
@@ -87,6 +88,54 @@ export interface DeletedOrderDraftFileSummary {
   id: string;
 }
 
+export interface PrepareOrderDraftFileUploadRpcParams {
+  p_user_id: string;
+  p_draft_id: string;
+  p_expected_version: number;
+  p_file_id: string;
+  p_item_client_id: string;
+  p_kind: OrderDraftFileKind;
+  p_storage_path: string;
+  p_original_filename: string;
+  p_file_size: number;
+  p_mime_type: string;
+}
+
+export interface PrepareOrderDraftFileUploadRpcInput {
+  userId: string;
+  draftId: string;
+  expectedVersion: number;
+  fileId: string;
+  input: PrepareOrderDraftFileUploadInput;
+  storagePath: string;
+}
+
+export interface PreparedDraftFileUploadMutation {
+  fileId: string;
+  itemIndex: number;
+  retiredStoragePaths: string[];
+}
+
+export interface CompletedDraftFileUploadMutation {
+  fileId: string;
+  retiredStoragePaths: string[];
+}
+
+export interface SoftDeletedDraftFileMutation {
+  fileId: string;
+  storagePath: string;
+}
+
+export type DraftFileMutationResultCode =
+  | "prepared"
+  | "completed"
+  | "deleted"
+  | "not_found"
+  | "invalid_status"
+  | "version_conflict"
+  | "item_not_found"
+  | "invalid_file_status";
+
 export interface DraftStoragePathParts {
   directory: string;
   basename: string;
@@ -129,6 +178,101 @@ export function draftFileError<T = never>(
   message: string,
 ): OrderDraftFileOperationResult<T> {
   return { ok: false, code, message };
+}
+
+export function buildPrepareOrderDraftFileUploadRpcParams(
+  input: PrepareOrderDraftFileUploadRpcInput,
+): PrepareOrderDraftFileUploadRpcParams {
+  return {
+    p_user_id: input.userId,
+    p_draft_id: input.draftId,
+    p_expected_version: input.expectedVersion,
+    p_file_id: input.fileId,
+    p_item_client_id: input.input.itemClientId,
+    p_kind: input.input.kind,
+    p_storage_path: input.storagePath,
+    p_original_filename: input.input.filename,
+    p_file_size: input.input.size,
+    p_mime_type: input.input.contentType,
+  };
+}
+
+export function parsePrepareOrderDraftFileUploadRpcResult(
+  data: unknown,
+): OrderDraftFileOperationResult<PreparedDraftFileUploadMutation> {
+  const row = getSingleRpcRow(data);
+  const code = getRpcResultCode(row);
+  if (code !== "prepared") {
+    return mapDraftFileMutationCodeToResult(code, "prepare");
+  }
+
+  const fileId = getStringField(row, "prepared_file_id");
+  const itemIndex = getNumberField(row, "item_index");
+  if (!UuidSchema.safeParse(fileId).success || !isNonNegativeInteger(itemIndex)) {
+    return draftFileError(
+      "database_error",
+      "Order draft file operation failed.",
+    );
+  }
+
+  return {
+    ok: true,
+    data: {
+      fileId,
+      itemIndex,
+      retiredStoragePaths: getStringArrayField(row, "retired_storage_paths"),
+    },
+  };
+}
+
+export function parseCompleteOrderDraftFileUploadRpcResult(
+  data: unknown,
+): OrderDraftFileOperationResult<CompletedDraftFileUploadMutation> {
+  const row = getSingleRpcRow(data);
+  const code = getRpcResultCode(row);
+  if (code !== "completed") {
+    return mapDraftFileMutationCodeToResult(code, "complete");
+  }
+
+  const fileId = getStringField(row, "completed_file_id");
+  if (!UuidSchema.safeParse(fileId).success) {
+    return draftFileError(
+      "database_error",
+      "Order draft file operation failed.",
+    );
+  }
+
+  return {
+    ok: true,
+    data: {
+      fileId,
+      retiredStoragePaths: getStringArrayField(row, "retired_storage_paths"),
+    },
+  };
+}
+
+export function parseSoftDeleteOrderDraftFileRpcResult(
+  data: unknown,
+): OrderDraftFileOperationResult<SoftDeletedDraftFileMutation> {
+  const row = getSingleRpcRow(data);
+  const code = getRpcResultCode(row);
+  if (code !== "deleted") {
+    return mapDraftFileMutationCodeToResult(code, "delete");
+  }
+
+  const fileId = getStringField(row, "deleted_file_id");
+  const storagePath = getStringField(row, "storage_path");
+  if (!UuidSchema.safeParse(fileId).success || storagePath.trim() === "") {
+    return draftFileError(
+      "database_error",
+      "Order draft file operation failed.",
+    );
+  }
+
+  return {
+    ok: true,
+    data: { fileId, storagePath },
+  };
 }
 
 export function sanitizeDraftStorageFilename(filename: string): string {
@@ -339,6 +483,93 @@ export function buildDraftFileSoftDeletePayload(now = new Date()): {
     upload_status: "deleted",
     deleted_at: now.toISOString(),
   };
+}
+
+function mapDraftFileMutationCodeToResult<T>(
+  code: DraftFileMutationResultCode | null,
+  operation: "prepare" | "complete" | "delete",
+): OrderDraftFileOperationResult<T> {
+  switch (code) {
+    case "not_found":
+      return draftFileError("not_found", "Draft file was not found.");
+    case "invalid_status":
+      return draftFileError("invalid_status", "Draft is not editable.");
+    case "version_conflict":
+      return draftFileError(
+        "version_conflict",
+        "Draft has changed since it was loaded.",
+      );
+    case "item_not_found":
+      return draftFileError("item_not_found", "Draft item was not found.");
+    case "invalid_file_status":
+      return draftFileError(
+        "invalid_status",
+        operation === "delete"
+          ? "Draft file cannot be deleted."
+          : "Draft file is not in the expected upload state.",
+      );
+    default:
+      return draftFileError(
+        "database_error",
+        "Order draft file operation failed.",
+      );
+  }
+}
+
+function getSingleRpcRow(data: unknown): Record<string, unknown> | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  return row !== null && typeof row === "object" && !Array.isArray(row)
+    ? row as Record<string, unknown>
+    : null;
+}
+
+function getRpcResultCode(
+  row: Record<string, unknown> | null,
+): DraftFileMutationResultCode | null {
+  const code = row?.result_code;
+  if (typeof code !== "string") return null;
+  return [
+    "prepared",
+    "completed",
+    "deleted",
+    "not_found",
+    "invalid_status",
+    "version_conflict",
+    "item_not_found",
+    "invalid_file_status",
+  ].includes(code)
+    ? code as DraftFileMutationResultCode
+    : null;
+}
+
+function getStringField(
+  row: Record<string, unknown> | null,
+  field: string,
+): string {
+  const value = row?.[field];
+  return typeof value === "string" ? value : "";
+}
+
+function getNumberField(
+  row: Record<string, unknown> | null,
+  field: string,
+): number {
+  const value = row?.[field];
+  return typeof value === "number" ? value : Number.NaN;
+}
+
+function getStringArrayField(
+  row: Record<string, unknown> | null,
+  field: string,
+): string[] {
+  const value = row?.[field];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function isNonNegativeInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
 }
 
 function splitFilename(filename: string): { base: string; extension: string } {

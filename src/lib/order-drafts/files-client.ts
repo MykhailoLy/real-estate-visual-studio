@@ -55,7 +55,7 @@ async function requestOrderDraftFileApi<T>(
       },
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (error instanceof Error && error.name === "AbortError") {
       throw error;
     }
     return {

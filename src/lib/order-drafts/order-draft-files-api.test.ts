@@ -16,6 +16,7 @@ import {
   unauthenticatedDraftFileResponse,
   validateDraftFileRouteId,
 } from "./files-api.ts";
+import { parseSoftDeleteOrderDraftFileRpcResult } from "./files.ts";
 
 const DRAFT_ID = "22222222-2222-4222-8222-222222222222";
 const FILE_ID = "33333333-3333-4333-8333-333333333333";
@@ -116,6 +117,33 @@ test("upload mismatch maps to conflict without exposing paths", async () => {
   assert.equal(JSON.stringify(body).includes("drafts/"), false);
 });
 
+test("version conflicts map to conflict without exposing internals", async () => {
+  const response = draftFileResultToResponse({
+    ok: false,
+    code: "version_conflict",
+    message: "Draft has changed since it was loaded.",
+  });
+  const body = await responseJson(response);
+  assert.equal(response.status, 409);
+  assert.equal(body.code, "version_conflict");
+  assert.equal(JSON.stringify(body).includes("order_drafts"), false);
+});
+
+test("moved file delete results map to safe invalid status", async () => {
+  const result = parseSoftDeleteOrderDraftFileRpcResult([
+    {
+      result_code: "invalid_file_status",
+      deleted_file_id: FILE_ID,
+      storage_path: `drafts/${DRAFT_ID}/${FILE_ID}/moved.jpg`,
+    },
+  ]);
+  const response = draftFileResultToResponse(result);
+  const body = await responseJson(response);
+  assert.equal(response.status, 422);
+  assert.equal(body.code, "invalid_status");
+  assert.equal(JSON.stringify(body).includes("drafts/"), false);
+});
+
 test("typed client helpers encode routes and use no-store", async () => {
   const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
   const originalFetch = globalThis.fetch;
@@ -179,6 +207,25 @@ test("AbortError remains abort behavior in the typed client", async () => {
       () => listOrderDraftFiles(DRAFT_ID, new AbortController().signal),
       (error: unknown) =>
         error instanceof DOMException && error.name === "AbortError",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("non-DOMException AbortError remains abort behavior in the typed client", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    const error = new Error("The operation was aborted.");
+    error.name = "AbortError";
+    throw error;
+  };
+
+  try {
+    await assert.rejects(
+      () => listOrderDraftFiles(DRAFT_ID, new AbortController().signal),
+      (error: unknown) =>
+        error instanceof Error && error.name === "AbortError",
     );
   } finally {
     globalThis.fetch = originalFetch;

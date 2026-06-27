@@ -11,16 +11,17 @@ import {
 } from "./database.ts";
 import {
   PrepareOrderDraftFileUploadInputSchema,
-  buildDraftFileSoftDeletePayload,
+  buildPrepareOrderDraftFileUploadRpcParams,
   buildDraftStoragePath,
   draftFileError,
-  findDraftItemIndex,
   getDraftStoragePathParts,
   isDraftFileAllowedForDraft,
   isPendingDraftFile,
   mapOrderDraftFilePublicSummary,
   mapUploadedOrderDraftFileSummary,
-  shouldSupersedeDraftFileCandidate,
+  parseCompleteOrderDraftFileUploadRpcResult,
+  parsePrepareOrderDraftFileUploadRpcResult,
+  parseSoftDeleteOrderDraftFileRpcResult,
   verifyStoredDraftObject,
   type DeletedOrderDraftFileSummary,
   type OrderDraftFileOperationResult,
@@ -36,11 +37,6 @@ import type {
   OrderDraftFileRow,
   OrderDraftRepositoryErrorCode,
 } from "./types.ts";
-
-interface CompletedUploadRpcRow {
-  completed_file_id?: string;
-  retired_storage_paths?: string[] | null;
-}
 
 interface SupabaseStorageObject {
   name?: unknown;
@@ -100,19 +96,6 @@ export async function prepareOrderDraftFileUploadForUser(
   if (!draftResult.ok) return repositoryResultToDraftFileResult(draftResult);
 
   const parsed = inputResult.data;
-  const itemLocation = findDraftItemIndex(
-    draftResult.data.state,
-    parsed.itemClientId,
-  );
-  if (!itemLocation.ok) {
-    return draftFileError(
-      itemLocation.code === "item_not_found" ? "item_not_found" : "invalid_status",
-      itemLocation.code === "item_not_found"
-        ? "Draft item was not found."
-        : "Draft state is not valid for file uploads.",
-    );
-  }
-
   if (!isDraftFileAllowedForDraft(draftResult.data, parsed)) {
     return draftFileError(
       "file_type_not_allowed",
@@ -130,78 +113,29 @@ export async function prepareOrderDraftFileUploadForUser(
       filename: parsed.filename,
     });
 
-    const { data: existingRows, error: existingError } = await supabase
-      .from("order_draft_files")
-      .select(ORDER_DRAFT_FILE_SELECT)
-      .eq("draft_id", draftId)
-      .eq("item_client_id", parsed.itemClientId)
-      .eq("kind", parsed.kind)
-      .is("deleted_at", null)
-      .in("upload_status", ["pending", "failed"]);
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "prepare_order_draft_file_upload",
+      buildPrepareOrderDraftFileUploadRpcParams({
+        userId,
+        draftId,
+        expectedVersion: draftResult.data.version,
+        fileId,
+        input: parsed,
+        storagePath,
+      }),
+    );
 
-    if (existingError) {
+    if (rpcError) {
       console.error(
-        "[order-draft-files] prepare candidate lookup failed:",
-        existingError.message,
+        "[order-draft-files] prepare RPC failed:",
+        rpcError.message,
       );
       return draftFileError("database_error", "Could not prepare draft upload.");
     }
 
-    const supersededRows = (existingRows ?? [])
-      .map(mapOrderDraftFileDatabaseRow)
-      .filter((row) =>
-        shouldSupersedeDraftFileCandidate(row, {
-          draftId,
-          itemClientId: parsed.itemClientId,
-          kind: parsed.kind,
-        }),
-      );
+    const prepareResult = parsePrepareOrderDraftFileUploadRpcResult(rpcData);
+    if (!prepareResult.ok) return prepareResult;
 
-    if (supersededRows.length > 0) {
-      const { error: retireError } = await supabase
-        .from("order_draft_files")
-        .update(buildDraftFileSoftDeletePayload())
-        .in("id", supersededRows.map((row) => row.id));
-
-      if (retireError) {
-        console.error(
-          "[order-draft-files] retire stale candidates failed:",
-          retireError.message,
-        );
-        return draftFileError("database_error", "Could not prepare draft upload.");
-      }
-    }
-
-    const { data: inserted, error: insertError } = await supabase
-      .from("order_draft_files")
-      .insert({
-        id: fileId,
-        draft_id: draftId,
-        item_client_id: parsed.itemClientId,
-        item_index: itemLocation.itemIndex,
-        kind: parsed.kind,
-        bucket: ORDER_FILES_BUCKET,
-        storage_path: storagePath,
-        original_filename: parsed.filename,
-        file_size: parsed.size,
-        mime_type: parsed.contentType,
-        content_hash: null,
-        upload_status: "pending",
-        deleted_at: null,
-        moved_at: null,
-      })
-      .select(ORDER_DRAFT_FILE_SELECT)
-      .single();
-
-    if (insertError || !inserted) {
-      console.error(
-        "[order-draft-files] insert pending failed:",
-        insertError?.message,
-      );
-      return draftFileError("database_error", "Could not prepare draft upload.");
-    }
-
-    const pendingRow = mapOrderDraftFileDatabaseRow(inserted);
     const { data: signed, error: signedError } = await supabase.storage
       .from(ORDER_FILES_BUCKET)
       .createSignedUploadUrl(storagePath);
@@ -211,12 +145,15 @@ export async function prepareOrderDraftFileUploadForUser(
         "[order-draft-files] signed upload URL failed:",
         signedError?.message,
       );
-      await markDraftFileFailedBestEffort(fileId);
+      await markDraftFileFailedBestEffort(draftId, fileId);
       return draftFileError("storage_error", "Could not prepare draft upload.");
     }
 
+    const pendingResult = await getDraftFileRowById(supabase, draftId, fileId);
+    if (!pendingResult.ok) return pendingResult;
+
     await removeStorageObjectsBestEffort(
-      supersededRows.map((row) => row.storagePath),
+      prepareResult.data.retiredStoragePaths,
       "remove stale pending candidates",
     );
 
@@ -230,7 +167,7 @@ export async function prepareOrderDraftFileUploadForUser(
     return {
       ok: true,
       data: {
-        file: mapOrderDraftFilePublicSummary(pendingRow) as PreparedOrderDraftFileUpload["file"],
+        file: mapOrderDraftFilePublicSummary(pendingResult.data) as PreparedOrderDraftFileUpload["file"],
         upload,
       },
     };
@@ -289,12 +226,14 @@ export async function completeOrderDraftFileUploadForUser(
       return draftFileError("database_error", "Could not complete draft upload.");
     }
 
-    const retiredPaths = parseRetiredStoragePaths(rpcData);
+    const completeResult = parseCompleteOrderDraftFileUploadRpcResult(rpcData);
+    if (!completeResult.ok) return completeResult;
+
     const completedResult = await getDraftFileRowById(supabase, draftId, fileId);
     if (!completedResult.ok) return completedResult;
 
     await removeStorageObjectsBestEffort(
-      retiredPaths,
+      completeResult.data.retiredStoragePaths,
       "remove retired uploaded file",
     );
 
@@ -349,29 +288,27 @@ export async function softDeleteOrderDraftFileForUser(
 ): Promise<OrderDraftFileOperationResult<DeletedOrderDraftFileSummary>> {
   if (!validateUuidTriplet(userId, draftId, fileId)) return invalidIdentifier();
 
-  const draftResult = await getOrderDraftForUser(userId, draftId);
-  if (!draftResult.ok) return repositoryResultToDraftFileResult(draftResult);
-
   try {
     const supabase = getSupabaseAdminClient();
-    const existingResult = await getDraftFileRowById(supabase, draftId, fileId);
-    if (!existingResult.ok) return existingResult;
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "soft_delete_order_draft_file",
+      {
+        p_user_id: userId,
+        p_draft_id: draftId,
+        p_file_id: fileId,
+      },
+    );
 
-    const payload = buildDraftFileSoftDeletePayload();
-    const { error } = await supabase
-      .from("order_draft_files")
-      .update(payload)
-      .eq("id", fileId)
-      .eq("draft_id", draftId)
-      .is("deleted_at", null);
-
-    if (error) {
-      console.error("[order-draft-files] soft delete failed:", error.message);
+    if (rpcError) {
+      console.error("[order-draft-files] soft delete RPC failed:", rpcError.message);
       return draftFileError("database_error", "Could not delete draft file.");
     }
 
+    const deleteResult = parseSoftDeleteOrderDraftFileRpcResult(rpcData);
+    if (!deleteResult.ok) return deleteResult;
+
     await removeStorageObjectsBestEffort(
-      [existingResult.data.storagePath],
+      [deleteResult.data.storagePath],
       "remove soft-deleted file",
     );
 
@@ -482,13 +419,18 @@ function getStringMetadata(
   return null;
 }
 
-async function markDraftFileFailedBestEffort(fileId: string): Promise<void> {
+async function markDraftFileFailedBestEffort(
+  draftId: string,
+  fileId: string,
+): Promise<void> {
   try {
     const supabase = getSupabaseAdminClient();
     const { error } = await supabase
       .from("order_draft_files")
       .update({ upload_status: "failed" })
       .eq("id", fileId)
+      .eq("draft_id", draftId)
+      .is("deleted_at", null)
       .eq("upload_status", "pending");
     if (error) {
       console.warn("[order-draft-files] mark failed returned error:", error.message);
@@ -516,14 +458,4 @@ async function removeStorageObjectsBestEffort(
   } catch (error) {
     console.warn(`[order-draft-files] ${scope} threw:`, error);
   }
-}
-
-function parseRetiredStoragePaths(rpcData: unknown): string[] {
-  const row = Array.isArray(rpcData)
-    ? rpcData[0] as CompletedUploadRpcRow | undefined
-    : rpcData as CompletedUploadRpcRow | null | undefined;
-
-  return Array.isArray(row?.retired_storage_paths)
-    ? row.retired_storage_paths.filter((path): path is string => typeof path === "string")
-    : [];
 }
