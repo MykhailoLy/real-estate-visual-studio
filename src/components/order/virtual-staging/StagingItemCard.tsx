@@ -19,8 +19,14 @@ import {
   STAGING_ADDONS,
   STAGING_FILE_ACCEPT,
 } from "@/data/order-options";
+import { createDraftClientItemId } from "@/lib/order-drafts/utils";
+import {
+  updateOriginalFileDraftMetadata,
+  updateReferenceFileDraftMetadata,
+} from "@/lib/order-drafts/virtual-staging";
 
 export interface StagingItemData {
+  clientItemId: string;
   file: File | null;
   roomName: string;
   furnitureStyle: string;
@@ -32,9 +38,13 @@ export interface StagingItemData {
   referenceFile: File | null;
   additionalInfo: string;
   selectedAddons: string[];
+  originalFilename: string | null;
+  referenceFilename: string | null;
+  needsOriginalFileReselection: boolean;
 }
 
 export const emptyStagingItem = (): StagingItemData => ({
+  clientItemId: createDraftClientItemId(),
   file: null,
   roomName: "",
   furnitureStyle: "",
@@ -43,6 +53,9 @@ export const emptyStagingItem = (): StagingItemData => ({
   referenceFile: null,
   additionalInfo: "",
   selectedAddons: [],
+  originalFilename: null,
+  referenceFilename: null,
+  needsOriginalFileReselection: false,
 });
 
 interface StagingItemCardProps {
@@ -51,7 +64,18 @@ interface StagingItemCardProps {
   onChange: (data: StagingItemData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  draftCopy?: {
+    savedOriginalFile: (filename: string) => string;
+    savedReferenceFile: (filename: string) => string;
+  };
 }
+
+const DEFAULT_DRAFT_COPY = {
+  savedOriginalFile: (filename: string) =>
+    `Saved draft file: ${filename}. Please select it again to submit.`,
+  savedReferenceFile: (filename: string) =>
+    `Saved draft reference: ${filename}. Select it again if it is still needed.`,
+};
 
 export default function StagingItemCard({
   index,
@@ -59,6 +83,7 @@ export default function StagingItemCard({
   onChange,
   onRemove,
   canRemove,
+  draftCopy = DEFAULT_DRAFT_COPY,
 }: StagingItemCardProps) {
   const currency = useDisplayCurrency();
   const toggleAddon = (id: string) => {
@@ -95,9 +120,20 @@ export default function StagingItemCard({
         <FileUpload
           label="Upload Original Photo"
           file={data.file}
-          onFileChange={(file) => onChange({ ...data, file })}
+          onFileChange={(file) =>
+            onChange({
+              ...data,
+              file,
+              ...updateOriginalFileDraftMetadata(data, file),
+            })
+          }
           accept={STAGING_FILE_ACCEPT}
           required
+          helperText={
+            data.needsOriginalFileReselection && data.originalFilename
+              ? draftCopy.savedOriginalFile(data.originalFilename)
+              : undefined
+          }
         />
 
         {/* Furniture Style — visual picker (kept in sync with the dropdown below) */}
@@ -185,7 +221,18 @@ export default function StagingItemCard({
         <FileUpload
           label="Reference Image (optional)"
           file={data.referenceFile}
-          onFileChange={(file) => onChange({ ...data, referenceFile: file })}
+          onFileChange={(file) =>
+            onChange({
+              ...data,
+              referenceFile: file,
+              ...updateReferenceFileDraftMetadata(data, file),
+            })
+          }
+          helperText={
+            !data.referenceFile && data.referenceFilename
+              ? draftCopy.savedReferenceFile(data.referenceFilename)
+              : undefined
+          }
         />
 
         {/* Additional Information */}

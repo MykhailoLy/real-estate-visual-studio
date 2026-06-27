@@ -90,7 +90,7 @@ export const ORDER_DRAFT_SELECT = ORDER_DRAFT_COLUMNS.join(", ");
 export const ORDER_DRAFT_SUMMARY_SELECT = ORDER_DRAFT_SUMMARY_COLUMNS.join(", ");
 export const ORDER_DRAFT_FILE_SELECT = ORDER_DRAFT_FILE_COLUMNS.join(", ");
 
-const ISO_DATE_SCHEMA = z.string().datetime();
+const ISO_DATE_SCHEMA = z.string().datetime({ offset: true });
 
 export interface OrderDraftDatabaseRow {
   id: string;

@@ -72,6 +72,7 @@ const NAV_X_PADDING = "px-4 sm:px-6 lg:px-8 xl:px-5 2xl:px-10";
 
 export type SiteLanguage = "en" | "es";
 
+export const LANGUAGE_CHANGE_EVENT = "picchuspot:language-change";
 const LANGUAGE_STORAGE_KEY = "picchuspot-language";
 const LANGUAGE_COOKIE_NAME = "picchuspot_language";
 
@@ -309,6 +310,9 @@ export function writeLanguagePreference(language: SiteLanguage) {
     // Ignore unavailable storage.
   }
   document.cookie = `${LANGUAGE_COOKIE_NAME}=${language}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  window.dispatchEvent(
+    new CustomEvent(LANGUAGE_CHANGE_EVENT, { detail: { language } }),
+  );
 }
 
 export function getCurrentLanguage(

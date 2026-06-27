@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:pricing": "node --experimental-strip-types --test src/lib/pricing/calculate.test.ts",
     "test:order-drafts": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts.test.ts",
-    "test:order-drafts-api": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts-api.test.ts"
+    "test:order-drafts-api": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts-api.test.ts",
+    "test:virtual-staging-drafts": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
