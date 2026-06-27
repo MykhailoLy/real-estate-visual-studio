@@ -32,6 +32,7 @@ interface DraftCopy {
   retry: string;
   updatedUnavailable: string;
   loading: string;
+  viewAll: string;
 }
 
 const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
@@ -46,6 +47,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     retry: "Retry",
     updatedUnavailable: "Updated time unavailable",
     loading: "Loading saved drafts",
+    viewAll: "View all drafts",
   },
   es: {
     heading: "Borradores guardados",
@@ -58,6 +60,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     retry: "Reintentar",
     updatedUnavailable: "Hora de actualización no disponible",
     loading: "Cargando borradores guardados",
+    viewAll: "Ver todos los borradores",
   },
 };
 
@@ -137,6 +140,14 @@ export default function SavedDraftsSection() {
           </h2>
           <p className="text-sm text-muted">{copy.helper}</p>
         </div>
+        {loadState === "success" && drafts.length > 0 && (
+          <Link
+            href="/dashboard/drafts"
+            className="inline-flex w-fit items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            {copy.viewAll}
+          </Link>
+        )}
       </div>
 
       {loadState === "loading" && (

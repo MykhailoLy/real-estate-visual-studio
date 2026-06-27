@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:pricing": "node --experimental-strip-types --test src/lib/pricing/calculate.test.ts",
+    "test:drafts-page": "node --experimental-strip-types --test src/lib/order-drafts/drafts-page.test.ts",
     "test:order-drafts": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts.test.ts",
     "test:order-drafts-api": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts-api.test.ts",
     "test:saved-drafts": "node --experimental-strip-types --test src/lib/order-drafts/saved-drafts.test.ts",

@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import {
   Briefcase,
   ChevronDown,
+  FileClock,
   FolderOpen,
   LayoutDashboard,
   LifeBuoy,
@@ -43,6 +44,7 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
   { href: "/dashboard/orders/new", label: "New Order", icon: PlusCircle },
+  { href: "/dashboard/drafts", label: "Drafts", icon: FileClock },
   { href: "/dashboard/files", label: "Files", icon: FolderOpen },
   { href: "/dashboard/invoices", label: "Invoices", icon: Receipt },
   { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
@@ -52,6 +54,7 @@ const accountMenuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
   { href: "/dashboard/orders/new", label: "New Order", icon: PlusCircle },
+  { href: "/dashboard/drafts", label: "Drafts", icon: FileClock },
   { href: "/dashboard/profile", label: "My Account", icon: User },
   { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
 ] as const;

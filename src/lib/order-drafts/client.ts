@@ -143,6 +143,7 @@ export function updateOrderDraft(
 export function deleteOrderDraft(
   draftId: string,
   expectedVersion: number,
+  signal?: AbortSignal,
 ): Promise<
   OrderDraftClientResult<{ draft: OrderDraftRow; version: number }>
 > {
@@ -151,6 +152,7 @@ export function deleteOrderDraft(
     {
       method: "DELETE",
       body: JSON.stringify({ expectedVersion }),
+      signal,
     },
   );
 }
