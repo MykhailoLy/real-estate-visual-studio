@@ -15,6 +15,8 @@ interface StyleSelectorProps {
   onChange: (label: string) => void;
   /** Optional unique id used for the radio group's name attribute. */
   groupName?: string;
+  /** Optional visible label id for the radiogroup accessible name. */
+  ariaLabelledBy?: string;
 }
 
 /**
@@ -34,11 +36,13 @@ export default function StyleSelector({
   value,
   onChange,
   groupName,
+  ariaLabelledBy,
 }: StyleSelectorProps) {
   return (
     <div
       role="radiogroup"
-      aria-label="Furniture style"
+      aria-labelledby={ariaLabelledBy}
+      aria-label={ariaLabelledBy ? undefined : "Furniture style"}
       className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5"
     >
       {STAGING_STYLE_CARDS.map((card) => (
@@ -90,7 +94,7 @@ function StyleCard({
           // Clean named placeholder — used when the image file does not
           // exist yet at /public/images/styles/<slug>.jpg.
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200">
-            <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted px-2 text-center">
+            <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-foreground/75 px-2 text-center">
               {card.label}
             </span>
           </div>
@@ -109,7 +113,7 @@ function StyleCard({
         )}
         {selected && (
           <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center shadow-sm">
-            <Check className="w-3 h-3" strokeWidth={3} />
+            <Check className="w-3 h-3" strokeWidth={3} aria-hidden="true" />
           </div>
         )}
       </div>

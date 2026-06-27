@@ -86,6 +86,12 @@ export default function StagingItemCard({
   draftCopy = DEFAULT_DRAFT_COPY,
 }: StagingItemCardProps) {
   const currency = useDisplayCurrency();
+  const fieldIdPrefix = `staging-${data.clientItemId}`;
+  const visualStyleLabelId = `${fieldIdPrefix}-visual-style`;
+  const roomNameId = `${fieldIdPrefix}-room-name`;
+  const furnitureStyleId = `${fieldIdPrefix}-furniture-style`;
+  const referenceLinkId = `${fieldIdPrefix}-reference-link`;
+  const additionalInfoId = `${fieldIdPrefix}-additional-info`;
   const toggleAddon = (id: string) => {
     const current = data.selectedAddons;
     const updated = current.includes(id)
@@ -110,7 +116,7 @@ export default function StagingItemCard({
             className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
             aria-label={`Remove image ${index + 1}`}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -138,26 +144,34 @@ export default function StagingItemCard({
 
         {/* Furniture Style — visual picker (kept in sync with the dropdown below) */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
+          <p
+            id={visualStyleLabelId}
+            className="block text-sm font-medium text-foreground mb-2"
+          >
             Furniture Style <span className="text-red-500">*</span>
-          </label>
-          <p className="text-xs text-muted mb-3">
+          </p>
+          <p className="text-xs text-foreground/75 mb-3">
             Tap a style card to select it. The dropdown below stays in sync.
           </p>
           <StyleSelector
             value={data.furnitureStyle}
             onChange={(label) => onChange({ ...data, furnitureStyle: label })}
-            groupName={`furniture-style-${index}`}
+            groupName={`${fieldIdPrefix}-visual-style`}
+            ariaLabelledBy={visualStyleLabelId}
           />
         </div>
 
         {/* Room & Style */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label
+              htmlFor={roomNameId}
+              className="block text-sm font-medium text-foreground mb-1.5"
+            >
               Room Name / Area <span className="text-red-500">*</span>
             </label>
             <select
+              id={roomNameId}
               value={data.roomName}
               onChange={(e) => onChange({ ...data, roomName: e.target.value })}
               className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -171,10 +185,14 @@ export default function StagingItemCard({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label
+              htmlFor={furnitureStyleId}
+              className="block text-sm font-medium text-foreground mb-1.5"
+            >
               Furniture Style <span className="text-red-500">*</span>
             </label>
             <select
+              id={furnitureStyleId}
               value={data.furnitureStyle}
               onChange={(e) =>
                 onChange({ ...data, furnitureStyle: e.target.value })
@@ -193,7 +211,7 @@ export default function StagingItemCard({
 
         {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
         <ItemDeliveryFields
-          idPrefix={`staging-item-${index}`}
+          idPrefix={fieldIdPrefix}
           data={{
             fileSizeLimit: data.fileSizeLimit,
             disclaimerText: data.disclaimerText,
@@ -203,10 +221,14 @@ export default function StagingItemCard({
 
         {/* Reference Link */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label
+            htmlFor={referenceLinkId}
+            className="block text-sm font-medium text-foreground mb-1.5"
+          >
             Reference Link
           </label>
           <input
+            id={referenceLinkId}
             type="url"
             value={data.referenceLink}
             onChange={(e) =>
@@ -237,10 +259,14 @@ export default function StagingItemCard({
 
         {/* Additional Information */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label
+            htmlFor={additionalInfoId}
+            className="block text-sm font-medium text-foreground mb-1.5"
+          >
             Additional Information
           </label>
           <textarea
+            id={additionalInfoId}
             value={data.additionalInfo}
             onChange={(e) =>
               onChange({ ...data, additionalInfo: e.target.value })
@@ -271,7 +297,7 @@ export default function StagingItemCard({
                   />
                   <span className="text-sm text-foreground">{addon.label}</span>
                 </div>
-                <span className="text-sm font-medium text-muted">
+                <span className="text-sm font-medium text-foreground/75">
                   +<RegionalCentsText
                     cents={getCatalogPrice(addon.priceKey, currency)}
                   />
