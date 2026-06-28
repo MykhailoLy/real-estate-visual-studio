@@ -9,6 +9,8 @@ import {
   SupportAssistantConfigurationError,
   SupportAssistantGenerationError,
   SupportAssistantInputError,
+  SupportAssistantRateLimitUnavailableError,
+  type SupportAssistantRateLimiter,
   type SupportAssistantRequestInput,
   type SupportAssistantTransport,
 } from "./types.ts";
@@ -20,6 +22,7 @@ const NO_STORE_HEADERS = {
 export type SupportAssistantPublicErrorCode =
   | "invalid_json"
   | "invalid_input"
+  | "rate_limited"
   | "support_unavailable"
   | "generation_failed";
 
@@ -75,6 +78,23 @@ function unsupportedContentTypeResponse(): Response {
     "Content-Type must be application/json.",
     "invalid_input",
     400,
+  );
+}
+
+function rateLimitedResponse(retryAfterSeconds: number): Response {
+  const retryAfter = Math.max(1, Math.ceil(retryAfterSeconds));
+  return Response.json(
+    {
+      error: "Too many support requests. Please try again later.",
+      code: "rate_limited",
+    },
+    {
+      status: 429,
+      headers: {
+        ...NO_STORE_HEADERS,
+        "Retry-After": String(retryAfter),
+      },
+    },
   );
 }
 
@@ -208,9 +228,26 @@ export async function parseSupportAssistantJsonRequest(
 export async function handleSupportAssistantPostRequest(
   request: Request,
   transport: SupportAssistantTransport,
+  rateLimiter?: SupportAssistantRateLimiter,
 ): Promise<Response> {
   const parsed = await parseSupportAssistantJsonRequest(request);
   if (!parsed.ok) return parsed.response;
+
+  if (rateLimiter) {
+    try {
+      const rateLimit = await rateLimiter.check(request);
+      if (!rateLimit.allowed) {
+        return rateLimitedResponse(rateLimit.retryAfterSeconds);
+      }
+    } catch (error) {
+      logSupportAssistantError("rate limit", error);
+      return supportAssistantErrorResponse(
+        "Support assistant is currently unavailable.",
+        "support_unavailable",
+        503,
+      );
+    }
+  }
 
   try {
     const message = await generateSupportAssistantReply(parsed.input, transport);
@@ -235,7 +272,8 @@ export async function handleSupportAssistantPostRequest(
 
 function logSupportAssistantError(operation: string, error: unknown): void {
   const safeName =
-    error instanceof SupportAssistantGenerationError
+    error instanceof SupportAssistantGenerationError ||
+    error instanceof SupportAssistantRateLimitUnavailableError
       ? error.name
       : error instanceof Error
         ? error.name

@@ -6,7 +6,10 @@ import {
 } from "./api.ts";
 import { SUPPORT_ASSISTANT_MAX_BODY_BYTES } from "./schema.ts";
 import { SupportAssistantConfigurationError } from "./types.ts";
-import type { SupportAssistantTransport } from "./types.ts";
+import type {
+  SupportAssistantRateLimiter,
+  SupportAssistantTransport,
+} from "./types.ts";
 
 type StreamRequestInit = RequestInit & { duplex: "half" };
 
@@ -87,6 +90,12 @@ function streamedRequest(
 const successTransport: SupportAssistantTransport = {
   async generate() {
     return "Helpful answer.";
+  },
+};
+
+const allowRateLimiter: SupportAssistantRateLimiter = {
+  async check() {
+    return { allowed: true };
   },
 };
 
@@ -417,12 +426,180 @@ test("successful response uses the data envelope", async () => {
   });
 });
 
+test("valid allowed request checks rate limit before reaching the support transport", async () => {
+  const calls: string[] = [];
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "Hello" }),
+    {
+      async generate() {
+        calls.push("transport");
+        return "Helpful answer.";
+      },
+    },
+    {
+      async check() {
+        calls.push("rate-limit");
+        return { allowed: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ["rate-limit", "transport"]);
+});
+
+test("rate-limited request returns safe 429 without calling transport", async () => {
+  let transportCalled = false;
+  const rawIp = "203.0.113.10";
+  const identifierHash =
+    "0".repeat(64);
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson(
+      { message: "Hello" },
+      { "x-vercel-forwarded-for": rawIp },
+    ),
+    {
+      async generate() {
+        transportCalled = true;
+        return "should not happen";
+      },
+    },
+    {
+      async check() {
+        return { allowed: false, retryAfterSeconds: 42 };
+      },
+    },
+  );
+
+  assert.equal(transportCalled, false);
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(response.headers.get("Retry-After"), "42");
+  const body = await responseJson(response);
+  assert.deepEqual(body, {
+    error: "Too many support requests. Please try again later.",
+    code: "rate_limited",
+  });
+  assert.equal(JSON.stringify(body).includes(rawIp), false);
+  assert.equal(JSON.stringify(body).includes(identifierHash), false);
+});
+
+test("rate-limited response uses a positive minimum Retry-After", async () => {
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "Hello" }),
+    successTransport,
+    {
+      async check() {
+        return { allowed: false, retryAfterSeconds: 0 };
+      },
+    },
+  );
+
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Retry-After"), "1");
+});
+
+test("limiter configuration failure returns safe 503 without calling transport", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  let transportCalled = false;
+  try {
+    const response = await handleSupportAssistantPostRequest(
+      requestWithJson({ message: "Hello" }),
+      {
+        async generate() {
+          transportCalled = true;
+          return "should not happen";
+        },
+      },
+      {
+        async check() {
+          throw new Error("UPSTASH_REDIS_REST_TOKEN raw failure");
+        },
+      },
+    );
+
+    assert.equal(transportCalled, false);
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("Cache-Control"), "no-store");
+    const body = await responseJson(response);
+    assert.deepEqual(body, {
+      error: "Support assistant is currently unavailable.",
+      code: "support_unavailable",
+    });
+    assert.equal(JSON.stringify(body).includes("UPSTASH"), false);
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("invalid JSON does not call rate limiter or transport", async () => {
+  let limiterCalled = false;
+  let transportCalled = false;
+
+  const response = await handleSupportAssistantPostRequest(
+    requestWithTextBody("{"),
+    {
+      async generate() {
+        transportCalled = true;
+        return "should not happen";
+      },
+    },
+    {
+      async check() {
+        limiterCalled = true;
+        return { allowed: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(limiterCalled, false);
+  assert.equal(transportCalled, false);
+});
+
+test("invalid support input does not call rate limiter or transport", async () => {
+  let limiterCalled = false;
+  let transportCalled = false;
+
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "   " }),
+    {
+      async generate() {
+        transportCalled = true;
+        return "should not happen";
+      },
+    },
+    {
+      async check() {
+        limiterCalled = true;
+        return { allowed: true };
+      },
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(limiterCalled, false);
+  assert.equal(transportCalled, false);
+});
+
 test("representative responses use Cache-Control no-store", async () => {
   const success = await handleSupportAssistantPostRequest(
     requestWithJson({ message: "Hello" }),
     successTransport,
   );
   assert.equal(success.headers.get("Cache-Control"), "no-store");
+
+  const rateLimited = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "Hello" }),
+    successTransport,
+    {
+      async check() {
+        return { allowed: false, retryAfterSeconds: 10 };
+      },
+    },
+  );
+  assert.equal(rateLimited.headers.get("Cache-Control"), "no-store");
 
   const invalid = await handleSupportAssistantPostRequest(
     requestWithTextBody("{"),
@@ -449,6 +626,24 @@ test("missing configuration maps to safe 503", async () => {
         throw new SupportAssistantConfigurationError("GEMINI_API_KEY missing");
       },
     },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await responseJson(response), {
+    error: "Support assistant is currently unavailable.",
+    code: "support_unavailable",
+  });
+});
+
+test("allowed rate limiter preserves existing missing Gemini configuration response", async () => {
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "Hello" }),
+    {
+      async generate() {
+        throw new SupportAssistantConfigurationError("GEMINI_API_KEY missing");
+      },
+    },
+    allowRateLimiter,
   );
 
   assert.equal(response.status, 503);

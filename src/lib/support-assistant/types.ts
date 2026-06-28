@@ -14,6 +14,14 @@ export interface SupportAssistantTransport {
   generate(input: string): Promise<string>;
 }
 
+export type SupportRateLimitDecision =
+  | { allowed: true }
+  | { allowed: false; retryAfterSeconds: number };
+
+export interface SupportAssistantRateLimiter {
+  check(request: Request): Promise<SupportRateLimitDecision>;
+}
+
 export class SupportAssistantInputError extends Error {
   constructor(message = "Support assistant input is invalid.") {
     super(message);
@@ -32,5 +40,12 @@ export class SupportAssistantGenerationError extends Error {
   constructor(message = "Support assistant generation failed.") {
     super(message);
     this.name = "SupportAssistantGenerationError";
+  }
+}
+
+export class SupportAssistantRateLimitUnavailableError extends Error {
+  constructor(message = "Support assistant rate limit is unavailable.") {
+    super(message);
+    this.name = "SupportAssistantRateLimitUnavailableError";
   }
 }
