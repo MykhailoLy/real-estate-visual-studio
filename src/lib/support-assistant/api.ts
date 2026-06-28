@@ -1,7 +1,5 @@
 import { SupportAssistantRequestSchema } from "./schema.ts";
-import {
-  SUPPORT_ASSISTANT_MAX_BODY_BYTES,
-} from "./schema.ts";
+import { SUPPORT_ASSISTANT_MAX_BODY_BYTES } from "./schema.ts";
 import {
   buildSupportAssistantTranscript,
   generateSupportAssistantReply,
@@ -35,11 +33,7 @@ export type SupportAssistantJsonParseResult =
   | { ok: true; input: SupportAssistantRequestInput }
   | { ok: false; response: Response };
 
-const textEncoder = new TextEncoder();
-
-function byteLength(value: string): number {
-  return textEncoder.encode(value).byteLength;
-}
+const textDecoder = new TextDecoder();
 
 export function supportAssistantSuccessResponse(message: string): Response {
   return Response.json(
@@ -68,9 +62,35 @@ function invalidInputResponse(details?: unknown): Response {
   );
 }
 
-export async function parseSupportAssistantJsonRequest(
+function oversizedBodyResponse(): Response {
+  return supportAssistantErrorResponse(
+    "Request body is too large.",
+    "invalid_input",
+    400,
+  );
+}
+
+function unsupportedContentTypeResponse(): Response {
+  return supportAssistantErrorResponse(
+    "Content-Type must be application/json.",
+    "invalid_input",
+    400,
+  );
+}
+
+export function isSupportedJsonContentType(value: string | null): boolean {
+  if (!value) return false;
+  const mediaType = value.split(";")[0]?.trim().toLowerCase();
+  return (
+    mediaType === "application/json" ||
+    (mediaType?.startsWith("application/") === true &&
+      mediaType.endsWith("+json"))
+  );
+}
+
+export async function readBoundedRequestText(
   request: Request,
-): Promise<SupportAssistantJsonParseResult> {
+): Promise<{ ok: true; text: string } | { ok: false; response: Response }> {
   const contentLength = request.headers.get("content-length");
   if (contentLength !== null) {
     const parsedContentLength = Number(contentLength);
@@ -78,37 +98,66 @@ export async function parseSupportAssistantJsonRequest(
       Number.isFinite(parsedContentLength) &&
       parsedContentLength > SUPPORT_ASSISTANT_MAX_BODY_BYTES
     ) {
-      return {
-        ok: false,
-        response: supportAssistantErrorResponse(
-          "Request body is too large.",
-          "invalid_input",
-          400,
-        ),
-      };
+      return { ok: false, response: oversizedBodyResponse() };
     }
+  }
+
+  if (!request.body) return { ok: true, text: "" };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      receivedBytes += value.byteLength;
+      if (receivedBytes > SUPPORT_ASSISTANT_MAX_BODY_BYTES) {
+        try {
+          await reader.cancel();
+        } catch {
+          // The request is already rejected; cancellation is best-effort.
+        }
+        return { ok: false, response: oversizedBodyResponse() };
+      }
+
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bodyBytes = new Uint8Array(receivedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bodyBytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { ok: true, text: textDecoder.decode(bodyBytes) };
+}
+
+export async function parseSupportAssistantJsonRequest(
+  request: Request,
+): Promise<SupportAssistantJsonParseResult> {
+  if (!isSupportedJsonContentType(request.headers.get("content-type"))) {
+    return { ok: false, response: unsupportedContentTypeResponse() };
   }
 
   let text: string;
   try {
-    text = await request.text();
+    const body = await readBoundedRequestText(request);
+    if (!body.ok) return body;
+    text = body.text;
   } catch {
     return {
       ok: false,
       response: supportAssistantErrorResponse(
         "Invalid JSON body.",
         "invalid_json",
-        400,
-      ),
-    };
-  }
-
-  if (byteLength(text) > SUPPORT_ASSISTANT_MAX_BODY_BYTES) {
-    return {
-      ok: false,
-      response: supportAssistantErrorResponse(
-        "Request body is too large.",
-        "invalid_input",
         400,
       ),
     };
