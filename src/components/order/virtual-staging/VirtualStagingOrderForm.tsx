@@ -22,7 +22,7 @@ import {
   RegionalCentsText,
   useDisplayRegion,
 } from "@/components/pricing/currency-client";
-import { submitOrder } from "@/lib/submit-order";
+import { submitOrder, type OrderSubmitResult } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { currencyForRegion } from "@/lib/currency";
@@ -69,6 +69,7 @@ import { submitVirtualStagingDraft } from "@/lib/order-drafts/finalization-clien
 import {
   selectVirtualStagingDraftSubmissionMode,
   shouldApplyVirtualStagingFinalizationResult,
+  shouldPreserveVirtualStagingFinalizationKeyAfterFailure,
 } from "@/lib/order-drafts/finalization";
 import {
   buildVirtualStagingDraftFileSlotKey,
@@ -1432,7 +1433,21 @@ export default function VirtualStagingOrderForm({
     );
   };
 
-  const submitCurrentLocalOrder = async (currentItems: StagingItemData[]) => {
+  const submitCurrentLocalOrder = async (
+    currentItems: StagingItemData[],
+  ): Promise<OrderSubmitResult> => {
+    const missingLocalOriginalIndex = currentItems.findIndex(
+      (item) => item.file === null,
+    );
+    if (missingLocalOriginalIndex >= 0) {
+      return {
+        success: false,
+        error:
+          "Some images exist only in the saved draft. Retry the draft upload or reselect the required originals before submitting.",
+        errorCode: "validation-failed",
+      };
+    }
+
     const itemsMetadata = currentItems.map((item) => ({
       roomName: item.roomName,
       furnitureStyle: item.furnitureStyle,
@@ -1455,6 +1470,34 @@ export default function VirtualStagingOrderForm({
       orderTerms,
       jobTitle,
     );
+  };
+
+  const retireSubmittedDraftBestEffort = async (
+    submittedDraftId: string,
+    expectedVersion: number,
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/order-drafts/${encodeURIComponent(submittedDraftId)}`,
+        {
+          method: "DELETE",
+          cache: "no-store",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ expectedVersion }),
+        },
+      );
+      if (!response.ok) {
+        console.warn(
+          "[virtual-staging] submitted local-fallback draft was not retired",
+          response.status,
+        );
+      }
+    } catch (error) {
+      console.warn(
+        "[virtual-staging] submitted local-fallback draft retirement failed",
+        error,
+      );
+    }
   };
 
   const handleSubmit = async () => {
@@ -1517,11 +1560,32 @@ export default function VirtualStagingOrderForm({
       return;
     }
 
+    if (decision.mode === "local_upload_fallback_unavailable") {
+      setIsSubmitting(false);
+      setSubmitError(
+        "A current file change is not saved to the draft, but another item only has a saved draft image. Retry the failed draft upload or reselect the required originals before submitting.",
+      );
+      return;
+    }
+
     if (decision.mode === "local_upload_fallback") {
       finalizationKeyRef.current = null;
       setFinalizationKey(null);
       const result = await submitCurrentLocalOrder(currentItems);
       if (result.success && result.orderNumber) {
+        await retireSubmittedDraftBestEffort(
+          saveOutcome.draftId,
+          saveOutcome.version,
+        );
+        if (
+          !mountedRef.current ||
+          !shouldApplyVirtualStagingSaveResult(
+            sessionAtStart,
+            draftSessionRef.current,
+          )
+        ) {
+          return;
+        }
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
@@ -1592,7 +1656,12 @@ export default function VirtualStagingOrderForm({
       return;
     }
 
-    if (result.code !== "finalization_incomplete") {
+    if (
+      !shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+        code: result.code,
+        status: result.status,
+      })
+    ) {
       setFinalizationKey(null);
       finalizationKeyRef.current = null;
     }

@@ -23,6 +23,7 @@ import {
   type StoredDraftObjectInfo,
 } from "./files.ts";
 import {
+  buildTrustedFinalPathForDraftFile,
   buildTrustedMovedDraftFiles,
   buildVirtualStagingFinalizationItemFiles,
   finalizationError,
@@ -62,6 +63,9 @@ export interface SubmitVirtualStagingDraftSuccess {
 interface ProductionOrderLookup {
   id: string;
   orderNumber: string;
+  serviceType: string;
+  sourceDraftId: string | null;
+  itemCount: number;
 }
 
 interface ProductionOrderItemPaths {
@@ -100,7 +104,7 @@ export async function submitVirtualStagingDraftForUser(
       const existing = claim.convertedOrderId
         ? await loadProductionOrderById(input.userId, claim.convertedOrderId)
         : await loadProductionOrderBySourceDraft(input.userId, input.draftId);
-      if (!existing) {
+      if (!existing || !isProductionOrderForDraft(existing, input.draftId)) {
         return finalizationError(
           "finalization_incomplete",
           "Draft conversion needs to be reconciled.",
@@ -390,7 +394,7 @@ async function loadProductionOrderBySourceDraft(
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("id, order_number")
+    .select("id, order_number, service_type, source_draft_id, item_count")
     .eq("user_id", userId)
     .eq("source_draft_id", draftId)
     .maybeSingle();
@@ -412,7 +416,7 @@ async function loadProductionOrderById(
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("id, order_number")
+    .select("id, order_number, service_type, source_draft_id, item_count")
     .eq("id", orderId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -470,6 +474,16 @@ async function reconcileExistingDraftOrder(input: {
   const stateResult = validateVirtualStagingDraftForFinalization(input.draft);
   if (!stateResult.ok) return stateResult;
 
+  if (
+    !isProductionOrderForDraft(input.order, input.input.draftId) ||
+    input.order.itemCount !== stateResult.data.items.length
+  ) {
+    return finalizationError(
+      "finalization_incomplete",
+      "Existing order could not be verified for this draft.",
+    );
+  }
+
   const slotsResult = input.slots
     ? { ok: true as const, data: input.slots }
     : validateAndMatchVirtualStagingDraftFiles({
@@ -486,37 +500,86 @@ async function reconcileExistingDraftOrder(input: {
   }
 
   const itemPaths = await loadProductionOrderItemPaths(input.order.id);
+  if (!hasCompleteUniqueItemIndexes(itemPaths, stateResult.data.items.length)) {
+    return finalizationError(
+      "finalization_incomplete",
+      "Existing order items could not be verified.",
+    );
+  }
+
   const pathByIndex = new Map(itemPaths.map((item) => [item.itemIndex, item]));
   const movedFiles: TrustedMovedDraftFile[] = [];
 
   for (const slot of slotsResult.data) {
     const paths = pathByIndex.get(slot.itemIndex);
-    if (!paths?.originalPath) {
+    const expectedOriginalPath = buildTrustedFinalPathForDraftFile({
+      orderNumber: input.order.orderNumber,
+      itemIndex: slot.itemIndex,
+      kind: "original",
+      sourcePath: slot.original.storagePath,
+      originalFilename: slot.original.originalFilename,
+    });
+    if (!paths?.originalPath || paths.originalPath !== expectedOriginalPath) {
       return finalizationError(
         "finalization_incomplete",
         "Existing order files could not be reconciled.",
       );
     }
+    const originalObject = await verifyReconciledDestinationObject(
+      slot.original,
+      expectedOriginalPath,
+    );
+    if (!originalObject.ok) return originalObject;
+
     movedFiles.push({
       fileId: slot.original.id,
-      finalPath: paths.originalPath,
+      finalPath: expectedOriginalPath,
     });
     if (slot.reference) {
-      if (!paths.referencePath) {
+      const expectedReferencePath = buildTrustedFinalPathForDraftFile({
+        orderNumber: input.order.orderNumber,
+        itemIndex: slot.itemIndex,
+        kind: "reference",
+        sourcePath: slot.reference.storagePath,
+        originalFilename: slot.reference.originalFilename,
+      });
+      if (
+        !paths.referencePath ||
+        paths.referencePath !== expectedReferencePath
+      ) {
         return finalizationError(
           "finalization_incomplete",
           "Existing reference files could not be reconciled.",
         );
       }
+      const referenceObject = await verifyReconciledDestinationObject(
+        slot.reference,
+        expectedReferencePath,
+      );
+      if (!referenceObject.ok) return referenceObject;
+
       movedFiles.push({
         fileId: slot.reference.id,
-        finalPath: paths.referencePath,
+        finalPath: expectedReferencePath,
       });
+    } else if (paths.referencePath) {
+      return finalizationError(
+        "finalization_incomplete",
+        "Existing order contains an unexpected reference file.",
+      );
     }
+  }
+
+  if (!input.draft.finalizationKey) {
+    return finalizationError(
+      "finalization_incomplete",
+      "Existing order conversion needs the original finalization claim.",
+    );
   }
 
   const complete = await completeDraftFinalization({
     ...input.input,
+    finalizationKey: input.draft.finalizationKey,
     orderId: input.order.id,
     movedFiles,
   });
@@ -544,6 +607,75 @@ async function reconcileExistingDraftOrder(input: {
       confirmationEmailSent: false,
     },
   };
+}
+
+function isProductionOrderForDraft(
+  order: ProductionOrderLookup,
+  draftId: string,
+): boolean {
+  return (
+    order.sourceDraftId === draftId &&
+    order.serviceType === "virtual-staging"
+  );
+}
+
+function hasCompleteUniqueItemIndexes(
+  itemPaths: ProductionOrderItemPaths[],
+  expectedCount: number,
+): boolean {
+  if (itemPaths.length !== expectedCount) return false;
+  const seen = new Set<number>();
+  for (const item of itemPaths) {
+    if (
+      !Number.isInteger(item.itemIndex) ||
+      item.itemIndex < 0 ||
+      item.itemIndex >= expectedCount ||
+      seen.has(item.itemIndex)
+    ) {
+      return false;
+    }
+    seen.add(item.itemIndex);
+  }
+  return seen.size === expectedCount;
+}
+
+async function verifyReconciledDestinationObject(
+  draftFile: OrderDraftFileRow,
+  expectedPath: string,
+): Promise<DraftFinalizationResult<true>> {
+  const stored = await getStoredDraftObjectInfo(expectedPath);
+  if (!stored.ok) return finalizationError(stored.code, stored.message);
+  if (!stored.data) {
+    return finalizationError(
+      "finalization_incomplete",
+      "Existing order file is missing from Storage.",
+    );
+  }
+
+  const { basename } = getDraftStoragePathParts(expectedPath);
+  if (stored.data.name !== basename) {
+    return finalizationError(
+      "finalization_incomplete",
+      "Existing order file does not match the expected path.",
+    );
+  }
+  if (stored.data.size !== null && stored.data.size !== draftFile.fileSize) {
+    return finalizationError(
+      "finalization_incomplete",
+      "Existing order file size could not be verified.",
+    );
+  }
+  if (
+    stored.data.contentType &&
+    stored.data.contentType.toLowerCase() !== draftFile.mimeType.toLowerCase()
+  ) {
+    return finalizationError(
+      "finalization_incomplete",
+      "Existing order file type could not be verified.",
+    );
+  }
+
+  return { ok: true, data: true };
 }
 
 async function verifyDraftStorageObjects(
@@ -670,6 +802,10 @@ function collectDraftSourcePaths(
 }
 
 async function removeDraftSourcesBestEffort(paths: string[]): Promise<void> {
+  // Cleanup policy: completion is durable once draft-file rows point at final
+  // production paths. These trusted source paths are retained in memory for one
+  // best-effort deletion attempt; if deletion fails, the private draft objects
+  // may remain as safe orphans and can be swept later by a storage lifecycle job.
   const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
   if (uniquePaths.length === 0) return;
 
@@ -693,8 +829,19 @@ function mapProductionOrderLookup(row: unknown): ProductionOrderLookup | null {
   if (row === null || typeof row !== "object" || Array.isArray(row)) return null;
   const record = row as Record<string, unknown>;
   return typeof record.id === "string" &&
-    typeof record.order_number === "string"
-    ? { id: record.id, orderNumber: record.order_number }
+    typeof record.order_number === "string" &&
+    typeof record.service_type === "string" &&
+    typeof record.item_count === "number"
+    ? {
+        id: record.id,
+        orderNumber: record.order_number,
+        serviceType: record.service_type,
+        sourceDraftId:
+          typeof record.source_draft_id === "string"
+            ? record.source_draft_id
+            : null,
+        itemCount: record.item_count,
+      }
     : null;
 }
 

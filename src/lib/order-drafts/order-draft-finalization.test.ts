@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   DraftFinalizationBodySchema,
+  STALE_DRAFT_FINALIZATION_CLAIM_MINUTES,
   buildTrustedFinalPathForDraftFile,
   buildTrustedMovedDraftFiles,
   draftFinalizationMovedPayloadContainsOnlyTrustedFields,
   isExactDraftStoragePathForFile,
   isOwnershipSafeFinalizationNotFound,
+  isStaleVirtualStagingFinalizationClaim,
   mapClaimCodeToPublicError,
   mapVirtualStagingDraftStateToProductionItems,
   parseClaimFinalizationRpcResult,
@@ -15,6 +17,7 @@ import {
   selectVirtualStagingDraftSubmissionMode,
   shouldApplyVirtualStagingFinalizationResult,
   shouldAutomaticallyRetryVirtualStagingFinalization,
+  shouldPreserveVirtualStagingFinalizationKeyAfterFailure,
   validateAndMatchVirtualStagingDraftFiles,
   validateVirtualStagingDraftForFinalization,
 } from "./finalization.ts";
@@ -35,6 +38,10 @@ const ORDER_ID = "88888888-8888-4888-8888-888888888888";
 
 const SQL = readFileSync("supabase/add-order-draft-finalization.sql", "utf8");
 const ORDER_ROUTE = readFileSync("src/app/(public)/api/order/route.ts", "utf8");
+const VIRTUAL_STAGING_FORM = readFileSync(
+  "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
+  "utf8",
+);
 const FINALIZATION_SERVER = readFileSync(
   "src/lib/order-drafts/finalization-server.ts",
   "utf8",
@@ -43,6 +50,7 @@ const ORDER_SERVICE = readFileSync(
   "src/lib/orders/create-order-server.ts",
   "utf8",
 );
+const DRAFT_SERVER = readFileSync("src/lib/order-drafts/server.ts", "utf8");
 
 function draftState(overrides: Partial<VirtualStagingDraftState> = {}): VirtualStagingDraftState {
   return {
@@ -178,7 +186,10 @@ test("claim RPC transitions active drafts to converting without version incremen
 });
 
 test("same-key claim is idempotent", () => {
-  assert.match(SQL, /v_draft\.finalization_key = p_finalization_key/);
+  assert.match(
+    SQL,
+    /v_draft\.finalization_key IS NOT DISTINCT FROM p_finalization_key/,
+  );
   assert.match(SQL, /'already_claimed'::text/);
 });
 
@@ -435,6 +446,56 @@ test("existing order with uncompleted draft is reconciled", () => {
   assert.match(SQL, /v_existing_order_id IS NOT NULL/);
 });
 
+test("NULL source_draft_id is rejected by complete RPC", () => {
+  assert.match(
+    SQL,
+    /v_order\.source_draft_id IS DISTINCT FROM p_draft_id/,
+  );
+});
+
+test("NULL finalization key cannot complete or release a draft", () => {
+  assert.match(SQL, /v_draft\.finalization_key IS NULL/);
+  assert.match(
+    SQL,
+    /finalization_key IS NOT DISTINCT FROM p_finalization_key/,
+  );
+});
+
+test("matching finalization keys use null-safe comparisons", () => {
+  assert.match(SQL, /IS NOT DISTINCT FROM p_finalization_key/);
+  assert.match(SQL, /IS DISTINCT FROM p_finalization_key/);
+});
+
+test("recent different-key claim remains a conflict", () => {
+  assert.equal(STALE_DRAFT_FINALIZATION_CLAIM_MINUTES, 15);
+  assert.equal(isStaleVirtualStagingFinalizationClaim({
+    updatedAt: "2026-06-28T10:00:00.000Z",
+    now: new Date("2026-06-28T10:14:59.000Z"),
+  }), false);
+  assert.match(SQL, /'finalization_conflict'::text/);
+});
+
+test("stale no-order claim is recoverable", () => {
+  assert.equal(isStaleVirtualStagingFinalizationClaim({
+    updatedAt: "2026-06-28T10:00:00.000Z",
+    now: new Date("2026-06-28T10:15:00.000Z"),
+  }), true);
+  assert.match(SQL, /recover_stale_order_draft_finalization/);
+  assert.match(SQL, /SET status = 'active',\s+finalization_key = NULL/);
+});
+
+test("stale claim with an existing order is not released", () => {
+  assert.match(
+    SQL,
+    /NOT EXISTS \(\s+SELECT 1\s+FROM public\.orders\s+WHERE orders\.source_draft_id IS NOT DISTINCT FROM drafts\.id/s,
+  );
+});
+
+test("converting draft becomes resumable after safe stale recovery", () => {
+  assert.match(DRAFT_SERVER, /recoverStaleFinalizationClaimsForUser\(userId/);
+  assert.match(DRAFT_SERVER, /\.eq\("status", "active"\)/);
+});
+
 test("local original with matching summary selects draft finalization", () => {
   assert.equal(selectVirtualStagingDraftSubmissionMode([
     {
@@ -530,11 +591,32 @@ test("reference mismatch selects local fallback", () => {
         mimeType: "image/png",
       },
     },
-  ]).mode, "local_upload_fallback");
+  ]).mode, "local_upload_fallback_unavailable");
 });
 
 test("no automatic finalization retry", () => {
   assert.equal(shouldAutomaticallyRetryVirtualStagingFinalization(), false);
+});
+
+test("network error preserves the logical finalization key", () => {
+  assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+    code: "network_error",
+    status: 0,
+  }), true);
+});
+
+test("finalization incomplete preserves the logical finalization key", () => {
+  assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+    code: "finalization_incomplete",
+    status: 503,
+  }), true);
+});
+
+test("definite validation failure clears the logical finalization key", () => {
+  assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+    code: "invalid_input",
+    status: 400,
+  }), false);
 });
 
 test("stale finalization result is ignored", () => {
@@ -552,6 +634,13 @@ test("Start new resets finalization identity", () => {
   });
 });
 
+test("success clears finalization identity in the form", () => {
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(result\.ok\)[\s\S]+setFinalizationKey\(null\)[\s\S]+finalizationKeyRef\.current = null/,
+  );
+});
+
 test("successful persisted original counts as submit-ready", () => {
   assert.equal(isVirtualStagingFinalSubmissionReady([
     {
@@ -561,4 +650,145 @@ test("successful persisted original counts as submit-ready", () => {
       },
     },
   ]), true);
+});
+
+test("mixed persisted-only and failed local replacement blocks legacy fallback", () => {
+  const decision = selectVirtualStagingDraftSubmissionMode([
+    {
+      localOriginal: null,
+      uploadedOriginal: {
+        id: ORIGINAL_ID,
+        itemClientId: ITEM_ID,
+        kind: "original",
+        originalFilename: "persisted.jpg",
+        fileSize: 1234,
+        mimeType: "image/jpeg",
+      },
+    },
+    {
+      localOriginal: { name: "replacement.jpg", size: 99, type: "image/jpeg" },
+      uploadedOriginal: {
+        id: REFERENCE_ID,
+        itemClientId: ITEM_ID_2,
+        kind: "original",
+        originalFilename: "older.jpg",
+        fileSize: 1234,
+        mimeType: "image/jpeg",
+      },
+    },
+  ]);
+  assert.equal(decision.mode, "local_upload_fallback_unavailable");
+  assert.match(VIRTUAL_STAGING_FORM, /local_upload_fallback_unavailable/);
+});
+
+test("all-local fallback remains supported", () => {
+  assert.equal(selectVirtualStagingDraftSubmissionMode([
+    {
+      localOriginal: { name: "one.jpg", size: 10, type: "image/jpeg" },
+      uploadedOriginal: null,
+    },
+    {
+      localOriginal: { name: "two.jpg", size: 20, type: "image/jpeg" },
+      uploadedOriginal: {
+        id: ORIGINAL_ID,
+        itemClientId: ITEM_ID_2,
+        kind: "original",
+        originalFilename: "older.jpg",
+        fileSize: 1234,
+        mimeType: "image/jpeg",
+      },
+    },
+  ]).mode, "local_upload_fallback");
+});
+
+test("legacy fallback is never called with a null original", () => {
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /missingLocalOriginalIndex >= 0[\s\S]+Some images exist only in the saved draft/,
+  );
+});
+
+test("successful local fallback retires the draft best-effort", () => {
+  assert.match(VIRTUAL_STAGING_FORM, /retireSubmittedDraftBestEffort/);
+  assert.match(VIRTUAL_STAGING_FORM, /method: "DELETE"/);
+});
+
+test("failed local fallback keeps the draft active", () => {
+  const fallbackIndex = VIRTUAL_STAGING_FORM.indexOf(
+    "const result = await submitCurrentLocalOrder",
+  );
+  const retireIndex = VIRTUAL_STAGING_FORM.indexOf(
+    "await retireSubmittedDraftBestEffort",
+  );
+  assert.ok(fallbackIndex >= 0);
+  assert.ok(retireIndex > fallbackIndex);
+  assert.doesNotMatch(
+    VIRTUAL_STAGING_FORM.slice(fallbackIndex, retireIndex),
+    /retireSubmittedDraftBestEffort/,
+  );
+});
+
+test("canonical pricing error code survives the /api/order refactor", () => {
+  assert.match(ORDER_SERVICE, /code: error\.code/);
+  assert.match(ORDER_ROUTE, /code: result\.code/);
+});
+
+test("ordinary order success shape remains unchanged", () => {
+  assert.match(ORDER_ROUTE, /success: true/);
+  assert.match(ORDER_ROUTE, /orderNumber: result\.orderNumber/);
+  assert.match(ORDER_ROUTE, /estimatedTotalCents: result\.estimatedTotalCents/);
+  assert.match(ORDER_ROUTE, /emailNotifications: result\.emailNotifications/);
+});
+
+test("existing-order reconciliation requires matching source draft", () => {
+  assert.match(
+    FINALIZATION_SERVER,
+    /order\.sourceDraftId === draftId[\s\S]+order\.serviceType === "virtual-staging"/,
+  );
+});
+
+test("existing-order reconciliation requires exact item count and indexes", () => {
+  assert.match(FINALIZATION_SERVER, /input\.order\.itemCount !== stateResult\.data\.items\.length/);
+  assert.match(FINALIZATION_SERVER, /hasCompleteUniqueItemIndexes/);
+});
+
+test("existing-order reconciliation rejects noncanonical production paths", () => {
+  assert.match(FINALIZATION_SERVER, /paths\.originalPath !== expectedOriginalPath/);
+  assert.match(FINALIZATION_SERVER, /paths\.referencePath !== expectedReferencePath/);
+});
+
+test("existing-order reconciliation verifies destinations before cleanup", () => {
+  const reconcileIndex = FINALIZATION_SERVER.indexOf(
+    "async function reconcileExistingDraftOrder",
+  );
+  const verifyIndex = FINALIZATION_SERVER.indexOf(
+    "verifyReconciledDestinationObject",
+    reconcileIndex,
+  );
+  const cleanupIndex = FINALIZATION_SERVER.indexOf(
+    "removeDraftSourcesBestEffort",
+    verifyIndex,
+  );
+  assert.ok(reconcileIndex >= 0);
+  assert.ok(verifyIndex >= 0);
+  assert.ok(cleanupIndex > verifyIndex);
+});
+
+test("source cleanup policy is documented as best-effort private orphan cleanup", () => {
+  assert.match(FINALIZATION_SERVER, /Cleanup policy: completion is durable/);
+  assert.match(FINALIZATION_SERVER, /safe orphans/);
+});
+
+test("complete RPC validation failure performs no partial mutation", () => {
+  const lockIndex = SQL.indexOf("FOR UPDATE");
+  const updateIndex = SQL.indexOf("UPDATE public.order_draft_files AS files");
+  assert.ok(lockIndex >= 0);
+  assert.ok(updateIndex > lockIndex);
+  assert.match(SQL, /RAISE EXCEPTION 'draft finalization file update count mismatch'/);
+  assert.match(SQL, /RAISE EXCEPTION 'draft finalization draft update count mismatch'/);
+});
+
+test("duplicate final paths are rejected", () => {
+  assert.match(SQL, /v_final_path = ANY\(v_moved_paths\)/);
+  assert.match(SQL, /'duplicate_moved_files'::text/);
 });

@@ -108,7 +108,8 @@ export type CreateProductionOrderErrorCode =
   | "custom-quote-required"
   | "storage_error"
   | "database_error"
-  | "source_draft_exists";
+  | "source_draft_exists"
+  | (string & {});
 
 export type CreateProductionOrderResult =
   | {
@@ -204,7 +205,7 @@ export async function createProductionOrder(
     if (error instanceof PricingValidationError) {
       return {
         ok: false,
-        code: "invalid_input",
+        code: error.code,
         message: error.message,
         status: 400,
       };

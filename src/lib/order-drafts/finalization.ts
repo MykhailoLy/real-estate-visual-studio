@@ -109,7 +109,13 @@ export interface VirtualStagingDraftSubmissionDecisionItem {
 export type VirtualStagingDraftSubmissionDecision =
   | { mode: "draft_finalization" }
   | { mode: "local_upload_fallback"; reason: string }
+  | { mode: "local_upload_fallback_unavailable"; reason: string }
   | { mode: "not_ready"; reason: string };
+
+export const STALE_DRAFT_FINALIZATION_CLAIM_MINUTES = 15;
+
+const STALE_DRAFT_FINALIZATION_CLAIM_MS =
+  STALE_DRAFT_FINALIZATION_CLAIM_MINUTES * 60 * 1000;
 
 export interface VirtualStagingFinalizationSlot {
   clientItemId: string;
@@ -437,6 +443,7 @@ export function selectVirtualStagingDraftSubmissionMode(
     return { mode: "not_ready", reason: "missing_items" };
   }
 
+  let requiresLocalFallback = false;
   for (const item of items) {
     if (!item.localOriginal && !item.uploadedOriginal) {
       return { mode: "not_ready", reason: "missing_original" };
@@ -444,7 +451,7 @@ export function selectVirtualStagingDraftSubmissionMode(
 
     if (item.localOriginal) {
       if (!fileSummaryMatchesBrowserFile(item.uploadedOriginal, item.localOriginal)) {
-        return { mode: "local_upload_fallback", reason: "original_not_persisted" };
+        requiresLocalFallback = true;
       }
     }
 
@@ -452,8 +459,20 @@ export function selectVirtualStagingDraftSubmissionMode(
       item.localReference &&
       !fileSummaryMatchesBrowserFile(item.uploadedReference, item.localReference)
     ) {
-      return { mode: "local_upload_fallback", reason: "reference_not_persisted" };
+      requiresLocalFallback = true;
     }
+  }
+
+  if (requiresLocalFallback) {
+    const canSubmitAllItemsLocally = items.every(
+      (item) => item.localOriginal !== null,
+    );
+    return canSubmitAllItemsLocally
+      ? { mode: "local_upload_fallback", reason: "current_file_not_persisted" }
+      : {
+          mode: "local_upload_fallback_unavailable",
+          reason: "persisted_only_item_blocks_local_fallback",
+        };
   }
 
   return { mode: "draft_finalization" };
@@ -495,10 +514,36 @@ export function shouldAutomaticallyRetryVirtualStagingFinalization(): false {
   return false;
 }
 
+export function shouldPreserveVirtualStagingFinalizationKeyAfterFailure(input: {
+  code: DraftFinalizationPublicErrorCode | "invalid_json" | "network_error";
+  status: number;
+}): boolean {
+  return (
+    input.code === "network_error" ||
+    input.code === "invalid_json" ||
+    input.code === "finalization_incomplete" ||
+    input.code === "finalization_conflict" ||
+    input.code === "storage_error" ||
+    input.code === "database_error" ||
+    input.code === "unexpected_error" ||
+    input.status === 0 ||
+    input.status >= 500
+  );
+}
+
 export function resetVirtualStagingFinalizationIdentity(): {
   finalizationKey: null;
 } {
   return { finalizationKey: null };
+}
+
+export function isStaleVirtualStagingFinalizationClaim(input: {
+  updatedAt: string;
+  now: Date;
+}): boolean {
+  const updatedAt = Date.parse(input.updatedAt);
+  if (!Number.isFinite(updatedAt)) return false;
+  return input.now.getTime() - updatedAt >= STALE_DRAFT_FINALIZATION_CLAIM_MS;
 }
 
 export function finalizationError<T = never>(

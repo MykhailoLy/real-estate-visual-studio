@@ -126,6 +126,8 @@ export async function getOrderDraftForUser(
   if (!validateUuid(userId) || !validateUuid(draftId)) return invalidInput();
 
   try {
+    await recoverStaleFinalizationClaimsForUser(userId, draftId);
+
     const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase
       .from("order_drafts")
@@ -156,6 +158,8 @@ export async function listActiveOrderDraftsForUser(
   if (!validateUuid(userId)) return invalidInput();
 
   try {
+    await recoverStaleFinalizationClaimsForUser(userId);
+
     const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase
       .from("order_drafts")
@@ -175,6 +179,30 @@ export async function listActiveOrderDraftsForUser(
     return { ok: true, data: (data ?? []).map(mapOrderDraftSummary) };
   } catch (error) {
     return handleRepositoryException("list", error);
+  }
+}
+
+async function recoverStaleFinalizationClaimsForUser(
+  userId: string,
+  draftId: string | null = null,
+): Promise<void> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { error } = await supabase.rpc(
+      "recover_stale_order_draft_finalization",
+      {
+        p_user_id: userId,
+        p_draft_id: draftId,
+      },
+    );
+    if (error) {
+      console.warn(
+        "[order-drafts] stale finalization recovery failed:",
+        error.message,
+      );
+    }
+  } catch (error) {
+    console.warn("[order-drafts] stale finalization recovery threw:", error);
   }
 }
 
