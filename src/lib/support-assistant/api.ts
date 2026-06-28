@@ -228,25 +228,23 @@ export async function parseSupportAssistantJsonRequest(
 export async function handleSupportAssistantPostRequest(
   request: Request,
   transport: SupportAssistantTransport,
-  rateLimiter?: SupportAssistantRateLimiter,
+  rateLimiter: SupportAssistantRateLimiter,
 ): Promise<Response> {
   const parsed = await parseSupportAssistantJsonRequest(request);
   if (!parsed.ok) return parsed.response;
 
-  if (rateLimiter) {
-    try {
-      const rateLimit = await rateLimiter.check(request);
-      if (!rateLimit.allowed) {
-        return rateLimitedResponse(rateLimit.retryAfterSeconds);
-      }
-    } catch (error) {
-      logSupportAssistantError("rate limit", error);
-      return supportAssistantErrorResponse(
-        "Support assistant is currently unavailable.",
-        "support_unavailable",
-        503,
-      );
+  try {
+    const rateLimit = await rateLimiter.check(request);
+    if (!rateLimit.allowed) {
+      return rateLimitedResponse(rateLimit.retryAfterSeconds);
     }
+  } catch (error) {
+    logSupportAssistantError("rate limit", error);
+    return supportAssistantErrorResponse(
+      "Support assistant is currently unavailable.",
+      "support_unavailable",
+      503,
+    );
   }
 
   try {

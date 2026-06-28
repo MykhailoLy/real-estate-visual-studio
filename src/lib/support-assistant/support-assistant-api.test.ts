@@ -141,6 +141,7 @@ test("text/plain is rejected before the transport is called", async () => {
         return "should not happen";
       },
     },
+    allowRateLimiter,
   );
 
   assert.equal(called, false);
@@ -159,6 +160,7 @@ test("missing Content-Type is rejected", async () => {
       body: JSON.stringify({ message: "Hello" }),
     }),
     successTransport,
+    allowRateLimiter,
   );
 
   assert.equal(response.status, 400);
@@ -418,6 +420,7 @@ test("successful response uses the data envelope", async () => {
   const response = await handleSupportAssistantPostRequest(
     requestWithJson({ message: "Hello" }),
     successTransport,
+    allowRateLimiter,
   );
 
   assert.equal(response.status, 200);
@@ -587,6 +590,7 @@ test("representative responses use Cache-Control no-store", async () => {
   const success = await handleSupportAssistantPostRequest(
     requestWithJson({ message: "Hello" }),
     successTransport,
+    allowRateLimiter,
   );
   assert.equal(success.headers.get("Cache-Control"), "no-store");
 
@@ -604,6 +608,7 @@ test("representative responses use Cache-Control no-store", async () => {
   const invalid = await handleSupportAssistantPostRequest(
     requestWithTextBody("{"),
     successTransport,
+    allowRateLimiter,
   );
   assert.equal(invalid.headers.get("Cache-Control"), "no-store");
 
@@ -614,6 +619,7 @@ test("representative responses use Cache-Control no-store", async () => {
         throw new SupportAssistantConfigurationError("Missing key");
       },
     },
+    allowRateLimiter,
   );
   assert.equal(unavailable.headers.get("Cache-Control"), "no-store");
 });
@@ -626,6 +632,7 @@ test("missing configuration maps to safe 503", async () => {
         throw new SupportAssistantConfigurationError("GEMINI_API_KEY missing");
       },
     },
+    allowRateLimiter,
   );
 
   assert.equal(response.status, 503);
@@ -665,6 +672,7 @@ test("upstream failures map to safe 502 without raw provider errors", async () =
           throw new Error("raw Gemini 500 with provider request details");
         },
       },
+      allowRateLimiter,
     );
 
     assert.equal(response.status, 502);

@@ -24,6 +24,15 @@ function request(headers?: HeadersInit): Request {
   return new Request("https://example.test/api/support", { headers });
 }
 
+function restoreEnvValue(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+}
+
 class FakeWindowLimiter implements SupportRateLimitWindowLimiter {
   calls = 0;
   identifiers: string[] = [];
@@ -286,9 +295,9 @@ test("production Upstash factory is lazy and build-safe without env values", () 
   try {
     assert.doesNotThrow(() => createUpstashSupportAssistantRateLimiter());
   } finally {
-    process.env.UPSTASH_REDIS_REST_URL = originalUrl;
-    process.env.UPSTASH_REDIS_REST_TOKEN = originalToken;
-    process.env.SUPPORT_RATE_LIMIT_SECRET = originalSecret;
+    restoreEnvValue("UPSTASH_REDIS_REST_URL", originalUrl);
+    restoreEnvValue("UPSTASH_REDIS_REST_TOKEN", originalToken);
+    restoreEnvValue("SUPPORT_RATE_LIMIT_SECRET", originalSecret);
   }
 });
 
