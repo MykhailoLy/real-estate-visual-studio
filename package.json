@@ -14,7 +14,8 @@
     "test:order-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files.test.ts",
     "test:order-draft-files-api": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files-api.test.ts",
     "test:saved-drafts": "node --experimental-strip-types --test src/lib/order-drafts/saved-drafts.test.ts",
-    "test:virtual-staging-drafts": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging.test.ts"
+    "test:virtual-staging-drafts": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging.test.ts",
+    "test:virtual-staging-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging-files.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

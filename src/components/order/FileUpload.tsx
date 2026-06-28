@@ -22,6 +22,13 @@ function isPreviewableImage(file: File): boolean {
 // Public API kept identical to the previous implementation so callers don't change.
 export type FileUploadAccept = Record<string, string[]>;
 
+export interface PersistedFileDisplay {
+  id: string;
+  filename: string;
+  fileSize: number;
+  statusLabel?: string;
+}
+
 interface FileUploadProps {
   label: string;
   file: File | null;
@@ -30,6 +37,17 @@ interface FileUploadProps {
   maxSize?: number;
   required?: boolean;
   helperText?: string;
+  persistedFile?: PersistedFileDisplay | null;
+  operationStatusText?: string;
+  operationErrorText?: string;
+  retryLabel?: string;
+  replaceLabel?: string;
+  removePersistedLabel?: string;
+  disabled?: boolean;
+  retryDisabled?: boolean;
+  removeDisabled?: boolean;
+  onRetry?: () => void;
+  onRemovePersisted?: () => void;
 }
 
 const DEFAULT_ACCEPT: FileUploadAccept = {
@@ -89,6 +107,17 @@ export default function FileUpload({
   maxSize = 20 * 1024 * 1024,
   required = false,
   helperText,
+  persistedFile,
+  operationStatusText,
+  operationErrorText,
+  retryLabel = "Retry upload",
+  replaceLabel = "Replace",
+  removePersistedLabel = "Remove file",
+  disabled = false,
+  retryDisabled = false,
+  removeDisabled = false,
+  onRetry,
+  onRemovePersisted,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputId = useId();
@@ -97,8 +126,15 @@ export default function FileUpload({
   const maxSizeId = `${inputId}-max-size`;
   const helperTextId = helperText ? `${inputId}-helper` : undefined;
   const rejectedId = `${inputId}-error`;
+  const operationStatusId = operationStatusText
+    ? `${inputId}-operation-status`
+    : undefined;
+  const operationErrorId = operationErrorText
+    ? `${inputId}-operation-error`
+    : undefined;
   const [isDragActive, setIsDragActive] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const isEmptyUploadState = file === null && persistedFile == null;
 
   // Local object URL for image previews. Derived from the current File via
   // useMemo so we avoid the "setState in useEffect" anti-pattern; an
@@ -145,18 +181,21 @@ export default function FileUpload({
   };
 
   const openPicker = () => {
+    if (disabled) return;
     inputRef.current?.click();
   };
 
   const onDragOver = (e: React.DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (disabled) return;
     if (!isDragActive) setIsDragActive(true);
   };
 
   const onDragEnter = (e: React.DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (disabled) return;
     setIsDragActive(true);
   };
 
@@ -169,6 +208,7 @@ export default function FileUpload({
   const onDrop = (e: React.DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (disabled) return;
     setIsDragActive(false);
     handleFiles(e.dataTransfer?.files ?? null);
   };
@@ -176,13 +216,16 @@ export default function FileUpload({
   const removeFile = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (disabled) return;
     setRejected(false);
     onFileChange(null);
   };
 
   const describedBy = [
     helperTextId,
-    !file ? maxSizeId : undefined,
+    isEmptyUploadState ? maxSizeId : undefined,
+    isEmptyUploadState ? operationStatusId : undefined,
+    isEmptyUploadState ? operationErrorId : undefined,
     rejected ? rejectedId : undefined,
   ]
     .filter(Boolean)
@@ -239,15 +282,109 @@ export default function FileUpload({
             <p className="text-xs text-foreground/75">
               {(file.size / 1024 / 1024).toFixed(2)} MB
             </p>
+            {operationStatusText && (
+              <p
+                id={operationStatusId}
+                aria-live="polite"
+                className="mt-1 text-xs text-foreground/75"
+              >
+                {operationStatusText}
+              </p>
+            )}
+            {operationErrorText && (
+              <p
+                id={operationErrorId}
+                role="alert"
+                className="mt-1 text-xs text-red-700"
+              >
+                {operationErrorText}
+              </p>
+            )}
           </div>
+          {onRetry && operationErrorText && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={retryDisabled}
+              className="flex-shrink-0 self-start rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {retryLabel}
+            </button>
+          )}
           <button
             type="button"
             onClick={removeFile}
-            className="flex-shrink-0 self-start p-1 text-muted hover:text-red-500 transition-colors"
+            disabled={disabled}
+            className="flex-shrink-0 self-start p-1 text-muted hover:text-red-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Remove file"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
+        </div>
+      ) : persistedFile ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-stretch">
+          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md bg-white sm:h-20 sm:w-20">
+            <FileImage className="h-6 w-6 text-primary" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">
+              {persistedFile.filename}
+            </p>
+            <p className="text-xs text-foreground/75">
+              {formatFileSize(persistedFile.fileSize)}
+            </p>
+            <p className="mt-1 text-xs font-medium text-primary">
+              {persistedFile.statusLabel ?? "Saved in draft"}
+            </p>
+            {operationStatusText && (
+              <p
+                id={operationStatusId}
+                aria-live="polite"
+                className="mt-1 text-xs text-foreground/75"
+              >
+                {operationStatusText}
+              </p>
+            )}
+            {operationErrorText && (
+              <p
+                id={operationErrorId}
+                role="alert"
+                className="mt-1 text-xs text-red-700"
+              >
+                {operationErrorText}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
+            <button
+              type="button"
+              onClick={openPicker}
+              disabled={disabled}
+              className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {replaceLabel}
+            </button>
+            {onRetry && operationErrorText && (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={retryDisabled}
+                className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {retryLabel}
+              </button>
+            )}
+            {onRemovePersisted && (
+              <button
+                type="button"
+                onClick={onRemovePersisted}
+                disabled={removeDisabled}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {removePersistedLabel}
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <button
@@ -259,8 +396,10 @@ export default function FileUpload({
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
+          disabled={disabled}
           className={cn(
             "w-full border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all select-none",
+            disabled && "cursor-not-allowed opacity-60",
             isDragActive
               ? "border-primary bg-primary/5"
               : "border-border hover:border-primary/40 hover:bg-surface"
@@ -287,6 +426,24 @@ export default function FileUpload({
           File rejected. Please check format and size.
         </p>
       )}
+      {isEmptyUploadState && operationStatusText && (
+        <p
+          id={operationStatusId}
+          aria-live="polite"
+          className="mt-1 text-xs text-foreground/75"
+        >
+          {operationStatusText}
+        </p>
+      )}
+      {isEmptyUploadState && operationErrorText && (
+        <p id={operationErrorId} role="alert" className="mt-1 text-xs text-red-700">
+          {operationErrorText}
+        </p>
+      )}
     </div>
   );
+}
+
+function formatFileSize(size: number): string {
+  return `${(size / 1024 / 1024).toFixed(2)} MB`;
 }
