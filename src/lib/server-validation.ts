@@ -3,21 +3,21 @@ import {
   DEDICATED_PHOTO_EDITING_SUB_SERVICES,
   SUB_SERVICE_REQUIRED_OPTION,
   ITEM_REMOVAL_MIN_INSTRUCTIONS,
-} from "@/lib/dedicated-photo-editing";
+} from "./dedicated-photo-editing.ts";
 import {
   THREE_STATE_VALUES,
   DAY_SKY_STYLE_ID_VALUES,
-} from "@/lib/image-enhancement";
-import { DUSK_STYLE_ID_VALUES } from "@/lib/day-to-dusk";
-import { REMOVAL_TASK_ID_VALUES } from "@/lib/item-removal";
+} from "./image-enhancement.ts";
+import { DUSK_STYLE_ID_VALUES } from "./day-to-dusk.ts";
+import { REMOVAL_TASK_ID_VALUES } from "./item-removal.ts";
 import {
   FLOOR_PLAN_TYPE_IDS,
   PHOTO_EDIT_OPTION_IDS,
   RENOVATION_EXTERNAL_IDS,
   RENOVATION_INTERNAL_IDS,
   STAGING_ADDON_IDS,
-} from "@/lib/pricing/catalog";
-import { TRANSACTIONAL_CURRENCIES } from "@/lib/pricing/types";
+} from "./pricing/catalog.ts";
+import { TRANSACTIONAL_CURRENCIES } from "./pricing/types.ts";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS

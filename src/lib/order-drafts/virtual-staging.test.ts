@@ -16,6 +16,7 @@ import {
   selectVirtualStagingSaveMethod,
   shouldApplyVirtualStagingSaveResult,
   shouldShowVirtualStagingResumedFileWarning,
+  shouldShowVirtualStagingSavedImagesNotice,
   shouldSkipDuplicateVirtualStagingSave,
   shouldSkipFailedVirtualStagingAutosave,
   updateOriginalFileDraftMetadata,
@@ -86,7 +87,7 @@ test("form mapping creates versioned JSON-safe Virtual Staging draft state", () 
   assert.equal("referenceFile" in state.items[0]!.state, false);
 });
 
-test("draft mapping restores safe fields and requires file re-selection", () => {
+test("draft mapping restores safe fields without file re-selection", () => {
   const form = mapVirtualStagingDraftToFormState(
     mapVirtualStagingFormToDraftState(source()),
   );
@@ -95,7 +96,7 @@ test("draft mapping restores safe fields and requires file re-selection", () => 
   assert.equal(form.items[0]?.file, null);
   assert.equal(form.items[0]?.referenceFile, null);
   assert.equal(form.items[0]?.originalFilename, "living.jpg");
-  assert.equal(form.items[0]?.needsOriginalFileReselection, true);
+  assert.equal(form.items[0]?.needsOriginalFileReselection, false);
   assert.equal(form.items[0]?.furnitureStyle, "Modern");
 });
 
@@ -139,7 +140,7 @@ test("valid resume returns current optimistic version", () => {
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.version, 4);
-  assert.equal(result.form.items[0]?.needsOriginalFileReselection, true);
+  assert.equal(result.form.items[0]?.needsOriginalFileReselection, false);
 });
 
 test("meaningful-change detection avoids empty abandoned drafts", () => {
@@ -359,12 +360,12 @@ test("file metadata removal clears stale filenames", () => {
   });
 });
 
-test("resumed-file warning disappears after replacement selection", () => {
+test("legacy resumed-file warning stays hidden and saved-images notice is summary-driven", () => {
   assert.equal(
     shouldShowVirtualStagingResumedFileWarning([
       { needsOriginalFileReselection: true, file: null },
     ]),
-    true,
+    false,
   );
   assert.equal(
     shouldShowVirtualStagingResumedFileWarning([
@@ -378,6 +379,8 @@ test("resumed-file warning disappears after replacement selection", () => {
     ]),
     false,
   );
+  assert.equal(shouldShowVirtualStagingSavedImagesNotice(0), false);
+  assert.equal(shouldShowVirtualStagingSavedImagesNotice(1), true);
 });
 
 test("save inputs use draft API shape and non-authoritative pricing preview", () => {
@@ -423,11 +426,17 @@ test("file-selection save snapshot contains the selected filename", () => {
   );
 });
 
-test("final submission readiness is false while resumed files are missing", () => {
+test("final submission readiness accepts uploaded draft originals", () => {
   const resumed = mapVirtualStagingDraftToFormState(
     mapVirtualStagingFormToDraftState(source()),
   );
   assert.equal(isVirtualStagingFinalSubmissionReady(resumed.items), false);
+  assert.equal(
+    isVirtualStagingFinalSubmissionReady([
+      { ...resumed.items[0]!, uploadedOriginal: { id: "draft-file" } },
+    ]),
+    true,
+  );
   assert.equal(
     isVirtualStagingFinalSubmissionReady([{ file: new File(["x"], "living.jpg") }]),
     true,

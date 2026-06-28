@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+import { TERMS_VERSION } from "@/lib/order-terms";
 
 /**
  * Order-level terms acceptance block.
@@ -12,12 +13,7 @@ import { ShieldCheck } from "lucide-react";
  * Pricing and order calculations are not affected by either.
  */
 
-/**
- * Bumped any time the customer-facing terms wording changes in a way
- * that should require explicit re-acceptance. Stored on each order so
- * we have a clear record of which version the client accepted.
- */
-export const TERMS_VERSION = "2026-05";
+export { TERMS_VERSION };
 
 export interface OrderTermsData {
   /** Required: must be true to enable Submit Order. */

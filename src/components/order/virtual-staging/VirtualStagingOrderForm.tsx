@@ -56,7 +56,7 @@ import {
   resetVirtualStagingDraftIdentity,
   resolveVirtualStagingDraftRegion,
   shouldApplyVirtualStagingSaveResult,
-  shouldShowVirtualStagingResumedFileWarning,
+  shouldShowVirtualStagingSavedImagesNotice,
   shouldSkipDuplicateVirtualStagingSave,
   shouldSkipFailedVirtualStagingAutosave,
   updateOriginalFileDraftMetadata,
@@ -65,6 +65,11 @@ import {
   type VirtualStagingAutosaveStatus,
   type VirtualStagingFormDraftSource,
 } from "@/lib/order-drafts/virtual-staging";
+import { submitVirtualStagingDraft } from "@/lib/order-drafts/finalization-client";
+import {
+  selectVirtualStagingDraftSubmissionMode,
+  shouldApplyVirtualStagingFinalizationResult,
+} from "@/lib/order-drafts/finalization";
 import {
   buildVirtualStagingDraftFileSlotKey,
   clearVirtualStagingCleanupPendingTarget,
@@ -128,6 +133,7 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
   savedOriginalFile: (filename: string) => string;
   savedReferenceFile: (filename: string) => string;
   savedInDraft: string;
+  creatingOrder: string;
   filesCouldNotRestore: string;
   retryFiles: string;
   retryUpload: string;
@@ -168,7 +174,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     reloadLatest: "Reload latest draft",
     keepEditing: "Keep editing",
     resumedFileWarning:
-      "Your images are saved with this draft. To submit this restored draft, select the required original files again.",
+      "Your images are saved with this draft and will be used when you submit the order.",
     conflictMessage:
       "This draft changed in another tab. Reload latest draft or keep editing without autosave.",
     keepEditingActive:
@@ -177,10 +183,11 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     signInAgain: "Please sign in again to restore this draft.",
     restoreFailed: "Draft could not be restored. Please try again.",
     savedOriginalFile: (filename: string) =>
-      `Saved with draft: ${filename}. Select it again to submit.`,
+      `Saved with draft: ${filename}. It will be used when you submit.`,
     savedReferenceFile: (filename: string) =>
-      `Saved with draft: ${filename}. Select it again if it is still needed.`,
+      `Saved with draft: ${filename}. It will be used when you submit.`,
     savedInDraft: "Saved in draft",
+    creatingOrder: "Creating order...",
     filesCouldNotRestore:
       "Saved draft files could not be loaded. You can keep editing and retry file restore.",
     retryFiles: "Retry files",
@@ -213,7 +220,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     reloadLatest: "Recargar el borrador más reciente",
     keepEditing: "Seguir editando",
     resumedFileWarning:
-      "Tus imágenes están guardadas con este borrador. Para enviar este borrador restaurado, vuelve a seleccionar los archivos originales requeridos.",
+      "Tus imágenes están guardadas con este borrador y se utilizarán al enviar el pedido.",
     conflictMessage:
       "Este borrador cambió en otra pestaña. Recarga el borrador más reciente o sigue editando sin autoguardado.",
     keepEditingActive:
@@ -222,10 +229,11 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     signInAgain: "Inicia sesión otra vez para restaurar este borrador.",
     restoreFailed: "No se pudo restaurar el borrador. Inténtalo de nuevo.",
     savedOriginalFile: (filename: string) =>
-      `Guardado con el borrador: ${filename}. Selecciónalo otra vez para enviar.`,
+      `Guardado con el borrador: ${filename}. Se utilizará al enviar.`,
     savedReferenceFile: (filename: string) =>
-      `Guardado con el borrador: ${filename}. Selecciónalo otra vez si todavía lo necesitas.`,
+      `Guardado con el borrador: ${filename}. Se utilizará al enviar.`,
     savedInDraft: "Guardado en el borrador",
+    creatingOrder: "Creando pedido...",
     filesCouldNotRestore:
       "No se pudieron cargar los archivos guardados del borrador. Puedes seguir editando y reintentar la restauración de archivos.",
     retryFiles: "Reintentar archivos",
@@ -283,12 +291,14 @@ export default function VirtualStagingOrderForm({
   const [draftFileOperations, setDraftFileOperations] =
     useState<VirtualStagingDraftFileOperationMap>({});
   const [draftFilesWarning, setDraftFilesWarning] = useState("");
+  const [finalizationKey, setFinalizationKey] = useState<string | null>(null);
 
   const draftIdRef = useRef(draftId);
   const draftVersionRef = useRef(draftVersion);
   const itemsRef = useRef(items);
   const uploadedDraftFilesRef = useRef(uploadedDraftFiles);
   const draftFileOperationsRef = useRef(draftFileOperations);
+  const finalizationKeyRef = useRef(finalizationKey);
   const mountedRef = useRef(false);
   const savedFingerprintRef = useRef<string | null>(null);
   const failedAutosaveFingerprintRef = useRef<string | null>(null);
@@ -343,6 +353,10 @@ export default function VirtualStagingOrderForm({
   }, [draftFileOperations]);
 
   useEffect(() => {
+    finalizationKeyRef.current = finalizationKey;
+  }, [finalizationKey]);
+
+  useEffect(() => {
     isRestoringRef.current = resumeState === "loading";
   }, [resumeState]);
 
@@ -371,7 +385,10 @@ export default function VirtualStagingOrderForm({
     commitItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
 
-  const handleAddItem = () => commitItems((prev) => [...prev, emptyStagingItem()]);
+  const handleAddItem = () => {
+    if (isSubmitting) return;
+    commitItems((prev) => [...prev, emptyStagingItem()]);
+  };
 
   const draftSource = useMemo(
     () => ({
@@ -471,9 +488,9 @@ export default function VirtualStagingOrderForm({
     [draftSource],
   );
 
-  const showResumedFileNotice = useMemo(
-    () => shouldShowVirtualStagingResumedFileWarning(items),
-    [items],
+  const showSavedImagesNotice = useMemo(
+    () => shouldShowVirtualStagingSavedImagesNotice(uploadedDraftFiles.length),
+    [uploadedDraftFiles.length],
   );
 
   const uploadedFilesBySlot = useMemo(
@@ -533,6 +550,8 @@ export default function VirtualStagingOrderForm({
     setOrderNumber("");
     setConfirmationEmailSent(false);
     setSubmitError("");
+    setFinalizationKey(null);
+    finalizationKeyRef.current = null;
     setDraftError("");
     setConflictMessage(reset.identity.conflictMessage);
     setDraftId(reset.identity.draftId);
@@ -716,6 +735,7 @@ export default function VirtualStagingOrderForm({
       kind: VirtualStagingDraftFileSlotKind,
       file: File | null,
     ) => {
+      if (isSubmitting) return;
       const currentItems = itemsRef.current;
       const item = currentItems[index];
       if (!item) return;
@@ -920,6 +940,7 @@ export default function VirtualStagingOrderForm({
       copy.fileOperationFailed,
       copy.previousSavedFileAvailable,
       enqueueDraftSave,
+      isSubmitting,
       setDraftFileOperation,
       shouldApplyDraftFileOperation,
     ],
@@ -927,6 +948,7 @@ export default function VirtualStagingOrderForm({
 
   const handleUploadedFileRemove = useCallback(
     async (clientItemId: string, kind: VirtualStagingDraftFileSlotKind) => {
+      if (isSubmitting) return;
       const currentDraftId = draftIdRef.current;
       const uploaded = getVirtualStagingUploadedFileForSlot(
         uploadedDraftFilesRef.current,
@@ -1021,6 +1043,7 @@ export default function VirtualStagingOrderForm({
       commitUploadedDraftFiles,
       copy.fileOperationFailed,
       enqueueDraftSave,
+      isSubmitting,
       setDraftFileOperation,
       shouldApplyDraftFileOperation,
     ],
@@ -1028,6 +1051,7 @@ export default function VirtualStagingOrderForm({
 
   const handleRemoveItem = useCallback(
     async (index: number) => {
+      if (isSubmitting) return;
       const item = itemsRef.current[index];
       if (!item) return;
       const clientItemId = item.clientItemId;
@@ -1241,6 +1265,7 @@ export default function VirtualStagingOrderForm({
       commitUploadedDraftFiles,
       copy.itemFilesCouldNotDelete,
       enqueueDraftSave,
+      isSubmitting,
       setDraftFileOperation,
     ],
   );
@@ -1407,11 +1432,8 @@ export default function VirtualStagingOrderForm({
     );
   };
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setSubmitError("");
-
-    const itemsMetadata = items.map((item) => ({
+  const submitCurrentLocalOrder = async (currentItems: StagingItemData[]) => {
+    const itemsMetadata = currentItems.map((item) => ({
       roomName: item.roomName,
       furnitureStyle: item.furnitureStyle,
       fileSizeLimit: item.fileSizeLimit,
@@ -1421,52 +1443,194 @@ export default function VirtualStagingOrderForm({
       selectedAddons: item.selectedAddons,
     }));
 
-    const files = items.map((item) => ({
+    const files = currentItems.map((item) => ({
       file: item.file,
       referenceFile: item.referenceFile,
     }));
 
-    const result = await submitOrder(
+    return submitOrder(
       "virtual-staging",
       itemsMetadata,
       files,
       orderTerms,
-      jobTitle
+      jobTitle,
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    const sessionAtStart = draftSessionRef.current;
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    const saveOutcome = await enqueueDraftSave(buildDraftSourceSnapshot(), {
+      force: true,
+    });
+    if (
+      !mountedRef.current ||
+      !shouldApplyVirtualStagingSaveResult(
+        sessionAtStart,
+        draftSessionRef.current,
+      )
+    ) {
+      return;
+    }
+    if (!saveOutcome.ok) {
+      setIsSubmitting(false);
+      setSubmitError("Please save the draft before submitting.");
+      return;
+    }
+
+    await refreshUploadedDraftFiles(saveOutcome.draftId, sessionAtStart);
+    if (
+      !mountedRef.current ||
+      !shouldApplyVirtualStagingSaveResult(
+        sessionAtStart,
+        draftSessionRef.current,
+      )
+    ) {
+      return;
+    }
+
+    const currentItems = itemsRef.current;
+    const uploadedFiles = uploadedDraftFilesRef.current;
+    const decision = selectVirtualStagingDraftSubmissionMode(
+      currentItems.map((item) => ({
+        localOriginal: item.file,
+        localReference: item.referenceFile,
+        uploadedOriginal: getVirtualStagingUploadedFileForSlot(
+          uploadedFiles,
+          item.clientItemId,
+          "original",
+        ),
+        uploadedReference: getVirtualStagingUploadedFileForSlot(
+          uploadedFiles,
+          item.clientItemId,
+          "reference",
+        ),
+      })),
     );
 
-    if (result.success && result.orderNumber) {
-      setOrderNumber(result.orderNumber);
-      setConfirmationEmailSent(result.confirmationEmailSent === true);
+    if (decision.mode === "not_ready") {
+      setIsSubmitting(false);
+      setSubmitError("Please add an original image for every item.");
+      return;
+    }
+
+    if (decision.mode === "local_upload_fallback") {
+      finalizationKeyRef.current = null;
+      setFinalizationKey(null);
+      const result = await submitCurrentLocalOrder(currentItems);
+      if (result.success && result.orderNumber) {
+        setOrderNumber(result.orderNumber);
+        setConfirmationEmailSent(result.confirmationEmailSent === true);
+        setSubmitted(true);
+        setIsSubmitting(false);
+        return;
+      }
+      if (redirectOnOrderAuthError(result, orderRoute)) return;
+      setIsSubmitting(false);
+      setSubmitError(result.error || "Submission failed. Please try again.");
+      return;
+    }
+
+    const key = finalizationKeyRef.current ?? createFinalizationKey();
+    finalizationKeyRef.current = key;
+    setFinalizationKey(key);
+
+    const result = await submitVirtualStagingDraft(
+      saveOutcome.draftId,
+      saveOutcome.version,
+      key,
+    );
+    if (
+      !mountedRef.current ||
+      !shouldApplyVirtualStagingFinalizationResult({
+        startedSession: sessionAtStart,
+        currentSession: draftSessionRef.current,
+        startedKey: key,
+        currentKey: finalizationKeyRef.current,
+      })
+    ) {
+      return;
+    }
+
+    if (result.ok) {
+      setOrderNumber(result.data.orderNumber);
+      setConfirmationEmailSent(result.data.confirmationEmailSent === true);
       setSubmitted(true);
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
       setIsSubmitting(false);
       return;
     }
 
-    // Auth/profile errors navigate away (preserving this order route).
-    if (redirectOnOrderAuthError(result, orderRoute)) return;
+    if (
+      result.code === "unauthenticated" &&
+      redirectOnOrderAuthError(
+        {
+          success: false,
+          error: result.message,
+          errorCode: "unauthorized",
+        },
+        orderRoute,
+      )
+    ) {
+      return;
+    }
+    if (
+      result.code === "profile_incomplete" &&
+      redirectOnOrderAuthError(
+        {
+          success: false,
+          error: result.message,
+          errorCode: "profile-incomplete",
+        },
+        orderRoute,
+      )
+    ) {
+      return;
+    }
 
+    if (result.code !== "finalization_incomplete") {
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
+    }
     setIsSubmitting(false);
-    setSubmitError(result.error || "Submission failed. Please try again.");
+    setSubmitError(result.message || "Submission failed. Please try again.");
   };
 
   const handleNewOrder = startNewVirtualStagingOrder;
 
   // --- Validation ---
-  const allItemsValid = items.every(
-    (item) => item.file !== null && item.roomName !== "" && item.furnitureStyle !== ""
-  );
-  const missingResumedFiles = items.some(
-    (item) => item.needsOriginalFileReselection && item.file === null,
+  const itemsWithOriginalSources = items.map((item) => ({
+    file: item.file,
+    uploadedOriginal: uploadedFilesBySlot.get(
+      buildVirtualStagingDraftFileSlotKey(item.clientItemId, "original"),
+    ),
+  }));
+  const allItemsValid = items.every((item) => {
+    const uploadedOriginal = uploadedFilesBySlot.get(
+      buildVirtualStagingDraftFileSlotKey(item.clientItemId, "original"),
+    );
+    return (
+      (item.file !== null || uploadedOriginal != null) &&
+      item.roomName !== "" &&
+      item.furnitureStyle !== ""
+    );
+  });
+  const originalsReady = isVirtualStagingFinalSubmissionReady(
+    itemsWithOriginalSources,
   );
   const termsAccepted = orderTerms.accepted;
   const canSubmit =
     items.length > 0 &&
     allItemsValid &&
-    !missingResumedFiles &&
-    isVirtualStagingFinalSubmissionReady(items) &&
+    originalsReady &&
     termsAccepted &&
     isJobTitleValid(jobTitle) &&
-    !hasActiveDraftFileOperation;
+    !hasActiveDraftFileOperation &&
+    !isSubmitting;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -1564,6 +1728,7 @@ export default function VirtualStagingOrderForm({
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}
+          submittingLabel={copy.creatingOrder}
         />
       }
     >
@@ -1582,7 +1747,7 @@ export default function VirtualStagingOrderForm({
         <button
           type="button"
           onClick={handleSaveAndExit}
-          disabled={saveStatus === "saving" || hasActiveDraftFileOperation}
+          disabled={isSubmitting || saveStatus === "saving" || hasActiveDraftFileOperation}
           className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           <Save className="h-4 w-4" />
@@ -1590,7 +1755,7 @@ export default function VirtualStagingOrderForm({
         </button>
       </div>
 
-      {showResumedFileNotice && (
+      {showSavedImagesNotice && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           {copy.resumedFileWarning}
         </div>
@@ -1668,6 +1833,7 @@ export default function VirtualStagingOrderForm({
               onRemove={() => void handleRemoveItem(index)}
               canRemove={items.length > 1}
               removeDisabled={
+                isSubmitting ||
                 isVirtualStagingDraftFileSlotOperationActive(
                   originalOperation,
                 ) ||
@@ -1691,12 +1857,14 @@ export default function VirtualStagingOrderForm({
               )}
               originalOperationErrorText={originalOperation?.error ?? undefined}
               referenceOperationErrorText={referenceOperation?.error ?? undefined}
-              originalBusy={isVirtualStagingDraftFileSlotOperationActive(
-                originalOperation,
-              )}
-              referenceBusy={isVirtualStagingDraftFileSlotOperationActive(
-                referenceOperation,
-              )}
+              originalBusy={
+                isSubmitting ||
+                isVirtualStagingDraftFileSlotOperationActive(originalOperation)
+              }
+              referenceBusy={
+                isSubmitting ||
+                isVirtualStagingDraftFileSlotOperationActive(referenceOperation)
+              }
               onOriginalFileSelected={(file) =>
                 void handleDraftFileSelected(index, "original", file)
               }
@@ -1735,7 +1903,8 @@ export default function VirtualStagingOrderForm({
       <button
         type="button"
         onClick={handleAddItem}
-        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors"
+        disabled={isSubmitting}
+        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="w-4 h-4" />
         Add Another Image
@@ -1755,6 +1924,28 @@ function operationStatusText(
   if (operation.status === "uploading") return copy.fileUploading;
   if (operation.status === "deleting") return copy.fileDeleting;
   return undefined;
+}
+
+function createFinalizationKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function clearStagingItemDraftFileSlot(

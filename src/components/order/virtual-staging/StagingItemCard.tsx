@@ -94,9 +94,9 @@ interface StagingItemCardProps {
 
 const DEFAULT_DRAFT_COPY = {
   savedOriginalFile: (filename: string) =>
-    `Saved draft file: ${filename}. Please select it again to submit.`,
+    `Saved draft file: ${filename}. It will be used when you submit.`,
   savedReferenceFile: (filename: string) =>
-    `Saved draft reference: ${filename}. Select it again if it is still needed.`,
+    `Saved draft reference: ${filename}. It will be used when you submit.`,
 };
 
 export default function StagingItemCard({

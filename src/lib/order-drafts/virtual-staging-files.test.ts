@@ -242,8 +242,8 @@ test("explicit retry creates a new operation generation", () => {
   );
 });
 
-test("restored original file still requires a local File for current production submission", () => {
-  assert.equal(isVirtualStagingRestoredOriginalSubmittable(true, null), false);
+test("restored original file is submittable when the uploaded summary exists", () => {
+  assert.equal(isVirtualStagingRestoredOriginalSubmittable(true, null), true);
 });
 
 test("local original File remains production-submittable", () => {

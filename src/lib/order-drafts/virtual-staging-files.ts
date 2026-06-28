@@ -327,12 +327,14 @@ export function isVirtualStagingRestoredOriginalSubmittable(
   hasUploadedOriginal: boolean,
   localFile: File | null,
 ): boolean {
-  void hasUploadedOriginal;
-  return localFile !== null;
+  return hasUploadedOriginal || localFile !== null;
 }
 
-export function isVirtualStagingOriginalSubmittable(localFile: File | null): boolean {
-  return localFile !== null;
+export function isVirtualStagingOriginalSubmittable(
+  localFile: File | null,
+  hasUploadedOriginal = false,
+): boolean {
+  return localFile !== null || hasUploadedOriginal;
 }
 
 export function isVirtualStagingReferenceRequired(): false {

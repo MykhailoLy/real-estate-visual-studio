@@ -1,0 +1,583 @@
+import { z } from "zod";
+import { StagingItemSchema, type StagingItem } from "../server-validation.ts";
+import {
+  ORDER_FILES_BUCKET,
+  buildFinalPath,
+  getFileExtension,
+  type UploadKind,
+} from "../upload-config.ts";
+import {
+  VIRTUAL_STAGING_DRAFT_ROUTE,
+  VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION,
+  VirtualStagingDraftStateSchema,
+  type VirtualStagingDraftState,
+} from "./virtual-staging.ts";
+import { UuidSchema } from "./schema.ts";
+import type {
+  JsonObject,
+  OrderDraftFileRow,
+  OrderDraftRow,
+} from "./types.ts";
+
+export const DraftFinalizationBodySchema = z
+  .object({
+    expectedVersion: z.number().int().min(1),
+    finalizationKey: UuidSchema,
+  })
+  .strict();
+
+export type DraftFinalizationBody = z.infer<
+  typeof DraftFinalizationBodySchema
+>;
+
+export type DraftFinalizationPublicErrorCode =
+  | "invalid_input"
+  | "unauthenticated"
+  | "profile_incomplete"
+  | "not_found"
+  | "version_conflict"
+  | "invalid_status"
+  | "finalization_conflict"
+  | "missing_original"
+  | "file_mismatch"
+  | "storage_error"
+  | "database_error"
+  | "finalization_incomplete"
+  | "unexpected_error";
+
+export type DraftFinalizationClaimResultCode =
+  | "claimed"
+  | "already_claimed"
+  | "already_converted"
+  | "not_found"
+  | "version_conflict"
+  | "invalid_status"
+  | "finalization_conflict";
+
+export type DraftFinalizationReleaseResultCode =
+  | "released"
+  | "not_found"
+  | "invalid_status"
+  | "finalization_conflict"
+  | "order_exists"
+  | "already_converted";
+
+export type DraftFinalizationCompleteResultCode =
+  | "completed"
+  | "not_found"
+  | "invalid_status"
+  | "finalization_conflict"
+  | "invalid_moved_files"
+  | "duplicate_moved_files";
+
+export interface ParsedFinalizationRpcResult<TCode extends string> {
+  code: TCode;
+  draftId: string | null;
+  convertedOrderId: string | null;
+}
+
+export type DraftFinalizationResult<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      code: DraftFinalizationPublicErrorCode;
+      message: string;
+    };
+
+export interface BrowserFileMetadata {
+  name: string;
+  size: number;
+  type?: string;
+}
+
+export interface UploadedDraftFileMetadata {
+  id: string;
+  itemClientId: string;
+  kind: "original" | "reference";
+  originalFilename: string;
+  fileSize: number;
+  mimeType: string;
+}
+
+export interface VirtualStagingDraftSubmissionDecisionItem {
+  localOriginal: BrowserFileMetadata | null;
+  localReference?: BrowserFileMetadata | null;
+  uploadedOriginal?: UploadedDraftFileMetadata | null;
+  uploadedReference?: UploadedDraftFileMetadata | null;
+}
+
+export type VirtualStagingDraftSubmissionDecision =
+  | { mode: "draft_finalization" }
+  | { mode: "local_upload_fallback"; reason: string }
+  | { mode: "not_ready"; reason: string };
+
+export interface VirtualStagingFinalizationSlot {
+  clientItemId: string;
+  itemIndex: number;
+  original: OrderDraftFileRow;
+  reference: OrderDraftFileRow | null;
+}
+
+export interface VirtualStagingFinalizationFileDescriptor {
+  draftFileId: string;
+  bucket: typeof ORDER_FILES_BUCKET;
+  path: string;
+  originalFilename: string;
+  size: number;
+  mimeType: string;
+}
+
+export interface VirtualStagingFinalizationItemFiles {
+  original: VirtualStagingFinalizationFileDescriptor;
+  reference: VirtualStagingFinalizationFileDescriptor | null;
+}
+
+export interface TrustedMovedDraftFile {
+  fileId: string;
+  finalPath: string;
+}
+
+const CLAIM_CODES = [
+  "claimed",
+  "already_claimed",
+  "already_converted",
+  "not_found",
+  "version_conflict",
+  "invalid_status",
+  "finalization_conflict",
+] as const satisfies readonly DraftFinalizationClaimResultCode[];
+
+const RELEASE_CODES = [
+  "released",
+  "not_found",
+  "invalid_status",
+  "finalization_conflict",
+  "order_exists",
+  "already_converted",
+] as const satisfies readonly DraftFinalizationReleaseResultCode[];
+
+const COMPLETE_CODES = [
+  "completed",
+  "not_found",
+  "invalid_status",
+  "finalization_conflict",
+  "invalid_moved_files",
+  "duplicate_moved_files",
+] as const satisfies readonly DraftFinalizationCompleteResultCode[];
+
+export function parseClaimFinalizationRpcResult(
+  data: unknown,
+): ParsedFinalizationRpcResult<DraftFinalizationClaimResultCode> {
+  return parseFinalizationRpcResult(data, CLAIM_CODES, "invalid_status");
+}
+
+export function parseReleaseFinalizationRpcResult(
+  data: unknown,
+): ParsedFinalizationRpcResult<DraftFinalizationReleaseResultCode> {
+  return parseFinalizationRpcResult(data, RELEASE_CODES, "invalid_status");
+}
+
+export function parseCompleteFinalizationRpcResult(
+  data: unknown,
+): ParsedFinalizationRpcResult<DraftFinalizationCompleteResultCode> {
+  return parseFinalizationRpcResult(data, COMPLETE_CODES, "invalid_status");
+}
+
+export function mapClaimCodeToPublicError(
+  code: DraftFinalizationClaimResultCode,
+): DraftFinalizationPublicErrorCode | null {
+  switch (code) {
+    case "claimed":
+    case "already_claimed":
+    case "already_converted":
+      return null;
+    case "not_found":
+      return "not_found";
+    case "version_conflict":
+      return "version_conflict";
+    case "invalid_status":
+      return "invalid_status";
+    case "finalization_conflict":
+      return "finalization_conflict";
+  }
+}
+
+export function isOwnershipSafeFinalizationNotFound(
+  code: DraftFinalizationPublicErrorCode,
+): boolean {
+  return code === "not_found";
+}
+
+export function validateVirtualStagingDraftForFinalization(
+  draft: Pick<
+    OrderDraftRow,
+    | "serviceType"
+    | "route"
+    | "state"
+    | "stateSchemaVersion"
+    | "currency"
+    | "status"
+  >,
+): DraftFinalizationResult<VirtualStagingDraftState> {
+  if (draft.serviceType !== "virtual-staging") {
+    return finalizationError(
+      "invalid_status",
+      "Draft is not a Virtual Staging draft.",
+    );
+  }
+  if (draft.route !== VIRTUAL_STAGING_DRAFT_ROUTE) {
+    return finalizationError(
+      "invalid_status",
+      "Draft belongs to a different route.",
+    );
+  }
+  if (draft.stateSchemaVersion !== VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION) {
+    return finalizationError(
+      "invalid_status",
+      "Draft schema version is not supported.",
+    );
+  }
+  if (draft.status !== "converting" && draft.status !== "converted") {
+    return finalizationError("invalid_status", "Draft is not claimed.");
+  }
+
+  const parsed = VirtualStagingDraftStateSchema.safeParse(draft.state);
+  if (!parsed.success) {
+    return finalizationError("invalid_status", "Draft state is invalid.");
+  }
+  if (!parsed.data.termsUi.accepted) {
+    return finalizationError(
+      "invalid_status",
+      "Terms must be accepted before finalization.",
+    );
+  }
+
+  return { ok: true, data: parsed.data };
+}
+
+export function mapVirtualStagingDraftStateToProductionItems(
+  state: VirtualStagingDraftState,
+): DraftFinalizationResult<StagingItem[]> {
+  const items: StagingItem[] = [];
+  for (const item of state.items) {
+    const parsed = StagingItemSchema.safeParse({
+      roomName: item.state.roomName,
+      furnitureStyle: item.state.furnitureStyle,
+      fileSizeLimit: item.state.fileSizeLimit,
+      disclaimerText: item.state.disclaimerText,
+      referenceLink: item.state.referenceLink,
+      additionalInfo: item.state.additionalInfo,
+      selectedAddons: item.state.selectedAddons,
+    });
+    if (!parsed.success) {
+      return finalizationError(
+        "invalid_status",
+        "Draft item is not ready for order submission.",
+      );
+    }
+    items.push(parsed.data);
+  }
+  return { ok: true, data: items };
+}
+
+export function validateAndMatchVirtualStagingDraftFiles(input: {
+  verifiedUserId: string;
+  draftId: string;
+  state: VirtualStagingDraftState;
+  files: OrderDraftFileRow[];
+}): DraftFinalizationResult<VirtualStagingFinalizationSlot[]> {
+  const itemIndexByClientId = new Map<string, number>();
+  input.state.items.forEach((item, index) => {
+    itemIndexByClientId.set(item.clientItemId, index);
+  });
+
+  const slots = new Map<
+    string,
+    { original: OrderDraftFileRow | null; reference: OrderDraftFileRow | null }
+  >();
+
+  for (const file of input.files) {
+    if (file.uploadStatus !== "uploaded" || file.deletedAt !== null) {
+      return finalizationError(
+        "file_mismatch",
+        "Draft contains a non-live uploaded file.",
+      );
+    }
+    if (file.bucket !== ORDER_FILES_BUCKET) {
+      return finalizationError("file_mismatch", "Draft file bucket is invalid.");
+    }
+    if (!itemIndexByClientId.has(file.itemClientId)) {
+      return finalizationError(
+        "file_mismatch",
+        "Draft contains a file for an unknown item.",
+      );
+    }
+    if (
+      !isExactDraftStoragePathForFile({
+        path: file.storagePath,
+        verifiedUserId: input.verifiedUserId,
+        draftId: input.draftId,
+        fileId: file.id,
+      })
+    ) {
+      return finalizationError(
+        "file_mismatch",
+        "Draft file path is not in the verified draft namespace.",
+      );
+    }
+
+    const current = slots.get(file.itemClientId) ?? {
+      original: null,
+      reference: null,
+    };
+    if (file.kind === "original") {
+      if (current.original) {
+        return finalizationError(
+          "file_mismatch",
+          "Draft contains duplicate original files.",
+        );
+      }
+      current.original = file;
+    } else if (file.kind === "reference") {
+      if (current.reference) {
+        return finalizationError(
+          "file_mismatch",
+          "Draft contains duplicate reference files.",
+        );
+      }
+      current.reference = file;
+    } else {
+      return finalizationError("file_mismatch", "Draft file kind is invalid.");
+    }
+    slots.set(file.itemClientId, current);
+  }
+
+  const matched: VirtualStagingFinalizationSlot[] = [];
+  for (const item of input.state.items) {
+    const slot = slots.get(item.clientItemId);
+    if (!slot?.original) {
+      return finalizationError(
+        "missing_original",
+        "Each Virtual Staging item needs one saved original image.",
+      );
+    }
+    matched.push({
+      clientItemId: item.clientItemId,
+      itemIndex: itemIndexByClientId.get(item.clientItemId) ?? 0,
+      original: slot.original,
+      reference: slot.reference,
+    });
+  }
+
+  return { ok: true, data: matched };
+}
+
+export function buildVirtualStagingFinalizationItemFiles(
+  slots: VirtualStagingFinalizationSlot[],
+): VirtualStagingFinalizationItemFiles[] {
+  return slots.map((slot) => ({
+    original: mapDraftFileDescriptor(slot.original),
+    reference: slot.reference ? mapDraftFileDescriptor(slot.reference) : null,
+  }));
+}
+
+export function buildTrustedMovedDraftFiles(
+  files: Array<{
+    draftFileId?: string | null;
+    finalPath: string;
+  }>,
+): TrustedMovedDraftFile[] {
+  return files
+    .filter(
+      (file): file is { draftFileId: string; finalPath: string } =>
+        typeof file.draftFileId === "string" && file.draftFileId.length > 0,
+    )
+    .map((file) => ({
+      fileId: file.draftFileId,
+      finalPath: file.finalPath,
+    }));
+}
+
+export function buildTrustedFinalPathForDraftFile(input: {
+  orderNumber: string;
+  itemIndex: number;
+  kind: UploadKind;
+  sourcePath: string;
+  originalFilename: string;
+}): string {
+  const ext =
+    getFileExtension(input.sourcePath) ||
+    getFileExtension(input.originalFilename);
+  return buildFinalPath(input.orderNumber, input.itemIndex, input.kind, ext);
+}
+
+export function isExactDraftStoragePathForFile(input: {
+  path: string;
+  verifiedUserId: string;
+  draftId: string;
+  fileId: string;
+}): boolean {
+  if (!UuidSchema.safeParse(input.verifiedUserId).success) return false;
+  if (!UuidSchema.safeParse(input.draftId).success) return false;
+  if (!UuidSchema.safeParse(input.fileId).success) return false;
+  const prefix = `drafts/${input.verifiedUserId}/${input.draftId}/${input.fileId}/`;
+  const filename = input.path.slice(prefix.length);
+  return (
+    input.path.startsWith(prefix) &&
+    filename.length > 0 &&
+    !filename.includes("/") &&
+    !filename.includes("\\")
+  );
+}
+
+export function selectVirtualStagingDraftSubmissionMode(
+  items: VirtualStagingDraftSubmissionDecisionItem[],
+): VirtualStagingDraftSubmissionDecision {
+  if (items.length === 0) {
+    return { mode: "not_ready", reason: "missing_items" };
+  }
+
+  for (const item of items) {
+    if (!item.localOriginal && !item.uploadedOriginal) {
+      return { mode: "not_ready", reason: "missing_original" };
+    }
+
+    if (item.localOriginal) {
+      if (!fileSummaryMatchesBrowserFile(item.uploadedOriginal, item.localOriginal)) {
+        return { mode: "local_upload_fallback", reason: "original_not_persisted" };
+      }
+    }
+
+    if (
+      item.localReference &&
+      !fileSummaryMatchesBrowserFile(item.uploadedReference, item.localReference)
+    ) {
+      return { mode: "local_upload_fallback", reason: "reference_not_persisted" };
+    }
+  }
+
+  return { mode: "draft_finalization" };
+}
+
+export function isVirtualStagingSubmitReadyWithDraftFiles(
+  items: Array<{
+    file: File | null;
+    uploadedOriginal?: UploadedDraftFileMetadata | null;
+    roomName: string;
+    furnitureStyle: string;
+  }>,
+): boolean {
+  return (
+    items.length > 0 &&
+    items.every(
+      (item) =>
+        (item.file !== null || item.uploadedOriginal != null) &&
+        item.roomName !== "" &&
+        item.furnitureStyle !== "",
+    )
+  );
+}
+
+export function shouldApplyVirtualStagingFinalizationResult(input: {
+  startedSession: number;
+  currentSession: number;
+  startedKey: string | null;
+  currentKey: string | null;
+}): boolean {
+  return (
+    input.startedSession === input.currentSession &&
+    input.startedKey !== null &&
+    input.startedKey === input.currentKey
+  );
+}
+
+export function shouldAutomaticallyRetryVirtualStagingFinalization(): false {
+  return false;
+}
+
+export function resetVirtualStagingFinalizationIdentity(): {
+  finalizationKey: null;
+} {
+  return { finalizationKey: null };
+}
+
+export function finalizationError<T = never>(
+  code: DraftFinalizationPublicErrorCode,
+  message: string,
+): DraftFinalizationResult<T> {
+  return { ok: false, code, message };
+}
+
+function mapDraftFileDescriptor(
+  file: OrderDraftFileRow,
+): VirtualStagingFinalizationFileDescriptor {
+  return {
+    draftFileId: file.id,
+    bucket: ORDER_FILES_BUCKET,
+    path: file.storagePath,
+    originalFilename: file.originalFilename,
+    size: file.fileSize,
+    mimeType: file.mimeType,
+  };
+}
+
+function fileSummaryMatchesBrowserFile(
+  summary: UploadedDraftFileMetadata | null | undefined,
+  file: BrowserFileMetadata,
+): boolean {
+  if (!summary) return false;
+  if (summary.originalFilename !== file.name) return false;
+  if (summary.fileSize !== file.size) return false;
+
+  const fileMime = (file.type ?? "").trim().toLowerCase();
+  const summaryMime = summary.mimeType.toLowerCase();
+  if (fileMime && summaryMime && fileMime !== summaryMime) return false;
+
+  return true;
+}
+
+function parseFinalizationRpcResult<TCode extends string>(
+  data: unknown,
+  allowedCodes: readonly TCode[],
+  fallbackCode: TCode,
+): ParsedFinalizationRpcResult<TCode> {
+  const row = getSingleRpcRow(data);
+  const rawCode = typeof row?.result_code === "string"
+    ? row.result_code
+    : null;
+  const code = rawCode && allowedCodes.includes(rawCode as TCode)
+    ? rawCode as TCode
+    : fallbackCode;
+  const draftId = getUuidLike(row, "draft_id");
+  const convertedOrderId =
+    getUuidLike(row, "converted_order_id") ??
+    getUuidLike(row, "order_id");
+  return { code, draftId, convertedOrderId };
+}
+
+function getSingleRpcRow(data: unknown): Record<string, unknown> | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  return row !== null && typeof row === "object" && !Array.isArray(row)
+    ? row as Record<string, unknown>
+    : null;
+}
+
+function getUuidLike(
+  row: Record<string, unknown> | null,
+  field: string,
+): string | null {
+  const value = row?.[field];
+  return typeof value === "string" &&
+    UuidSchema.safeParse(value).success
+    ? value
+    : null;
+}
+
+export function draftFinalizationMovedPayloadContainsOnlyTrustedFields(
+  payload: TrustedMovedDraftFile[],
+): boolean {
+  return payload.every((entry) => {
+    const keys = Object.keys(entry as unknown as JsonObject).sort();
+    return keys.length === 2 && keys[0] === "fileId" && keys[1] === "finalPath";
+  });
+}

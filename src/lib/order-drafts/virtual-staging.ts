@@ -287,7 +287,7 @@ export function mapVirtualStagingDraftToFormState(
       selectedAddons: [...item.state.selectedAddons],
       originalFilename: item.state.originalFilename,
       referenceFilename: item.state.referenceFilename,
-      needsOriginalFileReselection: item.state.originalFilename !== null,
+      needsOriginalFileReselection: false,
     })),
   };
 }
@@ -463,15 +463,22 @@ export function updateReferenceFileDraftMetadata<T extends {
 export function shouldShowVirtualStagingResumedFileWarning(
   items: Array<{ needsOriginalFileReselection?: boolean; file?: unknown | null }>,
 ): boolean {
-  return items.some(
-    (item) => item.needsOriginalFileReselection === true && item.file == null,
-  );
+  void items;
+  return false;
+}
+
+export function shouldShowVirtualStagingSavedImagesNotice(
+  uploadedFileCount: number,
+): boolean {
+  return uploadedFileCount > 0;
 }
 
 export function isVirtualStagingFinalSubmissionReady(
-  items: Array<{ file: File | null }>,
+  items: Array<{ file: File | null; uploadedOriginal?: unknown | null }>,
 ): boolean {
-  return items.length > 0 && items.every((item) => item.file !== null);
+  return items.length > 0 && items.every(
+    (item) => item.file !== null || item.uploadedOriginal != null,
+  );
 }
 
 export function validateVirtualStagingDraftForResume(

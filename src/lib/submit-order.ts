@@ -2,7 +2,7 @@
 
 import type { DeliveryPreferencesData } from "@/components/order/DeliveryPreferences";
 import type { OrderTermsData } from "@/components/order/OrderTermsBlock";
-import { TERMS_VERSION } from "@/components/order/OrderTermsBlock";
+import { TERMS_VERSION } from "@/lib/order-terms";
 import { getSupabaseBrowser } from "@/lib/supabase";
 import { readBrowserCurrency } from "@/lib/currency";
 import {
