@@ -16,10 +16,12 @@
     "test:order-draft-finalization": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-finalization.test.ts",
     "test:order-draft-finalization-api": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-finalization-api.test.ts",
     "test:saved-drafts": "node --experimental-strip-types --test src/lib/order-drafts/saved-drafts.test.ts",
+    "test:support-assistant": "node --experimental-strip-types --test src/lib/support-assistant/support-assistant-api.test.ts src/lib/support-assistant/support-assistant-service.test.ts",
     "test:virtual-staging-drafts": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging.test.ts",
     "test:virtual-staging-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging-files.test.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.10.0",
     "@hookform/resolvers": "^5.2.2",
     "@photo-sphere-viewer/core": "^5.14.1",
     "@supabase/ssr": "^0.10.3",
