@@ -78,6 +78,10 @@ const ORDER_TERMS_BLOCK = readFileSync(
   "src/components/order/OrderTermsBlock.tsx",
   "utf8",
 );
+const ORDER_SUMMARY = readFileSync(
+  "src/components/order/OrderSummary.tsx",
+  "utf8",
+);
 const FINALIZATION_SERVER = readFileSync(
   "src/lib/order-drafts/finalization-server.ts",
   "utf8",
@@ -1231,6 +1235,155 @@ test("preview layout stays responsive for active and finishing draft cards", () 
   assert.match(DRAFT_THUMBNAIL, /aspect-\[4\/3\]/);
   assert.match(SAVED_DRAFTS_SECTION, /flex flex-col gap-4 sm:flex-row/);
   assert.match(DRAFTS_PAGE, /flex flex-col gap-4 sm:flex-row/);
+});
+
+test("Saved Draft thumbnails stay compact on desktop and stack on mobile", () => {
+  assert.match(DRAFT_THUMBNAIL, /aspect-video w-full shrink-0 self-start/);
+  assert.match(DRAFT_THUMBNAIL, /sm:h-\[102px\] sm:w-\[136px\]/);
+  assert.match(DRAFT_THUMBNAIL, /sm:aspect-\[4\/3\]/);
+  assert.match(DRAFT_THUMBNAIL, /overflow-hidden/);
+  assert.match(DRAFT_THUMBNAIL, /className="h-full w-full object-cover"/);
+  assert.doesNotMatch(DRAFT_THUMBNAIL, /sm:h-full|object-contain/);
+  assert.match(SAVED_DRAFTS_SECTION, /flex flex-col gap-4 sm:flex-row/);
+  assert.match(DRAFTS_PAGE, /flex flex-col gap-4 sm:flex-row/);
+});
+
+test("draft deletion confirmation is a modal instead of inline card content", () => {
+  assert.match(DRAFTS_PAGE, /role="dialog"/);
+  assert.match(DRAFTS_PAGE, /aria-modal="true"/);
+  assert.match(DRAFTS_PAGE, /fixed inset-0 z-50/);
+  assert.match(DRAFTS_PAGE, /cancelDeleteRef\.current\?\.focus\(\)/);
+  assert.match(
+    DRAFTS_PAGE,
+    /event\.key === "Escape" && !activeDeleteControllerRef\.current/,
+  );
+  assert.match(DRAFTS_PAGE, /deleteTriggerRef\.current\?\.focus\(\)/);
+  assert.match(
+    DRAFTS_PAGE,
+    /event\.target === event\.currentTarget[\s\S]+!activeDeleteControllerRef\.current/,
+  );
+  const card = DRAFTS_PAGE.slice(DRAFTS_PAGE.indexOf("function DraftCard"));
+  assert.doesNotMatch(card, /copy\.confirmTitle|copy\.confirmMessage/);
+});
+
+test("delete runs once, disables modal actions, and uses a temporary toast", () => {
+  assert.match(
+    DRAFTS_PAGE,
+    /if \(deletingDraftId \|\| activeDeleteControllerRef\.current\) return/,
+  );
+  assert.match(
+    DRAFTS_PAGE,
+    /disabled=\{deletingDraftId === confirmDraft\.id\}/,
+  );
+  assert.match(DRAFTS_PAGE, /setDrafts\(\(current\) => removeDraftSummaryById/);
+  assert.match(DRAFTS_PAGE, /setToastMessage\(copy\.deleted\)/);
+  assert.match(DRAFTS_PAGE, /setTimeout\(\(\) => \{[\s\S]+setToastMessage\(""\)/);
+  assert.match(DRAFTS_PAGE, /3500/);
+  assert.match(DRAFTS_PAGE, /role="status"/);
+  assert.doesNotMatch(DRAFTS_PAGE, /setStatusMessage\(copy\.deleted\)/);
+});
+
+test("normal autosave UI is quiet while failures and conflicts remain visible", () => {
+  assert.doesNotMatch(VIRTUAL_STAGING_FORM, /handleSaveAndExit|<Save /);
+  assert.doesNotMatch(VIRTUAL_STAGING_FORM, /copy\.saveAndExit/);
+  assert.doesNotMatch(VIRTUAL_STAGING_FORM, /Back to drafts/);
+  assert.doesNotMatch(VIRTUAL_STAGING_FORM, /copy\[saveStatus\]/);
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /saveStatus === "saving"[\s\S]+role="status"[\s\S]+copy\.saving/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /draftError && saveStatus !== "conflict"/,
+  );
+  assert.match(VIRTUAL_STAGING_FORM, /saveStatus === "save_failed"/);
+  assert.match(VIRTUAL_STAGING_FORM, /saveStatus === "conflict"/);
+});
+
+test("autosave still observes form state and explicit file changes", () => {
+  const autosave = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "useEffect(() => {\n    if (\n      finalizationRetryContext",
+    "const handleReloadLatestDraft",
+  );
+  assert.match(autosave, /draftSource/);
+  assert.match(autosave, /void saveDraftNow\(\)/);
+  assert.match(VIRTUAL_STAGING_FORM, /void enqueueDraftSave\(buildDraftSourceSnapshot\(nextItems\)\)/);
+  assert.match(VIRTUAL_STAGING_FORM, /enqueueDraftSave\(sourceSnapshot, \{\s+force: true/);
+});
+
+test("the redundant saved-images notice is not rendered", () => {
+  assert.doesNotMatch(VIRTUAL_STAGING_FORM, /showSavedImagesNotice/);
+  assert.doesNotMatch(VIRTUAL_STAGING_FORM, /copy\.resumedFileWarning/);
+  const formUi = VIRTUAL_STAGING_FORM.slice(
+    VIRTUAL_STAGING_FORM.indexOf("<OrderLayout"),
+  );
+  assert.doesNotMatch(
+    formUi,
+    /Your images are saved with this draft and will be used when you submit the order\./,
+  );
+});
+
+test("incomplete submit returns before saving or calling submission endpoints", () => {
+  const submitHandler = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "const handleSubmit = async () => {",
+    "const handleNewOrder",
+  );
+  const incompleteBranch = sourceSlice(
+    submitHandler,
+    "if (missingRequiredFields.length > 0)",
+    "const saveOutcome = await enqueueDraftSave",
+  );
+  assert.match(incompleteBranch, /setValidationAttempted\(true\)/);
+  assert.match(incompleteBranch, /focusRequiredField\(missingRequiredFields\[0\]\.targetId\)/);
+  assert.match(incompleteBranch, /return;/);
+  assert.doesNotMatch(
+    incompleteBranch,
+    /submitVirtualStagingDraft|submitCurrentLocalOrder|submitOrder|\/api\/order/,
+  );
+});
+
+test("required fields expose inline errors plus scroll and focus guidance", () => {
+  assert.match(VIRTUAL_STAGING_FORM, /findMissingVirtualStagingRequiredFields/);
+  assert.match(VIRTUAL_STAGING_FORM, /scrollIntoView\(\{ behavior: "smooth"/);
+  assert.match(VIRTUAL_STAGING_FORM, /control\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(VIRTUAL_STAGING_FORM, /copy\.incompleteFields\(missingRequiredFields\.length\)/);
+  assert.match(VIRTUAL_STAGING_FORM, /onClick=\{\(\) => focusRequiredField\(field\.targetId\)\}/);
+  assert.match(STAGING_ITEM_CARD, /validationError=\{validationErrors\.original\}/);
+  assert.match(STAGING_ITEM_CARD, /aria-invalid=\{Boolean\(validationErrors\.room\)/);
+  assert.match(STAGING_ITEM_CARD, /ariaDescribedBy=/);
+  assert.match(ORDER_JOB_TITLE_FIELD, /aria-invalid=\{displayError/);
+  assert.match(ORDER_TERMS_BLOCK, /aria-invalid=\{displayError/);
+});
+
+test("active image operations disable submit and explain the wait", () => {
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /const canSubmit = !hasActiveDraftFileOperation && !isSubmitting/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /hasActiveDraftFileOperation \? \([\s\S]+copy\.waitForImages/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(isSubmitting \|\| hasActiveDraftFileOperation\) return/,
+  );
+  assert.match(ORDER_SUMMARY, /disabled=\{!canSubmit \|\| isSubmitting\}/);
+});
+
+test("persisted previews use original filenames and compact cover thumbnails", () => {
+  assert.match(STAGING_ITEM_CARD, /filename: uploadedOriginalFile\.originalFilename/);
+  assert.match(STAGING_ITEM_CARD, /filename: uploadedReferenceFile\.originalFilename/);
+  assert.match(FILE_UPLOAD, /<FilenameText filename=\{persistedFile\.filename\}/);
+  assert.match(FILE_UPLOAD, /title=\{filename\}/);
+  assert.match(FILE_UPLOAD, /className="sr-only">\{filename\}/);
+  assert.match(FILE_UPLOAD, /w-28 shrink-0 self-start sm:w-32/);
+  assert.match(FILE_UPLOAD, /className="h-full w-full object-cover"/);
+  assert.match(FILE_UPLOAD, /className="max-h-\[82vh\] w-full rounded-md object-contain"/);
+  assert.doesNotMatch(FILE_UPLOAD, /storage_path|storagePath|bucket|user_id/);
+  assert.doesNotMatch(STAGING_ITEM_CARD, /storage_path|storagePath|bucket|user_id/);
 });
 
 test("successful persisted original counts as submit-ready", () => {

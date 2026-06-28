@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Plus, RotateCcw, Save } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderTermsBlock, {
@@ -16,6 +16,8 @@ import OrderJobTitleField, {
 import StagingItemCard, {
   type StagingItemData,
   emptyStagingItem,
+  getStagingRequiredFieldId,
+  type StagingRequiredField,
 } from "@/components/order/virtual-staging/StagingItemCard";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
 import {
@@ -52,12 +54,11 @@ import {
   buildVirtualStagingDraftFingerprint,
   buildVirtualStagingCreateDraftInput,
   buildVirtualStagingUpdateDraftInput,
+  findMissingVirtualStagingRequiredFields,
   hasMeaningfulVirtualStagingDraftChange,
-  isVirtualStagingFinalSubmissionReady,
   resetVirtualStagingDraftIdentity,
   resolveVirtualStagingDraftRegion,
   shouldApplyVirtualStagingSaveResult,
-  shouldShowVirtualStagingSavedImagesNotice,
   shouldSkipDuplicateVirtualStagingSave,
   shouldSkipFailedVirtualStagingAutosave,
   updateOriginalFileDraftMetadata,
@@ -65,6 +66,7 @@ import {
   validateVirtualStagingDraftForResume,
   type VirtualStagingAutosaveStatus,
   type VirtualStagingFormDraftSource,
+  type MissingVirtualStagingRequiredField,
 } from "@/lib/order-drafts/virtual-staging";
 import {
   getVirtualStagingDraftFinalizationStatus,
@@ -164,6 +166,18 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
   fileOperationFailed: string;
   previousSavedFileAvailable: string;
   itemFilesCouldNotDelete: string;
+  incompleteFields: (count: number) => string;
+  waitForImages: string;
+  jobTitleRequired: string;
+  originalRequired: (itemNumber: number) => string;
+  roomRequired: (itemNumber: number) => string;
+  styleRequired: (itemNumber: number) => string;
+  termsRequired: string;
+  jobTitleLabel: string;
+  originalLabel: (itemNumber: number) => string;
+  roomLabel: (itemNumber: number) => string;
+  styleLabel: (itemNumber: number) => string;
+  termsLabel: string;
 };
 
 type DraftSaveOutcome =
@@ -246,6 +260,22 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     previousSavedFileAvailable: "The previous saved file is still available.",
     itemFilesCouldNotDelete:
       "Saved files for this image could not be deleted. The image was kept in the draft.",
+    incompleteFields: (count) =>
+      `Complete ${count} required ${count === 1 ? "field" : "fields"} before submitting.`,
+    waitForImages: "Please wait for your images to finish uploading.",
+    jobTitleRequired: "Enter a job title.",
+    originalRequired: (itemNumber) =>
+      `Image #${itemNumber}: upload an original photo.`,
+    roomRequired: (itemNumber) =>
+      `Image #${itemNumber}: select a room or area.`,
+    styleRequired: (itemNumber) =>
+      `Image #${itemNumber}: select a furniture style.`,
+    termsRequired: "Accept the terms before submitting.",
+    jobTitleLabel: "Job title",
+    originalLabel: (itemNumber) => `Image #${itemNumber} original photo`,
+    roomLabel: (itemNumber) => `Image #${itemNumber} room`,
+    styleLabel: (itemNumber) => `Image #${itemNumber} furniture style`,
+    termsLabel: "Terms",
   },
   es: {
     draft: "Borrador",
@@ -303,8 +333,97 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       "El archivo guardado anterior sigue disponible.",
     itemFilesCouldNotDelete:
       "No se pudieron eliminar los archivos guardados de esta imagen. La imagen se mantuvo en el borrador.",
+    incompleteFields: (count) =>
+      `Completa ${count} ${count === 1 ? "campo obligatorio" : "campos obligatorios"} antes de enviar.`,
+    waitForImages: "Espera a que tus imГЎgenes terminen de subirse.",
+    jobTitleRequired: "Introduce un tГ­tulo para el pedido.",
+    originalRequired: (itemNumber) =>
+      `Imagen #${itemNumber}: sube una foto original.`,
+    roomRequired: (itemNumber) =>
+      `Imagen #${itemNumber}: selecciona una habitaciГіn o zona.`,
+    styleRequired: (itemNumber) =>
+      `Imagen #${itemNumber}: selecciona un estilo de mobiliario.`,
+    termsRequired: "Acepta los tГ©rminos antes de enviar.",
+    jobTitleLabel: "TГ­tulo del pedido",
+    originalLabel: (itemNumber) => `Imagen #${itemNumber} foto original`,
+    roomLabel: (itemNumber) => `Imagen #${itemNumber} habitaciГіn`,
+    styleLabel: (itemNumber) => `Imagen #${itemNumber} estilo`,
+    termsLabel: "TГ©rminos",
   },
 };
+
+const JOB_TITLE_REQUIRED_FIELD_ID = "virtual-staging-job-title-required";
+const TERMS_REQUIRED_FIELD_ID = "virtual-staging-terms-required";
+
+interface RequiredFieldIssue extends MissingVirtualStagingRequiredField {
+  targetId: string;
+  message: string;
+  summaryLabel: string;
+}
+
+function buildRequiredFieldIssues(
+  missing: MissingVirtualStagingRequiredField[],
+  copy: DraftCopy,
+): RequiredFieldIssue[] {
+  return missing.map((field) => {
+    const itemNumber = (field.itemIndex ?? 0) + 1;
+
+    if (field.kind === "job-title") {
+      return {
+        ...field,
+        targetId: JOB_TITLE_REQUIRED_FIELD_ID,
+        message: copy.jobTitleRequired,
+        summaryLabel: copy.jobTitleLabel,
+      };
+    }
+    if (field.kind === "terms") {
+      return {
+        ...field,
+        targetId: TERMS_REQUIRED_FIELD_ID,
+        message: copy.termsRequired,
+        summaryLabel: copy.termsLabel,
+      };
+    }
+
+    const clientItemId = field.clientItemId ?? "";
+    const stagingField: StagingRequiredField = field.kind;
+    const targetId = getStagingRequiredFieldId(clientItemId, stagingField);
+    if (field.kind === "original") {
+      return {
+        ...field,
+        targetId,
+        message: copy.originalRequired(itemNumber),
+        summaryLabel: copy.originalLabel(itemNumber),
+      };
+    }
+    if (field.kind === "room") {
+      return {
+        ...field,
+        targetId,
+        message: copy.roomRequired(itemNumber),
+        summaryLabel: copy.roomLabel(itemNumber),
+      };
+    }
+    return {
+      ...field,
+      targetId,
+      message: copy.styleRequired(itemNumber),
+      summaryLabel: copy.styleLabel(itemNumber),
+    };
+  });
+}
+
+function focusRequiredField(targetId: string): void {
+  window.requestAnimationFrame(() => {
+    const field = document.getElementById(targetId);
+    if (!field) return;
+    const control = field.querySelector<HTMLElement>(
+      "[data-validation-control], input:not([type='hidden']), select, button:not([disabled])",
+    );
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+    control?.focus({ preventScroll: true });
+  });
+}
 
 export default function VirtualStagingOrderForm({
   clientEmail,
@@ -327,6 +446,7 @@ export default function VirtualStagingOrderForm({
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(() => {
     return requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
       ? requestedDraftId
@@ -695,11 +815,6 @@ export default function VirtualStagingOrderForm({
     [draftSource],
   );
 
-  const showSavedImagesNotice = useMemo(
-    () => shouldShowVirtualStagingSavedImagesNotice(uploadedDraftFiles.length),
-    [uploadedDraftFiles.length],
-  );
-
   const uploadedFilesBySlot = useMemo(
     () =>
       indexVirtualStagingUploadedFilesBySlot(
@@ -712,6 +827,31 @@ export default function VirtualStagingOrderForm({
   const hasActiveDraftFileOperation = useMemo(
     () => hasActiveVirtualStagingDraftFileOperation(draftFileOperations),
     [draftFileOperations],
+  );
+
+  const missingRequiredFields = useMemo(
+    () =>
+      buildRequiredFieldIssues(
+        findMissingVirtualStagingRequiredFields({
+          jobTitleValid: isJobTitleValid(jobTitle),
+          termsAccepted: orderTerms.accepted,
+          items: items.map((item) => ({
+            clientItemId: item.clientItemId,
+            hasOriginal:
+              item.file !== null ||
+              uploadedFilesBySlot.has(
+                buildVirtualStagingDraftFileSlotKey(
+                  item.clientItemId,
+                  "original",
+                ),
+              ),
+            roomName: item.roomName,
+            furnitureStyle: item.furnitureStyle,
+          })),
+        }),
+        copy,
+      ),
+    [copy, items, jobTitle, orderTerms.accepted, uploadedFilesBySlot],
   );
 
   const replaceDraftUrl = useCallback(
@@ -757,6 +897,7 @@ export default function VirtualStagingOrderForm({
     setOrderNumber("");
     setConfirmationEmailSent(false);
     setSubmitError("");
+    setValidationAttempted(false);
     setFinalizationKey(null);
     finalizationKeyRef.current = null;
     clearFinalizationRetryContext();
@@ -1630,12 +1771,6 @@ export default function VirtualStagingOrderForm({
     saveStatus,
   ]);
 
-  const handleSaveAndExit = async () => {
-    if (finalizationRetryContextRef.current || finalizationRecovery) return;
-    const saved = await saveDraftNow({ force: true });
-    if (saved) router.push("/dashboard/orders/new");
-  };
-
   const handleReloadLatestDraft = async () => {
     if (finalizationRetryContextRef.current) return;
     const currentDraftId = draftIdRef.current;
@@ -1903,13 +2038,13 @@ export default function VirtualStagingOrderForm({
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || hasActiveDraftFileOperation) return;
     const sessionAtStart = draftSessionRef.current;
-    setIsSubmitting(true);
     setSubmitError("");
 
     const retryContext = finalizationRetryContextRef.current;
     if (retryContext) {
+      setIsSubmitting(true);
       finalizationKeyRef.current = retryContext.finalizationKey;
       setFinalizationKey(retryContext.finalizationKey);
       const result = await submitVirtualStagingDraft(
@@ -1921,6 +2056,14 @@ export default function VirtualStagingOrderForm({
       return;
     }
 
+    if (missingRequiredFields.length > 0) {
+      setValidationAttempted(true);
+      focusRequiredField(missingRequiredFields[0].targetId);
+      return;
+    }
+
+    setValidationAttempted(false);
+    setIsSubmitting(true);
     const saveOutcome = await enqueueDraftSave(buildDraftSourceSnapshot(), {
       force: true,
     });
@@ -2033,38 +2176,8 @@ export default function VirtualStagingOrderForm({
 
   const handleNewOrder = startNewVirtualStagingOrder;
 
-  // --- Validation ---
-  const itemsWithOriginalSources = items.map((item) => ({
-    file: item.file,
-    uploadedOriginal: uploadedFilesBySlot.get(
-      buildVirtualStagingDraftFileSlotKey(item.clientItemId, "original"),
-    ),
-  }));
-  const allItemsValid = items.every((item) => {
-    const uploadedOriginal = uploadedFilesBySlot.get(
-      buildVirtualStagingDraftFileSlotKey(item.clientItemId, "original"),
-    );
-    return (
-      (item.file !== null || uploadedOriginal != null) &&
-      item.roomName !== "" &&
-      item.furnitureStyle !== ""
-    );
-  });
-  const originalsReady = isVirtualStagingFinalSubmissionReady(
-    itemsWithOriginalSources,
-  );
-  const termsAccepted = orderTerms.accepted;
   const hasFinalizationRetryContext = finalizationRetryContext !== null;
-  const canSubmit =
-    hasFinalizationRetryContext
-      ? !isSubmitting
-      : items.length > 0 &&
-        allItemsValid &&
-        originalsReady &&
-        termsAccepted &&
-        isJobTitleValid(jobTitle) &&
-        !hasActiveDraftFileOperation &&
-        !isSubmitting;
+  const canSubmit = !hasActiveDraftFileOperation && !isSubmitting;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -2244,40 +2357,63 @@ export default function VirtualStagingOrderForm({
               ? copy.retryOrderFinalization
               : copy.creatingOrder
           }
+          submitHelper={
+            hasActiveDraftFileOperation ? (
+              <p role="status">{copy.waitForImages}</p>
+            ) : validationAttempted && missingRequiredFields.length > 0 ? (
+              <div aria-live="polite">
+                <p className="font-medium text-foreground">
+                  {copy.incompleteFields(missingRequiredFields.length)}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5">
+                  {missingRequiredFields.map((field, index) => (
+                    <span key={`${field.kind}-${field.clientItemId ?? "order"}`}>
+                      {index > 0 && (
+                        <span className="mr-1" aria-hidden>
+                          {"\u00b7"}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => focusRequiredField(field.targetId)}
+                        className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 hover:text-primary-light"
+                      >
+                        {field.summaryLabel}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          }
         />
       }
     >
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            {copy.draft}
-          </p>
-          <p className="text-sm font-medium text-foreground">
-            {copy[saveStatus]}
-          </p>
-          {draftError && (
-            <p className="mt-1 text-xs text-red-700">{draftError}</p>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleSaveAndExit}
-          disabled={
-            hasFinalizationRetryContext ||
-            isSubmitting ||
-            saveStatus === "saving" ||
-            hasActiveDraftFileOperation
-          }
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-        >
-          <Save className="h-4 w-4" />
-          {copy.saveAndExit}
-        </button>
-      </div>
+      {saveStatus === "saving" && (
+        <p role="status" className="text-xs font-medium text-muted">
+          {copy.saving}
+        </p>
+      )}
 
-      {showSavedImagesNotice && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {copy.resumedFileWarning}
+      {draftError && saveStatus !== "conflict" && (
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p>
+            {saveStatus === "save_failed" ? `${copy.save_failed}: ` : ""}
+            {draftError}
+          </p>
+          {saveStatus === "save_failed" && (
+            <button
+              type="button"
+              onClick={() => void saveDraftNow({ force: true })}
+              disabled={isSubmitting || hasActiveDraftFileOperation}
+              className="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              {copy.retry}
+            </button>
+          )}
         </div>
       )}
 
@@ -2331,6 +2467,9 @@ export default function VirtualStagingOrderForm({
       <OrderJobTitleField
         value={jobTitle}
         onChange={setJobTitle}
+        showError={validationAttempted}
+        containerId={JOB_TITLE_REQUIRED_FIELD_ID}
+        errorMessage={copy.jobTitleRequired}
         disabled={hasFinalizationRetryContext || isSubmitting}
       />
 
@@ -2348,6 +2487,20 @@ export default function VirtualStagingOrderForm({
           const referenceOperation = draftFileOperations[referenceSlotKey];
           const uploadedOriginalFile = uploadedFilesBySlot.get(originalSlotKey);
           const uploadedReferenceFile = uploadedFilesBySlot.get(referenceSlotKey);
+          const validationErrors: Partial<
+            Record<StagingRequiredField, string>
+          > = {};
+          if (validationAttempted) {
+            for (const field of missingRequiredFields) {
+              if (
+                field.clientItemId === item.clientItemId &&
+                field.kind !== "job-title" &&
+                field.kind !== "terms"
+              ) {
+                validationErrors[field.kind] = field.message;
+              }
+            }
+          }
 
           return (
             <StagingItemCard
@@ -2424,6 +2577,7 @@ export default function VirtualStagingOrderForm({
               replaceFileLabel={copy.replaceFile}
               removeSavedFileLabel={copy.removeSavedFile}
               savedInDraftLabel={copy.savedInDraft}
+              validationErrors={validationErrors}
             />
           );
         })}
@@ -2442,6 +2596,9 @@ export default function VirtualStagingOrderForm({
       <OrderTermsBlock
         data={orderTerms}
         onChange={setOrderTerms}
+        showError={validationAttempted}
+        containerId={TERMS_REQUIRED_FIELD_ID}
+        errorMessage={copy.termsRequired}
         disabled={hasFinalizationRetryContext || isSubmitting}
       />
     </OrderLayout>

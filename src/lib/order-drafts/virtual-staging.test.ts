@@ -5,6 +5,7 @@ import {
   buildVirtualStagingCreateDraftInput,
   buildVirtualStagingPricingPreview,
   buildVirtualStagingUpdateDraftInput,
+  findMissingVirtualStagingRequiredFields,
   hasMeaningfulVirtualStagingDraftChange,
   isVirtualStagingFinalSubmissionReady,
   mapVirtualStagingDraftToFormState,
@@ -74,6 +75,48 @@ function draftRow(state = mapVirtualStagingFormToDraftState(source())) {
     "serviceType" | "route" | "state" | "stateSchemaVersion" | "version"
   >;
 }
+
+test("required-field validation reports every missing Virtual Staging value", () => {
+  assert.deepEqual(
+    findMissingVirtualStagingRequiredFields({
+      jobTitleValid: false,
+      termsAccepted: false,
+      items: [
+        {
+          clientItemId: ITEM_ID,
+          hasOriginal: false,
+          roomName: "",
+          furnitureStyle: "",
+        },
+      ],
+    }),
+    [
+      { kind: "job-title", itemIndex: null, clientItemId: null },
+      { kind: "original", itemIndex: 0, clientItemId: ITEM_ID },
+      { kind: "room", itemIndex: 0, clientItemId: ITEM_ID },
+      { kind: "furniture-style", itemIndex: 0, clientItemId: ITEM_ID },
+      { kind: "terms", itemIndex: null, clientItemId: null },
+    ],
+  );
+});
+
+test("required-field validation clears values as soon as they become valid", () => {
+  assert.deepEqual(
+    findMissingVirtualStagingRequiredFields({
+      jobTitleValid: true,
+      termsAccepted: true,
+      items: [
+        {
+          clientItemId: ITEM_ID,
+          hasOriginal: true,
+          roomName: "Living Room",
+          furnitureStyle: "Modern",
+        },
+      ],
+    }),
+    [],
+  );
+});
 
 test("form mapping creates versioned JSON-safe Virtual Staging draft state", () => {
   const state = mapVirtualStagingFormToDraftState(source());

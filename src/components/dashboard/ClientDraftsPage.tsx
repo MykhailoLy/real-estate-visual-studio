@@ -74,7 +74,7 @@ const DRAFTS_COPY: Record<SiteLanguage, DraftsPageCopy> = {
     delete: "Delete",
     confirmTitle: "Delete this draft?",
     confirmMessage:
-      "This action removes the saved draft. It does not affect submitted orders.",
+      "This removes the saved draft. It does not affect submitted orders.",
     cancel: "Cancel",
     confirmDelete: "Delete draft",
     deleting: "Deleting...",
@@ -87,7 +87,7 @@ const DRAFTS_COPY: Record<SiteLanguage, DraftsPageCopy> = {
       "Start a new order and your progress will appear here automatically.",
     startOrder: "Start a new order",
     loading: "Loading drafts",
-    deleted: "Draft deleted.",
+    deleted: "Draft deleted",
     deleteFailed: "Draft could not be deleted. Try again.",
     conflict:
       "This draft changed in another tab. The list was refreshed. Review it and try again.",
@@ -152,16 +152,67 @@ export default function ClientDraftsPage() {
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
   const mountedRef = useRef(true);
   const activeDeleteControllerRef = useRef<AbortController | null>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
+  const deleteDialogRef = useRef<HTMLDivElement | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       activeDeleteControllerRef.current?.abort();
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!confirmDraftId) return;
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      cancelDeleteRef.current?.focus();
+    });
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !activeDeleteControllerRef.current) {
+        event.preventDefault();
+        setConfirmDraftId(null);
+        window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        deleteDialogRef.current?.querySelectorAll<HTMLElement>(
+          "button:not([disabled])",
+        ) ?? [],
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [confirmDraftId]);
 
   useEffect(() => {
     window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
@@ -228,16 +279,18 @@ export default function ClientDraftsPage() {
     }
   }, [router]);
 
-  const beginDelete = (draftId: string) => {
+  const beginDelete = (draftId: string, trigger: HTMLButtonElement) => {
     if (activeDeleteControllerRef.current) return;
+    deleteTriggerRef.current = trigger;
     setConfirmDraftId(draftId);
     setCardErrors({});
     setStatusMessage("");
   };
 
   const cancelDelete = () => {
+    if (activeDeleteControllerRef.current) return;
     setConfirmDraftId(null);
-    setStatusMessage("");
+    window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
   };
 
   const confirmDelete = async (draft: OrderDraftSummary) => {
@@ -259,7 +312,11 @@ export default function ClientDraftsPage() {
       if (result.ok) {
         setDrafts((current) => removeDraftSummaryById(current, draft.id));
         setConfirmDraftId(null);
-        setStatusMessage(copy.deleted);
+        setToastMessage(copy.deleted);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => {
+          if (mountedRef.current) setToastMessage("");
+        }, 3500);
         return;
       }
 
@@ -270,6 +327,7 @@ export default function ClientDraftsPage() {
 
       if (shouldRefreshDraftListAfterDeleteError(result.code)) {
         setConfirmDraftId(null);
+        window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
         const refreshResult = await refreshDraftsAfterDeleteError(
           controller.signal,
         );
@@ -299,6 +357,9 @@ export default function ClientDraftsPage() {
       if (mountedRef.current && ownsActiveDelete) setDeletingDraftId(null);
     }
   };
+
+  const confirmDraft =
+    drafts.find((draft) => draft.id === confirmDraftId) ?? null;
 
   return (
     <section aria-labelledby="drafts-page-heading" className="space-y-6">
@@ -369,17 +430,86 @@ export default function ClientDraftsPage() {
                 draft={draft}
                 copy={copy}
                 language={language}
-                confirming={confirmDraftId === draft.id}
-                deleting={deletingDraftId === draft.id}
                 deleteInteractionDisabled={deletingDraftId !== null}
                 error={cardErrors[draft.id] ?? ""}
-                onDelete={() => beginDelete(draft.id)}
-                onCancel={cancelDelete}
-                onConfirm={() => void confirmDelete(draft)}
+                onDelete={(trigger) => beginDelete(draft.id, trigger)}
               />
             </li>
           ))}
         </ul>
+      )}
+
+      {confirmDraft && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/35 p-4"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              !activeDeleteControllerRef.current
+            ) {
+              cancelDelete();
+            }
+          }}
+        >
+          <div
+            ref={deleteDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-draft-title"
+            aria-describedby="delete-draft-description"
+            aria-busy={deletingDraftId === confirmDraft.id}
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-border bg-white p-5 shadow-xl"
+          >
+            <h2
+              id="delete-draft-title"
+              className="text-lg font-bold text-primary"
+            >
+              {copy.confirmTitle}
+            </h2>
+            <p
+              id="delete-draft-description"
+              className="mt-2 text-sm leading-relaxed text-muted"
+            >
+              {copy.confirmMessage}
+            </p>
+            {cardErrors[confirmDraft.id] && (
+              <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+                {cardErrors[confirmDraft.id]}
+              </p>
+            )}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                ref={cancelDeleteRef}
+                type="button"
+                onClick={cancelDelete}
+                disabled={deletingDraftId === confirmDraft.id}
+                className="inline-flex items-center justify-center rounded-lg border border-border bg-white px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+              >
+                {copy.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete(confirmDraft)}
+                disabled={deletingDraftId === confirmDraft.id}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+                {deletingDraftId === confirmDraft.id
+                  ? copy.deleting
+                  : copy.confirmDelete}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
+        >
+          {toastMessage}
+        </div>
       )}
     </section>
   );
@@ -397,24 +527,16 @@ function DraftCard({
   draft,
   copy,
   language,
-  confirming,
-  deleting,
   deleteInteractionDisabled,
   error,
   onDelete,
-  onCancel,
-  onConfirm,
 }: {
   draft: OrderDraftSummary;
   copy: DraftsPageCopy;
   language: SiteLanguage;
-  confirming: boolean;
-  deleting: boolean;
   deleteInteractionDisabled: boolean;
   error: string;
-  onDelete: () => void;
-  onCancel: () => void;
-  onConfirm: () => void;
+  onDelete: (trigger: HTMLButtonElement) => void;
 }) {
   const resumeUrl = buildSavedDraftResumeUrl(draft.route, draft.id);
   const title = getSavedDraftTitle(draft.title, copy.untitled);
@@ -469,57 +591,27 @@ function DraftCard({
           </p>
 
           <div className="mt-auto pt-4">
-            {confirming ? (
-              <div className="rounded-lg border border-secondary/30 bg-secondary/5 p-3">
-                <p className="text-sm font-bold text-primary">
-                  {copy.confirmTitle}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-muted">
-                  {copy.confirmMessage}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    disabled={deleting}
-                    className="inline-flex items-center rounded-lg border border-border bg-white px-3 py-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
-                  >
-                    {copy.cancel}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onConfirm}
-                    disabled={deleting}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                    {deleting ? copy.deleting : copy.confirmDelete}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {resumeUrl && (
-                  <Link
-                    href={resumeUrl}
-                    className="inline-flex items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  >
-                    {actionLabel}
-                  </Link>
-                )}
-                {!isFinishing && (
-                  <button
-                    type="button"
-                    onClick={onDelete}
-                    disabled={deleteInteractionDisabled}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                    {copy.delete}
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {resumeUrl && (
+                <Link
+                  href={resumeUrl}
+                  className="inline-flex items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                  {actionLabel}
+                </Link>
+              )}
+              {!isFinishing && (
+                <button
+                  type="button"
+                  onClick={(event) => onDelete(event.currentTarget)}
+                  disabled={deleteInteractionDisabled}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  {copy.delete}
+                </button>
+              )}
+            </div>
 
             {error && (
               <p

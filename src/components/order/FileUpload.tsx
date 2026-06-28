@@ -42,6 +42,8 @@ interface FileUploadProps {
   persistedFile?: PersistedFileDisplay | null;
   operationStatusText?: string;
   operationErrorText?: string;
+  validationError?: string;
+  validationFieldId?: string;
   retryLabel?: string;
   replaceLabel?: string;
   removePersistedLabel?: string;
@@ -112,6 +114,8 @@ export default function FileUpload({
   persistedFile,
   operationStatusText,
   operationErrorText,
+  validationError,
+  validationFieldId,
   retryLabel = "Retry upload",
   replaceLabel = "Replace",
   removePersistedLabel = "Remove file",
@@ -128,6 +132,9 @@ export default function FileUpload({
   const maxSizeId = `${inputId}-max-size`;
   const helperTextId = helperText ? `${inputId}-helper` : undefined;
   const rejectedId = `${inputId}-error`;
+  const validationErrorId = validationError
+    ? `${inputId}-validation-error`
+    : undefined;
   const operationStatusId = operationStatusText
     ? `${inputId}-operation-status`
     : undefined;
@@ -229,12 +236,18 @@ export default function FileUpload({
     isEmptyUploadState ? operationStatusId : undefined,
     isEmptyUploadState ? operationErrorId : undefined,
     rejected ? rejectedId : undefined,
+    validationErrorId,
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div>
+    <div
+      id={validationFieldId}
+      role="group"
+      aria-labelledby={labelId}
+      aria-describedby={validationErrorId}
+    >
       <label
         id={labelId}
         htmlFor={inputId}
@@ -259,6 +272,9 @@ export default function FileUpload({
         className="hidden"
         onChange={handleInputChange}
         tabIndex={-1}
+        required={required}
+        aria-invalid={validationError ? true : undefined}
+        aria-describedby={validationErrorId}
       />
 
       {file ? (
@@ -278,9 +294,7 @@ export default function FileUpload({
             </div>
           )}
           <div className="min-w-0 flex-1 flex flex-col justify-center">
-            <p className="text-sm font-medium text-foreground truncate">
-              {file.name}
-            </p>
+            <FilenameText filename={file.name} />
             <p className="text-xs text-foreground/75">
               {(file.size / 1024 / 1024).toFixed(2)} MB
             </p>
@@ -331,9 +345,7 @@ export default function FileUpload({
             previewUrl={persistedFile.previewUrl ?? null}
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">
-              {persistedFile.filename}
-            </p>
+            <FilenameText filename={persistedFile.filename} />
             <p className="text-xs text-foreground/75">
               {formatFileSize(persistedFile.fileSize)}
             </p>
@@ -393,6 +405,7 @@ export default function FileUpload({
       ) : (
         <button
           type="button"
+          data-validation-control
           aria-labelledby={`${labelId} ${uploadActionId}`}
           aria-describedby={describedBy || undefined}
           onClick={openPicker}
@@ -406,6 +419,8 @@ export default function FileUpload({
             disabled && "cursor-not-allowed opacity-60",
             isDragActive
               ? "border-primary bg-primary/5"
+              : validationError
+                ? "border-red-300 bg-red-50/30 hover:border-red-400"
               : "border-border hover:border-primary/40 hover:bg-surface"
           )}
         >
@@ -442,6 +457,15 @@ export default function FileUpload({
       {isEmptyUploadState && operationErrorText && (
         <p id={operationErrorId} role="alert" className="mt-1 text-xs text-red-700">
           {operationErrorText}
+        </p>
+      )}
+      {validationError && (
+        <p
+          id={validationErrorId}
+          role="alert"
+          className="mt-1.5 text-xs text-red-600"
+        >
+          {validationError}
         </p>
       )}
     </div>
@@ -482,7 +506,7 @@ function PersistedFilePreviewContent({
   const canOpen = previewUrl !== null && !broken;
 
   return (
-    <div className="w-full flex-shrink-0 sm:w-32">
+    <div className="w-28 shrink-0 self-start sm:w-32">
       <button
         type="button"
         onClick={() => {
@@ -558,4 +582,40 @@ function PersistedFilePreviewContent({
 
 function formatFileSize(size: number): string {
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function FilenameText({ filename }: { filename: string }) {
+  const { base, extension } = splitFilename(filename);
+
+  return (
+    <p
+      title={filename}
+      aria-label={filename}
+      className="flex min-w-0 max-w-full text-sm font-medium text-foreground"
+    >
+      <span aria-hidden className="min-w-0 truncate">
+        {base}
+      </span>
+      {extension && (
+        <span aria-hidden className="shrink-0">
+          {extension}
+        </span>
+      )}
+      <span className="sr-only">{filename}</span>
+    </p>
+  );
+}
+
+function splitFilename(filename: string): {
+  base: string;
+  extension: string;
+} {
+  const lastDot = filename.lastIndexOf(".");
+  if (lastDot <= 0 || lastDot === filename.length - 1) {
+    return { base: filename, extension: "" };
+  }
+  return {
+    base: filename.slice(0, lastDot),
+    extension: filename.slice(lastDot),
+  };
 }

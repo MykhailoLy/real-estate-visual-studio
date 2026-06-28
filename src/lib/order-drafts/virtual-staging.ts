@@ -31,6 +31,30 @@ export type VirtualStagingAutosaveStatus =
   | "save_failed"
   | "conflict";
 
+export type VirtualStagingRequiredFieldKind =
+  | "job-title"
+  | "original"
+  | "room"
+  | "furniture-style"
+  | "terms";
+
+export interface VirtualStagingRequiredFieldInput {
+  jobTitleValid: boolean;
+  termsAccepted: boolean;
+  items: Array<{
+    clientItemId: string;
+    hasOriginal: boolean;
+    roomName: string;
+    furnitureStyle: string;
+  }>;
+}
+
+export interface MissingVirtualStagingRequiredField {
+  kind: VirtualStagingRequiredFieldKind;
+  itemIndex: number | null;
+  clientItemId: string | null;
+}
+
 export interface VirtualStagingDraftFileMetadata {
   originalFilename: string | null;
   referenceFilename: string | null;
@@ -312,6 +336,54 @@ export function hasMeaningfulVirtualStagingDraftChange(
       item.referenceFilename != null
     );
   });
+}
+
+export function findMissingVirtualStagingRequiredFields(
+  input: VirtualStagingRequiredFieldInput,
+): MissingVirtualStagingRequiredField[] {
+  const missing: MissingVirtualStagingRequiredField[] = [];
+
+  if (!input.jobTitleValid) {
+    missing.push({
+      kind: "job-title",
+      itemIndex: null,
+      clientItemId: null,
+    });
+  }
+
+  input.items.forEach((item, itemIndex) => {
+    if (!item.hasOriginal) {
+      missing.push({
+        kind: "original",
+        itemIndex,
+        clientItemId: item.clientItemId,
+      });
+    }
+    if (item.roomName.trim() === "") {
+      missing.push({
+        kind: "room",
+        itemIndex,
+        clientItemId: item.clientItemId,
+      });
+    }
+    if (item.furnitureStyle.trim() === "") {
+      missing.push({
+        kind: "furniture-style",
+        itemIndex,
+        clientItemId: item.clientItemId,
+      });
+    }
+  });
+
+  if (!input.termsAccepted) {
+    missing.push({
+      kind: "terms",
+      itemIndex: null,
+      clientItemId: null,
+    });
+  }
+
+  return missing;
 }
 
 export function buildVirtualStagingPricingPreview(

@@ -17,6 +17,8 @@ interface StyleSelectorProps {
   groupName?: string;
   /** Optional visible label id for the radiogroup accessible name. */
   ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
   disabled?: boolean;
 }
 
@@ -38,6 +40,8 @@ export default function StyleSelector({
   onChange,
   groupName,
   ariaLabelledBy,
+  ariaDescribedBy,
+  ariaInvalid = false,
   disabled = false,
 }: StyleSelectorProps) {
   return (
@@ -45,9 +49,11 @@ export default function StyleSelector({
       role="radiogroup"
       aria-labelledby={ariaLabelledBy}
       aria-label={ariaLabelledBy ? undefined : "Furniture style"}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid || undefined}
       className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5"
     >
-      {STAGING_STYLE_CARDS.map((card) => (
+      {STAGING_STYLE_CARDS.map((card, index) => (
         <StyleCard
           key={card.label}
           card={card}
@@ -55,6 +61,7 @@ export default function StyleSelector({
           onClick={() => onChange(card.label)}
           groupName={groupName}
           disabled={disabled}
+          validationControl={index === 0}
         />
       ))}
     </div>
@@ -67,12 +74,14 @@ function StyleCard({
   onClick,
   groupName,
   disabled,
+  validationControl,
 }: {
   card: StagingStyleCard;
   selected: boolean;
   onClick: () => void;
   groupName?: string;
   disabled: boolean;
+  validationControl: boolean;
 }) {
   // Track image load failures locally so we can fall back to a placeholder.
   const [imgFailed, setImgFailed] = useState(false);
@@ -85,6 +94,7 @@ function StyleCard({
       aria-label={card.label}
       data-style={card.label}
       data-group={groupName}
+      data-validation-control={validationControl ? "" : undefined}
       disabled={disabled}
       onClick={onClick}
       className={cn(

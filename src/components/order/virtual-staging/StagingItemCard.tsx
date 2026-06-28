@@ -61,6 +61,15 @@ export const emptyStagingItem = (): StagingItemData => ({
   needsOriginalFileReselection: false,
 });
 
+export type StagingRequiredField = "original" | "room" | "furniture-style";
+
+export function getStagingRequiredFieldId(
+  clientItemId: string,
+  field: StagingRequiredField,
+): string {
+  return `virtual-staging-${clientItemId}-${field}`;
+}
+
 interface StagingItemCardProps {
   index: number;
   data: StagingItemData;
@@ -91,6 +100,7 @@ interface StagingItemCardProps {
   replaceFileLabel?: string;
   removeSavedFileLabel?: string;
   savedInDraftLabel?: string;
+  validationErrors?: Partial<Record<StagingRequiredField, string>>;
 }
 
 const DEFAULT_DRAFT_COPY = {
@@ -127,6 +137,7 @@ export default function StagingItemCard({
   replaceFileLabel,
   removeSavedFileLabel,
   savedInDraftLabel,
+  validationErrors = {},
 }: StagingItemCardProps) {
   const currency = useDisplayCurrency();
   const fieldIdPrefix = `staging-${data.clientItemId}`;
@@ -135,6 +146,20 @@ export default function StagingItemCard({
   const furnitureStyleId = `${fieldIdPrefix}-furniture-style`;
   const referenceLinkId = `${fieldIdPrefix}-reference-link`;
   const additionalInfoId = `${fieldIdPrefix}-additional-info`;
+  const originalValidationId = getStagingRequiredFieldId(
+    data.clientItemId,
+    "original",
+  );
+  const roomValidationId = getStagingRequiredFieldId(
+    data.clientItemId,
+    "room",
+  );
+  const styleValidationId = getStagingRequiredFieldId(
+    data.clientItemId,
+    "furniture-style",
+  );
+  const roomErrorId = `${roomValidationId}-error`;
+  const styleErrorId = `${styleValidationId}-error`;
   const originalDisabled = disabled || originalBusy;
   const referenceDisabled = disabled || referenceBusy;
   const toggleAddon = (id: string) => {
@@ -214,10 +239,19 @@ export default function StagingItemCard({
           retryLabel={retryUploadLabel}
           replaceLabel={replaceFileLabel}
           removePersistedLabel={removeSavedFileLabel}
+          validationFieldId={originalValidationId}
+          validationError={validationErrors.original}
         />
 
         {/* Furniture Style — visual picker (kept in sync with the dropdown below) */}
-        <div>
+        <div
+          id={styleValidationId}
+          className={
+            validationErrors["furniture-style"]
+              ? "rounded-lg ring-2 ring-red-200"
+              : undefined
+          }
+        >
           <p
             id={visualStyleLabelId}
             className="block text-sm font-medium text-foreground mb-2"
@@ -232,13 +266,28 @@ export default function StagingItemCard({
             onChange={(label) => onChange({ ...data, furnitureStyle: label })}
             groupName={`${fieldIdPrefix}-visual-style`}
             ariaLabelledBy={visualStyleLabelId}
+            ariaDescribedBy={
+              validationErrors["furniture-style"]
+                ? styleErrorId
+                : undefined
+            }
+            ariaInvalid={Boolean(validationErrors["furniture-style"])}
             disabled={disabled}
           />
+          {validationErrors["furniture-style"] && (
+            <p
+              id={styleErrorId}
+              role="alert"
+              className="mt-1.5 text-xs text-red-600"
+            >
+              {validationErrors["furniture-style"]}
+            </p>
+          )}
         </div>
 
         {/* Room & Style */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+          <div id={roomValidationId}>
             <label
               htmlFor={roomNameId}
               className="block text-sm font-medium text-foreground mb-1.5"
@@ -249,8 +298,16 @@ export default function StagingItemCard({
               id={roomNameId}
               value={data.roomName}
               disabled={disabled}
+              required
+              data-validation-control
+              aria-invalid={Boolean(validationErrors.room) || undefined}
+              aria-describedby={
+                validationErrors.room ? roomErrorId : undefined
+              }
               onChange={(e) => onChange({ ...data, roomName: e.target.value })}
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+              className={`w-full px-3 py-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60 ${
+                validationErrors.room ? "border-red-300" : "border-border"
+              }`}
             >
               <option value="">Select room...</option>
               {STAGING_ROOM_OPTIONS.map((room) => (
@@ -259,6 +316,15 @@ export default function StagingItemCard({
                 </option>
               ))}
             </select>
+            {validationErrors.room && (
+              <p
+                id={roomErrorId}
+                role="alert"
+                className="mt-1.5 text-xs text-red-600"
+              >
+                {validationErrors.room}
+              </p>
+            )}
           </div>
           <div>
             <label
@@ -271,10 +337,23 @@ export default function StagingItemCard({
               id={furnitureStyleId}
               value={data.furnitureStyle}
               disabled={disabled}
+              required
+              aria-invalid={
+                Boolean(validationErrors["furniture-style"]) || undefined
+              }
+              aria-describedby={
+                validationErrors["furniture-style"]
+                  ? styleErrorId
+                  : undefined
+              }
               onChange={(e) =>
                 onChange({ ...data, furnitureStyle: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+              className={`w-full px-3 py-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60 ${
+                validationErrors["furniture-style"]
+                  ? "border-red-300"
+                  : "border-border"
+              }`}
             >
               <option value="">Select style...</option>
               {STAGING_STYLE_OPTIONS.map((style) => (

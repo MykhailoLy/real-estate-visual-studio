@@ -46,7 +46,7 @@ function DraftThumbnailContent({
   return (
     <div
       className={cn(
-        "relative aspect-[4/3] w-full flex-shrink-0 overflow-hidden rounded-md border border-border bg-stone-100 sm:w-28",
+        "relative aspect-video w-full shrink-0 self-start overflow-hidden rounded-md border border-border bg-stone-100 sm:h-[102px] sm:w-[136px] sm:aspect-[4/3]",
         className,
       )}
     >
