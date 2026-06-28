@@ -13,6 +13,7 @@ import {
   mapClaimCodeToPublicError,
   mapVirtualStagingDraftStateToProductionItems,
   parseClaimFinalizationRpcResult,
+  parseStrictClaimFinalizationRpcResult,
   resetVirtualStagingFinalizationIdentity,
   selectVirtualStagingDraftSubmissionMode,
   shouldApplyVirtualStagingFinalizationResult,
@@ -172,6 +173,40 @@ test("stable claim result-code mapping parses known codes", () => {
   assert.equal(result.draftId, DRAFT_ID);
   assert.equal(mapClaimCodeToPublicError("claimed"), null);
   assert.equal(mapClaimCodeToPublicError("version_conflict"), "version_conflict");
+});
+
+test("strict claim result parsing accepts explicit invalid_status", () => {
+  const result = parseStrictClaimFinalizationRpcResult({
+    result_code: "invalid_status",
+    draft_id: DRAFT_ID,
+    converted_order_id: null,
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.result.code, "invalid_status");
+});
+
+test("malformed claim RPC result maps to database_error", () => {
+  assert.equal(parseStrictClaimFinalizationRpcResult([]).ok, false);
+  assert.equal(
+    parseStrictClaimFinalizationRpcResult({ result_code: "unknown_code" }).ok,
+    false,
+  );
+  assert.match(
+    FINALIZATION_SERVER,
+    /claim RPC returned malformed data[\s\S]+code: "database_error"/,
+  );
+});
+
+test("claim RPC transport error maps to database_error", () => {
+  assert.match(
+    FINALIZATION_SERVER,
+    /claim RPC failed:[\s\S]+code: "database_error"/,
+  );
+  assert.doesNotMatch(
+    FINALIZATION_SERVER,
+    /claim RPC failed:[\s\S]{0,180}code: "invalid_status"/,
+  );
 });
 
 test("ownership-safe not-found mapping does not reveal ownership mismatch", () => {
@@ -443,7 +478,47 @@ test("repeated finalization returns the same order boundary", () => {
 
 test("existing order with uncompleted draft is reconciled", () => {
   assert.match(FINALIZATION_SERVER, /reconcileExistingDraftOrder/);
-  assert.match(SQL, /v_existing_order_id IS NOT NULL/);
+  assert.match(SQL, /v_owned_source_order_id IS NOT NULL/);
+});
+
+test("matching owned source-draft order allows reconciliation", () => {
+  assert.match(
+    SQL,
+    /v_owned_source_order_id[\s\S]+orders\.user_id IS NOT DISTINCT FROM p_user_id/,
+  );
+  assert.match(
+    SQL,
+    /RETURN QUERY SELECT 'already_claimed'::text, p_draft_id, v_owned_source_order_id/,
+  );
+});
+
+test("source-draft order with NULL user blocks release", () => {
+  const releaseStart = SQL.indexOf("CREATE OR REPLACE FUNCTION public.release_order_draft_finalization");
+  const releaseEnd = SQL.indexOf("CREATE OR REPLACE FUNCTION public.recover_stale_order_draft_finalization", releaseStart);
+  const releaseSql = SQL.slice(releaseStart, releaseEnd);
+  assert.match(
+    releaseSql,
+    /WHERE orders\.source_draft_id IS NOT DISTINCT FROM p_draft_id\s+LIMIT 1/,
+  );
+  assert.doesNotMatch(releaseSql, /orders\.user_id IS NOT DISTINCT FROM p_user_id/);
+  assert.match(releaseSql, /RETURN QUERY SELECT 'order_exists'::text/);
+});
+
+test("source-draft order with another user blocks release", () => {
+  const releaseStart = SQL.indexOf("CREATE OR REPLACE FUNCTION public.release_order_draft_finalization");
+  const releaseEnd = SQL.indexOf("CREATE OR REPLACE FUNCTION public.recover_stale_order_draft_finalization", releaseStart);
+  const releaseSql = SQL.slice(releaseStart, releaseEnd);
+  assert.match(releaseSql, /v_existing_source_order_id IS NOT NULL/);
+  assert.doesNotMatch(releaseSql, /AND orders\.user_id/);
+});
+
+test("inconsistent source-order ownership never allows a new claim", () => {
+  assert.match(SQL, /v_any_source_order_id IS NOT NULL/);
+  assert.match(SQL, /v_owned_source_order_id IS NULL/);
+  assert.match(
+    SQL,
+    /RETURN QUERY SELECT 'invalid_status'::text, v_draft\.id, NULL::uuid/,
+  );
 });
 
 test("NULL source_draft_id is rejected by complete RPC", () => {
@@ -489,6 +564,17 @@ test("stale claim with an existing order is not released", () => {
     SQL,
     /NOT EXISTS \(\s+SELECT 1\s+FROM public\.orders\s+WHERE orders\.source_draft_id IS NOT DISTINCT FROM drafts\.id/s,
   );
+});
+
+test("stale recovery still does not release drafts with any source order", () => {
+  const recoveryStart = SQL.indexOf("CREATE OR REPLACE FUNCTION public.recover_stale_order_draft_finalization");
+  const recoveryEnd = SQL.indexOf("CREATE OR REPLACE FUNCTION public.complete_order_draft_finalization", recoveryStart);
+  const recoverySql = SQL.slice(recoveryStart, recoveryEnd);
+  assert.match(
+    recoverySql,
+    /WHERE orders\.source_draft_id IS NOT DISTINCT FROM drafts\.id/,
+  );
+  assert.doesNotMatch(recoverySql, /orders\.user_id IS NOT DISTINCT FROM p_user_id/);
 });
 
 test("converting draft becomes resumable after safe stale recovery", () => {
@@ -609,6 +695,31 @@ test("finalization incomplete preserves the logical finalization key", () => {
   assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
     code: "finalization_incomplete",
     status: 503,
+  }), true);
+});
+
+test("ambiguous claim failure preserves the browser finalization key", () => {
+  assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+    code: "database_error",
+    status: 500,
+  }), true);
+});
+
+test("explicit invalid_status still clears the browser finalization key", () => {
+  assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+    code: "invalid_status",
+    status: 409,
+  }), false);
+});
+
+test("retry after ambiguous failure reuses the same finalization key", () => {
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /const key = finalizationKeyRef\.current \?\? createFinalizationKey\(\)/,
+  );
+  assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+    code: "database_error",
+    status: 500,
   }), true);
 });
 

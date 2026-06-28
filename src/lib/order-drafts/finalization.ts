@@ -76,6 +76,16 @@ export interface ParsedFinalizationRpcResult<TCode extends string> {
   convertedOrderId: string | null;
 }
 
+export type StrictFinalizationRpcResult<TCode extends string> =
+  | {
+      ok: true;
+      result: ParsedFinalizationRpcResult<TCode>;
+    }
+  | {
+      ok: false;
+      reason: "malformed_response";
+    };
+
 export type DraftFinalizationResult<T> =
   | { ok: true; data: T }
   | {
@@ -177,6 +187,12 @@ export function parseClaimFinalizationRpcResult(
   return parseFinalizationRpcResult(data, CLAIM_CODES, "invalid_status");
 }
 
+export function parseStrictClaimFinalizationRpcResult(
+  data: unknown,
+): StrictFinalizationRpcResult<DraftFinalizationClaimResultCode> {
+  return parseStrictFinalizationRpcResult(data, CLAIM_CODES);
+}
+
 export function parseReleaseFinalizationRpcResult(
   data: unknown,
 ): ParsedFinalizationRpcResult<DraftFinalizationReleaseResultCode> {
@@ -187,6 +203,12 @@ export function parseCompleteFinalizationRpcResult(
   data: unknown,
 ): ParsedFinalizationRpcResult<DraftFinalizationCompleteResultCode> {
   return parseFinalizationRpcResult(data, COMPLETE_CODES, "invalid_status");
+}
+
+export function parseStrictCompleteFinalizationRpcResult(
+  data: unknown,
+): StrictFinalizationRpcResult<DraftFinalizationCompleteResultCode> {
+  return parseStrictFinalizationRpcResult(data, COMPLETE_CODES);
 }
 
 export function mapClaimCodeToPublicError(
@@ -598,6 +620,30 @@ function parseFinalizationRpcResult<TCode extends string>(
     getUuidLike(row, "converted_order_id") ??
     getUuidLike(row, "order_id");
   return { code, draftId, convertedOrderId };
+}
+
+function parseStrictFinalizationRpcResult<TCode extends string>(
+  data: unknown,
+  allowedCodes: readonly TCode[],
+): StrictFinalizationRpcResult<TCode> {
+  const row = getSingleRpcRow(data);
+  const rawCode = typeof row?.result_code === "string"
+    ? row.result_code
+    : null;
+  if (!rawCode || !allowedCodes.includes(rawCode as TCode)) {
+    return { ok: false, reason: "malformed_response" };
+  }
+  const convertedOrderId =
+    getUuidLike(row, "converted_order_id") ??
+    getUuidLike(row, "order_id");
+  return {
+    ok: true,
+    result: {
+      code: rawCode as TCode,
+      draftId: getUuidLike(row, "draft_id"),
+      convertedOrderId,
+    },
+  };
 }
 
 function getSingleRpcRow(data: unknown): Record<string, unknown> | null {

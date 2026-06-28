@@ -85,7 +85,8 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_draft public.order_drafts%ROWTYPE;
-  v_existing_order_id uuid;
+  v_any_source_order_id uuid;
+  v_owned_source_order_id uuid;
   v_stale_claim_cutoff timestamptz := now() - interval '15 minutes';
   v_updated_draft_count integer;
 BEGIN
@@ -107,17 +108,29 @@ BEGIN
   END IF;
 
   SELECT orders.id
-    INTO v_existing_order_id
+    INTO v_any_source_order_id
+    FROM public.orders
+   WHERE orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
+   LIMIT 1;
+
+  SELECT orders.id
+    INTO v_owned_source_order_id
     FROM public.orders
    WHERE orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
      AND orders.user_id IS NOT DISTINCT FROM p_user_id
    LIMIT 1;
 
+  IF v_any_source_order_id IS NOT NULL
+     AND v_owned_source_order_id IS NULL THEN
+    RETURN QUERY SELECT 'invalid_status'::text, v_draft.id, NULL::uuid;
+    RETURN;
+  END IF;
+
   IF v_draft.status = 'converted' THEN
     RETURN QUERY SELECT
       'already_converted'::text,
       v_draft.id,
-      COALESCE(v_draft.converted_order_id, v_existing_order_id);
+      COALESCE(v_draft.converted_order_id, v_owned_source_order_id);
     RETURN;
   END IF;
 
@@ -133,7 +146,7 @@ BEGIN
   -- against the existing order instead of creating another order. A converting
   -- draft keeps its existing key so stale recovery never takes over a draft
   -- that already has a source-draft production order.
-  IF v_existing_order_id IS NOT NULL THEN
+  IF v_owned_source_order_id IS NOT NULL THEN
     IF v_draft.status = 'active' THEN
       IF v_draft.version <> p_expected_version THEN
         RETURN QUERY SELECT 'version_conflict'::text, v_draft.id, NULL::uuid;
@@ -147,7 +160,7 @@ BEGIN
          AND status = 'active';
     END IF;
 
-    RETURN QUERY SELECT 'already_claimed'::text, p_draft_id, v_existing_order_id;
+    RETURN QUERY SELECT 'already_claimed'::text, p_draft_id, v_owned_source_order_id;
     RETURN;
   END IF;
 
@@ -245,7 +258,7 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_draft public.order_drafts%ROWTYPE;
-  v_existing_order_id uuid;
+  v_existing_source_order_id uuid;
 BEGIN
   SELECT *
     INTO v_draft
@@ -259,13 +272,12 @@ BEGIN
   END IF;
 
   SELECT orders.id
-    INTO v_existing_order_id
+    INTO v_existing_source_order_id
     FROM public.orders
    WHERE orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
-     AND orders.user_id IS NOT DISTINCT FROM p_user_id
    LIMIT 1;
 
-  IF v_existing_order_id IS NOT NULL THEN
+  IF v_existing_source_order_id IS NOT NULL THEN
     RETURN QUERY SELECT 'order_exists'::text, v_draft.id;
     RETURN;
   END IF;

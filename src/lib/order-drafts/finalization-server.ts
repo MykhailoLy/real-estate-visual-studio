@@ -29,12 +29,15 @@ import {
   finalizationError,
   mapClaimCodeToPublicError,
   mapVirtualStagingDraftStateToProductionItems,
-  parseClaimFinalizationRpcResult,
-  parseCompleteFinalizationRpcResult,
   parseReleaseFinalizationRpcResult,
+  parseStrictClaimFinalizationRpcResult,
+  parseStrictCompleteFinalizationRpcResult,
   validateAndMatchVirtualStagingDraftFiles,
   validateVirtualStagingDraftForFinalization,
+  type DraftFinalizationClaimResultCode,
+  type DraftFinalizationCompleteResultCode,
   type DraftFinalizationResult,
+  type ParsedFinalizationRpcResult,
   type TrustedMovedDraftFile,
   type VirtualStagingFinalizationSlot,
 } from "./finalization.ts";
@@ -79,6 +82,22 @@ interface SupabaseStorageObject {
   metadata?: unknown;
 }
 
+type ClaimDraftFinalizationResult =
+  | ParsedFinalizationRpcResult<DraftFinalizationClaimResultCode>
+  | {
+      code: "database_error";
+      draftId: null;
+      convertedOrderId: null;
+    };
+
+type CompleteDraftFinalizationResult =
+  | ParsedFinalizationRpcResult<DraftFinalizationCompleteResultCode>
+  | {
+      code: "database_error";
+      draftId: null;
+      convertedOrderId: null;
+    };
+
 export async function submitVirtualStagingDraftForUser(
   input: SubmitVirtualStagingDraftInput,
 ): Promise<DraftFinalizationResult<SubmitVirtualStagingDraftSuccess>> {
@@ -92,6 +111,13 @@ export async function submitVirtualStagingDraftForUser(
 
   try {
     const claim = await claimDraftFinalization(input);
+    if (claim.code === "database_error") {
+      return finalizationError(
+        "database_error",
+        "Draft finalization claim could not be confirmed. Please try again.",
+      );
+    }
+
     const claimError = mapClaimCodeToPublicError(claim.code);
     if (claimError) {
       return finalizationError(
@@ -261,7 +287,9 @@ export async function submitVirtualStagingDraftForUser(
   }
 }
 
-async function claimDraftFinalization(input: SubmitVirtualStagingDraftInput) {
+async function claimDraftFinalization(
+  input: SubmitVirtualStagingDraftInput,
+): Promise<ClaimDraftFinalizationResult> {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase.rpc(
     "claim_order_draft_finalization",
@@ -275,18 +303,27 @@ async function claimDraftFinalization(input: SubmitVirtualStagingDraftInput) {
   if (error) {
     console.error("[order-draft-finalization] claim RPC failed:", error.message);
     return {
-      code: "invalid_status" as const,
+      code: "database_error" as const,
       draftId: null,
       convertedOrderId: null,
     };
   }
-  return parseClaimFinalizationRpcResult(data);
+  const parsed = parseStrictClaimFinalizationRpcResult(data);
+  if (!parsed.ok) {
+    console.error("[order-draft-finalization] claim RPC returned malformed data");
+    return {
+      code: "database_error" as const,
+      draftId: null,
+      convertedOrderId: null,
+    };
+  }
+  return parsed.result;
 }
 
 async function completeDraftFinalization(input: SubmitVirtualStagingDraftInput & {
   orderId: string;
   movedFiles: TrustedMovedDraftFile[];
-}) {
+}): Promise<CompleteDraftFinalizationResult> {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase.rpc(
     "complete_order_draft_finalization",
@@ -301,12 +338,21 @@ async function completeDraftFinalization(input: SubmitVirtualStagingDraftInput &
   if (error) {
     console.error("[order-draft-finalization] complete RPC failed:", error.message);
     return {
-      code: "invalid_status" as const,
+      code: "database_error" as const,
       draftId: null,
       convertedOrderId: null,
     };
   }
-  return parseCompleteFinalizationRpcResult(data);
+  const parsed = parseStrictCompleteFinalizationRpcResult(data);
+  if (!parsed.ok) {
+    console.error("[order-draft-finalization] complete RPC returned malformed data");
+    return {
+      code: "database_error" as const,
+      draftId: null,
+      convertedOrderId: null,
+    };
+  }
+  return parsed.result;
 }
 
 async function releaseClaimBestEffort(

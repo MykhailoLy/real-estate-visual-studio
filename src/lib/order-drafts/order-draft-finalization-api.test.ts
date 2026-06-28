@@ -89,6 +89,7 @@ test("result errors map to HTTP statuses", async () => {
     ["finalization_conflict", 409],
     ["missing_original", 422],
     ["file_mismatch", 409],
+    ["database_error", 500],
     ["finalization_incomplete", 503],
   ] as const;
 
