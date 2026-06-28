@@ -335,20 +335,20 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       "No se pudieron eliminar los archivos guardados de esta imagen. La imagen se mantuvo en el borrador.",
     incompleteFields: (count) =>
       `Completa ${count} ${count === 1 ? "campo obligatorio" : "campos obligatorios"} antes de enviar.`,
-    waitForImages: "Espera a que tus imГЎgenes terminen de subirse.",
-    jobTitleRequired: "Introduce un tГ­tulo para el pedido.",
+    waitForImages: "Espera a que tus imágenes terminen de subirse.",
+    jobTitleRequired: "Introduce un título para el pedido.",
     originalRequired: (itemNumber) =>
       `Imagen #${itemNumber}: sube una foto original.`,
     roomRequired: (itemNumber) =>
-      `Imagen #${itemNumber}: selecciona una habitaciГіn o zona.`,
+      `Imagen #${itemNumber}: selecciona una habitación o zona.`,
     styleRequired: (itemNumber) =>
       `Imagen #${itemNumber}: selecciona un estilo de mobiliario.`,
-    termsRequired: "Acepta los tГ©rminos antes de enviar.",
-    jobTitleLabel: "TГ­tulo del pedido",
+    termsRequired: "Acepta los términos antes de enviar.",
+    jobTitleLabel: "Título del pedido",
     originalLabel: (itemNumber) => `Imagen #${itemNumber} foto original`,
-    roomLabel: (itemNumber) => `Imagen #${itemNumber} habitaciГіn`,
+    roomLabel: (itemNumber) => `Imagen #${itemNumber} habitación`,
     styleLabel: (itemNumber) => `Imagen #${itemNumber} estilo`,
-    termsLabel: "TГ©rminos",
+    termsLabel: "Términos",
   },
 };
 

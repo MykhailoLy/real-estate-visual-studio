@@ -1373,6 +1373,52 @@ test("active image operations disable submit and explain the wait", () => {
   assert.match(ORDER_SUMMARY, /disabled=\{!canSubmit \|\| isSubmitting\}/);
 });
 
+test("Spanish required-field guidance remains valid UTF-8 copy", () => {
+  const copyStart = VIRTUAL_STAGING_FORM.indexOf(
+    "  es: {",
+    VIRTUAL_STAGING_FORM.indexOf("const DRAFT_COPY"),
+  );
+  const copyEnd = VIRTUAL_STAGING_FORM.indexOf(
+    "const JOB_TITLE_REQUIRED_FIELD_ID",
+    copyStart,
+  );
+  assert.ok(copyStart >= 0);
+  assert.ok(copyEnd > copyStart);
+  const spanishCopy = VIRTUAL_STAGING_FORM.slice(copyStart, copyEnd);
+
+  const quoted = (property: string): string | undefined =>
+    new RegExp(`${property}: "([^"]+)"`).exec(spanishCopy)?.[1];
+  const itemCopy = (property: string): string | undefined =>
+    new RegExp(`${property}: \\(itemNumber\\) =>\\s+\`([^\`]+)\``)
+      .exec(spanishCopy)?.[1]
+      ?.replace("${itemNumber}", "1");
+
+  assert.deepEqual(
+    [
+      quoted("waitForImages"),
+      quoted("jobTitleRequired"),
+      itemCopy("roomRequired"),
+      quoted("termsRequired"),
+      quoted("jobTitleLabel"),
+      itemCopy("roomLabel"),
+      quoted("termsLabel"),
+    ],
+    [
+      "Espera a que tus imágenes terminen de subirse.",
+      "Introduce un título para el pedido.",
+      "Imagen #1: selecciona una habitación o zona.",
+      "Acepta los términos antes de enviar.",
+      "Título del pedido",
+      "Imagen #1 habitación",
+      "Términos",
+    ],
+  );
+  assert.doesNotMatch(
+    spanishCopy,
+    /[\u0413\u0420\u00d0\u00c3\u00c2]/,
+  );
+});
+
 test("persisted previews use original filenames and compact cover thumbnails", () => {
   assert.match(STAGING_ITEM_CARD, /filename: uploadedOriginalFile\.originalFilename/);
   assert.match(STAGING_ITEM_CARD, /filename: uploadedReferenceFile\.originalFilename/);
