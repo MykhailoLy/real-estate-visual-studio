@@ -142,6 +142,7 @@ test("public DTO omits storagePath", () => {
   const dto = mapOrderDraftFilePublicSummary(fileRow());
   assert.equal(dto.id, FILE_ID);
   assert.equal("storagePath" in dto, false);
+  assert.equal("bucket" in dto, false);
 });
 
 test("item index is derived from draft state", () => {

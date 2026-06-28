@@ -65,6 +65,32 @@ export function resolveSavedDraftServiceName(
   return humanizeSlug(draft.serviceType || draft.route) || UNKNOWN_SERVICE_FALLBACK;
 }
 
+export function isFinishingOrderDraft(
+  draft: Pick<OrderDraftSummary, "finalization">,
+): boolean {
+  return draft.finalization?.status === "finishing_order";
+}
+
+export function getSavedDraftActionLabel(
+  draft: Pick<OrderDraftSummary, "finalization">,
+  labels: { resume: string; finish: string },
+): string {
+  return isFinishingOrderDraft(draft) ? labels.finish : labels.resume;
+}
+
+export function getSavedDraftStatusLabel(
+  draft: Pick<OrderDraftSummary, "finalization">,
+  labels: { draft: string; finishing: string },
+): string {
+  return isFinishingOrderDraft(draft) ? labels.finishing : labels.draft;
+}
+
+export function getSavedDraftThumbnailExtraCount(
+  draft: Pick<OrderDraftSummary, "thumbnail">,
+): number {
+  return Math.max(0, (draft.thumbnail?.originalCount ?? 0) - 1);
+}
+
 export function formatSavedDraftUpdatedAt(
   updatedAt: string,
   language: SavedDraftLanguage,

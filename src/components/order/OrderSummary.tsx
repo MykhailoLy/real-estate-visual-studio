@@ -24,6 +24,8 @@ interface OrderSummaryProps {
   submitLabel?: string;
   /** CTA label while submitting. Defaults to "Submitting...". */
   submittingLabel?: string;
+  /** Compact guidance rendered directly below the submit action. */
+  submitHelper?: React.ReactNode;
   /**
    * Footer note under the CTA. Defaults to the "No payment now" copy.
    * Pass null to hide it (e.g. on a Configure step that only advances
@@ -43,6 +45,7 @@ export default function OrderSummary({
   canSubmit,
   submitLabel = "Submit Order",
   submittingLabel = "Submitting...",
+  submitHelper,
   footerNote = DEFAULT_FOOTER_NOTE,
 }: OrderSummaryProps) {
   const currency = useDisplayCurrency();
@@ -146,6 +149,12 @@ export default function OrderSummary({
         >
           {isSubmitting ? submittingLabel : submitLabel}
         </button>
+      )}
+
+      {submitHelper != null && (
+        <div className="mt-3 text-xs leading-relaxed text-muted">
+          {submitHelper}
+        </div>
       )}
 
       {footerNote != null && (

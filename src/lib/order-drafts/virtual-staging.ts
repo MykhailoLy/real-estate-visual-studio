@@ -31,6 +31,30 @@ export type VirtualStagingAutosaveStatus =
   | "save_failed"
   | "conflict";
 
+export type VirtualStagingRequiredFieldKind =
+  | "job-title"
+  | "original"
+  | "room"
+  | "furniture-style"
+  | "terms";
+
+export interface VirtualStagingRequiredFieldInput {
+  jobTitleValid: boolean;
+  termsAccepted: boolean;
+  items: Array<{
+    clientItemId: string;
+    hasOriginal: boolean;
+    roomName: string;
+    furnitureStyle: string;
+  }>;
+}
+
+export interface MissingVirtualStagingRequiredField {
+  kind: VirtualStagingRequiredFieldKind;
+  itemIndex: number | null;
+  clientItemId: string | null;
+}
+
 export interface VirtualStagingDraftFileMetadata {
   originalFilename: string | null;
   referenceFilename: string | null;
@@ -287,7 +311,7 @@ export function mapVirtualStagingDraftToFormState(
       selectedAddons: [...item.state.selectedAddons],
       originalFilename: item.state.originalFilename,
       referenceFilename: item.state.referenceFilename,
-      needsOriginalFileReselection: item.state.originalFilename !== null,
+      needsOriginalFileReselection: false,
     })),
   };
 }
@@ -312,6 +336,54 @@ export function hasMeaningfulVirtualStagingDraftChange(
       item.referenceFilename != null
     );
   });
+}
+
+export function findMissingVirtualStagingRequiredFields(
+  input: VirtualStagingRequiredFieldInput,
+): MissingVirtualStagingRequiredField[] {
+  const missing: MissingVirtualStagingRequiredField[] = [];
+
+  if (!input.jobTitleValid) {
+    missing.push({
+      kind: "job-title",
+      itemIndex: null,
+      clientItemId: null,
+    });
+  }
+
+  input.items.forEach((item, itemIndex) => {
+    if (!item.hasOriginal) {
+      missing.push({
+        kind: "original",
+        itemIndex,
+        clientItemId: item.clientItemId,
+      });
+    }
+    if (item.roomName.trim() === "") {
+      missing.push({
+        kind: "room",
+        itemIndex,
+        clientItemId: item.clientItemId,
+      });
+    }
+    if (item.furnitureStyle.trim() === "") {
+      missing.push({
+        kind: "furniture-style",
+        itemIndex,
+        clientItemId: item.clientItemId,
+      });
+    }
+  });
+
+  if (!input.termsAccepted) {
+    missing.push({
+      kind: "terms",
+      itemIndex: null,
+      clientItemId: null,
+    });
+  }
+
+  return missing;
 }
 
 export function buildVirtualStagingPricingPreview(
@@ -463,15 +535,22 @@ export function updateReferenceFileDraftMetadata<T extends {
 export function shouldShowVirtualStagingResumedFileWarning(
   items: Array<{ needsOriginalFileReselection?: boolean; file?: unknown | null }>,
 ): boolean {
-  return items.some(
-    (item) => item.needsOriginalFileReselection === true && item.file == null,
-  );
+  void items;
+  return false;
+}
+
+export function shouldShowVirtualStagingSavedImagesNotice(
+  uploadedFileCount: number,
+): boolean {
+  return uploadedFileCount > 0;
 }
 
 export function isVirtualStagingFinalSubmissionReady(
-  items: Array<{ file: File | null }>,
+  items: Array<{ file: File | null; uploadedOriginal?: unknown | null }>,
 ): boolean {
-  return items.length > 0 && items.every((item) => item.file !== null);
+  return items.length > 0 && items.every(
+    (item) => item.file !== null || item.uploadedOriginal != null,
+  );
 }
 
 export function validateVirtualStagingDraftForResume(

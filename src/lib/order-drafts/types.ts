@@ -109,6 +109,21 @@ export interface OrderDraftSummary {
   updatedAt: string;
   expiresAt: string;
   convertedOrderId: string | null;
+  finalization?: OrderDraftFinalizationSummary | null;
+  thumbnail?: OrderDraftThumbnail | null;
+}
+
+export interface OrderDraftFinalizationSummary {
+  status: "finishing_order";
+  orderId: string;
+  orderNumber: string;
+}
+
+export interface OrderDraftThumbnail {
+  previewUrl: string | null;
+  previewExpiresAt: string | null;
+  originalFilename: string | null;
+  originalCount: number;
 }
 
 export interface CreateOrderDraftInput<

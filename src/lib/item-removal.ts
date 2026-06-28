@@ -16,7 +16,7 @@
 // reference image is not billed as a separate item.
 // ============================================================
 
-import { ITEM_REMOVAL_MIN_INSTRUCTIONS } from "@/lib/dedicated-photo-editing";
+import { ITEM_REMOVAL_MIN_INSTRUCTIONS } from "./dedicated-photo-editing.ts";
 
 /** The dedicated sub-service slug for Item Removal orders. */
 export const ITEM_REMOVAL_SUB_SERVICE = "item-removal-virtual-cleaning";

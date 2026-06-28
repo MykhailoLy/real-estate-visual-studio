@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Plus, RotateCcw, Save } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderTermsBlock, {
@@ -16,13 +16,15 @@ import OrderJobTitleField, {
 import StagingItemCard, {
   type StagingItemData,
   emptyStagingItem,
+  getStagingRequiredFieldId,
+  type StagingRequiredField,
 } from "@/components/order/virtual-staging/StagingItemCard";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
 import {
   RegionalCentsText,
   useDisplayRegion,
 } from "@/components/pricing/currency-client";
-import { submitOrder } from "@/lib/submit-order";
+import { submitOrder, type OrderSubmitResult } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { currencyForRegion } from "@/lib/currency";
@@ -46,17 +48,17 @@ import {
   uploadPreparedOrderDraftFile,
 } from "@/lib/order-drafts/files-client";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import type { OrderDraftRow } from "@/lib/order-drafts/types";
 import { UuidSchema } from "@/lib/order-drafts/schema";
 import {
   buildVirtualStagingDraftFingerprint,
   buildVirtualStagingCreateDraftInput,
   buildVirtualStagingUpdateDraftInput,
+  findMissingVirtualStagingRequiredFields,
   hasMeaningfulVirtualStagingDraftChange,
-  isVirtualStagingFinalSubmissionReady,
   resetVirtualStagingDraftIdentity,
   resolveVirtualStagingDraftRegion,
   shouldApplyVirtualStagingSaveResult,
-  shouldShowVirtualStagingResumedFileWarning,
   shouldSkipDuplicateVirtualStagingSave,
   shouldSkipFailedVirtualStagingAutosave,
   updateOriginalFileDraftMetadata,
@@ -64,7 +66,23 @@ import {
   validateVirtualStagingDraftForResume,
   type VirtualStagingAutosaveStatus,
   type VirtualStagingFormDraftSource,
+  type MissingVirtualStagingRequiredField,
 } from "@/lib/order-drafts/virtual-staging";
+import {
+  getVirtualStagingDraftFinalizationStatus,
+  submitVirtualStagingDraft,
+  type DraftFinalizationClientResult,
+} from "@/lib/order-drafts/finalization-client";
+import {
+  buildVirtualStagingFinalizationRetryStorageKey,
+  parseVirtualStagingFinalizationRetryContext,
+  selectVirtualStagingDraftSubmissionMode,
+  serializeVirtualStagingFinalizationRetryContext,
+  shouldApplyVirtualStagingFinalizationResult,
+  shouldPreserveVirtualStagingFinalizationKeyAfterFailure,
+  type DraftFinalizationStatusDto,
+  type VirtualStagingFinalizationRetryContext,
+} from "@/lib/order-drafts/finalization";
 import {
   buildVirtualStagingDraftFileSlotKey,
   clearVirtualStagingCleanupPendingTarget,
@@ -128,6 +146,15 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
   savedOriginalFile: (filename: string) => string;
   savedReferenceFile: (filename: string) => string;
   savedInDraft: string;
+  creatingOrder: string;
+  retryOrderFinalization: string;
+  finishOrderCreation: string;
+  finalizationRecoveryTitle: string;
+  finalizationRecoveryMessage: string;
+  finalizationInProgressTitle: string;
+  finalizationInProgressMessage: string;
+  existingOrder: string;
+  checkAgain: string;
   filesCouldNotRestore: string;
   retryFiles: string;
   retryUpload: string;
@@ -139,6 +166,18 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
   fileOperationFailed: string;
   previousSavedFileAvailable: string;
   itemFilesCouldNotDelete: string;
+  incompleteFields: (count: number) => string;
+  waitForImages: string;
+  jobTitleRequired: string;
+  originalRequired: (itemNumber: number) => string;
+  roomRequired: (itemNumber: number) => string;
+  styleRequired: (itemNumber: number) => string;
+  termsRequired: string;
+  jobTitleLabel: string;
+  originalLabel: (itemNumber: number) => string;
+  roomLabel: (itemNumber: number) => string;
+  styleLabel: (itemNumber: number) => string;
+  termsLabel: string;
 };
 
 type DraftSaveOutcome =
@@ -148,6 +187,22 @@ type DraftSaveOutcome =
 type ItemUpdate = VirtualStagingItemUpdate<StagingItemData>;
 type UploadedDraftFilesUpdate =
   VirtualStagingItemUpdate<OrderDraftUploadedFileSummary>;
+
+type FinalizationRetryContext = VirtualStagingFinalizationRetryContext;
+
+type FinalizationRecoveryState =
+  | {
+      status: "reconciliation_required";
+      draftId: string;
+      expectedVersion: number;
+      orderId: string;
+      orderNumber: string;
+    }
+  | {
+      status: "finalization_in_progress";
+      draftId: string;
+      expectedVersion: number;
+    };
 
 const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   en: {
@@ -168,7 +223,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     reloadLatest: "Reload latest draft",
     keepEditing: "Keep editing",
     resumedFileWarning:
-      "Your images are saved with this draft. To submit this restored draft, select the required original files again.",
+      "Your images are saved with this draft and will be used when you submit the order.",
     conflictMessage:
       "This draft changed in another tab. Reload latest draft or keep editing without autosave.",
     keepEditingActive:
@@ -177,10 +232,21 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     signInAgain: "Please sign in again to restore this draft.",
     restoreFailed: "Draft could not be restored. Please try again.",
     savedOriginalFile: (filename: string) =>
-      `Saved with draft: ${filename}. Select it again to submit.`,
+      `Saved with draft: ${filename}. It will be used when you submit.`,
     savedReferenceFile: (filename: string) =>
-      `Saved with draft: ${filename}. Select it again if it is still needed.`,
+      `Saved with draft: ${filename}. It will be used when you submit.`,
     savedInDraft: "Saved in draft",
+    creatingOrder: "Creating order...",
+    retryOrderFinalization: "Retry order finalization",
+    finishOrderCreation: "Finish order creation",
+    finalizationRecoveryTitle: "Finish order creation",
+    finalizationRecoveryMessage:
+      "Your order was created and the draft needs one final recovery step.",
+    finalizationInProgressTitle: "Order creation is still in progress",
+    finalizationInProgressMessage:
+      "Please try again shortly. We will not create another order.",
+    existingOrder: "Existing order",
+    checkAgain: "Check again",
     filesCouldNotRestore:
       "Saved draft files could not be loaded. You can keep editing and retry file restore.",
     retryFiles: "Retry files",
@@ -194,6 +260,22 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     previousSavedFileAvailable: "The previous saved file is still available.",
     itemFilesCouldNotDelete:
       "Saved files for this image could not be deleted. The image was kept in the draft.",
+    incompleteFields: (count) =>
+      `Complete ${count} required ${count === 1 ? "field" : "fields"} before submitting.`,
+    waitForImages: "Please wait for your images to finish uploading.",
+    jobTitleRequired: "Enter a job title.",
+    originalRequired: (itemNumber) =>
+      `Image #${itemNumber}: upload an original photo.`,
+    roomRequired: (itemNumber) =>
+      `Image #${itemNumber}: select a room or area.`,
+    styleRequired: (itemNumber) =>
+      `Image #${itemNumber}: select a furniture style.`,
+    termsRequired: "Accept the terms before submitting.",
+    jobTitleLabel: "Job title",
+    originalLabel: (itemNumber) => `Image #${itemNumber} original photo`,
+    roomLabel: (itemNumber) => `Image #${itemNumber} room`,
+    styleLabel: (itemNumber) => `Image #${itemNumber} furniture style`,
+    termsLabel: "Terms",
   },
   es: {
     draft: "Borrador",
@@ -213,7 +295,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     reloadLatest: "Recargar el borrador más reciente",
     keepEditing: "Seguir editando",
     resumedFileWarning:
-      "Tus imágenes están guardadas con este borrador. Para enviar este borrador restaurado, vuelve a seleccionar los archivos originales requeridos.",
+      "Tus imágenes están guardadas con este borrador y se utilizarán al enviar el pedido.",
     conflictMessage:
       "Este borrador cambió en otra pestaña. Recarga el borrador más reciente o sigue editando sin autoguardado.",
     keepEditingActive:
@@ -222,10 +304,21 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     signInAgain: "Inicia sesión otra vez para restaurar este borrador.",
     restoreFailed: "No se pudo restaurar el borrador. Inténtalo de nuevo.",
     savedOriginalFile: (filename: string) =>
-      `Guardado con el borrador: ${filename}. Selecciónalo otra vez para enviar.`,
+      `Guardado con el borrador: ${filename}. Se utilizará al enviar.`,
     savedReferenceFile: (filename: string) =>
-      `Guardado con el borrador: ${filename}. Selecciónalo otra vez si todavía lo necesitas.`,
+      `Guardado con el borrador: ${filename}. Se utilizará al enviar.`,
     savedInDraft: "Guardado en el borrador",
+    creatingOrder: "Creando pedido...",
+    retryOrderFinalization: "Reintentar finalizacion del pedido",
+    finishOrderCreation: "Finalizar creacion del pedido",
+    finalizationRecoveryTitle: "Finalizar creacion del pedido",
+    finalizationRecoveryMessage:
+      "Tu pedido ya fue creado y el borrador necesita un ultimo paso de recuperacion.",
+    finalizationInProgressTitle: "La creacion del pedido sigue en curso",
+    finalizationInProgressMessage:
+      "Intentalo de nuevo en breve. No crearemos otro pedido.",
+    existingOrder: "Pedido existente",
+    checkAgain: "Comprobar de nuevo",
     filesCouldNotRestore:
       "No se pudieron cargar los archivos guardados del borrador. Puedes seguir editando y reintentar la restauración de archivos.",
     retryFiles: "Reintentar archivos",
@@ -240,8 +333,97 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       "El archivo guardado anterior sigue disponible.",
     itemFilesCouldNotDelete:
       "No se pudieron eliminar los archivos guardados de esta imagen. La imagen se mantuvo en el borrador.",
+    incompleteFields: (count) =>
+      `Completa ${count} ${count === 1 ? "campo obligatorio" : "campos obligatorios"} antes de enviar.`,
+    waitForImages: "Espera a que tus imágenes terminen de subirse.",
+    jobTitleRequired: "Introduce un título para el pedido.",
+    originalRequired: (itemNumber) =>
+      `Imagen #${itemNumber}: sube una foto original.`,
+    roomRequired: (itemNumber) =>
+      `Imagen #${itemNumber}: selecciona una habitación o zona.`,
+    styleRequired: (itemNumber) =>
+      `Imagen #${itemNumber}: selecciona un estilo de mobiliario.`,
+    termsRequired: "Acepta los términos antes de enviar.",
+    jobTitleLabel: "Título del pedido",
+    originalLabel: (itemNumber) => `Imagen #${itemNumber} foto original`,
+    roomLabel: (itemNumber) => `Imagen #${itemNumber} habitación`,
+    styleLabel: (itemNumber) => `Imagen #${itemNumber} estilo`,
+    termsLabel: "Términos",
   },
 };
+
+const JOB_TITLE_REQUIRED_FIELD_ID = "virtual-staging-job-title-required";
+const TERMS_REQUIRED_FIELD_ID = "virtual-staging-terms-required";
+
+interface RequiredFieldIssue extends MissingVirtualStagingRequiredField {
+  targetId: string;
+  message: string;
+  summaryLabel: string;
+}
+
+function buildRequiredFieldIssues(
+  missing: MissingVirtualStagingRequiredField[],
+  copy: DraftCopy,
+): RequiredFieldIssue[] {
+  return missing.map((field) => {
+    const itemNumber = (field.itemIndex ?? 0) + 1;
+
+    if (field.kind === "job-title") {
+      return {
+        ...field,
+        targetId: JOB_TITLE_REQUIRED_FIELD_ID,
+        message: copy.jobTitleRequired,
+        summaryLabel: copy.jobTitleLabel,
+      };
+    }
+    if (field.kind === "terms") {
+      return {
+        ...field,
+        targetId: TERMS_REQUIRED_FIELD_ID,
+        message: copy.termsRequired,
+        summaryLabel: copy.termsLabel,
+      };
+    }
+
+    const clientItemId = field.clientItemId ?? "";
+    const stagingField: StagingRequiredField = field.kind;
+    const targetId = getStagingRequiredFieldId(clientItemId, stagingField);
+    if (field.kind === "original") {
+      return {
+        ...field,
+        targetId,
+        message: copy.originalRequired(itemNumber),
+        summaryLabel: copy.originalLabel(itemNumber),
+      };
+    }
+    if (field.kind === "room") {
+      return {
+        ...field,
+        targetId,
+        message: copy.roomRequired(itemNumber),
+        summaryLabel: copy.roomLabel(itemNumber),
+      };
+    }
+    return {
+      ...field,
+      targetId,
+      message: copy.styleRequired(itemNumber),
+      summaryLabel: copy.styleLabel(itemNumber),
+    };
+  });
+}
+
+function focusRequiredField(targetId: string): void {
+  window.requestAnimationFrame(() => {
+    const field = document.getElementById(targetId);
+    if (!field) return;
+    const control = field.querySelector<HTMLElement>(
+      "[data-validation-control], input:not([type='hidden']), select, button:not([disabled])",
+    );
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+    control?.focus({ preventScroll: true });
+  });
+}
 
 export default function VirtualStagingOrderForm({
   clientEmail,
@@ -264,6 +446,7 @@ export default function VirtualStagingOrderForm({
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(() => {
     return requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
       ? requestedDraftId
@@ -274,7 +457,13 @@ export default function VirtualStagingOrderForm({
     useState<VirtualStagingAutosaveStatus>("not_saved");
   const [draftError, setDraftError] = useState("");
   const [resumeState, setResumeState] = useState<
-    "idle" | "loading" | "ready" | "not_found" | "unsupported" | "error"
+    | "idle"
+    | "loading"
+    | "ready"
+    | "not_found"
+    | "unsupported"
+    | "error"
+    | "finalization_recovery"
   >(() => (requestedDraftId ? "loading" : "ready"));
   const [conflictMessage, setConflictMessage] = useState("");
   const [uploadedDraftFiles, setUploadedDraftFiles] = useState<
@@ -283,12 +472,19 @@ export default function VirtualStagingOrderForm({
   const [draftFileOperations, setDraftFileOperations] =
     useState<VirtualStagingDraftFileOperationMap>({});
   const [draftFilesWarning, setDraftFilesWarning] = useState("");
+  const [finalizationKey, setFinalizationKey] = useState<string | null>(null);
+  const [finalizationRetryContext, setFinalizationRetryContext] =
+    useState<FinalizationRetryContext | null>(null);
+  const [finalizationRecovery, setFinalizationRecovery] =
+    useState<FinalizationRecoveryState | null>(null);
 
   const draftIdRef = useRef(draftId);
   const draftVersionRef = useRef(draftVersion);
   const itemsRef = useRef(items);
   const uploadedDraftFilesRef = useRef(uploadedDraftFiles);
   const draftFileOperationsRef = useRef(draftFileOperations);
+  const finalizationKeyRef = useRef(finalizationKey);
+  const finalizationRetryContextRef = useRef(finalizationRetryContext);
   const mountedRef = useRef(false);
   const savedFingerprintRef = useRef<string | null>(null);
   const failedAutosaveFingerprintRef = useRef<string | null>(null);
@@ -343,8 +539,33 @@ export default function VirtualStagingOrderForm({
   }, [draftFileOperations]);
 
   useEffect(() => {
+    finalizationKeyRef.current = finalizationKey;
+  }, [finalizationKey]);
+
+  useEffect(() => {
+    finalizationRetryContextRef.current = finalizationRetryContext;
+  }, [finalizationRetryContext]);
+
+  useEffect(() => {
     isRestoringRef.current = resumeState === "loading";
   }, [resumeState]);
+
+  const storeFinalizationRetryContext = useCallback(
+    (context: FinalizationRetryContext) => {
+      finalizationRetryContextRef.current = context;
+      setFinalizationRetryContext(context);
+      writeStoredFinalizationRetryContext(context);
+    },
+    [],
+  );
+
+  const clearFinalizationRetryContext = useCallback(() => {
+    const context = finalizationRetryContextRef.current;
+    const currentDraftId = context?.draftId ?? draftIdRef.current;
+    if (currentDraftId) removeStoredFinalizationRetryContext(currentDraftId);
+    finalizationRetryContextRef.current = null;
+    setFinalizationRetryContext(null);
+  }, []);
 
   const commitItems = useCallback((next: ItemUpdate): StagingItemData[] => {
     const current = itemsRef.current;
@@ -368,10 +589,14 @@ export default function VirtualStagingOrderForm({
   );
 
   const handleItemChange = (index: number, data: StagingItemData) => {
+    if (finalizationRetryContextRef.current) return;
     commitItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
 
-  const handleAddItem = () => commitItems((prev) => [...prev, emptyStagingItem()]);
+  const handleAddItem = () => {
+    if (isSubmitting || finalizationRetryContextRef.current) return;
+    commitItems((prev) => [...prev, emptyStagingItem()]);
+  };
 
   const draftSource = useMemo(
     () => ({
@@ -466,14 +691,128 @@ export default function VirtualStagingOrderForm({
     [commitUploadedDraftFiles, copy.filesCouldNotRestore],
   );
 
+  const applyRestoredDraft = useCallback(
+    async (
+      draft: OrderDraftRow,
+      sessionAtStart: number,
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      const resume = validateVirtualStagingDraftForResume(draft);
+      if (!resume.ok) {
+        setResumeState("unsupported");
+        setDraftError(resume.message);
+        return;
+      }
+
+      commitItems(resume.form.items);
+      setJobTitle(resume.form.jobTitle);
+      setOrderTerms(resume.form.orderTerms);
+      const restoredRegion = resolveVirtualStagingDraftRegion(draft);
+      const restoredCurrency = currencyForRegion(restoredRegion);
+      setRegion(restoredRegion);
+      setDraftId(draft.id);
+      setDraftVersion(resume.version);
+      draftIdRef.current = draft.id;
+      draftVersionRef.current = resume.version;
+      savedFingerprintRef.current = buildVirtualStagingDraftFingerprint({
+        jobTitle: resume.form.jobTitle,
+        items: resume.form.items,
+        orderTerms: resume.form.orderTerms,
+        currency: restoredCurrency,
+        region: restoredRegion,
+      });
+      failedAutosaveFingerprintRef.current = null;
+      setSaveStatus("saved");
+      setFinalizationRecovery(null);
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
+      clearFinalizationRetryContext();
+      await refreshUploadedDraftFiles(draft.id, sessionAtStart, signal);
+      setResumeState("ready");
+    },
+    [
+      clearFinalizationRetryContext,
+      commitItems,
+      refreshUploadedDraftFiles,
+      setRegion,
+    ],
+  );
+
+  const applyFinalizationStatus = useCallback(
+    (status: DraftFinalizationStatusDto): void => {
+      setDraftId(status.draftId);
+      draftIdRef.current = status.draftId;
+      setDraftVersion(status.expectedVersion ?? null);
+      draftVersionRef.current = status.expectedVersion ?? null;
+      setDraftError("");
+      setSubmitError("");
+
+      if (status.status === "reconciliation_required") {
+        const storedContext = readStoredFinalizationRetryContext(status.draftId);
+        if (storedContext) {
+          finalizationKeyRef.current = storedContext.finalizationKey;
+          setFinalizationKey(storedContext.finalizationKey);
+          storeFinalizationRetryContext(storedContext);
+        } else {
+          setFinalizationKey(null);
+          finalizationKeyRef.current = null;
+          clearFinalizationRetryContext();
+        }
+        setFinalizationRecovery({
+          status: "reconciliation_required",
+          draftId: status.draftId,
+          expectedVersion: status.expectedVersion,
+          orderId: status.orderId,
+          orderNumber: status.orderNumber,
+        });
+        setResumeState("finalization_recovery");
+        return;
+      }
+
+      if (status.status === "finalization_in_progress") {
+        setFinalizationKey(null);
+        finalizationKeyRef.current = null;
+        clearFinalizationRetryContext();
+        setFinalizationRecovery({
+          status: "finalization_in_progress",
+          draftId: status.draftId,
+          expectedVersion: status.expectedVersion ?? 1,
+        });
+        setResumeState("finalization_recovery");
+        return;
+      }
+
+      setFinalizationRecovery(null);
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
+      clearFinalizationRetryContext();
+
+      if (status.status === "already_converted") {
+        setOrderNumber(status.orderNumber);
+        setConfirmationEmailSent(false);
+        setSubmitted(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (status.status === "active") {
+        setResumeState("error");
+        setDraftError(copy.restoreFailed);
+        return;
+      }
+
+      setResumeState("not_found");
+    },
+    [
+      clearFinalizationRetryContext,
+      copy.restoreFailed,
+      storeFinalizationRetryContext,
+    ],
+  );
+
   const hasMeaningfulDraft = useMemo(
     () => hasMeaningfulVirtualStagingDraftChange(draftSource),
     [draftSource],
-  );
-
-  const showResumedFileNotice = useMemo(
-    () => shouldShowVirtualStagingResumedFileWarning(items),
-    [items],
   );
 
   const uploadedFilesBySlot = useMemo(
@@ -488,6 +827,31 @@ export default function VirtualStagingOrderForm({
   const hasActiveDraftFileOperation = useMemo(
     () => hasActiveVirtualStagingDraftFileOperation(draftFileOperations),
     [draftFileOperations],
+  );
+
+  const missingRequiredFields = useMemo(
+    () =>
+      buildRequiredFieldIssues(
+        findMissingVirtualStagingRequiredFields({
+          jobTitleValid: isJobTitleValid(jobTitle),
+          termsAccepted: orderTerms.accepted,
+          items: items.map((item) => ({
+            clientItemId: item.clientItemId,
+            hasOriginal:
+              item.file !== null ||
+              uploadedFilesBySlot.has(
+                buildVirtualStagingDraftFileSlotKey(
+                  item.clientItemId,
+                  "original",
+                ),
+              ),
+            roomName: item.roomName,
+            furnitureStyle: item.furnitureStyle,
+          })),
+        }),
+        copy,
+      ),
+    [copy, items, jobTitle, orderTerms.accepted, uploadedFilesBySlot],
   );
 
   const replaceDraftUrl = useCallback(
@@ -533,6 +897,11 @@ export default function VirtualStagingOrderForm({
     setOrderNumber("");
     setConfirmationEmailSent(false);
     setSubmitError("");
+    setValidationAttempted(false);
+    setFinalizationKey(null);
+    finalizationKeyRef.current = null;
+    clearFinalizationRetryContext();
+    setFinalizationRecovery(null);
     setDraftError("");
     setConflictMessage(reset.identity.conflictMessage);
     setDraftId(reset.identity.draftId);
@@ -546,7 +915,13 @@ export default function VirtualStagingOrderForm({
     setResumeState(reset.identity.resumeState);
     isRestoringRef.current = false;
     replaceDraftUrl(reset.nextSearch);
-  }, [commitItems, commitUploadedDraftFiles, replaceDraftUrl, searchParams]);
+  }, [
+    clearFinalizationRetryContext,
+    commitItems,
+    commitUploadedDraftFiles,
+    replaceDraftUrl,
+    searchParams,
+  ]);
 
   const enqueueDraftSave = useCallback(
     (
@@ -565,6 +940,9 @@ export default function VirtualStagingOrderForm({
           return { ok: false };
         }
         if (isRestoringRef.current || resumeState === "loading") {
+          return { ok: false };
+        }
+        if (finalizationRetryContextRef.current) {
           return { ok: false };
         }
         if (
@@ -716,6 +1094,7 @@ export default function VirtualStagingOrderForm({
       kind: VirtualStagingDraftFileSlotKind,
       file: File | null,
     ) => {
+      if (isSubmitting || finalizationRetryContextRef.current) return;
       const currentItems = itemsRef.current;
       const item = currentItems[index];
       if (!item) return;
@@ -920,6 +1299,7 @@ export default function VirtualStagingOrderForm({
       copy.fileOperationFailed,
       copy.previousSavedFileAvailable,
       enqueueDraftSave,
+      isSubmitting,
       setDraftFileOperation,
       shouldApplyDraftFileOperation,
     ],
@@ -927,6 +1307,7 @@ export default function VirtualStagingOrderForm({
 
   const handleUploadedFileRemove = useCallback(
     async (clientItemId: string, kind: VirtualStagingDraftFileSlotKind) => {
+      if (isSubmitting || finalizationRetryContextRef.current) return;
       const currentDraftId = draftIdRef.current;
       const uploaded = getVirtualStagingUploadedFileForSlot(
         uploadedDraftFilesRef.current,
@@ -1021,6 +1402,7 @@ export default function VirtualStagingOrderForm({
       commitUploadedDraftFiles,
       copy.fileOperationFailed,
       enqueueDraftSave,
+      isSubmitting,
       setDraftFileOperation,
       shouldApplyDraftFileOperation,
     ],
@@ -1028,6 +1410,7 @@ export default function VirtualStagingOrderForm({
 
   const handleRemoveItem = useCallback(
     async (index: number) => {
+      if (isSubmitting || finalizationRetryContextRef.current) return;
       const item = itemsRef.current[index];
       if (!item) return;
       const clientItemId = item.clientItemId;
@@ -1241,6 +1624,7 @@ export default function VirtualStagingOrderForm({
       commitUploadedDraftFiles,
       copy.itemFilesCouldNotDelete,
       enqueueDraftSave,
+      isSubmitting,
       setDraftFileOperation,
     ],
   );
@@ -1286,7 +1670,52 @@ export default function VirtualStagingOrderForm({
             return;
           }
           if (result.status === 404) {
-            setResumeState("not_found");
+            const statusResult =
+              await getVirtualStagingDraftFinalizationStatus(
+                requestedDraftId,
+                controller.signal,
+              );
+            if (
+              !shouldApplyVirtualStagingSaveResult(
+                sessionAtStart,
+                draftSessionRef.current,
+              )
+            ) {
+              return;
+            }
+            if (!statusResult.ok) {
+              if (statusResult.status === 401) {
+                setResumeState("error");
+                setDraftError(copy.signInAgain);
+                return;
+              }
+              setResumeState("error");
+              setDraftError(statusResult.message || copy.restoreFailed);
+              return;
+            }
+            if (statusResult.data.status === "active") {
+              const restoredResult = await getOrderDraft(
+                requestedDraftId,
+                controller.signal,
+              );
+              if (
+                !shouldApplyVirtualStagingSaveResult(
+                  sessionAtStart,
+                  draftSessionRef.current,
+                )
+              ) {
+                return;
+              }
+              if (restoredResult.ok) {
+                await applyRestoredDraft(
+                  restoredResult.data,
+                  sessionAtStart,
+                  controller.signal,
+                );
+                return;
+              }
+            }
+            applyFinalizationStatus(statusResult.data);
             return;
           }
           setResumeState("error");
@@ -1294,38 +1723,11 @@ export default function VirtualStagingOrderForm({
           return;
         }
 
-        const resume = validateVirtualStagingDraftForResume(result.data);
-        if (!resume.ok) {
-          setResumeState("unsupported");
-          setDraftError(resume.message);
-          return;
-        }
-
-        commitItems(resume.form.items);
-        setJobTitle(resume.form.jobTitle);
-        setOrderTerms(resume.form.orderTerms);
-        const restoredRegion = resolveVirtualStagingDraftRegion(result.data);
-        const restoredCurrency = currencyForRegion(restoredRegion);
-        setRegion(restoredRegion);
-        setDraftId(result.data.id);
-        setDraftVersion(resume.version);
-        draftIdRef.current = result.data.id;
-        draftVersionRef.current = resume.version;
-        savedFingerprintRef.current = buildVirtualStagingDraftFingerprint({
-          jobTitle: resume.form.jobTitle,
-          items: resume.form.items,
-          orderTerms: resume.form.orderTerms,
-          currency: restoredCurrency,
-          region: restoredRegion,
-        });
-        failedAutosaveFingerprintRef.current = null;
-        setSaveStatus("saved");
-        await refreshUploadedDraftFiles(
-          result.data.id,
+        await applyRestoredDraft(
+          result.data,
           sessionAtStart,
           controller.signal,
         );
-        setResumeState("ready");
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -1337,10 +1739,20 @@ export default function VirtualStagingOrderForm({
       });
 
     return () => controller.abort();
-  }, [commitItems, copy, refreshUploadedDraftFiles, requestedDraftId, setRegion]);
+  }, [
+    applyFinalizationStatus,
+    applyRestoredDraft,
+    copy,
+    requestedDraftId,
+  ]);
 
   useEffect(() => {
-    if (resumeState !== "ready" || !hasMeaningfulDraft || saveStatus === "conflict") {
+    if (
+      finalizationRetryContext !== null ||
+      resumeState !== "ready" ||
+      !hasMeaningfulDraft ||
+      saveStatus === "conflict"
+    ) {
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -1350,14 +1762,17 @@ export default function VirtualStagingOrderForm({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [draftSource, hasMeaningfulDraft, resumeState, saveDraftNow, saveStatus]);
-
-  const handleSaveAndExit = async () => {
-    const saved = await saveDraftNow({ force: true });
-    if (saved) router.push("/dashboard/orders/new");
-  };
+  }, [
+    draftSource,
+    finalizationRetryContext,
+    hasMeaningfulDraft,
+    resumeState,
+    saveDraftNow,
+    saveStatus,
+  ]);
 
   const handleReloadLatestDraft = async () => {
+    if (finalizationRetryContextRef.current) return;
     const currentDraftId = draftIdRef.current;
     if (!currentDraftId) return;
     setResumeState("loading");
@@ -1399,6 +1814,7 @@ export default function VirtualStagingOrderForm({
   };
 
   const handleRetryDraftFiles = async () => {
+    if (finalizationRetryContextRef.current) return;
     const currentDraftId = draftIdRef.current;
     if (!currentDraftId) return;
     await refreshUploadedDraftFiles(
@@ -1407,11 +1823,92 @@ export default function VirtualStagingOrderForm({
     );
   };
 
-  const handleSubmit = async () => {
+  const handleFinalizationStatusRecheck = async () => {
+    if (!finalizationRecovery || isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError("");
+    const sessionAtStart = draftSessionRef.current;
+
+    try {
+      const result = await getVirtualStagingDraftFinalizationStatus(
+        finalizationRecovery.draftId,
+      );
+      if (
+        !mountedRef.current ||
+        !shouldApplyVirtualStagingSaveResult(
+          sessionAtStart,
+          draftSessionRef.current,
+        )
+      ) {
+        return;
+      }
+      if (!result.ok) {
+        setSubmitError(result.message || copy.restoreFailed);
+        return;
+      }
+      applyFinalizationStatus(result.data);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (!mountedRef.current) return;
+      setSubmitError(copy.restoreFailed);
+    } finally {
+      if (mountedRef.current) setIsSubmitting(false);
+    }
+  };
+
+  const handleFinishFinalizationRecovery = async () => {
+    if (
+      !finalizationRecovery ||
+      finalizationRecovery.status !== "reconciliation_required" ||
+      isSubmitting
+    ) {
+      return;
+    }
+
+    const sessionAtStart = draftSessionRef.current;
+    const storedContext =
+      finalizationRetryContextRef.current?.draftId ===
+      finalizationRecovery.draftId
+        ? finalizationRetryContextRef.current
+        : readStoredFinalizationRetryContext(finalizationRecovery.draftId);
+    const recoveredFinalizationKey =
+      storedContext?.finalizationKey ?? createFinalizationKey();
+    const retryContext: FinalizationRetryContext = {
+      draftId: finalizationRecovery.draftId,
+      expectedVersion: finalizationRecovery.expectedVersion,
+      finalizationKey: recoveredFinalizationKey,
+    };
+
+    finalizationKeyRef.current = recoveredFinalizationKey;
+    setFinalizationKey(recoveredFinalizationKey);
+    storeFinalizationRetryContext(retryContext);
     setIsSubmitting(true);
     setSubmitError("");
 
-    const itemsMetadata = items.map((item) => ({
+    const result = await submitVirtualStagingDraft(
+      retryContext.draftId,
+      retryContext.expectedVersion,
+      retryContext.finalizationKey,
+    );
+    applyDraftFinalizationResult(result, retryContext, sessionAtStart);
+  };
+
+  const submitCurrentLocalOrder = async (
+    currentItems: StagingItemData[],
+  ): Promise<OrderSubmitResult> => {
+    const missingLocalOriginalIndex = currentItems.findIndex(
+      (item) => item.file === null,
+    );
+    if (missingLocalOriginalIndex >= 0) {
+      return {
+        success: false,
+        error:
+          "Some images exist only in the saved draft. Retry the draft upload or reselect the required originals before submitting.",
+        errorCode: "validation-failed",
+      };
+    }
+
+    const itemsMetadata = currentItems.map((item) => ({
       roomName: item.roomName,
       furnitureStyle: item.furnitureStyle,
       fileSizeLimit: item.fileSizeLimit,
@@ -1421,52 +1918,266 @@ export default function VirtualStagingOrderForm({
       selectedAddons: item.selectedAddons,
     }));
 
-    const files = items.map((item) => ({
+    const files = currentItems.map((item) => ({
       file: item.file,
       referenceFile: item.referenceFile,
     }));
 
-    const result = await submitOrder(
+    return submitOrder(
       "virtual-staging",
       itemsMetadata,
       files,
       orderTerms,
-      jobTitle
+      jobTitle,
     );
+  };
 
-    if (result.success && result.orderNumber) {
-      setOrderNumber(result.orderNumber);
-      setConfirmationEmailSent(result.confirmationEmailSent === true);
+  const retireSubmittedDraftBestEffort = async (
+    submittedDraftId: string,
+    expectedVersion: number,
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/order-drafts/${encodeURIComponent(submittedDraftId)}`,
+        {
+          method: "DELETE",
+          cache: "no-store",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ expectedVersion }),
+        },
+      );
+      if (!response.ok) {
+        console.warn(
+          "[virtual-staging] submitted local-fallback draft was not retired",
+          response.status,
+        );
+      }
+    } catch (error) {
+      console.warn(
+        "[virtual-staging] submitted local-fallback draft retirement failed",
+        error,
+      );
+    }
+  };
+
+  const applyDraftFinalizationResult = (
+    result: DraftFinalizationClientResult,
+    retryContext: FinalizationRetryContext,
+    sessionAtStart: number,
+  ): boolean => {
+    if (
+      !mountedRef.current ||
+      !shouldApplyVirtualStagingFinalizationResult({
+        startedSession: sessionAtStart,
+        currentSession: draftSessionRef.current,
+        startedKey: retryContext.finalizationKey,
+        currentKey: finalizationKeyRef.current,
+      })
+    ) {
+      return false;
+    }
+
+    if (result.ok) {
+      setOrderNumber(result.data.orderNumber);
+      setConfirmationEmailSent(result.data.confirmationEmailSent === true);
       setSubmitted(true);
+      setFinalizationRecovery(null);
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
+      clearFinalizationRetryContext();
       setIsSubmitting(false);
+      return true;
+    }
+
+    const shouldPreserveKey =
+      shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+        code: result.code,
+        status: result.status,
+      });
+
+    if (shouldPreserveKey) {
+      finalizationKeyRef.current = retryContext.finalizationKey;
+      setFinalizationKey(retryContext.finalizationKey);
+      storeFinalizationRetryContext(retryContext);
+    } else {
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
+      clearFinalizationRetryContext();
+    }
+
+    if (
+      result.code === "unauthenticated" &&
+      redirectOnOrderAuthError(
+        {
+          success: false,
+          error: result.message,
+          errorCode: "unauthorized",
+        },
+        orderRoute,
+      )
+    ) {
+      return true;
+    }
+    if (
+      result.code === "profile_incomplete" &&
+      redirectOnOrderAuthError(
+        {
+          success: false,
+          error: result.message,
+          errorCode: "profile-incomplete",
+        },
+        orderRoute,
+      )
+    ) {
+      return true;
+    }
+
+    setIsSubmitting(false);
+    setSubmitError(result.message || "Submission failed. Please try again.");
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting || hasActiveDraftFileOperation) return;
+    const sessionAtStart = draftSessionRef.current;
+    setSubmitError("");
+
+    const retryContext = finalizationRetryContextRef.current;
+    if (retryContext) {
+      setIsSubmitting(true);
+      finalizationKeyRef.current = retryContext.finalizationKey;
+      setFinalizationKey(retryContext.finalizationKey);
+      const result = await submitVirtualStagingDraft(
+        retryContext.draftId,
+        retryContext.expectedVersion,
+        retryContext.finalizationKey,
+      );
+      applyDraftFinalizationResult(result, retryContext, sessionAtStart);
       return;
     }
 
-    // Auth/profile errors navigate away (preserving this order route).
-    if (redirectOnOrderAuthError(result, orderRoute)) return;
+    if (missingRequiredFields.length > 0) {
+      setValidationAttempted(true);
+      focusRequiredField(missingRequiredFields[0].targetId);
+      return;
+    }
 
-    setIsSubmitting(false);
-    setSubmitError(result.error || "Submission failed. Please try again.");
+    setValidationAttempted(false);
+    setIsSubmitting(true);
+    const saveOutcome = await enqueueDraftSave(buildDraftSourceSnapshot(), {
+      force: true,
+    });
+    if (
+      !mountedRef.current ||
+      !shouldApplyVirtualStagingSaveResult(
+        sessionAtStart,
+        draftSessionRef.current,
+      )
+    ) {
+      return;
+    }
+    if (!saveOutcome.ok) {
+      setIsSubmitting(false);
+      setSubmitError("Please save the draft before submitting.");
+      return;
+    }
+
+    await refreshUploadedDraftFiles(saveOutcome.draftId, sessionAtStart);
+    if (
+      !mountedRef.current ||
+      !shouldApplyVirtualStagingSaveResult(
+        sessionAtStart,
+        draftSessionRef.current,
+      )
+    ) {
+      return;
+    }
+
+    const currentItems = itemsRef.current;
+    const uploadedFiles = uploadedDraftFilesRef.current;
+    const decision = selectVirtualStagingDraftSubmissionMode(
+      currentItems.map((item) => ({
+        localOriginal: item.file,
+        localReference: item.referenceFile,
+        uploadedOriginal: getVirtualStagingUploadedFileForSlot(
+          uploadedFiles,
+          item.clientItemId,
+          "original",
+        ),
+        uploadedReference: getVirtualStagingUploadedFileForSlot(
+          uploadedFiles,
+          item.clientItemId,
+          "reference",
+        ),
+      })),
+    );
+
+    if (decision.mode === "not_ready") {
+      setIsSubmitting(false);
+      setSubmitError("Please add an original image for every item.");
+      return;
+    }
+
+    if (decision.mode === "local_upload_fallback_unavailable") {
+      setIsSubmitting(false);
+      setSubmitError(
+        "A current file change is not saved to the draft, but another item only has a saved draft image. Retry the failed draft upload or reselect the required originals before submitting.",
+      );
+      return;
+    }
+
+    if (decision.mode === "local_upload_fallback") {
+      finalizationKeyRef.current = null;
+      setFinalizationKey(null);
+      clearFinalizationRetryContext();
+      const result = await submitCurrentLocalOrder(currentItems);
+      if (result.success && result.orderNumber) {
+        await retireSubmittedDraftBestEffort(
+          saveOutcome.draftId,
+          saveOutcome.version,
+        );
+        if (
+          !mountedRef.current ||
+          !shouldApplyVirtualStagingSaveResult(
+            sessionAtStart,
+            draftSessionRef.current,
+          )
+        ) {
+          return;
+        }
+        setOrderNumber(result.orderNumber);
+        setConfirmationEmailSent(result.confirmationEmailSent === true);
+        setSubmitted(true);
+        setIsSubmitting(false);
+        return;
+      }
+      if (redirectOnOrderAuthError(result, orderRoute)) return;
+      setIsSubmitting(false);
+      setSubmitError(result.error || "Submission failed. Please try again.");
+      return;
+    }
+
+    const key = finalizationKeyRef.current ?? createFinalizationKey();
+    finalizationKeyRef.current = key;
+    setFinalizationKey(key);
+    const nextRetryContext = {
+      draftId: saveOutcome.draftId,
+      expectedVersion: saveOutcome.version,
+      finalizationKey: key,
+    };
+
+    const result = await submitVirtualStagingDraft(
+      nextRetryContext.draftId,
+      nextRetryContext.expectedVersion,
+      nextRetryContext.finalizationKey,
+    );
+    applyDraftFinalizationResult(result, nextRetryContext, sessionAtStart);
   };
 
   const handleNewOrder = startNewVirtualStagingOrder;
 
-  // --- Validation ---
-  const allItemsValid = items.every(
-    (item) => item.file !== null && item.roomName !== "" && item.furnitureStyle !== ""
-  );
-  const missingResumedFiles = items.some(
-    (item) => item.needsOriginalFileReselection && item.file === null,
-  );
-  const termsAccepted = orderTerms.accepted;
-  const canSubmit =
-    items.length > 0 &&
-    allItemsValid &&
-    !missingResumedFiles &&
-    isVirtualStagingFinalSubmissionReady(items) &&
-    termsAccepted &&
-    isJobTitleValid(jobTitle) &&
-    !hasActiveDraftFileOperation;
+  const hasFinalizationRetryContext = finalizationRetryContext !== null;
+  const canSubmit = !hasActiveDraftFileOperation && !isSubmitting;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -1495,6 +2206,78 @@ export default function VirtualStagingOrderForm({
         <Container>
           <div className="rounded-xl border border-border bg-white p-6 text-sm text-muted shadow-sm">
             {copy.restoring}
+          </div>
+        </Container>
+      </section>
+    );
+  }
+
+  if (resumeState === "finalization_recovery" && finalizationRecovery) {
+    const canFinish =
+      finalizationRecovery.status === "reconciliation_required";
+    const recoveryTitle = canFinish
+      ? copy.finalizationRecoveryTitle
+      : copy.finalizationInProgressTitle;
+    const recoveryMessage = canFinish
+      ? copy.finalizationRecoveryMessage
+      : copy.finalizationInProgressMessage;
+    const recoveryOrderNumber =
+      finalizationRecovery.status === "reconciliation_required"
+        ? finalizationRecovery.orderNumber
+        : null;
+
+    return (
+      <section className="py-16 bg-surface min-h-screen">
+        <Container>
+          <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              Virtual Staging
+            </p>
+            <h1 className="mt-2 text-xl font-semibold text-foreground">
+              {recoveryTitle}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted">
+              {recoveryMessage}
+            </p>
+            {recoveryOrderNumber && (
+              <p className="mt-4 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground">
+                {copy.existingOrder}: {recoveryOrderNumber}
+              </p>
+            )}
+            {submitError && (
+              <p
+                role="alert"
+                className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+              >
+                {submitError}
+              </p>
+            )}
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={
+                  canFinish
+                    ? handleFinishFinalizationRecovery
+                    : handleFinalizationStatusRecheck
+                }
+                disabled={isSubmitting}
+                className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                {isSubmitting
+                  ? copy.creatingOrder
+                  : canFinish
+                    ? copy.finishOrderCreation
+                    : copy.checkAgain}
+              </button>
+              <button
+                type="button"
+                onClick={startNewVirtualStagingOrder}
+                disabled={isSubmitting}
+                className="inline-flex w-full items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                {copy.startNew}
+              </button>
+            </div>
           </div>
         </Container>
       </section>
@@ -1564,35 +2347,73 @@ export default function VirtualStagingOrderForm({
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}
+          submitLabel={
+            hasFinalizationRetryContext
+              ? copy.retryOrderFinalization
+              : undefined
+          }
+          submittingLabel={
+            hasFinalizationRetryContext
+              ? copy.retryOrderFinalization
+              : copy.creatingOrder
+          }
+          submitHelper={
+            hasActiveDraftFileOperation ? (
+              <p role="status">{copy.waitForImages}</p>
+            ) : validationAttempted && missingRequiredFields.length > 0 ? (
+              <div aria-live="polite">
+                <p className="font-medium text-foreground">
+                  {copy.incompleteFields(missingRequiredFields.length)}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5">
+                  {missingRequiredFields.map((field, index) => (
+                    <span key={`${field.kind}-${field.clientItemId ?? "order"}`}>
+                      {index > 0 && (
+                        <span className="mr-1" aria-hidden>
+                          {"\u00b7"}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => focusRequiredField(field.targetId)}
+                        className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 hover:text-primary-light"
+                      >
+                        {field.summaryLabel}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          }
         />
       }
     >
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            {copy.draft}
-          </p>
-          <p className="text-sm font-medium text-foreground">
-            {copy[saveStatus]}
-          </p>
-          {draftError && (
-            <p className="mt-1 text-xs text-red-700">{draftError}</p>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleSaveAndExit}
-          disabled={saveStatus === "saving" || hasActiveDraftFileOperation}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-        >
-          <Save className="h-4 w-4" />
-          {copy.saveAndExit}
-        </button>
-      </div>
+      {saveStatus === "saving" && (
+        <p role="status" className="text-xs font-medium text-muted">
+          {copy.saving}
+        </p>
+      )}
 
-      {showResumedFileNotice && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {copy.resumedFileWarning}
+      {draftError && saveStatus !== "conflict" && (
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p>
+            {saveStatus === "save_failed" ? `${copy.save_failed}: ` : ""}
+            {draftError}
+          </p>
+          {saveStatus === "save_failed" && (
+            <button
+              type="button"
+              onClick={() => void saveDraftNow({ force: true })}
+              disabled={isSubmitting || hasActiveDraftFileOperation}
+              className="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              {copy.retry}
+            </button>
+          )}
         </div>
       )}
 
@@ -1602,7 +2423,8 @@ export default function VirtualStagingOrderForm({
           <button
             type="button"
             onClick={handleRetryDraftFiles}
-            className="inline-flex w-full items-center justify-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 sm:w-auto"
+            disabled={hasFinalizationRetryContext}
+            className="inline-flex w-full items-center justify-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {copy.retryFiles}
           </button>
@@ -1642,7 +2464,14 @@ export default function VirtualStagingOrderForm({
         </div>
       )}
 
-      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
+      <OrderJobTitleField
+        value={jobTitle}
+        onChange={setJobTitle}
+        showError={validationAttempted}
+        containerId={JOB_TITLE_REQUIRED_FIELD_ID}
+        errorMessage={copy.jobTitleRequired}
+        disabled={hasFinalizationRetryContext || isSubmitting}
+      />
 
       <div className="space-y-5">
         {items.map((item, index) => {
@@ -1658,6 +2487,20 @@ export default function VirtualStagingOrderForm({
           const referenceOperation = draftFileOperations[referenceSlotKey];
           const uploadedOriginalFile = uploadedFilesBySlot.get(originalSlotKey);
           const uploadedReferenceFile = uploadedFilesBySlot.get(referenceSlotKey);
+          const validationErrors: Partial<
+            Record<StagingRequiredField, string>
+          > = {};
+          if (validationAttempted) {
+            for (const field of missingRequiredFields) {
+              if (
+                field.clientItemId === item.clientItemId &&
+                field.kind !== "job-title" &&
+                field.kind !== "terms"
+              ) {
+                validationErrors[field.kind] = field.message;
+              }
+            }
+          }
 
           return (
             <StagingItemCard
@@ -1668,6 +2511,8 @@ export default function VirtualStagingOrderForm({
               onRemove={() => void handleRemoveItem(index)}
               canRemove={items.length > 1}
               removeDisabled={
+                hasFinalizationRetryContext ||
+                isSubmitting ||
                 isVirtualStagingDraftFileSlotOperationActive(
                   originalOperation,
                 ) ||
@@ -1691,12 +2536,17 @@ export default function VirtualStagingOrderForm({
               )}
               originalOperationErrorText={originalOperation?.error ?? undefined}
               referenceOperationErrorText={referenceOperation?.error ?? undefined}
-              originalBusy={isVirtualStagingDraftFileSlotOperationActive(
-                originalOperation,
-              )}
-              referenceBusy={isVirtualStagingDraftFileSlotOperationActive(
-                referenceOperation,
-              )}
+              originalBusy={
+                hasFinalizationRetryContext ||
+                isSubmitting ||
+                isVirtualStagingDraftFileSlotOperationActive(originalOperation)
+              }
+              referenceBusy={
+                hasFinalizationRetryContext ||
+                isSubmitting ||
+                isVirtualStagingDraftFileSlotOperationActive(referenceOperation)
+              }
+              disabled={hasFinalizationRetryContext || isSubmitting}
               onOriginalFileSelected={(file) =>
                 void handleDraftFileSelected(index, "original", file)
               }
@@ -1727,6 +2577,7 @@ export default function VirtualStagingOrderForm({
               replaceFileLabel={copy.replaceFile}
               removeSavedFileLabel={copy.removeSavedFile}
               savedInDraftLabel={copy.savedInDraft}
+              validationErrors={validationErrors}
             />
           );
         })}
@@ -1735,13 +2586,21 @@ export default function VirtualStagingOrderForm({
       <button
         type="button"
         onClick={handleAddItem}
-        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors"
+        disabled={hasFinalizationRetryContext || isSubmitting}
+        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="w-4 h-4" />
         Add Another Image
       </button>
 
-      <OrderTermsBlock data={orderTerms} onChange={setOrderTerms} />
+      <OrderTermsBlock
+        data={orderTerms}
+        onChange={setOrderTerms}
+        showError={validationAttempted}
+        containerId={TERMS_REQUIRED_FIELD_ID}
+        errorMessage={copy.termsRequired}
+        disabled={hasFinalizationRetryContext || isSubmitting}
+      />
     </OrderLayout>
   );
 }
@@ -1755,6 +2614,72 @@ function operationStatusText(
   if (operation.status === "uploading") return copy.fileUploading;
   if (operation.status === "deleting") return copy.fileDeleting;
   return undefined;
+}
+
+function createFinalizationKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function readStoredFinalizationRetryContext(
+  draftId: string,
+): FinalizationRetryContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const key = buildVirtualStagingFinalizationRetryStorageKey(draftId);
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = parseVirtualStagingFinalizationRetryContext(raw, draftId);
+    if (!parsed) {
+      window.sessionStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredFinalizationRetryContext(
+  context: FinalizationRetryContext,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      buildVirtualStagingFinalizationRetryStorageKey(context.draftId),
+      serializeVirtualStagingFinalizationRetryContext(context),
+    );
+  } catch {
+    // Session storage is a convenience only; server status remains authoritative.
+  }
+}
+
+function removeStoredFinalizationRetryContext(draftId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(
+      buildVirtualStagingFinalizationRetryStorageKey(draftId),
+    );
+  } catch {
+    // Session storage is a convenience only; server status remains authoritative.
+  }
 }
 
 function clearStagingItemDraftFileSlot(

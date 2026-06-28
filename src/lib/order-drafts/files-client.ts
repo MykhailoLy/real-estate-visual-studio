@@ -1,5 +1,6 @@
 import type {
   OrderDraftFilePublicErrorCode,
+  OrderDraftFilePreview,
   OrderDraftUploadedFileSummary,
   PrepareOrderDraftFileUploadInput,
   PreparedOrderDraftFileUpload,
@@ -145,6 +146,17 @@ export function deleteOrderDraftFile(
   return requestOrderDraftFileApi<DeletedOrderDraftFileSummary>(
     `/api/order-drafts/${encodeURIComponent(draftId)}/files/${encodeURIComponent(fileId)}`,
     { method: "DELETE", signal },
+  );
+}
+
+export function getOrderDraftFilePreview(
+  draftId: string,
+  fileId: string,
+  signal?: AbortSignal,
+): Promise<OrderDraftFileClientResult<OrderDraftFilePreview>> {
+  return requestOrderDraftFileApi<OrderDraftFilePreview>(
+    `/api/order-drafts/${encodeURIComponent(draftId)}/files/${encodeURIComponent(fileId)}/preview`,
+    { method: "GET", signal },
   );
 }
 

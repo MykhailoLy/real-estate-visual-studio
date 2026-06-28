@@ -34,12 +34,18 @@ interface OrderJobTitleFieldProps {
    * or leave it false to validate as-you-type once the field is dirty.
    */
   showError?: boolean;
+  disabled?: boolean;
+  containerId?: string;
+  errorMessage?: string;
 }
 
 export default function OrderJobTitleField({
   value,
   onChange,
   showError = false,
+  disabled = false,
+  containerId,
+  errorMessage = "Enter a job title.",
 }: OrderJobTitleFieldProps) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
@@ -54,7 +60,10 @@ export default function OrderJobTitleField({
     invalid && (showError || (dirty && trimmedLength < JOB_TITLE_MIN));
 
   return (
-    <div className="bg-white border border-border rounded-xl p-5 sm:p-6">
+    <div
+      id={containerId}
+      className="bg-white border border-border rounded-xl p-5 sm:p-6"
+    >
       <div className="flex items-start gap-3 mb-3">
         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Tag className="w-4 h-4 text-primary" aria-hidden />
@@ -81,10 +90,12 @@ export default function OrderJobTitleField({
         placeholder="Example: 123 Main Street — Exterior Photos"
         maxLength={JOB_TITLE_MAX}
         required
+        disabled={disabled}
+        data-validation-control
         aria-required="true"
         aria-invalid={displayError || undefined}
         aria-describedby={displayError ? `${helpId} ${errorId}` : helpId}
-        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60 ${
           displayError ? "border-red-300" : "border-border"
         }`}
       />
@@ -92,8 +103,7 @@ export default function OrderJobTitleField({
       <div className="mt-1.5 flex items-center justify-between gap-3">
         {displayError ? (
           <p id={errorId} className="text-xs text-red-500" role="alert">
-            Please enter a Job Title between {JOB_TITLE_MIN} and {JOB_TITLE_MAX}{" "}
-            characters.
+            {errorMessage}
           </p>
         ) : (
           <span aria-hidden className="text-xs text-muted-light">

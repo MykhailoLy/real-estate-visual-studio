@@ -27,6 +27,8 @@ export interface PersistedFileDisplay {
   filename: string;
   fileSize: number;
   statusLabel?: string;
+  previewUrl?: string | null;
+  previewExpiresAt?: string | null;
 }
 
 interface FileUploadProps {
@@ -40,6 +42,8 @@ interface FileUploadProps {
   persistedFile?: PersistedFileDisplay | null;
   operationStatusText?: string;
   operationErrorText?: string;
+  validationError?: string;
+  validationFieldId?: string;
   retryLabel?: string;
   replaceLabel?: string;
   removePersistedLabel?: string;
@@ -110,6 +114,8 @@ export default function FileUpload({
   persistedFile,
   operationStatusText,
   operationErrorText,
+  validationError,
+  validationFieldId,
   retryLabel = "Retry upload",
   replaceLabel = "Replace",
   removePersistedLabel = "Remove file",
@@ -126,6 +132,9 @@ export default function FileUpload({
   const maxSizeId = `${inputId}-max-size`;
   const helperTextId = helperText ? `${inputId}-helper` : undefined;
   const rejectedId = `${inputId}-error`;
+  const validationErrorId = validationError
+    ? `${inputId}-validation-error`
+    : undefined;
   const operationStatusId = operationStatusText
     ? `${inputId}-operation-status`
     : undefined;
@@ -227,12 +236,18 @@ export default function FileUpload({
     isEmptyUploadState ? operationStatusId : undefined,
     isEmptyUploadState ? operationErrorId : undefined,
     rejected ? rejectedId : undefined,
+    validationErrorId,
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div>
+    <div
+      id={validationFieldId}
+      role="group"
+      aria-labelledby={labelId}
+      aria-describedby={validationErrorId}
+    >
       <label
         id={labelId}
         htmlFor={inputId}
@@ -257,6 +272,9 @@ export default function FileUpload({
         className="hidden"
         onChange={handleInputChange}
         tabIndex={-1}
+        required={required}
+        aria-invalid={validationError ? true : undefined}
+        aria-describedby={validationErrorId}
       />
 
       {file ? (
@@ -276,9 +294,7 @@ export default function FileUpload({
             </div>
           )}
           <div className="min-w-0 flex-1 flex flex-col justify-center">
-            <p className="text-sm font-medium text-foreground truncate">
-              {file.name}
-            </p>
+            <FilenameText filename={file.name} />
             <p className="text-xs text-foreground/75">
               {(file.size / 1024 / 1024).toFixed(2)} MB
             </p>
@@ -323,13 +339,13 @@ export default function FileUpload({
         </div>
       ) : persistedFile ? (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-stretch">
-          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md bg-white sm:h-20 sm:w-20">
-            <FileImage className="h-6 w-6 text-primary" aria-hidden="true" />
-          </div>
+          <PersistedFilePreview
+            label={label}
+            filename={persistedFile.filename}
+            previewUrl={persistedFile.previewUrl ?? null}
+          />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">
-              {persistedFile.filename}
-            </p>
+            <FilenameText filename={persistedFile.filename} />
             <p className="text-xs text-foreground/75">
               {formatFileSize(persistedFile.fileSize)}
             </p>
@@ -389,6 +405,7 @@ export default function FileUpload({
       ) : (
         <button
           type="button"
+          data-validation-control
           aria-labelledby={`${labelId} ${uploadActionId}`}
           aria-describedby={describedBy || undefined}
           onClick={openPicker}
@@ -402,6 +419,8 @@ export default function FileUpload({
             disabled && "cursor-not-allowed opacity-60",
             isDragActive
               ? "border-primary bg-primary/5"
+              : validationError
+                ? "border-red-300 bg-red-50/30 hover:border-red-400"
               : "border-border hover:border-primary/40 hover:bg-surface"
           )}
         >
@@ -440,10 +459,163 @@ export default function FileUpload({
           {operationErrorText}
         </p>
       )}
+      {validationError && (
+        <p
+          id={validationErrorId}
+          role="alert"
+          className="mt-1.5 text-xs text-red-600"
+        >
+          {validationError}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PersistedFilePreview({
+  label,
+  filename,
+  previewUrl,
+}: {
+  label: string;
+  filename: string;
+  previewUrl: string | null;
+}) {
+  return (
+    <PersistedFilePreviewContent
+      key={previewUrl ?? "empty"}
+      label={label}
+      filename={filename}
+      previewUrl={previewUrl}
+    />
+  );
+}
+
+function PersistedFilePreviewContent({
+  label,
+  filename,
+  previewUrl,
+}: {
+  label: string;
+  filename: string;
+  previewUrl: string | null;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [broken, setBroken] = useState(false);
+  const [open, setOpen] = useState(false);
+  const canOpen = previewUrl !== null && !broken;
+
+  return (
+    <div className="w-28 shrink-0 self-start sm:w-32">
+      <button
+        type="button"
+        onClick={() => {
+          if (canOpen) setOpen(true);
+        }}
+        disabled={!canOpen}
+        className="relative block aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-white disabled:cursor-default"
+        aria-label={`Open ${label} preview`}
+      >
+        {previewUrl && !broken ? (
+          <>
+            {!loaded && (
+              <span className="absolute inset-0 animate-pulse bg-stone-100" />
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt={`${label}: ${filename}`}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setLoaded(true)}
+              onError={() => setBroken(true)}
+              className="h-full w-full object-cover"
+            />
+          </>
+        ) : (
+          <span className="flex h-full w-full items-center justify-center bg-stone-100">
+            <FileImage className="h-6 w-6 text-primary" aria-hidden="true" />
+          </span>
+        )}
+      </button>
+      {canOpen && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-2 text-xs font-semibold text-primary hover:text-primary-light"
+        >
+          Open preview
+        </button>
+      )}
+      {open && previewUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${label} preview`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="relative max-h-[88vh] w-full max-w-4xl rounded-lg bg-white p-3 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute right-3 top-3 rounded-full bg-white/90 p-1.5 text-foreground shadow-sm hover:bg-white"
+              aria-label="Close preview"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt={`${label}: ${filename}`}
+              className="max-h-[82vh] w-full rounded-md object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function formatFileSize(size: number): string {
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function FilenameText({ filename }: { filename: string }) {
+  const { base, extension } = splitFilename(filename);
+
+  return (
+    <p
+      title={filename}
+      aria-label={filename}
+      className="flex min-w-0 max-w-full text-sm font-medium text-foreground"
+    >
+      <span aria-hidden className="min-w-0 truncate">
+        {base}
+      </span>
+      {extension && (
+        <span aria-hidden className="shrink-0">
+          {extension}
+        </span>
+      )}
+      <span className="sr-only">{filename}</span>
+    </p>
+  );
+}
+
+function splitFilename(filename: string): {
+  base: string;
+  extension: string;
+} {
+  const lastDot = filename.lastIndexOf(".");
+  if (lastDot <= 0 || lastDot === filename.length - 1) {
+    return { base: filename, extension: "" };
+  }
+  return {
+    base: filename.slice(0, lastDot),
+    extension: filename.slice(lastDot),
+  };
 }
