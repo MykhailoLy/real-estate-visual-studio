@@ -391,6 +391,38 @@ test("save inputs use draft API shape and non-authoritative pricing preview", ()
   assert.equal(buildVirtualStagingPricingPreview(source())?.nonAuthoritative, true);
 });
 
+test("file-selection save snapshot contains the selected filename", () => {
+  const before = {
+    ...source(),
+    items: [
+      {
+        ...source().items[0]!,
+        file: null,
+        originalFilename: null,
+      },
+    ],
+  };
+  const after = {
+    ...before,
+    items: [
+      {
+        ...before.items[0]!,
+        file: fileLike("selected-after-render.jpg"),
+        originalFilename: "selected-after-render.jpg",
+      },
+    ],
+  };
+
+  const staleState = mapVirtualStagingFormToDraftState(before);
+  const savedSnapshotState = mapVirtualStagingFormToDraftState(after);
+
+  assert.equal(staleState.items[0]?.state.originalFilename, null);
+  assert.equal(
+    savedSnapshotState.items[0]?.state.originalFilename,
+    "selected-after-render.jpg",
+  );
+});
+
 test("final submission readiness is false while resumed files are missing", () => {
   const resumed = mapVirtualStagingDraftToFormState(
     mapVirtualStagingFormToDraftState(source()),

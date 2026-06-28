@@ -24,6 +24,9 @@ import {
   updateOriginalFileDraftMetadata,
   updateReferenceFileDraftMetadata,
 } from "@/lib/order-drafts/virtual-staging";
+import type {
+  OrderDraftUploadedFileSummary,
+} from "@/lib/order-drafts/files";
 
 export interface StagingItemData {
   clientItemId: string;
@@ -68,6 +71,24 @@ interface StagingItemCardProps {
     savedOriginalFile: (filename: string) => string;
     savedReferenceFile: (filename: string) => string;
   };
+  uploadedOriginalFile?: OrderDraftUploadedFileSummary | null;
+  uploadedReferenceFile?: OrderDraftUploadedFileSummary | null;
+  originalOperationStatusText?: string;
+  referenceOperationStatusText?: string;
+  originalOperationErrorText?: string;
+  referenceOperationErrorText?: string;
+  originalBusy?: boolean;
+  referenceBusy?: boolean;
+  onOriginalFileSelected?: (file: File | null) => void;
+  onReferenceFileSelected?: (file: File | null) => void;
+  onRemoveUploadedOriginal?: () => void;
+  onRemoveUploadedReference?: () => void;
+  onRetryOriginalUpload?: () => void;
+  onRetryReferenceUpload?: () => void;
+  retryUploadLabel?: string;
+  replaceFileLabel?: string;
+  removeSavedFileLabel?: string;
+  savedInDraftLabel?: string;
 }
 
 const DEFAULT_DRAFT_COPY = {
@@ -84,6 +105,24 @@ export default function StagingItemCard({
   onRemove,
   canRemove,
   draftCopy = DEFAULT_DRAFT_COPY,
+  uploadedOriginalFile,
+  uploadedReferenceFile,
+  originalOperationStatusText,
+  referenceOperationStatusText,
+  originalOperationErrorText,
+  referenceOperationErrorText,
+  originalBusy = false,
+  referenceBusy = false,
+  onOriginalFileSelected,
+  onReferenceFileSelected,
+  onRemoveUploadedOriginal,
+  onRemoveUploadedReference,
+  onRetryOriginalUpload,
+  onRetryReferenceUpload,
+  retryUploadLabel,
+  replaceFileLabel,
+  removeSavedFileLabel,
+  savedInDraftLabel,
 }: StagingItemCardProps) {
   const currency = useDisplayCurrency();
   const fieldIdPrefix = `staging-${data.clientItemId}`;
@@ -126,13 +165,17 @@ export default function StagingItemCard({
         <FileUpload
           label="Upload Original Photo"
           file={data.file}
-          onFileChange={(file) =>
+          onFileChange={(file) => {
+            if (onOriginalFileSelected) {
+              onOriginalFileSelected(file);
+              return;
+            }
             onChange({
               ...data,
               file,
               ...updateOriginalFileDraftMetadata(data, file),
-            })
-          }
+            });
+          }}
           accept={STAGING_FILE_ACCEPT}
           required
           helperText={
@@ -140,6 +183,26 @@ export default function StagingItemCard({
               ? draftCopy.savedOriginalFile(data.originalFilename)
               : undefined
           }
+          persistedFile={
+            !data.file && uploadedOriginalFile
+              ? {
+                  id: uploadedOriginalFile.id,
+                  filename: uploadedOriginalFile.originalFilename,
+                  fileSize: uploadedOriginalFile.fileSize,
+                  statusLabel: savedInDraftLabel,
+                }
+              : null
+          }
+          operationStatusText={originalOperationStatusText}
+          operationErrorText={originalOperationErrorText}
+          disabled={originalBusy}
+          retryDisabled={originalBusy}
+          removeDisabled={originalBusy}
+          onRetry={onRetryOriginalUpload}
+          onRemovePersisted={onRemoveUploadedOriginal}
+          retryLabel={retryUploadLabel}
+          replaceLabel={replaceFileLabel}
+          removePersistedLabel={removeSavedFileLabel}
         />
 
         {/* Furniture Style — visual picker (kept in sync with the dropdown below) */}
@@ -243,18 +306,42 @@ export default function StagingItemCard({
         <FileUpload
           label="Reference Image (optional)"
           file={data.referenceFile}
-          onFileChange={(file) =>
+          onFileChange={(file) => {
+            if (onReferenceFileSelected) {
+              onReferenceFileSelected(file);
+              return;
+            }
             onChange({
               ...data,
               referenceFile: file,
               ...updateReferenceFileDraftMetadata(data, file),
-            })
-          }
+            });
+          }}
           helperText={
             !data.referenceFile && data.referenceFilename
               ? draftCopy.savedReferenceFile(data.referenceFilename)
               : undefined
           }
+          persistedFile={
+            !data.referenceFile && uploadedReferenceFile
+              ? {
+                  id: uploadedReferenceFile.id,
+                  filename: uploadedReferenceFile.originalFilename,
+                  fileSize: uploadedReferenceFile.fileSize,
+                  statusLabel: savedInDraftLabel,
+                }
+              : null
+          }
+          operationStatusText={referenceOperationStatusText}
+          operationErrorText={referenceOperationErrorText}
+          disabled={referenceBusy}
+          retryDisabled={referenceBusy}
+          removeDisabled={referenceBusy}
+          onRetry={onRetryReferenceUpload}
+          onRemovePersisted={onRemoveUploadedReference}
+          retryLabel={retryUploadLabel}
+          replaceLabel={replaceFileLabel}
+          removePersistedLabel={removeSavedFileLabel}
         />
 
         {/* Additional Information */}

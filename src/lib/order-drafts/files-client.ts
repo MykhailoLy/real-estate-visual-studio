@@ -5,6 +5,8 @@ import type {
   PreparedOrderDraftFileUpload,
   DeletedOrderDraftFileSummary,
 } from "./files.ts";
+import { getSupabaseBrowser } from "../supabase.ts";
+import { ORDER_FILES_BUCKET } from "../upload-config.ts";
 
 export type OrderDraftFileClientErrorCode =
   | OrderDraftFilePublicErrorCode
@@ -20,6 +22,14 @@ export type OrderDraftFileClientResult<T> =
       code: OrderDraftFileClientErrorCode;
       message: string;
       details?: unknown;
+    };
+
+export type OrderDraftFileUploadResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code: "invalid_input" | "storage_error";
+      message: string;
     };
 
 interface ApiSuccess<T> {
@@ -136,4 +146,43 @@ export function deleteOrderDraftFile(
     `/api/order-drafts/${encodeURIComponent(draftId)}/files/${encodeURIComponent(fileId)}`,
     { method: "DELETE", signal },
   );
+}
+
+export async function uploadPreparedOrderDraftFile(
+  prepared: PreparedOrderDraftFileUpload,
+  file: File,
+): Promise<OrderDraftFileUploadResult> {
+  if (prepared.upload.bucket !== ORDER_FILES_BUCKET) {
+    return {
+      ok: false,
+      code: "invalid_input",
+      message: "Draft upload target was not valid.",
+    };
+  }
+
+  try {
+    const supabase = getSupabaseBrowser();
+    const { error } = await supabase.storage
+      .from(ORDER_FILES_BUCKET)
+      .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+
+    if (error) {
+      return {
+        ok: false,
+        code: "storage_error",
+        message: "Could not upload this file to draft storage.",
+      };
+    }
+
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      code: "storage_error",
+      message: "Could not upload this file to draft storage.",
+    };
+  }
 }
