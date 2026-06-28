@@ -65,7 +65,10 @@ import {
   type VirtualStagingAutosaveStatus,
   type VirtualStagingFormDraftSource,
 } from "@/lib/order-drafts/virtual-staging";
-import { submitVirtualStagingDraft } from "@/lib/order-drafts/finalization-client";
+import {
+  submitVirtualStagingDraft,
+  type DraftFinalizationClientResult,
+} from "@/lib/order-drafts/finalization-client";
 import {
   selectVirtualStagingDraftSubmissionMode,
   shouldApplyVirtualStagingFinalizationResult,
@@ -135,6 +138,7 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
   savedReferenceFile: (filename: string) => string;
   savedInDraft: string;
   creatingOrder: string;
+  retryOrderFinalization: string;
   filesCouldNotRestore: string;
   retryFiles: string;
   retryUpload: string;
@@ -155,6 +159,12 @@ type DraftSaveOutcome =
 type ItemUpdate = VirtualStagingItemUpdate<StagingItemData>;
 type UploadedDraftFilesUpdate =
   VirtualStagingItemUpdate<OrderDraftUploadedFileSummary>;
+
+interface FinalizationRetryContext {
+  draftId: string;
+  expectedVersion: number;
+  finalizationKey: string;
+}
 
 const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   en: {
@@ -189,6 +199,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       `Saved with draft: ${filename}. It will be used when you submit.`,
     savedInDraft: "Saved in draft",
     creatingOrder: "Creating order...",
+    retryOrderFinalization: "Retry order finalization",
     filesCouldNotRestore:
       "Saved draft files could not be loaded. You can keep editing and retry file restore.",
     retryFiles: "Retry files",
@@ -235,6 +246,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       `Guardado con el borrador: ${filename}. Se utilizará al enviar.`,
     savedInDraft: "Guardado en el borrador",
     creatingOrder: "Creando pedido...",
+    retryOrderFinalization: "Reintentar finalizacion del pedido",
     filesCouldNotRestore:
       "No se pudieron cargar los archivos guardados del borrador. Puedes seguir editando y reintentar la restauración de archivos.",
     retryFiles: "Reintentar archivos",
@@ -293,6 +305,8 @@ export default function VirtualStagingOrderForm({
     useState<VirtualStagingDraftFileOperationMap>({});
   const [draftFilesWarning, setDraftFilesWarning] = useState("");
   const [finalizationKey, setFinalizationKey] = useState<string | null>(null);
+  const [finalizationRetryContext, setFinalizationRetryContext] =
+    useState<FinalizationRetryContext | null>(null);
 
   const draftIdRef = useRef(draftId);
   const draftVersionRef = useRef(draftVersion);
@@ -300,6 +314,7 @@ export default function VirtualStagingOrderForm({
   const uploadedDraftFilesRef = useRef(uploadedDraftFiles);
   const draftFileOperationsRef = useRef(draftFileOperations);
   const finalizationKeyRef = useRef(finalizationKey);
+  const finalizationRetryContextRef = useRef(finalizationRetryContext);
   const mountedRef = useRef(false);
   const savedFingerprintRef = useRef<string | null>(null);
   const failedAutosaveFingerprintRef = useRef<string | null>(null);
@@ -358,8 +373,25 @@ export default function VirtualStagingOrderForm({
   }, [finalizationKey]);
 
   useEffect(() => {
+    finalizationRetryContextRef.current = finalizationRetryContext;
+  }, [finalizationRetryContext]);
+
+  useEffect(() => {
     isRestoringRef.current = resumeState === "loading";
   }, [resumeState]);
+
+  const storeFinalizationRetryContext = useCallback(
+    (context: FinalizationRetryContext) => {
+      finalizationRetryContextRef.current = context;
+      setFinalizationRetryContext(context);
+    },
+    [],
+  );
+
+  const clearFinalizationRetryContext = useCallback(() => {
+    finalizationRetryContextRef.current = null;
+    setFinalizationRetryContext(null);
+  }, []);
 
   const commitItems = useCallback((next: ItemUpdate): StagingItemData[] => {
     const current = itemsRef.current;
@@ -383,11 +415,12 @@ export default function VirtualStagingOrderForm({
   );
 
   const handleItemChange = (index: number, data: StagingItemData) => {
+    if (finalizationRetryContextRef.current) return;
     commitItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
 
   const handleAddItem = () => {
-    if (isSubmitting) return;
+    if (isSubmitting || finalizationRetryContextRef.current) return;
     commitItems((prev) => [...prev, emptyStagingItem()]);
   };
 
@@ -553,6 +586,7 @@ export default function VirtualStagingOrderForm({
     setSubmitError("");
     setFinalizationKey(null);
     finalizationKeyRef.current = null;
+    clearFinalizationRetryContext();
     setDraftError("");
     setConflictMessage(reset.identity.conflictMessage);
     setDraftId(reset.identity.draftId);
@@ -566,7 +600,13 @@ export default function VirtualStagingOrderForm({
     setResumeState(reset.identity.resumeState);
     isRestoringRef.current = false;
     replaceDraftUrl(reset.nextSearch);
-  }, [commitItems, commitUploadedDraftFiles, replaceDraftUrl, searchParams]);
+  }, [
+    clearFinalizationRetryContext,
+    commitItems,
+    commitUploadedDraftFiles,
+    replaceDraftUrl,
+    searchParams,
+  ]);
 
   const enqueueDraftSave = useCallback(
     (
@@ -585,6 +625,9 @@ export default function VirtualStagingOrderForm({
           return { ok: false };
         }
         if (isRestoringRef.current || resumeState === "loading") {
+          return { ok: false };
+        }
+        if (finalizationRetryContextRef.current) {
           return { ok: false };
         }
         if (
@@ -736,7 +779,7 @@ export default function VirtualStagingOrderForm({
       kind: VirtualStagingDraftFileSlotKind,
       file: File | null,
     ) => {
-      if (isSubmitting) return;
+      if (isSubmitting || finalizationRetryContextRef.current) return;
       const currentItems = itemsRef.current;
       const item = currentItems[index];
       if (!item) return;
@@ -949,7 +992,7 @@ export default function VirtualStagingOrderForm({
 
   const handleUploadedFileRemove = useCallback(
     async (clientItemId: string, kind: VirtualStagingDraftFileSlotKind) => {
-      if (isSubmitting) return;
+      if (isSubmitting || finalizationRetryContextRef.current) return;
       const currentDraftId = draftIdRef.current;
       const uploaded = getVirtualStagingUploadedFileForSlot(
         uploadedDraftFilesRef.current,
@@ -1052,7 +1095,7 @@ export default function VirtualStagingOrderForm({
 
   const handleRemoveItem = useCallback(
     async (index: number) => {
-      if (isSubmitting) return;
+      if (isSubmitting || finalizationRetryContextRef.current) return;
       const item = itemsRef.current[index];
       if (!item) return;
       const clientItemId = item.clientItemId;
@@ -1366,7 +1409,12 @@ export default function VirtualStagingOrderForm({
   }, [commitItems, copy, refreshUploadedDraftFiles, requestedDraftId, setRegion]);
 
   useEffect(() => {
-    if (resumeState !== "ready" || !hasMeaningfulDraft || saveStatus === "conflict") {
+    if (
+      finalizationRetryContext !== null ||
+      resumeState !== "ready" ||
+      !hasMeaningfulDraft ||
+      saveStatus === "conflict"
+    ) {
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -1376,14 +1424,23 @@ export default function VirtualStagingOrderForm({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [draftSource, hasMeaningfulDraft, resumeState, saveDraftNow, saveStatus]);
+  }, [
+    draftSource,
+    finalizationRetryContext,
+    hasMeaningfulDraft,
+    resumeState,
+    saveDraftNow,
+    saveStatus,
+  ]);
 
   const handleSaveAndExit = async () => {
+    if (finalizationRetryContextRef.current) return;
     const saved = await saveDraftNow({ force: true });
     if (saved) router.push("/dashboard/orders/new");
   };
 
   const handleReloadLatestDraft = async () => {
+    if (finalizationRetryContextRef.current) return;
     const currentDraftId = draftIdRef.current;
     if (!currentDraftId) return;
     setResumeState("loading");
@@ -1425,6 +1482,7 @@ export default function VirtualStagingOrderForm({
   };
 
   const handleRetryDraftFiles = async () => {
+    if (finalizationRetryContextRef.current) return;
     const currentDraftId = draftIdRef.current;
     if (!currentDraftId) return;
     await refreshUploadedDraftFiles(
@@ -1500,11 +1558,100 @@ export default function VirtualStagingOrderForm({
     }
   };
 
+  const applyDraftFinalizationResult = (
+    result: DraftFinalizationClientResult,
+    retryContext: FinalizationRetryContext,
+    sessionAtStart: number,
+  ): boolean => {
+    if (
+      !mountedRef.current ||
+      !shouldApplyVirtualStagingFinalizationResult({
+        startedSession: sessionAtStart,
+        currentSession: draftSessionRef.current,
+        startedKey: retryContext.finalizationKey,
+        currentKey: finalizationKeyRef.current,
+      })
+    ) {
+      return false;
+    }
+
+    if (result.ok) {
+      setOrderNumber(result.data.orderNumber);
+      setConfirmationEmailSent(result.data.confirmationEmailSent === true);
+      setSubmitted(true);
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
+      clearFinalizationRetryContext();
+      setIsSubmitting(false);
+      return true;
+    }
+
+    const shouldPreserveKey =
+      shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
+        code: result.code,
+        status: result.status,
+      });
+
+    if (shouldPreserveKey) {
+      finalizationKeyRef.current = retryContext.finalizationKey;
+      setFinalizationKey(retryContext.finalizationKey);
+      storeFinalizationRetryContext(retryContext);
+    } else {
+      setFinalizationKey(null);
+      finalizationKeyRef.current = null;
+      clearFinalizationRetryContext();
+    }
+
+    if (
+      result.code === "unauthenticated" &&
+      redirectOnOrderAuthError(
+        {
+          success: false,
+          error: result.message,
+          errorCode: "unauthorized",
+        },
+        orderRoute,
+      )
+    ) {
+      return true;
+    }
+    if (
+      result.code === "profile_incomplete" &&
+      redirectOnOrderAuthError(
+        {
+          success: false,
+          error: result.message,
+          errorCode: "profile-incomplete",
+        },
+        orderRoute,
+      )
+    ) {
+      return true;
+    }
+
+    setIsSubmitting(false);
+    setSubmitError(result.message || "Submission failed. Please try again.");
+    return true;
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
     const sessionAtStart = draftSessionRef.current;
     setIsSubmitting(true);
     setSubmitError("");
+
+    const retryContext = finalizationRetryContextRef.current;
+    if (retryContext) {
+      finalizationKeyRef.current = retryContext.finalizationKey;
+      setFinalizationKey(retryContext.finalizationKey);
+      const result = await submitVirtualStagingDraft(
+        retryContext.draftId,
+        retryContext.expectedVersion,
+        retryContext.finalizationKey,
+      );
+      applyDraftFinalizationResult(result, retryContext, sessionAtStart);
+      return;
+    }
 
     const saveOutcome = await enqueueDraftSave(buildDraftSourceSnapshot(), {
       force: true,
@@ -1571,6 +1718,7 @@ export default function VirtualStagingOrderForm({
     if (decision.mode === "local_upload_fallback") {
       finalizationKeyRef.current = null;
       setFinalizationKey(null);
+      clearFinalizationRetryContext();
       const result = await submitCurrentLocalOrder(currentItems);
       if (result.success && result.orderNumber) {
         await retireSubmittedDraftBestEffort(
@@ -1601,72 +1749,18 @@ export default function VirtualStagingOrderForm({
     const key = finalizationKeyRef.current ?? createFinalizationKey();
     finalizationKeyRef.current = key;
     setFinalizationKey(key);
+    const nextRetryContext = {
+      draftId: saveOutcome.draftId,
+      expectedVersion: saveOutcome.version,
+      finalizationKey: key,
+    };
 
     const result = await submitVirtualStagingDraft(
-      saveOutcome.draftId,
-      saveOutcome.version,
-      key,
+      nextRetryContext.draftId,
+      nextRetryContext.expectedVersion,
+      nextRetryContext.finalizationKey,
     );
-    if (
-      !mountedRef.current ||
-      !shouldApplyVirtualStagingFinalizationResult({
-        startedSession: sessionAtStart,
-        currentSession: draftSessionRef.current,
-        startedKey: key,
-        currentKey: finalizationKeyRef.current,
-      })
-    ) {
-      return;
-    }
-
-    if (result.ok) {
-      setOrderNumber(result.data.orderNumber);
-      setConfirmationEmailSent(result.data.confirmationEmailSent === true);
-      setSubmitted(true);
-      setFinalizationKey(null);
-      finalizationKeyRef.current = null;
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (
-      result.code === "unauthenticated" &&
-      redirectOnOrderAuthError(
-        {
-          success: false,
-          error: result.message,
-          errorCode: "unauthorized",
-        },
-        orderRoute,
-      )
-    ) {
-      return;
-    }
-    if (
-      result.code === "profile_incomplete" &&
-      redirectOnOrderAuthError(
-        {
-          success: false,
-          error: result.message,
-          errorCode: "profile-incomplete",
-        },
-        orderRoute,
-      )
-    ) {
-      return;
-    }
-
-    if (
-      !shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
-        code: result.code,
-        status: result.status,
-      })
-    ) {
-      setFinalizationKey(null);
-      finalizationKeyRef.current = null;
-    }
-    setIsSubmitting(false);
-    setSubmitError(result.message || "Submission failed. Please try again.");
+    applyDraftFinalizationResult(result, nextRetryContext, sessionAtStart);
   };
 
   const handleNewOrder = startNewVirtualStagingOrder;
@@ -1692,14 +1786,17 @@ export default function VirtualStagingOrderForm({
     itemsWithOriginalSources,
   );
   const termsAccepted = orderTerms.accepted;
+  const hasFinalizationRetryContext = finalizationRetryContext !== null;
   const canSubmit =
-    items.length > 0 &&
-    allItemsValid &&
-    originalsReady &&
-    termsAccepted &&
-    isJobTitleValid(jobTitle) &&
-    !hasActiveDraftFileOperation &&
-    !isSubmitting;
+    hasFinalizationRetryContext
+      ? !isSubmitting
+      : items.length > 0 &&
+        allItemsValid &&
+        originalsReady &&
+        termsAccepted &&
+        isJobTitleValid(jobTitle) &&
+        !hasActiveDraftFileOperation &&
+        !isSubmitting;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -1797,7 +1894,16 @@ export default function VirtualStagingOrderForm({
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}
-          submittingLabel={copy.creatingOrder}
+          submitLabel={
+            hasFinalizationRetryContext
+              ? copy.retryOrderFinalization
+              : undefined
+          }
+          submittingLabel={
+            hasFinalizationRetryContext
+              ? copy.retryOrderFinalization
+              : copy.creatingOrder
+          }
         />
       }
     >
@@ -1816,7 +1922,12 @@ export default function VirtualStagingOrderForm({
         <button
           type="button"
           onClick={handleSaveAndExit}
-          disabled={isSubmitting || saveStatus === "saving" || hasActiveDraftFileOperation}
+          disabled={
+            hasFinalizationRetryContext ||
+            isSubmitting ||
+            saveStatus === "saving" ||
+            hasActiveDraftFileOperation
+          }
           className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           <Save className="h-4 w-4" />
@@ -1836,7 +1947,8 @@ export default function VirtualStagingOrderForm({
           <button
             type="button"
             onClick={handleRetryDraftFiles}
-            className="inline-flex w-full items-center justify-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 sm:w-auto"
+            disabled={hasFinalizationRetryContext}
+            className="inline-flex w-full items-center justify-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {copy.retryFiles}
           </button>
@@ -1876,7 +1988,11 @@ export default function VirtualStagingOrderForm({
         </div>
       )}
 
-      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
+      <OrderJobTitleField
+        value={jobTitle}
+        onChange={setJobTitle}
+        disabled={hasFinalizationRetryContext || isSubmitting}
+      />
 
       <div className="space-y-5">
         {items.map((item, index) => {
@@ -1902,6 +2018,7 @@ export default function VirtualStagingOrderForm({
               onRemove={() => void handleRemoveItem(index)}
               canRemove={items.length > 1}
               removeDisabled={
+                hasFinalizationRetryContext ||
                 isSubmitting ||
                 isVirtualStagingDraftFileSlotOperationActive(
                   originalOperation,
@@ -1927,13 +2044,16 @@ export default function VirtualStagingOrderForm({
               originalOperationErrorText={originalOperation?.error ?? undefined}
               referenceOperationErrorText={referenceOperation?.error ?? undefined}
               originalBusy={
+                hasFinalizationRetryContext ||
                 isSubmitting ||
                 isVirtualStagingDraftFileSlotOperationActive(originalOperation)
               }
               referenceBusy={
+                hasFinalizationRetryContext ||
                 isSubmitting ||
                 isVirtualStagingDraftFileSlotOperationActive(referenceOperation)
               }
+              disabled={hasFinalizationRetryContext || isSubmitting}
               onOriginalFileSelected={(file) =>
                 void handleDraftFileSelected(index, "original", file)
               }
@@ -1972,14 +2092,18 @@ export default function VirtualStagingOrderForm({
       <button
         type="button"
         onClick={handleAddItem}
-        disabled={isSubmitting}
+        disabled={hasFinalizationRetryContext || isSubmitting}
         className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="w-4 h-4" />
         Add Another Image
       </button>
 
-      <OrderTermsBlock data={orderTerms} onChange={setOrderTerms} />
+      <OrderTermsBlock
+        data={orderTerms}
+        onChange={setOrderTerms}
+        disabled={hasFinalizationRetryContext || isSubmitting}
+      />
     </OrderLayout>
   );
 }

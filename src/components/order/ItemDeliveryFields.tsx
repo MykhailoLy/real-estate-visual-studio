@@ -34,6 +34,8 @@ interface ItemDeliveryFieldsProps {
    * so existing callers are unaffected.
    */
   disableFileSizeLimit?: boolean;
+  /** When true, both item delivery fields are read-only. */
+  disabled?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export default function ItemDeliveryFields({
   onChange,
   idPrefix,
   disableFileSizeLimit = false,
+  disabled = false,
 }: ItemDeliveryFieldsProps) {
   const sizeId = idPrefix ? `${idPrefix}-file-size-limit` : undefined;
   const discId = idPrefix ? `${idPrefix}-disclaimer-text` : undefined;
@@ -69,7 +72,7 @@ export default function ItemDeliveryFields({
         <select
           id={sizeId}
           value={data.fileSizeLimit}
-          disabled={disableFileSizeLimit}
+          disabled={disabled || disableFileSizeLimit}
           onChange={(e) =>
             onChange({ ...data, fileSizeLimit: e.target.value })
           }
@@ -98,13 +101,14 @@ export default function ItemDeliveryFields({
         <textarea
           id={discId}
           value={data.disclaimerText}
+          disabled={disabled}
           onChange={(e) =>
             onChange({ ...data, disclaimerText: e.target.value })
           }
           placeholder="Enter any required disclaimer text..."
           rows={3}
           maxLength={2000}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
     </div>

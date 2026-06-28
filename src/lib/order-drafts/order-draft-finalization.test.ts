@@ -38,9 +38,29 @@ const FINALIZATION_KEY = "77777777-7777-4777-8777-777777777777";
 const ORDER_ID = "88888888-8888-4888-8888-888888888888";
 
 const SQL = readFileSync("supabase/add-order-draft-finalization.sql", "utf8");
+const SQL_COMPLETE_AMBIGUITY_PATCH = readFileSync(
+  "supabase/fix-order-draft-finalization-complete-ambiguity.sql",
+  "utf8",
+);
 const ORDER_ROUTE = readFileSync("src/app/(public)/api/order/route.ts", "utf8");
 const VIRTUAL_STAGING_FORM = readFileSync(
   "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
+  "utf8",
+);
+const STAGING_ITEM_CARD = readFileSync(
+  "src/components/order/virtual-staging/StagingItemCard.tsx",
+  "utf8",
+);
+const STYLE_SELECTOR = readFileSync(
+  "src/components/order/virtual-staging/StyleSelector.tsx",
+  "utf8",
+);
+const ORDER_JOB_TITLE_FIELD = readFileSync(
+  "src/components/order/OrderJobTitleField.tsx",
+  "utf8",
+);
+const ORDER_TERMS_BLOCK = readFileSync(
+  "src/components/order/OrderTermsBlock.tsx",
   "utf8",
 );
 const FINALIZATION_SERVER = readFileSync(
@@ -139,6 +159,13 @@ function draftFile(overrides: Partial<OrderDraftFileRow> = {}): OrderDraftFileRo
     movedAt: null,
     ...overrides,
   };
+}
+
+function sqlFunctionBody(sql: string, functionName: string): string {
+  const start = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${functionName}`);
+  assert.ok(start >= 0, `${functionName} was not found`);
+  const end = sql.indexOf("\n-- ------------------------------------------------------------", start + 1);
+  return end >= 0 ? sql.slice(start, end) : sql.slice(start);
 }
 
 test("finalization body validation accepts expected version and UUID key", () => {
@@ -484,7 +511,7 @@ test("existing order with uncompleted draft is reconciled", () => {
 test("matching owned source-draft order allows reconciliation", () => {
   assert.match(
     SQL,
-    /v_owned_source_order_id[\s\S]+orders\.user_id IS NOT DISTINCT FROM p_user_id/,
+    /v_owned_source_order_id[\s\S]+source_orders\.user_id IS NOT DISTINCT FROM p_user_id/,
   );
   assert.match(
     SQL,
@@ -498,9 +525,9 @@ test("source-draft order with NULL user blocks release", () => {
   const releaseSql = SQL.slice(releaseStart, releaseEnd);
   assert.match(
     releaseSql,
-    /WHERE orders\.source_draft_id IS NOT DISTINCT FROM p_draft_id\s+LIMIT 1/,
+    /WHERE source_orders\.source_draft_id IS NOT DISTINCT FROM p_draft_id\s+LIMIT 1/,
   );
-  assert.doesNotMatch(releaseSql, /orders\.user_id IS NOT DISTINCT FROM p_user_id/);
+  assert.doesNotMatch(releaseSql, /source_orders\.user_id IS NOT DISTINCT FROM p_user_id/);
   assert.match(releaseSql, /RETURN QUERY SELECT 'order_exists'::text/);
 });
 
@@ -509,7 +536,7 @@ test("source-draft order with another user blocks release", () => {
   const releaseEnd = SQL.indexOf("CREATE OR REPLACE FUNCTION public.recover_stale_order_draft_finalization", releaseStart);
   const releaseSql = SQL.slice(releaseStart, releaseEnd);
   assert.match(releaseSql, /v_existing_source_order_id IS NOT NULL/);
-  assert.doesNotMatch(releaseSql, /AND orders\.user_id/);
+  assert.doesNotMatch(releaseSql, /AND source_orders\.user_id/);
 });
 
 test("inconsistent source-order ownership never allows a new claim", () => {
@@ -518,6 +545,65 @@ test("inconsistent source-order ownership never allows a new claim", () => {
   assert.match(
     SQL,
     /RETURN QUERY SELECT 'invalid_status'::text, v_draft\.id, NULL::uuid/,
+  );
+});
+
+test("finalization RPC SQL qualifies source-order aliases", () => {
+  const claimSql = sqlFunctionBody(SQL, "claim_order_draft_finalization");
+  const releaseSql = sqlFunctionBody(SQL, "release_order_draft_finalization");
+  const recoverySql = sqlFunctionBody(SQL, "recover_stale_order_draft_finalization");
+  assert.match(claimSql, /SELECT source_orders\.id[\s\S]+FROM public\.orders AS source_orders/);
+  assert.match(releaseSql, /SELECT source_orders\.id[\s\S]+FROM public\.orders AS source_orders/);
+  assert.match(recoverySql, /FROM public\.orders AS source_orders/);
+  assert.doesNotMatch(claimSql + releaseSql + recoverySql, /SELECT orders\.id/);
+});
+
+test("complete RPC SQL qualifies ambiguous draft-file identifiers", () => {
+  const completeSql = sqlFunctionBody(SQL, "complete_order_draft_finalization");
+  assert.match(completeSql, /SELECT moved_entry\.value\s+FROM jsonb_array_elements\(p_moved_files\) AS moved_entry\(value\)/);
+  assert.match(completeSql, /array_agg\(live_files\.id\)/);
+  assert.match(completeSql, /SELECT files\.id\s+FROM public\.order_draft_files AS files/);
+  assert.match(completeSql, /WHERE files\.draft_id = p_draft_id/);
+  assert.match(completeSql, /SELECT moved\.file_id, moved\.final_path\s+FROM unnest\(v_moved_ids, v_moved_paths\) AS moved\(file_id, final_path\)/);
+  assert.doesNotMatch(completeSql, /\barray_agg\(id\)/);
+  assert.doesNotMatch(completeSql, /\bWHERE draft_id = p_draft_id/);
+  assert.doesNotMatch(completeSql, /\bAND draft_id = p_draft_id/);
+});
+
+test("one-time complete ambiguity patch only replaces the complete RPC", () => {
+  assert.match(
+    SQL_COMPLETE_AMBIGUITY_PATCH,
+    /CREATE OR REPLACE FUNCTION public\.complete_order_draft_finalization/,
+  );
+  assert.doesNotMatch(
+    SQL_COMPLETE_AMBIGUITY_PATCH,
+    /CREATE OR REPLACE FUNCTION public\.(claim|release|recover_stale)_order_draft_finalization/,
+  );
+  assert.doesNotMatch(
+    SQL_COMPLETE_AMBIGUITY_PATCH,
+    /\b(PERFORM|SELECT)\s+public\.complete_order_draft_finalization\(/,
+  );
+});
+
+test("one-time complete ambiguity patch preserves service-role-only security", () => {
+  assert.match(SQL_COMPLETE_AMBIGUITY_PATCH, /LANGUAGE plpgsql\s+SECURITY DEFINER\s+SET search_path = pg_catalog, public/);
+  assert.match(
+    SQL_COMPLETE_AMBIGUITY_PATCH,
+    /REVOKE ALL ON FUNCTION public\.complete_order_draft_finalization\([\s\S]+FROM PUBLIC, anon, authenticated/,
+  );
+  assert.match(
+    SQL_COMPLETE_AMBIGUITY_PATCH,
+    /GRANT EXECUTE ON FUNCTION public\.complete_order_draft_finalization\([\s\S]+TO service_role/,
+  );
+});
+
+test("one-time complete ambiguity patch has no top-level row mutation", () => {
+  const functionEnd = SQL_COMPLETE_AMBIGUITY_PATCH.indexOf("$$;");
+  assert.ok(functionEnd >= 0);
+  const patchTail = SQL_COMPLETE_AMBIGUITY_PATCH.slice(functionEnd + 3);
+  assert.doesNotMatch(
+    patchTail,
+    /\b(UPDATE|INSERT INTO|DELETE FROM)\s+public\.(orders|order_drafts|order_draft_files)\b/i,
   );
 });
 
@@ -562,7 +648,7 @@ test("stale no-order claim is recoverable", () => {
 test("stale claim with an existing order is not released", () => {
   assert.match(
     SQL,
-    /NOT EXISTS \(\s+SELECT 1\s+FROM public\.orders\s+WHERE orders\.source_draft_id IS NOT DISTINCT FROM drafts\.id/s,
+    /NOT EXISTS \(\s+SELECT 1\s+FROM public\.orders AS source_orders\s+WHERE source_orders\.source_draft_id IS NOT DISTINCT FROM drafts\.id/s,
   );
 });
 
@@ -572,9 +658,9 @@ test("stale recovery still does not release drafts with any source order", () =>
   const recoverySql = SQL.slice(recoveryStart, recoveryEnd);
   assert.match(
     recoverySql,
-    /WHERE orders\.source_draft_id IS NOT DISTINCT FROM drafts\.id/,
+    /WHERE source_orders\.source_draft_id IS NOT DISTINCT FROM drafts\.id/,
   );
-  assert.doesNotMatch(recoverySql, /orders\.user_id IS NOT DISTINCT FROM p_user_id/);
+  assert.doesNotMatch(recoverySql, /source_orders\.user_id IS NOT DISTINCT FROM p_user_id/);
 });
 
 test("converting draft becomes resumable after safe stale recovery", () => {
@@ -717,10 +803,108 @@ test("retry after ambiguous failure reuses the same finalization key", () => {
     VIRTUAL_STAGING_FORM,
     /const key = finalizationKeyRef\.current \?\? createFinalizationKey\(\)/,
   );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /finalizationKey: key/,
+  );
   assert.equal(shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
     code: "database_error",
     status: 500,
   }), true);
+});
+
+test("ambiguous finalization failure stores the draft retry target", () => {
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /const nextRetryContext = \{\s+draftId: saveOutcome\.draftId,\s+expectedVersion: saveOutcome\.version,\s+finalizationKey: key,\s+\}/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(shouldPreserveKey\) \{[\s\S]+storeFinalizationRetryContext\(retryContext\)/,
+  );
+});
+
+test("retry submit bypasses draft save, file refresh, and legacy submit", () => {
+  const retryStart = VIRTUAL_STAGING_FORM.indexOf(
+    "const retryContext = finalizationRetryContextRef.current",
+  );
+  const retryEnd = VIRTUAL_STAGING_FORM.indexOf(
+    "const saveOutcome = await enqueueDraftSave",
+    retryStart,
+  );
+  assert.ok(retryStart >= 0);
+  assert.ok(retryEnd > retryStart);
+  const retryBranch = VIRTUAL_STAGING_FORM.slice(retryStart, retryEnd);
+  assert.match(
+    retryBranch,
+    /submitVirtualStagingDraft\(\s+retryContext\.draftId,\s+retryContext\.expectedVersion,\s+retryContext\.finalizationKey,/,
+  );
+  assert.doesNotMatch(retryBranch, /enqueueDraftSave/);
+  assert.doesNotMatch(retryBranch, /refreshUploadedDraftFiles/);
+  assert.doesNotMatch(retryBranch, /selectVirtualStagingDraftSubmissionMode/);
+  assert.doesNotMatch(retryBranch, /submitCurrentLocalOrder|submitOrder/);
+});
+
+test("retry context is reused without automatic finalization retry", () => {
+  assert.equal(shouldAutomaticallyRetryVirtualStagingFinalization(), false);
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(retryContext\) \{[\s\S]+submitVirtualStagingDraft\(/,
+  );
+  assert.doesNotMatch(
+    VIRTUAL_STAGING_FORM,
+    /setTimeout\(\s*\(\) => \{?\s*(?:void\s+)?submitVirtualStagingDraft/,
+  );
+});
+
+test("finalization retry context freezes draft edits and autosave", () => {
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(finalizationRetryContextRef\.current\) \{\s+return \{ ok: false \};\s+\}/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /finalizationRetryContext !== null[\s\S]+return;/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(isSubmitting \|\| finalizationRetryContextRef\.current\) return;/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /disabled=\{hasFinalizationRetryContext \|\| isSubmitting\}/,
+  );
+});
+
+test("retry context uses a dedicated submit label", () => {
+  assert.match(VIRTUAL_STAGING_FORM, /retryOrderFinalization: "Retry order finalization"/);
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /hasFinalizationRetryContext[\s\S]+\? copy\.retryOrderFinalization/,
+  );
+});
+
+test("definite finalization outcomes clear the retry context", () => {
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(result\.ok\) \{[\s\S]+clearFinalizationRetryContext\(\)/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /else \{[\s\S]+clearFinalizationRetryContext\(\)/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /const startNewVirtualStagingOrder[\s\S]+clearFinalizationRetryContext\(\)/,
+  );
+});
+
+test("retry context disables child order controls", () => {
+  assert.match(STAGING_ITEM_CARD, /disabled\?: boolean/);
+  assert.match(STAGING_ITEM_CARD, /const originalDisabled = disabled \|\| originalBusy/);
+  assert.match(STYLE_SELECTOR, /disabled\?: boolean/);
+  assert.match(ORDER_JOB_TITLE_FIELD, /disabled\?: boolean/);
+  assert.match(ORDER_TERMS_BLOCK, /disabled\?: boolean/);
 });
 
 test("definite validation failure clears the logical finalization key", () => {

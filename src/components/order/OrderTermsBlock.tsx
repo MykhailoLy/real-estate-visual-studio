@@ -33,11 +33,13 @@ export const emptyOrderTerms: OrderTermsData = {
 interface OrderTermsBlockProps {
   data: OrderTermsData;
   onChange: (data: OrderTermsData) => void;
+  disabled?: boolean;
 }
 
 export default function OrderTermsBlock({
   data,
   onChange,
+  disabled = false,
 }: OrderTermsBlockProps) {
   const update = <K extends keyof OrderTermsData>(
     field: K,
@@ -64,13 +66,20 @@ export default function OrderTermsBlock({
 
       <div className="space-y-4">
         {/* Required: Terms & Conditions */}
-        <label className="flex items-start gap-3 p-4 rounded-lg border border-border bg-surface/50 hover:border-primary/40 transition-colors cursor-pointer">
+        <label
+          className={`flex items-start gap-3 p-4 rounded-lg border border-border bg-surface/50 transition-colors ${
+            disabled
+              ? "cursor-not-allowed opacity-70"
+              : "cursor-pointer hover:border-primary/40"
+          }`}
+        >
           <input
             type="checkbox"
             checked={data.accepted}
+            disabled={disabled}
             onChange={(e) => update("accepted", e.target.checked)}
             aria-required="true"
-            className="w-4 h-4 mt-0.5 rounded text-primary border-border focus:ring-primary flex-shrink-0"
+            className="w-4 h-4 mt-0.5 rounded text-primary border-border focus:ring-primary flex-shrink-0 disabled:cursor-not-allowed"
           />
           <span className="text-sm text-foreground leading-relaxed">
             I have read and agree to the{" "}
@@ -87,12 +96,19 @@ export default function OrderTermsBlock({
         </label>
 
         {/* Optional: Portfolio permission */}
-        <label className="flex items-start gap-3 p-4 rounded-lg border border-border bg-white hover:border-primary/40 transition-colors cursor-pointer">
+        <label
+          className={`flex items-start gap-3 p-4 rounded-lg border border-border bg-white transition-colors ${
+            disabled
+              ? "cursor-not-allowed opacity-70"
+              : "cursor-pointer hover:border-primary/40"
+          }`}
+        >
           <input
             type="checkbox"
             checked={data.allowPortfolio}
+            disabled={disabled}
             onChange={(e) => update("allowPortfolio", e.target.checked)}
-            className="w-4 h-4 mt-0.5 rounded text-primary border-border focus:ring-primary flex-shrink-0"
+            className="w-4 h-4 mt-0.5 rounded text-primary border-border focus:ring-primary flex-shrink-0 disabled:cursor-not-allowed"
           />
           <span className="text-sm text-foreground leading-relaxed">
             I allow PicchuSpot to use before/after examples from this

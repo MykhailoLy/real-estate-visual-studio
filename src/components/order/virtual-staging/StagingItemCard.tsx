@@ -67,6 +67,7 @@ interface StagingItemCardProps {
   onChange: (data: StagingItemData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  disabled?: boolean;
   removeDisabled?: boolean;
   draftCopy?: {
     savedOriginalFile: (filename: string) => string;
@@ -105,6 +106,7 @@ export default function StagingItemCard({
   onChange,
   onRemove,
   canRemove,
+  disabled = false,
   removeDisabled = false,
   draftCopy = DEFAULT_DRAFT_COPY,
   uploadedOriginalFile,
@@ -133,7 +135,10 @@ export default function StagingItemCard({
   const furnitureStyleId = `${fieldIdPrefix}-furniture-style`;
   const referenceLinkId = `${fieldIdPrefix}-reference-link`;
   const additionalInfoId = `${fieldIdPrefix}-additional-info`;
+  const originalDisabled = disabled || originalBusy;
+  const referenceDisabled = disabled || referenceBusy;
   const toggleAddon = (id: string) => {
+    if (disabled) return;
     const current = data.selectedAddons;
     const updated = current.includes(id)
       ? current.filter((a) => a !== id)
@@ -154,7 +159,7 @@ export default function StagingItemCard({
           <button
             type="button"
             onClick={onRemove}
-            disabled={removeDisabled}
+            disabled={disabled || removeDisabled}
             className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Remove image ${index + 1}`}
           >
@@ -198,9 +203,9 @@ export default function StagingItemCard({
           }
           operationStatusText={originalOperationStatusText}
           operationErrorText={originalOperationErrorText}
-          disabled={originalBusy}
-          retryDisabled={originalBusy}
-          removeDisabled={originalBusy}
+          disabled={originalDisabled}
+          retryDisabled={originalDisabled}
+          removeDisabled={originalDisabled}
           onRetry={onRetryOriginalUpload}
           onRemovePersisted={onRemoveUploadedOriginal}
           retryLabel={retryUploadLabel}
@@ -224,6 +229,7 @@ export default function StagingItemCard({
             onChange={(label) => onChange({ ...data, furnitureStyle: label })}
             groupName={`${fieldIdPrefix}-visual-style`}
             ariaLabelledBy={visualStyleLabelId}
+            disabled={disabled}
           />
         </div>
 
@@ -239,8 +245,9 @@ export default function StagingItemCard({
             <select
               id={roomNameId}
               value={data.roomName}
+              disabled={disabled}
               onChange={(e) => onChange({ ...data, roomName: e.target.value })}
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">Select room...</option>
               {STAGING_ROOM_OPTIONS.map((room) => (
@@ -260,10 +267,11 @@ export default function StagingItemCard({
             <select
               id={furnitureStyleId}
               value={data.furnitureStyle}
+              disabled={disabled}
               onChange={(e) =>
                 onChange({ ...data, furnitureStyle: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">Select style...</option>
               {STAGING_STYLE_OPTIONS.map((style) => (
@@ -283,6 +291,7 @@ export default function StagingItemCard({
             disclaimerText: data.disclaimerText,
           }}
           onChange={(prefs) => onChange({ ...data, ...prefs })}
+          disabled={disabled}
         />
 
         {/* Reference Link */}
@@ -297,11 +306,12 @@ export default function StagingItemCard({
             id={referenceLinkId}
             type="url"
             value={data.referenceLink}
+            disabled={disabled}
             onChange={(e) =>
               onChange({ ...data, referenceLink: e.target.value })
             }
             placeholder="https://example.com/inspiration"
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
           />
         </div>
 
@@ -337,9 +347,9 @@ export default function StagingItemCard({
           }
           operationStatusText={referenceOperationStatusText}
           operationErrorText={referenceOperationErrorText}
-          disabled={referenceBusy}
-          retryDisabled={referenceBusy}
-          removeDisabled={referenceBusy}
+          disabled={referenceDisabled}
+          retryDisabled={referenceDisabled}
+          removeDisabled={referenceDisabled}
           onRetry={onRetryReferenceUpload}
           onRemovePersisted={onRemoveUploadedReference}
           retryLabel={retryUploadLabel}
@@ -358,12 +368,13 @@ export default function StagingItemCard({
           <textarea
             id={additionalInfoId}
             value={data.additionalInfo}
+            disabled={disabled}
             onChange={(e) =>
               onChange({ ...data, additionalInfo: e.target.value })
             }
             placeholder="Any specific requirements for this image..."
             rows={2}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
           />
         </div>
 
@@ -376,14 +387,19 @@ export default function StagingItemCard({
             {STAGING_ADDONS.map((addon) => (
               <label
                 key={addon.id}
-                className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-surface cursor-pointer transition-colors"
+                className={`flex items-center justify-between p-3 rounded-lg border border-border transition-colors ${
+                  disabled
+                    ? "cursor-not-allowed opacity-70"
+                    : "cursor-pointer hover:bg-surface"
+                }`}
               >
                 <div className="flex items-center gap-2.5">
                   <input
                     type="checkbox"
                     checked={data.selectedAddons.includes(addon.id)}
+                    disabled={disabled}
                     onChange={() => toggleAddon(addon.id)}
-                    className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+                    className="w-4 h-4 rounded text-primary border-border focus:ring-primary disabled:cursor-not-allowed"
                   />
                   <span className="text-sm text-foreground">{addon.label}</span>
                 </div>

@@ -90,10 +90,10 @@ DECLARE
   v_stale_claim_cutoff timestamptz := now() - interval '15 minutes';
   v_updated_draft_count integer;
 BEGIN
-  SELECT *
+  SELECT drafts.*
     INTO v_draft
-    FROM public.order_drafts
-   WHERE id = p_draft_id
+    FROM public.order_drafts AS drafts
+   WHERE drafts.id = p_draft_id
    FOR UPDATE;
 
   IF NOT FOUND OR v_draft.user_id IS DISTINCT FROM p_user_id THEN
@@ -107,17 +107,17 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT orders.id
+  SELECT source_orders.id
     INTO v_any_source_order_id
-    FROM public.orders
-   WHERE orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
+    FROM public.orders AS source_orders
+   WHERE source_orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
    LIMIT 1;
 
-  SELECT orders.id
+  SELECT source_orders.id
     INTO v_owned_source_order_id
-    FROM public.orders
-   WHERE orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
-     AND orders.user_id IS NOT DISTINCT FROM p_user_id
+    FROM public.orders AS source_orders
+   WHERE source_orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
+     AND source_orders.user_id IS NOT DISTINCT FROM p_user_id
    LIMIT 1;
 
   IF v_any_source_order_id IS NOT NULL
@@ -156,8 +156,8 @@ BEGIN
       UPDATE public.order_drafts
          SET status = 'converting',
              finalization_key = p_finalization_key
-       WHERE id = p_draft_id
-         AND status = 'active';
+       WHERE order_drafts.id = p_draft_id
+         AND order_drafts.status = 'active';
     END IF;
 
     RETURN QUERY SELECT 'already_claimed'::text, p_draft_id, v_owned_source_order_id;
@@ -177,12 +177,12 @@ BEGIN
     IF v_draft.updated_at <= v_stale_claim_cutoff THEN
       UPDATE public.order_drafts
          SET finalization_key = p_finalization_key
-       WHERE id = p_draft_id
-         AND status = 'converting'
+       WHERE order_drafts.id = p_draft_id
+         AND order_drafts.status = 'converting'
          AND NOT EXISTS (
            SELECT 1
-             FROM public.orders
-            WHERE orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
+             FROM public.orders AS source_orders
+            WHERE source_orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
          );
 
       GET DIAGNOSTICS v_updated_draft_count = ROW_COUNT;
@@ -212,8 +212,8 @@ BEGIN
   UPDATE public.order_drafts
      SET status = 'converting',
          finalization_key = p_finalization_key
-   WHERE id = p_draft_id
-     AND status = 'active';
+   WHERE order_drafts.id = p_draft_id
+     AND order_drafts.status = 'active';
 
   RETURN QUERY SELECT 'claimed'::text, p_draft_id, NULL::uuid;
 END;
@@ -260,10 +260,10 @@ DECLARE
   v_draft public.order_drafts%ROWTYPE;
   v_existing_source_order_id uuid;
 BEGIN
-  SELECT *
+  SELECT drafts.*
     INTO v_draft
-    FROM public.order_drafts
-   WHERE id = p_draft_id
+    FROM public.order_drafts AS drafts
+   WHERE drafts.id = p_draft_id
    FOR UPDATE;
 
   IF NOT FOUND OR v_draft.user_id IS DISTINCT FROM p_user_id THEN
@@ -271,10 +271,10 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT orders.id
+  SELECT source_orders.id
     INTO v_existing_source_order_id
-    FROM public.orders
-   WHERE orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
+    FROM public.orders AS source_orders
+   WHERE source_orders.source_draft_id IS NOT DISTINCT FROM p_draft_id
    LIMIT 1;
 
   IF v_existing_source_order_id IS NOT NULL THEN
@@ -306,9 +306,9 @@ BEGIN
   UPDATE public.order_drafts
      SET status = 'active',
          finalization_key = NULL
-   WHERE id = p_draft_id
-     AND status = 'converting'
-     AND finalization_key IS NOT DISTINCT FROM p_finalization_key;
+   WHERE order_drafts.id = p_draft_id
+     AND order_drafts.status = 'converting'
+     AND order_drafts.finalization_key IS NOT DISTINCT FROM p_finalization_key;
 
   RETURN QUERY SELECT 'released'::text, p_draft_id;
 END;
@@ -359,8 +359,8 @@ BEGIN
        AND drafts.updated_at <= v_stale_claim_cutoff
        AND NOT EXISTS (
          SELECT 1
-           FROM public.orders
-          WHERE orders.source_draft_id IS NOT DISTINCT FROM drafts.id
+           FROM public.orders AS source_orders
+          WHERE source_orders.source_draft_id IS NOT DISTINCT FROM drafts.id
        )
      FOR UPDATE
   )
@@ -418,10 +418,10 @@ DECLARE
   v_updated_file_count integer;
   v_updated_draft_count integer;
 BEGIN
-  SELECT *
+  SELECT drafts.*
     INTO v_draft
-    FROM public.order_drafts
-   WHERE id = p_draft_id
+    FROM public.order_drafts AS drafts
+   WHERE drafts.id = p_draft_id
    FOR UPDATE;
 
   IF NOT FOUND OR v_draft.user_id IS DISTINCT FROM p_user_id THEN
@@ -429,10 +429,10 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT *
+  SELECT orders.*
     INTO v_order
-    FROM public.orders
-   WHERE id = p_order_id
+    FROM public.orders AS orders
+   WHERE orders.id = p_order_id
    FOR UPDATE;
 
   IF NOT FOUND
@@ -465,7 +465,8 @@ BEGIN
   END IF;
 
   FOR v_entry IN
-    SELECT value FROM jsonb_array_elements(p_moved_files)
+    SELECT moved_entry.value
+      FROM jsonb_array_elements(p_moved_files) AS moved_entry(value)
   LOOP
     IF jsonb_typeof(v_entry) IS DISTINCT FROM 'object'
        OR NOT (v_entry ? 'fileId')
@@ -494,14 +495,14 @@ BEGIN
     v_moved_paths := array_append(v_moved_paths, v_final_path);
   END LOOP;
 
-  SELECT COALESCE(array_agg(id), ARRAY[]::uuid[]), count(*)::integer
+  SELECT COALESCE(array_agg(live_files.id), ARRAY[]::uuid[]), count(*)::integer
     INTO v_live_file_ids, v_live_file_count
     FROM (
-      SELECT id
-        FROM public.order_draft_files
-       WHERE draft_id = p_draft_id
-         AND upload_status = 'uploaded'
-         AND deleted_at IS NULL
+      SELECT files.id
+        FROM public.order_draft_files AS files
+       WHERE files.draft_id = p_draft_id
+         AND files.upload_status = 'uploaded'
+         AND files.deleted_at IS NULL
        FOR UPDATE
     ) AS live_files;
 
@@ -517,7 +518,7 @@ BEGIN
   END IF;
 
   WITH moved AS (
-    SELECT *
+    SELECT moved.file_id, moved.final_path
       FROM unnest(v_moved_ids, v_moved_paths) AS moved(file_id, final_path)
   )
   UPDATE public.order_draft_files AS files
@@ -543,9 +544,9 @@ BEGIN
          converted_at = now(),
          finalization_key = NULL,
          expires_at = GREATEST(expires_at, now() + interval '90 days')
-   WHERE id = p_draft_id
-     AND status = 'converting'
-     AND finalization_key IS NOT DISTINCT FROM p_finalization_key;
+   WHERE order_drafts.id = p_draft_id
+     AND order_drafts.status = 'converting'
+     AND order_drafts.finalization_key IS NOT DISTINCT FROM p_finalization_key;
 
   GET DIAGNOSTICS v_updated_draft_count = ROW_COUNT;
   IF v_updated_draft_count <> 1 THEN

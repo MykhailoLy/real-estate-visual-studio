@@ -34,12 +34,14 @@ interface OrderJobTitleFieldProps {
    * or leave it false to validate as-you-type once the field is dirty.
    */
   showError?: boolean;
+  disabled?: boolean;
 }
 
 export default function OrderJobTitleField({
   value,
   onChange,
   showError = false,
+  disabled = false,
 }: OrderJobTitleFieldProps) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
@@ -81,10 +83,11 @@ export default function OrderJobTitleField({
         placeholder="Example: 123 Main Street — Exterior Photos"
         maxLength={JOB_TITLE_MAX}
         required
+        disabled={disabled}
         aria-required="true"
         aria-invalid={displayError || undefined}
         aria-describedby={displayError ? `${helpId} ${errorId}` : helpId}
-        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60 ${
           displayError ? "border-red-300" : "border-border"
         }`}
       />
