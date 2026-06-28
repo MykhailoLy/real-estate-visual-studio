@@ -67,21 +67,30 @@ import {
 } from "@/lib/order-drafts/virtual-staging";
 import {
   buildVirtualStagingDraftFileSlotKey,
+  clearVirtualStagingCleanupPendingTarget,
   clearVirtualStagingDraftFileOperation,
-  collectVirtualStagingUploadedFileIdsForItem,
+  collectVirtualStagingItemCleanupTargets,
   getVirtualStagingUploadedFileForSlot,
   hasActiveVirtualStagingDraftFileOperation,
   indexVirtualStagingUploadedFilesBySlot,
   isVirtualStagingDraftFileSlotOperationActive,
+  isTrustedVirtualStagingCleanupAlreadyAbsent,
+  mapVirtualStagingPrepareConflictAction,
   nextVirtualStagingDraftFileOperationGeneration,
   removeVirtualStagingUploadedFileSummary,
+  removeVirtualStagingCleanupTargetFromRetrySet,
   replaceVirtualStagingUploadedFileSummary,
+  resolveVirtualStagingCommittedItems,
   resetVirtualStagingDraftFileState,
+  shouldApplyVirtualStagingItemRemovalResult,
+  shouldFinishVirtualStagingItemRemoval,
   shouldApplyVirtualStagingDraftFileOperationResult,
+  type VirtualStagingDraftFileCleanupTarget,
   type VirtualStagingDraftFileOperation,
   type VirtualStagingDraftFileOperationMap,
   type VirtualStagingDraftFileOperationSession,
   type VirtualStagingDraftFileSlotKind,
+  type VirtualStagingItemUpdate,
 } from "@/lib/order-drafts/virtual-staging-files";
 
 // ============================================================
@@ -135,6 +144,10 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
 type DraftSaveOutcome =
   | { ok: true; draftId: string; version: number }
   | { ok: false };
+
+type ItemUpdate = VirtualStagingItemUpdate<StagingItemData>;
+type UploadedDraftFilesUpdate =
+  VirtualStagingItemUpdate<OrderDraftUploadedFileSummary>;
 
 const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   en: {
@@ -333,11 +346,32 @@ export default function VirtualStagingOrderForm({
     isRestoringRef.current = resumeState === "loading";
   }, [resumeState]);
 
+  const commitItems = useCallback((next: ItemUpdate): StagingItemData[] => {
+    const current = itemsRef.current;
+    const resolved = resolveVirtualStagingCommittedItems(current, next);
+    itemsRef.current = resolved;
+    setItems(resolved);
+    return resolved;
+  }, []);
+
+  const commitUploadedDraftFiles = useCallback(
+    (
+      next: UploadedDraftFilesUpdate,
+    ): OrderDraftUploadedFileSummary[] => {
+      const current = uploadedDraftFilesRef.current;
+      const resolved = resolveVirtualStagingCommittedItems(current, next);
+      uploadedDraftFilesRef.current = resolved;
+      setUploadedDraftFiles(resolved);
+      return resolved;
+    },
+    [],
+  );
+
   const handleItemChange = (index: number, data: StagingItemData) => {
-    setItems((prev) => prev.map((item, i) => (i === index ? data : item)));
+    commitItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
 
-  const handleAddItem = () => setItems((prev) => [...prev, emptyStagingItem()]);
+  const handleAddItem = () => commitItems((prev) => [...prev, emptyStagingItem()]);
 
   const draftSource = useMemo(
     () => ({
@@ -364,26 +398,25 @@ export default function VirtualStagingOrderForm({
 
   const setDraftFileOperation = useCallback(
     (slotKey: string, operation: VirtualStagingDraftFileOperation) => {
-      setDraftFileOperations((prev) => {
-        const next = { ...prev, [slotKey]: operation };
-        draftFileOperationsRef.current = next;
-        return next;
-      });
+      const next = {
+        ...draftFileOperationsRef.current,
+        [slotKey]: operation,
+      };
+      draftFileOperationsRef.current = next;
+      setDraftFileOperations(next);
     },
     [],
   );
 
   const clearDraftFileOperation = useCallback(
     (slotKey: string, generation: number) => {
-      setDraftFileOperations((prev) => {
-        const next = clearVirtualStagingDraftFileOperation(
-          prev,
-          slotKey,
-          generation,
-        );
-        draftFileOperationsRef.current = next;
-        return next;
-      });
+      const next = clearVirtualStagingDraftFileOperation(
+        draftFileOperationsRef.current,
+        slotKey,
+        generation,
+      );
+      draftFileOperationsRef.current = next;
+      setDraftFileOperations(next);
     },
     [],
   );
@@ -427,11 +460,10 @@ export default function VirtualStagingOrderForm({
       }
 
       setDraftFilesWarning("");
-      setUploadedDraftFiles(result.data);
-      uploadedDraftFilesRef.current = result.data;
+      commitUploadedDraftFiles(result.data);
       return true;
     },
-    [copy.filesCouldNotRestore],
+    [commitUploadedDraftFiles, copy.filesCouldNotRestore],
   );
 
   const hasMeaningfulDraft = useMemo(
@@ -490,9 +522,8 @@ export default function VirtualStagingOrderForm({
     const reset = resetVirtualStagingDraftIdentity(searchParams.toString());
     const fileReset = resetVirtualStagingDraftFileState();
 
-    setItems([emptyStagingItem()]);
-    setUploadedDraftFiles(fileReset.uploadedFiles);
-    uploadedDraftFilesRef.current = fileReset.uploadedFiles;
+    commitItems([emptyStagingItem()]);
+    commitUploadedDraftFiles(fileReset.uploadedFiles);
     setDraftFileOperations(fileReset.operations);
     draftFileOperationsRef.current = fileReset.operations;
     setDraftFilesWarning(fileReset.warning);
@@ -515,7 +546,7 @@ export default function VirtualStagingOrderForm({
     setResumeState(reset.identity.resumeState);
     isRestoringRef.current = false;
     replaceDraftUrl(reset.nextSearch);
-  }, [replaceDraftUrl, searchParams]);
+  }, [commitItems, commitUploadedDraftFiles, replaceDraftUrl, searchParams]);
 
   const enqueueDraftSave = useCallback(
     (
@@ -726,7 +757,7 @@ export default function VirtualStagingOrderForm({
                 ...updateReferenceFileDraftMetadata(candidate, null),
               };
         });
-        setItems(nextItems);
+        commitItems(nextItems);
         void enqueueDraftSave(buildDraftSourceSnapshot(nextItems));
         return;
       }
@@ -754,7 +785,7 @@ export default function VirtualStagingOrderForm({
               ...updateReferenceFileDraftMetadata(candidate, file),
             };
       });
-      setItems(nextItems);
+      commitItems(nextItems);
       const sourceSnapshot = buildDraftSourceSnapshot(nextItems);
 
       setDraftFileOperation(slotKey, {
@@ -792,6 +823,13 @@ export default function VirtualStagingOrderForm({
         );
         if (!shouldApplyDraftFileOperation(slotKey, session)) return;
         if (!prepareResult.ok) {
+          if (
+            mapVirtualStagingPrepareConflictAction(prepareResult.code) ===
+            "draft_conflict"
+          ) {
+            setSaveStatus("conflict");
+            setConflictMessage(copy.conflictMessage);
+          }
           setDraftFileOperation(slotKey, {
             status: "error",
             generation,
@@ -851,14 +889,12 @@ export default function VirtualStagingOrderForm({
           return;
         }
 
-        setUploadedDraftFiles((prev) => {
-          const next = replaceVirtualStagingUploadedFileSummary(
+        commitUploadedDraftFiles((prev) =>
+          replaceVirtualStagingUploadedFileSummary(
             prev,
             completeResult.data,
-          );
-          uploadedDraftFilesRef.current = next;
-          return next;
-        });
+          ),
+        );
         clearDraftFileOperation(slotKey, generation);
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
@@ -878,6 +914,9 @@ export default function VirtualStagingOrderForm({
     [
       buildDraftSourceSnapshot,
       clearDraftFileOperation,
+      commitItems,
+      commitUploadedDraftFiles,
+      copy.conflictMessage,
       copy.fileOperationFailed,
       copy.previousSavedFileAvailable,
       enqueueDraftSave,
@@ -934,15 +973,13 @@ export default function VirtualStagingOrderForm({
           return;
         }
 
-        setUploadedDraftFiles((prev) => {
-          const next = removeVirtualStagingUploadedFileSummary(
+        commitUploadedDraftFiles((prev) =>
+          removeVirtualStagingUploadedFileSummary(
             prev,
             clientItemId,
             kind,
-          );
-          uploadedDraftFilesRef.current = next;
-          return next;
-        });
+          ),
+        );
         const nextItems = itemsRef.current.map((item) => {
           if (item.clientItemId !== clientItemId) return item;
           return kind === "original"
@@ -957,7 +994,7 @@ export default function VirtualStagingOrderForm({
                 ...updateReferenceFileDraftMetadata(item, null),
               };
         });
-        setItems(nextItems);
+        commitItems(nextItems);
         clearDraftFileOperation(slotKey, generation);
         void enqueueDraftSave(buildDraftSourceSnapshot(nextItems), {
           force: true,
@@ -980,6 +1017,8 @@ export default function VirtualStagingOrderForm({
     [
       buildDraftSourceSnapshot,
       clearDraftFileOperation,
+      commitItems,
+      commitUploadedDraftFiles,
       copy.fileOperationFailed,
       enqueueDraftSave,
       setDraftFileOperation,
@@ -991,23 +1030,28 @@ export default function VirtualStagingOrderForm({
     async (index: number) => {
       const item = itemsRef.current[index];
       if (!item) return;
+      const clientItemId = item.clientItemId;
       const currentDraftId = draftIdRef.current;
-      const uploadedIds = collectVirtualStagingUploadedFileIdsForItem(
+      const cleanupTargets = collectVirtualStagingItemCleanupTargets(
         uploadedDraftFilesRef.current,
-        item.clientItemId,
+        draftFileOperationsRef.current,
+        clientItemId,
       );
 
-      if (uploadedIds.length === 0 || !currentDraftId) {
-        const nextItems = itemsRef.current.filter((_, i) => i !== index);
-        setItems(nextItems);
+      if (cleanupTargets.length === 0) {
+        const nextItems = commitItems((current) =>
+          current.filter((candidate) => candidate.clientItemId !== clientItemId),
+        );
+        void enqueueDraftSave(buildDraftSourceSnapshot(nextItems), {
+          force: true,
+        });
         return;
       }
 
-      const slotKeys: string[] = ["original", "reference"].map((kind) =>
-        buildVirtualStagingDraftFileSlotKey(
-          item.clientItemId,
-          kind as VirtualStagingDraftFileSlotKind,
-        ),
+      if (!currentDraftId) return;
+
+      const slotKeys = Array.from(
+        new Set(cleanupTargets.map((target) => target.slotKey)),
       );
       if (
         slotKeys.some((slotKey) =>
@@ -1019,56 +1063,182 @@ export default function VirtualStagingOrderForm({
         return;
       }
 
-      const generation = Math.max(
-        ...slotKeys.map((slotKey) =>
-          nextVirtualStagingDraftFileOperationGeneration(
-            draftFileOperationsRef.current[slotKey],
-          ),
-        ),
-      );
+      const generationBySlot = new Map<string, number>();
       for (const slotKey of slotKeys) {
+        const generation = nextVirtualStagingDraftFileOperationGeneration(
+          draftFileOperationsRef.current[slotKey],
+        );
+        generationBySlot.set(slotKey, generation);
         setDraftFileOperation(slotKey, {
           status: "deleting",
           generation,
           error: null,
-          pendingFileId: null,
+          pendingFileId:
+            draftFileOperationsRef.current[slotKey]?.pendingFileId ?? null,
         });
       }
 
-      const results = await Promise.all(
-        uploadedIds.map((fileId) => deleteOrderDraftFile(currentDraftId, fileId)),
-      );
-      const failed = results.some((result) => !result.ok);
-      if (failed) {
-        setDraftError(copy.itemFilesCouldNotDelete);
-        for (const slotKey of slotKeys) {
-          setDraftFileOperation(slotKey, {
-            status: "error",
+      const controller = new AbortController();
+      const controllerKey = `remove:${clientItemId}`;
+      const sessionAtStart = draftSessionRef.current;
+      draftFileAbortControllersRef.current.set(controllerKey, controller);
+      let remainingTargets = cleanupTargets;
+      let hadFailure = false;
+
+      const shouldApplyTargetResult = (
+        target: VirtualStagingDraftFileCleanupTarget,
+      ): boolean => {
+        const generation = generationBySlot.get(target.slotKey);
+        return (
+          generation !== undefined &&
+          mountedRef.current &&
+          shouldApplyVirtualStagingItemRemovalResult(
+            {
+              draftSession: sessionAtStart,
+              generation,
+            },
+            draftSessionRef.current,
+            draftFileOperationsRef.current[target.slotKey]?.generation,
+          )
+        );
+      };
+
+      try {
+        for (const target of cleanupTargets) {
+          if (!shouldApplyTargetResult(target)) return;
+
+          const result = await deleteOrderDraftFile(
+            currentDraftId,
+            target.id,
+            controller.signal,
+          );
+          if (!shouldApplyTargetResult(target)) return;
+
+          const reconciled =
+            result.ok ||
+            isTrustedVirtualStagingCleanupAlreadyAbsent(result.code);
+
+          if (!reconciled) {
+            hadFailure = true;
+            const generation = generationBySlot.get(target.slotKey);
+            if (generation !== undefined) {
+              setDraftFileOperation(target.slotKey, {
+                status: "error",
+                generation,
+                error: copy.itemFilesCouldNotDelete,
+                pendingFileId:
+                  draftFileOperationsRef.current[target.slotKey]
+                    ?.pendingFileId ?? null,
+              });
+            }
+            continue;
+          }
+
+          remainingTargets =
+            removeVirtualStagingCleanupTargetFromRetrySet(
+              remainingTargets,
+              target.id,
+            );
+          commitUploadedDraftFiles((prev) =>
+            target.source === "uploaded"
+              ? removeVirtualStagingUploadedFileSummary(
+                  prev,
+                  target.clientItemId,
+                  target.kind,
+                )
+              : prev,
+          );
+          commitItems((current) =>
+            current.map((candidate) =>
+              candidate.clientItemId === target.clientItemId
+                ? clearStagingItemDraftFileSlot(candidate, target.kind)
+                : candidate,
+            ),
+          );
+
+          const generation = generationBySlot.get(target.slotKey);
+          if (generation === undefined) continue;
+          const nextOperations = clearVirtualStagingCleanupPendingTarget(
+            draftFileOperationsRef.current,
+            target,
             generation,
-            error: copy.itemFilesCouldNotDelete,
-            pendingFileId: null,
+          );
+          draftFileOperationsRef.current = nextOperations;
+          setDraftFileOperations(nextOperations);
+
+          if (
+            !remainingTargets.some(
+              (candidate) => candidate.slotKey === target.slotKey,
+            )
+          ) {
+            clearDraftFileOperation(target.slotKey, generation);
+          }
+        }
+
+        if (!mountedRef.current) return;
+        if (hadFailure) {
+          setDraftError(copy.itemFilesCouldNotDelete);
+          void enqueueDraftSave(buildDraftSourceSnapshot(itemsRef.current), {
+            force: true,
+          });
+          return;
+        }
+
+        if (shouldFinishVirtualStagingItemRemoval(remainingTargets)) {
+          const nextItems = commitItems((current) =>
+            current.filter(
+              (candidate) => candidate.clientItemId !== clientItemId,
+            ),
+          );
+          for (const slotKey of slotKeys) {
+            const generation = generationBySlot.get(slotKey);
+            if (generation !== undefined) {
+              clearDraftFileOperation(slotKey, generation);
+            }
+          }
+          void enqueueDraftSave(buildDraftSourceSnapshot(nextItems), {
+            force: true,
           });
         }
-        return;
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        if (!mountedRef.current) return;
+        setDraftError(copy.itemFilesCouldNotDelete);
+        for (const slotKey of slotKeys) {
+          const generation = generationBySlot.get(slotKey);
+          if (generation === undefined) continue;
+          if (
+            shouldApplyVirtualStagingDraftFileOperationResult(
+              {
+                draftSession: sessionAtStart,
+                generation,
+              },
+              draftSessionRef.current,
+              draftFileOperationsRef.current[slotKey]?.generation,
+            )
+          ) {
+            setDraftFileOperation(slotKey, {
+              status: "error",
+              generation,
+              error: copy.itemFilesCouldNotDelete,
+              pendingFileId:
+                draftFileOperationsRef.current[slotKey]?.pendingFileId ?? null,
+            });
+          }
+        }
+      } finally {
+        if (
+          draftFileAbortControllersRef.current.get(controllerKey) === controller
+        ) {
+          draftFileAbortControllersRef.current.delete(controllerKey);
+        }
       }
-
-      const nextUploaded = uploadedDraftFilesRef.current.filter(
-        (file) => file.itemClientId !== item.clientItemId,
-      );
-      uploadedDraftFilesRef.current = nextUploaded;
-      setUploadedDraftFiles(nextUploaded);
-      const nextItems = itemsRef.current.filter((_, i) => i !== index);
-      setItems(nextItems);
-      for (const slotKey of slotKeys) {
-        clearDraftFileOperation(slotKey, generation);
-      }
-      void enqueueDraftSave(buildDraftSourceSnapshot(nextItems), {
-        force: true,
-      });
     },
     [
       buildDraftSourceSnapshot,
       clearDraftFileOperation,
+      commitItems,
+      commitUploadedDraftFiles,
       copy.itemFilesCouldNotDelete,
       enqueueDraftSave,
       setDraftFileOperation,
@@ -1131,7 +1301,7 @@ export default function VirtualStagingOrderForm({
           return;
         }
 
-        setItems(resume.form.items);
+        commitItems(resume.form.items);
         setJobTitle(resume.form.jobTitle);
         setOrderTerms(resume.form.orderTerms);
         const restoredRegion = resolveVirtualStagingDraftRegion(result.data);
@@ -1167,7 +1337,7 @@ export default function VirtualStagingOrderForm({
       });
 
     return () => controller.abort();
-  }, [copy, refreshUploadedDraftFiles, requestedDraftId, setRegion]);
+  }, [commitItems, copy, refreshUploadedDraftFiles, requestedDraftId, setRegion]);
 
   useEffect(() => {
     if (resumeState !== "ready" || !hasMeaningfulDraft || saveStatus === "conflict") {
@@ -1204,7 +1374,7 @@ export default function VirtualStagingOrderForm({
       setDraftError(resume.message);
       return;
     }
-    setItems(resume.form.items);
+    commitItems(resume.form.items);
     setJobTitle(resume.form.jobTitle);
     setOrderTerms(resume.form.orderTerms);
     const restoredRegion = resolveVirtualStagingDraftRegion(result.data);
@@ -1497,6 +1667,14 @@ export default function VirtualStagingOrderForm({
               onChange={(data) => handleItemChange(index, data)}
               onRemove={() => void handleRemoveItem(index)}
               canRemove={items.length > 1}
+              removeDisabled={
+                isVirtualStagingDraftFileSlotOperationActive(
+                  originalOperation,
+                ) ||
+                isVirtualStagingDraftFileSlotOperationActive(
+                  referenceOperation,
+                )
+              }
               draftCopy={{
                 savedOriginalFile: copy.savedOriginalFile,
                 savedReferenceFile: copy.savedReferenceFile,
@@ -1577,6 +1755,23 @@ function operationStatusText(
   if (operation.status === "uploading") return copy.fileUploading;
   if (operation.status === "deleting") return copy.fileDeleting;
   return undefined;
+}
+
+function clearStagingItemDraftFileSlot(
+  item: StagingItemData,
+  kind: VirtualStagingDraftFileSlotKind,
+): StagingItemData {
+  return kind === "original"
+    ? {
+        ...item,
+        file: null,
+        ...updateOriginalFileDraftMetadata(item, null),
+      }
+    : {
+        ...item,
+        referenceFile: null,
+        ...updateReferenceFileDraftMetadata(item, null),
+      };
 }
 
 function safeDraftFileOperationMessage(

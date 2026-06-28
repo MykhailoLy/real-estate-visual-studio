@@ -67,6 +67,7 @@ interface StagingItemCardProps {
   onChange: (data: StagingItemData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  removeDisabled?: boolean;
   draftCopy?: {
     savedOriginalFile: (filename: string) => string;
     savedReferenceFile: (filename: string) => string;
@@ -104,6 +105,7 @@ export default function StagingItemCard({
   onChange,
   onRemove,
   canRemove,
+  removeDisabled = false,
   draftCopy = DEFAULT_DRAFT_COPY,
   uploadedOriginalFile,
   uploadedReferenceFile,
@@ -152,7 +154,8 @@ export default function StagingItemCard({
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            disabled={removeDisabled}
+            className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Remove image ${index + 1}`}
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />

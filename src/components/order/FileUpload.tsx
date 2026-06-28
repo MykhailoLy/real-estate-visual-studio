@@ -134,6 +134,7 @@ export default function FileUpload({
     : undefined;
   const [isDragActive, setIsDragActive] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const isEmptyUploadState = file === null && persistedFile == null;
 
   // Local object URL for image previews. Derived from the current File via
   // useMemo so we avoid the "setState in useEffect" anti-pattern; an
@@ -222,9 +223,9 @@ export default function FileUpload({
 
   const describedBy = [
     helperTextId,
-    !file ? maxSizeId : undefined,
-    operationStatusId,
-    operationErrorId,
+    isEmptyUploadState ? maxSizeId : undefined,
+    isEmptyUploadState ? operationStatusId : undefined,
+    isEmptyUploadState ? operationErrorId : undefined,
     rejected ? rejectedId : undefined,
   ]
     .filter(Boolean)
@@ -335,13 +336,15 @@ export default function FileUpload({
             <p className="mt-1 text-xs font-medium text-primary">
               {persistedFile.statusLabel ?? "Saved in draft"}
             </p>
-            <div
-              id={operationStatusId}
-              aria-live="polite"
-              className="mt-1 min-h-4 text-xs text-foreground/75"
-            >
-              {operationStatusText}
-            </div>
+            {operationStatusText && (
+              <p
+                id={operationStatusId}
+                aria-live="polite"
+                className="mt-1 text-xs text-foreground/75"
+              >
+                {operationStatusText}
+              </p>
+            )}
             {operationErrorText && (
               <p
                 id={operationErrorId}
@@ -423,7 +426,7 @@ export default function FileUpload({
           File rejected. Please check format and size.
         </p>
       )}
-      {!persistedFile && operationStatusText && (
+      {isEmptyUploadState && operationStatusText && (
         <p
           id={operationStatusId}
           aria-live="polite"
@@ -432,7 +435,7 @@ export default function FileUpload({
           {operationStatusText}
         </p>
       )}
-      {!persistedFile && operationErrorText && (
+      {isEmptyUploadState && operationErrorText && (
         <p id={operationErrorId} role="alert" className="mt-1 text-xs text-red-700">
           {operationErrorText}
         </p>
