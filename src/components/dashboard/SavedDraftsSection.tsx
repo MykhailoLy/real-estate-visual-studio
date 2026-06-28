@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Clock3, FileText, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import DraftThumbnail from "@/components/dashboard/DraftThumbnail";
 import {
   LANGUAGE_CHANGE_EVENT,
   getCurrentLanguage,
@@ -14,10 +15,14 @@ import { listOrderDrafts } from "@/lib/order-drafts/client";
 import {
   buildSavedDraftResumeUrl,
   formatSavedDraftUpdatedAt,
+  getSavedDraftActionLabel,
+  getSavedDraftStatusLabel,
   getSavedDraftTitle,
+  isFinishingOrderDraft,
   resolveSavedDraftServiceName,
 } from "@/lib/order-drafts/saved-drafts";
 import type { OrderDraftSummary } from "@/lib/order-drafts/types";
+import { cn } from "@/lib/utils";
 
 type LoadState = "loading" | "success" | "error";
 
@@ -25,8 +30,11 @@ interface DraftCopy {
   heading: string;
   helper: string;
   badge: string;
+  finishingBadge: string;
   updated: string;
   resume: string;
+  finish: string;
+  order: string;
   untitled: string;
   error: string;
   retry: string;
@@ -40,8 +48,11 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     heading: "Saved drafts",
     helper: "Continue where you left off.",
     badge: "Draft",
+    finishingBadge: "Finishing order",
     updated: "Updated",
     resume: "Resume",
+    finish: "Finish",
+    order: "Order",
     untitled: "Untitled draft",
     error: "Drafts could not be loaded.",
     retry: "Retry",
@@ -53,8 +64,11 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     heading: "Borradores guardados",
     helper: "Continúa donde lo dejaste.",
     badge: "Borrador",
+    finishingBadge: "Finalizando pedido",
     updated: "Actualizado",
     resume: "Continuar",
+    finish: "Finalizar",
+    order: "Pedido",
     untitled: "Borrador sin título",
     error: "No se pudieron cargar los borradores.",
     retry: "Reintentar",
@@ -186,35 +200,61 @@ export default function SavedDraftsSection() {
               language,
               copy.updatedUnavailable,
             );
+            const isFinishing = isFinishingOrderDraft(draft);
+            const badgeLabel = getSavedDraftStatusLabel(draft, {
+              draft: copy.badge,
+              finishing: copy.finishingBadge,
+            });
+            const actionLabel = getSavedDraftActionLabel(draft, {
+              resume: copy.resume,
+              finish: copy.finish,
+            });
 
             return (
               <li key={draft.id} className="flex">
                 <article className="flex w-full flex-col rounded-lg border border-border bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-1 text-[11px] font-bold uppercase text-secondary-dark">
-                      <FileText className="h-3.5 w-3.5" aria-hidden />
-                      {copy.badge}
-                    </span>
+                  <div className="flex flex-col gap-4 sm:flex-row">
+                    <DraftThumbnail draft={draft} title={title} />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase",
+                            isFinishing
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-secondary/10 text-secondary-dark",
+                          )}
+                        >
+                          <FileText className="h-3.5 w-3.5" aria-hidden />
+                          {badgeLabel}
+                        </span>
+                      </div>
+                      <h3 className="line-clamp-2 text-base font-bold text-foreground">
+                        {title}
+                      </h3>
+                      <p className="mt-1 text-sm font-medium text-primary">
+                        {serviceName}
+                      </p>
+                      {draft.finalization && (
+                        <p className="mt-1 text-xs font-medium text-muted">
+                          {copy.order}: {draft.finalization.orderNumber}
+                        </p>
+                      )}
+                      <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+                        <Clock3 className="h-3.5 w-3.5" aria-hidden />
+                        <span className="font-semibold">{copy.updated}</span>
+                        <span>{updatedAt}</span>
+                      </p>
+                      {resumeUrl && (
+                        <Link
+                          href={resumeUrl}
+                          className="mt-4 inline-flex w-fit items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        >
+                          {actionLabel}
+                        </Link>
+                      )}
+                    </div>
                   </div>
-                  <h3 className="line-clamp-2 text-base font-bold text-foreground">
-                    {title}
-                  </h3>
-                  <p className="mt-1 text-sm font-medium text-primary">
-                    {serviceName}
-                  </p>
-                  <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
-                    <Clock3 className="h-3.5 w-3.5" aria-hidden />
-                    <span className="font-semibold">{copy.updated}</span>
-                    <span>{updatedAt}</span>
-                  </p>
-                  {resumeUrl && (
-                    <Link
-                      href={resumeUrl}
-                      className="mt-4 inline-flex w-fit items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                    >
-                      {copy.resume}
-                    </Link>
-                  )}
                 </article>
               </li>
             );

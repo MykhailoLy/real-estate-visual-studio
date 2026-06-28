@@ -9,8 +9,10 @@ import {
   profileIncompleteDraftFinalizationResponse,
   unauthenticatedDraftFinalizationResponse,
 } from "./finalization-api.ts";
+import { getVirtualStagingDraftFinalizationStatus } from "./finalization-client.ts";
 
 const FINALIZATION_KEY = "77777777-7777-4777-8777-777777777777";
+const DRAFT_ID = "22222222-2222-4222-8222-222222222222";
 
 async function responseJson(response: Response) {
   return response.json() as Promise<Record<string, unknown>>;
@@ -127,4 +129,58 @@ test("manual error response includes details only when provided", async () => {
     code: "invalid_input",
     details: { form: "details" },
   });
+});
+
+test("typed finalization-status client encodes route and uses no-store", async () => {
+  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return Response.json({
+      data: {
+        status: "reconciliation_required",
+        draftId: DRAFT_ID,
+        expectedVersion: 8,
+        orderId: "88888888-8888-4888-8888-888888888888",
+        orderNumber: "VS-0010",
+      },
+    });
+  };
+
+  try {
+    const result = await getVirtualStagingDraftFinalizationStatus(DRAFT_ID);
+    assert.equal(result.ok, true);
+    assert.equal(
+      String(calls[0]?.input),
+      `/api/order-drafts/${DRAFT_ID}/finalization-status`,
+    );
+    assert.equal(calls[0]?.init?.method, "GET");
+    assert.equal(calls[0]?.init?.cache, "no-store");
+    if (!result.ok) return;
+    assert.equal(result.data.status, "reconciliation_required");
+    assert.equal("finalizationKey" in result.data, false);
+    assert.equal("storagePath" in result.data, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("typed finalization-status client rejects malformed reconciliation DTOs", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    Response.json({
+      data: {
+        status: "reconciliation_required",
+        draftId: DRAFT_ID,
+      },
+    });
+
+  try {
+    const result = await getVirtualStagingDraftFinalizationStatus(DRAFT_ID);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.code, "unexpected_error");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

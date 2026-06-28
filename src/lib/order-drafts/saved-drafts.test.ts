@@ -4,7 +4,11 @@ import { listOrderDrafts, type OrderDraftClientResult } from "./client.ts";
 import {
   buildSavedDraftResumeUrl,
   formatSavedDraftUpdatedAt,
+  getSavedDraftActionLabel,
+  getSavedDraftStatusLabel,
+  getSavedDraftThumbnailExtraCount,
   getSavedDraftTitle,
+  isFinishingOrderDraft,
   resolveSavedDraftServiceName,
 } from "./saved-drafts.ts";
 import type { OrderDraftSummary } from "./types.ts";
@@ -33,6 +37,63 @@ function summary(overrides: Partial<OrderDraftSummary> = {}): OrderDraftSummary 
     ...overrides,
   };
 }
+
+test("finishing source-order drafts use a safe distinct status and action", () => {
+  const draft = summary({
+    status: "converting",
+    finalization: {
+      status: "finishing_order",
+      orderId: "22222222-2222-4222-8222-222222222222",
+      orderNumber: "VS-0010",
+    },
+  });
+
+  assert.equal(isFinishingOrderDraft(draft), true);
+  assert.equal(
+    getSavedDraftStatusLabel(draft, {
+      draft: "Draft",
+      finishing: "Finishing order",
+    }),
+    "Finishing order",
+  );
+  assert.equal(
+    getSavedDraftActionLabel(draft, { resume: "Resume", finish: "Finish" }),
+    "Finish",
+  );
+});
+
+test("active drafts keep the normal status and action", () => {
+  const draft = summary();
+  assert.equal(isFinishingOrderDraft(draft), false);
+  assert.equal(
+    getSavedDraftStatusLabel(draft, {
+      draft: "Draft",
+      finishing: "Finishing order",
+    }),
+    "Draft",
+  );
+  assert.equal(
+    getSavedDraftActionLabel(draft, { resume: "Resume", finish: "Finish" }),
+    "Resume",
+  );
+});
+
+test("multiple original thumbnails produce the visible extra count", () => {
+  assert.equal(
+    getSavedDraftThumbnailExtraCount(
+      summary({
+        thumbnail: {
+          previewUrl: "https://signed.example/one",
+          previewExpiresAt: "2026-06-28T12:00:00.000Z",
+          originalFilename: "room.png",
+          originalCount: 3,
+        },
+      }),
+    ),
+    2,
+  );
+  assert.equal(getSavedDraftThumbnailExtraCount(summary()), 0);
+});
 
 test("safe internal route creates the expected resume URL", () => {
   assert.equal(

@@ -153,6 +153,36 @@ export interface TrustedMovedDraftFile {
   finalPath: string;
 }
 
+export interface VirtualStagingFinalizationRetryContext {
+  draftId: string;
+  expectedVersion: number;
+  finalizationKey: string;
+}
+
+export type DraftFinalizationStatusCode =
+  | "active"
+  | "finalization_in_progress"
+  | "reconciliation_required"
+  | "already_converted"
+  | "not_found";
+
+export type DraftFinalizationStatusDto =
+  | {
+      status: "active" | "finalization_in_progress" | "not_found";
+      draftId: string;
+      expectedVersion?: number;
+    }
+  | {
+      status: "reconciliation_required" | "already_converted";
+      draftId: string;
+      expectedVersion: number;
+      orderId: string;
+      orderNumber: string;
+    };
+
+export const VIRTUAL_STAGING_FINALIZATION_RETRY_STORAGE_PREFIX =
+  "picchuspot:virtual-staging-finalization:";
+
 const CLAIM_CODES = [
   "claimed",
   "already_claimed",
@@ -185,6 +215,69 @@ export function parseClaimFinalizationRpcResult(
   data: unknown,
 ): ParsedFinalizationRpcResult<DraftFinalizationClaimResultCode> {
   return parseFinalizationRpcResult(data, CLAIM_CODES, "invalid_status");
+}
+
+export function buildVirtualStagingFinalizationRetryStorageKey(
+  draftId: string,
+): string {
+  return `${VIRTUAL_STAGING_FINALIZATION_RETRY_STORAGE_PREFIX}${draftId}`;
+}
+
+export function serializeVirtualStagingFinalizationRetryContext(
+  context: VirtualStagingFinalizationRetryContext,
+): string {
+  return JSON.stringify({
+    draftId: context.draftId,
+    expectedVersion: context.expectedVersion,
+    finalizationKey: context.finalizationKey,
+  });
+}
+
+export function parseVirtualStagingFinalizationRetryContext(
+  value: string,
+  expectedDraftId?: string,
+): VirtualStagingFinalizationRetryContext | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const record = parsed as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (
+    keys.length !== 3 ||
+    !keys.includes("draftId") ||
+    !keys.includes("expectedVersion") ||
+    !keys.includes("finalizationKey")
+  ) {
+    return null;
+  }
+  const expectedVersion = record.expectedVersion;
+  if (
+    typeof record.draftId !== "string" ||
+    typeof record.finalizationKey !== "string" ||
+    typeof expectedVersion !== "number" ||
+    !Number.isInteger(expectedVersion) ||
+    expectedVersion < 1 ||
+    !UuidSchema.safeParse(record.draftId).success ||
+    !UuidSchema.safeParse(record.finalizationKey).success
+  ) {
+    return null;
+  }
+  if (expectedDraftId && record.draftId !== expectedDraftId) {
+    return null;
+  }
+
+  return {
+    draftId: record.draftId,
+    expectedVersion,
+    finalizationKey: record.finalizationKey,
+  };
 }
 
 export function parseStrictClaimFinalizationRpcResult(

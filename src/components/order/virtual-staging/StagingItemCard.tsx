@@ -198,6 +198,9 @@ export default function StagingItemCard({
                   filename: uploadedOriginalFile.originalFilename,
                   fileSize: uploadedOriginalFile.fileSize,
                   statusLabel: savedInDraftLabel,
+                  previewUrl: uploadedOriginalFile.previewUrl ?? null,
+                  previewExpiresAt:
+                    uploadedOriginalFile.previewExpiresAt ?? null,
                 }
               : null
           }
@@ -342,6 +345,9 @@ export default function StagingItemCard({
                   filename: uploadedReferenceFile.originalFilename,
                   fileSize: uploadedReferenceFile.fileSize,
                   statusLabel: savedInDraftLabel,
+                  previewUrl: uploadedReferenceFile.previewUrl ?? null,
+                  previewExpiresAt:
+                    uploadedReferenceFile.previewExpiresAt ?? null,
                 }
               : null
           }

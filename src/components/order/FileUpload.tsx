@@ -27,6 +27,8 @@ export interface PersistedFileDisplay {
   filename: string;
   fileSize: number;
   statusLabel?: string;
+  previewUrl?: string | null;
+  previewExpiresAt?: string | null;
 }
 
 interface FileUploadProps {
@@ -323,9 +325,11 @@ export default function FileUpload({
         </div>
       ) : persistedFile ? (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-stretch">
-          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md bg-white sm:h-20 sm:w-20">
-            <FileImage className="h-6 w-6 text-primary" aria-hidden="true" />
-          </div>
+          <PersistedFilePreview
+            label={label}
+            filename={persistedFile.filename}
+            previewUrl={persistedFile.previewUrl ?? null}
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">
               {persistedFile.filename}
@@ -439,6 +443,114 @@ export default function FileUpload({
         <p id={operationErrorId} role="alert" className="mt-1 text-xs text-red-700">
           {operationErrorText}
         </p>
+      )}
+    </div>
+  );
+}
+
+function PersistedFilePreview({
+  label,
+  filename,
+  previewUrl,
+}: {
+  label: string;
+  filename: string;
+  previewUrl: string | null;
+}) {
+  return (
+    <PersistedFilePreviewContent
+      key={previewUrl ?? "empty"}
+      label={label}
+      filename={filename}
+      previewUrl={previewUrl}
+    />
+  );
+}
+
+function PersistedFilePreviewContent({
+  label,
+  filename,
+  previewUrl,
+}: {
+  label: string;
+  filename: string;
+  previewUrl: string | null;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [broken, setBroken] = useState(false);
+  const [open, setOpen] = useState(false);
+  const canOpen = previewUrl !== null && !broken;
+
+  return (
+    <div className="w-full flex-shrink-0 sm:w-32">
+      <button
+        type="button"
+        onClick={() => {
+          if (canOpen) setOpen(true);
+        }}
+        disabled={!canOpen}
+        className="relative block aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-white disabled:cursor-default"
+        aria-label={`Open ${label} preview`}
+      >
+        {previewUrl && !broken ? (
+          <>
+            {!loaded && (
+              <span className="absolute inset-0 animate-pulse bg-stone-100" />
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt={`${label}: ${filename}`}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setLoaded(true)}
+              onError={() => setBroken(true)}
+              className="h-full w-full object-cover"
+            />
+          </>
+        ) : (
+          <span className="flex h-full w-full items-center justify-center bg-stone-100">
+            <FileImage className="h-6 w-6 text-primary" aria-hidden="true" />
+          </span>
+        )}
+      </button>
+      {canOpen && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-2 text-xs font-semibold text-primary hover:text-primary-light"
+        >
+          Open preview
+        </button>
+      )}
+      {open && previewUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${label} preview`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="relative max-h-[88vh] w-full max-w-4xl rounded-lg bg-white p-3 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute right-3 top-3 rounded-full bg-white/90 p-1.5 text-foreground shadow-sm hover:bg-white"
+              aria-label="Close preview"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt={`${label}: ${filename}`}
+              className="max-h-[82vh] w-full rounded-md object-contain"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

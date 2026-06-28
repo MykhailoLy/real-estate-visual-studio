@@ -68,6 +68,8 @@ export interface OrderDraftUploadedFileSummary {
   uploadStatus: "uploaded";
   createdAt: string;
   updatedAt: string;
+  previewUrl?: string | null;
+  previewExpiresAt?: string | null;
 }
 
 export interface OrderDraftPendingFileSummary
@@ -86,6 +88,11 @@ export interface PreparedOrderDraftFileUpload {
 
 export interface DeletedOrderDraftFileSummary {
   id: string;
+}
+
+export interface OrderDraftFilePreview {
+  previewUrl: string;
+  previewExpiresAt: string;
 }
 
 export interface PrepareOrderDraftFileUploadRpcParams {

@@ -24,6 +24,7 @@ import {
   parseSoftDeleteOrderDraftFileRpcResult,
   verifyStoredDraftObject,
   type DeletedOrderDraftFileSummary,
+  type OrderDraftFilePreview,
   type OrderDraftFileOperationResult,
   type OrderDraftFileUploadInfo,
   type OrderDraftUploadedFileSummary,
@@ -42,6 +43,8 @@ interface SupabaseStorageObject {
   name?: unknown;
   metadata?: unknown;
 }
+
+const DRAFT_FILE_PREVIEW_URL_TTL_SECONDS = 600;
 
 function invalidIdentifier<T = never>(): OrderDraftFileOperationResult<T> {
   return draftFileError("invalid_input", "Invalid order draft file identifier.");
@@ -270,14 +273,61 @@ export async function listUploadedOrderDraftFilesForUser(
       return draftFileError("database_error", "Could not load draft files.");
     }
 
+    const rows = (data ?? []).map(mapOrderDraftFileDatabaseRow);
     return {
       ok: true,
-      data: (data ?? [])
-        .map(mapOrderDraftFileDatabaseRow)
-        .map(mapUploadedOrderDraftFileSummary),
+      data: await attachPreviewUrlsToUploadedFiles(rows),
     };
   } catch (error) {
     return handleDraftFileException("list uploaded", error);
+  }
+}
+
+export async function createOrderDraftFilePreviewForUser(
+  userId: string,
+  draftId: string,
+  fileId: string,
+): Promise<OrderDraftFileOperationResult<OrderDraftFilePreview>> {
+  if (!validateUuidTriplet(userId, draftId, fileId)) return invalidIdentifier();
+
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data: draft, error: draftError } = await supabase
+      .from("order_drafts")
+      .select("id, user_id, status, deleted_at, expires_at")
+      .eq("id", draftId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (draftError) {
+      console.error(
+        "[order-draft-files] preview draft lookup failed:",
+        draftError.message,
+      );
+      return draftFileError("database_error", "Could not load draft preview.");
+    }
+    if (!isPreviewableDraftRow(draft)) {
+      return draftFileError("not_found", "Draft file was not found.");
+    }
+
+    const fileResult = await getDraftFileRowById(supabase, draftId, fileId);
+    if (!fileResult.ok) {
+      return fileResult.code === "upload_not_found"
+        ? draftFileError("not_found", "Draft file was not found.")
+        : fileResult;
+    }
+
+    if (!isPreviewableDraftFile(fileResult.data)) {
+      return draftFileError("not_found", "Draft file was not found.");
+    }
+
+    const preview = await createSignedDraftFilePreview(
+      fileResult.data.storagePath,
+    );
+    if (!preview.ok) return preview;
+    return preview;
+  } catch (error) {
+    return handleDraftFileException("preview", error);
   }
 }
 
@@ -339,6 +389,74 @@ async function getDraftFileRowById(
   }
 
   return { ok: true, data: mapOrderDraftFileDatabaseRow(data) };
+}
+
+async function attachPreviewUrlsToUploadedFiles(
+  rows: OrderDraftFileRow[],
+): Promise<OrderDraftUploadedFileSummary[]> {
+  const summaries: OrderDraftUploadedFileSummary[] = [];
+  for (const row of rows) {
+    const summary = mapUploadedOrderDraftFileSummary(row);
+    const preview = await createSignedDraftFilePreview(row.storagePath);
+    summaries.push(
+      preview.ok
+        ? {
+            ...summary,
+            previewUrl: preview.data.previewUrl,
+            previewExpiresAt: preview.data.previewExpiresAt,
+          }
+        : summary,
+    );
+  }
+  return summaries;
+}
+
+function isPreviewableDraftRow(row: unknown): boolean {
+  if (row === null || typeof row !== "object" || Array.isArray(row)) {
+    return false;
+  }
+  const record = row as Record<string, unknown>;
+  const status = record.status;
+  return (
+    record.deleted_at === null &&
+    typeof record.expires_at === "string" &&
+    record.expires_at > new Date().toISOString() &&
+    (status === "active" || status === "converting")
+  );
+}
+
+function isPreviewableDraftFile(row: OrderDraftFileRow): boolean {
+  return (
+    row.deletedAt === null &&
+    (row.uploadStatus === "uploaded" || row.uploadStatus === "moved")
+  );
+}
+
+async function createSignedDraftFilePreview(
+  storagePath: string,
+): Promise<OrderDraftFileOperationResult<OrderDraftFilePreview>> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase.storage
+    .from(ORDER_FILES_BUCKET)
+    .createSignedUrl(storagePath, DRAFT_FILE_PREVIEW_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    console.warn(
+      "[order-draft-files] preview signed URL failed:",
+      error?.message ?? "No signed URL returned",
+    );
+    return draftFileError("storage_error", "Could not load draft preview.");
+  }
+
+  return {
+    ok: true,
+    data: {
+      previewUrl: data.signedUrl,
+      previewExpiresAt: new Date(
+        Date.now() + DRAFT_FILE_PREVIEW_URL_TTL_SECONDS * 1000,
+      ).toISOString(),
+    },
+  };
 }
 
 async function getStoredDraftObjectInfo(

@@ -1,4 +1,5 @@
 import type {
+  DraftFinalizationStatusDto,
   DraftFinalizationPublicErrorCode,
 } from "./finalization.ts";
 
@@ -25,8 +26,18 @@ export type DraftFinalizationClientResult =
       details?: unknown;
     };
 
-interface ApiSuccess {
-  data?: SubmitVirtualStagingDraftSuccess;
+export type DraftFinalizationStatusClientResult =
+  | { ok: true; data: DraftFinalizationStatusDto }
+  | {
+      ok: false;
+      status: number;
+      code: DraftFinalizationClientErrorCode;
+      message: string;
+      details?: unknown;
+    };
+
+interface ApiSuccess<T> {
+  data?: T;
 }
 
 interface ApiError {
@@ -77,7 +88,7 @@ export async function submitVirtualStagingDraft(
     };
   }
 
-  const successPayload = (payload ?? {}) as ApiSuccess;
+  const successPayload = (payload ?? {}) as ApiSuccess<SubmitVirtualStagingDraftSuccess>;
   if (!successPayload.data?.orderNumber || !successPayload.data.orderId) {
     return {
       ok: false,
@@ -88,6 +99,93 @@ export async function submitVirtualStagingDraft(
   }
 
   return { ok: true, data: successPayload.data };
+}
+
+export async function getVirtualStagingDraftFinalizationStatus(
+  draftId: string,
+  signal?: AbortSignal,
+): Promise<DraftFinalizationStatusClientResult> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/order-drafts/${encodeURIComponent(draftId)}/finalization-status`,
+      {
+        method: "GET",
+        cache: "no-store",
+        signal,
+      },
+    );
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
+    return {
+      ok: false,
+      status: 0,
+      code: "network_error",
+      message: "Network error while checking draft finalization.",
+    };
+  }
+
+  const payload = await parseApiJson(response);
+  if (!response.ok) {
+    const errorPayload = (payload ?? {}) as ApiError;
+    return {
+      ok: false,
+      status: response.status,
+      code: errorPayload.code ?? "unexpected_error",
+      message: errorPayload.error ?? "Draft finalization status failed.",
+      details: errorPayload.details,
+    };
+  }
+
+  const successPayload = (payload ?? {}) as ApiSuccess<DraftFinalizationStatusDto>;
+  const data = successPayload.data;
+  if (!isDraftFinalizationStatusDto(data)) {
+    return {
+      ok: false,
+      status: response.status,
+      code: "unexpected_error",
+      message: "Draft finalization status response was malformed.",
+    };
+  }
+
+  return { ok: true, data };
+}
+
+function isDraftFinalizationStatusDto(
+  data: unknown,
+): data is DraftFinalizationStatusDto {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    return false;
+  }
+  const record = data as Record<string, unknown>;
+  if (typeof record.status !== "string" || typeof record.draftId !== "string") {
+    return false;
+  }
+
+  switch (record.status) {
+    case "not_found":
+      return true;
+    case "active":
+    case "finalization_in_progress":
+      return (
+        typeof record.expectedVersion === "number" &&
+        Number.isInteger(record.expectedVersion) &&
+        record.expectedVersion >= 1
+      );
+    case "reconciliation_required":
+    case "already_converted":
+      return (
+        typeof record.expectedVersion === "number" &&
+        Number.isInteger(record.expectedVersion) &&
+        record.expectedVersion >= 1 &&
+        typeof record.orderId === "string" &&
+        typeof record.orderNumber === "string"
+      );
+    default:
+      return false;
+  }
 }
 
 async function parseApiJson(response: Response): Promise<unknown> {

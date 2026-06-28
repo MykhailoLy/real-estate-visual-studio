@@ -13,9 +13,11 @@ import {
   mapClaimCodeToPublicError,
   mapVirtualStagingDraftStateToProductionItems,
   parseClaimFinalizationRpcResult,
+  parseVirtualStagingFinalizationRetryContext,
   parseStrictClaimFinalizationRpcResult,
   resetVirtualStagingFinalizationIdentity,
   selectVirtualStagingDraftSubmissionMode,
+  serializeVirtualStagingFinalizationRetryContext,
   shouldApplyVirtualStagingFinalizationResult,
   shouldAutomaticallyRetryVirtualStagingFinalization,
   shouldPreserveVirtualStagingFinalizationKeyAfterFailure,
@@ -51,6 +53,19 @@ const STAGING_ITEM_CARD = readFileSync(
   "src/components/order/virtual-staging/StagingItemCard.tsx",
   "utf8",
 );
+const FILE_UPLOAD = readFileSync("src/components/order/FileUpload.tsx", "utf8");
+const SAVED_DRAFTS_SECTION = readFileSync(
+  "src/components/dashboard/SavedDraftsSection.tsx",
+  "utf8",
+);
+const DRAFTS_PAGE = readFileSync(
+  "src/components/dashboard/ClientDraftsPage.tsx",
+  "utf8",
+);
+const DRAFT_THUMBNAIL = readFileSync(
+  "src/components/dashboard/DraftThumbnail.tsx",
+  "utf8",
+);
 const STYLE_SELECTOR = readFileSync(
   "src/components/order/virtual-staging/StyleSelector.tsx",
   "utf8",
@@ -72,6 +87,30 @@ const ORDER_SERVICE = readFileSync(
   "utf8",
 );
 const DRAFT_SERVER = readFileSync("src/lib/order-drafts/server.ts", "utf8");
+const DRAFT_FILES_SERVER = readFileSync(
+  "src/lib/order-drafts/files-server.ts",
+  "utf8",
+);
+const FINALIZATION_STATUS_ROUTE = readFileSync(
+  "src/app/(public)/api/order-drafts/[draftId]/finalization-status/route.ts",
+  "utf8",
+);
+const DRAFT_FILE_PREVIEW_ROUTE = readFileSync(
+  "src/app/(public)/api/order-drafts/[draftId]/files/[fileId]/preview/route.ts",
+  "utf8",
+);
+
+function sourceSlice(
+  source: string,
+  startMarker: string,
+  endMarker: string,
+): string {
+  const start = source.indexOf(startMarker);
+  assert.ok(start >= 0, `Missing source marker: ${startMarker}`);
+  const end = source.indexOf(endMarker, start);
+  assert.ok(end > start, `Missing source marker: ${endMarker}`);
+  return source.slice(start, end);
+}
 
 function draftState(overrides: Partial<VirtualStagingDraftState> = {}): VirtualStagingDraftState {
   return {
@@ -934,6 +973,264 @@ test("success clears finalization identity in the form", () => {
     VIRTUAL_STAGING_FORM,
     /if \(result\.ok\)[\s\S]+setFinalizationKey\(null\)[\s\S]+finalizationKeyRef\.current = null/,
   );
+});
+
+test("finalization-status API requires auth and validates the draft UUID", () => {
+  assert.match(FINALIZATION_STATUS_ROUTE, /const sessionUser = await getClientUser\(\)/);
+  assert.match(FINALIZATION_STATUS_ROUTE, /unauthenticatedOrderDraftResponse\(\)/);
+  assert.match(FINALIZATION_STATUS_ROUTE, /validateDraftId\(draftId\)/);
+  assert.match(
+    FINALIZATION_STATUS_ROUTE,
+    /getOrderDraftFinalizationStatusForUser\(\s+sessionUser\.id,\s+draftId,/,
+  );
+});
+
+test("finalization-status lookup exposes owned reconciliation states only", () => {
+  const lookup = sourceSlice(
+    DRAFT_SERVER,
+    "export async function getOrderDraftFinalizationStatusForUser",
+    "async function listOwnedFinishingDraftsForUser",
+  );
+
+  assert.match(lookup, /\.eq\("user_id", userId\)/);
+  assert.match(lookup, /sourceOrder && sourceOrder\.userId !== userId/);
+  assert.match(lookup, /notFoundFinalizationStatus\(draftId\)/);
+  assert.match(lookup, /status: "active"/);
+  assert.match(lookup, /status: "finalization_in_progress"/);
+  assert.match(lookup, /status: "reconciliation_required"/);
+  assert.match(lookup, /status: "already_converted"/);
+});
+
+test("finalization-status DTO omits private draft and Storage fields", () => {
+  const dto = {
+    status: "reconciliation_required",
+    draftId: DRAFT_ID,
+    expectedVersion: 8,
+    orderId: ORDER_ID,
+    orderNumber: "VS-0010",
+  };
+  const json = JSON.stringify(dto);
+  assert.equal(json.includes("finalizationKey"), false);
+  assert.equal(json.includes("finalization_key"), false);
+  assert.equal(json.includes("storagePath"), false);
+  assert.equal(json.includes("storage_path"), false);
+  assert.equal(json.includes("bucket"), false);
+  assert.equal(json.includes("fileId"), false);
+  assert.equal(json.includes("userId"), false);
+});
+
+test("page reload checks finalization status after active draft restore fails", () => {
+  const restore404Branch = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "if (result.status === 404)",
+    "const resume = validateVirtualStagingDraftForResume",
+  );
+
+  assert.match(
+    restore404Branch,
+    /getVirtualStagingDraftFinalizationStatus\(\s+requestedDraftId,/,
+  );
+  assert.match(restore404Branch, /statusResult\.data\.status === "active"/);
+  assert.match(restore404Branch, /const restoredResult = await getOrderDraft/);
+  assert.match(restore404Branch, /applyFinalizationStatus\(statusResult\.data\)/);
+});
+
+test("reload recovery skips draft save file refresh upload and legacy order submit", () => {
+  const recoveryHandler = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "const handleFinishFinalizationRecovery",
+    "const submitCurrentLocalOrder",
+  );
+
+  assert.match(recoveryHandler, /submitVirtualStagingDraft\(/);
+  assert.doesNotMatch(recoveryHandler, /enqueueDraftSave/);
+  assert.doesNotMatch(recoveryHandler, /refreshUploadedDraftFiles/);
+  assert.doesNotMatch(recoveryHandler, /prepareOrderDraftFileUpload/);
+  assert.doesNotMatch(recoveryHandler, /uploadPreparedOrderDraftFile/);
+  assert.doesNotMatch(recoveryHandler, /submitCurrentLocalOrder|submitOrder/);
+});
+
+test("reload recovery can use a new request UUID with the stored server claim", () => {
+  const recoveryHandler = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "const handleFinishFinalizationRecovery",
+    "const submitCurrentLocalOrder",
+  );
+  assert.match(
+    recoveryHandler,
+    /storedContext\?\.finalizationKey \?\? createFinalizationKey\(\)/,
+  );
+  assert.match(
+    FINALIZATION_SERVER,
+    /reconcileExistingDraftOrder[\s\S]+draft\.finalizationKey/,
+  );
+});
+
+test("successful reload recovery shows the existing order number", () => {
+  const applyStatus = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "const applyFinalizationStatus",
+    "useEffect(() => {",
+  );
+  assert.match(applyStatus, /status\.status === "already_converted"/);
+  assert.match(applyStatus, /setOrderNumber\(status\.orderNumber\)/);
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /copy\.existingOrder\}: \{recoveryOrderNumber\}/,
+  );
+});
+
+test("finalization retry sessionStorage is strictly validated", () => {
+  const context = {
+    draftId: DRAFT_ID,
+    expectedVersion: 8,
+    finalizationKey: FINALIZATION_KEY,
+  };
+  assert.deepEqual(
+    parseVirtualStagingFinalizationRetryContext(
+      serializeVirtualStagingFinalizationRetryContext(context),
+      DRAFT_ID,
+    ),
+    context,
+  );
+  assert.equal(
+    parseVirtualStagingFinalizationRetryContext(
+      JSON.stringify({ ...context, storagePath: "drafts/private" }),
+      DRAFT_ID,
+    ),
+    null,
+  );
+  assert.equal(
+    parseVirtualStagingFinalizationRetryContext(
+      serializeVirtualStagingFinalizationRetryContext(context),
+      "99999999-9999-4999-8999-999999999999",
+    ),
+    null,
+  );
+  assert.equal(parseVirtualStagingFinalizationRetryContext("{", DRAFT_ID), null);
+});
+
+test("sessionStorage context is stored only as draft version and browser key", () => {
+  const storageHelpers = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "function readStoredFinalizationRetryContext",
+    "function clearStagingItemDraftFileSlot",
+  );
+  assert.match(storageHelpers, /window\.sessionStorage\.getItem/);
+  assert.match(storageHelpers, /window\.sessionStorage\.setItem/);
+  assert.match(storageHelpers, /window\.sessionStorage\.removeItem/);
+  assert.doesNotMatch(storageHelpers, /storagePath|bucket|fileId|userId|token/);
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /if \(result\.ok\)[\s\S]+clearFinalizationRetryContext\(\)/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /const startNewVirtualStagingOrder[\s\S]+clearFinalizationRetryContext\(\)/,
+  );
+});
+
+test("in-progress finalization recovery is non-editable and explicitly rechecked", () => {
+  const recheckHandler = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "const handleFinalizationStatusRecheck",
+    "const handleFinishFinalizationRecovery",
+  );
+  assert.match(VIRTUAL_STAGING_FORM, /status: "finalization_in_progress"/);
+  assert.match(VIRTUAL_STAGING_FORM, /copy\.finalizationInProgressMessage/);
+  assert.match(VIRTUAL_STAGING_FORM, /handleFinalizationStatusRecheck/);
+  assert.doesNotMatch(
+    recheckHandler,
+    /setInterval\([\s\S]+getVirtualStagingDraftFinalizationStatus/,
+  );
+  assert.doesNotMatch(
+    recheckHandler,
+    /setTimeout\([\s\S]+getVirtualStagingDraftFinalizationStatus/,
+  );
+});
+
+test("Saved Drafts includes only owned converting drafts with source orders", () => {
+  const finishingList = sourceSlice(
+    DRAFT_SERVER,
+    "async function listOwnedFinishingDraftsForUser",
+    "async function attachDraftThumbnails",
+  );
+  assert.match(finishingList, /\.from\("orders"\)/);
+  assert.match(finishingList, /\.eq\("user_id", userId\)/);
+  assert.match(finishingList, /\.not\("source_draft_id", "is", null\)/);
+  assert.match(finishingList, /\.eq\("status", "converting"\)/);
+  assert.match(finishingList, /status: "finishing_order"/);
+});
+
+test("Saved Drafts cards expose finishing actions without converted drafts", () => {
+  assert.match(SAVED_DRAFTS_SECTION, /copy\.finishingBadge/);
+  assert.match(SAVED_DRAFTS_SECTION, /getSavedDraftActionLabel/);
+  assert.match(DRAFTS_PAGE, /copy\.finishingBadge/);
+  assert.match(DRAFTS_PAGE, /!isFinishing && \(/);
+  assert.match(DRAFT_SERVER, /\.eq\("status", "active"\)/);
+  assert.match(DRAFT_SERVER, /\.eq\("status", "converting"\)/);
+  assert.doesNotMatch(
+    sourceSlice(
+      DRAFT_SERVER,
+      "export async function listActiveOrderDraftsForUser",
+      "export async function getOrderDraftFinalizationStatusForUser",
+    ),
+    /\.eq\("status", "converted"\)/,
+  );
+});
+
+test("opened Virtual Staging drafts render persisted original and reference previews", () => {
+  assert.match(STAGING_ITEM_CARD, /label="Upload Original Photo"/);
+  assert.match(STAGING_ITEM_CARD, /label="Reference Image \(optional\)"/);
+  assert.match(STAGING_ITEM_CARD, /uploadedOriginalFile\.previewUrl/);
+  assert.match(STAGING_ITEM_CARD, /uploadedReferenceFile\.previewUrl/);
+  assert.match(STAGING_ITEM_CARD, /!data\.file && uploadedOriginalFile/);
+  assert.match(STAGING_ITEM_CARD, /!data\.referenceFile && uploadedReferenceFile/);
+  assert.match(FILE_UPLOAD, /className="h-full w-full object-cover"/);
+  assert.match(FILE_UPLOAD, /role="dialog"/);
+  assert.match(FILE_UPLOAD, /onError=\{\(\) => setBroken\(true\)\}/);
+});
+
+test("Saved Draft thumbnails use first original and never reference files", () => {
+  const thumbnails = sourceSlice(
+    DRAFT_SERVER,
+    "async function attachDraftThumbnails",
+    "function notFoundFinalizationStatus",
+  );
+  assert.match(thumbnails, /\.eq\("kind", "original"\)/);
+  assert.match(thumbnails, /\.order\("created_at", \{ ascending: true \}\)/);
+  assert.match(thumbnails, /const first = candidates\[0\]/);
+  assert.match(thumbnails, /originalCount: candidates\.length/);
+  assert.doesNotMatch(thumbnails, /"reference"/);
+});
+
+test("preview routes verify ownership and never return raw Storage metadata", () => {
+  assert.match(DRAFT_FILE_PREVIEW_ROUTE, /const sessionUser = await getClientUser\(\)/);
+  assert.match(DRAFT_FILE_PREVIEW_ROUTE, /validateDraftFileRouteId\(draftId\)/);
+  assert.match(DRAFT_FILE_PREVIEW_ROUTE, /validateDraftFileRouteId\(fileId\)/);
+  assert.match(DRAFT_FILES_SERVER, /\.eq\("user_id", userId\)/);
+  assert.match(DRAFT_FILES_SERVER, /\.eq\("draft_id", draftId\)/);
+  assert.match(DRAFT_FILES_SERVER, /fileResult\.code === "upload_not_found"/);
+  assert.match(DRAFT_FILES_SERVER, /row\.deletedAt === null/);
+  assert.match(DRAFT_FILES_SERVER, /previewUrl: data\.signedUrl/);
+  assert.doesNotMatch(DRAFT_FILE_PREVIEW_ROUTE, /storage_path|storagePath|bucket|user_id/);
+});
+
+test("preview failure and expiration do not block forms or start refresh loops", () => {
+  assert.match(FILE_UPLOAD, /onError=\{\(\) => setBroken\(true\)\}/);
+  assert.match(FILE_UPLOAD, /FileImage className=/);
+  assert.match(FILE_UPLOAD, /URL\.revokeObjectURL\(previewUrl\)/);
+  assert.match(DRAFT_THUMBNAIL, /onError=\{\(\) => setBroken\(true\)\}/);
+  assert.doesNotMatch(FILE_UPLOAD, /setInterval|setTimeout/);
+  assert.doesNotMatch(DRAFT_THUMBNAIL, /setInterval|setTimeout/);
+  assert.match(DRAFT_FILES_SERVER, /DRAFT_FILE_PREVIEW_URL_TTL_SECONDS = 600/);
+});
+
+test("preview layout stays responsive for active and finishing draft cards", () => {
+  assert.match(FILE_UPLOAD, /aspect-\[4\/3\]/);
+  assert.match(DRAFT_THUMBNAIL, /aspect-\[4\/3\]/);
+  assert.match(SAVED_DRAFTS_SECTION, /flex flex-col gap-4 sm:flex-row/);
+  assert.match(DRAFTS_PAGE, /flex flex-col gap-4 sm:flex-row/);
 });
 
 test("successful persisted original counts as submit-ready", () => {

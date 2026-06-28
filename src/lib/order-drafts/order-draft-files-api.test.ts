@@ -4,6 +4,7 @@ import { MAX_FILE_SIZE_BYTES } from "../upload-config.ts";
 import {
   completeOrderDraftFileUpload,
   deleteOrderDraftFile,
+  getOrderDraftFilePreview,
   listOrderDraftFiles,
   prepareOrderDraftFileUpload,
 } from "./files-client.ts";
@@ -191,6 +192,36 @@ test("typed client prepare complete and delete keep route params encoded", async
     );
     assert.equal(calls[2]?.init?.method, "DELETE");
     assert.equal(calls[2]?.init?.body, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("typed preview client encodes route params and uses no-store", async () => {
+  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return Response.json({
+      data: {
+        previewUrl: "https://signed.example/preview",
+        previewExpiresAt: "2026-06-28T12:00:00.000Z",
+      },
+    });
+  };
+
+  try {
+    const result = await getOrderDraftFilePreview(DRAFT_ID, "file id");
+    assert.equal(result.ok, true);
+    assert.equal(
+      String(calls[0]?.input),
+      `/api/order-drafts/${DRAFT_ID}/files/file%20id/preview`,
+    );
+    assert.equal(calls[0]?.init?.method, "GET");
+    assert.equal(calls[0]?.init?.cache, "no-store");
+    if (!result.ok) return;
+    assert.equal("bucket" in result.data, false);
+    assert.equal("storagePath" in result.data, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
