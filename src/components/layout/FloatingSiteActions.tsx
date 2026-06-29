@@ -56,50 +56,52 @@ export default function FloatingSiteActions() {
         className="h-[calc(3.5rem+env(safe-area-inset-bottom))] lg:hidden"
       />
 
-      <div
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-40 grid border-t border-primary/15 shadow-[0_-8px_24px_rgba(26,54,93,0.16)] lg:hidden",
-          supportChatVisible ? "grid-cols-2" : "grid-cols-1"
-        )}
-      >
-        {status === "authenticated" ? (
-          <PublicAccountMenu placement="top" variant="mobile-action" />
-        ) : (
-          <Link
-            href={isSpanish ? "/es/signup" : "/signup"}
-            onClick={() => trackSignUpClick("mobile_sticky_cta")}
-            aria-hidden={status === "loading"}
-            tabIndex={status === "loading" ? -1 : undefined}
-            className={cn(
-              "inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-primary px-4 pb-[env(safe-area-inset-bottom)] text-[14px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
-              status === "loading" && "pointer-events-none text-transparent"
-            )}
-          >
-            <UserPlus className="h-4 w-4 flex-shrink-0" aria-hidden />
-            <span>{isSpanish ? "Crear cuenta" : "Sign Up"}</span>
-          </Link>
-        )}
+      {!(supportChatVisible && chatOpen) && (
+        <div
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-40 grid border-t border-primary/15 shadow-[0_-8px_24px_rgba(26,54,93,0.16)] lg:hidden",
+            supportChatVisible ? "grid-cols-2" : "grid-cols-1"
+          )}
+        >
+          {status === "authenticated" ? (
+            <PublicAccountMenu placement="top" variant="mobile-action" />
+          ) : (
+            <Link
+              href={isSpanish ? "/es/signup" : "/signup"}
+              onClick={() => trackSignUpClick("mobile_sticky_cta")}
+              aria-hidden={status === "loading"}
+              tabIndex={status === "loading" ? -1 : undefined}
+              className={cn(
+                "inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-primary px-4 pb-[env(safe-area-inset-bottom)] text-[14px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
+                status === "loading" && "pointer-events-none text-transparent"
+              )}
+            >
+              <UserPlus className="h-4 w-4 flex-shrink-0" aria-hidden />
+              <span>{isSpanish ? "Crear cuenta" : "Sign Up"}</span>
+            </Link>
+          )}
 
-        {supportChatVisible && (
-          <button
-            ref={mobileChatTriggerRef}
-            type="button"
-            onClick={() => setChatOpen(true)}
-            className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-            aria-label={chatCopy.launcherAriaLabel}
-            aria-expanded={chatOpen}
-            aria-controls="support-chat-widget"
-          >
-            <MessageCircle
-              className="h-4 w-4 flex-shrink-0 text-secondary-dark"
-              aria-hidden
-            />
-            <span className="truncate text-xs font-bold uppercase tracking-[0.10em]">
-              {chatCopy.mobileLauncherLabel}
-            </span>
-          </button>
-        )}
-      </div>
+          {supportChatVisible && (
+            <button
+              ref={mobileChatTriggerRef}
+              type="button"
+              onClick={() => setChatOpen(true)}
+              className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+              aria-label={chatCopy.launcherAriaLabel}
+              aria-expanded={chatOpen}
+              aria-controls="support-chat-widget"
+            >
+              <MessageCircle
+                className="h-4 w-4 flex-shrink-0 text-secondary-dark"
+                aria-hidden
+              />
+              <span className="truncate text-xs font-bold uppercase tracking-[0.10em]">
+                {chatCopy.mobileLauncherLabel}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
 
       {showBackToTop && !(supportChatVisible && chatOpen) && (
         <button

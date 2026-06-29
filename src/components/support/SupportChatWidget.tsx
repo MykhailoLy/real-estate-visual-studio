@@ -286,7 +286,7 @@ export default function SupportChatWidget({
         aria-label={copy.dialogLabel}
         className={cn(
           "fixed z-[70] flex min-h-0 flex-col overflow-hidden border border-primary/15 bg-white shadow-2xl shadow-primary/25 transition-[opacity,transform] motion-reduce:transition-none",
-          "inset-x-0 bottom-0 top-3 rounded-t-2xl lg:inset-auto lg:bottom-6 lg:right-6 lg:h-[min(620px,calc(100dvh-3rem))] lg:w-[400px] lg:rounded-2xl",
+          "inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[82dvh] max-h-[min(720px,calc(100dvh_-_1.5rem_-_env(safe-area-inset-bottom)))] rounded-2xl lg:inset-auto lg:bottom-6 lg:right-6 lg:h-[min(620px,calc(100dvh-3rem))] lg:max-h-none lg:w-[400px]",
         )}
       >
         <div className="flex flex-shrink-0 items-center gap-3 bg-primary px-4 py-4 text-white">
