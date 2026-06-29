@@ -190,9 +190,14 @@ export default function SupportChatWidget({
         signal: abortController.signal,
       });
 
-      if (abortControllerRef.current === abortController) {
-        abortControllerRef.current = null;
+      if (
+        abortControllerRef.current !== abortController ||
+        abortController.signal.aborted
+      ) {
+        return;
       }
+
+      abortControllerRef.current = null;
       setSending(false);
 
       if (result.ok) {
@@ -311,7 +316,7 @@ export default function SupportChatWidget({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-surface/70 px-4 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface/70 px-4 py-4">
           <div className="space-y-3" aria-live="polite">
             {[createWelcomeMessage(language), ...messages].map((messageItem) => (
               <MessageBubble
@@ -319,6 +324,7 @@ export default function SupportChatWidget({
                 message={messageItem}
                 contactHref={getSupportChatLink(language, "contact")}
                 contactLabel={copy.contactLinkLabel}
+                onContactClick={closeChat}
               />
             ))}
             {sending && (
@@ -326,7 +332,10 @@ export default function SupportChatWidget({
                 className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm text-muted"
                 aria-live="polite"
               >
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                <Loader2
+                  className="h-4 w-4 animate-spin motion-reduce:animate-none"
+                  aria-hidden
+                />
                 {copy.loadingText}
               </div>
             )}
@@ -395,7 +404,10 @@ export default function SupportChatWidget({
                 className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <Loader2
+                    className="h-4 w-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden
+                  />
                 ) : (
                   <Send className="h-4 w-4" aria-hidden />
                 )}
@@ -436,10 +448,12 @@ function MessageBubble({
   message,
   contactHref,
   contactLabel,
+  onContactClick,
 }: {
   message: SupportChatMessage;
   contactHref: string;
   contactLabel: string;
+  onContactClick: () => void;
 }) {
   const isUser = message.role === "user";
 
@@ -463,6 +477,7 @@ function MessageBubble({
         {message.localKind === "human_support" && (
           <Link
             href={contactHref}
+            onClick={onContactClick}
             className="mt-2 inline-flex text-sm font-bold text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:text-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {contactLabel}

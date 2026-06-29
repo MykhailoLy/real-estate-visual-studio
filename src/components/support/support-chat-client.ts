@@ -115,7 +115,7 @@ export function buildSupportChatHistory(
     const content = message.content.trim();
     if (!content) continue;
     if (history.length >= maxMessages) break;
-    if (characterTotal + content.length > maxCharacters) continue;
+    if (characterTotal + content.length > maxCharacters) break;
 
     history.unshift({ role: message.role, content });
     characterTotal += content.length;
@@ -159,8 +159,12 @@ export function parseRetryAfterSeconds(
   fallbackSeconds = RATE_LIMIT_FALLBACK_SECONDS,
 ) {
   if (!retryAfterHeader) return fallbackSeconds;
-  const seconds = Number.parseInt(retryAfterHeader, 10);
-  return Number.isInteger(seconds) && seconds > 0 ? seconds : fallbackSeconds;
+  const trimmedHeader = retryAfterHeader.trim();
+  if (!/^\d+$/.test(trimmedHeader)) return fallbackSeconds;
+  const seconds = Number(trimmedHeader);
+  return Number.isSafeInteger(seconds) && seconds > 0
+    ? seconds
+    : fallbackSeconds;
 }
 
 export function getSupportChatErrorMessage(

@@ -188,6 +188,23 @@ test("history respects the 5500-character budget", () => {
   );
 });
 
+test("history remains contiguous when an older eligible message exceeds the character budget", () => {
+  const history = buildSupportChatHistory(
+    [
+      message({ id: "old-small", role: "user", content: "old", origin: "local" }),
+      message({
+        id: "too-large",
+        role: "assistant",
+        content: "x".repeat(20),
+      }),
+      message({ id: "new-small", role: "user", content: "new", origin: "local" }),
+    ],
+    { maxCharacters: 10 },
+  );
+
+  assert.deepEqual(history, [{ role: "user", content: "new" }]);
+});
+
 test("oldest complete messages are dropped rather than partially truncated", () => {
   const history = buildSupportChatHistory(
     [
@@ -254,6 +271,17 @@ test("invalid or missing Retry-After uses the safe fallback", () => {
   assert.equal(parseRetryAfterSeconds(null), 60);
   assert.equal(parseRetryAfterSeconds("0"), 60);
   assert.equal(parseRetryAfterSeconds("soon"), 60);
+});
+
+test("Retry-After parsing accepts only positive integer seconds", () => {
+  assert.equal(parseRetryAfterSeconds("7"), 7);
+  assert.equal(parseRetryAfterSeconds(" 7 "), 7);
+  assert.equal(parseRetryAfterSeconds("0"), 60);
+  assert.equal(parseRetryAfterSeconds("-1"), 60);
+  assert.equal(parseRetryAfterSeconds("7seconds"), 60);
+  assert.equal(parseRetryAfterSeconds("7.5"), 60);
+  assert.equal(parseRetryAfterSeconds("1e2"), 60);
+  assert.equal(parseRetryAfterSeconds("9007199254740992"), 60);
 });
 
 test("400, 429, 502, 503, and network failures map to safe UI states", async () => {
