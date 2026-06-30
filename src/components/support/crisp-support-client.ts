@@ -94,9 +94,15 @@ export async function startCrispSupportHandoff(
     if (isSignalCancelled(options.signal)) {
       return { ok: false, code: "cancelled" };
     }
-    safeShowCrispLauncher(activeSdk);
-    activeSdk.chat.open();
-    return { ok: true };
+
+    try {
+      activeSdk.chat.show();
+      activeSdk.chat.open();
+      return { ok: true };
+    } catch {
+      safeCloseAndHideCrisp(activeSdk);
+      return { ok: false, code: "load_failed" };
+    }
   }
 
   if (activeAttempt && !isSignalCancelled(activeAttempt.signal)) {
@@ -104,12 +110,13 @@ export async function startCrispSupportHandoff(
   }
 
   const token = Symbol("crisp-support-attempt");
-  const promise = runCrispHandoff(options).then((result) => {
-    if (activeAttempt?.token === token) {
-      activeAttempt = null;
-    }
-    return result;
-  });
+  const promise = runCrispHandoff(options)
+    .catch<CrispSupportResult>(() => ({ ok: false, code: "load_failed" }))
+    .finally(() => {
+      if (activeAttempt?.token === token) {
+        activeAttempt = null;
+      }
+    });
 
   activeAttempt = {
     promise,
@@ -268,8 +275,12 @@ function loadCrispSession(
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      signal?.removeEventListener("abort", onAbort);
-      sdk.session.offLoaded();
+      try {
+        signal?.removeEventListener("abort", onAbort);
+      } catch {
+        // Cleanup is best-effort so handoff resolution is never blocked.
+      }
+      safeOffLoaded(sdk);
       resolve(result);
     };
 
@@ -313,6 +324,14 @@ function safeGetSessionIdentifier(sdk: PicchuSpotCrispSdk) {
   }
 }
 
+function safeOffLoaded(sdk: PicchuSpotCrispSdk) {
+  try {
+    sdk.session.offLoaded();
+  } catch {
+    // Listener cleanup must never prevent success, timeout, or cancellation.
+  }
+}
+
 function safeCloseAndHideCrisp(sdk: PicchuSpotCrispSdk) {
   try {
     sdk.chat.close();
@@ -324,14 +343,6 @@ function safeCloseAndHideCrisp(sdk: PicchuSpotCrispSdk) {
     sdk.chat.hide();
   } catch {
     // Best-effort UI suppression only.
-  }
-}
-
-function safeShowCrispLauncher(sdk: PicchuSpotCrispSdk) {
-  try {
-    sdk.chat.show();
-  } catch {
-    // Already-activated visibility should stay best-effort.
   }
 }
 

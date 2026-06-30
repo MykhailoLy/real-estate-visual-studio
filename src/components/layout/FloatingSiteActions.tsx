@@ -48,11 +48,25 @@ export default function FloatingSiteActions() {
     if (!liveSupportActive) return;
 
     let cancelled = false;
+    let setVisibility:
+      | ((visible: boolean) => void)
+      | null = null;
+
+    const hideActiveCrisp = () => {
+      try {
+        setVisibility?.(false);
+      } catch {
+        // Native Crisp visibility should never interrupt route transitions.
+      }
+    };
 
     void import("@/components/support/crisp-support-client")
       .then(({ setActiveCrispSupportVisibility }) => {
-        if (!cancelled) {
-          setActiveCrispSupportVisibility(supportChatVisible);
+        setVisibility = setActiveCrispSupportVisibility;
+        try {
+          setActiveCrispSupportVisibility(cancelled ? false : supportChatVisible);
+        } catch {
+          // A local visibility failure should not interrupt page navigation.
         }
       })
       .catch(() => {
@@ -61,6 +75,7 @@ export default function FloatingSiteActions() {
 
     return () => {
       cancelled = true;
+      hideActiveCrisp();
     };
   }, [liveSupportActive, supportChatVisible]);
 
