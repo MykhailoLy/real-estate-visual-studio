@@ -91,6 +91,10 @@ export function normalizeSupportEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function getAnonymousSupportNickname(language: SupportChatLanguage) {
+  return language === "es" ? "Visitante del sitio" : "Website visitor";
+}
+
 export async function startCrispSupportHandoff(
   options: CrispSupportHandoffOptions,
 ): Promise<CrispSupportResult> {
@@ -113,6 +117,10 @@ export async function startCrispSupportHandoff(
     }
 
     try {
+      const submittedName = options.name.trim();
+      if (submittedName) {
+        activeSdk.user.setNickname(submittedName);
+      }
       activeSdk.chat.show();
       activeSdk.chat.open();
       return { ok: true };
@@ -254,6 +262,7 @@ async function runCrispHandoff({
   const isRestoredPicchuSpotSession = isTrueMarker(
     safeGetSessionData(sdk, CRISP_HANDOFF_DATA_KEY),
   );
+  let preserveExistingNickname = false;
 
   if (isRestoredPicchuSpotSession) {
     const existingEmail = safeGetCrispEmail(sdk);
@@ -275,6 +284,8 @@ async function runCrispHandoff({
       }
 
       contextSent = false;
+    } else {
+      preserveExistingNickname = true;
     }
   }
 
@@ -285,8 +296,11 @@ async function runCrispHandoff({
 
   try {
     sdk.user.setEmail(email);
-    if (name.trim()) {
-      sdk.user.setNickname(name);
+    const submittedName = name.trim();
+    if (submittedName) {
+      sdk.user.setNickname(submittedName);
+    } else if (!preserveExistingNickname) {
+      sdk.user.setNickname(getAnonymousSupportNickname(language));
     }
     sdk.session.setData({
       [CRISP_HANDOFF_DATA_KEY]: true,
