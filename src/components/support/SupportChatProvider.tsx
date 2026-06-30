@@ -82,6 +82,17 @@ export function SupportChatProvider({ children }: { children: ReactNode }) {
       supportChatVisible,
       openSupportChat(returnFocusElement) {
         returnFocusRef.current = returnFocusElement ?? null;
+        if (liveSupportActive) {
+          void import("@/components/support/crisp-support-client")
+            .then(({ openActiveCrispSupportChat }) => {
+              openActiveCrispSupportChat();
+            })
+            .catch(() => {
+              // A local chunk failure should not interrupt dashboard navigation.
+            });
+          return;
+        }
+
         setChatOpen(true);
       },
     }),

@@ -127,7 +127,12 @@ export default function ClientDashboardTopNav() {
 }
 
 function DashboardNavigationRow({ pathname }: { pathname: string }) {
-  const { open: supportChatOpen, openSupportChat } = useSupportChat();
+  const {
+    open: supportChatOpen,
+    liveSupportActive,
+    launcherMode,
+    openSupportChat,
+  } = useSupportChat();
   const supportButtonRef = useRef<HTMLButtonElement | null>(null);
 
   return (
@@ -154,6 +159,8 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
           );
 
           if (isSupport) {
+            if (launcherMode !== "dashboard") return null;
+
             return (
               <button
                 key={item.href}
@@ -161,8 +168,10 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
                 type="button"
                 onClick={() => openSupportChat(supportButtonRef.current)}
                 aria-label="Open PicchuSpot Assistant"
-                aria-expanded={supportChatOpen}
-                aria-controls="support-chat-widget"
+                aria-expanded={liveSupportActive ? undefined : supportChatOpen}
+                aria-controls={
+                  liveSupportActive ? undefined : "support-chat-widget"
+                }
                 className={itemClassName}
               >
                 <item.icon className="h-3.5 w-3.5" aria-hidden />

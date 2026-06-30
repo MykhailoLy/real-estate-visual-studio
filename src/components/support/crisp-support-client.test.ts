@@ -8,6 +8,7 @@ import {
   CRISP_WEBSITE_ID,
   isCrispProductionHostname,
   normalizeSupportEmail,
+  openActiveCrispSupportChat,
   resetCrispSupportClientForTests,
   setActiveCrispSupportVisibility,
   startCrispSupportHandoff,
@@ -1680,9 +1681,76 @@ test("active Crisp visibility true shows launcher but does not open chat", async
   assert.equal(sdk.calls.filter((call) => call === "chat.open").length, openCount);
 });
 
+test("openActiveCrispSupportChat returns false before activation", () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  assert.equal(openActiveCrispSupportChat(), false);
+  assert.equal(sdk.calls.includes("chat.show"), false);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+});
+
+test("openActiveCrispSupportChat reopens active Crisp without reload or metadata changes", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  const configureCount = sdk.calls.filter((call) => call === "configure").length;
+  const loadCount = sdk.calls.filter((call) => call === "load").length;
+  const sentTexts = [...sdk.sentTexts];
+  const sessionData = { ...sdk.sessionData };
+  const email = sdk.getSession("session_123")?.email;
+  const nickname = sdk.getSession("session_123")?.nickname;
+
+  assert.equal(openActiveCrispSupportChat(), true);
+
+  assert.equal(sdk.calls.at(-2), "chat.show");
+  assert.equal(sdk.calls.at(-1), "chat.open");
+  assert.equal(sdk.calls.filter((call) => call === "configure").length, configureCount);
+  assert.equal(sdk.calls.filter((call) => call === "load").length, loadCount);
+  assert.deepEqual(sdk.sentTexts, sentTexts);
+  assert.deepEqual(sdk.sessionData, sessionData);
+  assert.equal(sdk.getSession("session_123")?.email, email);
+  assert.equal(sdk.getSession("session_123")?.nickname, nickname);
+  assert.equal(
+    sdk.calls.filter((call) => call.startsWith("setEmail:")).length,
+    1,
+  );
+  assert.equal(
+    sdk.calls.filter((call) => call.startsWith("setNickname:")).length,
+    1,
+  );
+});
+
+test("openActiveCrispSupportChat failure returns false without throwing", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  sdk.throwOnOpen = true;
+
+  assert.doesNotThrow(() => {
+    assert.equal(openActiveCrispSupportChat(), false);
+  });
+  assert.equal(sdk.chatOpen, false);
+  assert.equal(sdk.launcherVisible, false);
+  assert.equal(sdk.calls.at(-2), "chat.close");
+  assert.equal(sdk.calls.at(-1), "chat.hide");
+});
+
 test("active Crisp route visibility includes dashboard and excludes order", () => {
   assert.equal(isSupportChatRouteVisible("/dashboard"), true);
   assert.equal(isSupportChatRouteVisible("/dashboard/jobs"), true);
+  assert.equal(isSupportChatRouteVisible("/dashboard/drafts/example"), true);
+  assert.equal(isSupportChatRouteVisible("/dashboard/orders/new"), false);
+  assert.equal(
+    isSupportChatRouteVisible("/dashboard/orders/new/virtual-staging"),
+    false,
+  );
+  assert.equal(
+    isSupportChatRouteVisible("/es/dashboard/orders/new/virtual-staging"),
+    false,
+  );
   assert.equal(isSupportChatRouteVisible("/order"), false);
   assert.equal(isSupportChatRouteVisible("/admin"), false);
 });
