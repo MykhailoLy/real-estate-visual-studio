@@ -4,25 +4,46 @@ import {
   CRISP_CONTEXT_SENT_DATA_KEY,
   CRISP_COOKIE_DOMAIN,
   CRISP_COOKIE_EXPIRE_SECONDS,
+  CRISP_HANDOFF_DATA_KEY,
   CRISP_WEBSITE_ID,
   isCrispProductionHostname,
+  normalizeSupportEmail,
   resetCrispSupportClientForTests,
   setActiveCrispSupportVisibility,
   startCrispSupportHandoff,
   type PicchuSpotCrispSdk,
 } from "./crisp-support-client.ts";
 
+interface FakeSessionState {
+  data: Record<string, boolean | string | number>;
+  email: string | null;
+  nickname: string | null;
+  sentTexts: string[];
+}
+
+function createFakeSessionState(): FakeSessionState {
+  return {
+    data: {},
+    email: null,
+    nickname: null,
+    sentTexts: [],
+  };
+}
+
 class FakeCrispSdk implements PicchuSpotCrispSdk {
   calls: string[] = [];
   configureCalls: Array<[string, Parameters<PicchuSpotCrispSdk["configure"]>[1]]> = [];
-  sessionData: Record<string, boolean | string | number> = {};
   sentTexts: string[] = [];
   loadedCallback: (() => void) | null = null;
-  sessionIdentifier: string | null = null;
   sessionIdentifierAfterLoad: string | null = "session_123";
+  sessionIdentifierAfterReset = "session_fresh";
   autoLoad = true;
   loadSetsIdentifier = true;
+  autoResetLoad = true;
+  resetSetsIdentifier = true;
   throwOnLoad = false;
+  throwOnReset = false;
+  throwOnGetEmail = false;
   throwOnGetData = false;
   throwOnGetIdentifier = false;
   throwOnMarkerSetData = false;
@@ -32,13 +53,94 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   throwOnShow = false;
   launcherVisible = false;
   chatOpen = false;
+  private sessions = new Map<string, FakeSessionState>();
+  private pendingSession = createFakeSessionState();
+  private currentSessionIdentifier: string | null = null;
+
+  get sessionIdentifier() {
+    return this.currentSessionIdentifier;
+  }
+
+  set sessionIdentifier(identifier: string | null) {
+    if (identifier === this.currentSessionIdentifier) return;
+
+    if (identifier === null) {
+      if (this.currentSessionIdentifier) {
+        this.pendingSession = this.currentSession();
+      }
+      this.currentSessionIdentifier = null;
+      return;
+    }
+
+    if (!this.sessions.has(identifier)) {
+      this.sessions.set(
+        identifier,
+        this.currentSessionIdentifier
+          ? createFakeSessionState()
+          : this.pendingSession,
+      );
+    }
+    this.currentSessionIdentifier = identifier;
+  }
+
+  get sessionData() {
+    return this.currentSession().data;
+  }
+
+  set sessionData(data: Record<string, boolean | string | number>) {
+    this.currentSession().data = data;
+  }
+
+  getSession(identifier: string) {
+    return this.sessions.get(identifier);
+  }
+
+  seedCurrentSession({
+    data,
+    email,
+    nickname,
+  }: {
+    data?: Record<string, boolean | string | number>;
+    email?: string | null;
+    nickname?: string | null;
+  }) {
+    const session = this.currentSession();
+    if (data) {
+      session.data = { ...data };
+    }
+    if (email !== undefined) {
+      session.email = email;
+    }
+    if (nickname !== undefined) {
+      session.nickname = nickname;
+    }
+  }
+
+  private currentSession() {
+    if (!this.currentSessionIdentifier) {
+      return this.pendingSession;
+    }
+
+    const session = this.sessions.get(this.currentSessionIdentifier);
+    assert.ok(session);
+    return session;
+  }
 
   user = {
     setNickname: (nickname: string) => {
       this.calls.push(`setNickname:${nickname}`);
+      this.currentSession().nickname = nickname;
     },
     setEmail: (email: string) => {
       this.calls.push(`setEmail:${email}`);
+      this.currentSession().email = email;
+    },
+    getEmail: () => {
+      this.calls.push("getEmail");
+      if (this.throwOnGetEmail) {
+        throw new Error("getEmail failed");
+      }
+      return this.currentSession().email;
     },
   };
 
@@ -81,6 +183,21 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
       }
       this.loadedCallback = null;
     },
+    reset: () => {
+      this.calls.push("reset");
+      if (this.throwOnReset) {
+        throw new Error("reset failed");
+      }
+
+      this.currentSessionIdentifier = null;
+      this.pendingSession = createFakeSessionState();
+      if (this.resetSetsIdentifier) {
+        this.sessionIdentifier = this.sessionIdentifierAfterReset;
+      }
+      if (this.autoResetLoad) {
+        this.loadedCallback?.();
+      }
+    },
   };
 
   message = {
@@ -90,6 +207,7 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
         throw new Error("sendText failed");
       }
       this.sentTexts.push(content);
+      this.currentSession().sentTexts.push(content);
     },
   };
 
@@ -137,6 +255,13 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
       }
       this.loadedCallback?.();
     }
+  }
+
+  completeReset() {
+    if (this.resetSetsIdentifier && !this.sessionIdentifier) {
+      this.sessionIdentifier = this.sessionIdentifierAfterReset;
+    }
+    this.loadedCallback?.();
   }
 
   setAvailabilityTooltip(enabled: boolean) {
@@ -210,6 +335,415 @@ async function expectSettled<T>(promise: Promise<T>, timeoutMs = 50) {
   assert.notEqual(result, pending);
   return result as T;
 }
+
+function createRestoredPicchuSpotSdk({
+  data = {},
+  email = "ada@example.com",
+  handoffMarker = true,
+  nickname = "Previous Visitor",
+}: {
+  data?: Record<string, boolean | string | number>;
+  email?: string | null;
+  handoffMarker?: boolean | string;
+  nickname?: string | null;
+} = {}) {
+  const sdk = new FakeCrispSdk();
+  sdk.sessionIdentifier = "session_old";
+  sdk.seedCurrentSession({
+    data: {
+      ...data,
+      [CRISP_HANDOFF_DATA_KEY]: handoffMarker,
+    },
+    email,
+    nickname,
+  });
+  return sdk;
+}
+
+test("support email normalization trims and lowercases", () => {
+  assert.equal(
+    normalizeSupportEmail("  User@Example.COM  "),
+    "user@example.com",
+  );
+});
+
+test("support email normalization preserves provider-specific characters", () => {
+  assert.equal(
+    normalizeSupportEmail(" First.Last+Photos@Example.com "),
+    "first.last+photos@example.com",
+  );
+});
+
+test("fresh session is not reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.equal(sdk.calls.includes("reset"), false);
+});
+
+test("fresh session receives submitted identity only after load", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.equal(
+    sdk.calls.indexOf("load") < sdk.calls.indexOf("setEmail:ada@example.com"),
+    true,
+  );
+  assert.equal(sdk.getSession("session_123")?.email, "ada@example.com");
+  assert.equal(sdk.getSession("session_123")?.nickname, "Ada");
+});
+
+test("restored PicchuSpot session with matching email is preserved", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk();
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.equal(sdk.calls.includes("reset"), false);
+  assert.equal(sdk.sessionIdentifier, "session_old");
+});
+
+test("restored PicchuSpot email comparison is case-insensitive", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "  ADA@EXAMPLE.COM ",
+    handoffMarker: "true",
+  });
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.equal(sdk.calls.includes("reset"), false);
+});
+
+test("restored PicchuSpot session with different email is reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.equal(sdk.calls.filter((call) => call === "reset").length, 1);
+  assert.equal(sdk.sessionIdentifier, "session_fresh");
+});
+
+test("new identity is never written to the old session", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(options(sdk));
+
+  assert.equal(sdk.getSession("session_old")?.email, "previous@example.com");
+  assert.equal(sdk.getSession("session_fresh")?.email, "ada@example.com");
+});
+
+test("previous conversation data remains attached only to the old session", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    data: {
+      previous_private_context: "old conversation",
+    },
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(options(sdk));
+
+  assert.equal(
+    sdk.getSession("session_old")?.data.previous_private_context,
+    "old conversation",
+  );
+  assert.equal(
+    sdk.getSession("session_fresh")?.data.previous_private_context,
+    undefined,
+  );
+});
+
+test("fresh session receives the new email after reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(
+    options(sdk, { email: "new@example.com" }),
+  );
+
+  assert.equal(sdk.getSession("session_fresh")?.email, "new@example.com");
+});
+
+test("empty submitted name does not copy the previous nickname after reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+    nickname: "Previous Name",
+  });
+
+  await startCrispSupportHandoff(options(sdk, { name: "" }));
+
+  assert.equal(sdk.getSession("session_old")?.nickname, "Previous Name");
+  assert.equal(sdk.getSession("session_fresh")?.nickname, null);
+});
+
+test("new submitted name is set on the fresh session", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(options(sdk, { name: "New Visitor" }));
+
+  assert.equal(sdk.getSession("session_fresh")?.nickname, "New Visitor");
+});
+
+test("missing existing email on a marked session causes reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({ email: null });
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.equal(sdk.calls.includes("reset"), true);
+});
+
+test("getEmail failure on a marked session causes reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk();
+  sdk.throwOnGetEmail = true;
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.equal(sdk.calls.includes("reset"), true);
+  assert.equal(sdk.getSession("session_fresh")?.email, "ada@example.com");
+});
+
+test("reset occurs before transcript sending", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(options(sdk));
+
+  assert.equal(
+    sdk.calls.indexOf("reset") <
+      sdk.calls.indexOf("sendText:handoff context"),
+    true,
+  );
+});
+
+test("reset occurs before PicchuSpot metadata is written", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(options(sdk));
+
+  assert.equal(sdk.calls.indexOf("reset") < sdk.calls.indexOf("setData"), true);
+});
+
+test("fresh identity and metadata follow the required order after reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(options(sdk, { name: "New Visitor" }));
+
+  const resetIndex = sdk.calls.indexOf("reset");
+  const emailIndex = sdk.calls.indexOf("setEmail:ada@example.com");
+  const nicknameIndex = sdk.calls.indexOf("setNickname:New Visitor");
+  const metadataIndex = sdk.calls.indexOf("setData");
+  assert.equal(resetIndex < emailIndex, true);
+  assert.equal(emailIndex < nicknameIndex, true);
+  assert.equal(nicknameIndex < metadataIndex, true);
+});
+
+test("reset waits for the registered loaded callback before using a fresh session", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+  sdk.autoResetLoad = false;
+  sdk.resetSetsIdentifier = false;
+
+  const handoff = startCrispSupportHandoff(
+    options(sdk, { timeoutMs: 500 }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(sdk.calls.indexOf("onLoaded") < sdk.calls.indexOf("reset"), true);
+  assert.equal(sdk.calls.some((call) => call.startsWith("setEmail:")), false);
+  sdk.resetSetsIdentifier = true;
+  sdk.completeReset();
+
+  assert.deepEqual(await handoff, { ok: true });
+  assert.equal(sdk.sessionIdentifier, "session_fresh");
+  assert.equal(sdk.loadedCallback, null);
+});
+
+test("reset timeout sends no context and never opens Crisp", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+  sdk.autoResetLoad = false;
+  sdk.resetSetsIdentifier = false;
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, { timeoutMs: 1 }),
+  );
+
+  assert.deepEqual(result, { ok: false, code: "timeout" });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.some((call) => call.startsWith("setEmail:")), false);
+  assert.equal(sdk.calls.includes("chat.show"), false);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+  assert.equal(sdk.launcherVisible, false);
+  assert.equal(sdk.chatOpen, false);
+  assert.equal(sdk.loadedCallback, null);
+});
+
+test("reset exception returns a safe failure and leaves old identity untouched", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+  sdk.throwOnReset = true;
+
+  const result = await startCrispSupportHandoff(options(sdk));
+
+  assert.deepEqual(result, { ok: false, code: "load_failed" });
+  assert.equal(sdk.getSession("session_old")?.email, "previous@example.com");
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+  assert.equal(sdk.loadedCallback, null);
+});
+
+test("cancellation during reset sends nothing and keeps Crisp hidden", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+  sdk.autoResetLoad = false;
+  sdk.resetSetsIdentifier = false;
+  const { controller, counts } = createTrackedAbortController();
+
+  const handoff = startCrispSupportHandoff(
+    options(sdk, {
+      signal: controller.signal,
+      timeoutMs: 500,
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  controller.abort();
+
+  assert.deepEqual(await handoff, { ok: false, code: "cancelled" });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+  assert.equal(sdk.launcherVisible, false);
+  assert.equal(sdk.chatOpen, false);
+  assert.equal(sdk.loadedCallback, null);
+  assert.deepEqual(counts(), { addCount: 1, removeCount: 1 });
+});
+
+test("reset does not accept the previous session identifier as fresh", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+  sdk.sessionIdentifierAfterReset = "session_old";
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, { timeoutMs: 1 }),
+  );
+
+  assert.deepEqual(result, { ok: false, code: "timeout" });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+});
+
+test("fresh session does not inherit context marker or module state after reset", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  const oldIdentifier = sdk.sessionIdentifier;
+  assert.equal(oldIdentifier, "session_123");
+
+  const second = await startCrispSupportHandoff(
+    options(sdk, {
+      email: "second@example.com",
+      name: "",
+      context: {
+        message: "fresh fallback",
+        hasTranscript: false,
+      },
+    }),
+  );
+
+  assert.deepEqual(second, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["handoff context", "fresh fallback"]);
+  assert.equal(
+    sdk.getSession("session_123")?.data[CRISP_CONTEXT_SENT_DATA_KEY],
+    true,
+  );
+  assert.equal(
+    sdk.getSession("session_fresh")?.data[CRISP_CONTEXT_SENT_DATA_KEY],
+    true,
+  );
+  assert.equal(sdk.getSession("session_fresh")?.email, "second@example.com");
+  assert.equal(sdk.getSession("session_fresh")?.nickname, null);
+});
+
+test("fresh no-transcript session sends one fallback and persists marker", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, {
+      context: {
+        message: "fresh fallback",
+        hasTranscript: false,
+      },
+    }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fresh fallback"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
+});
+
+test("fresh transcript session sends one structured context and persists marker", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["handoff context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
+});
+
+test("matching restored session still suppresses duplicate fallback", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    data: {
+      [CRISP_CONTEXT_SENT_DATA_KEY]: true,
+    },
+    email: "Ada@Example.com",
+  });
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, {
+      email: "ada@example.com",
+      context: {
+        message: "duplicate fallback",
+        hasTranscript: false,
+      },
+    }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(sdk.calls.includes("reset"), false);
+  assert.deepEqual(sdk.sentTexts, []);
+});
 
 test("production hostname guard accepts only live PicchuSpot hosts", () => {
   assert.equal(isCrispProductionHostname("picchuspot.com"), true);
@@ -300,7 +834,7 @@ test("native Crisp is closed and hidden during loading before show and open", as
   const result = await startCrispSupportHandoff(options(sdk));
 
   assert.deepEqual(result, { ok: true });
-  assert.equal(sdk.calls.indexOf("load") < sdk.calls.indexOf("chat.close"), true);
+  assert.equal(sdk.calls.indexOf("chat.close") < sdk.calls.indexOf("load"), true);
   assert.equal(sdk.calls.indexOf("chat.close") < sdk.calls.indexOf("chat.hide"), true);
   assert.equal(
     sdk.calls.indexOf("chat.hide") < sdk.calls.indexOf("sendText:handoff context"),

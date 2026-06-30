@@ -13,6 +13,7 @@ export const CRISP_COOKIE_DOMAIN = "picchuspot.com";
 export const CRISP_COOKIE_EXPIRE_SECONDS = 2592000;
 export const CRISP_LOAD_TIMEOUT_MS = 10000;
 export const CRISP_CONTEXT_SENT_DATA_KEY = "picchuspot_context_sent";
+export const CRISP_HANDOFF_DATA_KEY = "picchuspot_handoff";
 
 export type CrispSupportResult =
   | { ok: true }
@@ -52,6 +53,7 @@ export interface PicchuSpotCrispSdk {
   user: {
     setNickname(nickname: string): void;
     setEmail(email: string): void;
+    getEmail(): string | null;
   };
   session: {
     setData(data: Record<string, boolean | string>): void;
@@ -59,6 +61,7 @@ export interface PicchuSpotCrispSdk {
     getIdentifier(): string | null;
     onLoaded(callback: () => void): void;
     offLoaded(): void;
+    reset(): void;
   };
   message: {
     sendText(content: string): void;
@@ -82,6 +85,11 @@ let activated = false;
 let activeSdk: PicchuSpotCrispSdk | null = null;
 let activeAttempt: ActiveAttempt | null = null;
 let contextSent = false;
+let activeEmail: string | null = null;
+
+export function normalizeSupportEmail(email: string) {
+  return email.trim().toLowerCase();
+}
 
 export async function startCrispSupportHandoff(
   options: CrispSupportHandoffOptions,
@@ -95,7 +103,11 @@ export async function startCrispSupportHandoff(
     return { ok: false, code: "cancelled" };
   }
 
-  if (activated && activeSdk) {
+  if (
+    activated &&
+    activeSdk &&
+    activeEmail === normalizeSupportEmail(options.email)
+  ) {
     if (isSignalCancelled(options.signal)) {
       return { ok: false, code: "cancelled" };
     }
@@ -114,8 +126,20 @@ export async function startCrispSupportHandoff(
     return activeAttempt.promise;
   }
 
+  const sdkForEmailChange = activated ? activeSdk : null;
+  if (sdkForEmailChange) {
+    activated = false;
+  }
+
   const token = Symbol("crisp-support-attempt");
-  const promise = runCrispHandoff(options)
+  const promise = runCrispHandoff(
+    sdkForEmailChange
+      ? {
+          ...options,
+          sdkLoader: async () => sdkForEmailChange,
+        }
+      : options,
+  )
     .catch<CrispSupportResult>(() => ({ ok: false, code: "load_failed" }))
     .finally(() => {
       if (activeAttempt?.token === token) {
@@ -154,6 +178,7 @@ export function resetCrispSupportClientForTests() {
   activeSdk = null;
   activeAttempt = null;
   contextSent = false;
+  activeEmail = null;
 }
 
 async function runCrispHandoff({
@@ -199,21 +224,12 @@ async function runCrispHandoff({
     sdk.toggleOperatorCount(false);
     sdk.setPosition("right");
     sdk.setHideOnMobile(false);
+    safeCloseAndHideCrisp(sdk);
 
     if (isSignalCancelled(signal)) {
       safeCloseAndHideCrisp(sdk);
       return { ok: false, code: "cancelled" };
     }
-
-    if (name) {
-      sdk.user.setNickname(name);
-    }
-    sdk.user.setEmail(email);
-    sdk.session.setData({
-      picchuspot_handoff: true,
-      picchuspot_locale: language,
-      picchuspot_page: pagePath,
-    });
   } catch {
     safeCloseAndHideCrisp(sdk);
     return { ok: false, code: "load_failed" };
@@ -224,13 +240,7 @@ async function runCrispHandoff({
     return { ok: false, code: "cancelled" };
   }
 
-  const hadExistingSession = Boolean(safeGetSessionIdentifier(sdk));
-  const loaded = await loadCrispSession(
-    sdk,
-    timeoutMs,
-    hadExistingSession,
-    signal,
-  );
+  const loaded = await loadCrispSession(sdk, timeoutMs, signal);
   if (!loaded.ok) {
     safeCloseAndHideCrisp(sdk);
     return loaded;
@@ -241,8 +251,50 @@ async function runCrispHandoff({
     return { ok: false, code: "cancelled" };
   }
 
+  const isRestoredPicchuSpotSession = isTrueMarker(
+    safeGetSessionData(sdk, CRISP_HANDOFF_DATA_KEY),
+  );
+
+  if (isRestoredPicchuSpotSession) {
+    const existingEmail = safeGetCrispEmail(sdk);
+    const submittedEmail = normalizeSupportEmail(email);
+    const existingNormalizedEmail =
+      existingEmail.ok && existingEmail.value
+        ? normalizeSupportEmail(existingEmail.value)
+        : "";
+
+    if (
+      !existingEmail.ok ||
+      !existingNormalizedEmail ||
+      existingNormalizedEmail !== submittedEmail
+    ) {
+      const reset = await resetCrispSessionAndWait(sdk, timeoutMs, signal);
+      if (!reset.ok) {
+        safeCloseAndHideCrisp(sdk);
+        return reset;
+      }
+
+      contextSent = false;
+    }
+  }
+
+  if (isSignalCancelled(signal)) {
+    safeCloseAndHideCrisp(sdk);
+    return { ok: false, code: "cancelled" };
+  }
+
   try {
-    const persistedContextSent = isContextSentMarker(
+    sdk.user.setEmail(email);
+    if (name.trim()) {
+      sdk.user.setNickname(name);
+    }
+    sdk.session.setData({
+      [CRISP_HANDOFF_DATA_KEY]: true,
+      picchuspot_locale: language,
+      picchuspot_page: pagePath,
+    });
+
+    const persistedContextSent = isTrueMarker(
       safeGetSessionData(sdk, CRISP_CONTEXT_SENT_DATA_KEY),
     );
 
@@ -264,6 +316,7 @@ async function runCrispHandoff({
     sdk.chat.open();
     activated = true;
     activeSdk = sdk;
+    activeEmail = normalizeSupportEmail(email);
     return { ok: true };
   } catch {
     safeCloseAndHideCrisp(sdk);
@@ -274,14 +327,13 @@ async function runCrispHandoff({
 function loadCrispSession(
   sdk: PicchuSpotCrispSdk,
   timeoutMs: number,
-  hadExistingSession: boolean,
   signal?: AbortSignal,
 ): Promise<CrispSupportResult> {
   if (isSignalCancelled(signal)) {
     return Promise.resolve({ ok: false, code: "cancelled" });
   }
 
-  if (hadExistingSession) {
+  if (safeGetSessionIdentifier(sdk)) {
     return Promise.resolve({ ok: true });
   }
 
@@ -319,13 +371,90 @@ function loadCrispSession(
         return;
       }
 
+      safeCloseAndHideCrisp(sdk);
       sdk.load();
-      sdk.chat.close();
-      sdk.chat.hide();
 
       if (safeGetSessionIdentifier(sdk)) {
         finish({ ok: true });
       }
+    } catch {
+      safeCloseAndHideCrisp(sdk);
+      finish({ ok: false, code: "load_failed" });
+    }
+  });
+}
+
+function resetCrispSessionAndWait(
+  sdk: PicchuSpotCrispSdk,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<CrispSupportResult> {
+  if (isSignalCancelled(signal)) {
+    return Promise.resolve({ ok: false, code: "cancelled" });
+  }
+
+  const previousSessionIdentifier = safeGetSessionIdentifier(sdk);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let resetLoaded = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = (result: CrispSupportResult) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      try {
+        signal?.removeEventListener("abort", onAbort);
+      } catch {
+        // Cleanup is best-effort so handoff resolution is never blocked.
+      }
+      safeOffLoaded(sdk);
+      resolve(result);
+    };
+
+    const freshSessionIsAvailable = () => {
+      const currentSessionIdentifier = safeGetSessionIdentifier(sdk);
+      if (
+        previousSessionIdentifier &&
+        currentSessionIdentifier &&
+        previousSessionIdentifier === currentSessionIdentifier
+      ) {
+        return false;
+      }
+
+      return resetLoaded || Boolean(currentSessionIdentifier);
+    };
+
+    const completeWhenFresh = () => {
+      if (freshSessionIsAvailable()) {
+        finish({ ok: true });
+      }
+    };
+
+    const onAbort = () => finish({ ok: false, code: "cancelled" });
+
+    try {
+      safeCloseAndHideCrisp(sdk);
+      sdk.session.onLoaded(() => {
+        resetLoaded = true;
+        completeWhenFresh();
+      });
+      timeoutId = setTimeout(
+        () => finish({ ok: false, code: "timeout" }),
+        timeoutMs,
+      );
+      signal?.addEventListener("abort", onAbort, { once: true });
+
+      if (isSignalCancelled(signal)) {
+        finish({ ok: false, code: "cancelled" });
+        return;
+      }
+
+      sdk.session.reset();
+      completeWhenFresh();
     } catch {
       safeCloseAndHideCrisp(sdk);
       finish({ ok: false, code: "load_failed" });
@@ -352,7 +481,21 @@ function safeGetSessionData(sdk: PicchuSpotCrispSdk, key: string) {
   }
 }
 
-function isContextSentMarker(value: string | boolean | number | undefined) {
+function safeGetCrispEmail(
+  sdk: PicchuSpotCrispSdk,
+): { ok: true; value: string | null } | { ok: false } {
+  try {
+    const email = sdk.user.getEmail();
+    return {
+      ok: true,
+      value: typeof email === "string" ? email : null,
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function isTrueMarker(value: string | boolean | number | undefined) {
   return value === true || value === "true";
 }
 
