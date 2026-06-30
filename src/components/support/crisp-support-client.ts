@@ -12,6 +12,7 @@ export const CRISP_WEBSITE_ID = "e6bb27b3-4a95-47d7-ad37-5fb0a741847f";
 export const CRISP_COOKIE_DOMAIN = "picchuspot.com";
 export const CRISP_COOKIE_EXPIRE_SECONDS = 2592000;
 export const CRISP_LOAD_TIMEOUT_MS = 10000;
+export const CRISP_CONTEXT_SENT_DATA_KEY = "picchuspot_context_sent";
 
 export type CrispSupportResult =
   | { ok: true }
@@ -54,6 +55,7 @@ export interface PicchuSpotCrispSdk {
   };
   session: {
     setData(data: Record<string, boolean | string>): void;
+    getData(key: string): string | boolean | number | undefined;
     getIdentifier(): string | null;
     onLoaded(callback: () => void): void;
     offLoaded(): void;
@@ -80,7 +82,6 @@ let activated = false;
 let activeSdk: PicchuSpotCrispSdk | null = null;
 let activeAttempt: ActiveAttempt | null = null;
 let contextSent = false;
-let pendingInitialFallback = false;
 
 export async function startCrispSupportHandoff(
   options: CrispSupportHandoffOptions,
@@ -153,7 +154,6 @@ export function resetCrispSupportClientForTests() {
   activeSdk = null;
   activeAttempt = null;
   contextSent = false;
-  pendingInitialFallback = false;
 }
 
 async function runCrispHandoff({
@@ -225,10 +225,6 @@ async function runCrispHandoff({
   }
 
   const hadExistingSession = Boolean(safeGetSessionIdentifier(sdk));
-  if (!context.hasTranscript && !hadExistingSession) {
-    pendingInitialFallback = true;
-  }
-
   const loaded = await loadCrispSession(
     sdk,
     timeoutMs,
@@ -246,13 +242,17 @@ async function runCrispHandoff({
   }
 
   try {
+    const persistedContextSent = isContextSentMarker(
+      safeGetSessionData(sdk, CRISP_CONTEXT_SENT_DATA_KEY),
+    );
+
     if (
       !contextSent &&
-      (context.hasTranscript || !hadExistingSession || pendingInitialFallback)
+      (context.hasTranscript || !persistedContextSent)
     ) {
       sdk.message.sendText(context.message);
       contextSent = true;
-      pendingInitialFallback = false;
+      safePersistContextSentMarker(sdk);
     }
 
     if (isSignalCancelled(signal)) {
@@ -341,6 +341,28 @@ function safeGetSessionIdentifier(sdk: PicchuSpotCrispSdk) {
       : null;
   } catch {
     return null;
+  }
+}
+
+function safeGetSessionData(sdk: PicchuSpotCrispSdk, key: string) {
+  try {
+    return sdk.session.getData(key);
+  } catch {
+    return undefined;
+  }
+}
+
+function isContextSentMarker(value: string | boolean | number | undefined) {
+  return value === true || value === "true";
+}
+
+function safePersistContextSentMarker(sdk: PicchuSpotCrispSdk) {
+  try {
+    sdk.session.setData({
+      [CRISP_CONTEXT_SENT_DATA_KEY]: true,
+    });
+  } catch {
+    // The message is already visible to the operator, so persistence is best-effort.
   }
 }
 
