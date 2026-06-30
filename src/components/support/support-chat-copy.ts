@@ -41,9 +41,9 @@ export const supportChatCopy = {
     handoff: {
       heading: "Talk to a person",
       explanation:
-        "Live support is provided through Crisp. When you continue, your name, email, and a short summary of this chat will be shared with the PicchuSpot team so we can reply.",
+        "Share your contact details and we'll connect you with the PicchuSpot team. A short summary of this chat will be included so you don't have to repeat yourself.",
       continuityNote:
-        "Crisp may use a support-session cookie to keep the conversation connected. You can continue using the AI assistant without starting live support.",
+        "Your information will be handled according to our Privacy Policy.",
       nameLabel: "Name",
       nameOptional: "optional",
       emailLabel: "Email",
@@ -105,9 +105,9 @@ export const supportChatCopy = {
     handoff: {
       heading: "Hablar con una persona",
       explanation:
-        "La atención en vivo se proporciona mediante Crisp. Al continuar, tu nombre, correo electrónico y un breve resumen de este chat se compartirán con el equipo de PicchuSpot para que podamos responderte.",
+        "Comparte tus datos de contacto y te conectaremos con el equipo de PicchuSpot. Incluiremos un breve resumen de este chat para que no tengas que repetir la información.",
       continuityNote:
-        "Crisp puede usar una cookie de sesión de soporte para mantener conectada la conversación. Puedes seguir usando el asistente de IA sin iniciar la atención en vivo.",
+        "Tu información se tratará de acuerdo con nuestra Política de privacidad.",
       nameLabel: "Nombre",
       nameOptional: "opcional",
       emailLabel: "Correo electrónico",
