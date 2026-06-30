@@ -38,6 +38,29 @@ export const supportChatCopy = {
     },
     humanSupportMessage:
       "Live support is being prepared. For now, please contact our team through the contact page.",
+    handoff: {
+      heading: "Talk to a person",
+      explanation:
+        "Live support is provided through Crisp. When you continue, your name, email, and a short summary of this chat will be shared with the PicchuSpot team so we can reply.",
+      continuityNote:
+        "Crisp may use a support-session cookie to keep the conversation connected. You can continue using the AI assistant without starting live support.",
+      nameLabel: "Name",
+      nameOptional: "optional",
+      emailLabel: "Email",
+      continueButton: "Continue to live support",
+      cancelButton: "Cancel",
+      connecting: "Connecting to live support...",
+      productionOnly:
+        "Live support is available on the live PicchuSpot website. You can continue using the AI assistant here or contact us through the contact page.",
+      retry:
+        "Live support could not connect just now. Please try again or continue using the AI assistant.",
+      validation: {
+        nameTooLong: "Name must be 80 characters or fewer.",
+        emailRequired: "Email is required.",
+        emailTooLong: "Email must be 254 characters or fewer.",
+        emailInvalid: "Enter a valid email address.",
+      },
+    },
     errors: {
       invalidInput:
         "That message could not be sent. Please shorten it and try again.",
@@ -79,6 +102,29 @@ export const supportChatCopy = {
     },
     humanSupportMessage:
       "Estamos preparando la atención en vivo. Por ahora, puedes contactar con nuestro equipo a través de la página de contacto.",
+    handoff: {
+      heading: "Hablar con una persona",
+      explanation:
+        "La atención en vivo se proporciona mediante Crisp. Al continuar, tu nombre, correo electrónico y un breve resumen de este chat se compartirán con el equipo de PicchuSpot para que podamos responderte.",
+      continuityNote:
+        "Crisp puede usar una cookie de sesión de soporte para mantener conectada la conversación. Puedes seguir usando el asistente de IA sin iniciar la atención en vivo.",
+      nameLabel: "Nombre",
+      nameOptional: "opcional",
+      emailLabel: "Correo electrónico",
+      continueButton: "Continuar con atención en vivo",
+      cancelButton: "Cancelar",
+      connecting: "Conectando con atención en vivo...",
+      productionOnly:
+        "La atención en vivo está disponible en el sitio web activo de PicchuSpot. Puedes seguir usando el asistente de IA aquí o contactarnos a través de la página de contacto.",
+      retry:
+        "No se pudo conectar con la atención en vivo en este momento. Inténtalo de nuevo o sigue usando el asistente de IA.",
+      validation: {
+        nameTooLong: "El nombre debe tener 80 caracteres o menos.",
+        emailRequired: "El correo electrónico es obligatorio.",
+        emailTooLong: "El correo electrónico debe tener 254 caracteres o menos.",
+        emailInvalid: "Introduce un correo electrónico válido.",
+      },
+    },
     errors: {
       invalidInput:
         "No se pudo enviar el mensaje. Acórtalo e inténtalo de nuevo.",

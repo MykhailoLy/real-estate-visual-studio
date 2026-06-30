@@ -114,12 +114,27 @@ const sections = [
           client portal, file storage, hosting, and communications. These may
           include Supabase for authentication, database, and storage services;
           Vercel for hosting and deployment; and Resend or another email
-          provider for service emails.
+          provider for service emails. Crisp is used for live support when a
+          visitor explicitly requests live human help, and Google Analytics is
+          used for analytics when a visitor accepts analytics cookies.
         </p>
         <p>
-          We may enable privacy-conscious analytics later to understand basic
-          website performance and conversion paths. If analytics are enabled,
-          this policy should be updated to describe the provider and purpose.
+          Google Analytics helps us understand basic website usage and
+          conversion measurement only after analytics cookies are accepted.
+          Analytics cookies may be rejected through the cookie controls.
+        </p>
+        <p>
+          Crisp live support loads only when you explicitly ask to talk with a
+          person. If you continue to live support, Crisp may receive your name,
+          email address, current page path, recent AI chat context, and messages
+          you enter into the native Crisp chat. Crisp may set a support-session
+          cookie to keep the conversation connected; PicchuSpot configures this
+          cookie with a 30-day expiration.
+        </p>
+        <p>
+          You can decline live support and continue using the AI assistant or
+          the contact page. The analytics cookie choice remains separate from
+          the live-support action.
         </p>
       </>
     ),
@@ -133,6 +148,11 @@ const sections = [
           long as reasonably needed to provide the service, support revisions,
           maintain business records, resolve disputes, and meet legal or
           security needs.
+        </p>
+        <p>
+          Support communications, including messages handled through Crisp, may
+          be retained as reasonably necessary to respond, maintain business
+          records, resolve disputes, and meet legal or security needs.
         </p>
         <p>
           We do not guarantee permanent storage of delivered or uploaded files.
@@ -206,7 +226,7 @@ export default function PrivacyPage() {
             real estate visual orders, communicate clearly, and protect the
             service.
           </p>
-          <p className="mt-5 text-sm text-muted">Last updated: June 5, 2026</p>
+          <p className="mt-5 text-sm text-muted">Last updated: June 30, 2026</p>
         </div>
 
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-8 lg:gap-12">

@@ -113,13 +113,30 @@ const sections = [
           web, el portal de clientes, almacenamiento de archivos, hosting y
           comunicaciones. Estos pueden incluir Supabase para autenticación, base
           de datos y almacenamiento; Vercel para hosting y despliegue; y Resend
-          u otro proveedor de email para correos de servicio.
+          u otro proveedor de email para correos de servicio. Crisp se usa para
+          atención en vivo cuando una persona visitante solicita explícitamente
+          ayuda humana, y Google Analytics se usa para analítica cuando la
+          persona visitante acepta las cookies de analítica.
         </p>
         <p>
-          Podemos activar analítica respetuosa con la privacidad más adelante
-          para entender el rendimiento básico del sitio y las rutas de
-          conversión. Si se activa analítica, esta política debería
-          actualizarse para describir el proveedor y la finalidad.
+          Google Analytics nos ayuda a entender el uso básico del sitio web y la
+          medición de conversiones solo después de aceptar las cookies de
+          analítica. Las cookies de analítica pueden rechazarse mediante los
+          controles de cookies.
+        </p>
+        <p>
+          La atención en vivo de Crisp se carga solo cuando solicitas
+          explícitamente hablar con una persona. Si continúas con la atención en
+          vivo, Crisp puede recibir tu nombre, correo electrónico, ruta de la
+          página actual, contexto reciente del chat de IA y los mensajes que
+          escribas en el chat nativo de Crisp. Crisp puede establecer una cookie
+          de sesión de soporte para mantener conectada la conversación;
+          PicchuSpot configura esta cookie con una caducidad de 30 días.
+        </p>
+        <p>
+          Puedes rechazar la atención en vivo y seguir usando el asistente de IA
+          o la página de contacto. La elección de cookies de analítica permanece
+          separada de la acción de atención en vivo.
         </p>
       </>
     ),
@@ -133,6 +150,12 @@ const sections = [
           durante el tiempo razonablemente necesario para prestar el servicio,
           apoyar revisiones, mantener registros de negocio, resolver disputas y
           cumplir necesidades legales o de seguridad.
+        </p>
+        <p>
+          Las comunicaciones de soporte, incluidos los mensajes gestionados a
+          través de Crisp, pueden conservarse durante el tiempo razonablemente
+          necesario para responder, mantener registros de negocio, resolver
+          disputas y cumplir necesidades legales o de seguridad.
         </p>
         <p>
           No garantizamos almacenamiento permanente de archivos entregados o
@@ -210,7 +233,7 @@ export default function SpanishPrivacyPage() {
             y proteger el servicio.
           </p>
           <p className="mt-5 text-sm text-muted">
-            Última actualización: 5 de junio de 2026
+            Última actualización: 30 de junio de 2026
           </p>
         </div>
 
