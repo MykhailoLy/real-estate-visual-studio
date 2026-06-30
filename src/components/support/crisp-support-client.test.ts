@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CRISP_CONTEXT_SENT_DATA_KEY,
   CRISP_COOKIE_DOMAIN,
   CRISP_COOKIE_EXPIRE_SECONDS,
   CRISP_WEBSITE_ID,
@@ -14,14 +15,17 @@ import {
 class FakeCrispSdk implements PicchuSpotCrispSdk {
   calls: string[] = [];
   configureCalls: Array<[string, Parameters<PicchuSpotCrispSdk["configure"]>[1]]> = [];
-  sessionData: Record<string, boolean | string> | null = null;
+  sessionData: Record<string, boolean | string | number> = {};
   sentTexts: string[] = [];
   loadedCallback: (() => void) | null = null;
   sessionIdentifier: string | null = null;
+  sessionIdentifierAfterLoad: string | null = "session_123";
   autoLoad = true;
   loadSetsIdentifier = true;
   throwOnLoad = false;
+  throwOnGetData = false;
   throwOnGetIdentifier = false;
+  throwOnMarkerSetData = false;
   throwOnOffLoaded = false;
   throwOnSendText = false;
   throwOnOpen = false;
@@ -41,7 +45,23 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   session = {
     setData: (data: Record<string, boolean | string>) => {
       this.calls.push("setData");
-      this.sessionData = data;
+      if (
+        this.throwOnMarkerSetData &&
+        Object.hasOwn(data, CRISP_CONTEXT_SENT_DATA_KEY)
+      ) {
+        throw new Error("marker setData failed");
+      }
+      this.sessionData = {
+        ...this.sessionData,
+        ...data,
+      };
+    },
+    getData: (key: string) => {
+      this.calls.push(`getData:${key}`);
+      if (this.throwOnGetData) {
+        throw new Error("getData failed");
+      }
+      return this.sessionData[key];
     },
     getIdentifier: () => {
       this.calls.push("getIdentifier");
@@ -113,7 +133,7 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
     }
     if (this.autoLoad) {
       if (this.loadSetsIdentifier) {
-        this.sessionIdentifier = "session_123";
+        this.sessionIdentifier = this.sessionIdentifierAfterLoad;
       }
       this.loadedCallback?.();
     }
@@ -255,16 +275,21 @@ test("adapter sets name only when present and always sets email", async () => {
   assert.ok(anonymous.calls.includes("setEmail:ada@example.com"));
 });
 
-test("adapter sets only approved session data", async () => {
+test("adapter preserves session data while adding metadata and context marker", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
+  sdk.sessionData = {
+    existing_key: "preserved",
+  };
 
   await startCrispSupportHandoff(options(sdk, { pagePath: "/es/services" }));
 
   assert.deepEqual(sdk.sessionData, {
+    existing_key: "preserved",
     picchuspot_handoff: true,
     picchuspot_locale: "en",
     picchuspot_page: "/es/services",
+    [CRISP_CONTEXT_SENT_DATA_KEY]: true,
   });
 });
 
@@ -293,6 +318,7 @@ test("adapter sends context once, then shows and opens native Crisp after load",
 
   assert.deepEqual(result, { ok: true });
   assert.deepEqual(sdk.sentTexts, ["handoff context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
   assert.equal(sdk.calls.indexOf("sendText:handoff context") > sdk.calls.indexOf("offLoaded"), true);
   assert.equal(sdk.calls.at(-2), "chat.show");
   assert.equal(sdk.calls.at(-1), "chat.open");
@@ -313,12 +339,14 @@ test("first handoff without a transcript sends one fallback message", async () =
 
   assert.deepEqual(result, { ok: true });
   assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
 });
 
-test("existing session without a transcript sends no automatic message", async () => {
+test("restored session with marker and no transcript sends no automatic message", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.sessionIdentifier = "existing_session";
+  sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY] = true;
 
   const result = await startCrispSupportHandoff(
     options(sdk, {
@@ -336,15 +364,60 @@ test("existing session without a transcript sends no automatic message", async (
   assert.equal(sdk.calls.at(-1), "chat.open");
 });
 
-test("existing session with a new transcript sends one structured message", async () => {
+test("string true marker suppresses an empty fallback", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.sessionIdentifier = "existing_session";
+  sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY] = "true";
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, {
+      context: {
+        message: "fallback context",
+        hasTranscript: false,
+      },
+    }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(sdk.sentTexts, []);
+});
+
+test("missing and false marker values do not suppress an empty fallback", async () => {
+  for (const marker of [undefined, false, "false", 0] as const) {
+    resetCrispSupportClientForTests();
+    const sdk = new FakeCrispSdk();
+    sdk.sessionIdentifier = "existing_session";
+    if (marker !== undefined) {
+      sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY] = marker;
+    }
+
+    const result = await startCrispSupportHandoff(
+      options(sdk, {
+        context: {
+          message: "fallback context",
+          hasTranscript: false,
+        },
+      }),
+    );
+
+    assert.deepEqual(result, { ok: true });
+    assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+    assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
+  }
+});
+
+test("restored session with marker and new transcript sends structured context", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.sessionIdentifier = "existing_session";
+  sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY] = true;
 
   const result = await startCrispSupportHandoff(options(sdk));
 
   assert.deepEqual(result, { ok: true });
   assert.deepEqual(sdk.sentTexts, ["handoff context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
 });
 
 test("existing session detection occurs before sdk.load", async () => {
@@ -357,7 +430,33 @@ test("existing session detection occurs before sdk.load", async () => {
   assert.equal(sdk.calls.indexOf("getIdentifier") < sdk.calls.indexOf("load"), true);
 });
 
-test("reload-style reconnection does not duplicate the fallback message", async () => {
+test("pre-load null identifier with restored marker sends no fallback", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.sessionIdentifier = null;
+  sdk.sessionIdentifierAfterLoad = "restored_session";
+  sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY] = true;
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  const result = await startCrispSupportHandoff(options(sdk, fallbackOptions));
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.filter((call) => call === "load").length, 1);
+  assert.equal(
+    sdk.calls.indexOf("load") <
+      sdk.calls.indexOf(`getData:${CRISP_CONTEXT_SENT_DATA_KEY}`),
+    true,
+  );
+  assert.equal(sdk.sessionIdentifier, "restored_session");
+});
+
+test("module reset preserves marker and prevents reload-style duplicate fallback", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   const fallbackOptions = {
@@ -371,17 +470,44 @@ test("reload-style reconnection does not duplicate the fallback message", async 
     await startCrispSupportHandoff(options(sdk, fallbackOptions)),
     { ok: true },
   );
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
+
   resetCrispSupportClientForTests();
+  sdk.sessionIdentifier = null;
   assert.deepEqual(
     await startCrispSupportHandoff(options(sdk, fallbackOptions)),
     { ok: true },
   );
 
   assert.deepEqual(sdk.sentTexts, ["fallback context"]);
-  assert.equal(sdk.calls.filter((call) => call === "load").length, 1);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
 });
 
-test("fresh fallback stays pending across timeout and late-session retry", async () => {
+test("three reload-style reconnections do not duplicate the original fallback", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  await startCrispSupportHandoff(options(sdk, fallbackOptions));
+
+  for (let reconnect = 0; reconnect < 3; reconnect += 1) {
+    resetCrispSupportClientForTests();
+    sdk.sessionIdentifier = null;
+    assert.deepEqual(
+      await startCrispSupportHandoff(options(sdk, fallbackOptions)),
+      { ok: true },
+    );
+  }
+
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+});
+
+test("timeout followed by late session retry sends and persists fallback once", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.autoLoad = false;
@@ -404,6 +530,7 @@ test("fresh fallback stays pending across timeout and late-session retry", async
 
   assert.deepEqual(retry, { ok: true });
   assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
   assert.equal(sdk.chatOpen, true);
 
   const duplicate = await startCrispSupportHandoff(options(sdk, fallbackOptions));
@@ -412,35 +539,7 @@ test("fresh fallback stays pending across timeout and late-session retry", async
   assert.deepEqual(sdk.sentTexts, ["fallback context"]);
 });
 
-test("module reset clears a pending fallback for an existing session", async () => {
-  resetCrispSupportClientForTests();
-  const sdk = new FakeCrispSdk();
-  sdk.autoLoad = false;
-  const fallbackOptions = {
-    context: {
-      message: "fallback context",
-      hasTranscript: false,
-    },
-  };
-
-  const first = await startCrispSupportHandoff(
-    options(sdk, { ...fallbackOptions, timeoutMs: 1 }),
-  );
-
-  assert.deepEqual(first, { ok: false, code: "timeout" });
-
-  sdk.sessionIdentifier = "existing_session_after_reload";
-  resetCrispSupportClientForTests();
-  const reconnect = await startCrispSupportHandoff(
-    options(sdk, fallbackOptions),
-  );
-
-  assert.deepEqual(reconnect, { ok: true });
-  assert.deepEqual(sdk.sentTexts, []);
-  assert.equal(sdk.chatOpen, true);
-});
-
-test("fresh fallback stays pending across cancellation and late-session retry", async () => {
+test("cancellation followed by late session retry sends and persists fallback once", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.autoLoad = false;
@@ -470,10 +569,11 @@ test("fresh fallback stays pending across cancellation and late-session retry", 
 
   assert.deepEqual(retry, { ok: true });
   assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
   assert.equal(sdk.chatOpen, true);
 });
 
-test("pending fallback yields to an eligible transcript on retry", async () => {
+test("late session retry with transcript sends structured context and marker", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.autoLoad = false;
@@ -502,9 +602,10 @@ test("pending fallback yields to an eligible transcript on retry", async () => {
 
   assert.deepEqual(retry, { ok: true });
   assert.deepEqual(sdk.sentTexts, ["structured transcript"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
 });
 
-test("sendText failure preserves a pending fallback for a later retry", async () => {
+test("sendText failure stores no marker and retry persists it after success", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.throwOnSendText = true;
@@ -519,13 +620,56 @@ test("sendText failure preserves a pending fallback for a later retry", async ()
 
   assert.deepEqual(first, { ok: false, code: "load_failed" });
   assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], undefined);
 
   sdk.throwOnSendText = false;
   const retry = await startCrispSupportHandoff(options(sdk, fallbackOptions));
 
   assert.deepEqual(retry, { ok: true });
   assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
   assert.equal(sdk.chatOpen, true);
+});
+
+test("getData failure does not block fallback or marker persistence", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.throwOnGetData = true;
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, {
+      context: {
+        message: "fallback context",
+        hasTranscript: false,
+      },
+    }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], true);
+});
+
+test("marker persistence failure does not resend in the same module lifecycle", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.throwOnMarkerSetData = true;
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  const first = await startCrispSupportHandoff(options(sdk, fallbackOptions));
+  const duplicate = await startCrispSupportHandoff(
+    options(sdk, fallbackOptions),
+  );
+
+  assert.deepEqual(first, { ok: true });
+  assert.deepEqual(duplicate, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.sessionData[CRISP_CONTEXT_SENT_DATA_KEY], undefined);
 });
 
 test("duplicate submissions share one load and do not duplicate transcript transfer", async () => {
