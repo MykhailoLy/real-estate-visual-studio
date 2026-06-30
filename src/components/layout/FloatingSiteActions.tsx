@@ -19,6 +19,7 @@ export default function FloatingSiteActions() {
   const pathname = usePathname() ?? "/";
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [liveSupportActive, setLiveSupportActive] = useState(false);
   const mobileChatTriggerRef = useRef<HTMLButtonElement | null>(null);
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const language = detectSupportChatLanguage(pathname);
@@ -43,6 +44,41 @@ export default function FloatingSiteActions() {
     }
   }, [supportChatVisible]);
 
+  useEffect(() => {
+    if (!liveSupportActive) return;
+
+    let cancelled = false;
+    let setVisibility:
+      | ((visible: boolean) => void)
+      | null = null;
+
+    const hideActiveCrisp = () => {
+      try {
+        setVisibility?.(false);
+      } catch {
+        // Native Crisp visibility should never interrupt route transitions.
+      }
+    };
+
+    void import("@/components/support/crisp-support-client")
+      .then(({ setActiveCrispSupportVisibility }) => {
+        setVisibility = setActiveCrispSupportVisibility;
+        try {
+          setActiveCrispSupportVisibility(cancelled ? false : supportChatVisible);
+        } catch {
+          // A local visibility failure should not interrupt page navigation.
+        }
+      })
+      .catch(() => {
+        // A local chunk failure should not interrupt page navigation.
+      });
+
+    return () => {
+      cancelled = true;
+      hideActiveCrisp();
+    };
+  }, [liveSupportActive, supportChatVisible]);
+
   if (isAdminRoute) return null;
 
   const scrollToTop = () => {
@@ -51,12 +87,14 @@ export default function FloatingSiteActions() {
 
   return (
     <>
-      <div
-        aria-hidden="true"
-        className="h-[calc(3.5rem+env(safe-area-inset-bottom))] lg:hidden"
-      />
+      {!liveSupportActive && (
+        <div
+          aria-hidden="true"
+          className="h-[calc(3.5rem+env(safe-area-inset-bottom))] lg:hidden"
+        />
+      )}
 
-      {!(supportChatVisible && chatOpen) && (
+      {!liveSupportActive && !(supportChatVisible && chatOpen) && (
         <div
           className={cn(
             "fixed inset-x-0 bottom-0 z-40 grid border-t border-primary/15 shadow-[0_-8px_24px_rgba(26,54,93,0.16)] lg:hidden",
@@ -103,7 +141,7 @@ export default function FloatingSiteActions() {
         </div>
       )}
 
-      {showBackToTop && !(supportChatVisible && chatOpen) && (
+      {showBackToTop && !liveSupportActive && !(supportChatVisible && chatOpen) && (
         <button
           type="button"
           onClick={scrollToTop}
@@ -114,12 +152,13 @@ export default function FloatingSiteActions() {
         </button>
       )}
 
-      {supportChatVisible && (
+      {supportChatVisible && !liveSupportActive && (
         <SupportChatWidget
           open={chatOpen}
           onOpenChange={setChatOpen}
           language={language}
           returnFocusRef={mobileChatTriggerRef}
+          onLiveSupportActiveChange={setLiveSupportActive}
         />
       )}
     </>
