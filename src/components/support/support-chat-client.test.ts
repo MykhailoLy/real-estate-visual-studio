@@ -4,6 +4,7 @@ import {
   buildSupportChatHistory,
   detectSupportChatLanguage,
   getSupportChatErrorMessage,
+  getSupportChatLauncherMode,
   isSupportChatRouteVisible,
   parseRetryAfterSeconds,
   submitSupportChatMessage,
@@ -74,9 +75,10 @@ test("admin routes exclude the widget", () => {
   assert.equal(isSupportChatRouteVisible("/admin/orders"), false);
 });
 
-test("dashboard routes exclude the widget", () => {
-  assert.equal(isSupportChatRouteVisible("/dashboard"), false);
-  assert.equal(isSupportChatRouteVisible("/dashboard/jobs"), false);
+test("dashboard routes allow the widget", () => {
+  assert.equal(isSupportChatRouteVisible("/dashboard"), true);
+  assert.equal(isSupportChatRouteVisible("/dashboard/jobs"), true);
+  assert.equal(isSupportChatRouteVisible("/dashboard/drafts/example"), true);
 });
 
 test("order routes exclude the widget", () => {
@@ -94,10 +96,43 @@ test("auth, login, signup, and reset routes exclude the widget", () => {
 
 test("/es prefix is normalized before exclusions", () => {
   assert.equal(isSupportChatRouteVisible("/es/admin"), false);
-  assert.equal(isSupportChatRouteVisible("/es/dashboard/jobs"), false);
+  assert.equal(isSupportChatRouteVisible("/es/dashboard/jobs"), true);
   assert.equal(isSupportChatRouteVisible("/es/order/virtual-staging"), false);
   assert.equal(isSupportChatRouteVisible("/es/login"), false);
   assert.equal(isSupportChatRouteVisible("/es/reset-password"), false);
+});
+
+test("dashboard routes use the dashboard support launcher mode", () => {
+  assert.equal(getSupportChatLauncherMode("/dashboard"), "dashboard");
+  assert.equal(getSupportChatLauncherMode("/dashboard/jobs"), "dashboard");
+  assert.equal(
+    getSupportChatLauncherMode("/dashboard/drafts/example"),
+    "dashboard",
+  );
+  assert.equal(getSupportChatLauncherMode("/es/dashboard/jobs"), "dashboard");
+});
+
+test("public routes use the floating launcher mode", () => {
+  assert.equal(getSupportChatLauncherMode("/"), "public");
+  assert.equal(getSupportChatLauncherMode("/pricing"), "public");
+  assert.equal(getSupportChatLauncherMode("/es/services"), "public");
+});
+
+test("excluded routes use no support launcher mode", () => {
+  assert.equal(getSupportChatLauncherMode("/order"), "none");
+  assert.equal(getSupportChatLauncherMode("/admin"), "none");
+  assert.equal(getSupportChatLauncherMode("/login"), "none");
+  assert.equal(getSupportChatLauncherMode("/signup"), "none");
+  assert.equal(getSupportChatLauncherMode("/forgot-password"), "none");
+  assert.equal(getSupportChatLauncherMode("/reset-password"), "none");
+  assert.equal(getSupportChatLauncherMode("/auth/callback"), "none");
+});
+
+test("active Crisp route visibility follows dashboard and excluded routes", () => {
+  assert.equal(isSupportChatRouteVisible("/dashboard"), true);
+  assert.equal(isSupportChatRouteVisible("/dashboard/jobs"), true);
+  assert.equal(isSupportChatRouteVisible("/order"), false);
+  assert.equal(isSupportChatRouteVisible("/dashboard"), true);
 });
 
 test("history excludes local welcome messages", () => {

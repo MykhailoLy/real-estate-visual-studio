@@ -1,22 +1,29 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRef } from "react";
 import { LifeBuoy } from "lucide-react";
+import { useSupportChat } from "@/components/support/SupportChatProvider";
 import { cn } from "@/lib/utils";
 import { DashboardAccountMenu } from "./ClientDashboardTopNav";
 
 export default function ClientDashboardMobileBottomBar() {
   const pathname = usePathname() ?? "/dashboard";
   const supportActive = pathname.startsWith("/dashboard/support");
+  const { open: supportChatOpen, openSupportChat } = useSupportChat();
+  const supportButtonRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-2 border-t border-primary/15 shadow-[0_-8px_24px_rgba(26,54,93,0.16)] md:hidden">
       <DashboardAccountMenu placement="top" variant="mobile-bottom" />
 
-      <Link
-        href="/dashboard/support"
-        aria-current={supportActive ? "page" : undefined}
+      <button
+        ref={supportButtonRef}
+        type="button"
+        onClick={() => openSupportChat(supportButtonRef.current)}
+        aria-label="Open PicchuSpot Assistant"
+        aria-expanded={supportChatOpen}
+        aria-controls="support-chat-widget"
         className={cn(
           "inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 px-3 pb-[env(safe-area-inset-bottom)] text-[14px] font-bold uppercase tracking-[0.08em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
           supportActive
@@ -32,7 +39,7 @@ export default function ClientDashboardMobileBottomBar() {
           aria-hidden
         />
         <span className="truncate">Support</span>
-      </Link>
+      </button>
     </div>
   );
 }

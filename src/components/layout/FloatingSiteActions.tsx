@@ -6,25 +6,26 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, MessageCircle, UserPlus } from "lucide-react";
 import { usePublicAuth } from "@/components/auth/PublicAuthContext";
 import PublicAccountMenu from "@/components/auth/PublicAccountMenu";
-import SupportChatWidget from "@/components/support/SupportChatWidget";
-import {
-  detectSupportChatLanguage,
-  isSupportChatRouteVisible,
-} from "@/components/support/support-chat-client";
+import { detectSupportChatLanguage } from "@/components/support/support-chat-client";
 import { supportChatCopy } from "@/components/support/support-chat-copy";
+import { useSupportChat } from "@/components/support/SupportChatProvider";
 import { trackSignUpClick } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 export default function FloatingSiteActions() {
   const pathname = usePathname() ?? "/";
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [liveSupportActive, setLiveSupportActive] = useState(false);
   const mobileChatTriggerRef = useRef<HTMLButtonElement | null>(null);
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const language = detectSupportChatLanguage(pathname);
   const isSpanish = language === "es";
-  const supportChatVisible = isSupportChatRouteVisible(pathname);
+  const {
+    open: chatOpen,
+    liveSupportActive,
+    launcherMode,
+    openSupportChat,
+  } = useSupportChat();
+  const showPublicLauncher = launcherMode === "public";
   const chatCopy = supportChatCopy[language];
   const { status } = usePublicAuth();
 
@@ -37,47 +38,6 @@ export default function FloatingSiteActions() {
     window.addEventListener("scroll", updateVisibility, { passive: true });
     return () => window.removeEventListener("scroll", updateVisibility);
   }, []);
-
-  useEffect(() => {
-    if (!supportChatVisible) {
-      window.queueMicrotask(() => setChatOpen(false));
-    }
-  }, [supportChatVisible]);
-
-  useEffect(() => {
-    if (!liveSupportActive) return;
-
-    let cancelled = false;
-    let setVisibility:
-      | ((visible: boolean) => void)
-      | null = null;
-
-    const hideActiveCrisp = () => {
-      try {
-        setVisibility?.(false);
-      } catch {
-        // Native Crisp visibility should never interrupt route transitions.
-      }
-    };
-
-    void import("@/components/support/crisp-support-client")
-      .then(({ setActiveCrispSupportVisibility }) => {
-        setVisibility = setActiveCrispSupportVisibility;
-        try {
-          setActiveCrispSupportVisibility(cancelled ? false : supportChatVisible);
-        } catch {
-          // A local visibility failure should not interrupt page navigation.
-        }
-      })
-      .catch(() => {
-        // A local chunk failure should not interrupt page navigation.
-      });
-
-    return () => {
-      cancelled = true;
-      hideActiveCrisp();
-    };
-  }, [liveSupportActive, supportChatVisible]);
 
   if (isAdminRoute) return null;
 
@@ -94,11 +54,11 @@ export default function FloatingSiteActions() {
         />
       )}
 
-      {!liveSupportActive && !(supportChatVisible && chatOpen) && (
+      {!liveSupportActive && !(showPublicLauncher && chatOpen) && (
         <div
           className={cn(
             "fixed inset-x-0 bottom-0 z-40 grid border-t border-primary/15 shadow-[0_-8px_24px_rgba(26,54,93,0.16)] lg:hidden",
-            supportChatVisible ? "grid-cols-2" : "grid-cols-1"
+            showPublicLauncher ? "grid-cols-2" : "grid-cols-1"
           )}
         >
           {status === "authenticated" ? (
@@ -119,11 +79,11 @@ export default function FloatingSiteActions() {
             </Link>
           )}
 
-          {supportChatVisible && (
+          {showPublicLauncher && (
             <button
               ref={mobileChatTriggerRef}
               type="button"
-              onClick={() => setChatOpen(true)}
+              onClick={() => openSupportChat(mobileChatTriggerRef.current)}
               className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
               aria-label={chatCopy.launcherAriaLabel}
               aria-expanded={chatOpen}
@@ -141,7 +101,7 @@ export default function FloatingSiteActions() {
         </div>
       )}
 
-      {showBackToTop && !liveSupportActive && !(supportChatVisible && chatOpen) && (
+      {showBackToTop && !liveSupportActive && !(showPublicLauncher && chatOpen) && (
         <button
           type="button"
           onClick={scrollToTop}
@@ -150,16 +110,6 @@ export default function FloatingSiteActions() {
         >
           <ArrowUp className="h-5 w-5" aria-hidden />
         </button>
-      )}
-
-      {supportChatVisible && !liveSupportActive && (
-        <SupportChatWidget
-          open={chatOpen}
-          onOpenChange={setChatOpen}
-          language={language}
-          returnFocusRef={mobileChatTriggerRef}
-          onLiveSupportActiveChange={setLiveSupportActive}
-        />
       )}
     </>
   );

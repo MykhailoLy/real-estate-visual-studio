@@ -29,6 +29,8 @@ export interface BuildSupportChatHistoryOptions {
   maxCharacters?: number;
 }
 
+export type SupportChatLauncherMode = "public" | "dashboard" | "none";
+
 export type SupportChatClientErrorCode =
   | "invalid_input"
   | "rate_limited"
@@ -54,7 +56,6 @@ interface SubmitSupportChatMessageOptions {
 
 const SUPPORT_CHAT_EXCLUDED_PREFIXES = [
   "/admin",
-  "/dashboard",
   "/order",
   "/login",
   "/signup",
@@ -90,11 +91,27 @@ export function normalizeSupportChatPath(pathname: string | null | undefined) {
 export function isSupportChatRouteVisible(
   pathname: string | null | undefined,
 ) {
+  return getSupportChatLauncherMode(pathname) !== "none";
+}
+
+export function getSupportChatLauncherMode(
+  pathname: string | null | undefined,
+): SupportChatLauncherMode {
   const normalizedPath = normalizeSupportChatPath(pathname);
-  return !SUPPORT_CHAT_EXCLUDED_PREFIXES.some(
+  const excluded = SUPPORT_CHAT_EXCLUDED_PREFIXES.some(
     (prefix) =>
       normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`),
   );
+
+  if (excluded) return "none";
+  if (
+    normalizedPath === "/dashboard" ||
+    normalizedPath.startsWith("/dashboard/")
+  ) {
+    return "dashboard";
+  }
+
+  return "public";
 }
 
 export function buildSupportChatHistory(

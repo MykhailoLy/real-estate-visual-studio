@@ -13,6 +13,7 @@ import {
   startCrispSupportHandoff,
   type PicchuSpotCrispSdk,
 } from "./crisp-support-client.ts";
+import { isSupportChatRouteVisible } from "./support-chat-client.ts";
 
 interface FakeSessionState {
   data: Record<string, boolean | string | number>;
@@ -1677,6 +1678,13 @@ test("active Crisp visibility true shows launcher but does not open chat", async
 
   assert.equal(sdk.calls.at(-1), "chat.show");
   assert.equal(sdk.calls.filter((call) => call === "chat.open").length, openCount);
+});
+
+test("active Crisp route visibility includes dashboard and excludes order", () => {
+  assert.equal(isSupportChatRouteVisible("/dashboard"), true);
+  assert.equal(isSupportChatRouteVisible("/dashboard/jobs"), true);
+  assert.equal(isSupportChatRouteVisible("/order"), false);
+  assert.equal(isSupportChatRouteVisible("/admin"), false);
 });
 
 test("visibility helpers do nothing before successful activation", () => {
