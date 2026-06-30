@@ -28,7 +28,7 @@ import {
   type SupportChatMessage,
 } from "@/components/support/support-chat-client";
 import {
-  buildSupportHandoffMessage,
+  buildSupportHandoffContext,
   isCrispProductionHostname,
   validateSupportHandoffIdentity,
   type SupportHandoffIdentityErrors,
@@ -343,7 +343,7 @@ export default function SupportChatWidget({
         name: validation.identity.name,
         email: validation.identity.email,
         pagePath: pathname,
-        contextMessage: buildSupportHandoffMessage({
+        context: buildSupportHandoffContext({
           language,
           pathname,
           messages,

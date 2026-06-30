@@ -1,7 +1,10 @@
 "use client";
 
 import type { SupportChatLanguage } from "./support-chat-copy.ts";
-import { isCrispProductionHostname } from "./support-handoff.ts";
+import {
+  isCrispProductionHostname,
+  type SupportHandoffContext,
+} from "./support-handoff.ts";
 
 export { isCrispProductionHostname };
 
@@ -22,7 +25,7 @@ export interface CrispSupportHandoffOptions {
   name: string;
   email: string;
   pagePath: string;
-  contextMessage: string;
+  context: SupportHandoffContext;
   hostname?: string;
   sdkLoader?: () => Promise<PicchuSpotCrispSdk>;
   signal?: AbortSignal;
@@ -156,7 +159,7 @@ async function runCrispHandoff({
   name,
   email,
   pagePath,
-  contextMessage,
+  context,
   sdkLoader = loadCrispSdk,
   signal,
   timeoutMs = CRISP_LOAD_TIMEOUT_MS,
@@ -219,7 +222,13 @@ async function runCrispHandoff({
     return { ok: false, code: "cancelled" };
   }
 
-  const loaded = await loadCrispSession(sdk, timeoutMs, signal);
+  const hadExistingSession = Boolean(safeGetSessionIdentifier(sdk));
+  const loaded = await loadCrispSession(
+    sdk,
+    timeoutMs,
+    hadExistingSession,
+    signal,
+  );
   if (!loaded.ok) {
     safeCloseAndHideCrisp(sdk);
     return loaded;
@@ -231,8 +240,8 @@ async function runCrispHandoff({
   }
 
   try {
-    if (!contextSent) {
-      sdk.message.sendText(contextMessage);
+    if (!contextSent && (context.hasTranscript || !hadExistingSession)) {
+      sdk.message.sendText(context.message);
       contextSent = true;
     }
 
@@ -255,13 +264,14 @@ async function runCrispHandoff({
 function loadCrispSession(
   sdk: PicchuSpotCrispSdk,
   timeoutMs: number,
+  hadExistingSession: boolean,
   signal?: AbortSignal,
 ): Promise<CrispSupportResult> {
   if (isSignalCancelled(signal)) {
     return Promise.resolve({ ok: false, code: "cancelled" });
   }
 
-  if (safeGetSessionIdentifier(sdk)) {
+  if (hadExistingSession) {
     return Promise.resolve({ ok: true });
   }
 

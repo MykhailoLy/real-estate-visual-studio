@@ -4,6 +4,7 @@ import { supportChatCopy } from "./support-chat-copy.ts";
 import type { SupportChatLanguage } from "./support-chat-copy.ts";
 import type { SupportChatMessage } from "./support-chat-client.ts";
 import {
+  buildSupportHandoffContext,
   buildSupportHandoffMessage,
   normalizeHandoffPath,
   validateSupportHandoffIdentity,
@@ -109,6 +110,35 @@ test("transcript includes only completed visitor and remote AI messages", () => 
   assert.match(transcript, /Visitor: Hi/);
   assert.match(transcript, /AI: Hello/);
   assert.doesNotMatch(transcript, /Local/);
+});
+
+test("handoff context reports when eligible transcript messages are included", () => {
+  const context = buildSupportHandoffContext({
+    language: "en",
+    pathname: "/services",
+    messages: [
+      message({ id: "user", role: "user", origin: "local", content: "Hi" }),
+      message({ id: "remote-ai", origin: "remote", content: "Hello" }),
+    ],
+  });
+
+  assert.equal(context.hasTranscript, true);
+  assert.match(context.message, /Visitor: Hi/);
+  assert.match(context.message, /AI: Hello/);
+});
+
+test("handoff context reports when no eligible transcript messages are included", () => {
+  const context = buildSupportHandoffContext({
+    language: "en",
+    pathname: "/services",
+    messages: [
+      message({ id: "welcome", origin: "local", localKind: "welcome" }),
+      message({ id: "loading", status: "loading" }),
+    ],
+  });
+
+  assert.equal(context.hasTranscript, false);
+  assert.match(context.message, /no eligible recent messages/i);
 });
 
 test("transcript keeps at most 6 messages in chronological order", () => {
