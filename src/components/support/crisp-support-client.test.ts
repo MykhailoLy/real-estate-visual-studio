@@ -41,8 +41,10 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   loadSetsIdentifier = true;
   autoResetLoad = true;
   resetSetsIdentifier = true;
+  retainRuntimeNicknameOnReset = true;
   throwOnLoad = false;
   throwOnReset = false;
+  throwOnSetNickname = false;
   throwOnGetEmail = false;
   throwOnGetData = false;
   throwOnGetIdentifier = false;
@@ -53,6 +55,7 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   throwOnShow = false;
   launcherVisible = false;
   chatOpen = false;
+  runtimeNickname: string | null = null;
   private sessions = new Map<string, FakeSessionState>();
   private pendingSession = createFakeSessionState();
   private currentSessionIdentifier: string | null = null;
@@ -113,6 +116,7 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
     }
     if (nickname !== undefined) {
       session.nickname = nickname;
+      this.runtimeNickname = nickname;
     }
   }
 
@@ -129,6 +133,10 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   user = {
     setNickname: (nickname: string) => {
       this.calls.push(`setNickname:${nickname}`);
+      if (this.throwOnSetNickname) {
+        throw new Error("setNickname failed");
+      }
+      this.runtimeNickname = nickname;
       this.currentSession().nickname = nickname;
     },
     setEmail: (email: string) => {
@@ -191,6 +199,9 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
 
       this.currentSessionIdentifier = null;
       this.pendingSession = createFakeSessionState();
+      if (this.retainRuntimeNicknameOnReset) {
+        this.pendingSession.nickname = this.runtimeNickname;
+      }
       if (this.resetSetsIdentifier) {
         this.sessionIdentifier = this.sessionIdentifierAfterReset;
       }
@@ -360,6 +371,25 @@ function createRestoredPicchuSpotSdk({
   return sdk;
 }
 
+test("fake reset retains runtime nickname while creating fresh conversation data", () => {
+  const sdk = createRestoredPicchuSpotSdk({
+    data: {
+      previous_private_context: "old conversation",
+    },
+    nickname: "Previous Name",
+  });
+
+  sdk.session.reset();
+
+  assert.equal(sdk.sessionIdentifier, "session_fresh");
+  assert.equal(sdk.getSession("session_fresh")?.nickname, "Previous Name");
+  assert.deepEqual(sdk.getSession("session_fresh")?.data, {});
+  assert.equal(
+    sdk.getSession("session_fresh")?.data.previous_private_context,
+    undefined,
+  );
+});
+
 test("support email normalization trims and lowercases", () => {
   assert.equal(
     normalizeSupportEmail("  User@Example.COM  "),
@@ -411,8 +441,48 @@ test("restored PicchuSpot email comparison is case-insensitive", async () => {
     handoffMarker: "true",
   });
 
-  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.deepEqual(
+    await startCrispSupportHandoff(options(sdk, { name: "" })),
+    { ok: true },
+  );
   assert.equal(sdk.calls.includes("reset"), false);
+  assert.equal(sdk.calls.some((call) => call.startsWith("setNickname:")), false);
+  assert.equal(sdk.getSession("session_old")?.nickname, "Previous Visitor");
+});
+
+test("matching email plus empty name preserves the existing nickname", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    nickname: "Existing Name",
+  });
+
+  assert.deepEqual(
+    await startCrispSupportHandoff(options(sdk, { name: "" })),
+    { ok: true },
+  );
+
+  assert.equal(sdk.calls.includes("reset"), false);
+  assert.equal(sdk.calls.some((call) => call.startsWith("setNickname:")), false);
+  assert.equal(sdk.getSession("session_old")?.nickname, "Existing Name");
+});
+
+test("matching email plus provided name updates to the trimmed nickname", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    nickname: "Existing Name",
+  });
+
+  assert.deepEqual(
+    await startCrispSupportHandoff(
+      options(sdk, { name: "  Updated Name  " }),
+    ),
+    { ok: true },
+  );
+
+  assert.equal(sdk.calls.includes("reset"), false);
+  assert.equal(sdk.getSession("session_old")?.nickname, "Updated Name");
+  assert.ok(sdk.calls.includes("setNickname:Updated Name"));
+  assert.equal(sdk.calls.includes("setNickname:Website visitor"), false);
 });
 
 test("restored PicchuSpot session with different email is reset", async () => {
@@ -472,7 +542,7 @@ test("fresh session receives the new email after reset", async () => {
   assert.equal(sdk.getSession("session_fresh")?.email, "new@example.com");
 });
 
-test("empty submitted name does not copy the previous nickname after reset", async () => {
+test("different email plus empty name overwrites retained nickname after reset", async () => {
   resetCrispSupportClientForTests();
   const sdk = createRestoredPicchuSpotSdk({
     email: "previous@example.com",
@@ -481,37 +551,98 @@ test("empty submitted name does not copy the previous nickname after reset", asy
 
   await startCrispSupportHandoff(options(sdk, { name: "" }));
 
+  assert.equal(sdk.calls.includes("reset"), true);
   assert.equal(sdk.getSession("session_old")?.nickname, "Previous Name");
-  assert.equal(sdk.getSession("session_fresh")?.nickname, null);
+  assert.equal(
+    sdk.getSession("session_fresh")?.nickname,
+    "Website visitor",
+  );
+  assert.notEqual(
+    sdk.getSession("session_fresh")?.nickname,
+    sdk.getSession("session_old")?.nickname,
+  );
+  assert.ok(sdk.calls.includes("setNickname:Website visitor"));
 });
 
-test("new submitted name is set on the fresh session", async () => {
+test("Spanish reset uses the localized neutral nickname", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+    nickname: "Nombre anterior",
+  });
+
+  await startCrispSupportHandoff(
+    options(sdk, {
+      language: "es",
+      name: "",
+    }),
+  );
+
+  assert.equal(
+    sdk.getSession("session_fresh")?.nickname,
+    "Visitante del sitio",
+  );
+  assert.ok(sdk.calls.includes("setNickname:Visitante del sitio"));
+});
+
+test("neutral nickname is set after reset availability and before metadata and context", async () => {
   resetCrispSupportClientForTests();
   const sdk = createRestoredPicchuSpotSdk({
     email: "previous@example.com",
   });
 
-  await startCrispSupportHandoff(options(sdk, { name: "New Visitor" }));
+  await startCrispSupportHandoff(options(sdk, { name: "" }));
 
-  assert.equal(sdk.getSession("session_fresh")?.nickname, "New Visitor");
+  const resetLoadedIndex = sdk.calls.indexOf("offLoaded");
+  const nicknameIndex = sdk.calls.indexOf("setNickname:Website visitor");
+  assert.equal(sdk.calls.indexOf("reset") < nicknameIndex, true);
+  assert.equal(resetLoadedIndex < nicknameIndex, true);
+  assert.equal(nicknameIndex < sdk.calls.indexOf("setData"), true);
+  assert.equal(
+    nicknameIndex < sdk.calls.indexOf("sendText:handoff context"),
+    true,
+  );
 });
 
-test("missing existing email on a marked session causes reset", async () => {
+test("different email plus provided name uses only the trimmed submitted name", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+  });
+
+  await startCrispSupportHandoff(
+    options(sdk, { name: "  New Visitor  " }),
+  );
+
+  assert.equal(sdk.getSession("session_fresh")?.nickname, "New Visitor");
+  assert.ok(sdk.calls.includes("setNickname:New Visitor"));
+  assert.equal(sdk.calls.includes("setNickname:Website visitor"), false);
+});
+
+test("missing existing email plus empty name resets and uses neutral nickname", async () => {
   resetCrispSupportClientForTests();
   const sdk = createRestoredPicchuSpotSdk({ email: null });
 
-  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.deepEqual(
+    await startCrispSupportHandoff(options(sdk, { name: "" })),
+    { ok: true },
+  );
   assert.equal(sdk.calls.includes("reset"), true);
+  assert.equal(sdk.getSession("session_fresh")?.nickname, "Website visitor");
 });
 
-test("getEmail failure on a marked session causes reset", async () => {
+test("getEmail failure plus empty name resets and uses neutral nickname", async () => {
   resetCrispSupportClientForTests();
   const sdk = createRestoredPicchuSpotSdk();
   sdk.throwOnGetEmail = true;
 
-  assert.deepEqual(await startCrispSupportHandoff(options(sdk)), { ok: true });
+  assert.deepEqual(
+    await startCrispSupportHandoff(options(sdk, { name: "" })),
+    { ok: true },
+  );
   assert.equal(sdk.calls.includes("reset"), true);
   assert.equal(sdk.getSession("session_fresh")?.email, "ada@example.com");
+  assert.equal(sdk.getSession("session_fresh")?.nickname, "Website visitor");
 });
 
 test("reset occurs before transcript sending", async () => {
@@ -566,17 +697,19 @@ test("reset waits for the registered loaded callback before using a fresh sessio
   sdk.resetSetsIdentifier = false;
 
   const handoff = startCrispSupportHandoff(
-    options(sdk, { timeoutMs: 500 }),
+    options(sdk, { name: "", timeoutMs: 500 }),
   );
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(sdk.calls.indexOf("onLoaded") < sdk.calls.indexOf("reset"), true);
   assert.equal(sdk.calls.some((call) => call.startsWith("setEmail:")), false);
+  assert.equal(sdk.calls.some((call) => call.startsWith("setNickname:")), false);
   sdk.resetSetsIdentifier = true;
   sdk.completeReset();
 
   assert.deepEqual(await handoff, { ok: true });
   assert.equal(sdk.sessionIdentifier, "session_fresh");
+  assert.equal(sdk.getSession("session_fresh")?.nickname, "Website visitor");
   assert.equal(sdk.loadedCallback, null);
 });
 
@@ -616,6 +749,29 @@ test("reset exception returns a safe failure and leaves old identity untouched",
   assert.deepEqual(sdk.sentTexts, []);
   assert.equal(sdk.calls.includes("chat.open"), false);
   assert.equal(sdk.loadedCallback, null);
+});
+
+test("neutral nickname failure sends no context and keeps Crisp hidden", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = createRestoredPicchuSpotSdk({
+    email: "previous@example.com",
+    nickname: "Previous Name",
+  });
+  sdk.throwOnSetNickname = true;
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, { name: "" }),
+  );
+
+  assert.deepEqual(result, { ok: false, code: "load_failed" });
+  assert.equal(sdk.calls.includes("reset"), true);
+  assert.ok(sdk.calls.includes("setNickname:Website visitor"));
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.includes("setData"), false);
+  assert.equal(sdk.calls.includes("chat.show"), false);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+  assert.equal(sdk.launcherVisible, false);
+  assert.equal(sdk.chatOpen, false);
 });
 
 test("cancellation during reset sends nothing and keeps Crisp hidden", async () => {
@@ -691,7 +847,10 @@ test("fresh session does not inherit context marker or module state after reset"
     true,
   );
   assert.equal(sdk.getSession("session_fresh")?.email, "second@example.com");
-  assert.equal(sdk.getSession("session_fresh")?.nickname, null);
+  assert.equal(
+    sdk.getSession("session_fresh")?.nickname,
+    "Website visitor",
+  );
 });
 
 test("fresh no-transcript session sends one fallback and persists marker", async () => {
@@ -795,18 +954,27 @@ test("adapter configures Crisp with explicit loading, public website ID, locale,
   assert.ok(sdk.calls.includes("setHideOnMobile:false"));
 });
 
-test("adapter sets name only when present and always sets email", async () => {
+test("fresh adapter uses a trimmed submitted name or localized neutral nickname", async () => {
   resetCrispSupportClientForTests();
   const named = new FakeCrispSdk();
-  await startCrispSupportHandoff(options(named, { name: "Ada" }));
+  await startCrispSupportHandoff(options(named, { name: "  Ada  " }));
   assert.ok(named.calls.includes("setNickname:Ada"));
   assert.ok(named.calls.includes("setEmail:ada@example.com"));
 
   resetCrispSupportClientForTests();
-  const anonymous = new FakeCrispSdk();
-  await startCrispSupportHandoff(options(anonymous, { name: "" }));
-  assert.equal(anonymous.calls.some((call) => call.startsWith("setNickname:")), false);
-  assert.ok(anonymous.calls.includes("setEmail:ada@example.com"));
+  const englishAnonymous = new FakeCrispSdk();
+  await startCrispSupportHandoff(options(englishAnonymous, { name: "" }));
+  assert.ok(englishAnonymous.calls.includes("setNickname:Website visitor"));
+  assert.ok(englishAnonymous.calls.includes("setEmail:ada@example.com"));
+
+  resetCrispSupportClientForTests();
+  const spanishAnonymous = new FakeCrispSdk();
+  await startCrispSupportHandoff(
+    options(spanishAnonymous, { language: "es", name: "   " }),
+  );
+  assert.ok(
+    spanishAnonymous.calls.includes("setNickname:Visitante del sitio"),
+  );
 });
 
 test("adapter preserves session data while adding metadata and context marker", async () => {
@@ -1387,7 +1555,7 @@ test("already activated handoff reuses activeSdk without invoking sdkLoader", as
 
   let loaderCalled = false;
   const result = await startCrispSupportHandoff({
-    ...options(new FakeCrispSdk()),
+    ...options(new FakeCrispSdk(), { name: "  Updated Active Name  " }),
     sdkLoader: async () => {
       loaderCalled = true;
       throw new Error("should not load");
@@ -1396,6 +1564,10 @@ test("already activated handoff reuses activeSdk without invoking sdkLoader", as
 
   assert.deepEqual(result, { ok: true });
   assert.equal(loaderCalled, false);
+  assert.equal(
+    sdk.getSession("session_123")?.nickname,
+    "Updated Active Name",
+  );
   assert.equal(sdk.calls.filter((call) => call === "chat.show").length, 2);
   assert.equal(sdk.calls.filter((call) => call === "chat.open").length, 2);
 });
