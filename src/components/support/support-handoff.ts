@@ -39,6 +39,11 @@ export interface BuildSupportHandoffMessageOptions {
   maxCharacters?: number;
 }
 
+export interface SupportHandoffContext {
+  message: string;
+  hasTranscript: boolean;
+}
+
 interface HandoffTranscriptLine {
   role: "visitor" | "ai";
   content: string;
@@ -79,13 +84,19 @@ export function isCrispProductionHostname(
   return normalized === "picchuspot.com" || normalized === "www.picchuspot.com";
 }
 
-export function buildSupportHandoffMessage({
+export function buildSupportHandoffMessage(
+  options: BuildSupportHandoffMessageOptions,
+) {
+  return buildSupportHandoffContext(options).message;
+}
+
+export function buildSupportHandoffContext({
   language,
   pathname,
   messages,
   maxMessages = HANDOFF_MAX_MESSAGES,
   maxCharacters = HANDOFF_MAX_CHARACTERS,
-}: BuildSupportHandoffMessageOptions) {
+}: BuildSupportHandoffMessageOptions): SupportHandoffContext {
   const labels = getHandoffLabels(language);
   const pagePath = normalizeHandoffPath(pathname);
   const eligibleLines = messages
@@ -114,12 +125,15 @@ export function buildSupportHandoffMessage({
     selectedLines.unshift(line);
   }
 
-  return formatHandoffMessage({
-    labels,
-    language,
-    pagePath,
-    lines: selectedLines,
-  });
+  return {
+    message: formatHandoffMessage({
+      labels,
+      language,
+      pagePath,
+      lines: selectedLines,
+    }),
+    hasTranscript: selectedLines.length > 0,
+  };
 }
 
 export function normalizeHandoffPath(pathname: string) {

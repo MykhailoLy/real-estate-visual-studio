@@ -23,6 +23,7 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   throwOnLoad = false;
   throwOnGetIdentifier = false;
   throwOnOffLoaded = false;
+  throwOnSendText = false;
   throwOnOpen = false;
   throwOnShow = false;
   launcherVisible = false;
@@ -65,6 +66,9 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   message = {
     sendText: (content: string) => {
       this.calls.push(`sendText:${content}`);
+      if (this.throwOnSendText) {
+        throw new Error("sendText failed");
+      }
       this.sentTexts.push(content);
     },
   };
@@ -138,7 +142,10 @@ function options(sdk: FakeCrispSdk, overrides = {}) {
     name: "Ada",
     email: "ada@example.com",
     pagePath: "/pricing",
-    contextMessage: "handoff context",
+    context: {
+      message: "handoff context",
+      hasTranscript: true,
+    },
     hostname: "picchuspot.com",
     sdkLoader: async () => sdk,
     timeoutMs: 50,
@@ -289,6 +296,236 @@ test("adapter sends context once, then shows and opens native Crisp after load",
   assert.equal(sdk.calls.indexOf("sendText:handoff context") > sdk.calls.indexOf("offLoaded"), true);
   assert.equal(sdk.calls.at(-2), "chat.show");
   assert.equal(sdk.calls.at(-1), "chat.open");
+});
+
+test("first handoff without a transcript sends one fallback message", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, {
+      context: {
+        message: "fallback context",
+        hasTranscript: false,
+      },
+    }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+});
+
+test("existing session without a transcript sends no automatic message", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.sessionIdentifier = "existing_session";
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, {
+      context: {
+        message: "fallback context",
+        hasTranscript: false,
+      },
+    }),
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.includes("load"), false);
+  assert.equal(sdk.calls.at(-2), "chat.show");
+  assert.equal(sdk.calls.at(-1), "chat.open");
+});
+
+test("existing session with a new transcript sends one structured message", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.sessionIdentifier = "existing_session";
+
+  const result = await startCrispSupportHandoff(options(sdk));
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["handoff context"]);
+});
+
+test("existing session detection occurs before sdk.load", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  const result = await startCrispSupportHandoff(options(sdk));
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(sdk.calls.indexOf("getIdentifier") < sdk.calls.indexOf("load"), true);
+});
+
+test("reload-style reconnection does not duplicate the fallback message", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  assert.deepEqual(
+    await startCrispSupportHandoff(options(sdk, fallbackOptions)),
+    { ok: true },
+  );
+  resetCrispSupportClientForTests();
+  assert.deepEqual(
+    await startCrispSupportHandoff(options(sdk, fallbackOptions)),
+    { ok: true },
+  );
+
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.calls.filter((call) => call === "load").length, 1);
+});
+
+test("fresh fallback stays pending across timeout and late-session retry", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.autoLoad = false;
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  const first = await startCrispSupportHandoff(
+    options(sdk, { ...fallbackOptions, timeoutMs: 1 }),
+  );
+
+  assert.deepEqual(first, { ok: false, code: "timeout" });
+  assert.deepEqual(sdk.sentTexts, []);
+
+  sdk.sessionIdentifier = "late_session";
+  const retry = await startCrispSupportHandoff(options(sdk, fallbackOptions));
+
+  assert.deepEqual(retry, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.chatOpen, true);
+
+  const duplicate = await startCrispSupportHandoff(options(sdk, fallbackOptions));
+
+  assert.deepEqual(duplicate, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+});
+
+test("module reset clears a pending fallback for an existing session", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.autoLoad = false;
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  const first = await startCrispSupportHandoff(
+    options(sdk, { ...fallbackOptions, timeoutMs: 1 }),
+  );
+
+  assert.deepEqual(first, { ok: false, code: "timeout" });
+
+  sdk.sessionIdentifier = "existing_session_after_reload";
+  resetCrispSupportClientForTests();
+  const reconnect = await startCrispSupportHandoff(
+    options(sdk, fallbackOptions),
+  );
+
+  assert.deepEqual(reconnect, { ok: true });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.chatOpen, true);
+});
+
+test("fresh fallback stays pending across cancellation and late-session retry", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.autoLoad = false;
+  const controller = new AbortController();
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  const first = startCrispSupportHandoff(
+    options(sdk, {
+      ...fallbackOptions,
+      signal: controller.signal,
+      timeoutMs: 500,
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  controller.abort();
+
+  assert.deepEqual(await first, { ok: false, code: "cancelled" });
+  assert.deepEqual(sdk.sentTexts, []);
+
+  sdk.sessionIdentifier = "late_session";
+  const retry = await startCrispSupportHandoff(options(sdk, fallbackOptions));
+
+  assert.deepEqual(retry, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.chatOpen, true);
+});
+
+test("pending fallback yields to an eligible transcript on retry", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.autoLoad = false;
+
+  const first = await startCrispSupportHandoff(
+    options(sdk, {
+      context: {
+        message: "fallback context",
+        hasTranscript: false,
+      },
+      timeoutMs: 1,
+    }),
+  );
+
+  assert.deepEqual(first, { ok: false, code: "timeout" });
+
+  sdk.sessionIdentifier = "late_session";
+  const retry = await startCrispSupportHandoff(
+    options(sdk, {
+      context: {
+        message: "structured transcript",
+        hasTranscript: true,
+      },
+    }),
+  );
+
+  assert.deepEqual(retry, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["structured transcript"]);
+});
+
+test("sendText failure preserves a pending fallback for a later retry", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.throwOnSendText = true;
+  const fallbackOptions = {
+    context: {
+      message: "fallback context",
+      hasTranscript: false,
+    },
+  };
+
+  const first = await startCrispSupportHandoff(options(sdk, fallbackOptions));
+
+  assert.deepEqual(first, { ok: false, code: "load_failed" });
+  assert.deepEqual(sdk.sentTexts, []);
+
+  sdk.throwOnSendText = false;
+  const retry = await startCrispSupportHandoff(options(sdk, fallbackOptions));
+
+  assert.deepEqual(retry, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["fallback context"]);
+  assert.equal(sdk.chatOpen, true);
 });
 
 test("duplicate submissions share one load and do not duplicate transcript transfer", async () => {
