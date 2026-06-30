@@ -6,6 +6,7 @@ import {
   CRISP_WEBSITE_ID,
   isCrispProductionHostname,
   resetCrispSupportClientForTests,
+  setActiveCrispSupportVisibility,
   startCrispSupportHandoff,
   type PicchuSpotCrispSdk,
 } from "./crisp-support-client.ts";
@@ -16,8 +17,11 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
   sessionData: Record<string, boolean | string> | null = null;
   sentTexts: string[] = [];
   loadedCallback: (() => void) | null = null;
+  sessionIdentifier: string | null = null;
   autoLoad = true;
+  loadSetsIdentifier = true;
   throwOnLoad = false;
+  throwOnGetIdentifier = false;
 
   user = {
     setNickname: (nickname: string) => {
@@ -32,6 +36,13 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
     setData: (data: Record<string, boolean | string>) => {
       this.calls.push("setData");
       this.sessionData = data;
+    },
+    getIdentifier: () => {
+      this.calls.push("getIdentifier");
+      if (this.throwOnGetIdentifier) {
+        throw new Error("not ready");
+      }
+      return this.sessionIdentifier;
     },
     onLoaded: (callback: () => void) => {
       this.calls.push("onLoaded");
@@ -57,6 +68,12 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
     open: () => {
       this.calls.push("chat.open");
     },
+    close: () => {
+      this.calls.push("chat.close");
+    },
+    hide: () => {
+      this.calls.push("chat.hide");
+    },
   };
 
   configure(
@@ -73,6 +90,9 @@ class FakeCrispSdk implements PicchuSpotCrispSdk {
       throw new Error("load failed");
     }
     if (this.autoLoad) {
+      if (this.loadSetsIdentifier) {
+        this.sessionIdentifier = "session_123";
+      }
       this.loadedCallback?.();
     }
   }
@@ -105,6 +125,31 @@ function options(sdk: FakeCrispSdk, overrides = {}) {
     sdkLoader: async () => sdk,
     timeoutMs: 50,
     ...overrides,
+  };
+}
+
+function createTrackedAbortController() {
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const addEventListener = signal.addEventListener.bind(signal);
+  const removeEventListener = signal.removeEventListener.bind(signal);
+  let addCount = 0;
+  let removeCount = 0;
+
+  signal.addEventListener = ((...args: Parameters<AbortSignal["addEventListener"]>) => {
+    addCount += 1;
+    return addEventListener(...args);
+  }) as AbortSignal["addEventListener"];
+  signal.removeEventListener = ((
+    ...args: Parameters<AbortSignal["removeEventListener"]>
+  ) => {
+    removeCount += 1;
+    return removeEventListener(...args);
+  }) as AbortSignal["removeEventListener"];
+
+  return {
+    controller,
+    counts: () => ({ addCount, removeCount }),
   };
 }
 
@@ -185,6 +230,23 @@ test("adapter sets only approved session data", async () => {
   });
 });
 
+test("native Crisp is closed and hidden during loading before show and open", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+
+  const result = await startCrispSupportHandoff(options(sdk));
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(sdk.calls.indexOf("load") < sdk.calls.indexOf("chat.close"), true);
+  assert.equal(sdk.calls.indexOf("chat.close") < sdk.calls.indexOf("chat.hide"), true);
+  assert.equal(
+    sdk.calls.indexOf("chat.hide") < sdk.calls.indexOf("sendText:handoff context"),
+    true,
+  );
+  assert.equal(sdk.calls.at(-2), "chat.show");
+  assert.equal(sdk.calls.at(-1), "chat.open");
+});
+
 test("adapter sends context once, then shows and opens native Crisp after load", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
@@ -208,13 +270,14 @@ test("duplicate submissions share one load and do not duplicate transcript trans
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(sdk.calls.filter((call) => call === "load").length, 1);
+  sdk.sessionIdentifier = "session_123";
   sdk.loadedCallback?.();
 
   assert.deepEqual(await Promise.all([first, second]), [{ ok: true }, { ok: true }]);
   assert.deepEqual(sdk.sentTexts, ["handoff context"]);
 });
 
-test("timeout maps to safe failure and cleans loaded callback", async () => {
+test("timeout maps to safe failure, cleans callback, and leaves Crisp hidden", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.autoLoad = false;
@@ -224,22 +287,157 @@ test("timeout maps to safe failure and cleans loaded callback", async () => {
   assert.deepEqual(result, { ok: false, code: "timeout" });
   assert.equal(sdk.loadedCallback, null);
   assert.equal(sdk.calls.filter((call) => call === "offLoaded").length, 1);
+  assert.ok(sdk.calls.includes("chat.close"));
+  assert.ok(sdk.calls.includes("chat.hide"));
+  assert.equal(sdk.calls.includes("chat.show"), false);
+  assert.equal(sdk.calls.includes("chat.open"), false);
 });
 
-test("SDK import and load failures map to safe failure", async () => {
+test("cancellation cleans listeners and leaves native Crisp hidden", async () => {
   resetCrispSupportClientForTests();
-  const importFailure = await startCrispSupportHandoff({
+  const sdk = new FakeCrispSdk();
+  sdk.autoLoad = false;
+  const { controller, counts } = createTrackedAbortController();
+
+  const promise = startCrispSupportHandoff(
+    options(sdk, { signal: controller.signal, timeoutMs: 500 }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  controller.abort();
+
+  assert.deepEqual(await promise, { ok: false, code: "cancelled" });
+  assert.equal(sdk.loadedCallback, null);
+  assert.deepEqual(counts(), { addCount: 1, removeCount: 1 });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.includes("chat.show"), false);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+  assert.ok(sdk.calls.includes("chat.close"));
+  assert.ok(sdk.calls.includes("chat.hide"));
+});
+
+test("cancelled attempt sends no transcript and never opens Crisp", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  const controller = new AbortController();
+  controller.abort();
+
+  const result = await startCrispSupportHandoff(
+    options(sdk, { signal: controller.signal }),
+  );
+
+  assert.deepEqual(result, { ok: false, code: "cancelled" });
+  assert.deepEqual(sdk.sentTexts, []);
+  assert.equal(sdk.calls.includes("chat.show"), false);
+  assert.equal(sdk.calls.includes("chat.open"), false);
+});
+
+test("late session identifier after timeout lets retry succeed without another loaded event", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.autoLoad = false;
+
+  const first = await startCrispSupportHandoff(options(sdk, { timeoutMs: 1 }));
+  assert.deepEqual(first, { ok: false, code: "timeout" });
+
+  sdk.sessionIdentifier = "late_session";
+  const onLoadedCountBeforeRetry = sdk.calls.filter((call) => call === "onLoaded").length;
+  const loadCountBeforeRetry = sdk.calls.filter((call) => call === "load").length;
+  const retry = await startCrispSupportHandoff(options(sdk));
+
+  assert.deepEqual(retry, { ok: true });
+  assert.equal(
+    sdk.calls.filter((call) => call === "onLoaded").length,
+    onLoadedCountBeforeRetry,
+  );
+  assert.equal(sdk.calls.filter((call) => call === "load").length, loadCountBeforeRetry);
+  assert.deepEqual(sdk.sentTexts, ["handoff context"]);
+});
+
+test("late-load retry does not duplicate context after activation", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  sdk.autoLoad = false;
+
+  await startCrispSupportHandoff(options(sdk, { timeoutMs: 1 }));
+  sdk.sessionIdentifier = "late_session";
+  await startCrispSupportHandoff(options(sdk));
+  const secondRetry = await startCrispSupportHandoff(options(sdk));
+
+  assert.deepEqual(secondRetry, { ok: true });
+  assert.deepEqual(sdk.sentTexts, ["handoff context"]);
+});
+
+test("already activated handoff reuses activeSdk without invoking sdkLoader", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  await startCrispSupportHandoff(options(sdk));
+
+  let loaderCalled = false;
+  const result = await startCrispSupportHandoff({
+    ...options(new FakeCrispSdk()),
+    sdkLoader: async () => {
+      loaderCalled = true;
+      throw new Error("should not load");
+    },
+  });
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(loaderCalled, false);
+  assert.equal(sdk.calls.filter((call) => call === "chat.show").length, 2);
+  assert.equal(sdk.calls.filter((call) => call === "chat.open").length, 2);
+});
+
+test("unexpected SDK loader rejection returns load_failed instead of rejecting", async () => {
+  resetCrispSupportClientForTests();
+  const result = await startCrispSupportHandoff({
     ...options(new FakeCrispSdk()),
     sdkLoader: async () => {
       throw new Error("blocked");
     },
   });
-  assert.deepEqual(importFailure, { ok: false, code: "load_failed" });
 
+  assert.deepEqual(result, { ok: false, code: "load_failed" });
+});
+
+test("load failure maps to safe failure and leaves native Crisp hidden", async () => {
   resetCrispSupportClientForTests();
   const sdk = new FakeCrispSdk();
   sdk.throwOnLoad = true;
-  const loadFailure = await startCrispSupportHandoff(options(sdk));
-  assert.deepEqual(loadFailure, { ok: false, code: "load_failed" });
+
+  const result = await startCrispSupportHandoff(options(sdk));
+
+  assert.deepEqual(result, { ok: false, code: "load_failed" });
   assert.equal(sdk.loadedCallback, null);
+  assert.ok(sdk.calls.includes("chat.close"));
+  assert.ok(sdk.calls.includes("chat.hide"));
+});
+
+test("active Crisp visibility false closes and hides native Crisp", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  await startCrispSupportHandoff(options(sdk));
+
+  setActiveCrispSupportVisibility(false);
+
+  assert.equal(sdk.calls.at(-2), "chat.close");
+  assert.equal(sdk.calls.at(-1), "chat.hide");
+});
+
+test("active Crisp visibility true shows launcher but does not open chat", async () => {
+  resetCrispSupportClientForTests();
+  const sdk = new FakeCrispSdk();
+  await startCrispSupportHandoff(options(sdk));
+  const openCount = sdk.calls.filter((call) => call === "chat.open").length;
+
+  setActiveCrispSupportVisibility(true);
+
+  assert.equal(sdk.calls.at(-1), "chat.show");
+  assert.equal(sdk.calls.filter((call) => call === "chat.open").length, openCount);
+});
+
+test("visibility helpers do nothing before successful activation", () => {
+  resetCrispSupportClientForTests();
+
+  assert.doesNotThrow(() => setActiveCrispSupportVisibility(false));
+  assert.doesNotThrow(() => setActiveCrispSupportVisibility(true));
 });

@@ -76,6 +76,7 @@ export default function SupportChatWidget({
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const crispAttemptControllerRef = useRef<AbortController | null>(null);
   const lastFocusRef = useRef<HTMLButtonElement | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [input, setInput] = useState("");
@@ -180,8 +181,11 @@ export default function SupportChatWidget({
   }, [closeChat, isMobile, open]);
 
   useEffect(() => {
-    onLiveSupportActiveChange?.(chatMode === "crisp_active");
-  }, [chatMode, onLiveSupportActiveChange]);
+    return () => {
+      crispAttemptControllerRef.current?.abort();
+      crispAttemptControllerRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!cooldownUntil) return;
@@ -309,45 +313,79 @@ export default function SupportChatWidget({
       return;
     }
 
+    crispAttemptControllerRef.current?.abort();
+    const crispAttemptController = new AbortController();
+    crispAttemptControllerRef.current = crispAttemptController;
     setChatMode("connecting_crisp");
     setHandoffStatus(null);
 
     const hostname = window.location.hostname;
     if (!isCrispProductionHostname(hostname)) {
+      if (crispAttemptControllerRef.current === crispAttemptController) {
+        crispAttemptControllerRef.current = null;
+      }
       setChatMode("crisp_error");
       setHandoffStatus(copy.handoff.productionOnly);
       return;
     }
 
-    const { startCrispSupportHandoff } = await import(
-      "@/components/support/crisp-support-client"
-    );
+    try {
+      const { startCrispSupportHandoff } = await import(
+        "@/components/support/crisp-support-client"
+      );
 
-    const result = await startCrispSupportHandoff({
-      language,
-      name: validation.identity.name,
-      email: validation.identity.email,
-      pagePath: pathname,
-      contextMessage: buildSupportHandoffMessage({
+      if (!isCurrentCrispAttempt(crispAttemptControllerRef, crispAttemptController)) {
+        return;
+      }
+
+      const result = await startCrispSupportHandoff({
         language,
-        pathname,
-        messages,
-      }),
-      hostname,
-    });
+        name: validation.identity.name,
+        email: validation.identity.email,
+        pagePath: pathname,
+        contextMessage: buildSupportHandoffMessage({
+          language,
+          pathname,
+          messages,
+        }),
+        hostname,
+        signal: crispAttemptController.signal,
+      });
 
-    if (result.ok) {
-      setChatMode("crisp_active");
-      onOpenChange(false);
-      return;
+      if (!isCurrentCrispAttempt(crispAttemptControllerRef, crispAttemptController)) {
+        return;
+      }
+
+      if (crispAttemptControllerRef.current === crispAttemptController) {
+        crispAttemptControllerRef.current = null;
+      }
+
+      if (result.ok) {
+        setChatMode("crisp_active");
+        onLiveSupportActiveChange?.(true);
+        onOpenChange(false);
+        return;
+      }
+
+      if (result.code === "cancelled") return;
+
+      setChatMode("crisp_error");
+      setHandoffStatus(
+        result.code === "production_only"
+          ? copy.handoff.productionOnly
+          : copy.handoff.retry,
+      );
+    } catch {
+      if (!isCurrentCrispAttempt(crispAttemptControllerRef, crispAttemptController)) {
+        return;
+      }
+
+      if (crispAttemptControllerRef.current === crispAttemptController) {
+        crispAttemptControllerRef.current = null;
+      }
+      setChatMode("crisp_error");
+      setHandoffStatus(copy.handoff.retry);
     }
-
-    setChatMode("crisp_error");
-    setHandoffStatus(
-      result.code === "production_only"
-        ? copy.handoff.productionOnly
-        : copy.handoff.retry,
-    );
   }, [
     chatMode,
     copy.handoff.productionOnly,
@@ -357,6 +395,7 @@ export default function SupportChatWidget({
     language,
     messages,
     onOpenChange,
+    onLiveSupportActiveChange,
     pathname,
   ]);
 
@@ -418,7 +457,7 @@ export default function SupportChatWidget({
         aria-label={copy.dialogLabel}
         className={cn(
           "fixed z-[70] flex min-h-0 flex-col overflow-hidden border border-primary/15 bg-white shadow-2xl shadow-primary/25 transition-[opacity,transform] motion-reduce:transition-none",
-          "inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[82dvh] max-h-[min(720px,calc(100dvh_-_1.5rem_-_env(safe-area-inset-bottom)))] rounded-2xl lg:inset-auto lg:bottom-6 lg:right-6 lg:h-[min(620px,calc(100dvh-3rem))] lg:max-h-none lg:w-[400px]",
+          "inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[calc(100dvh_-_1.5rem_-_env(safe-area-inset-bottom))] max-h-[720px] rounded-2xl lg:inset-auto lg:bottom-6 lg:right-6 lg:h-[min(620px,calc(100dvh-3rem))] lg:max-h-none lg:w-[400px]",
         )}
       >
         <div className="flex flex-shrink-0 items-center gap-3 bg-primary px-4 py-4 text-white">
@@ -779,6 +818,13 @@ function createThreadMessage(
     origin,
     status: "complete",
   };
+}
+
+function isCurrentCrispAttempt(
+  attemptRef: RefObject<AbortController | null>,
+  controller: AbortController,
+) {
+  return attemptRef.current === controller && !controller.signal.aborted;
 }
 
 function trapFocus(event: globalThis.KeyboardEvent, container: HTMLElement) {

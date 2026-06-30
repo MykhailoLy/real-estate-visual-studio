@@ -44,6 +44,26 @@ export default function FloatingSiteActions() {
     }
   }, [supportChatVisible]);
 
+  useEffect(() => {
+    if (!liveSupportActive) return;
+
+    let cancelled = false;
+
+    void import("@/components/support/crisp-support-client")
+      .then(({ setActiveCrispSupportVisibility }) => {
+        if (!cancelled) {
+          setActiveCrispSupportVisibility(supportChatVisible);
+        }
+      })
+      .catch(() => {
+        // A local chunk failure should not interrupt page navigation.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [liveSupportActive, supportChatVisible]);
+
   if (isAdminRoute) return null;
 
   const scrollToTop = () => {
