@@ -28,6 +28,11 @@ import {
   type SupportChatMessage,
 } from "@/components/support/support-chat-client";
 import {
+  clearSupportChatSession,
+  readSupportChatSession,
+  writeSupportChatSession,
+} from "@/components/support/support-chat-session";
+import {
   buildSupportHandoffContext,
   isCrispProductionHostname,
   validateSupportHandoffIdentity,
@@ -92,6 +97,7 @@ export default function SupportChatWidget({
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [messages, setMessages] = useState<SupportChatMessage[]>([]);
+  const [sessionStorageHydrated, setSessionStorageHydrated] = useState(false);
 
   const quickActions = useMemo(
     () =>
@@ -124,6 +130,20 @@ export default function SupportChatWidget({
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    const restoreSession = window.setTimeout(() => {
+      setMessages(readSupportChatSession(window.sessionStorage));
+      setSessionStorageHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(restoreSession);
+  }, []);
+
+  useEffect(() => {
+    if (!sessionStorageHydrated) return;
+    writeSupportChatSession(window.sessionStorage, messages);
+  }, [messages, sessionStorageHydrated]);
 
   useEffect(() => {
     if (!open) return;
@@ -361,6 +381,8 @@ export default function SupportChatWidget({
       }
 
       if (result.ok) {
+        clearSupportChatSession(window.sessionStorage);
+        setMessages([]);
         setChatMode("crisp_active");
         onLiveSupportActiveChange?.(true);
         onOpenChange(false);
