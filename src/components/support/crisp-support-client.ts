@@ -80,6 +80,7 @@ let activated = false;
 let activeSdk: PicchuSpotCrispSdk | null = null;
 let activeAttempt: ActiveAttempt | null = null;
 let contextSent = false;
+let pendingInitialFallback = false;
 
 export async function startCrispSupportHandoff(
   options: CrispSupportHandoffOptions,
@@ -152,6 +153,7 @@ export function resetCrispSupportClientForTests() {
   activeSdk = null;
   activeAttempt = null;
   contextSent = false;
+  pendingInitialFallback = false;
 }
 
 async function runCrispHandoff({
@@ -223,6 +225,10 @@ async function runCrispHandoff({
   }
 
   const hadExistingSession = Boolean(safeGetSessionIdentifier(sdk));
+  if (!context.hasTranscript && !hadExistingSession) {
+    pendingInitialFallback = true;
+  }
+
   const loaded = await loadCrispSession(
     sdk,
     timeoutMs,
@@ -240,9 +246,13 @@ async function runCrispHandoff({
   }
 
   try {
-    if (!contextSent && (context.hasTranscript || !hadExistingSession)) {
+    if (
+      !contextSent &&
+      (context.hasTranscript || !hadExistingSession || pendingInitialFallback)
+    ) {
       sdk.message.sendText(context.message);
       contextSent = true;
+      pendingInitialFallback = false;
     }
 
     if (isSignalCancelled(signal)) {
