@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, RotateCcw } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
@@ -19,6 +19,11 @@ import StagingItemCard, {
   getStagingRequiredFieldId,
   type StagingRequiredField,
 } from "@/components/order/virtual-staging/StagingItemCard";
+import {
+  applyVirtualStagingInitialAddOns,
+  shouldAllowVirtualStagingSupportPrefillAutosave,
+  shouldPreserveVirtualStagingSupportRecommendationForDraft,
+} from "@/components/order/virtual-staging/staging-item-prefill";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
 import {
   RegionalCentsText,
@@ -110,6 +115,10 @@ import {
   type VirtualStagingDraftFileSlotKind,
   type VirtualStagingItemUpdate,
 } from "@/lib/order-drafts/virtual-staging-files";
+import {
+  consumeSupportOrderPrefill,
+  getSupportOrderPrefillStorage,
+} from "@/lib/support-order-prefill";
 
 // ============================================================
 // Virtual Staging order form (authenticated dashboard).
@@ -178,6 +187,9 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
   roomLabel: (itemNumber: number) => string;
   styleLabel: (itemNumber: number) => string;
   termsLabel: string;
+  supportRecommendationTitle: string;
+  supportRecommendationMessage: string;
+  supportRecommendationDismiss: string;
 };
 
 type DraftSaveOutcome =
@@ -276,6 +288,10 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     roomLabel: (itemNumber) => `Image #${itemNumber} room`,
     styleLabel: (itemNumber) => `Image #${itemNumber} furniture style`,
     termsLabel: "Terms",
+    supportRecommendationTitle: "Recommendation applied",
+    supportRecommendationMessage:
+      "Image Enhancement was selected based on your PicchuSpot Assistant conversation. You can remove it from any image.",
+    supportRecommendationDismiss: "Dismiss",
   },
   es: {
     draft: "Borrador",
@@ -349,6 +365,10 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     roomLabel: (itemNumber) => `Imagen #${itemNumber} habitación`,
     styleLabel: (itemNumber) => `Imagen #${itemNumber} estilo`,
     termsLabel: "Términos",
+    supportRecommendationTitle: "Recomendación aplicada",
+    supportRecommendationMessage:
+      "Se ha seleccionado Image Enhancement según tu conversación con el asistente de PicchuSpot. Puedes quitarlo de cualquier imagen.",
+    supportRecommendationDismiss: "Cerrar",
   },
 };
 
@@ -433,6 +453,7 @@ export default function VirtualStagingOrderForm({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedDraftId = searchParams.get("draft");
+  const supportRecommendationTitleId = useId();
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
@@ -477,6 +498,11 @@ export default function VirtualStagingOrderForm({
     useState<FinalizationRetryContext | null>(null);
   const [finalizationRecovery, setFinalizationRecovery] =
     useState<FinalizationRecoveryState | null>(null);
+  const [supportPrefillReady, setSupportPrefillReady] = useState(false);
+  const [
+    supportRecommendationNoticeVisible,
+    setSupportRecommendationNoticeVisible,
+  ] = useState(false);
 
   const draftIdRef = useRef(draftId);
   const draftVersionRef = useRef(draftVersion);
@@ -485,6 +511,8 @@ export default function VirtualStagingOrderForm({
   const draftFileOperationsRef = useRef(draftFileOperations);
   const finalizationKeyRef = useRef(finalizationKey);
   const finalizationRetryContextRef = useRef(finalizationRetryContext);
+  const supportRecommendedAddOnIdsRef = useRef<string[]>([]);
+  const supportRecommendationAppliedRef = useRef(false);
   const mountedRef = useRef(false);
   const savedFingerprintRef = useRef<string | null>(null);
   const failedAutosaveFingerprintRef = useRef<string | null>(null);
@@ -595,7 +623,13 @@ export default function VirtualStagingOrderForm({
 
   const handleAddItem = () => {
     if (isSubmitting || finalizationRetryContextRef.current) return;
-    commitItems((prev) => [...prev, emptyStagingItem()]);
+    commitItems((prev) => [
+      ...prev,
+      applyVirtualStagingInitialAddOns(
+        emptyStagingItem(),
+        supportRecommendedAddOnIdsRef.current,
+      ),
+    ]);
   };
 
   const draftSource = useMemo(
@@ -902,6 +936,10 @@ export default function VirtualStagingOrderForm({
     finalizationKeyRef.current = null;
     clearFinalizationRetryContext();
     setFinalizationRecovery(null);
+    supportRecommendedAddOnIdsRef.current = [];
+    supportRecommendationAppliedRef.current = false;
+    setSupportRecommendationNoticeVisible(false);
+    setSupportPrefillReady(true);
     setDraftError("");
     setConflictMessage(reset.identity.conflictMessage);
     setDraftId(reset.identity.draftId);
@@ -1630,6 +1668,57 @@ export default function VirtualStagingOrderForm({
   );
 
   useEffect(() => {
+    if (requestedDraftId) {
+      if (
+        shouldPreserveVirtualStagingSupportRecommendationForDraft({
+          requestedDraftId,
+          currentDraftId: draftIdRef.current,
+          supportRecommendationApplied: supportRecommendationAppliedRef.current,
+        })
+      ) {
+        window.queueMicrotask(() => setSupportPrefillReady(true));
+        return;
+      }
+
+      const storage = getSupportOrderPrefillStorage(window);
+      if (storage) {
+        consumeSupportOrderPrefill(storage, "virtual-staging");
+      }
+      supportRecommendedAddOnIdsRef.current = [];
+      supportRecommendationAppliedRef.current = false;
+      window.queueMicrotask(() => {
+        setSupportRecommendationNoticeVisible(false);
+        setSupportPrefillReady(true);
+      });
+      return;
+    }
+
+    const storage = getSupportOrderPrefillStorage(window);
+    const prefill = storage
+      ? consumeSupportOrderPrefill(storage, "virtual-staging")
+      : null;
+    if (!prefill) {
+      supportRecommendationAppliedRef.current = false;
+      window.queueMicrotask(() => setSupportPrefillReady(true));
+      return;
+    }
+
+    supportRecommendedAddOnIdsRef.current = [...prefill.addOnIds];
+    supportRecommendationAppliedRef.current = true;
+    window.queueMicrotask(() => {
+      commitItems((current) => {
+        const firstItem = current[0] ?? emptyStagingItem();
+        return [
+          applyVirtualStagingInitialAddOns(firstItem, prefill.addOnIds),
+          ...current.slice(1),
+        ];
+      });
+      setSupportRecommendationNoticeVisible(true);
+      setSupportPrefillReady(true);
+    });
+  }, [commitItems, requestedDraftId]);
+
+  useEffect(() => {
     if (!requestedDraftId) {
       return;
     }
@@ -1750,7 +1839,14 @@ export default function VirtualStagingOrderForm({
     if (
       finalizationRetryContext !== null ||
       resumeState !== "ready" ||
+      !supportPrefillReady ||
       !hasMeaningfulDraft ||
+      !shouldAllowVirtualStagingSupportPrefillAutosave({
+        currentDraftId: draftId,
+        source: draftSource,
+        recommendedAddOnIds: supportRecommendedAddOnIdsRef.current,
+        supportRecommendationApplied: supportRecommendationAppliedRef.current,
+      }) ||
       saveStatus === "conflict"
     ) {
       return;
@@ -1763,12 +1859,14 @@ export default function VirtualStagingOrderForm({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [
+    draftId,
     draftSource,
     finalizationRetryContext,
     hasMeaningfulDraft,
     resumeState,
     saveDraftNow,
     saveStatus,
+    supportPrefillReady,
   ]);
 
   const handleReloadLatestDraft = async () => {
@@ -2461,6 +2559,34 @@ export default function VirtualStagingOrderForm({
       {submitError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
           {submitError}
+        </div>
+      )}
+
+      {supportRecommendationNoticeVisible && (
+        <div
+          role="region"
+          aria-live="polite"
+          aria-labelledby={supportRecommendationTitleId}
+          className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-foreground sm:flex-row sm:items-start sm:justify-between"
+        >
+          <div className="min-w-0">
+            <h2
+              id={supportRecommendationTitleId}
+              className="text-sm font-semibold text-foreground"
+            >
+              {copy.supportRecommendationTitle}
+            </h2>
+            <p className="mt-1 text-muted">
+              {copy.supportRecommendationMessage}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSupportRecommendationNoticeVisible(false)}
+            className="inline-flex w-full items-center justify-center rounded-lg border border-primary/20 bg-white px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto"
+          >
+            {copy.supportRecommendationDismiss}
+          </button>
         </div>
       )}
 

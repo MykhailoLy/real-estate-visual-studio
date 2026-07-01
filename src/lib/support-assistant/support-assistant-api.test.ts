@@ -461,6 +461,35 @@ test("successful response can include a valid optional action", async () => {
   });
 });
 
+test("successful response can include a validated recommendation action", async () => {
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "Which service?" }),
+    {
+      async generate() {
+        return [
+          "Choose Virtual Staging and add Image Enhancement for the same images.",
+          "[[PICCHUSPOT_ORDER_RECOMMENDATION:virtual-staging-image-enhancement]]",
+          "[[PICCHUSPOT_ORDER_SERVICE:virtual-staging]]",
+        ].join("\n");
+      },
+    },
+    allowRateLimiter,
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await responseJson(response), {
+    data: {
+      message:
+        "Choose Virtual Staging and add Image Enhancement for the same images.",
+      action: {
+        type: "start_order",
+        serviceId: "virtual-staging",
+        recommendationId: "virtual-staging-image-enhancement",
+      },
+    },
+  });
+});
+
 test("public action response never includes model markers, hrefs, price, or order data", async () => {
   const response = await handleSupportAssistantPostRequest(
     requestWithJson({ message: "Which service?" }),
@@ -468,6 +497,7 @@ test("public action response never includes model markers, hrefs, price, or orde
       async generate() {
         return [
           "Use Virtual Staging.",
+          "[[PICCHUSPOT_ORDER_RECOMMENDATION:virtual-staging-image-enhancement]]",
           "[[PICCHUSPOT_ORDER_SERVICE:virtual-staging]]",
         ].join("\n");
       },
@@ -478,6 +508,10 @@ test("public action response never includes model markers, hrefs, price, or orde
   const serialized = JSON.stringify(body);
 
   assert.equal(serialized.includes("[[PICCHUSPOT_ORDER_SERVICE:"), false);
+  assert.equal(
+    serialized.includes("[[PICCHUSPOT_ORDER_RECOMMENDATION:"),
+    false,
+  );
   assert.equal(serialized.includes("href"), false);
   assert.equal(serialized.includes("price"), false);
   assert.equal(serialized.includes("orderId"), false);
@@ -503,6 +537,7 @@ test("public API response never includes reserved metadata prefix", async () => 
 
   assert.equal(response.status, 200);
   assert.doesNotMatch(serialized, /PICCHUSPOT_ORDER_SERVICE/i);
+  assert.doesNotMatch(serialized, /PICCHUSPOT_ORDER_RECOMMENDATION/i);
   assert.deepEqual(body, {
     data: {
       message: "Use Virtual Staging.",
