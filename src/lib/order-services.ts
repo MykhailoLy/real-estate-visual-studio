@@ -25,6 +25,12 @@ import {
   Map as MapIcon,
   type LucideIcon,
 } from "lucide-react";
+import {
+  getOrderServiceCatalogEntry,
+  type OrderServiceAvailability,
+  type OrderServiceCanonicalFields,
+  type OrderServiceSlug,
+} from "@/lib/order-service-catalog";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
 import type { PriceKey } from "@/lib/pricing/types";
 
@@ -34,22 +40,12 @@ import type { PriceKey } from "@/lib/pricing/types";
  *   - "coming-soon":  dedicated form not built yet → disabled "Coming Soon"
  *   - "custom-quote": quote-based service → disabled "Custom Quote"
  */
-export type OrderServiceAvailability = "active" | "coming-soon" | "custom-quote";
 
-export interface OrderServiceCard {
-  /** Stable catalog key (also the React list key). */
-  slug: string;
-  title: string;
+export type { OrderServiceAvailability };
+
+export interface OrderServiceCard extends OrderServiceCanonicalFields {
   /** Short, scannable description (~2-3 lines max in the UI). */
   description: string;
-  /**
-   * Protected dashboard route for active services; null when the
-   * service has no dedicated form yet (inactive cards never navigate).
-   */
-  route: string | null;
-  /** Canonical public service slug (matches pricing/portfolio slugs). */
-  publicServiceSlug: string;
-  availability: OrderServiceAvailability;
   /** Display-only price/availability label. Not used for billing. */
   priceLabel: string;
   priceKey?: PriceKey;
@@ -73,7 +69,6 @@ export interface OrderServiceCard {
   icon: LucideIcon;
   /** True for the temporary legacy umbrella card (Photo Editing). */
   temporary?: boolean;
-  sortOrder: number;
 }
 
 // 24-48h is the site-wide stated turnaround for digital edits
@@ -82,13 +77,9 @@ const DIGITAL_TURNAROUND = "24-48 hours";
 
 export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
   {
-    slug: "image-enhancement",
-    title: "Image Enhancement",
+    ...canonicalService("image-enhancement"),
     description:
       "Professional color, exposure, white balance, and detail correction for listing photos.",
-    route: "/dashboard/orders/new/image-enhancement",
-    publicServiceSlug: "image-enhancement",
-    availability: "active",
     portfolioServiceSlug: "image-enhancement",
     priceLabel: "Current catalog price",
     priceKey: "image-enhancement",
@@ -96,16 +87,11 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     badge: null,
     mediaServiceSlug: "image-enhancement",
     icon: ImagePlus,
-    sortOrder: 1,
   },
   {
-    slug: "day-to-dusk",
-    title: "Day to Dusk",
+    ...canonicalService("day-to-dusk"),
     description:
       "Convert daytime exterior shots into warm, twilight hero images with glowing windows.",
-    route: "/dashboard/orders/new/day-to-dusk",
-    publicServiceSlug: "day-to-dusk",
-    availability: "active",
     portfolioServiceSlug: "day-to-dusk",
     priceLabel: "Current catalog price",
     priceKey: "day-to-dusk",
@@ -113,16 +99,11 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     badge: null,
     mediaServiceSlug: "day-to-dusk",
     icon: Sunset,
-    sortOrder: 2,
   },
   {
-    slug: "virtual-staging",
-    title: "Virtual Staging",
+    ...canonicalService("virtual-staging"),
     description:
       "Furnish empty rooms with realistic furniture and decor across nine styles.",
-    route: "/dashboard/orders/new/virtual-staging",
-    publicServiceSlug: "virtual-staging",
-    availability: "active",
     portfolioServiceSlug: "virtual-staging",
     priceLabel: "Current catalog price",
     priceKey: "virtual-staging",
@@ -130,16 +111,11 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     badge: null,
     mediaServiceSlug: "virtual-staging",
     icon: Sofa,
-    sortOrder: 3,
   },
   {
-    slug: "item-removal-virtual-cleaning",
-    title: "Item Removal & Virtual Cleaning",
+    ...canonicalService("item-removal-virtual-cleaning"),
     description:
       "Remove clutter, objects, and distractions for clean, listing-ready spaces.",
-    route: "/dashboard/orders/new/item-removal-virtual-cleaning",
-    publicServiceSlug: "item-removal-virtual-cleaning",
-    availability: "active",
     portfolioServiceSlug: "item-removal-virtual-cleaning",
     priceLabel: "Current catalog price",
     priceKey: "item-removal-virtual-cleaning",
@@ -147,16 +123,11 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     badge: null,
     mediaServiceSlug: "item-removal-virtual-cleaning",
     icon: Eraser,
-    sortOrder: 4,
   },
   {
-    slug: "floor-plans",
-    title: "Floor Plans",
+    ...canonicalService("floor-plans"),
     description:
       "Clean 2D and 3D floor plans from your sketches, scans, or existing plans.",
-    route: "/dashboard/orders/new/3d-floor-plans",
-    publicServiceSlug: "floor-plans",
-    availability: "active",
     portfolioServiceSlug: "floor-plans",
     priceLabel: "Current catalog price",
     priceKey: "floor-plan-2d-bw",
@@ -164,16 +135,11 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     badge: null,
     mediaServiceSlug: "floor-plans",
     icon: LayoutGrid,
-    sortOrder: 5,
   },
   {
-    slug: "virtual-renovation",
-    title: "Virtual Renovation",
+    ...canonicalService("virtual-renovation"),
     description:
       "Digitally renovate kitchens, bathrooms, interiors, and exteriors with option-based pricing.",
-    route: "/dashboard/orders/new/virtual-renovation",
-    publicServiceSlug: "virtual-renovation",
-    availability: "active",
     portfolioServiceSlug: "virtual-renovation",
     priceLabel: "Current catalog price",
     priceKey: "renovation-replace-walls",
@@ -181,75 +147,63 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     badge: null,
     mediaServiceSlug: "virtual-renovation",
     icon: Paintbrush,
-    sortOrder: 6,
   },
   {
-    slug: "360-image-enhancement",
-    title: "360\u00b0 Image Enhancement",
+    ...canonicalService("360-image-enhancement"),
     description:
       "Correct, balance, and polish equirectangular panoramas for professional virtual tours.",
-    route: null,
-    publicServiceSlug: "360-image-enhancement",
-    availability: "coming-soon",
     portfolioServiceSlug: "360-image-enhancement",
     priceLabel: "Coming Soon",
     turnaroundLabel: null,
     badge: "360\u00b0",
     mediaServiceSlug: "360-image-enhancement",
     icon: Orbit,
-    sortOrder: 7,
   },
   {
-    slug: "360-virtual-staging",
-    title: "360\u00b0 Virtual Staging",
+    ...canonicalService("360-virtual-staging"),
     description:
       "Furnish 360\u00b0 panoramas for immersive, staged virtual tour experiences.",
-    route: null,
-    publicServiceSlug: "360-virtual-staging",
-    availability: "coming-soon",
     portfolioServiceSlug: "360-virtual-staging",
     priceLabel: "Coming Soon",
     turnaroundLabel: null,
     badge: "360\u00b0",
     mediaServiceSlug: "360-virtual-staging",
     icon: Compass,
-    sortOrder: 8,
   },
   {
-    slug: "aerial-editing",
-    title: "Aerial Editing",
+    ...canonicalService("aerial-editing"),
     description:
       "Enhance drone and aerial imagery with labels, boundaries, and clean-ups. Custom quote.",
-    route: null,
-    publicServiceSlug: "aerial-editing",
-    availability: "custom-quote",
     portfolioServiceSlug: "aerial-editing",
     priceLabel: "Custom Quote",
     turnaroundLabel: null,
     badge: "Quote",
     mediaServiceSlug: "aerial-editing",
     icon: Plane,
-    sortOrder: 9,
   },
   {
-    slug: "development-site-plans",
-    title: "Development Site Plans",
+    ...canonicalService("development-site-plans"),
     description:
       "Visual site plans for land, development, and multi-unit projects. Custom quote.",
-    route: null,
-    publicServiceSlug: "development-site-plans",
-    availability: "custom-quote",
     portfolioServiceSlug: "development-site-plans",
     priceLabel: "Custom Quote",
     turnaroundLabel: null,
     badge: "Quote",
     mediaServiceSlug: "development-site-plans",
     icon: MapIcon,
-    sortOrder: 10,
   },
 ];
 
 /** Registry sorted for rendering. */
 export function getOrderServiceCards(): OrderServiceCard[] {
   return [...ORDER_SERVICE_CARDS].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function canonicalService(slug: OrderServiceSlug): OrderServiceCanonicalFields {
+  const service = getOrderServiceCatalogEntry(slug);
+  if (!service) {
+    throw new Error(`Missing order service catalog entry: ${slug}`);
+  }
+
+  return service;
 }

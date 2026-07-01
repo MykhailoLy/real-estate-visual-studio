@@ -3,10 +3,17 @@ export type SupportChatLanguage = "en" | "es";
 export type SupportChatLinkKey = "pricing" | "services" | "contact";
 
 export type SupportChatQuickActionKey =
+  | "chooseService"
   | "pricing"
   | "services"
   | "howToOrder"
   | "talkToPerson";
+
+export type SupportChatQuickActionBehavior =
+  | "orderAssistant"
+  | "navigate"
+  | "prompt"
+  | "handoff";
 
 export const supportChatCopy = {
   en: {
@@ -28,6 +35,7 @@ export const supportChatCopy = {
     footerNote: "AI can make mistakes. Check important details.",
     contactLinkLabel: "Contact page",
     quickActions: {
+      chooseService: "Help me choose a service",
       pricing: "View pricing",
       services: "Choose a service",
       howToOrder: "How to order",
@@ -92,6 +100,7 @@ export const supportChatCopy = {
     footerNote: "La IA puede cometer errores. Comprueba la información importante.",
     contactLinkLabel: "Página de contacto",
     quickActions: {
+      chooseService: "Ay\u00fadame a elegir un servicio",
       pricing: "Ver precios",
       services: "Elegir un servicio",
       howToOrder: "Cómo hacer un pedido",
@@ -152,5 +161,21 @@ export function getSupportChatLink(
 ) {
   const path = localizedPaths[key];
   return language === "es" ? `/es${path}` : path;
+}
+
+export function getSupportChatQuickActionBehavior(
+  action: SupportChatQuickActionKey,
+): SupportChatQuickActionBehavior {
+  switch (action) {
+    case "chooseService":
+      return "orderAssistant";
+    case "pricing":
+    case "services":
+      return "navigate";
+    case "howToOrder":
+      return "prompt";
+    case "talkToPerson":
+      return "handoff";
+  }
 }
 

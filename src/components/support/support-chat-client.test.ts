@@ -14,6 +14,7 @@ import {
 } from "./support-chat-client.ts";
 import {
   getSupportChatLink,
+  getSupportChatQuickActionBehavior,
   supportChatCopy,
   type SupportChatLanguage,
 } from "./support-chat-copy.ts";
@@ -442,6 +443,18 @@ test("quick action prompts are localized", () => {
     supportChatCopy.es.prompts.howToOrder,
     "¿Cómo puedo realizar un pedido en PicchuSpot?",
   );
+});
+
+test("service chooser quick action is local-only", () => {
+  assert.equal(
+    getSupportChatQuickActionBehavior("chooseService"),
+    "orderAssistant",
+  );
+  assert.equal(getSupportChatQuickActionBehavior("howToOrder"), "prompt");
+  assert.equal(getSupportChatQuickActionBehavior("talkToPerson"), "handoff");
+  assert.equal(getSupportChatQuickActionBehavior("pricing"), "navigate");
+  assert.equal(getSupportChatQuickActionBehavior("services"), "navigate");
+  assert.equal(supportChatCopy.en.quickActions.chooseService.includes("/api/support"), false);
 });
 
 test("human-support quick action remains local and does not create an API request", () => {
