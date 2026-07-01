@@ -102,6 +102,27 @@ test("valid remote assistant action survives write and read", () => {
   assert.deepEqual(readSupportChatSession(storage), messages);
 });
 
+test("valid remote assistant recommendation action survives write and read", () => {
+  const storage = new MemoryStorage();
+  const messages = [
+    message({
+      id: "a1",
+      role: "assistant",
+      origin: "remote",
+      content: "Use Virtual Staging with Image Enhancement.",
+      action: {
+        type: "start_order",
+        serviceId: "virtual-staging",
+        recommendationId: "virtual-staging-image-enhancement",
+      },
+    }),
+  ];
+
+  writeSupportChatSession(storage, messages);
+
+  assert.deepEqual(readSupportChatSession(storage), messages);
+});
+
 test("existing version-1 payload without action still restores", () => {
   const storage = new MemoryStorage();
   storage.setItem(
@@ -233,6 +254,7 @@ test("reserved order metadata is never persisted to session storage", () => {
 
   const rawPayload = storage.getItem(SUPPORT_CHAT_SESSION_STORAGE_KEY);
   assert.doesNotMatch(rawPayload ?? "", /PICCHUSPOT_ORDER_SERVICE/i);
+  assert.doesNotMatch(rawPayload ?? "", /PICCHUSPOT_ORDER_RECOMMENDATION/i);
   assert.deepEqual(readSupportChatSession(storage), [
     message({ id: "a1", content: "Use Virtual Staging." }),
   ]);
@@ -249,6 +271,26 @@ test("stored payload with reserved order metadata is rejected", () => {
         origin: "remote",
         status: "complete",
         content: "PICCHUSPOT_ORDER_SERVICE:virtual-staging",
+      },
+    ]),
+  );
+
+  assert.deepEqual(readSupportChatSession(storage), []);
+  assert.equal(storage.getItem(SUPPORT_CHAT_SESSION_STORAGE_KEY), null);
+});
+
+test("stored payload with reserved recommendation metadata is rejected", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    SUPPORT_CHAT_SESSION_STORAGE_KEY,
+    storedPayload([
+      {
+        id: "a1",
+        role: "assistant",
+        origin: "remote",
+        status: "complete",
+        content:
+          "PICCHUSPOT_ORDER_RECOMMENDATION:virtual-staging-image-enhancement",
       },
     ]),
   );

@@ -90,6 +90,61 @@ test("an arbitrary href payload cannot override the canonical route", () => {
   assert.equal(resolved?.href, "/dashboard/orders/new/virtual-staging");
 });
 
+test("validated recommendation decorates only the canonical Virtual Staging action", () => {
+  const action = parseSupportOrderAction({
+    type: "start_order",
+    serviceId: "virtual-staging",
+    recommendationId: "virtual-staging-image-enhancement",
+    addOnIds: ["day-to-dusk"],
+  });
+
+  assert.deepEqual(action, {
+    type: "start_order",
+    serviceId: "virtual-staging",
+    recommendationId: "virtual-staging-image-enhancement",
+  });
+  assert.deepEqual(
+    resolveSupportOrderAction(
+      action!.serviceId,
+      action!.recommendationId,
+    ),
+    {
+      type: "start_order",
+      serviceId: "virtual-staging",
+      recommendationId: "virtual-staging-image-enhancement",
+      href: "/dashboard/orders/new/virtual-staging",
+    },
+  );
+});
+
+test("unknown recommendation IDs are ignored while preserving the service action", () => {
+  assert.deepEqual(
+    parseSupportOrderAction({
+      type: "start_order",
+      serviceId: "virtual-staging",
+      recommendationId: "unknown",
+    }),
+    {
+      type: "start_order",
+      serviceId: "virtual-staging",
+    },
+  );
+});
+
+test("a recommendation cannot override a different valid main service", () => {
+  assert.deepEqual(
+    parseSupportOrderAction({
+      type: "start_order",
+      serviceId: "image-enhancement",
+      recommendationId: "virtual-staging-image-enhancement",
+    }),
+    {
+      type: "start_order",
+      serviceId: "image-enhancement",
+    },
+  );
+});
+
 test("returned objects do not mutate the canonical catalog", () => {
   const resolved = resolveSupportOrderAction("virtual-staging");
   assert.notEqual(resolved, null);

@@ -437,6 +437,34 @@ test("valid action success is parsed", async () => {
   });
 });
 
+test("valid recommendation action success is parsed", async () => {
+  const result = await submitSupportChatMessage({
+    message: "Hello",
+    history: [],
+    fetcher: async () =>
+      jsonResponse({
+        data: {
+          message: "Use Virtual Staging with Image Enhancement.",
+          action: {
+            type: "start_order",
+            serviceId: "virtual-staging",
+            recommendationId: "virtual-staging-image-enhancement",
+          },
+        },
+      }),
+  });
+
+  assert.deepEqual(result, {
+    ok: true,
+    message: "Use Virtual Staging with Image Enhancement.",
+    action: {
+      type: "start_order",
+      serviceId: "virtual-staging",
+      recommendationId: "virtual-staging-image-enhancement",
+    },
+  });
+});
+
 test("invalid action is ignored while the message remains successful", async () => {
   const result = await submitSupportChatMessage({
     message: "Hello",

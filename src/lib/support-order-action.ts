@@ -1,10 +1,12 @@
 import { getOrderServiceCatalogEntry } from "./order-service-catalog.ts";
+import { resolveSupportOrderRecommendation } from "./support-order-prefill.ts";
 
 const DASHBOARD_NEW_ORDER_ROUTE = "/dashboard/orders/new";
 
 export interface SupportOrderAction {
   type: "start_order";
   serviceId: string;
+  recommendationId?: string;
 }
 
 export interface ResolvedSupportOrderAction extends SupportOrderAction {
@@ -13,6 +15,7 @@ export interface ResolvedSupportOrderAction extends SupportOrderAction {
 
 export function resolveSupportOrderAction(
   serviceId: string,
+  recommendationId?: string,
 ): ResolvedSupportOrderAction | null {
   const service = getOrderServiceCatalogEntry(serviceId);
   if (service?.availability !== "active") return null;
@@ -20,10 +23,18 @@ export function resolveSupportOrderAction(
     return null;
   }
 
+  const recommendation = resolveSupportOrderRecommendation(
+    recommendationId,
+    service.slug,
+  );
+
   return {
     type: "start_order",
     serviceId: service.slug,
     href: service.route,
+    ...(recommendation && typeof recommendationId === "string"
+      ? { recommendationId }
+      : {}),
   };
 }
 
@@ -34,12 +45,19 @@ export function parseSupportOrderAction(
   if (value.type !== "start_order") return null;
   if (typeof value.serviceId !== "string") return null;
 
-  const resolved = resolveSupportOrderAction(value.serviceId);
+  const recommendationId =
+    typeof value.recommendationId === "string"
+      ? value.recommendationId
+      : undefined;
+  const resolved = resolveSupportOrderAction(value.serviceId, recommendationId);
   if (!resolved) return null;
 
   return {
     type: "start_order",
     serviceId: resolved.serviceId,
+    ...(resolved.recommendationId
+      ? { recommendationId: resolved.recommendationId }
+      : {}),
   };
 }
 

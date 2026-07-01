@@ -46,6 +46,10 @@ import {
   resolveSupportOrderAction,
   type SupportOrderAction,
 } from "@/lib/support-order-action";
+import {
+  resolveSupportOrderRecommendation,
+  writeSupportOrderPrefill,
+} from "@/lib/support-order-prefill";
 import { cn } from "@/lib/utils";
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -474,8 +478,21 @@ export default function SupportChatWidget({
   };
 
   const navigateFromSupportOrderAction = (action: SupportOrderAction) => {
-    const resolved = resolveSupportOrderAction(action.serviceId);
+    const resolved = resolveSupportOrderAction(
+      action.serviceId,
+      action.recommendationId,
+    );
     if (!resolved) return;
+
+    if (resolved.recommendationId) {
+      const prefill = resolveSupportOrderRecommendation(
+        resolved.recommendationId,
+        resolved.serviceId,
+      );
+      if (prefill) {
+        writeSupportOrderPrefill(window.sessionStorage, prefill);
+      }
+    }
 
     closeChat();
     router.push(resolved.href);
