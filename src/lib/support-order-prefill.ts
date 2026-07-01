@@ -128,7 +128,7 @@ export function consumeSupportOrderPrefill(
     return null;
   }
 
-  removeSupportOrderPrefill(storage);
+  if (!removeSupportOrderPrefill(storage)) return null;
   return {
     serviceId: parsed.serviceId,
     addOnIds: [...parsed.addOnIds],
@@ -177,11 +177,12 @@ function isCanonicalDashboardOrderRoute(route: string): boolean {
   );
 }
 
-function removeSupportOrderPrefill(storage: SupportOrderPrefillStorage): void {
+function removeSupportOrderPrefill(storage: SupportOrderPrefillStorage): boolean {
   try {
     storage.removeItem(SUPPORT_ORDER_PREFILL_STORAGE_KEY);
+    return true;
   } catch {
-    return;
+    return false;
   }
 }
 

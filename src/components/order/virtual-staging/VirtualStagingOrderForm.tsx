@@ -19,7 +19,10 @@ import StagingItemCard, {
   getStagingRequiredFieldId,
   type StagingRequiredField,
 } from "@/components/order/virtual-staging/StagingItemCard";
-import { applyVirtualStagingInitialAddOns } from "@/components/order/virtual-staging/staging-item-prefill";
+import {
+  applyVirtualStagingInitialAddOns,
+  shouldAllowVirtualStagingSupportPrefillAutosave,
+} from "@/components/order/virtual-staging/staging-item-prefill";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
 import {
   RegionalCentsText,
@@ -1815,6 +1818,13 @@ export default function VirtualStagingOrderForm({
       resumeState !== "ready" ||
       !supportPrefillReady ||
       !hasMeaningfulDraft ||
+      !shouldAllowVirtualStagingSupportPrefillAutosave({
+        currentDraftId: draftId,
+        source: draftSource,
+        recommendedAddOnIds: supportRecommendedAddOnIdsRef.current,
+        supportRecommendationApplied:
+          supportRecommendedAddOnIdsRef.current.length > 0,
+      }) ||
       saveStatus === "conflict"
     ) {
       return;
@@ -1827,6 +1837,7 @@ export default function VirtualStagingOrderForm({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [
+    draftId,
     draftSource,
     finalizationRetryContext,
     hasMeaningfulDraft,

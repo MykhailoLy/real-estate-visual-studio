@@ -234,7 +234,7 @@ test("duplicate add-ons are normalized", () => {
   );
 });
 
-test("storage read, write, and remove failures are safe", () => {
+test("storage read and write failures are safe", () => {
   const storage = new MemoryStorage();
   storage.failSet = true;
   assert.equal(
@@ -254,11 +254,31 @@ test("storage read, write, and remove failures are safe", () => {
   );
   storage.failGet = true;
   assert.equal(consumeSupportOrderPrefill(storage, "virtual-staging", 1000), null);
+});
 
+test("storage remove failure returns null and does not throw", () => {
+  const storage = new MemoryStorage();
+  writeSupportOrderPrefill(
+    storage,
+    { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+    1000,
+  );
+  storage.failRemove = true;
+
+  let consumed: ReturnType<typeof consumeSupportOrderPrefill> | undefined;
+  assert.doesNotThrow(() => {
+    consumed = consumeSupportOrderPrefill(storage, "virtual-staging", 1000);
+  });
+  assert.equal(consumed, null);
+  assert.equal(storage.entries.has(SUPPORT_ORDER_PREFILL_STORAGE_KEY), true);
+});
+
+test("cleanup failures for malformed payloads remain best-effort", () => {
+  const storage = new MemoryStorage();
+  storage.entries.set(SUPPORT_ORDER_PREFILL_STORAGE_KEY, "{not-json");
   storage.failGet = false;
   storage.failRemove = true;
-  assert.deepEqual(consumeSupportOrderPrefill(storage, "virtual-staging", 1000), {
-    serviceId: "virtual-staging",
-    addOnIds: ["image-enhancement"],
-  });
+
+  assert.equal(consumeSupportOrderPrefill(storage, "virtual-staging", 1000), null);
+  assert.equal(storage.entries.has(SUPPORT_ORDER_PREFILL_STORAGE_KEY), true);
 });
