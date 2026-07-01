@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import CookieConsentBanner from "@/components/privacy/CookieConsentBanner";
+import { SupportChatProvider } from "@/components/support/SupportChatProvider";
 import "./globals.css";
 
 // NOTE: Header and Footer are rendered by the (public) route-group layout.
@@ -78,7 +79,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen w-full overflow-x-clip`}
       >
-        {children}
+        <SupportChatProvider>{children}</SupportChatProvider>
         <GoogleAnalytics />
         <CookieConsentBanner />
       </body>

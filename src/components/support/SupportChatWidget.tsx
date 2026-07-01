@@ -52,6 +52,7 @@ interface SupportChatWidgetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   language: SupportChatLanguage;
+  showLauncher?: boolean;
   returnFocusRef?: RefObject<HTMLButtonElement | null>;
   onLiveSupportActiveChange?: (active: boolean) => void;
 }
@@ -60,6 +61,7 @@ export default function SupportChatWidget({
   open,
   onOpenChange,
   language,
+  showLauncher = true,
   returnFocusRef,
   onLiveSupportActiveChange,
 }: SupportChatWidgetProps) {
@@ -750,7 +752,7 @@ export default function SupportChatWidget({
 
   return (
     <>
-      {!open && chatMode !== "crisp_active" && (
+      {showLauncher && !open && chatMode !== "crisp_active" && (
         <button
           ref={desktopTriggerRef}
           type="button"

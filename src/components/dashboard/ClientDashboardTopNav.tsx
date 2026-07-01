@@ -28,6 +28,7 @@ import {
   writeLanguagePreference,
   type SiteLanguage,
 } from "@/components/layout/Header";
+import { useSupportChat } from "@/components/support/SupportChatProvider";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
@@ -126,6 +127,14 @@ export default function ClientDashboardTopNav() {
 }
 
 function DashboardNavigationRow({ pathname }: { pathname: string }) {
+  const {
+    open: supportChatOpen,
+    liveSupportActive,
+    launcherMode,
+    openSupportChat,
+  } = useSupportChat();
+  const supportButtonRef = useRef<HTMLButtonElement | null>(null);
+
   return (
     <div className="border-t border-border bg-primary">
       <nav
@@ -137,21 +146,46 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
             ? pathname === item.href
             : pathname.startsWith(item.href);
           const isNewOrder = item.href === "/dashboard/orders/new";
+          const isSupport = item.href === "/dashboard/support";
+
+          const itemClassName = cn(
+            "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+            isSupport && "hidden md:inline-flex",
+            isNewOrder
+              ? "bg-secondary text-primary-dark shadow-sm hover:bg-secondary-light"
+              : active
+                ? "bg-white/18 text-white"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
+          );
+
+          if (isSupport) {
+            if (launcherMode !== "dashboard") return null;
+
+            return (
+              <button
+                key={item.href}
+                ref={supportButtonRef}
+                type="button"
+                onClick={() => openSupportChat(supportButtonRef.current)}
+                aria-label="Open PicchuSpot Assistant"
+                aria-expanded={liveSupportActive ? undefined : supportChatOpen}
+                aria-controls={
+                  liveSupportActive ? undefined : "support-chat-widget"
+                }
+                className={itemClassName}
+              >
+                <item.icon className="h-3.5 w-3.5" aria-hidden />
+                {item.label}
+              </button>
+            );
+          }
 
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={active && !isNewOrder ? "page" : undefined}
-              className={cn(
-                "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
-                item.href === "/dashboard/support" && "hidden md:inline-flex",
-                isNewOrder
-                  ? "bg-secondary text-primary-dark shadow-sm hover:bg-secondary-light"
-                  : active
-                    ? "bg-white/18 text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
-              )}
+              className={itemClassName}
             >
               <item.icon className="h-3.5 w-3.5" aria-hidden />
               {item.label}

@@ -180,6 +180,19 @@ export function setActiveCrispSupportVisibility(visible: boolean) {
   }
 }
 
+export function openActiveCrispSupportChat(): boolean {
+  if (!activated || !activeSdk) return false;
+
+  try {
+    activeSdk.chat.show();
+    activeSdk.chat.open();
+    return true;
+  } catch {
+    safeCloseAndHideCrisp(activeSdk);
+    return false;
+  }
+}
+
 export function resetCrispSupportClientForTests() {
   configured = false;
   activated = false;
