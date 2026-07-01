@@ -16,10 +16,12 @@ import { createPortal } from "react-dom";
 import { Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import {
   getSupportChatLink,
+  getSupportChatQuickActionBehavior,
   supportChatCopy,
   type SupportChatLanguage,
   type SupportChatQuickActionKey,
 } from "@/components/support/support-chat-copy";
+import SupportOrderAssistant from "@/components/support/SupportOrderAssistant";
 import {
   buildSupportChatHistory,
   getSupportChatErrorMessage,
@@ -100,8 +102,9 @@ export default function SupportChatWidget({
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [messages, setMessages] = useState<SupportChatMessage[]>([]);
   const [sessionStorageHydrated, setSessionStorageHydrated] = useState(false);
+  const [orderAssistantOpen, setOrderAssistantOpen] = useState(false);
 
-  const quickActions = useMemo(
+  const secondaryQuickActions = useMemo(
     () =>
       [
         "pricing",
@@ -116,6 +119,7 @@ export default function SupportChatWidget({
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setSending(false);
+    setOrderAssistantOpen(false);
     onOpenChange(false);
     window.setTimeout(() => {
       const focusTarget = isMobile
@@ -153,18 +157,20 @@ export default function SupportChatWidget({
       if (chatMode !== "ai") {
         const focusTarget = handoffName ? nameInputRef.current : emailInputRef.current;
         focusTarget?.focus();
+      } else if (orderAssistantOpen) {
+        closeButtonRef.current?.focus();
       } else if (isMobile) {
         closeButtonRef.current?.focus();
       } else {
         textareaRef.current?.focus();
       }
     }, 0);
-  }, [chatMode, handoffName, isMobile, open]);
+  }, [chatMode, handoffName, isMobile, open, orderAssistantOpen]);
 
   useEffect(() => {
     if (!open) return;
     messagesEndRef.current?.scrollIntoView({ block: "end" });
-  }, [chatMode, errorResult, handoffStatus, messages, open, sending]);
+  }, [chatMode, errorResult, handoffStatus, messages, open, orderAssistantOpen, sending]);
 
   useEffect(() => {
     if (!open || !isMobile) return;
@@ -234,6 +240,7 @@ export default function SupportChatWidget({
       const trimmedMessage = rawMessage.trim();
       if (
         chatMode !== "ai" ||
+        orderAssistantOpen ||
         !trimmedMessage ||
         sending ||
         cooldownRemaining > 0
@@ -288,13 +295,14 @@ export default function SupportChatWidget({
       }
       window.setTimeout(() => textareaRef.current?.focus(), 0);
     },
-    [chatMode, cooldownRemaining, messages, sending],
+    [chatMode, cooldownRemaining, messages, orderAssistantOpen, sending],
   );
 
   const startIdentityCollection = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setSending(false);
+    setOrderAssistantOpen(false);
     setErrorResult(null);
     setHandoffErrors({});
     setHandoffStatus(null);
@@ -424,18 +432,34 @@ export default function SupportChatWidget({
   ]);
 
   const handleQuickAction = (action: SupportChatQuickActionKey) => {
-    if (action === "pricing" || action === "services") {
-      closeChat();
-      router.push(getSupportChatLink(language, action));
-      return;
-    }
+    const behavior = getSupportChatQuickActionBehavior(action);
 
-    if (action === "howToOrder") {
-      void submitMessage(copy.prompts.howToOrder);
-      return;
+    switch (behavior) {
+      case "orderAssistant":
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
+        setSending(false);
+        setErrorResult(null);
+        setOrderAssistantOpen(true);
+        return;
+      case "navigate":
+        if (action !== "pricing" && action !== "services") return;
+        closeChat();
+        router.push(getSupportChatLink(language, action));
+        return;
+      case "prompt":
+        setOrderAssistantOpen(false);
+        void submitMessage(copy.prompts.howToOrder);
+        return;
+      case "handoff":
+        startIdentityCollection();
+        return;
     }
+  };
 
-    startIdentityCollection();
+  const navigateFromOrderAssistant = (href: string) => {
+    closeChat();
+    router.push(href);
   };
 
   const onComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -453,12 +477,17 @@ export default function SupportChatWidget({
     ? getSupportChatErrorMessage(language, errorResult, cooldownRemaining)
     : null;
   const sendDisabled =
-    chatMode !== "ai" || !input.trim() || sending || cooldownRemaining > 0;
+    chatMode !== "ai" ||
+    orderAssistantOpen ||
+    !input.trim() ||
+    sending ||
+    cooldownRemaining > 0;
   const nearLimit = input.length >= 1800;
   const showHandoffForm =
     chatMode === "collecting_identity" ||
     chatMode === "connecting_crisp" ||
     chatMode === "crisp_error";
+  const showOrderAssistant = chatMode === "ai" && orderAssistantOpen;
   const connectingToCrisp = chatMode === "connecting_crisp";
 
   const panel = (
@@ -669,10 +698,27 @@ export default function SupportChatWidget({
                 </button>
               </div>
             </form>
+          ) : showOrderAssistant ? (
+            <SupportOrderAssistant
+              language={language}
+              onNavigate={navigateFromOrderAssistant}
+              onBackToChat={() => {
+                setOrderAssistantOpen(false);
+                window.setTimeout(() => textareaRef.current?.focus(), 50);
+              }}
+            />
           ) : (
             <>
+              <button
+                type="button"
+                onClick={() => handleQuickAction("chooseService")}
+                className="mb-2 min-h-11 w-full rounded-lg bg-primary px-3 py-2.5 text-left text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                {copy.quickActions.chooseService}
+              </button>
+
               <div className="mb-3 grid grid-cols-2 gap-2">
-                {quickActions.map((action) => {
+                {secondaryQuickActions.map((action) => {
                   const isApiAction = action === "howToOrder";
                   return (
                     <button
