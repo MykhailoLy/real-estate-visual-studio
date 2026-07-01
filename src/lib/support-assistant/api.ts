@@ -270,9 +270,10 @@ export async function handleSupportAssistantPostRequest(
 
 function logSupportAssistantError(operation: string, error: unknown): void {
   const safeName =
-    error instanceof SupportAssistantGenerationError ||
-    error instanceof SupportAssistantRateLimitUnavailableError
-      ? error.name
+    error instanceof SupportAssistantGenerationError
+      ? error.logCategory
+      : error instanceof SupportAssistantRateLimitUnavailableError
+        ? error.name
       : error instanceof Error
         ? error.name
         : "UnknownError";

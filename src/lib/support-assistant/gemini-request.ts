@@ -1,5 +1,5 @@
 export const GEMINI_SUPPORT_MODEL = "gemini-3.1-flash-lite";
-export const GEMINI_SUPPORT_MAX_OUTPUT_TOKENS = 1200;
+export const GEMINI_SUPPORT_MAX_OUTPUT_TOKENS = 2048;
 
 export interface GeminiSupportInteractionRequest {
   model: typeof GEMINI_SUPPORT_MODEL;
