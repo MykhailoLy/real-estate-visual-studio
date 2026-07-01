@@ -22,6 +22,13 @@ export interface SupportAssistantRateLimiter {
   check(request: Request): Promise<SupportRateLimitDecision>;
 }
 
+export type SupportAssistantGenerationLogCategory =
+  | "generation_failed"
+  | "provider_incomplete"
+  | "provider_budget_exceeded"
+  | "provider_failed"
+  | "provider_unexpected_status";
+
 export class SupportAssistantInputError extends Error {
   constructor(message = "Support assistant input is invalid.") {
     super(message);
@@ -37,9 +44,15 @@ export class SupportAssistantConfigurationError extends Error {
 }
 
 export class SupportAssistantGenerationError extends Error {
-  constructor(message = "Support assistant generation failed.") {
+  readonly logCategory: SupportAssistantGenerationLogCategory;
+
+  constructor(
+    message = "Support assistant generation failed.",
+    logCategory: SupportAssistantGenerationLogCategory = "generation_failed",
+  ) {
     super(message);
     this.name = "SupportAssistantGenerationError";
+    this.logCategory = logCategory;
   }
 }
 

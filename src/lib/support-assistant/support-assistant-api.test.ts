@@ -4,8 +4,12 @@ import {
   handleSupportAssistantPostRequest,
   parseSupportAssistantJsonRequest,
 } from "./api.ts";
+import { extractCompletedGeminiSupportOutput } from "./gemini-response.ts";
 import { SUPPORT_ASSISTANT_MAX_BODY_BYTES } from "./schema.ts";
-import { SupportAssistantConfigurationError } from "./types.ts";
+import {
+  SupportAssistantConfigurationError,
+  SupportAssistantGenerationError,
+} from "./types.ts";
 import type {
   SupportAssistantRateLimiter,
   SupportAssistantTransport,
@@ -683,6 +687,72 @@ test("upstream failures map to safe 502 without raw provider errors", async () =
     });
     assert.equal(JSON.stringify(body).includes("Gemini"), false);
     assert.equal(JSON.stringify(body).includes("provider request"), false);
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("provider completion failures map to safe public generation error", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+
+  try {
+    const response = await handleSupportAssistantPostRequest(
+      requestWithJson({ message: "Hello" }),
+      {
+        async generate() {
+          throw new SupportAssistantGenerationError(
+            "Unsafe incomplete provider response with partial text",
+            "provider_incomplete",
+          );
+        },
+      },
+      allowRateLimiter,
+    );
+
+    assert.equal(response.status, 502);
+    const body = await responseJson(response);
+    assert.deepEqual(body, {
+      error: "Support assistant could not generate a response.",
+      code: "generation_failed",
+    });
+    assert.equal(JSON.stringify(body).includes("provider_incomplete"), false);
+    assert.equal(JSON.stringify(body).includes("incomplete"), false);
+    assert.equal(JSON.stringify(body).includes("partial text"), false);
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("generation logging uses controlled categories without provider content", async () => {
+  const originalError = console.error;
+  const logs: string[] = [];
+  console.error = (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "));
+  };
+
+  try {
+    const response = await handleSupportAssistantPostRequest(
+      requestWithJson({ message: "CUSTOMER SECRET CONTENT" }),
+      {
+        async generate() {
+          return extractCompletedGeminiSupportOutput({
+            id: "interaction_secret_id",
+            status: "incomplete",
+            output_text: "PRIVATE PARTIAL OUTPUT",
+          });
+        },
+      },
+      allowRateLimiter,
+    );
+
+    assert.equal(response.status, 502);
+    const combinedLogs = logs.join("\n");
+    assert.match(combinedLogs, /provider_incomplete/);
+    assert.equal(combinedLogs.includes("CUSTOMER SECRET CONTENT"), false);
+    assert.equal(combinedLogs.includes("interaction_secret_id"), false);
+    assert.equal(combinedLogs.includes("PRIVATE PARTIAL OUTPUT"), false);
+    assert.equal(combinedLogs.includes("Unsafe incomplete"), false);
   } finally {
     console.error = originalError;
   }
