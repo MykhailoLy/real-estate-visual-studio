@@ -10,6 +10,7 @@ import {
   SupportAssistantGenerationError,
   SupportAssistantInputError,
   SupportAssistantRateLimitUnavailableError,
+  type SupportAssistantGeneratedReply,
   type SupportAssistantRateLimiter,
   type SupportAssistantRequestInput,
   type SupportAssistantTransport,
@@ -38,9 +39,19 @@ export type SupportAssistantJsonParseResult =
 
 const textDecoder = new TextDecoder();
 
-export function supportAssistantSuccessResponse(message: string): Response {
+export function supportAssistantSuccessResponse(
+  reply: SupportAssistantGeneratedReply,
+): Response {
+  const data: {
+    message: string;
+    action?: SupportAssistantGeneratedReply["action"];
+  } = {
+    message: reply.message,
+  };
+  if (reply.action) data.action = reply.action;
+
   return Response.json(
-    { data: { message } },
+    { data },
     { status: 200, headers: NO_STORE_HEADERS },
   );
 }
@@ -248,8 +259,8 @@ export async function handleSupportAssistantPostRequest(
   }
 
   try {
-    const message = await generateSupportAssistantReply(parsed.input, transport);
-    return supportAssistantSuccessResponse(message);
+    const reply = await generateSupportAssistantReply(parsed.input, transport);
+    return supportAssistantSuccessResponse(reply);
   } catch (error) {
     if (error instanceof SupportAssistantConfigurationError) {
       return supportAssistantErrorResponse(

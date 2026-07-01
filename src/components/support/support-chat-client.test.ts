@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildSupportChatHistory,
   detectSupportChatLanguage,
+  getLatestSupportOrderActionMessageId,
   getSupportChatErrorMessage,
   getSupportChatLauncherMode,
   isSupportChatRouteVisible,
@@ -252,6 +253,73 @@ test("history includes only completed user and remote assistant messages", () =>
   ]);
 });
 
+test("history does not include action metadata", () => {
+  const history = buildSupportChatHistory([
+    message({
+      id: "a1",
+      role: "assistant",
+      origin: "remote",
+      content: "Use Virtual Staging.",
+      action: {
+        type: "start_order",
+        serviceId: "virtual-staging",
+      },
+    }),
+  ]);
+
+  assert.deepEqual(history, [
+    { role: "assistant", content: "Use Virtual Staging." },
+  ]);
+  assert.equal(JSON.stringify(history).includes("start_order"), false);
+});
+
+test("latest remote assistant response with action becomes the active CTA", () => {
+  assert.equal(
+    getLatestSupportOrderActionMessageId([
+      message({
+        id: "a1",
+        action: {
+          type: "start_order",
+          serviceId: "virtual-staging",
+        },
+      }),
+    ]),
+    "a1",
+  );
+});
+
+test("an intervening user message removes the active CTA", () => {
+  assert.equal(
+    getLatestSupportOrderActionMessageId([
+      message({
+        id: "a1",
+        action: {
+          type: "start_order",
+          serviceId: "virtual-staging",
+        },
+      }),
+      message({ id: "u1", role: "user", origin: "local", content: "Thanks" }),
+    ]),
+    null,
+  );
+});
+
+test("a later assistant response without action leaves no active CTA", () => {
+  assert.equal(
+    getLatestSupportOrderActionMessageId([
+      message({
+        id: "a1",
+        action: {
+          type: "start_order",
+          serviceId: "virtual-staging",
+        },
+      }),
+      message({ id: "a2", content: "Here is pricing." }),
+    ]),
+    null,
+  );
+});
+
 test("history contains at most 6 messages", () => {
   const messages = Array.from({ length: 8 }, (_, index) =>
     message({
@@ -341,6 +409,132 @@ test("success JSON is parsed safely", async () => {
   });
 
   assert.deepEqual(result, { ok: true, message: "Safe answer" });
+});
+
+test("valid action success is parsed", async () => {
+  const result = await submitSupportChatMessage({
+    message: "Hello",
+    history: [],
+    fetcher: async () =>
+      jsonResponse({
+        data: {
+          message: "Use Virtual Staging.",
+          action: {
+            type: "start_order",
+            serviceId: "virtual-staging",
+          },
+        },
+      }),
+  });
+
+  assert.deepEqual(result, {
+    ok: true,
+    message: "Use Virtual Staging.",
+    action: {
+      type: "start_order",
+      serviceId: "virtual-staging",
+    },
+  });
+});
+
+test("invalid action is ignored while the message remains successful", async () => {
+  const result = await submitSupportChatMessage({
+    message: "Hello",
+    history: [],
+    fetcher: async () =>
+      jsonResponse({
+        data: {
+          message: "Safe answer",
+          action: {
+            type: "open_url",
+            serviceId: "virtual-staging",
+          },
+        },
+      }),
+  });
+
+  assert.deepEqual(result, { ok: true, message: "Safe answer" });
+});
+
+test("unknown service action is ignored", async () => {
+  const result = await submitSupportChatMessage({
+    message: "Hello",
+    history: [],
+    fetcher: async () =>
+      jsonResponse({
+        data: {
+          message: "Safe answer",
+          action: {
+            type: "start_order",
+            serviceId: "unknown",
+          },
+        },
+      }),
+  });
+
+  assert.deepEqual(result, { ok: true, message: "Safe answer" });
+});
+
+test("inactive service action is ignored", async () => {
+  const result = await submitSupportChatMessage({
+    message: "Hello",
+    history: [],
+    fetcher: async () =>
+      jsonResponse({
+        data: {
+          message: "Safe answer",
+          action: {
+            type: "start_order",
+            serviceId: "360-image-enhancement",
+          },
+        },
+      }),
+  });
+
+  assert.deepEqual(result, { ok: true, message: "Safe answer" });
+});
+
+test("extra href data is ignored and never used", async () => {
+  const result = await submitSupportChatMessage({
+    message: "Hello",
+    history: [],
+    fetcher: async () =>
+      jsonResponse({
+        data: {
+          message: "Use Virtual Staging.",
+          action: {
+            type: "start_order",
+            serviceId: "virtual-staging",
+            href: "javascript:alert(1)",
+          },
+        },
+      }),
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.action, {
+    type: "start_order",
+    serviceId: "virtual-staging",
+  });
+  assert.equal(JSON.stringify(result.action).includes("href"), false);
+});
+
+test("request body remains message and history only", async () => {
+  let body = "";
+  await submitSupportChatMessage({
+    message: "Hello",
+    history: [{ role: "assistant", content: "Previous" }],
+    fetcher: async (_url, init) => {
+      body = String(init?.body);
+      return jsonResponse({ data: { message: "Safe answer" } });
+    },
+  });
+
+  assert.deepEqual(JSON.parse(body), {
+    message: "Hello",
+    history: [{ role: "assistant", content: "Previous" }],
+  });
 });
 
 test("malformed success JSON becomes a safe client error", async () => {

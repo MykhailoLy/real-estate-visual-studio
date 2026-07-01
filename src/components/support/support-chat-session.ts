@@ -1,4 +1,5 @@
 import type { SupportChatMessage } from "./support-chat-client.ts";
+import { parseSupportOrderAction } from "../../lib/support-order-action.ts";
 
 export const SUPPORT_CHAT_SESSION_STORAGE_KEY =
   "picchuspot_support_chat_session_v1";
@@ -138,12 +139,14 @@ function toSupportChatSessionMessage(value: unknown): SupportChatMessage | null 
   }
 
   if (role === "assistant" && origin === "remote") {
+    const action = parseSupportOrderAction(value.action);
     return {
       id,
       role,
       content,
       origin,
       status,
+      ...(action ? { action } : {}),
     };
   }
 

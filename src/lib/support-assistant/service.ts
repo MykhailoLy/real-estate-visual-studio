@@ -2,9 +2,11 @@ import {
   SUPPORT_ASSISTANT_MAX_RESPONSE_CHARS,
   SUPPORT_ASSISTANT_MAX_TRANSCRIPT_CHARS,
 } from "./schema.ts";
+import { parseSupportAssistantGeneratedReply } from "./order-action.ts";
 import {
   SupportAssistantGenerationError,
   SupportAssistantInputError,
+  type SupportAssistantGeneratedReply,
   type SupportAssistantRequestInput,
   type SupportAssistantTransport,
 } from "./types.ts";
@@ -58,9 +60,11 @@ export function normalizeSupportAssistantOutput(output: string): string {
 export async function generateSupportAssistantReply(
   input: SupportAssistantRequestInput,
   transport: SupportAssistantTransport,
-): Promise<string> {
+): Promise<SupportAssistantGeneratedReply> {
   const transcript = buildSupportAssistantTranscript(input);
   validateSupportAssistantTranscriptLength(transcript);
-  const output = await transport.generate(transcript);
-  return normalizeSupportAssistantOutput(output);
+  const output = normalizeSupportAssistantOutput(
+    await transport.generate(transcript),
+  );
+  return parseSupportAssistantGeneratedReply(output);
 }

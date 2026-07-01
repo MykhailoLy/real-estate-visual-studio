@@ -433,6 +433,56 @@ test("successful response uses the data envelope", async () => {
   });
 });
 
+test("successful response can include a valid optional action", async () => {
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "Which service?" }),
+    {
+      async generate() {
+        return [
+          "Choose Virtual Staging and add Image Enhancement for the same images.",
+          "[[PICCHUSPOT_ORDER_SERVICE:virtual-staging]]",
+        ].join("\n");
+      },
+    },
+    allowRateLimiter,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(await responseJson(response), {
+    data: {
+      message:
+        "Choose Virtual Staging and add Image Enhancement for the same images.",
+      action: {
+        type: "start_order",
+        serviceId: "virtual-staging",
+      },
+    },
+  });
+});
+
+test("public action response never includes model markers, hrefs, price, or order data", async () => {
+  const response = await handleSupportAssistantPostRequest(
+    requestWithJson({ message: "Which service?" }),
+    {
+      async generate() {
+        return [
+          "Use Virtual Staging.",
+          "[[PICCHUSPOT_ORDER_SERVICE:virtual-staging]]",
+        ].join("\n");
+      },
+    },
+    allowRateLimiter,
+  );
+  const body = await responseJson(response);
+  const serialized = JSON.stringify(body);
+
+  assert.equal(serialized.includes("[[PICCHUSPOT_ORDER_SERVICE:"), false);
+  assert.equal(serialized.includes("href"), false);
+  assert.equal(serialized.includes("price"), false);
+  assert.equal(serialized.includes("orderId"), false);
+});
+
 test("valid allowed request checks rate limit before reaching the support transport", async () => {
   const calls: string[] = [];
   const response = await handleSupportAssistantPostRequest(

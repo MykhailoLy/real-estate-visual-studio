@@ -82,6 +82,148 @@ test("valid user and remote-assistant messages round-trip", () => {
   assert.deepEqual(readSupportChatSession(storage), messages);
 });
 
+test("valid remote assistant action survives write and read", () => {
+  const storage = new MemoryStorage();
+  const messages = [
+    message({
+      id: "a1",
+      role: "assistant",
+      origin: "remote",
+      content: "Use Virtual Staging.",
+      action: {
+        type: "start_order",
+        serviceId: "virtual-staging",
+      },
+    }),
+  ];
+
+  writeSupportChatSession(storage, messages);
+
+  assert.deepEqual(readSupportChatSession(storage), messages);
+});
+
+test("existing version-1 payload without action still restores", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    SUPPORT_CHAT_SESSION_STORAGE_KEY,
+    storedPayload([
+      {
+        id: "a1",
+        role: "assistant",
+        origin: "remote",
+        status: "complete",
+        content: "Hello",
+      },
+    ]),
+  );
+
+  assert.deepEqual(readSupportChatSession(storage), [
+    message({ id: "a1", role: "assistant", origin: "remote", content: "Hello" }),
+  ]);
+});
+
+test("invalid action is stripped without deleting the message", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    SUPPORT_CHAT_SESSION_STORAGE_KEY,
+    storedPayload([
+      {
+        id: "a1",
+        role: "assistant",
+        origin: "remote",
+        status: "complete",
+        content: "Hello",
+        action: {
+          type: "start_order",
+          serviceId: "unknown",
+        },
+      },
+    ]),
+  );
+
+  assert.deepEqual(readSupportChatSession(storage), [
+    message({ id: "a1", role: "assistant", origin: "remote", content: "Hello" }),
+  ]);
+});
+
+test("user-message action is stripped", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    SUPPORT_CHAT_SESSION_STORAGE_KEY,
+    storedPayload([
+      {
+        id: "u1",
+        role: "user",
+        origin: "local",
+        status: "complete",
+        content: "Hi",
+        action: {
+          type: "start_order",
+          serviceId: "virtual-staging",
+        },
+      },
+    ]),
+  );
+
+  assert.deepEqual(readSupportChatSession(storage), [
+    message({ id: "u1", role: "user", origin: "local", content: "Hi" }),
+  ]);
+});
+
+test("local assistant action is not restored", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    SUPPORT_CHAT_SESSION_STORAGE_KEY,
+    storedPayload([
+      {
+        id: "welcome",
+        role: "assistant",
+        origin: "local",
+        status: "complete",
+        content: "Welcome",
+        action: {
+          type: "start_order",
+          serviceId: "virtual-staging",
+        },
+      },
+    ]),
+  );
+
+  assert.deepEqual(readSupportChatSession(storage), []);
+});
+
+test("href is not persisted with an action", () => {
+  const storage = new MemoryStorage();
+  writeSupportChatSession(storage, [
+    message({
+      id: "a1",
+      role: "assistant",
+      origin: "remote",
+      content: "Use Virtual Staging.",
+      action: {
+        type: "start_order",
+        serviceId: "virtual-staging",
+        href: "javascript:alert(1)",
+      } as unknown as SupportChatMessage["action"],
+    }),
+  ]);
+
+  const rawPayload = storage.getItem(SUPPORT_CHAT_SESSION_STORAGE_KEY);
+  assert.equal(rawPayload?.includes("href"), false);
+  assert.deepEqual(readSupportChatSession(storage)[0]?.action, {
+    type: "start_order",
+    serviceId: "virtual-staging",
+  });
+});
+
+test("session storage key and version remain unchanged", () => {
+  assert.equal(
+    SUPPORT_CHAT_SESSION_STORAGE_KEY,
+    "picchuspot_support_chat_session_v1",
+  );
+  assert.equal(SUPPORT_CHAT_SESSION_VERSION, 1);
+});
+
 test("message chronological order is preserved", () => {
   const storage = new MemoryStorage();
   const messages = [

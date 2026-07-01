@@ -2,6 +2,10 @@ import {
   supportChatCopy,
   type SupportChatLanguage,
 } from "./support-chat-copy.ts";
+import {
+  parseSupportOrderAction,
+  type SupportOrderAction,
+} from "../../lib/support-order-action.ts";
 
 export type SupportChatApiRole = "user" | "assistant";
 
@@ -21,6 +25,7 @@ export interface SupportChatMessage {
   origin: SupportChatMessageOrigin;
   status: SupportChatMessageStatus;
   localKind?: SupportChatLocalKind;
+  action?: SupportOrderAction;
 }
 
 export interface BuildSupportChatHistoryOptions {
@@ -40,7 +45,7 @@ export type SupportChatClientErrorCode =
   | "aborted";
 
 export type SupportChatClientResult =
-  | { ok: true; message: string }
+  | { ok: true; message: string; action?: SupportOrderAction }
   | {
       ok: false;
       code: SupportChatClientErrorCode;
@@ -141,6 +146,17 @@ export function buildSupportChatHistory(
   return history;
 }
 
+export function getLatestSupportOrderActionMessageId(
+  messages: readonly SupportChatMessage[],
+): string | null {
+  const message = messages[messages.length - 1];
+  if (!message || message.role !== "assistant") return null;
+  if (message.origin !== "remote" || message.status !== "complete") return null;
+  if (!parseSupportOrderAction(message.action)) return null;
+
+  return message.id;
+}
+
 export async function submitSupportChatMessage({
   message,
   history,
@@ -228,7 +244,8 @@ async function parseSupportChatSuccess(
     return { ok: false, code: "generation_failed" };
   }
 
-  return { ok: true, message };
+  const action = parseSupportOrderAction(data.action);
+  return action ? { ok: true, message, action } : { ok: true, message };
 }
 
 async function mapSupportChatErrorResponse(

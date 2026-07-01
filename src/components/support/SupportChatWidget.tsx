@@ -25,6 +25,7 @@ import SupportOrderAssistant from "@/components/support/SupportOrderAssistant";
 import {
   buildSupportChatHistory,
   getSupportChatErrorMessage,
+  getLatestSupportOrderActionMessageId,
   submitSupportChatMessage,
   type SupportChatClientResult,
   type SupportChatMessage,
@@ -40,6 +41,11 @@ import {
   validateSupportHandoffIdentity,
   type SupportHandoffIdentityErrors,
 } from "@/components/support/support-handoff";
+import {
+  parseSupportOrderAction,
+  resolveSupportOrderAction,
+  type SupportOrderAction,
+} from "@/lib/support-order-action";
 import { cn } from "@/lib/utils";
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -278,7 +284,12 @@ export default function SupportChatWidget({
       if (result.ok) {
         setMessages((current) => [
           ...current,
-          createThreadMessage("assistant", result.message, "remote"),
+          createThreadMessage(
+            "assistant",
+            result.message,
+            "remote",
+            result.action,
+          ),
         ]);
         setErrorResult(null);
         window.setTimeout(() => textareaRef.current?.focus(), 0);
@@ -462,6 +473,14 @@ export default function SupportChatWidget({
     router.push(href);
   };
 
+  const navigateFromSupportOrderAction = (action: SupportOrderAction) => {
+    const resolved = resolveSupportOrderAction(action.serviceId);
+    if (!resolved) return;
+
+    closeChat();
+    router.push(resolved.href);
+  };
+
   const onComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== "Enter" || event.shiftKey) return;
     event.preventDefault();
@@ -489,6 +508,7 @@ export default function SupportChatWidget({
     chatMode === "crisp_error";
   const showOrderAssistant = chatMode === "ai" && orderAssistantOpen;
   const connectingToCrisp = chatMode === "connecting_crisp";
+  const latestOrderActionMessageId = getLatestSupportOrderActionMessageId(messages);
 
   const panel = (
     <>
@@ -549,6 +569,10 @@ export default function SupportChatWidget({
                 contactHref={getSupportChatLink(language, "contact")}
                 contactLabel={copy.contactLinkLabel}
                 onContactClick={closeChat}
+                orderActionActive={messageItem.id === latestOrderActionMessageId}
+                orderActionLabel={copy.orderAction.startOrder}
+                orderActionAriaLabel={copy.orderAction.startOrderAriaLabel}
+                onOrderAction={navigateFromSupportOrderAction}
               />
             ))}
             {sending && (
@@ -826,13 +850,22 @@ function MessageBubble({
   contactHref,
   contactLabel,
   onContactClick,
+  orderActionActive,
+  orderActionLabel,
+  orderActionAriaLabel,
+  onOrderAction,
 }: {
   message: SupportChatMessage;
   contactHref: string;
   contactLabel: string;
   onContactClick: () => void;
+  orderActionActive: boolean;
+  orderActionLabel: string;
+  orderActionAriaLabel: string;
+  onOrderAction: (action: SupportOrderAction) => void;
 }) {
   const isUser = message.role === "user";
+  const activeOrderAction = orderActionActive ? message.action : null;
 
   return (
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
@@ -860,6 +893,16 @@ function MessageBubble({
             {contactLabel}
           </Link>
         )}
+        {activeOrderAction && (
+          <button
+            type="button"
+            aria-label={orderActionAriaLabel}
+            onClick={() => onOrderAction(activeOrderAction)}
+            className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-primary/20 bg-primary px-3 py-2 text-center text-sm font-bold leading-snug text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <span className="min-w-0 break-words">{orderActionLabel}</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -880,13 +923,20 @@ function createThreadMessage(
   role: SupportChatMessage["role"],
   content: string,
   origin: SupportChatMessage["origin"],
+  action?: SupportOrderAction,
 ): SupportChatMessage {
+  const validatedAction =
+    role === "assistant" && origin === "remote"
+      ? parseSupportOrderAction(action)
+      : null;
+
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     role,
     content,
     origin,
     status: "complete",
+    ...(validatedAction ? { action: validatedAction } : {}),
   };
 }
 
