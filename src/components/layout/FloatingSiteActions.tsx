@@ -105,7 +105,7 @@ export default function FloatingSiteActions() {
         <button
           type="button"
           onClick={scrollToTop}
-          className="fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full border border-primary bg-primary text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:bottom-24 lg:right-8"
+          className="fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full border border-primary/20 bg-white text-primary shadow-xl shadow-primary/20 transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:bottom-24 lg:right-8"
           aria-label={isSpanish ? "Volver arriba" : "Back to top"}
         >
           <ArrowUp className="h-5 w-5" aria-hidden />

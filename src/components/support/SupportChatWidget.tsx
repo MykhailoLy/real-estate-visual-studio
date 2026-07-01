@@ -760,9 +760,9 @@ export default function SupportChatWidget({
           aria-expanded={open}
           aria-controls={dialogId}
           aria-label={copy.launcherAriaLabel}
-          className="fixed bottom-6 right-6 z-[70] hidden min-h-11 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-white shadow-xl shadow-primary/25 transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:inline-flex"
+          className="fixed bottom-6 right-6 z-[70] hidden min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-secondary px-4 py-3 text-sm font-bold text-primary-dark shadow-xl shadow-primary/30 transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark focus-visible:ring-offset-2 lg:inline-flex"
         >
-          <MessageCircle className="h-5 w-5 text-secondary" aria-hidden />
+          <MessageCircle className="h-5 w-5 text-primary-dark" aria-hidden />
           {copy.launcherLabel}
         </button>
       )}
