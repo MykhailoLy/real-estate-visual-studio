@@ -5,6 +5,7 @@ import {
   isVirtualStagingSupportPrefillOnlyState,
   normalizeVirtualStagingAddOnIds,
   shouldAllowVirtualStagingSupportPrefillAutosave,
+  shouldPreserveVirtualStagingSupportRecommendationForDraft,
   type VirtualStagingSupportPrefillDraftSource,
   type VirtualStagingSupportPrefillItemSource,
 } from "./staging-item-prefill.ts";
@@ -325,4 +326,104 @@ test("explicit forced or manual save is not blocked by the recommendation-only g
     }),
     true,
   );
+});
+
+test("a fresh successfully applied recommendation belongs to the current draft session", () => {
+  assert.equal(
+    shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: "draft-1",
+      currentDraftId: "draft-1",
+      supportRecommendationApplied: true,
+    }),
+    true,
+  );
+});
+
+test("autosave-created draft query preserves the recommendation lifecycle", () => {
+  assert.equal(
+    shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: "draft-from-autosave",
+      currentDraftId: "draft-from-autosave",
+      supportRecommendationApplied: true,
+    }),
+    true,
+  );
+});
+
+test("internally-created draft query does not require hiding the recommendation notice", () => {
+  const shouldHideNotice =
+    !shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: "draft-from-autosave",
+      currentDraftId: "draft-from-autosave",
+      supportRecommendationApplied: true,
+    });
+
+  assert.equal(shouldHideNotice, false);
+});
+
+test("new items still inherit Image Enhancement after the first draft autosave", () => {
+  const preserveRecommendation =
+    shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: "draft-from-autosave",
+      currentDraftId: "draft-from-autosave",
+      supportRecommendationApplied: true,
+    });
+  const recommendedAddOnIds = preserveRecommendation
+    ? RECOMMENDED_ADD_ON_IDS
+    : [];
+
+  assert.deepEqual(
+    applyVirtualStagingInitialAddOns(item(), recommendedAddOnIds)
+      .selectedAddons,
+    ["image-enhancement"],
+  );
+});
+
+test("an initially opened existing draft does not preserve a support recommendation", () => {
+  assert.equal(
+    shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: "existing-draft",
+      currentDraftId: "existing-draft",
+      supportRecommendationApplied: false,
+    }),
+    false,
+  );
+});
+
+test("a different external draft ID does not preserve the recommendation", () => {
+  assert.equal(
+    shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: "external-draft",
+      currentDraftId: "draft-from-autosave",
+      supportRecommendationApplied: true,
+    }),
+    false,
+  );
+});
+
+test("start-new-order lifecycle reset does not preserve the recommendation", () => {
+  assert.equal(
+    shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: null,
+      currentDraftId: null,
+      supportRecommendationApplied: false,
+    }),
+    false,
+  );
+});
+
+test("existing saved draft selections remain unchanged by lifecycle helper", () => {
+  const restored = item(["turn-on-lights"]);
+  const before = JSON.stringify(restored);
+
+  assert.equal(
+    shouldPreserveVirtualStagingSupportRecommendationForDraft({
+      requestedDraftId: "external-draft",
+      currentDraftId: "draft-from-autosave",
+      supportRecommendationApplied: true,
+    }),
+    false,
+  );
+  assert.equal(JSON.stringify(restored), before);
+  assert.deepEqual(restored.selectedAddons, ["turn-on-lights"]);
 });

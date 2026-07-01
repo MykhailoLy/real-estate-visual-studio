@@ -22,6 +22,7 @@ import StagingItemCard, {
 import {
   applyVirtualStagingInitialAddOns,
   shouldAllowVirtualStagingSupportPrefillAutosave,
+  shouldPreserveVirtualStagingSupportRecommendationForDraft,
 } from "@/components/order/virtual-staging/staging-item-prefill";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
 import {
@@ -114,7 +115,10 @@ import {
   type VirtualStagingDraftFileSlotKind,
   type VirtualStagingItemUpdate,
 } from "@/lib/order-drafts/virtual-staging-files";
-import { consumeSupportOrderPrefill } from "@/lib/support-order-prefill";
+import {
+  consumeSupportOrderPrefill,
+  getSupportOrderPrefillStorage,
+} from "@/lib/support-order-prefill";
 
 // ============================================================
 // Virtual Staging order form (authenticated dashboard).
@@ -508,6 +512,7 @@ export default function VirtualStagingOrderForm({
   const finalizationKeyRef = useRef(finalizationKey);
   const finalizationRetryContextRef = useRef(finalizationRetryContext);
   const supportRecommendedAddOnIdsRef = useRef<string[]>([]);
+  const supportRecommendationAppliedRef = useRef(false);
   const mountedRef = useRef(false);
   const savedFingerprintRef = useRef<string | null>(null);
   const failedAutosaveFingerprintRef = useRef<string | null>(null);
@@ -932,6 +937,7 @@ export default function VirtualStagingOrderForm({
     clearFinalizationRetryContext();
     setFinalizationRecovery(null);
     supportRecommendedAddOnIdsRef.current = [];
+    supportRecommendationAppliedRef.current = false;
     setSupportRecommendationNoticeVisible(false);
     setSupportPrefillReady(true);
     setDraftError("");
@@ -1663,8 +1669,23 @@ export default function VirtualStagingOrderForm({
 
   useEffect(() => {
     if (requestedDraftId) {
-      consumeSupportOrderPrefill(window.sessionStorage, "virtual-staging");
+      if (
+        shouldPreserveVirtualStagingSupportRecommendationForDraft({
+          requestedDraftId,
+          currentDraftId: draftIdRef.current,
+          supportRecommendationApplied: supportRecommendationAppliedRef.current,
+        })
+      ) {
+        window.queueMicrotask(() => setSupportPrefillReady(true));
+        return;
+      }
+
+      const storage = getSupportOrderPrefillStorage(window);
+      if (storage) {
+        consumeSupportOrderPrefill(storage, "virtual-staging");
+      }
       supportRecommendedAddOnIdsRef.current = [];
+      supportRecommendationAppliedRef.current = false;
       window.queueMicrotask(() => {
         setSupportRecommendationNoticeVisible(false);
         setSupportPrefillReady(true);
@@ -1672,16 +1693,18 @@ export default function VirtualStagingOrderForm({
       return;
     }
 
-    const prefill = consumeSupportOrderPrefill(
-      window.sessionStorage,
-      "virtual-staging",
-    );
+    const storage = getSupportOrderPrefillStorage(window);
+    const prefill = storage
+      ? consumeSupportOrderPrefill(storage, "virtual-staging")
+      : null;
     if (!prefill) {
+      supportRecommendationAppliedRef.current = false;
       window.queueMicrotask(() => setSupportPrefillReady(true));
       return;
     }
 
     supportRecommendedAddOnIdsRef.current = [...prefill.addOnIds];
+    supportRecommendationAppliedRef.current = true;
     window.queueMicrotask(() => {
       commitItems((current) => {
         const firstItem = current[0] ?? emptyStagingItem();
@@ -1822,8 +1845,7 @@ export default function VirtualStagingOrderForm({
         currentDraftId: draftId,
         source: draftSource,
         recommendedAddOnIds: supportRecommendedAddOnIdsRef.current,
-        supportRecommendationApplied:
-          supportRecommendedAddOnIdsRef.current.length > 0,
+        supportRecommendationApplied: supportRecommendationAppliedRef.current,
       }) ||
       saveStatus === "conflict"
     ) {

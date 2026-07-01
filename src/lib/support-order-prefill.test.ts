@@ -6,28 +6,34 @@ import {
   SUPPORT_ORDER_PREFILL_STORAGE_KEY,
   SUPPORT_ORDER_PREFILL_TTL_MS,
   consumeSupportOrderPrefill,
+  getSupportOrderPrefillStorage,
   parseSupportOrderPrefill,
+  prepareSupportOrderPrefill,
   resolveSupportOrderRecommendation,
   writeSupportOrderPrefill,
 } from "./support-order-prefill.ts";
 
 class MemoryStorage {
   entries = new Map<string, string>();
+  operations: string[] = [];
   failGet = false;
   failSet = false;
   failRemove = false;
 
   getItem(key: string): string | null {
+    this.operations.push(`get:${key}`);
     if (this.failGet) throw new Error("get failed");
     return this.entries.get(key) ?? null;
   }
 
   setItem(key: string, value: string): void {
+    this.operations.push(`set:${key}`);
     if (this.failSet) throw new Error("set failed");
     this.entries.set(key, value);
   }
 
   removeItem(key: string): void {
+    this.operations.push(`remove:${key}`);
     if (this.failRemove) throw new Error("remove failed");
     this.entries.delete(key);
   }
@@ -234,6 +240,118 @@ test("duplicate add-ons are normalized", () => {
   );
 });
 
+test("preparing a recommended prefill removes an existing stale payload first", () => {
+  const storage = new MemoryStorage();
+  writeSupportOrderPrefill(
+    storage,
+    { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+    1000,
+  );
+  storage.operations = [];
+
+  assert.equal(
+    prepareSupportOrderPrefill(
+      storage,
+      { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+      2000,
+    ),
+    true,
+  );
+  assert.deepEqual(storage.operations, [
+    `remove:${SUPPORT_ORDER_PREFILL_STORAGE_KEY}`,
+    `set:${SUPPORT_ORDER_PREFILL_STORAGE_KEY}`,
+  ]);
+});
+
+test("successful replacement stores only the new validated payload", () => {
+  const storage = new MemoryStorage();
+  writeSupportOrderPrefill(
+    storage,
+    { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+    1000,
+  );
+
+  assert.equal(
+    prepareSupportOrderPrefill(
+      storage,
+      { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+      2000,
+    ),
+    true,
+  );
+
+  const rawPayload = storage.entries.get(SUPPORT_ORDER_PREFILL_STORAGE_KEY);
+  assert.ok(rawPayload);
+  assert.deepEqual(parseSupportOrderPrefill(rawPayload), {
+    version: 1,
+    createdAt: 2000,
+    serviceId: "virtual-staging",
+    addOnIds: ["image-enhancement"],
+  });
+  assert.deepEqual(Object.keys(JSON.parse(rawPayload)).sort(), [
+    "addOnIds",
+    "createdAt",
+    "serviceId",
+    "version",
+  ]);
+});
+
+test("replacement write failure leaves no stale payload", () => {
+  const storage = new MemoryStorage();
+  writeSupportOrderPrefill(
+    storage,
+    { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+    1000,
+  );
+  storage.failSet = true;
+
+  assert.equal(
+    prepareSupportOrderPrefill(
+      storage,
+      { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+      2000,
+    ),
+    false,
+  );
+  assert.equal(storage.entries.has(SUPPORT_ORDER_PREFILL_STORAGE_KEY), false);
+});
+
+test("CTA preparation with no recommendation clears an existing payload", () => {
+  const storage = new MemoryStorage();
+  writeSupportOrderPrefill(
+    storage,
+    { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+    1000,
+  );
+
+  assert.equal(prepareSupportOrderPrefill(storage, null, 2000), true);
+  assert.equal(storage.entries.has(SUPPORT_ORDER_PREFILL_STORAGE_KEY), false);
+});
+
+test("removal failure prevents replacement and returns false", () => {
+  const storage = new MemoryStorage();
+  writeSupportOrderPrefill(
+    storage,
+    { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+    1000,
+  );
+  storage.operations = [];
+  storage.failRemove = true;
+
+  assert.equal(
+    prepareSupportOrderPrefill(
+      storage,
+      { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+      2000,
+    ),
+    false,
+  );
+  assert.deepEqual(storage.operations, [
+    `remove:${SUPPORT_ORDER_PREFILL_STORAGE_KEY}`,
+  ]);
+  assert.notEqual(storage.entries.get(SUPPORT_ORDER_PREFILL_STORAGE_KEY), null);
+});
+
 test("storage read and write failures are safe", () => {
   const storage = new MemoryStorage();
   storage.failSet = true;
@@ -281,4 +399,55 @@ test("cleanup failures for malformed payloads remain best-effort", () => {
 
   assert.equal(consumeSupportOrderPrefill(storage, "virtual-staging", 1000), null);
   assert.equal(storage.entries.has(SUPPORT_ORDER_PREFILL_STORAGE_KEY), true);
+});
+
+test("direct sessionStorage getter failure returns null without throwing", () => {
+  const owner = Object.defineProperty({}, "sessionStorage", {
+    get() {
+      throw new Error("sessionStorage unavailable");
+    },
+  });
+
+  assert.doesNotThrow(() => {
+    assert.equal(getSupportOrderPrefillStorage(owner), null);
+  });
+});
+
+test("form-side safe storage access failure returns no prefill", () => {
+  const owner = Object.defineProperty({}, "sessionStorage", {
+    get() {
+      throw new Error("sessionStorage unavailable");
+    },
+  });
+  const storage = getSupportOrderPrefillStorage(owner);
+  const prefill = storage
+    ? consumeSupportOrderPrefill(storage, "virtual-staging", 1000)
+    : null;
+
+  assert.equal(prefill, null);
+});
+
+test("storage failure never prevents the caller from continuing navigation", () => {
+  const storage = new MemoryStorage();
+  storage.failRemove = true;
+  let navigated = false;
+
+  assert.doesNotThrow(() => {
+    prepareSupportOrderPrefill(
+      storage,
+      { serviceId: "virtual-staging", addOnIds: ["image-enhancement"] },
+      1000,
+    );
+    navigated = true;
+  });
+  assert.equal(navigated, true);
+});
+
+test("safe storage access accepts an injected compatible owner", () => {
+  const storage = new MemoryStorage();
+
+  assert.equal(
+    getSupportOrderPrefillStorage({ sessionStorage: storage }),
+    storage,
+  );
 });

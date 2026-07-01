@@ -17,6 +17,10 @@ export interface SupportOrderPrefillStorage {
   removeItem(key: string): void;
 }
 
+export interface SupportOrderPrefillStorageOwner {
+  sessionStorage?: SupportOrderPrefillStorage | null;
+}
+
 export const SUPPORT_ORDER_PREFILL_STORAGE_KEY =
   "picchuspot_support_order_prefill_v1";
 export const SUPPORT_ORDER_PREFILL_VERSION = 1;
@@ -98,6 +102,17 @@ export function writeSupportOrderPrefill(
   }
 }
 
+export function prepareSupportOrderPrefill(
+  storage: SupportOrderPrefillStorage,
+  prefill: SupportOrderPrefill | null,
+  now = Date.now(),
+): boolean {
+  const removed = removeSupportOrderPrefill(storage);
+  if (!prefill) return removed;
+  if (!removed) return false;
+  return writeSupportOrderPrefill(storage, prefill, now);
+}
+
 export function consumeSupportOrderPrefill(
   storage: SupportOrderPrefillStorage,
   serviceId: string,
@@ -133,6 +148,18 @@ export function consumeSupportOrderPrefill(
     serviceId: parsed.serviceId,
     addOnIds: [...parsed.addOnIds],
   };
+}
+
+export function getSupportOrderPrefillStorage(
+  owner: unknown,
+): SupportOrderPrefillStorage | null {
+  try {
+    if (!isRecord(owner)) return null;
+    const storage = owner.sessionStorage;
+    return isSupportOrderPrefillStorage(storage) ? storage : null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeStagingAddOnIds(value: unknown[]): string[] | null {
@@ -201,4 +228,15 @@ function hasOnlyPrefillKeys(value: Record<string, unknown>): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isSupportOrderPrefillStorage(
+  value: unknown,
+): value is SupportOrderPrefillStorage {
+  return (
+    isRecord(value) &&
+    typeof value.getItem === "function" &&
+    typeof value.setItem === "function" &&
+    typeof value.removeItem === "function"
+  );
 }

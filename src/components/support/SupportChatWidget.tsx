@@ -47,8 +47,9 @@ import {
   type SupportOrderAction,
 } from "@/lib/support-order-action";
 import {
+  getSupportOrderPrefillStorage,
+  prepareSupportOrderPrefill,
   resolveSupportOrderRecommendation,
-  writeSupportOrderPrefill,
 } from "@/lib/support-order-prefill";
 import { cn } from "@/lib/utils";
 
@@ -484,14 +485,17 @@ export default function SupportChatWidget({
     );
     if (!resolved) return;
 
+    let prefill: ReturnType<typeof resolveSupportOrderRecommendation> = null;
     if (resolved.recommendationId) {
-      const prefill = resolveSupportOrderRecommendation(
+      prefill = resolveSupportOrderRecommendation(
         resolved.recommendationId,
         resolved.serviceId,
       );
-      if (prefill) {
-        writeSupportOrderPrefill(window.sessionStorage, prefill);
-      }
+    }
+
+    const storage = getSupportOrderPrefillStorage(window);
+    if (storage) {
+      prepareSupportOrderPrefill(storage, prefill);
     }
 
     closeChat();

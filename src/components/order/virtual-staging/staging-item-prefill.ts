@@ -35,6 +35,12 @@ export interface VirtualStagingSupportPrefillAutosaveInput {
   supportRecommendationApplied: boolean;
 }
 
+export interface VirtualStagingSupportRecommendationDraftLifecycleInput {
+  requestedDraftId: string | null;
+  currentDraftId: string | null;
+  supportRecommendationApplied: boolean;
+}
+
 export function applyVirtualStagingInitialAddOns<
   T extends VirtualStagingAddOnSelection,
 >(item: T, addOnIds: readonly string[]): T {
@@ -103,6 +109,17 @@ export function shouldAllowVirtualStagingSupportPrefillAutosave(
   return !isVirtualStagingSupportPrefillOnlyState(
     input.source,
     input.recommendedAddOnIds,
+  );
+}
+
+export function shouldPreserveVirtualStagingSupportRecommendationForDraft(
+  input: VirtualStagingSupportRecommendationDraftLifecycleInput,
+): boolean {
+  return (
+    input.supportRecommendationApplied &&
+    input.requestedDraftId !== null &&
+    input.currentDraftId !== null &&
+    input.requestedDraftId === input.currentDraftId
   );
 }
 
