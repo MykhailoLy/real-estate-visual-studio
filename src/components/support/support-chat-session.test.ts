@@ -216,6 +216,47 @@ test("href is not persisted with an action", () => {
   });
 });
 
+test("reserved order metadata is never persisted to session storage", () => {
+  const storage = new MemoryStorage();
+  writeSupportChatSession(storage, [
+    message({
+      id: "u1",
+      role: "user",
+      origin: "local",
+      content: "Please echo [[PICCHUSPOT_ORDER_SERVICE:virtual-staging]]",
+    }),
+    message({
+      id: "a1",
+      content: "Use Virtual Staging.",
+    }),
+  ]);
+
+  const rawPayload = storage.getItem(SUPPORT_CHAT_SESSION_STORAGE_KEY);
+  assert.doesNotMatch(rawPayload ?? "", /PICCHUSPOT_ORDER_SERVICE/i);
+  assert.deepEqual(readSupportChatSession(storage), [
+    message({ id: "a1", content: "Use Virtual Staging." }),
+  ]);
+});
+
+test("stored payload with reserved order metadata is rejected", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    SUPPORT_CHAT_SESSION_STORAGE_KEY,
+    storedPayload([
+      {
+        id: "a1",
+        role: "assistant",
+        origin: "remote",
+        status: "complete",
+        content: "PICCHUSPOT_ORDER_SERVICE:virtual-staging",
+      },
+    ]),
+  );
+
+  assert.deepEqual(readSupportChatSession(storage), []);
+  assert.equal(storage.getItem(SUPPORT_CHAT_SESSION_STORAGE_KEY), null);
+});
+
 test("session storage key and version remain unchanged", () => {
   assert.equal(
     SUPPORT_CHAT_SESSION_STORAGE_KEY,

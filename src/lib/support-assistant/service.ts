@@ -1,10 +1,10 @@
+import { SUPPORT_ASSISTANT_MAX_TRANSCRIPT_CHARS } from "./schema.ts";
 import {
-  SUPPORT_ASSISTANT_MAX_RESPONSE_CHARS,
-  SUPPORT_ASSISTANT_MAX_TRANSCRIPT_CHARS,
-} from "./schema.ts";
-import { parseSupportAssistantGeneratedReply } from "./order-action.ts";
+  normalizeSupportAssistantOutput as normalizeVisibleSupportAssistantOutput,
+  parseSupportAssistantGeneratedReply,
+  supportRequestContainsOrderMarker,
+} from "./order-action.ts";
 import {
-  SupportAssistantGenerationError,
   SupportAssistantInputError,
   type SupportAssistantGeneratedReply,
   type SupportAssistantRequestInput,
@@ -48,13 +48,7 @@ export function validateSupportAssistantTranscriptLength(
 }
 
 export function normalizeSupportAssistantOutput(output: string): string {
-  const trimmed = output.trim();
-  if (!trimmed) {
-    throw new SupportAssistantGenerationError(
-      "Support assistant returned an empty response.",
-    );
-  }
-  return trimmed.slice(0, SUPPORT_ASSISTANT_MAX_RESPONSE_CHARS);
+  return normalizeVisibleSupportAssistantOutput(output);
 }
 
 export async function generateSupportAssistantReply(
@@ -63,8 +57,8 @@ export async function generateSupportAssistantReply(
 ): Promise<SupportAssistantGeneratedReply> {
   const transcript = buildSupportAssistantTranscript(input);
   validateSupportAssistantTranscriptLength(transcript);
-  const output = normalizeSupportAssistantOutput(
-    await transport.generate(transcript),
-  );
-  return parseSupportAssistantGeneratedReply(output);
+  const output = await transport.generate(transcript);
+  return parseSupportAssistantGeneratedReply(output, {
+    allowOrderAction: !supportRequestContainsOrderMarker(input),
+  });
 }
