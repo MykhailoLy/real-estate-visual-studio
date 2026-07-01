@@ -109,11 +109,12 @@ function sourceSlice(
   startMarker: string,
   endMarker: string,
 ): string {
-  const start = source.indexOf(startMarker);
+  const normalizedSource = source.replace(/\r\n/g, "\n");
+  const start = normalizedSource.indexOf(startMarker);
   assert.ok(start >= 0, `Missing source marker: ${startMarker}`);
-  const end = source.indexOf(endMarker, start);
+  const end = normalizedSource.indexOf(endMarker, start);
   assert.ok(end > start, `Missing source marker: ${endMarker}`);
-  return source.slice(start, end);
+  return normalizedSource.slice(start, end);
 }
 
 function draftState(overrides: Partial<VirtualStagingDraftState> = {}): VirtualStagingDraftState {

@@ -30,9 +30,9 @@ import {
   type OrderServiceAvailability,
   type OrderServiceCanonicalFields,
   type OrderServiceSlug,
-} from "@/lib/order-service-catalog";
-import type { PortfolioServiceSlug } from "@/lib/portfolio";
-import type { PriceKey } from "@/lib/pricing/types";
+} from "./order-service-catalog.ts";
+import type { PortfolioServiceSlug } from "./portfolio.ts";
+import type { PriceKey } from "./pricing/types.ts";
 
 /**
  * Availability drives the card CTA treatment:
