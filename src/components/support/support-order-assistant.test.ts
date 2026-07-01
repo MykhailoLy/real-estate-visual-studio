@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ORDER_SERVICE_CATALOG } from "../../lib/order-service-catalog.ts";
 import {
+  getActiveOrderServiceCatalogEntries,
   getOrderAssistantGoals,
   getOrderAssistantQuestion,
   getOrderAssistantRecommendation,
@@ -9,15 +11,9 @@ import {
   isOrderAssistantOrderHref,
 } from "./support-order-assistant.ts";
 
-const expectedOrderHrefs = new Set([
-  "/dashboard/orders/new/virtual-staging",
-  "/dashboard/orders/new/virtual-renovation",
-  "/dashboard/orders/new/item-removal-virtual-cleaning",
-  "/dashboard/orders/new/day-to-dusk",
-  "/dashboard/orders/new/image-enhancement",
-  "/dashboard/orders/new/photo-editing",
-  "/dashboard/orders/new/3d-floor-plans",
-]);
+const canonicalServices = new Map(
+  ORDER_SERVICE_CATALOG.map((service) => [service.slug, service]),
+);
 
 test("every supported initial goal has English and Spanish labels", () => {
   const english = getOrderAssistantGoals("en");
@@ -27,48 +23,176 @@ test("every supported initial goal has English and Spanish labels", () => {
   assert.equal(english.length > 0, true);
 
   for (const [index, goal] of english.entries()) {
-    assert.equal(goal.label.trim().length > 0, true);
-    assert.equal(spanish[index]?.label.trim().length > 0, true);
+    assert.equal(goal.label.trim().length > 0, true, goal.id);
+    assert.equal(spanish[index]?.label.trim().length > 0, true, goal.id);
   }
 });
 
-test("every terminal goal resolves to one valid service", () => {
+test("English and Spanish goal ordering remains stable", () => {
+  assert.deepEqual(
+    getOrderAssistantGoals("en").map((goal) => goal.id),
+    getOrderAssistantGoals("es").map((goal) => goal.id),
+  );
+  assert.deepEqual(
+    getOrderAssistantGoals("en").map((goal) => goal.id),
+    [
+      "add-furniture-empty-rooms",
+      "change-furniture-or-finishes",
+      "remove-objects-or-clean-room",
+      "improve-brightness-colour-presentation",
+      "turn-daytime-exterior-to-dusk",
+      "create-floor-plan",
+    ],
+  );
+});
+
+test("all supported goals retain both languages and a recommendable service", () => {
+  const english = getOrderAssistantGoals("en");
+  const spanish = getOrderAssistantGoals("es");
+
+  for (const [index, goal] of english.entries()) {
+    assert.equal(typeof goal.recommendedServiceId, "string", goal.id);
+    assert.equal(goal.label.length > 0, true, goal.id);
+    assert.equal(spanish[index]?.id, goal.id);
+    assert.equal((spanish[index]?.label ?? "").length > 0, true, goal.id);
+  }
+});
+
+test("every recommendation resolves to an active canonical New Order service", () => {
   for (const goal of getOrderAssistantGoals("en")) {
-    if (goal.nextQuestionId) continue;
-
     const recommendation = getOrderAssistantRecommendation(goal.id);
-    assert.notEqual(recommendation, null);
-    assert.equal(typeof recommendation?.id, "string");
+    const canonical = recommendation
+      ? canonicalServices.get(recommendation.id)
+      : null;
+
+    assert.notEqual(recommendation, null, goal.id);
+    assert.notEqual(canonical, undefined, goal.id);
+    assert.equal(canonical?.availability, "active", goal.id);
   }
 });
 
-test("every service has an existing canonical order href", () => {
-  for (const service of getOrderAssistantServices()) {
-    assert.equal(expectedOrderHrefs.has(service.orderHref), true, service.id);
+test("every recommended service has a non-null canonical route", () => {
+  for (const goal of getOrderAssistantGoals("en")) {
+    const recommendation = getOrderAssistantRecommendation(goal.id);
+    const canonical = recommendation
+      ? canonicalServices.get(recommendation.id)
+      : null;
+
+    assert.equal(typeof canonical?.route, "string", goal.id);
+    assert.equal(canonical?.route !== null, true, goal.id);
   }
 });
 
-test("no service order href points to an API route", () => {
+test("chooser order routes come from the canonical registry", () => {
+  for (const goal of getOrderAssistantGoals("en")) {
+    const recommendation = getOrderAssistantRecommendation(goal.id);
+    const canonical = recommendation
+      ? canonicalServices.get(recommendation.id)
+      : null;
+
+    assert.equal(recommendation?.orderHref, canonical?.route, goal.id);
+  }
+});
+
+test("photo-editing is not present in chooser services", () => {
+  assert.equal(getOrderAssistantService("photo-editing"), null);
+  assert.equal(
+    getOrderAssistantServices().some((service) => service.id === "photo-editing"),
+    false,
+  );
+});
+
+test("the hidden legacy photo-editing route is not returned", () => {
   for (const service of getOrderAssistantServices()) {
+    assert.notEqual(service.orderHref, "/dashboard/orders/new/photo-editing");
+  }
+
+  for (const goal of getOrderAssistantGoals("en")) {
+    assert.notEqual(
+      getOrderAssistantRecommendation(goal.id)?.orderHref,
+      "/dashboard/orders/new/photo-editing",
+      goal.id,
+    );
+  }
+});
+
+test("no coming-soon or custom-quote service is recommended", () => {
+  for (const goal of getOrderAssistantGoals("en")) {
+    const recommendation = getOrderAssistantRecommendation(goal.id);
+
+    assert.notEqual(recommendation?.availability, "coming-soon", goal.id);
+    assert.notEqual(recommendation?.availability, "custom-quote", goal.id);
+  }
+});
+
+test("Improve brightness, colour and presentation recommends Image Enhancement directly", () => {
+  assert.equal(
+    getOrderAssistantRecommendation("improve-brightness-colour-presentation")
+      ?.id,
+    "image-enhancement",
+  );
+});
+
+test("removed legacy second-step ids return null", () => {
+  assert.equal(getOrderAssistantRecommendation("improve-existing-photo"), null);
+  assert.equal(
+    getOrderAssistantRecommendation("request-specific-photo-edit"),
+    null,
+  );
+  assert.equal(
+    getOrderAssistantRecommendation(
+      "improve-existing-photo",
+      "request-specific-photo-edit",
+    ),
+    null,
+  );
+  assert.equal(
+    getOrderAssistantRecommendation(
+      "improve-existing-photo",
+      "improve-brightness-colour-presentation",
+    ),
+    null,
+  );
+});
+
+test("unknown ids return null", () => {
+  assert.equal(getOrderAssistantRecommendation(""), null);
+  assert.equal(getOrderAssistantRecommendation("does-not-exist"), null);
+  assert.equal(getOrderAssistantRecommendation("photo-editing-goal"), null);
+});
+
+test("a raw answer id cannot resolve as a standalone top-level goal", () => {
+  assert.equal(getOrderAssistantRecommendation("request-specific-photo-edit"), null);
+});
+
+test("Floor Plans uses the canonical registry route", () => {
+  const canonical = canonicalServices.get("floor-plans");
+
+  assert.equal(
+    getOrderAssistantRecommendation("create-floor-plan")?.orderHref,
+    canonical?.route,
+  );
+});
+
+test("every chooser order href remains under the dashboard New Order route", () => {
+  for (const service of getOrderAssistantServices()) {
+    assert.equal(isOrderAssistantOrderHref(service.orderHref), true, service.id);
+    assert.equal(service.orderHref.includes("?"), false, service.id);
     assert.equal(service.orderHref.startsWith("/api/"), false, service.id);
     assert.equal(service.orderHref.includes("/api/"), false, service.id);
   }
 });
 
-test("order hrefs remain under the existing dashboard New Order route structure", () => {
-  for (const service of getOrderAssistantServices()) {
-    assert.equal(isOrderAssistantOrderHref(service.orderHref), true, service.id);
-    assert.equal(service.orderHref.includes("?"), false, service.id);
-  }
-});
-
-test("public detail hrefs are localized where available", () => {
+test("public detail hrefs are localized only for known public pricing pages", () => {
+  const itemRemoval = getOrderAssistantService("item-removal-virtual-cleaning");
   const services = getOrderAssistantServices();
-  const withDetail = services.filter((service) => service.detailHref);
+  const servicesWithDetails = services.filter((service) => service.detailHref);
 
-  assert.equal(withDetail.length >= 1, true);
+  assert.equal(servicesWithDetails.length, services.length);
+  assert.equal(itemRemoval?.detailHref?.en, "/pricing/photo-editing");
+  assert.equal(itemRemoval?.detailHref?.es, "/es/pricing/photo-editing");
 
-  for (const service of withDetail) {
+  for (const service of servicesWithDetails) {
     assert.equal(service.detailHref?.en.startsWith("/pricing/"), true, service.id);
     assert.equal(
       service.detailHref?.es.startsWith("/es/pricing/"),
@@ -78,50 +202,7 @@ test("public detail hrefs are localized where available", () => {
   }
 });
 
-test("empty or unknown goal ids return no recommendation safely", () => {
-  assert.equal(getOrderAssistantRecommendation(""), null);
-  assert.equal(getOrderAssistantRecommendation("does-not-exist"), null);
-});
-
-test("a second-step goal cannot produce a recommendation before its answer", () => {
-  assert.equal(getOrderAssistantRecommendation("improve-existing-photo"), null);
-});
-
-test("valid second-step answers produce the correct recommendations", () => {
-  assert.equal(
-    getOrderAssistantRecommendation(
-      "improve-existing-photo",
-      "improve-brightness-colour-presentation",
-    )?.id,
-    "image-enhancement",
-  );
-  assert.equal(
-    getOrderAssistantRecommendation(
-      "improve-existing-photo",
-      "request-specific-photo-edit",
-    )?.id,
-    "photo-editing",
-  );
-});
-
-test("Image Enhancement and Photo Editing remain distinct services", () => {
-  const imageEnhancement = getOrderAssistantService("image-enhancement");
-  const photoEditing = getOrderAssistantService("photo-editing");
-
-  assert.notEqual(imageEnhancement, null);
-  assert.notEqual(photoEditing, null);
-  assert.notEqual(imageEnhancement?.id, photoEditing?.id);
-  assert.notEqual(imageEnhancement?.orderHref, photoEditing?.orderHref);
-});
-
-test("Floor Plans uses the current canonical floor-plan flow", () => {
-  assert.equal(
-    getOrderAssistantRecommendation("create-floor-plan")?.orderHref,
-    "/dashboard/orders/new/3d-floor-plans",
-  );
-});
-
-test("catalog values contain no pricing fields", () => {
+test("catalog values contain no pricing fields or values", () => {
   for (const service of getOrderAssistantServices()) {
     assert.equal(hasPricingKey(service), false, service.id);
   }
@@ -135,29 +216,15 @@ test("helpers do not mutate source catalog objects", () => {
   service!.detailHref!.en = "/changed";
 
   const fresh = getOrderAssistantService("virtual-staging");
-  assert.equal(fresh?.labels.en, "Virtual Staging");
-  assert.equal(
-    fresh?.detailHref?.en,
-    "/pricing/virtual-staging",
-  );
+  assert.equal(fresh?.labels.en, canonicalServices.get("virtual-staging")?.title);
+  assert.equal(fresh?.detailHref?.en, "/pricing/virtual-staging");
 });
 
-test("English and Spanish goal ordering is stable", () => {
-  assert.deepEqual(
-    getOrderAssistantGoals("en").map((goal) => goal.id),
-    getOrderAssistantGoals("es").map((goal) => goal.id),
-  );
-  assert.deepEqual(
-    getOrderAssistantGoals("en").map((goal) => goal.id),
-    [
-      "add-furniture-empty-rooms",
-      "change-furniture-or-finishes",
-      "remove-objects-or-clean-room",
-      "improve-existing-photo",
-      "turn-daytime-exterior-to-dusk",
-      "create-floor-plan",
-    ],
-  );
+test("active catalog helper returns only active services with routes", () => {
+  for (const service of getActiveOrderServiceCatalogEntries()) {
+    assert.equal(service.availability, "active", service.slug);
+    assert.notEqual(service.route, null, service.slug);
+  }
 });
 
 test("opening the chooser itself has no support API action", () => {
@@ -165,7 +232,10 @@ test("opening the chooser itself has no support API action", () => {
 
   assert.notEqual(firstQuestion, null);
   assert.equal(JSON.stringify(firstQuestion).includes("/api/support"), false);
-  assert.equal(JSON.stringify(getOrderAssistantServices()).includes("/api/support"), false);
+  assert.equal(
+    JSON.stringify(getOrderAssistantServices()).includes("/api/support"),
+    false,
+  );
 });
 
 function hasPricingKey(value: unknown): boolean {

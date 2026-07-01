@@ -1,27 +1,24 @@
+import {
+  ORDER_SERVICE_CATALOG,
+  getOrderServiceCatalogEntry,
+  type OrderServiceAvailability,
+  type OrderServiceCatalogEntry,
+  type OrderServiceCanonicalFields,
+  type OrderServiceSlug,
+} from "../../lib/order-service-catalog.ts";
 import type { SupportChatLanguage } from "./support-chat-copy.ts";
 
 export type OrderAssistantGoalId =
   | "add-furniture-empty-rooms"
   | "change-furniture-or-finishes"
   | "remove-objects-or-clean-room"
-  | "improve-existing-photo"
-  | "turn-daytime-exterior-to-dusk"
-  | "create-floor-plan"
   | "improve-brightness-colour-presentation"
-  | "request-specific-photo-edit";
+  | "turn-daytime-exterior-to-dusk"
+  | "create-floor-plan";
 
-export type OrderAssistantQuestionId =
-  | "property-image-goal"
-  | "photo-editing-goal";
+export type OrderAssistantQuestionId = "property-image-goal";
 
-export type OrderAssistantServiceId =
-  | "virtual-staging"
-  | "virtual-renovation"
-  | "item-removal-virtual-cleaning"
-  | "day-to-dusk"
-  | "image-enhancement"
-  | "photo-editing"
-  | "floor-plans";
+export type OrderAssistantServiceId = OrderServiceSlug;
 
 interface LocalizedText {
   en: string;
@@ -31,8 +28,7 @@ interface LocalizedText {
 interface OrderAssistantGoal {
   id: OrderAssistantGoalId;
   labels: LocalizedText;
-  recommendedServiceId?: OrderAssistantServiceId;
-  nextQuestionId?: OrderAssistantQuestionId;
+  recommendedServiceId: OrderAssistantServiceId;
 }
 
 interface OrderAssistantQuestion {
@@ -41,8 +37,16 @@ interface OrderAssistantQuestion {
   choices: readonly OrderAssistantGoal[];
 }
 
+interface OrderAssistantServiceCopy {
+  labels: Pick<LocalizedText, "es">;
+  reasons: LocalizedText;
+}
+
 export interface OrderAssistantService {
   id: OrderAssistantServiceId;
+  title: string;
+  publicServiceSlug: string;
+  availability: OrderServiceAvailability;
   labels: LocalizedText;
   reasons: LocalizedText;
   orderHref: string;
@@ -52,8 +56,7 @@ export interface OrderAssistantService {
 export interface LocalizedOrderAssistantChoice {
   id: OrderAssistantGoalId;
   label: string;
-  recommendedServiceId?: OrderAssistantServiceId;
-  nextQuestionId?: OrderAssistantQuestionId;
+  recommendedServiceId: OrderAssistantServiceId;
 }
 
 export interface LocalizedOrderAssistantQuestion {
@@ -82,7 +85,6 @@ export const orderAssistantCopy = {
     viewDetails: "View service details",
     chooseAnother: "Choose another service",
     backToChat: "Back to chat",
-    back: "Back",
   },
   es: {
     intro:
@@ -92,120 +94,73 @@ export const orderAssistantCopy = {
     viewDetails: "Ver detalles del servicio",
     chooseAnother: "Elegir otro servicio",
     backToChat: "Volver al chat",
-    back: "Atr\u00e1s",
   },
 } as const satisfies Record<SupportChatLanguage, Record<string, string>>;
 
-const orderAssistantServices = [
-  {
-    id: "virtual-staging",
+const orderAssistantServiceCopy = {
+  "virtual-staging": {
     labels: {
-      en: "Virtual Staging",
       es: "Virtual Staging",
     },
     reasons: {
       en: "Best for empty rooms where you want realistic furniture and decor added to the photo.",
       es: "Ideal para habitaciones vac\u00edas donde quieres a\u00f1adir mobiliario y decoraci\u00f3n realistas a la foto.",
     },
-    orderHref: "/dashboard/orders/new/virtual-staging",
-    detailHref: {
-      en: "/pricing/virtual-staging",
-      es: "/es/pricing/virtual-staging",
-    },
   },
-  {
-    id: "virtual-renovation",
+  "virtual-renovation": {
     labels: {
-      en: "Virtual Renovation",
       es: "Virtual Renovation",
     },
     reasons: {
       en: "Best when the room or exterior needs different finishes, materials, fixtures, or design direction.",
       es: "Ideal cuando una estancia o exterior necesita otros acabados, materiales, elementos o direcci\u00f3n de dise\u00f1o.",
     },
-    orderHref: "/dashboard/orders/new/virtual-renovation",
-    detailHref: {
-      en: "/pricing/virtual-renovation",
-      es: "/es/pricing/virtual-renovation",
-    },
   },
-  {
-    id: "item-removal-virtual-cleaning",
+  "item-removal-virtual-cleaning": {
     labels: {
-      en: "Item Removal & Virtual Cleaning",
       es: "Eliminaci\u00f3n de objetos y limpieza virtual",
     },
     reasons: {
       en: "Best for removing clutter, objects, personal items, or distractions so the space looks listing-ready.",
       es: "Ideal para eliminar desorden, objetos personales o distracciones y dejar el espacio listo para publicar.",
     },
-    orderHref: "/dashboard/orders/new/item-removal-virtual-cleaning",
-    detailHref: {
-      en: "/pricing/photo-editing",
-      es: "/es/pricing/photo-editing",
-    },
   },
-  {
-    id: "day-to-dusk",
+  "day-to-dusk": {
     labels: {
-      en: "Day to Dusk",
       es: "Day to Dusk",
     },
     reasons: {
       en: "Best for turning a daytime exterior into a warm twilight image with a stronger listing mood.",
       es: "Ideal para convertir un exterior de d\u00eda en una imagen de atardecer c\u00e1lida y m\u00e1s atractiva para el anuncio.",
     },
-    orderHref: "/dashboard/orders/new/day-to-dusk",
-    detailHref: {
-      en: "/pricing/day-to-dusk",
-      es: "/es/pricing/day-to-dusk",
-    },
   },
-  {
-    id: "image-enhancement",
+  "image-enhancement": {
     labels: {
-      en: "Image Enhancement",
       es: "Mejora de imagen",
     },
     reasons: {
       en: "Best for improving brightness, colour, exposure, white balance, contrast, and overall presentation.",
       es: "Ideal para mejorar brillo, color, exposici\u00f3n, balance de blancos, contraste y presentaci\u00f3n general.",
     },
-    orderHref: "/dashboard/orders/new/image-enhancement",
-    detailHref: {
-      en: "/pricing/image-enhancement",
-      es: "/es/pricing/image-enhancement",
-    },
   },
-  {
-    id: "photo-editing",
+  "floor-plans": {
     labels: {
-      en: "Photo Editing",
-      es: "Edici\u00f3n fotogr\u00e1fica",
-    },
-    reasons: {
-      en: "Best for a specific real-estate photo edit when the request is broader than basic image enhancement.",
-      es: "Ideal para una edici\u00f3n fotogr\u00e1fica inmobiliaria espec\u00edfica cuando la solicitud va m\u00e1s all\u00e1 de una mejora b\u00e1sica.",
-    },
-    orderHref: "/dashboard/orders/new/photo-editing",
-  },
-  {
-    id: "floor-plans",
-    labels: {
-      en: "Floor Plans",
       es: "Planos",
     },
     reasons: {
       en: "Best for turning sketches, scans, PDFs, or measurements into clean 2D or 3D floor plans.",
       es: "Ideal para convertir bocetos, escaneos, PDFs o medidas en planos 2D o 3D limpios.",
     },
-    orderHref: "/dashboard/orders/new/3d-floor-plans",
-    detailHref: {
-      en: "/pricing/floor-plans",
-      es: "/es/pricing/floor-plans",
-    },
   },
-] as const satisfies readonly OrderAssistantService[];
+} as const satisfies Partial<Record<OrderAssistantServiceId, OrderAssistantServiceCopy>>;
+
+const servicesWithPublicPricingPages = new Set<OrderAssistantServiceId>([
+  "virtual-staging",
+  "virtual-renovation",
+  "day-to-dusk",
+  "image-enhancement",
+  "floor-plans",
+]);
 
 const orderAssistantQuestions = [
   {
@@ -240,12 +195,12 @@ const orderAssistantQuestions = [
         recommendedServiceId: "item-removal-virtual-cleaning",
       },
       {
-        id: "improve-existing-photo",
+        id: "improve-brightness-colour-presentation",
         labels: {
-          en: "Improve an existing photo",
-          es: "Mejorar una foto existente",
+          en: "Improve brightness, colour and overall presentation",
+          es: "Mejorar brillo, color y presentaci\u00f3n general",
         },
-        nextQuestionId: "photo-editing-goal",
+        recommendedServiceId: "image-enhancement",
       },
       {
         id: "turn-daytime-exterior-to-dusk",
@@ -265,31 +220,6 @@ const orderAssistantQuestions = [
       },
     ],
   },
-  {
-    id: "photo-editing-goal",
-    labels: {
-      en: "What kind of photo improvement do you need?",
-      es: "\u00bfQu\u00e9 tipo de mejora fotogr\u00e1fica necesitas?",
-    },
-    choices: [
-      {
-        id: "improve-brightness-colour-presentation",
-        labels: {
-          en: "Improve brightness, colour and overall presentation",
-          es: "Mejorar brillo, color y presentaci\u00f3n general",
-        },
-        recommendedServiceId: "image-enhancement",
-      },
-      {
-        id: "request-specific-photo-edit",
-        labels: {
-          en: "Request a specific edit or visual change",
-          es: "Pedir una edici\u00f3n espec\u00edfica o cambio visual",
-        },
-        recommendedServiceId: "photo-editing",
-      },
-    ],
-  },
 ] as const satisfies readonly OrderAssistantQuestion[];
 
 export function getOrderAssistantQuestion(
@@ -305,8 +235,7 @@ export function getOrderAssistantQuestion(
     choices: question.choices.map((choice) => ({
       id: choice.id,
       label: choice.labels[language],
-      recommendedServiceId: getChoiceRecommendedServiceId(choice),
-      nextQuestionId: getChoiceNextQuestionId(choice),
+      recommendedServiceId: choice.recommendedServiceId,
     })),
   };
 }
@@ -316,21 +245,28 @@ export function getOrderAssistantGoals(language: SupportChatLanguage) {
 }
 
 export function getOrderAssistantServices(): OrderAssistantService[] {
-  return orderAssistantServices.map(cloneService);
+  return Object.keys(orderAssistantServiceCopy)
+    .map((serviceId) => getOrderAssistantService(serviceId))
+    .filter((service): service is OrderAssistantService => service !== null);
 }
 
 export function getOrderAssistantService(
-  serviceId: OrderAssistantServiceId,
+  serviceId: string,
 ): OrderAssistantService | null {
-  const service = orderAssistantServices.find((item) => item.id === serviceId);
-  return service ? cloneService(service) : null;
+  const canonicalService = getOrderServiceCatalogEntry(serviceId);
+  if (!isRecommendableCanonicalService(canonicalService)) return null;
+
+  const copy = getServiceCopy(canonicalService.slug);
+  if (!copy) return null;
+
+  return buildOrderAssistantService(canonicalService, copy);
 }
 
 export function getLocalizedOrderAssistantService(
   language: SupportChatLanguage,
-  serviceId: OrderAssistantServiceId,
+  serviceId: string,
 ): LocalizedOrderAssistantService | null {
-  const service = orderAssistantServices.find((item) => item.id === serviceId);
+  const service = getOrderAssistantService(serviceId);
   if (!service) return null;
 
   return {
@@ -338,7 +274,7 @@ export function getLocalizedOrderAssistantService(
     label: service.labels[language],
     reason: service.reasons[language],
     orderHref: service.orderHref,
-    detailHref: getServiceDetailHref(service)?.[language],
+    detailHref: service.detailHref?.[language],
   };
 }
 
@@ -346,25 +282,14 @@ export function getOrderAssistantRecommendation(
   goalId: string,
   answerId?: string,
 ): OrderAssistantService | null {
-  const goal = findGoal(goalId);
+  if (answerId) return null;
+
+  const goal = orderAssistantQuestions[0].choices.find(
+    (choice) => choice.id === goalId,
+  );
   if (!goal) return null;
 
-  const nextQuestionId = getChoiceNextQuestionId(goal);
-  const recommendedServiceId = getChoiceRecommendedServiceId(goal);
-
-  if (nextQuestionId) {
-    if (!answerId) return null;
-    const answer = getQuestionChoice(nextQuestionId, answerId);
-    const answerServiceId = answer
-      ? getChoiceRecommendedServiceId(answer)
-      : undefined;
-    if (!answerServiceId) return null;
-    return getOrderAssistantService(answerServiceId);
-  }
-
-  return recommendedServiceId
-    ? getOrderAssistantService(recommendedServiceId)
-    : null;
+  return getOrderAssistantService(goal.recommendedServiceId);
 }
 
 export function getLocalizedOrderAssistantRecommendation(
@@ -385,51 +310,74 @@ export function isOrderAssistantOrderHref(href: string) {
   );
 }
 
-function findGoal(goalId: string): OrderAssistantGoal | null {
-  for (const question of orderAssistantQuestions) {
-    const goal = question.choices.find((choice) => choice.id === goalId);
-    if (goal) return goal;
+function buildOrderAssistantService(
+  canonicalService: OrderServiceCatalogEntry & { route: string },
+  copy: OrderAssistantServiceCopy,
+): OrderAssistantService {
+  return {
+    id: canonicalService.slug,
+    title: canonicalService.title,
+    publicServiceSlug: canonicalService.publicServiceSlug,
+    availability: canonicalService.availability,
+    labels: {
+      en: canonicalService.title,
+      es: copy.labels.es,
+    },
+    reasons: { ...copy.reasons },
+    orderHref: canonicalService.route,
+    detailHref: getServiceDetailHref(canonicalService),
+  };
+}
+
+function getServiceCopy(
+  serviceId: string,
+): OrderAssistantServiceCopy | undefined {
+  if (!isOrderAssistantServiceId(serviceId)) return undefined;
+  return orderAssistantServiceCopy[serviceId];
+}
+
+function isOrderAssistantServiceId(
+  serviceId: string,
+): serviceId is keyof typeof orderAssistantServiceCopy {
+  return serviceId in orderAssistantServiceCopy;
+}
+
+function isRecommendableCanonicalService(
+  service: OrderServiceCanonicalFields | null,
+): service is OrderServiceCanonicalFields & { route: string } {
+  return service?.availability === "active" && service.route !== null;
+}
+
+function getServiceDetailHref(
+  service: OrderServiceCatalogEntry,
+): LocalizedText | undefined {
+  const detailSlug = getPublicPricingSlug(service);
+  if (!detailSlug) return undefined;
+
+  return {
+    en: `/pricing/${detailSlug}`,
+    es: `/es/pricing/${detailSlug}`,
+  };
+}
+
+function getPublicPricingSlug(
+  service: OrderServiceCatalogEntry,
+): string | null {
+  if (servicesWithPublicPricingPages.has(service.slug)) {
+    return service.publicServiceSlug;
+  }
+
+  if (service.slug === "item-removal-virtual-cleaning") {
+    // Current public routing keeps Item Removal & Virtual Cleaning under
+    // the legacy Photo Editing pricing page instead of its canonical slug.
+    return "photo-editing";
   }
 
   return null;
 }
 
-function getQuestionChoice(questionId: OrderAssistantQuestionId, goalId: string) {
-  return (
-    orderAssistantQuestions
-      .find((question) => question.id === questionId)
-      ?.choices.find((choice) => choice.id === goalId) ?? null
-  );
-}
-
-function getChoiceRecommendedServiceId(
-  choice: OrderAssistantGoal,
-): OrderAssistantServiceId | undefined {
-  return "recommendedServiceId" in choice
-    ? choice.recommendedServiceId
-    : undefined;
-}
-
-function getChoiceNextQuestionId(
-  choice: OrderAssistantGoal,
-): OrderAssistantQuestionId | undefined {
-  return "nextQuestionId" in choice ? choice.nextQuestionId : undefined;
-}
-
-function cloneService(service: OrderAssistantService): OrderAssistantService {
-  const detailHref = getServiceDetailHref(service);
-
-  return {
-    id: service.id,
-    labels: { ...service.labels },
-    reasons: { ...service.reasons },
-    orderHref: service.orderHref,
-    detailHref: detailHref ? { ...detailHref } : undefined,
-  };
-}
-
-function getServiceDetailHref(
-  service: OrderAssistantService,
-): LocalizedText | undefined {
-  return "detailHref" in service ? service.detailHref : undefined;
+export function getActiveOrderServiceCatalogEntries() {
+  return ORDER_SERVICE_CATALOG.filter(
+    (service) => service.availability === "active" && service.route !== null,
+  ).map((service) => ({ ...service }));
 }

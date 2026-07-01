@@ -8,7 +8,6 @@ import {
   orderAssistantCopy,
   type LocalizedOrderAssistantChoice,
   type OrderAssistantGoalId,
-  type OrderAssistantQuestionId,
 } from "@/components/support/support-order-assistant";
 import type { SupportChatLanguage } from "@/components/support/support-chat-copy";
 
@@ -18,73 +17,45 @@ interface SupportOrderAssistantProps {
   onBackToChat: () => void;
 }
 
-interface RecommendationRequest {
-  goalId: OrderAssistantGoalId;
-  answerId?: OrderAssistantGoalId;
-}
-
 export default function SupportOrderAssistant({
   language,
   onNavigate,
   onBackToChat,
 }: SupportOrderAssistantProps) {
   const copy = orderAssistantCopy[language];
-  const [questionId, setQuestionId] = useState<OrderAssistantQuestionId>(
-    ORDER_ASSISTANT_INITIAL_QUESTION_ID,
-  );
-  const [parentGoalId, setParentGoalId] = useState<OrderAssistantGoalId | null>(
-    null,
-  );
-  const [recommendationRequest, setRecommendationRequest] =
-    useState<RecommendationRequest | null>(null);
+  const [selectedGoalId, setSelectedGoalId] =
+    useState<OrderAssistantGoalId | null>(null);
   const recommendationHeadingRef = useRef<HTMLHeadingElement | null>(null);
 
   const question = useMemo(
-    () => getOrderAssistantQuestion(language, questionId),
-    [language, questionId],
+    () => getOrderAssistantQuestion(language, ORDER_ASSISTANT_INITIAL_QUESTION_ID),
+    [language],
   );
-  const recommendation = recommendationRequest
-    ? getLocalizedOrderAssistantRecommendation(
-        language,
-        recommendationRequest.goalId,
-        recommendationRequest.answerId,
-      )
-    : null;
+  const recommendation = useMemo(
+    () =>
+      selectedGoalId
+        ? getLocalizedOrderAssistantRecommendation(language, selectedGoalId)
+        : null,
+    [language, selectedGoalId],
+  );
+  const recommendationId = recommendation?.id ?? null;
 
   useEffect(() => {
-    if (!recommendation) return;
-    window.setTimeout(() => recommendationHeadingRef.current?.focus(), 0);
-  }, [recommendation]);
+    if (!recommendationId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      recommendationHeadingRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [recommendationId]);
 
   const resetChooser = () => {
-    setQuestionId(ORDER_ASSISTANT_INITIAL_QUESTION_ID);
-    setParentGoalId(null);
-    setRecommendationRequest(null);
+    setSelectedGoalId(null);
   };
 
   const handleChoice = (choice: LocalizedOrderAssistantChoice) => {
-    if (choice.nextQuestionId) {
-      setParentGoalId(choice.id);
-      setQuestionId(choice.nextQuestionId);
-      setRecommendationRequest(null);
-      return;
-    }
-
-    setRecommendationRequest({
-      goalId: parentGoalId ?? choice.id,
-      answerId: parentGoalId ? choice.id : undefined,
-    });
-  };
-
-  const goBack = () => {
-    if (questionId === ORDER_ASSISTANT_INITIAL_QUESTION_ID) {
-      onBackToChat();
-      return;
-    }
-
-    setQuestionId(ORDER_ASSISTANT_INITIAL_QUESTION_ID);
-    setParentGoalId(null);
-    setRecommendationRequest(null);
+    setSelectedGoalId(choice.id);
   };
 
   if (recommendation) {
@@ -160,7 +131,7 @@ export default function SupportOrderAssistant({
         </h3>
       </div>
 
-      <div className="grid gap-2" role="list" aria-label={question.label}>
+      <div className="grid gap-2" aria-label={question.label}>
         {question.choices.map((choice) => (
           <button
             key={choice.id}
@@ -176,12 +147,10 @@ export default function SupportOrderAssistant({
       <div>
         <button
           type="button"
-          onClick={goBack}
+          onClick={onBackToChat}
           className="min-h-10 rounded-lg border border-border bg-white px-3 py-2 text-sm font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          {questionId === ORDER_ASSISTANT_INITIAL_QUESTION_ID
-            ? copy.backToChat
-            : copy.back}
+          {copy.backToChat}
         </button>
       </div>
     </div>
