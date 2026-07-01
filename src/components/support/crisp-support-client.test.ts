@@ -1742,14 +1742,14 @@ test("active Crisp route visibility includes dashboard and excludes order", () =
   assert.equal(isSupportChatRouteVisible("/dashboard"), true);
   assert.equal(isSupportChatRouteVisible("/dashboard/jobs"), true);
   assert.equal(isSupportChatRouteVisible("/dashboard/drafts/example"), true);
-  assert.equal(isSupportChatRouteVisible("/dashboard/orders/new"), false);
+  assert.equal(isSupportChatRouteVisible("/dashboard/orders/new"), true);
   assert.equal(
     isSupportChatRouteVisible("/dashboard/orders/new/virtual-staging"),
-    false,
+    true,
   );
   assert.equal(
     isSupportChatRouteVisible("/es/dashboard/orders/new/virtual-staging"),
-    false,
+    true,
   );
   assert.equal(isSupportChatRouteVisible("/order"), false);
   assert.equal(isSupportChatRouteVisible("/admin"), false);
