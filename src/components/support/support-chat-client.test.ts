@@ -91,23 +91,49 @@ test("order routes exclude the widget", () => {
   assert.equal(isSupportChatRouteVisible("/order/virtual-staging"), false);
 });
 
-test("new order creation routes use no support launcher mode", () => {
-  assert.equal(getSupportChatLauncherMode("/dashboard/orders/new"), "none");
+test("new order creation routes use the dashboard support launcher mode", () => {
+  assert.equal(getSupportChatLauncherMode("/dashboard/orders/new"), "dashboard");
   assert.equal(
     getSupportChatLauncherMode("/dashboard/orders/new/virtual-staging"),
-    "none",
+    "dashboard",
+  );
+  assert.equal(
+    getSupportChatLauncherMode("/dashboard/orders/new/virtual-renovation"),
+    "dashboard",
   );
   assert.equal(
     getSupportChatLauncherMode("/dashboard/orders/new/day-to-dusk"),
-    "none",
+    "dashboard",
+  );
+  assert.equal(
+    getSupportChatLauncherMode("/dashboard/orders/new/image-enhancement"),
+    "dashboard",
+  );
+  assert.equal(
+    getSupportChatLauncherMode(
+      "/dashboard/orders/new/item-removal-virtual-cleaning",
+    ),
+    "dashboard",
+  );
+  assert.equal(
+    getSupportChatLauncherMode("/dashboard/orders/new/3d-floor-plans"),
+    "dashboard",
+  );
+  assert.equal(
+    getSupportChatLauncherMode("/dashboard/orders/new/photo-editing"),
+    "dashboard",
+  );
+  assert.equal(
+    getSupportChatLauncherMode("/dashboard/orders/new/custom-service"),
+    "dashboard",
   );
   assert.equal(
     getSupportChatLauncherMode("/es/dashboard/orders/new"),
-    "none",
+    "dashboard",
   );
   assert.equal(
     getSupportChatLauncherMode("/es/dashboard/orders/new/virtual-staging"),
-    "none",
+    "dashboard",
   );
 });
 
@@ -159,29 +185,20 @@ test("excluded routes use no support launcher mode", () => {
   assert.equal(getSupportChatLauncherMode("/forgot-password"), "none");
   assert.equal(getSupportChatLauncherMode("/reset-password"), "none");
   assert.equal(getSupportChatLauncherMode("/auth/callback"), "none");
-  assert.equal(getSupportChatLauncherMode("/dashboard/orders/new"), "none");
-  assert.equal(
-    getSupportChatLauncherMode("/dashboard/orders/new/virtual-staging"),
-    "none",
-  );
-  assert.equal(
-    getSupportChatLauncherMode("/es/dashboard/orders/new/virtual-staging"),
-    "none",
-  );
 });
 
 test("active Crisp route visibility follows dashboard and excluded routes", () => {
   assert.equal(isSupportChatRouteVisible("/dashboard"), true);
   assert.equal(isSupportChatRouteVisible("/dashboard/jobs"), true);
   assert.equal(isSupportChatRouteVisible("/dashboard/drafts/example"), true);
-  assert.equal(isSupportChatRouteVisible("/dashboard/orders/new"), false);
+  assert.equal(isSupportChatRouteVisible("/dashboard/orders/new"), true);
   assert.equal(
     isSupportChatRouteVisible("/dashboard/orders/new/virtual-staging"),
-    false,
+    true,
   );
   assert.equal(
     isSupportChatRouteVisible("/es/dashboard/orders/new/virtual-staging"),
-    false,
+    true,
   );
   assert.equal(isSupportChatRouteVisible("/order"), false);
 });
