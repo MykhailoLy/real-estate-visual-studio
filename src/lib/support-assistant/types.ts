@@ -1,3 +1,5 @@
+import type { SupportOrderAction } from "../support-order-action.ts";
+
 export type SupportAssistantHistoryRole = "user" | "assistant";
 
 export interface SupportAssistantHistoryMessage {
@@ -8,6 +10,11 @@ export interface SupportAssistantHistoryMessage {
 export interface SupportAssistantRequestInput {
   message: string;
   history: SupportAssistantHistoryMessage[];
+}
+
+export interface SupportAssistantGeneratedReply {
+  message: string;
+  action?: SupportOrderAction;
 }
 
 export interface SupportAssistantTransport {

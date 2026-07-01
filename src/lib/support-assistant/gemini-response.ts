@@ -1,5 +1,4 @@
 import type { Interactions } from "@google/genai";
-import { normalizeSupportAssistantOutput } from "./service.ts";
 import {
   SupportAssistantGenerationError,
   type SupportAssistantGenerationLogCategory,
@@ -35,5 +34,12 @@ export function extractCompletedGeminiSupportOutput(
     );
   }
 
-  return normalizeSupportAssistantOutput(interaction.output_text ?? "");
+  const output = (interaction.output_text ?? "").trim();
+  if (!output) {
+    throw new SupportAssistantGenerationError(
+      "Support assistant returned an empty response.",
+    );
+  }
+
+  return output;
 }

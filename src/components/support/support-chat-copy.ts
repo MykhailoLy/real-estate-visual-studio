@@ -34,6 +34,10 @@ export const supportChatCopy = {
     characterCount: (count: number) => `${count}/2000`,
     footerNote: "AI can make mistakes. Check important details.",
     contactLinkLabel: "Contact page",
+    orderAction: {
+      startOrder: "Start this order",
+      startOrderAriaLabel: "Start this order",
+    },
     quickActions: {
       chooseService: "Help me choose a service",
       pricing: "View pricing",
@@ -99,6 +103,10 @@ export const supportChatCopy = {
     characterCount: (count: number) => `${count}/2000`,
     footerNote: "La IA puede cometer errores. Comprueba la información importante.",
     contactLinkLabel: "Página de contacto",
+    orderAction: {
+      startOrder: "Empezar este pedido",
+      startOrderAriaLabel: "Empezar este pedido",
+    },
     quickActions: {
       chooseService: "Ay\u00fadame a elegir un servicio",
       pricing: "Ver precios",

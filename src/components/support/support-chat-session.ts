@@ -1,10 +1,12 @@
 import type { SupportChatMessage } from "./support-chat-client.ts";
+import { parseSupportOrderAction } from "../../lib/support-order-action.ts";
 
 export const SUPPORT_CHAT_SESSION_STORAGE_KEY =
   "picchuspot_support_chat_session_v1";
 export const SUPPORT_CHAT_SESSION_VERSION = 1;
 export const SUPPORT_CHAT_SESSION_MAX_MESSAGES = 20;
 export const SUPPORT_CHAT_SESSION_MAX_CHARACTERS = 20000;
+const SUPPORT_ORDER_MARKER_PREFIX_PATTERN = /PICCHUSPOT_ORDER_SERVICE/i;
 
 export interface SupportChatSessionStorage {
   getItem(key: string): string | null;
@@ -125,6 +127,7 @@ function toSupportChatSessionMessage(value: unknown): SupportChatMessage | null 
   const { id, role, content, origin, status } = value;
   if (typeof id !== "string" || !id.trim()) return null;
   if (typeof content !== "string" || !content.trim()) return null;
+  if (SUPPORT_ORDER_MARKER_PREFIX_PATTERN.test(content)) return null;
   if (status !== "complete") return null;
 
   if (role === "user" && origin === "local") {
@@ -138,12 +141,14 @@ function toSupportChatSessionMessage(value: unknown): SupportChatMessage | null 
   }
 
   if (role === "assistant" && origin === "remote") {
+    const action = parseSupportOrderAction(value.action);
     return {
       id,
       role,
       content,
       origin,
       status,
+      ...(action ? { action } : {}),
     };
   }
 
