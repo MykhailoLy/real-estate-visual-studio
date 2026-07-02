@@ -1,19 +1,29 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  buildFinalPath,
+  buildPendingPath,
   MAX_FILE_SIZE_BYTES,
   ORDER_FILES_BUCKET,
+  parseDirectPendingPath,
   type UploadKind,
 } from "../upload-config.ts";
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const USER_ID = "11111111-1111-4111-8111-111111111111";
+const SECOND_USER_ID = "22222222-2222-4222-8222-222222222222";
 const TOKEN = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SECOND_TOKEN = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const ORDER_NUMBER = "VS-0001";
+const SUBMIT_ORDER_SOURCE = readFileSync("src/lib/submit-order.ts", "utf8");
+const DRAFT_STORAGE_PATHS_SOURCE = readFileSync(
+  "src/lib/order-drafts/storage-paths.ts",
+  "utf8",
+);
 
 const SUPABASE_ADMIN_MOCK_URL = `data:text/javascript,${encodeURIComponent(`
 export class SupabaseAdminConfigurationError extends Error {}
@@ -31,6 +41,35 @@ export async function sendOrderEmails(args) {
 }
 `)}`;
 
+const CLIENT_AUTH_MOCK_URL = `data:text/javascript,${encodeURIComponent(`
+export async function getClientUser() {
+  return globalThis.__directOrderTestClientUser ?? null;
+}
+export async function isClientAuthenticated() {
+  return Boolean(globalThis.__directOrderTestClientUser);
+}
+export function getInitials() {
+  return "";
+}
+`)}`;
+
+const SUPABASE_JS_MOCK_URL = `data:text/javascript,${encodeURIComponent(`
+export function createClient(url, key) {
+  if (typeof globalThis.__directOrderCreateClientMock === "function") {
+    return globalThis.__directOrderCreateClientMock(url, key);
+  }
+  return globalThis.__directOrderUploadUrlSupabase;
+}
+`)}`;
+
+const NEXT_SERVER_MOCK_URL = `data:text/javascript,${encodeURIComponent(`
+export const NextResponse = {
+  json(body, init) {
+    return Response.json(body, init);
+  },
+};
+`)}`;
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") {
@@ -42,8 +81,17 @@ registerHooks({
     if (specifier === "@/lib/supabase-admin") {
       return { url: SUPABASE_ADMIN_MOCK_URL, shortCircuit: true };
     }
+    if (specifier === "@/lib/client-auth") {
+      return { url: CLIENT_AUTH_MOCK_URL, shortCircuit: true };
+    }
     if (specifier === "@/lib/email/send-order-emails") {
       return { url: EMAIL_MOCK_URL, shortCircuit: true };
+    }
+    if (specifier === "@supabase/supabase-js") {
+      return { url: SUPABASE_JS_MOCK_URL, shortCircuit: true };
+    }
+    if (specifier === "next/server") {
+      return { url: NEXT_SERVER_MOCK_URL, shortCircuit: true };
     }
     if (specifier.startsWith("@/")) {
       const localPath = join(ROOT_DIR, "src", specifier.slice(2));
@@ -121,6 +169,7 @@ interface VerificationResultForTest<T> {
 interface DirectVerificationModuleForTest {
   verifyDirectOrderUploads(input: {
     supabase: unknown;
+    ownerUserId: string;
     serviceType: ServiceTypeForTest;
     itemFiles: ItemFilesForTest[];
   }): Promise<VerificationResultForTest<ItemFilesForTest[]>>;
@@ -146,6 +195,12 @@ interface EmailMockResult {
 type DirectOrderTestGlobals = typeof globalThis & {
   __directOrderTestSupabase?: MockSupabase;
   __directOrderEmailMock?: (args: unknown) => Promise<EmailMockResult>;
+  __directOrderTestClientUser?: { id: string; email: string } | null;
+  __directOrderUploadUrlSupabase?: MockUploadUrlSupabase;
+  __directOrderCreateClientMock?: (
+    url: string,
+    key: string,
+  ) => MockUploadUrlSupabase;
 };
 
 interface StoredObjectForTest {
@@ -297,6 +352,32 @@ class MockSupabase {
   }
 }
 
+class MockUploadUrlSupabase {
+  readonly signedUploadPaths: string[] = [];
+  readonly buckets: string[] = [];
+  signedUploadError: { name: string; message: string } | null = null;
+
+  readonly storage = {
+    from: (bucket: string) => ({
+      createSignedUploadUrl: async (path: string) => {
+        this.buckets.push(bucket);
+        this.signedUploadPaths.push(path);
+        if (this.signedUploadError) {
+          return { data: null, error: this.signedUploadError };
+        }
+        return {
+          data: {
+            path,
+            token: "signed-upload-token",
+            signedUrl: `https://storage.example/upload/${encodeURIComponent(path)}`,
+          },
+          error: null,
+        };
+      },
+    }),
+  };
+}
+
 class MockTableQuery {
   private readonly supabase: MockSupabase;
   private readonly table: string;
@@ -371,7 +452,21 @@ function directPathForToken(
   kind: UploadKind,
   extension = "jpg",
 ): string {
-  return `pending/${token}/${itemIndex}-${kind}.${extension}`;
+  return directPathForUserAndToken(USER_ID, token, itemIndex, kind, extension);
+}
+
+function directPathForUserAndToken(
+  userId: string,
+  token: string,
+  itemIndex: number,
+  kind: UploadKind,
+  extension = "jpg",
+): string {
+  return `pending/${userId}/${token}/${itemIndex}-${kind}.${extension}`;
+}
+
+function directDirectory(token = TOKEN, userId = USER_ID): string {
+  return `pending/${userId}/${token}`;
 }
 
 function directPath(
@@ -440,7 +535,7 @@ function orderInput(
 ): ProductionOrderInputForTest {
   const itemFiles = overrides.itemFiles ?? itemFilesForDirectOrder();
   return {
-    ownerUserId: "11111111-1111-4111-8111-111111111111",
+    ownerUserId: USER_ID,
     clientIdentity: {
       name: "Ada Client",
       email: "ada@example.com",
@@ -486,6 +581,26 @@ function installSupabaseMock(supabase: MockSupabase): void {
   };
 }
 
+function installUploadRouteMock(input: {
+  sessionUserId?: string | null;
+  supabase?: MockUploadUrlSupabase;
+} = {}): MockUploadUrlSupabase {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-secret-marker";
+  const globals = globalThis as DirectOrderTestGlobals;
+  const supabase = input.supabase ?? new MockUploadUrlSupabase();
+  globals.__directOrderTestClientUser =
+    input.sessionUserId === null
+      ? null
+      : {
+          id: input.sessionUserId ?? USER_ID,
+          email: "client@example.com",
+        };
+  globals.__directOrderUploadUrlSupabase = supabase;
+  globals.__directOrderCreateClientMock = () => supabase;
+  return supabase;
+}
+
 async function loadVerifier(): Promise<DirectVerificationModuleForTest> {
   return import("./direct-upload-verification.ts") as Promise<
     DirectVerificationModuleForTest
@@ -494,6 +609,51 @@ async function loadVerifier(): Promise<DirectVerificationModuleForTest> {
 
 async function loadOrderModule(): Promise<CreateOrderModuleForTest> {
   return import("./create-order-server.ts") as Promise<CreateOrderModuleForTest>;
+}
+
+async function loadServerValidation(): Promise<{
+  UploadedFileSchema: {
+    safeParse(value: unknown): { success: boolean };
+  };
+}> {
+  return import("../server-validation.ts") as Promise<{
+    UploadedFileSchema: {
+      safeParse(value: unknown): { success: boolean };
+    };
+  }>;
+}
+
+async function loadUploadRoute(): Promise<{
+  POST(request: Request): Promise<Response>;
+}> {
+  return import("../../app/(public)/api/upload-url/route.ts") as Promise<{
+    POST(request: Request): Promise<Response>;
+  }>;
+}
+
+function validUploadUrlBody(overrides: Record<string, unknown> = {}) {
+  return {
+    serviceType: "virtual-staging",
+    pendingToken: TOKEN,
+    itemIndex: 0,
+    kind: "original",
+    filename: "room.jpg",
+    contentType: "image/jpeg",
+    size: 1234,
+    ...overrides,
+  };
+}
+
+function uploadUrlRequest(body: unknown): Request {
+  return new Request("https://example.test/api/upload-url", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function responseJson(response: Response) {
+  return response.json() as Promise<Record<string, unknown>>;
 }
 
 function assertFailure(
@@ -534,6 +694,219 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+test("direct pending path helpers build and parse the canonical user-bound format", () => {
+  const path = buildPendingPath(USER_ID, TOKEN, 3, "reference", "jpg");
+  assert.equal(path, `${directDirectory()}/3-reference.jpg`);
+
+  assert.deepEqual(parseDirectPendingPath(path), {
+    userId: USER_ID,
+    pendingToken: TOKEN,
+    directory: directDirectory(),
+    basename: "3-reference.jpg",
+    itemIndex: 3,
+    kind: "reference",
+    extension: "jpg",
+  });
+});
+
+test("direct pending path parser rejects noncanonical paths", () => {
+  const cases = [
+    ["malformed uuid", `pending/not-a-uuid/${TOKEN}/0-original.jpg`],
+    [
+      "uppercase uuid",
+      directPathForUserAndToken(
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa".toUpperCase(),
+        TOKEN,
+        0,
+        "original",
+      ),
+    ],
+    ["missing user segment", `pending/${TOKEN}/0-original.jpg`],
+    ["legacy path", `pending/${TOKEN}/0-original.jpg`],
+    ["traversal", `pending/${USER_ID}/${TOKEN}/../0-original.jpg`],
+    ["extra segment", `${directPath(0, "original")}/extra`],
+    ["short token", directPathForUserAndToken(USER_ID, "abc", 0, "original")],
+    [
+      "non-hex token",
+      directPathForUserAndToken(
+        USER_ID,
+        "gggggggggggggggggggggggggggggggg",
+        0,
+        "original",
+      ),
+    ],
+    ["uppercase token", directPathForUserAndToken(USER_ID, TOKEN.toUpperCase(), 0, "original")],
+    ["negative index", `${directDirectory()}/-1-original.jpg`],
+    ["leading-zero index", `${directDirectory()}/01-original.jpg`],
+    ["wrong kind", `${directDirectory()}/0-preview.jpg`],
+    ["invalid extension", `${directDirectory()}/0-original.jp-g`],
+    ["uppercase extension", `${directDirectory()}/0-original.JPG`],
+  ] as const;
+
+  for (const [name, path] of cases) {
+    assert.equal(parseDirectPendingPath(path), null, name);
+  }
+});
+
+test("uploaded-file schema accepts only user-bound direct pending paths", async () => {
+  const { UploadedFileSchema } = await loadServerValidation();
+
+  assert.equal(
+    UploadedFileSchema.safeParse(descriptor(directPath(0, "original"))).success,
+    true,
+  );
+  assert.equal(
+    UploadedFileSchema.safeParse(descriptor(`pending/${TOKEN}/0-original.jpg`))
+      .success,
+    false,
+  );
+  assert.equal(
+    UploadedFileSchema.safeParse(
+      descriptor(`pending/not-a-uuid/${TOKEN}/0-original.jpg`),
+    ).success,
+    false,
+  );
+});
+
+test("final and draft path builders keep their existing storage formats", () => {
+  assert.equal(buildFinalPath(ORDER_NUMBER, 0, "original", "jpg"), finalPath(0, "original"));
+  assert.match(
+    DRAFT_STORAGE_PATHS_SOURCE,
+    /return `drafts\/\$\{parsedUserId\}\/\$\{parsedDraftId\}\/\$\{parsedFileId\}\/\$\{sanitizedFilename\}`;/,
+  );
+});
+
+test("submit-order treats the returned signed-upload path as opaque", () => {
+  assert.match(SUBMIT_ORDER_SOURCE, /path: origUrl\.data\.path/);
+  assert.match(SUBMIT_ORDER_SOURCE, /path: refUrl\.data\.path/);
+  assert.match(SUBMIT_ORDER_SOURCE, /\.uploadToSignedUrl\(path, token, file/);
+  assert.doesNotMatch(SUBMIT_ORDER_SOURCE, /pending\/\$\{/);
+});
+
+test("upload-url route rejects unauthenticated requests", async () => {
+  const supabase = installUploadRouteMock({ sessionUserId: null });
+  const { POST } = await loadUploadRoute();
+
+  const response = await POST(uploadUrlRequest(validUploadUrlBody()));
+
+  assert.equal(response.status, 401);
+  assert.equal(supabase.signedUploadPaths.length, 0);
+});
+
+test("upload-url route uses the server-derived user ID", async () => {
+  const supabase = installUploadRouteMock();
+  const { POST } = await loadUploadRoute();
+
+  const response = await POST(uploadUrlRequest(validUploadUrlBody()));
+  const body = await responseJson(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.bucket, ORDER_FILES_BUCKET);
+  assert.equal(body.path, directPath(0, "original"));
+  assert.deepEqual(supabase.buckets, [ORDER_FILES_BUCKET]);
+  assert.deepEqual(supabase.signedUploadPaths, [directPath(0, "original")]);
+});
+
+test("upload-url route ignores client-supplied userId", async () => {
+  installUploadRouteMock();
+  const { POST } = await loadUploadRoute();
+
+  const response = await POST(
+    uploadUrlRequest(validUploadUrlBody({ userId: SECOND_USER_ID })),
+  );
+  const body = await responseJson(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.path, directPath(0, "original"));
+  assert.equal(String(body.path).includes(SECOND_USER_ID), false);
+});
+
+test("upload-url route separates two users with the same token", async () => {
+  installUploadRouteMock({ sessionUserId: USER_ID });
+  const { POST } = await loadUploadRoute();
+  const first = await responseJson(await POST(uploadUrlRequest(validUploadUrlBody())));
+
+  installUploadRouteMock({ sessionUserId: SECOND_USER_ID });
+  const second = await responseJson(await POST(uploadUrlRequest(validUploadUrlBody())));
+
+  assert.equal(first.path, directPathForUserAndToken(USER_ID, TOKEN, 0, "original"));
+  assert.equal(second.path, directPathForUserAndToken(SECOND_USER_ID, TOKEN, 0, "original"));
+  assert.notEqual(first.path, second.path);
+});
+
+test("upload-url route rejects malformed trusted session UUID before signing", async () => {
+  const supabase = installUploadRouteMock({ sessionUserId: "not-a-uuid" });
+  const { POST } = await loadUploadRoute();
+
+  const response = await POST(uploadUrlRequest(validUploadUrlBody()));
+
+  assert.equal(response.status, 500);
+  assert.equal(supabase.signedUploadPaths.length, 0);
+});
+
+test("upload-url route accepts canonical tokens and rejects legacy broad tokens", async () => {
+  const supabase = installUploadRouteMock();
+  const { POST } = await loadUploadRoute();
+
+  const accepted = await POST(uploadUrlRequest(validUploadUrlBody()));
+  const rejected = await POST(
+    uploadUrlRequest(validUploadUrlBody({ pendingToken: "legacy_token" })),
+  );
+
+  assert.equal(accepted.status, 200);
+  assert.equal(rejected.status, 400);
+  assert.equal(supabase.signedUploadPaths.length, 1);
+});
+
+test("upload-url route preserves upload input validation before signing", async () => {
+  const invalidCases = [
+    { itemIndex: -1 },
+    { kind: "preview" },
+    { filename: "room.jp-g" },
+    { contentType: "text/plain" },
+    { size: 0 },
+    { size: MAX_FILE_SIZE_BYTES + 1 },
+    { serviceType: "unknown-service" },
+  ];
+
+  for (const overrides of invalidCases) {
+    const supabase = installUploadRouteMock();
+    const { POST } = await loadUploadRoute();
+    const response = await POST(uploadUrlRequest(validUploadUrlBody(overrides)));
+
+    assert.equal(response.status, 400, JSON.stringify(overrides));
+    assert.equal(supabase.signedUploadPaths.length, 0, JSON.stringify(overrides));
+  }
+});
+
+test("upload-url route response does not expose service role secrets", async () => {
+  installUploadRouteMock();
+  const { POST } = await loadUploadRoute();
+
+  const response = await POST(uploadUrlRequest(validUploadUrlBody()));
+  const serialized = JSON.stringify(await responseJson(response));
+
+  assert.equal(response.status, 200);
+  assert.equal(serialized.includes("service-role-secret-marker"), false);
+});
+
+test("upload-url route maps Supabase signing errors to a generic response", async () => {
+  const supabase = installUploadRouteMock();
+  supabase.signedUploadError = {
+    name: "StorageApiError",
+    message: "raw bucket internals and service-role-secret-marker",
+  };
+  const { POST } = await loadUploadRoute();
+
+  const response = await POST(uploadUrlRequest(validUploadUrlBody()));
+  const serialized = JSON.stringify(await responseJson(response));
+
+  assert.equal(response.status, 500);
+  assert.equal(serialized.includes("StorageApiError"), false);
+  assert.equal(serialized.includes("service-role-secret-marker"), false);
+  assert.equal(serialized.includes(directDirectory()), false);
+});
+
 test("direct verifier accepts a valid original file", async () => {
   const path = directPath(0, "original");
   const supabase = new MockSupabase();
@@ -542,6 +915,7 @@ test("direct verifier accepts a valid original file", async () => {
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(path) }],
   });
@@ -549,7 +923,119 @@ test("direct verifier accepts a valid original file", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.data?.[0]?.original.size, 1234);
   assert.equal(result.data?.[0]?.original.mimeType, "image/jpeg");
-  assertListCalls(supabase, [`pending/${TOKEN}`]);
+  assertListCalls(supabase, [directDirectory()]);
+});
+
+test("direct verifier rejects foreign descriptors before Storage list", async () => {
+  const foreignPath = directPathForUserAndToken(
+    SECOND_USER_ID,
+    TOKEN,
+    0,
+    "original",
+  );
+  const supabase = new MockSupabase();
+  supabase.addObject(foreignPath, metadata(1234, "image/jpeg"));
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    ownerUserId: USER_ID,
+    serviceType: "virtual-staging",
+    itemFiles: [{ original: descriptor(foreignPath) }],
+  });
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(supabase.listCalls.length, 0);
+});
+
+test("direct verifier rejects mixed own and foreign descriptors before Storage list", async () => {
+  const ownPath = directPath(0, "original");
+  const foreignPath = directPathForUserAndToken(
+    SECOND_USER_ID,
+    TOKEN,
+    1,
+    "original",
+  );
+  const itemFiles = [
+    { original: descriptor(ownPath) },
+    { original: descriptor(foreignPath) },
+  ];
+  const supabase = new MockSupabase();
+  addStoredObjects(supabase, itemFiles);
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    ownerUserId: USER_ID,
+    serviceType: "virtual-staging",
+    itemFiles,
+  });
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(supabase.listCalls.length, 0);
+});
+
+test("direct verifier rejects legacy descriptors before Storage list", async () => {
+  const supabase = new MockSupabase();
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    ownerUserId: USER_ID,
+    serviceType: "virtual-staging",
+    itemFiles: [
+      {
+        original: descriptor(`pending/${TOKEN}/0-original.jpg`),
+      },
+    ],
+  });
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(supabase.listCalls.length, 0);
+});
+
+test("direct verifier rejects malformed UUID descriptors before Storage list", async () => {
+  const supabase = new MockSupabase();
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    ownerUserId: USER_ID,
+    serviceType: "virtual-staging",
+    itemFiles: [
+      {
+        original: descriptor(`pending/not-a-uuid/${TOKEN}/0-original.jpg`),
+      },
+    ],
+  });
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(supabase.listCalls.length, 0);
+});
+
+test("direct verifier isolates same-token objects from other users", async () => {
+  const ownPath = directPath(0, "original");
+  const foreignPath = directPathForUserAndToken(
+    SECOND_USER_ID,
+    TOKEN,
+    0,
+    "original",
+  );
+  const supabase = new MockSupabase();
+  supabase.addObject(ownPath, metadata(1234, "image/jpeg"));
+  supabase.addObject(foreignPath, metadata(9999, "image/png"));
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    ownerUserId: USER_ID,
+    serviceType: "virtual-staging",
+    itemFiles: [{ original: descriptor(ownPath) }],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.data?.[0]?.original.size, 1234);
+  assertListCalls(supabase, [directDirectory()]);
 });
 
 test("direct verifier accepts an original plus reference", async () => {
@@ -562,6 +1048,7 @@ test("direct verifier accepts an original plus reference", async () => {
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [
       {
@@ -577,7 +1064,7 @@ test("direct verifier accepts an original plus reference", async () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.data?.[0]?.reference?.size, 2222);
-  assertListCalls(supabase, [`pending/${TOKEN}`]);
+  assertListCalls(supabase, [directDirectory()]);
 });
 
 test("direct verifier lists one directory for multiple same-token items", async () => {
@@ -588,13 +1075,14 @@ test("direct verifier lists one directory for multiple same-token items", async 
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles,
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.data?.length, 3);
-  assertListCalls(supabase, [`pending/${TOKEN}`]);
+  assertListCalls(supabase, [directDirectory()]);
 });
 
 test("direct verifier lists each distinct pending-token directory once", async () => {
@@ -610,12 +1098,16 @@ test("direct verifier lists each distinct pending-token directory once", async (
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles,
   });
 
   assert.equal(result.ok, true);
-  assertListCalls(supabase, [`pending/${TOKEN}`, `pending/${SECOND_TOKEN}`]);
+  assertListCalls(supabase, [
+    directDirectory(),
+    directDirectory(SECOND_TOKEN),
+  ]);
 });
 
 test("direct verifier rejects a missing exact basename when similar objects exist", async () => {
@@ -623,20 +1115,21 @@ test("direct verifier rejects a missing exact basename when similar objects exis
   const supabase = new MockSupabase();
   supabase.addObject(`${requestedPath}.backup`, metadata(1234, "image/jpeg"));
   supabase.addObject(
-    `pending/${TOKEN}/0-original.jpeg`,
+    `${directDirectory()}/0-original.jpeg`,
     metadata(1234, "image/jpeg"),
   );
   const verifier = await loadVerifier();
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(requestedPath) }],
   });
 
   assertFailure(result, "invalid_upload");
   assert.equal(result.status, 409);
-  assertListCalls(supabase, [`pending/${TOKEN}`]);
+  assertListCalls(supabase, [directDirectory()]);
 });
 
 test("direct verifier validates size and MIME from the exact directory object", async () => {
@@ -648,36 +1141,39 @@ test("direct verifier validates size and MIME from the exact directory object", 
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(requestedPath) }],
   });
 
   assertFailure(result, "invalid_upload");
   assert.equal(result.status, 400);
-  assertListCalls(supabase, [`pending/${TOKEN}`]);
+  assertListCalls(supabase, [directDirectory()]);
 });
 
 test("direct verifier returns storage_error when a directory list fails", async () => {
   const path = directPath(0, "original");
-  const supabase = new MockSupabase({ listFailures: [`pending/${TOKEN}`] });
+  const supabase = new MockSupabase({ listFailures: [directDirectory()] });
   supabase.addObject(path, metadata(1234, "image/jpeg"));
   const verifier = await loadVerifier();
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(path) }],
   });
 
   assertFailure(result, "storage_error");
   assert.equal(result.status, 500);
-  assertListCalls(supabase, [`pending/${TOKEN}`]);
+  assertListCalls(supabase, [directDirectory()]);
 });
 
 test("direct verifier rejects nonexistent pending objects", async () => {
   const verifier = await loadVerifier();
   const result = await verifier.verifyDirectOrderUploads({
     supabase: new MockSupabase(),
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(directPath(0, "original")) }],
   });
@@ -700,7 +1196,14 @@ test("direct verifier rejects fabricated paths", async () => {
 test("direct verifier rejects malformed pending tokens", async () => {
   const verifier = await loadVerifier();
   const result = verifier.validateDirectPendingDescriptorStructure({
-    descriptor: descriptor("pending/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/0-original.jpg"),
+    descriptor: descriptor(
+      directPathForUserAndToken(
+        USER_ID,
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        0,
+        "original",
+      ),
+    ),
     itemIndex: 0,
     kind: "original",
   });
@@ -738,6 +1241,7 @@ test("direct verifier rejects duplicate pending paths in one order", async () =>
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [
       {
@@ -758,6 +1262,7 @@ test("direct verifier rejects actual size mismatch", async () => {
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(path) }],
   });
@@ -773,6 +1278,7 @@ test("direct verifier rejects actual MIME mismatch", async () => {
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(path) }],
   });
@@ -788,6 +1294,7 @@ test("direct verifier rejects actual files over 20 MB", async () => {
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [
       {
@@ -809,6 +1316,7 @@ test("direct verifier rejects disallowed MIME types by service and kind", async 
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "3d-floor-plans",
     itemFiles: [
       {
@@ -832,6 +1340,7 @@ test("direct verifier rejects missing required Storage metadata", async () => {
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [{ original: descriptor(path) }],
   });
@@ -847,6 +1356,7 @@ test("direct verifier returns normalized server-trusted metadata", async () => {
 
   const result = await verifier.verifyDirectOrderUploads({
     supabase,
+    ownerUserId: USER_ID,
     serviceType: "virtual-staging",
     itemFiles: [
       {
@@ -875,6 +1385,12 @@ test("successful direct finalization moves files and uses verified metadata", as
   assert.equal(result.ok, true);
   assert.equal(supabase.objects.has(directPath(0, "original")), false);
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.deepEqual(supabase.moves, [
+    {
+      sourcePath: directPath(0, "original"),
+      finalPath: finalPath(0, "original"),
+    },
+  ]);
   assert.equal(supabase.emailCalls.length, 1);
   const payload = getOrderItemsPayload(supabase);
   const details = asRecord(payload[0].details);

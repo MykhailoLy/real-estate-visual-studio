@@ -10,6 +10,9 @@ import {
   buildPendingPath,
   getAllowedMimeTypes,
   getFileExtension,
+  isCanonicalDirectPendingToken,
+  isCanonicalUploadExtension,
+  normalizeSupabaseUserId,
   type UploadKind,
 } from "@/lib/upload-config";
 
@@ -22,17 +25,15 @@ export const maxDuration = 30;
 /**
  * Token namespace for the in-progress upload group. The client passes
  * the same `pendingToken` for every file in a single order, so all of
- * them end up under `pending/<token>/...` and can be cleaned up
- * together on failure. Keep characters URL-safe and short enough to
- * round-trip cleanly.
+ * them end up under `pending/<user-id>/<token>/...` and can be cleaned
+ * up together on failure.
  */
-const PENDING_TOKEN_REGEX = /^[A-Za-z0-9_-]{8,64}$/;
 
 const RequestSchema = z.object({
   serviceType: ServiceTypeSchema,
   pendingToken: z
     .string()
-    .regex(PENDING_TOKEN_REGEX, "Invalid pendingToken format"),
+    .refine(isCanonicalDirectPendingToken, "Invalid pendingToken format"),
   itemIndex: z.number().int().min(0).max(99),
   kind: z.enum(["original", "reference"] as const),
   filename: z.string().min(1).max(255),
@@ -76,6 +77,14 @@ export async function POST(request: Request) {
       { status: 401 }
     );
   }
+  const ownerUserId = normalizeSupabaseUserId(sessionUser.id);
+  if (!ownerUserId) {
+    console.error("[upload-url] malformed authenticated session user id");
+    return NextResponse.json(
+      { error: "Could not prepare upload. Please try again." },
+      { status: 500 }
+    );
+  }
 
   let body: unknown;
   try {
@@ -116,13 +125,21 @@ export async function POST(request: Request) {
   }
 
   const ext = getFileExtension(filename);
-  const path = buildPendingPath(pendingToken, itemIndex, kind, ext);
+  if (!isCanonicalUploadExtension(ext)) {
+    return NextResponse.json(
+      { error: "Filename extension is not allowed." },
+      { status: 400 }
+    );
+  }
+  const path = buildPendingPath(ownerUserId, pendingToken, itemIndex, kind, ext);
 
   let supabase;
   try {
     supabase = getSupabaseAdmin();
   } catch (err) {
-    console.error("Supabase admin init failed:", err);
+    console.error("Supabase admin init failed:", {
+      reason: getSafeErrorLabel(err),
+    });
     return NextResponse.json(
       { error: "Server configuration error. Please try again later." },
       { status: 500 }
@@ -134,7 +151,9 @@ export async function POST(request: Request) {
     .createSignedUploadUrl(path);
 
   if (error || !data) {
-    console.error("createSignedUploadUrl failed:", error);
+    console.error("createSignedUploadUrl failed:", {
+      reason: getSafeErrorLabel(error),
+    });
     return NextResponse.json(
       { error: "Could not prepare upload. Please try again." },
       { status: 500 }
@@ -151,4 +170,21 @@ export async function POST(request: Request) {
     size,
     mimeType: contentType,
   });
+}
+
+function getSafeErrorLabel(error: unknown): string {
+  if (error instanceof Error && error.name) return error.name;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    if (typeof record.name === "string" && record.name.trim()) {
+      return record.name.trim();
+    }
+    if (typeof record.statusCode === "string" && record.statusCode.trim()) {
+      return `status:${record.statusCode.trim()}`;
+    }
+    if (typeof record.statusCode === "number") {
+      return `status:${record.statusCode}`;
+    }
+  }
+  return "StorageError";
 }

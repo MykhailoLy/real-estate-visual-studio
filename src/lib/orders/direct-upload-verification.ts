@@ -10,11 +10,12 @@ import {
   MAX_FILE_SIZE_BYTES,
   ORDER_FILES_BUCKET,
   getAllowedMimeTypes,
+  normalizeSupabaseUserId,
+  parseDirectPendingPath,
+  type DirectPendingPathParts,
   type UploadKind,
 } from "../upload-config.ts";
 
-const DIRECT_PENDING_PATH_REGEX =
-  /^pending\/([0-9a-f]{32})\/(\d+)-(original|reference)\.([A-Za-z0-9]+)$/;
 const DIRECT_PENDING_DIRECTORY_LIST_LIMIT = 100;
 
 const INVALID_UPLOAD_MESSAGE =
@@ -48,15 +49,6 @@ export interface VerifiedDirectOrderFileDescriptor extends UploadedFile {
 export interface VerifiedDirectOrderItemFiles {
   original: VerifiedDirectOrderFileDescriptor;
   reference?: VerifiedDirectOrderFileDescriptor | null;
-}
-
-interface DirectPendingPathParts {
-  pendingToken: string;
-  directory: string;
-  basename: string;
-  itemIndex: number;
-  kind: UploadKind;
-  extension: string;
 }
 
 interface DirectUploadCandidate {
@@ -110,11 +102,20 @@ export function validateDirectPendingDescriptorStructure(input: {
 
 export async function verifyDirectOrderUploads(input: {
   supabase: SupabaseClient;
+  ownerUserId: string;
   serviceType: ServiceType;
   itemFiles: ItemFiles[];
 }): Promise<DirectUploadVerificationResult<VerifiedDirectOrderItemFiles[]>> {
+  const ownerUserId = normalizeSupabaseUserId(input.ownerUserId);
+  if (!ownerUserId) return invalidDirectUpload();
+
   const candidates = collectDirectUploadCandidates(input.itemFiles);
   if (!candidates.ok) return candidates;
+  for (const candidate of candidates.data) {
+    if (candidate.path.userId !== ownerUserId) {
+      return invalidDirectUpload();
+    }
+  }
 
   const verifiedByPath = new Map<string, VerifiedDirectOrderFileDescriptor>();
   const candidatesByDirectory = groupDirectUploadCandidatesByDirectory(
@@ -208,34 +209,6 @@ function groupDirectUploadCandidatesByDirectory(
     candidatesByDirectory.set(candidate.path.directory, directoryCandidates);
   }
   return candidatesByDirectory;
-}
-
-function parseDirectPendingPath(path: string): DirectPendingPathParts | null {
-  const match = DIRECT_PENDING_PATH_REGEX.exec(path);
-  if (!match) return null;
-  if (path.split("/").length !== 3) return null;
-
-  const [, pendingToken, itemIndexText, kind, extension] = match;
-  const itemIndex = Number(itemIndexText);
-  if (
-    !pendingToken ||
-    !kind ||
-    !extension ||
-    !Number.isInteger(itemIndex) ||
-    itemIndex < 0 ||
-    itemIndexText !== String(itemIndex)
-  ) {
-    return null;
-  }
-
-  return {
-    pendingToken,
-    directory: `pending/${pendingToken}`,
-    basename: `${itemIndexText}-${kind}.${extension}`,
-    itemIndex,
-    kind: kind as UploadKind,
-    extension,
-  };
 }
 
 async function listStoredDirectObjectsInDirectory(

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from "./upload-config.ts";
+import {
+  MAX_FILE_SIZE_BYTES,
+  MAX_FILE_SIZE_MB,
+  parseDirectPendingPath,
+} from "./upload-config.ts";
 import {
   DEDICATED_PHOTO_EDITING_SUB_SERVICES,
   SUB_SERVICE_REQUIRED_OPTION,
@@ -304,17 +308,18 @@ export const PortfolioPermissionSchema = z.object({
 // Files are no longer streamed through /api/order. Instead the client
 // uploads directly to Supabase Storage via a signed upload URL and then
 // posts only this descriptor to /api/order. Path is constrained to the
-// `pending/<token>/...` namespace so a malicious client cannot point us
-// at arbitrary objects (e.g. another tenant's files).
+// `pending/<user-id>/<token>/...` namespace so a malicious client cannot
+// point us at arbitrary objects (e.g. another tenant's files). Direct
+// pending descriptors are hard-cut over to the user-bound path format.
 export const UploadedFileSchema = z.object({
   bucket: z.string().min(1).max(100),
   path: z
     .string()
     .min(1)
     .max(500)
-    .regex(
-      /^pending\/[A-Za-z0-9_-]+\/\d+-(original|reference)\.[A-Za-z0-9]+$/,
-      "Path must live under pending/<token>/..."
+    .refine(
+      (path) => parseDirectPendingPath(path) !== null,
+      "Path must live under pending/<user-id>/<token>/..."
     ),
   originalFilename: z.string().min(1).max(255),
   size: z
