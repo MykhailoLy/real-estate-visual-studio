@@ -38,7 +38,7 @@ const forbiddenHeaders = [
 ];
 
 const expectedContentSecurityPolicyReportOnly =
-  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com; font-src 'self'; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co; worker-src 'self'; manifest-src 'self'";
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
 
 const expectedContentSecurityPolicyReportOnlyHeader: ResponseHeader = {
   key: "Content-Security-Policy-Report-Only",
@@ -69,8 +69,14 @@ const forbiddenContentSecurityPolicyTokens = [
   "block-all-mixed-content",
   "'unsafe-eval'",
   "'strict-dynamic'",
+  "https://client.relay.crisp.chat",
+  "https://assets.crisp.chat",
+  "wss://stream.relay.crisp.chat",
+  "wss://client.relay.rescue.crisp.chat",
+  "crisp.help",
   "*.crisp.chat",
   "*.crisp.website",
+  "*.crisp.help",
 ];
 
 const expectedContentSecurityPolicyOrigins = [
@@ -78,8 +84,53 @@ const expectedContentSecurityPolicyOrigins = [
   "https://www.google-analytics.com",
   "https://region1.google-analytics.com",
   "https://client.crisp.chat",
+  "https://image.crisp.chat",
+  "https://storage.crisp.chat",
+  "wss://client.relay.crisp.chat",
   "https://grvltquwenaorucsvooc.supabase.co",
 ];
+
+const expectedCrispSourcesByDirective = {
+  "script-src": ["https://client.crisp.chat"],
+  "style-src": ["https://client.crisp.chat"],
+  "img-src": [
+    "https://client.crisp.chat",
+    "https://image.crisp.chat",
+    "https://storage.crisp.chat",
+  ],
+  "font-src": ["https://client.crisp.chat"],
+  "connect-src": [
+    "https://client.crisp.chat",
+    "https://storage.crisp.chat",
+    "wss://client.relay.crisp.chat",
+  ],
+  "media-src": ["https://client.crisp.chat", "https://storage.crisp.chat"],
+  "worker-src": ["blob:", "https://client.crisp.chat"],
+} as const;
+
+function parseContentSecurityPolicyDirectives(
+  value: string,
+): Map<string, string[]> {
+  const directives = new Map<string, string[]>();
+
+  for (const directive of value.split("; ")) {
+    const [name, ...sources] = directive.split(" ");
+
+    if (name) {
+      directives.set(name, sources);
+    }
+  }
+
+  return directives;
+}
+
+function getDirectiveSources(value: string, directive: string): string[] {
+  const sources = parseContentSecurityPolicyDirectives(value).get(directive);
+
+  assert.ok(sources, `Expected ${directive} directive to be present`);
+
+  return sources;
+}
 
 test("baseline security headers match the approved policy exactly", () => {
   const headers = getBaselineSecurityHeaders();
@@ -129,17 +180,20 @@ test("content security policy report-only header matches the approved policy exa
 
 test("content security policy report-only value contains each approved directive once", () => {
   const { value } = getContentSecurityPolicyReportOnlyHeader();
+  const directives = parseContentSecurityPolicyDirectives(value);
 
   for (const directive of expectedContentSecurityPolicyDirectives) {
     const matches = value.match(new RegExp(`(?:^|; )${directive}\\b`, "g"));
 
     assert.equal(matches?.length ?? 0, 1);
   }
+
+  assert.equal(directives.size, expectedContentSecurityPolicyDirectives.length);
 });
 
 test("content security policy report-only value excludes disallowed directives and source patterns", () => {
   const { key, value } = getContentSecurityPolicyReportOnlyHeader();
-  const sourceTokens = value.split(/\s+/);
+  const sourceTokens = value.replaceAll(";", "").split(/\s+/);
 
   assert.equal(key, "Content-Security-Policy-Report-Only");
   assert.notEqual(key, "Content-Security-Policy");
@@ -154,6 +208,7 @@ test("content security policy report-only value excludes disallowed directives a
   assert.equal(sourceTokens.includes("https:"), false);
   assert.equal(sourceTokens.includes("wss:"), false);
   assert.equal(sourceTokens.includes("*"), false);
+  assert.equal(sourceTokens.some((token) => token.includes("*.")), false);
 });
 
 test("content security policy report-only value includes the approved external origins", () => {
@@ -162,6 +217,31 @@ test("content security policy report-only value includes the approved external o
   for (const expectedOrigin of expectedContentSecurityPolicyOrigins) {
     assert.equal(value.includes(expectedOrigin), true);
   }
+});
+
+test("content security policy report-only keeps Crisp sources in approved directives", () => {
+  const { value } = getContentSecurityPolicyReportOnlyHeader();
+
+  for (const [directive, expectedSources] of Object.entries(
+    expectedCrispSourcesByDirective,
+  )) {
+    const sources = getDirectiveSources(value, directive);
+
+    for (const expectedSource of expectedSources) {
+      assert.equal(
+        sources.includes(expectedSource),
+        true,
+        `Expected ${expectedSource} in ${directive}`,
+      );
+    }
+  }
+});
+
+test("content security policy report-only does not add Crisp sources to frame-src", () => {
+  const { value } = getContentSecurityPolicyReportOnlyHeader();
+  const frameSources = getDirectiveSources(value, "frame-src");
+
+  assert.equal(frameSources.some((source) => source.includes("crisp")), false);
 });
 
 test("content security policy report-only header is returned without shared mutable state", () => {
