@@ -3,7 +3,7 @@ import test from "node:test";
 import nextConfig from "../../next.config.ts";
 import {
   getBaselineSecurityHeaders,
-  getContentSecurityPolicyReportOnlyHeader,
+  getContentSecurityPolicyHeader,
   type ResponseHeader,
 } from "./security-headers.ts";
 
@@ -37,13 +37,16 @@ const forbiddenHeaders = [
   "Cross-Origin-Resource-Policy",
 ];
 
-const expectedContentSecurityPolicyReportOnly =
+const expectedContentSecurityPolicy =
   "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
 
-const expectedContentSecurityPolicyReportOnlyHeader: ResponseHeader = {
-  key: "Content-Security-Policy-Report-Only",
-  value: expectedContentSecurityPolicyReportOnly,
+const expectedContentSecurityPolicyHeader: ResponseHeader = {
+  key: "Content-Security-Policy",
+  value: expectedContentSecurityPolicy,
 };
+
+const expectedContentSecurityPolicyDirectiveValues =
+  expectedContentSecurityPolicy.split("; ");
 
 const expectedContentSecurityPolicyDirectives = [
   "default-src",
@@ -89,6 +92,38 @@ const expectedContentSecurityPolicyOrigins = [
   "wss://client.relay.crisp.chat",
   "https://grvltquwenaorucsvooc.supabase.co",
 ];
+
+const expectedExternalSourcesByDirective = {
+  "script-src": [
+    "https://www.googletagmanager.com",
+    "https://client.crisp.chat",
+  ],
+  "style-src": ["https://client.crisp.chat"],
+  "img-src": [
+    "https://grvltquwenaorucsvooc.supabase.co",
+    "https://www.google-analytics.com",
+    "https://www.googletagmanager.com",
+    "https://client.crisp.chat",
+    "https://image.crisp.chat",
+    "https://storage.crisp.chat",
+  ],
+  "font-src": ["https://client.crisp.chat"],
+  "connect-src": [
+    "https://grvltquwenaorucsvooc.supabase.co",
+    "https://www.google-analytics.com",
+    "https://region1.google-analytics.com",
+    "https://client.crisp.chat",
+    "https://storage.crisp.chat",
+    "wss://client.relay.crisp.chat",
+  ],
+  "frame-src": ["https://grvltquwenaorucsvooc.supabase.co"],
+  "media-src": [
+    "https://grvltquwenaorucsvooc.supabase.co",
+    "https://client.crisp.chat",
+    "https://storage.crisp.chat",
+  ],
+  "worker-src": ["https://client.crisp.chat"],
+} as const;
 
 const expectedCrispSourcesByDirective = {
   "script-src": ["https://client.crisp.chat"],
@@ -171,15 +206,25 @@ test("baseline security headers are returned as independent arrays", () => {
   assert.deepEqual(getBaselineSecurityHeaders(), expectedHeaders);
 });
 
-test("content security policy report-only header matches the approved policy exactly", () => {
+test("content security policy header matches the approved policy exactly", () => {
   assert.deepEqual(
-    getContentSecurityPolicyReportOnlyHeader(),
-    expectedContentSecurityPolicyReportOnlyHeader,
+    getContentSecurityPolicyHeader(),
+    expectedContentSecurityPolicyHeader,
   );
 });
 
-test("content security policy report-only value contains each approved directive once", () => {
-  const { value } = getContentSecurityPolicyReportOnlyHeader();
+test("content security policy value preserves approved directive and source order", () => {
+  const { value } = getContentSecurityPolicyHeader();
+
+  assert.equal(value, expectedContentSecurityPolicy);
+  assert.deepEqual(
+    value.split("; "),
+    expectedContentSecurityPolicyDirectiveValues,
+  );
+});
+
+test("content security policy value contains each approved directive once", () => {
+  const { value } = getContentSecurityPolicyHeader();
   const directives = parseContentSecurityPolicyDirectives(value);
 
   for (const directive of expectedContentSecurityPolicyDirectives) {
@@ -191,12 +236,12 @@ test("content security policy report-only value contains each approved directive
   assert.equal(directives.size, expectedContentSecurityPolicyDirectives.length);
 });
 
-test("content security policy report-only value excludes disallowed directives and source patterns", () => {
-  const { key, value } = getContentSecurityPolicyReportOnlyHeader();
+test("content security policy value excludes disallowed directives and source patterns", () => {
+  const { key, value } = getContentSecurityPolicyHeader();
   const sourceTokens = value.replaceAll(";", "").split(/\s+/);
 
-  assert.equal(key, "Content-Security-Policy-Report-Only");
-  assert.notEqual(key, "Content-Security-Policy");
+  assert.equal(key, "Content-Security-Policy");
+  assert.notEqual(key, "Content-Security-Policy-Report-Only");
   assert.equal(/[\r\n]/.test(value), false);
 
   for (const forbiddenToken of forbiddenContentSecurityPolicyTokens) {
@@ -209,18 +254,37 @@ test("content security policy report-only value excludes disallowed directives a
   assert.equal(sourceTokens.includes("wss:"), false);
   assert.equal(sourceTokens.includes("*"), false);
   assert.equal(sourceTokens.some((token) => token.includes("*.")), false);
+  assert.equal(/\*\.crisp\./.test(value), false);
 });
 
-test("content security policy report-only value includes the approved external origins", () => {
-  const { value } = getContentSecurityPolicyReportOnlyHeader();
+test("content security policy value includes the approved external origins", () => {
+  const { value } = getContentSecurityPolicyHeader();
 
   for (const expectedOrigin of expectedContentSecurityPolicyOrigins) {
     assert.equal(value.includes(expectedOrigin), true);
   }
 });
 
-test("content security policy report-only keeps Crisp sources in approved directives", () => {
-  const { value } = getContentSecurityPolicyReportOnlyHeader();
+test("content security policy keeps approved external sources in their directives", () => {
+  const { value } = getContentSecurityPolicyHeader();
+
+  for (const [directive, expectedSources] of Object.entries(
+    expectedExternalSourcesByDirective,
+  )) {
+    const sources = getDirectiveSources(value, directive);
+
+    for (const expectedSource of expectedSources) {
+      assert.equal(
+        sources.includes(expectedSource),
+        true,
+        `Expected ${expectedSource} in ${directive}`,
+      );
+    }
+  }
+});
+
+test("content security policy keeps Crisp sources in approved directives", () => {
+  const { value } = getContentSecurityPolicyHeader();
 
   for (const [directive, expectedSources] of Object.entries(
     expectedCrispSourcesByDirective,
@@ -237,24 +301,24 @@ test("content security policy report-only keeps Crisp sources in approved direct
   }
 });
 
-test("content security policy report-only does not add Crisp sources to frame-src", () => {
-  const { value } = getContentSecurityPolicyReportOnlyHeader();
+test("content security policy does not add Crisp sources to frame-src", () => {
+  const { value } = getContentSecurityPolicyHeader();
   const frameSources = getDirectiveSources(value, "frame-src");
 
   assert.equal(frameSources.some((source) => source.includes("crisp")), false);
 });
 
-test("content security policy report-only header is returned without shared mutable state", () => {
-  const firstHeader = getContentSecurityPolicyReportOnlyHeader();
-  const secondHeader = getContentSecurityPolicyReportOnlyHeader();
+test("content security policy header is returned without shared mutable state", () => {
+  const firstHeader = getContentSecurityPolicyHeader();
+  const secondHeader = getContentSecurityPolicyHeader();
 
   assert.notEqual(firstHeader, secondHeader);
 
   firstHeader.value = "mutated";
 
   assert.deepEqual(
-    getContentSecurityPolicyReportOnlyHeader(),
-    expectedContentSecurityPolicyReportOnlyHeader,
+    getContentSecurityPolicyHeader(),
+    expectedContentSecurityPolicyHeader,
   );
 });
 
@@ -266,15 +330,12 @@ test("next config exposes baseline security headers for all paths", async () => 
   assert.deepEqual(headerRules, [
     {
       source: "/:path*",
-      headers: [
-        ...expectedHeaders,
-        expectedContentSecurityPolicyReportOnlyHeader,
-      ],
+      headers: [...expectedHeaders, expectedContentSecurityPolicyHeader],
     },
   ]);
 });
 
-test("next config exposes one report-only CSP and no enforced CSP", async () => {
+test("next config exposes one enforced CSP and no report-only CSP", async () => {
   assert.equal(typeof nextConfig.headers, "function");
 
   const headerRules = await nextConfig.headers();
@@ -286,13 +347,14 @@ test("next config exposes one report-only CSP and no enforced CSP", async () => 
   assert.equal(headerRules[0].source, "/:path*");
   assert.equal(headerRules[0].headers.length, 5);
   assert.equal(
-    headerNames.filter(
-      (headerName) => headerName === "Content-Security-Policy-Report-Only",
-    ).length,
+    headerNames.filter((headerName) => headerName === "Content-Security-Policy")
+      .length,
     1,
   );
   assert.equal(
-    headerNames.some((headerName) => headerName === "Content-Security-Policy"),
+    headerNames.some(
+      (headerName) => headerName === "Content-Security-Policy-Report-Only",
+    ),
     false,
   );
 });

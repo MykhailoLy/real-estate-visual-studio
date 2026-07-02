@@ -23,7 +23,7 @@ const BASELINE_SECURITY_HEADERS = [
   },
 ] as const satisfies readonly ResponseHeader[];
 
-const CONTENT_SECURITY_POLICY_REPORT_ONLY_DIRECTIVES = [
+const CONTENT_SECURITY_POLICY_DIRECTIVES = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -44,9 +44,9 @@ export function getBaselineSecurityHeaders(): ResponseHeader[] {
   return BASELINE_SECURITY_HEADERS.map((header) => ({ ...header }));
 }
 
-export function getContentSecurityPolicyReportOnlyHeader(): ResponseHeader {
+export function getContentSecurityPolicyHeader(): ResponseHeader {
   return {
-    key: "Content-Security-Policy-Report-Only",
-    value: CONTENT_SECURITY_POLICY_REPORT_ONLY_DIRECTIVES.join("; "),
+    key: "Content-Security-Policy",
+    value: CONTENT_SECURITY_POLICY_DIRECTIVES.join("; "),
   };
 }
