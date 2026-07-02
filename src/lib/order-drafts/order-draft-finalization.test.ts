@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import "../orders/direct-order-file-integrity.test.ts";
 import {
   DraftFinalizationBodySchema,
   STALE_DRAFT_FINALIZATION_CLAIM_MINUTES,
@@ -529,7 +530,11 @@ test("ordinary /api/order continues using move mode", () => {
 });
 
 test("final copy cleanup occurs on pre-order failure", () => {
-  assert.match(ORDER_SERVICE, /cleanupFinalPaths\(supabase, copiedFinalPaths\)/);
+  assert.match(ORDER_SERVICE, /cleanupAfterFinalizationFailure/);
+  assert.match(
+    ORDER_SERVICE,
+    /cleanupFinalPaths\(input\.supabase, input\.copiedFinalPaths\)/,
+  );
 });
 
 test("source draft objects are retained until DB success", () => {
