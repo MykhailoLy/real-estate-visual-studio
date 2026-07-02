@@ -15,6 +15,7 @@ import {
 
 const DIRECT_PENDING_PATH_REGEX =
   /^pending\/([0-9a-f]{32})\/(\d+)-(original|reference)\.([A-Za-z0-9]+)$/;
+const DIRECT_PENDING_DIRECTORY_LIST_LIMIT = 100;
 
 const INVALID_UPLOAD_MESSAGE =
   "Uploaded files could not be verified. Please refresh and upload again.";
@@ -116,21 +117,29 @@ export async function verifyDirectOrderUploads(input: {
   if (!candidates.ok) return candidates;
 
   const verifiedByPath = new Map<string, VerifiedDirectOrderFileDescriptor>();
+  const candidatesByDirectory = groupDirectUploadCandidatesByDirectory(
+    candidates.data,
+  );
 
-  for (const candidate of candidates.data) {
-    const stored = await getStoredDirectObjectInfo(
+  for (const [directory, directoryCandidates] of candidatesByDirectory) {
+    const storedObjects = await listStoredDirectObjectsInDirectory(
       input.supabase,
-      candidate.path,
+      directory,
     );
-    if (!stored.ok) return stored;
+    if (!storedObjects.ok) return storedObjects;
 
-    const verified = verifyStoredDirectObject({
-      serviceType: input.serviceType,
-      candidate,
-      object: stored.data,
-    });
-    if (!verified.ok) return verified;
-    verifiedByPath.set(candidate.descriptor.path, verified.data);
+    const storedByBasename = mapStoredObjectsByBasename(storedObjects.data);
+
+    for (const candidate of directoryCandidates) {
+      const verified = verifyStoredDirectObject({
+        serviceType: input.serviceType,
+        candidate,
+        object: storedByBasename.get(candidate.path.basename) ?? null,
+      });
+      if (!verified.ok) return verified;
+
+      verifiedByPath.set(candidate.descriptor.path, verified.data);
+    }
   }
 
   return {
@@ -188,6 +197,19 @@ function collectDirectUploadCandidates(
   return { ok: true, data: candidates };
 }
 
+function groupDirectUploadCandidatesByDirectory(
+  candidates: DirectUploadCandidate[],
+): Map<string, DirectUploadCandidate[]> {
+  const candidatesByDirectory = new Map<string, DirectUploadCandidate[]>();
+  for (const candidate of candidates) {
+    const directoryCandidates =
+      candidatesByDirectory.get(candidate.path.directory) ?? [];
+    directoryCandidates.push(candidate);
+    candidatesByDirectory.set(candidate.path.directory, directoryCandidates);
+  }
+  return candidatesByDirectory;
+}
+
 function parseDirectPendingPath(path: string): DirectPendingPathParts | null {
   const match = DIRECT_PENDING_PATH_REGEX.exec(path);
   if (!match) return null;
@@ -216,14 +238,14 @@ function parseDirectPendingPath(path: string): DirectPendingPathParts | null {
   };
 }
 
-async function getStoredDirectObjectInfo(
+async function listStoredDirectObjectsInDirectory(
   supabase: SupabaseClient,
-  path: DirectPendingPathParts,
-): Promise<DirectUploadVerificationResult<StoredDirectObjectInfo | null>> {
+  directory: string,
+): Promise<DirectUploadVerificationResult<SupabaseStorageObject[]>> {
   try {
     const { data, error } = await supabase.storage
       .from(ORDER_FILES_BUCKET)
-      .list(path.directory, { search: path.basename, limit: 100 });
+      .list(directory, { limit: DIRECT_PENDING_DIRECTORY_LIST_LIMIT });
 
     if (error) {
       console.error("[orders] direct upload storage list failed:", {
@@ -232,13 +254,9 @@ async function getStoredDirectObjectInfo(
       return storageVerificationError();
     }
 
-    const object = (data ?? []).find((entry) => entry.name === path.basename) as
-      | SupabaseStorageObject
-      | undefined;
-
     return {
       ok: true,
-      data: object ? mapStorageObjectInfo(object) : null,
+      data: (data ?? []) as SupabaseStorageObject[],
     };
   } catch (error) {
     console.error("[orders] direct upload storage verification threw:", {
@@ -246,6 +264,19 @@ async function getStoredDirectObjectInfo(
     });
     return storageVerificationError();
   }
+}
+
+function mapStoredObjectsByBasename(
+  objects: SupabaseStorageObject[],
+): Map<string, StoredDirectObjectInfo> {
+  const objectsByBasename = new Map<string, StoredDirectObjectInfo>();
+  for (const object of objects) {
+    const info = mapStorageObjectInfo(object);
+    if (!objectsByBasename.has(info.name)) {
+      objectsByBasename.set(info.name, info);
+    }
+  }
+  return objectsByBasename;
 }
 
 function verifyStoredDirectObject(input: {

@@ -12,6 +12,7 @@ import {
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const TOKEN = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const SECOND_TOKEN = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const ORDER_NUMBER = "VS-0001";
 
 const SUPABASE_ADMIN_MOCK_URL = `data:text/javascript,${encodeURIComponent(`
@@ -171,12 +172,14 @@ interface ListOperationForTest {
   bucket: string;
   directory: string;
   search?: string;
+  limit?: number;
 }
 
 interface MockSupabaseOptions {
   rpcError?: boolean;
   orderInsertError?: boolean;
   orderItemsInsertError?: boolean;
+  listFailures?: string[];
   moveFailures?: string[];
   copyFailures?: string[];
   emailResult?: EmailMockResult;
@@ -192,6 +195,7 @@ class MockSupabase {
   readonly deletes: DeleteOperationForTest[] = [];
   readonly rpcCalls: Array<{ name: string; params: unknown }> = [];
   readonly emailCalls: unknown[] = [];
+  private readonly listFailures: Set<string>;
   private readonly moveFailures: Set<string>;
   private readonly copyFailures: Set<string>;
   private readonly options: MockSupabaseOptions;
@@ -202,7 +206,15 @@ class MockSupabase {
         directory: string,
         options?: { search?: string; limit?: number },
       ) => {
-        this.listCalls.push({ bucket, directory, search: options?.search });
+        this.listCalls.push({
+          bucket,
+          directory,
+          search: options?.search,
+          limit: options?.limit,
+        });
+        if (this.listFailures.has(directory)) {
+          return { data: null, error: storageError("ListFailed") };
+        }
         const prefix = `${directory}/`;
         const data = Array.from(this.objects.entries())
           .filter(([path]) => path.startsWith(prefix))
@@ -213,7 +225,8 @@ class MockSupabase {
           .filter((entry) => !entry.name.includes("/"))
           .filter((entry) =>
             options?.search ? entry.name.includes(options.search) : true,
-          );
+          )
+          .slice(0, options?.limit);
         return { data, error: null };
       },
       move: async (sourcePath: string, finalPath: string) => {
@@ -247,6 +260,7 @@ class MockSupabase {
 
   constructor(options: MockSupabaseOptions = {}) {
     this.options = options;
+    this.listFailures = new Set(options.listFailures ?? []);
     this.moveFailures = new Set(options.moveFailures ?? []);
     this.copyFailures = new Set(options.copyFailures ?? []);
   }
@@ -351,12 +365,21 @@ function moveKey(sourcePath: string, finalPath: string): string {
   return `${sourcePath}->${finalPath}`;
 }
 
+function directPathForToken(
+  token: string,
+  itemIndex: number,
+  kind: UploadKind,
+  extension = "jpg",
+): string {
+  return `pending/${token}/${itemIndex}-${kind}.${extension}`;
+}
+
 function directPath(
   itemIndex: number,
   kind: UploadKind,
   extension = "jpg",
 ): string {
-  return `pending/${TOKEN}/${itemIndex}-${kind}.${extension}`;
+  return directPathForToken(TOKEN, itemIndex, kind, extension);
 }
 
 function finalPath(
@@ -482,6 +505,21 @@ function assertFailure(
   assert.equal(result.code, code);
 }
 
+function assertListCalls(
+  supabase: MockSupabase,
+  directories: string[],
+): void {
+  assert.deepEqual(
+    supabase.listCalls,
+    directories.map((directory) => ({
+      bucket: ORDER_FILES_BUCKET,
+      directory,
+      search: undefined,
+      limit: 100,
+    })),
+  );
+}
+
 function getOrderItemsPayload(supabase: MockSupabase): Record<string, unknown>[] {
   const insert = supabase.inserts.find((entry) => entry.table === "order_items");
   assert.ok(insert);
@@ -511,6 +549,7 @@ test("direct verifier accepts a valid original file", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.data?.[0]?.original.size, 1234);
   assert.equal(result.data?.[0]?.original.mimeType, "image/jpeg");
+  assertListCalls(supabase, [`pending/${TOKEN}`]);
 });
 
 test("direct verifier accepts an original plus reference", async () => {
@@ -538,6 +577,101 @@ test("direct verifier accepts an original plus reference", async () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.data?.[0]?.reference?.size, 2222);
+  assertListCalls(supabase, [`pending/${TOKEN}`]);
+});
+
+test("direct verifier lists one directory for multiple same-token items", async () => {
+  const itemFiles = itemFilesForDirectOrder(3);
+  const supabase = new MockSupabase();
+  addStoredObjects(supabase, itemFiles);
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    serviceType: "virtual-staging",
+    itemFiles,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.data?.length, 3);
+  assertListCalls(supabase, [`pending/${TOKEN}`]);
+});
+
+test("direct verifier lists each distinct pending-token directory once", async () => {
+  const firstPath = directPath(0, "original");
+  const secondPath = directPathForToken(SECOND_TOKEN, 1, "original");
+  const itemFiles = [
+    { original: descriptor(firstPath) },
+    { original: descriptor(secondPath) },
+  ];
+  const supabase = new MockSupabase();
+  addStoredObjects(supabase, itemFiles);
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    serviceType: "virtual-staging",
+    itemFiles,
+  });
+
+  assert.equal(result.ok, true);
+  assertListCalls(supabase, [`pending/${TOKEN}`, `pending/${SECOND_TOKEN}`]);
+});
+
+test("direct verifier rejects a missing exact basename when similar objects exist", async () => {
+  const requestedPath = directPath(0, "original");
+  const supabase = new MockSupabase();
+  supabase.addObject(`${requestedPath}.backup`, metadata(1234, "image/jpeg"));
+  supabase.addObject(
+    `pending/${TOKEN}/0-original.jpeg`,
+    metadata(1234, "image/jpeg"),
+  );
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    serviceType: "virtual-staging",
+    itemFiles: [{ original: descriptor(requestedPath) }],
+  });
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(result.status, 409);
+  assertListCalls(supabase, [`pending/${TOKEN}`]);
+});
+
+test("direct verifier validates size and MIME from the exact directory object", async () => {
+  const requestedPath = directPath(0, "original");
+  const supabase = new MockSupabase();
+  supabase.addObject(requestedPath, metadata(9999, "image/png"));
+  supabase.addObject(`${requestedPath}.backup`, metadata(1234, "image/jpeg"));
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    serviceType: "virtual-staging",
+    itemFiles: [{ original: descriptor(requestedPath) }],
+  });
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(result.status, 400);
+  assertListCalls(supabase, [`pending/${TOKEN}`]);
+});
+
+test("direct verifier returns storage_error when a directory list fails", async () => {
+  const path = directPath(0, "original");
+  const supabase = new MockSupabase({ listFailures: [`pending/${TOKEN}`] });
+  supabase.addObject(path, metadata(1234, "image/jpeg"));
+  const verifier = await loadVerifier();
+
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase,
+    serviceType: "virtual-staging",
+    itemFiles: [{ original: descriptor(path) }],
+  });
+
+  assertFailure(result, "storage_error");
+  assert.equal(result.status, 500);
+  assertListCalls(supabase, [`pending/${TOKEN}`]);
 });
 
 test("direct verifier rejects nonexistent pending objects", async () => {
