@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import {
   getBaselineSecurityHeaders,
-  getContentSecurityPolicyReportOnlyHeader,
+  getContentSecurityPolicyHeader,
 } from "./src/lib/security-headers.ts";
 
 const nextConfig: NextConfig = {
@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: [
           ...getBaselineSecurityHeaders(),
-          getContentSecurityPolicyReportOnlyHeader(),
+          getContentSecurityPolicyHeader(),
         ],
       },
     ];
