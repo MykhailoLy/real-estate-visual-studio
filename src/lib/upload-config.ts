@@ -40,6 +40,43 @@ export const ALLOWED_REFERENCE_MIME_TYPES = ALLOWED_IMAGE_MIME_TYPES;
 
 export type UploadKind = "original" | "reference";
 
+const SUPABASE_USER_ID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const DIRECT_PENDING_TOKEN_REGEX = /^[0-9a-f]{32}$/;
+const UPLOAD_EXTENSION_REGEX = /^[a-z0-9]{1,16}$/;
+const DIRECT_PENDING_BASENAME_REGEX =
+  /^(0|[1-9][0-9]*)-(original|reference)\.([a-z0-9]{1,16})$/;
+
+export interface DirectPendingPathParts {
+  userId: string;
+  pendingToken: string;
+  directory: string;
+  basename: string;
+  itemIndex: number;
+  kind: UploadKind;
+  extension: string;
+}
+
+export function isCanonicalSupabaseUserId(value: string): boolean {
+  return SUPABASE_USER_ID_REGEX.test(value);
+}
+
+export function normalizeSupabaseUserId(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return isCanonicalSupabaseUserId(normalized) ? normalized : null;
+}
+
+export function isCanonicalDirectPendingToken(value: string): boolean {
+  return DIRECT_PENDING_TOKEN_REGEX.test(value);
+}
+
+export function isCanonicalUploadExtension(value: string): boolean {
+  return UPLOAD_EXTENSION_REGEX.test(value);
+}
+
 /**
  * Pick the right allowed-MIME-type list for a given upload slot.
  *
@@ -66,18 +103,74 @@ export function getFileExtension(filename: string): string {
 
 /**
  * Build the storage path for an uploaded file *before* an order number
- * has been generated. Files live under `pending/<token>/...` until the
- * order is created, at which point the API moves them to
- * `<orderNumber>/...`. Includes the slot kind so an item can have both
- * an original and a reference without collisions.
+ * has been generated. Files live under
+ * `pending/<authenticated-user-id>/<token>/...` until the order is
+ * created, at which point the API moves them to `<orderNumber>/...`.
+ * Includes the slot kind so an item can have both an original and a
+ * reference without collisions.
  */
 export function buildPendingPath(
+  userId: string,
   pendingToken: string,
   itemIndex: number,
   kind: UploadKind,
   ext: string,
 ): string {
-  return `pending/${pendingToken}/${itemIndex}-${kind}.${ext}`;
+  if (
+    !isCanonicalSupabaseUserId(userId) ||
+    !isCanonicalDirectPendingToken(pendingToken) ||
+    !Number.isInteger(itemIndex) ||
+    itemIndex < 0 ||
+    (kind !== "original" && kind !== "reference") ||
+    !isCanonicalUploadExtension(ext)
+  ) {
+    throw new Error("Invalid pending upload path input.");
+  }
+
+  return `pending/${userId}/${pendingToken}/${itemIndex}-${kind}.${ext}`;
+}
+
+export function parseDirectPendingPath(
+  path: string,
+): DirectPendingPathParts | null {
+  const segments = path.split("/");
+  if (segments.length !== 4) return null;
+
+  const [namespace, userId, pendingToken, basename] = segments;
+  if (
+    namespace !== "pending" ||
+    !userId ||
+    !pendingToken ||
+    !basename ||
+    !isCanonicalSupabaseUserId(userId) ||
+    !isCanonicalDirectPendingToken(pendingToken)
+  ) {
+    return null;
+  }
+
+  const basenameMatch = DIRECT_PENDING_BASENAME_REGEX.exec(basename);
+  if (!basenameMatch) return null;
+
+  const [, itemIndexText, kind, extension] = basenameMatch;
+  const itemIndex = Number(itemIndexText);
+  if (
+    !Number.isInteger(itemIndex) ||
+    itemIndex < 0 ||
+    itemIndexText !== String(itemIndex) ||
+    !isCanonicalUploadExtension(extension)
+  ) {
+    return null;
+  }
+
+  return {
+    userId,
+    pendingToken,
+    directory: `pending/${userId}/${pendingToken}`,
+    basename,
+    itemIndex,
+    kind: kind as UploadKind,
+    extension,
+  };
 }
 
 /**

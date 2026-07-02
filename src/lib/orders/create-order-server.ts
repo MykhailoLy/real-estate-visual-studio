@@ -359,6 +359,7 @@ export async function createProductionOrder(
     input.storageMode === "move"
       ? await verifyDirectOrderUploads({
           supabase,
+          ownerUserId: input.ownerUserId,
           serviceType: input.serviceType,
           itemFiles: input.itemFiles,
         })
