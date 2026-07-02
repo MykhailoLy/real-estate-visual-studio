@@ -73,9 +73,20 @@ export default function StyleGallerySection({
     [openId]
   );
 
+  const activeImages = useMemo(() => {
+    if (!activeEntry) return [];
+    return imagesByTitle.get(normalizeStyleTitle(activeEntry.label)) ?? [];
+  }, [activeEntry, imagesByTitle]);
+
   const handleOpen = (id: string, imageIndex: number) => {
+    const entry = STAGING_STYLE_GALLERY.find((e) => e.id === id);
+    if (!entry) return;
+
+    const images = imagesByTitle.get(normalizeStyleTitle(entry.label)) ?? [];
+    if (images.length === 0) return;
+
     setOpenId(id);
-    setOpenIndex(imageIndex);
+    setOpenIndex(Math.min(Math.max(0, imageIndex), images.length - 1));
   };
 
   const handleClose = () => {
@@ -88,13 +99,13 @@ export default function StyleGallerySection({
         {STAGING_STYLE_GALLERY.map((entry) => {
           const uploadedImages = imagesByTitle.get(
             normalizeStyleTitle(entry.label)
-          );
+          ) ?? [];
           return (
             <StyleGalleryCard
               key={entry.id}
               entry={entry}
-              coverOverride={uploadedImages?.[0]}
-              exampleCount={uploadedImages?.length}
+              coverOverride={uploadedImages[0]}
+              exampleCount={uploadedImages.length}
               labels={{
                 label: copy?.[entry.id]?.label,
                 description: copy?.[entry.id]?.description,
@@ -113,13 +124,10 @@ export default function StyleGallerySection({
         {helperText}
       </p>
 
-      {activeEntry && (
+      {activeEntry && activeImages.length > 0 && (
         <ImageLightbox
           key={activeEntry.id}
-          images={
-            imagesByTitle.get(normalizeStyleTitle(activeEntry.label)) ??
-            activeEntry.images
-          }
+          images={activeImages}
           initialIndex={openIndex}
           title={copy?.[activeEntry.id]?.label ?? activeEntry.label}
           onClose={handleClose}

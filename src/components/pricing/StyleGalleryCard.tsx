@@ -35,8 +35,8 @@ interface StyleGalleryCardProps {
  *   tablet  : 2 cols  → comfortable pair
  *   desktop : 3 cols  → nine styles in 3 rows
  *
- * Plain <img> with onError fallback: preview images live in /public
- * and may not exist yet; the placeholder block stands in silently.
+ * Covers render only from uploaded service-options images. If a style
+ * has no uploaded image, the existing CSS placeholder is shown.
  */
 export default function StyleGalleryCard({
   entry,
@@ -46,22 +46,23 @@ export default function StyleGalleryCard({
   onOpen,
 }: StyleGalleryCardProps) {
   const [coverFailed, setCoverFailed] = useState(false);
-  const cover = coverOverride ?? entry.images[0];
-  const totalImages = exampleCount ?? entry.images.length;
-
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(entry.id, 0)}
-      aria-label={labels?.openGallery ?? `Open ${entry.label} style gallery`}
-      className="group relative text-left rounded-2xl border border-stone-200 bg-white overflow-hidden transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
-    >
+  const cover = coverOverride;
+  const totalImages = exampleCount ?? 0;
+  const hasGallery = totalImages > 0 && Boolean(cover);
+  const title = labels?.label ?? entry.label;
+  const description = labels?.description ?? entry.description;
+  const interactiveClassName = hasGallery
+    ? "transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2"
+    : "";
+  const cardClassName = `group relative text-left rounded-2xl border border-stone-200 bg-white overflow-hidden ${interactiveClassName}`;
+  const cardContent = (
+    <>
       {/* ── Cover image — 16:9 horizontal ── */}
       <div className="relative aspect-video overflow-hidden bg-stone-100">
         {coverFailed || !cover ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200">
             <span className="text-[10px] sm:text-xs font-semibold tracking-[0.18em] uppercase text-muted px-3 text-center">
-              {labels?.label ?? entry.label}
+              {title}
             </span>
           </div>
         ) : (
@@ -82,32 +83,49 @@ export default function StyleGalleryCard({
           className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/40 via-black/10 to-transparent"
         />
 
-        {totalImages > 1 && (
+        {hasGallery && totalImages > 1 && (
           <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/92 backdrop-blur text-[11px] font-medium text-primary shadow-sm">
             <Images className="w-3.5 h-3.5" aria-hidden />
             {totalImages} {labels?.examples ?? "examples"}
           </span>
         )}
 
-        <span
-          aria-hidden="true"
-          className="absolute bottom-2.5 right-3 w-7 h-7 rounded-full bg-white/92 backdrop-blur text-primary flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-        </span>
+        {hasGallery && (
+          <span
+            aria-hidden="true"
+            className="absolute bottom-2.5 right-3 w-7 h-7 rounded-full bg-white/92 backdrop-blur text-primary flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </span>
+        )}
       </div>
 
       {/* ── Card body ── */}
       <div className="px-4 py-3.5 lg:px-5 lg:py-4">
         <h3 className="text-sm lg:text-base font-bold text-primary tracking-tight leading-tight">
-          {labels?.label ?? entry.label}
+          {title}
         </h3>
-        {(labels?.description ?? entry.description) && (
+        {description && (
           <p className="text-xs text-muted mt-0.5 leading-relaxed line-clamp-1">
-            {labels?.description ?? entry.description}
+            {description}
           </p>
         )}
       </div>
+    </>
+  );
+
+  if (!hasGallery) {
+    return <article className={cardClassName}>{cardContent}</article>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(entry.id, 0)}
+      aria-label={labels?.openGallery ?? `Open ${entry.label} style gallery`}
+      className={cardClassName}
+    >
+      {cardContent}
     </button>
   );
 }
