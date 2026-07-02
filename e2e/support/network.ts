@@ -53,7 +53,8 @@ export async function installSmokeNetworkGuards(
   ).origin;
 
   await page.route("**/*", async (route) => {
-    const requestUrl = route.request().url();
+    const request = route.request();
+    const requestUrl = request.url();
     const parsedUrl = safeParseUrl(requestUrl);
 
     if (parsedUrl && isAnalyticsHost(parsedUrl.hostname)) {
@@ -67,16 +68,17 @@ export async function installSmokeNetworkGuards(
       return;
     }
 
-    await route.continue();
-  });
-
-  page.on("request", (request) => {
-    const parsedUrl = safeParseUrl(request.url());
-    if (!parsedUrl || parsedUrl.origin !== baseOrigin) return;
-
-    if (isForbiddenApiPath(parsedUrl.pathname)) {
+    if (
+      parsedUrl &&
+      parsedUrl.origin === baseOrigin &&
+      isForbiddenApiPath(parsedUrl.pathname)
+    ) {
       state.forbiddenApiCalls.push(`${request.method()} ${parsedUrl.pathname}`);
+      await route.abort("blockedbyclient");
+      return;
     }
+
+    await route.continue();
   });
 
   page.on("response", (response) => {
