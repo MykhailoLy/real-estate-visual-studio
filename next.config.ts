@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
+import { getBaselineSecurityHeaders } from "./src/lib/security-headers.ts";
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: getBaselineSecurityHeaders(),
+      },
+    ];
+  },
   async redirects() {
     return [
       {
