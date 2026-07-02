@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from "./upload-config.ts";
 import {
   DEDICATED_PHOTO_EDITING_SUB_SERVICES,
   SUB_SERVICE_REQUIRED_OPTION,
@@ -320,7 +321,7 @@ export const UploadedFileSchema = z.object({
     .number()
     .int()
     .min(1, "File appears to be empty")
-    .max(100 * 1024 * 1024, "File too large"),
+    .max(MAX_FILE_SIZE_BYTES, `File exceeds ${MAX_FILE_SIZE_MB} MB limit`),
   mimeType: z.string().min(1).max(255),
 });
 

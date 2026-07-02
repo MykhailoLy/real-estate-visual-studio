@@ -40,6 +40,10 @@ import {
   getFileExtension,
   type UploadKind,
 } from "@/lib/upload-config";
+import {
+  validateDirectPendingDescriptorStructure,
+  verifyDirectOrderUploads,
+} from "./direct-upload-verification.ts";
 import { sendOrderEmails } from "@/lib/email/send-order-emails";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getDedicatedSubServiceLabel } from "@/lib/dedicated-photo-editing";
@@ -105,6 +109,7 @@ export interface CreateProductionOrderInput {
 
 export type CreateProductionOrderErrorCode =
   | "invalid_input"
+  | "invalid_upload"
   | "custom-quote-required"
   | "storage_error"
   | "database_error"
@@ -166,24 +171,148 @@ export function validatePendingOrderFileDescriptors(
   serviceType: ServiceType,
   itemFiles: ItemFiles[],
 ): { ok: true } | { ok: false; error: string } {
+  const seenPaths = new Set<string>();
   for (let i = 0; i < itemFiles.length; i++) {
     const slot = itemFiles[i];
-    if (!slot.original || slot.original.bucket !== ORDER_FILES_BUCKET) {
+    if (!slot.original) {
       return {
         ok: false,
         error: `Item ${i + 1} original file descriptor is missing or invalid.`,
       };
     }
-    if (slot.reference && slot.reference.bucket !== ORDER_FILES_BUCKET) {
+    const original = validateDirectPendingDescriptorStructure({
+      descriptor: slot.original,
+      itemIndex: i,
+      kind: "original",
+      seenPaths,
+    });
+    if (!original.ok) {
       return {
         ok: false,
-        error: `Item ${i + 1} reference file descriptor is invalid.`,
+        error: `Item ${i + 1} original file descriptor is missing or invalid.`,
       };
+    }
+    if (slot.reference) {
+      const reference = validateDirectPendingDescriptorStructure({
+        descriptor: slot.reference,
+        itemIndex: i,
+        kind: "reference",
+        seenPaths,
+      });
+      if (!reference.ok) {
+        return {
+          ok: false,
+          error: `Item ${i + 1} reference file descriptor is invalid.`,
+        };
+      }
     }
   }
 
   void serviceType;
   return { ok: true };
+}
+
+interface SuccessfulDirectMove {
+  sourcePath: string;
+  finalPath: string;
+}
+
+function isSuccessfulDirectMove(
+  value: SuccessfulDirectMove | null | undefined,
+): value is SuccessfulDirectMove {
+  return Boolean(value);
+}
+
+async function cleanupAfterFinalizationFailure(input: {
+  supabase: SupabaseClient;
+  mode: StorageFinalizationMode;
+  copiedFinalPaths: string[];
+  movedDirectFiles: SuccessfulDirectMove[];
+  scope: string;
+}): Promise<void> {
+  if (input.mode === "move") {
+    await rollbackDirectMoves(
+      input.supabase,
+      input.movedDirectFiles,
+      input.scope,
+    );
+  } else {
+    await cleanupFinalPaths(input.supabase, input.copiedFinalPaths);
+  }
+}
+
+async function cleanupAfterDatabaseFailure(input: {
+  supabase: SupabaseClient;
+  mode: StorageFinalizationMode;
+  finalizedItemFiles: FinalizedOrderItemFiles[];
+  movedDirectFiles: SuccessfulDirectMove[];
+  scope: string;
+}): Promise<void> {
+  if (input.mode === "move") {
+    await rollbackDirectMoves(
+      input.supabase,
+      input.movedDirectFiles,
+      input.scope,
+    );
+  } else {
+    await cleanupFinalizedFiles(input.supabase, input.finalizedItemFiles);
+  }
+}
+
+async function rollbackDirectMoves(
+  supabase: SupabaseClient,
+  movedFiles: SuccessfulDirectMove[],
+  scope: string,
+): Promise<void> {
+  for (const moved of [...movedFiles].reverse()) {
+    try {
+      const { error } = await supabase.storage
+        .from(ORDER_FILES_BUCKET)
+        .move(moved.finalPath, moved.sourcePath);
+      if (error) {
+        console.error("[orders] direct storage rollback returned error:", {
+          scope,
+          reason: getSafeStorageErrorLabel(error),
+        });
+      }
+    } catch (error) {
+      console.error("[orders] direct storage rollback threw:", {
+        scope,
+        reason: getSafeStorageErrorLabel(error),
+      });
+    }
+  }
+}
+
+function getSafeStorageErrorLabel(error: unknown): string {
+  if (error instanceof Error && error.name) return error.name;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    if (typeof record.name === "string" && record.name.trim()) {
+      return record.name.trim();
+    }
+    if (typeof record.statusCode === "string" && record.statusCode.trim()) {
+      return `status:${record.statusCode.trim()}`;
+    }
+    if (typeof record.statusCode === "number") {
+      return `status:${record.statusCode}`;
+    }
+  }
+  return "StorageError";
+}
+
+function directStorageFinalizationError(): {
+  ok: false;
+  code: "storage_error";
+  message: string;
+  status: 500;
+} {
+  return {
+    ok: false,
+    code: "storage_error",
+    message: "Could not finalize uploaded files. Please refresh and upload again.",
+    status: 500,
+  };
 }
 
 export async function createProductionOrder(
@@ -226,6 +355,23 @@ export async function createProductionOrder(
   const itemSubtotals = quote.items.map((item) => item.lineSubtotalCents);
   const estimatedTotalCents = quote.totalCents;
   const supabase = getSupabaseAdminClient();
+  const itemFiles =
+    input.storageMode === "move"
+      ? await verifyDirectOrderUploads({
+          supabase,
+          serviceType: input.serviceType,
+          itemFiles: input.itemFiles,
+        })
+      : { ok: true as const, data: input.itemFiles };
+
+  if (!itemFiles.ok) {
+    return {
+      ok: false,
+      code: itemFiles.code,
+      message: itemFiles.message,
+      status: itemFiles.status,
+    };
+  }
 
   const { data: orderNumber, error: rpcError } = await supabase.rpc(
     "generate_order_number",
@@ -234,9 +380,6 @@ export async function createProductionOrder(
 
   if (rpcError || !orderNumber) {
     console.error("[orders] failed to generate order number:", rpcError?.message);
-    if (input.storageMode === "move") {
-      await cleanupSourceFiles(supabase, input.itemFiles);
-    }
     return {
       ok: false,
       code: "database_error",
@@ -247,9 +390,10 @@ export async function createProductionOrder(
 
   const finalizedItemFiles: FinalizedOrderItemFiles[] = [];
   const copiedFinalPaths: string[] = [];
+  const movedDirectFiles: SuccessfulDirectMove[] = [];
 
-  for (let i = 0; i < input.itemFiles.length; i++) {
-    const slot = input.itemFiles[i];
+  for (let i = 0; i < itemFiles.data.length; i++) {
+    const slot = itemFiles.data[i];
     const original = await finalizeFileToOrderPath({
       supabase,
       uploaded: slot.original,
@@ -259,10 +403,19 @@ export async function createProductionOrder(
       mode: input.storageMode,
     });
     if (!original.ok) {
-      await cleanupFinalPaths(supabase, copiedFinalPaths);
+      await cleanupAfterFinalizationFailure({
+        supabase,
+        mode: input.storageMode,
+        copiedFinalPaths,
+        movedDirectFiles,
+        scope: "original finalization failure",
+      });
       return original;
     }
     if (input.storageMode === "copy") copiedFinalPaths.push(original.file.finalPath);
+    if (isSuccessfulDirectMove(original.directMove)) {
+      movedDirectFiles.push(original.directMove);
+    }
 
     let reference: FinalizedOrderFile | null = null;
     if (slot.reference) {
@@ -275,12 +428,21 @@ export async function createProductionOrder(
         mode: input.storageMode,
       });
       if (!finalizedReference.ok) {
-        await cleanupFinalPaths(supabase, copiedFinalPaths);
+        await cleanupAfterFinalizationFailure({
+          supabase,
+          mode: input.storageMode,
+          copiedFinalPaths,
+          movedDirectFiles,
+          scope: "reference finalization failure",
+        });
         return finalizedReference;
       }
       reference = finalizedReference.file;
       if (input.storageMode === "copy") {
         copiedFinalPaths.push(finalizedReference.file.finalPath);
+      }
+      if (isSuccessfulDirectMove(finalizedReference.directMove)) {
+        movedDirectFiles.push(finalizedReference.directMove);
       }
     }
 
@@ -317,7 +479,13 @@ export async function createProductionOrder(
 
   if (orderError || !orderData) {
     console.error("[orders] failed to insert order:", orderError?.message);
-    await cleanupFinalizedFiles(supabase, finalizedItemFiles);
+    await cleanupAfterDatabaseFailure({
+      supabase,
+      mode: input.storageMode,
+      finalizedItemFiles,
+      movedDirectFiles,
+      scope: "order insert failure",
+    });
     return {
       ok: false,
       code: isUniqueSourceDraftError(orderError) ?
@@ -353,9 +521,9 @@ export async function createProductionOrder(
       terms_acceptance: trustedTermsAcceptance,
       portfolio_permission: trustedPortfolioPermission,
       uploaded_files: {
-        original: serializeUploadedFile(input.itemFiles[i].original),
-        reference: input.itemFiles[i].reference
-          ? serializeUploadedFile(input.itemFiles[i].reference)
+        original: serializeUploadedFile(itemFiles.data[i].original),
+        reference: itemFiles.data[i].reference
+          ? serializeUploadedFile(itemFiles.data[i].reference)
           : null,
       },
     },
@@ -368,7 +536,13 @@ export async function createProductionOrder(
   if (itemsError) {
     console.error("[orders] failed to insert order items:", itemsError.message);
     await supabase.from("orders").delete().eq("id", orderData.id);
-    await cleanupFinalizedFiles(supabase, finalizedItemFiles);
+    await cleanupAfterDatabaseFailure({
+      supabase,
+      mode: input.storageMode,
+      finalizedItemFiles,
+      movedDirectFiles,
+      scope: "order items insert failure",
+    });
     return {
       ok: false,
       code: "database_error",
@@ -401,11 +575,11 @@ export async function createProductionOrder(
       files: {
         originalPath: finalizedItemFiles[i].original.finalPath,
         referenceImagePath: finalizedItemFiles[i].reference?.finalPath ?? null,
-        originalFilename: input.itemFiles[i].original.originalFilename,
+        originalFilename: itemFiles.data[i].original.originalFilename,
         referenceFilename:
-          input.itemFiles[i].reference?.originalFilename ?? null,
-        originalSizeBytes: input.itemFiles[i].original.size,
-        referenceSizeBytes: input.itemFiles[i].reference?.size ?? null,
+          itemFiles.data[i].reference?.originalFilename ?? null,
+        originalSizeBytes: itemFiles.data[i].original.size,
+        referenceSizeBytes: itemFiles.data[i].reference?.size ?? null,
       },
     })),
   });
@@ -598,7 +772,11 @@ async function finalizeFileToOrderPath(input: {
   kind: UploadKind;
   mode: StorageFinalizationMode;
 }): Promise<
-  | { ok: true; file: FinalizedOrderFile }
+  | {
+      ok: true;
+      file: FinalizedOrderFile;
+      directMove?: SuccessfulDirectMove;
+    }
   | {
       ok: false;
       code: "storage_error";
@@ -623,14 +801,22 @@ async function finalizeFileToOrderPath(input: {
         .move(input.uploaded.path, finalPath);
 
       if (error) {
-        console.warn(
-          `[orders] storage move failed for ${input.uploaded.path}; keeping source path. ${error.message}`,
-        );
-        return {
-          ok: true,
-          file: buildFinalizedFile(input, input.uploaded.path),
-        };
+        console.warn("[orders] direct storage move failed:", {
+          itemIndex: input.itemIndex,
+          kind: input.kind,
+          reason: getSafeStorageErrorLabel(error),
+        });
+        return directStorageFinalizationError();
       }
+
+      return {
+        ok: true,
+        file: buildFinalizedFile(input, finalPath),
+        directMove: {
+          sourcePath: input.uploaded.path,
+          finalPath,
+        },
+      };
     } else {
       const { error } = await input.supabase.storage
         .from(ORDER_FILES_BUCKET)
@@ -681,18 +867,6 @@ function serializeUploadedFile(u: TrustedOrderFileDescriptor) {
     size_bytes: u.size,
     mime_type: u.mimeType,
   };
-}
-
-async function cleanupSourceFiles(
-  supabase: SupabaseClient,
-  itemFiles: TrustedOrderItemFiles[],
-): Promise<void> {
-  const paths: string[] = [];
-  for (const slot of itemFiles) {
-    if (slot.original?.path) paths.push(slot.original.path);
-    if (slot.reference?.path) paths.push(slot.reference.path);
-  }
-  await cleanupFinalPaths(supabase, paths);
 }
 
 async function cleanupFinalizedFiles(
