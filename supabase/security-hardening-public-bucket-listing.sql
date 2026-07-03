@@ -135,7 +135,7 @@ BEGIN
         actual.using_expression;
     END IF;
 
-    IF actual.role_names IS DISTINCT FROM expected_roles THEN
+    IF actual.role_names::text[] IS DISTINCT FROM expected_roles THEN
       RAISE EXCEPTION
         'Preflight failed: policy % has unexpected roles: %.',
         target.policy_name,
