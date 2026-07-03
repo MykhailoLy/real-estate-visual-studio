@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
+import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import {
+  DEFAULT_TURNSTILE_COPY,
+  normalizeTurnstileSiteKey,
+  type TurnstileCopy,
+} from "@/components/auth/turnstile";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { safeInternalPath } from "@/lib/safe-redirect";
 
@@ -19,6 +25,7 @@ export type LoginFormCopy = {
   createAccount: string;
   invalidCredentials: string;
   unexpectedError: string;
+  turnstile: TurnstileCopy;
 };
 
 const DEFAULT_COPY: LoginFormCopy = {
@@ -33,6 +40,7 @@ const DEFAULT_COPY: LoginFormCopy = {
   createAccount: "Create one",
   invalidCredentials: "Incorrect email or password. Please try again.",
   unexpectedError: "An unexpected error occurred. Please try again.",
+  turnstile: DEFAULT_TURNSTILE_COPY,
 };
 
 // ── helpers ──────────────────────────────────────────────────
@@ -54,26 +62,48 @@ export default function LoginForm({
   copy = DEFAULT_COPY,
   signupHref = "/signup",
   forgotPasswordHref = "/forgot-password",
+  turnstileSiteKey,
 }: {
   copy?: LoginFormCopy;
   signupHref?: string;
   forgotPasswordHref?: string;
+  turnstileSiteKey?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeInternalPath(searchParams.get("redirectTo"));
   const signupHrefWithRedirect = withRedirect(signupHref, redirectTo);
+  const normalizedTurnstileSiteKey = normalizeTurnstileSiteKey(turnstileSiteKey);
+  const turnstileEnabled = Boolean(normalizedTurnstileSiteKey);
 
   // Show inline error forwarded from /auth/callback (e.g. expired link)
   const callbackError = searchParams.get("error");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(callbackError ?? null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+
+  const onTurnstileTokenChange = useCallback((token: string | null) => {
+    setTurnstileToken(token);
+  }, []);
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken(null);
+    setTurnstileResetSignal((value) => value + 1);
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
     setError(null);
+
+    const captchaToken = turnstileEnabled ? turnstileToken : null;
+    if (turnstileEnabled && !captchaToken) {
+      setError(copy.turnstile.required);
+      return;
+    }
+
     setLoading(true);
 
     const form = e.currentTarget;
@@ -82,7 +112,11 @@ export default function LoginForm({
 
     try {
       const supabase = createBrowserSupabaseClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        ...(captchaToken ? { options: { captchaToken } } : {}),
+      });
 
       if (authError) {
         setError(
@@ -90,6 +124,7 @@ export default function LoginForm({
             ? copy.invalidCredentials
             : authError.message
         );
+        if (turnstileEnabled) resetTurnstile();
         return;
       }
 
@@ -99,6 +134,7 @@ export default function LoginForm({
       router.refresh();
     } catch {
       setError(copy.unexpectedError);
+      if (turnstileEnabled) resetTurnstile();
     } finally {
       setLoading(false);
     }
@@ -160,6 +196,14 @@ export default function LoginForm({
         </div>
       </div>
 
+      <TurnstileWidget
+        siteKey={normalizedTurnstileSiteKey}
+        action="login"
+        resetSignal={turnstileResetSignal}
+        copy={copy.turnstile}
+        onTokenChange={onTurnstileTokenChange}
+      />
+
       {/* Error */}
       {error && (
         <div
@@ -174,7 +218,7 @@ export default function LoginForm({
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || (turnstileEnabled && !turnstileToken)}
         className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm"
       >
         {loading ? (

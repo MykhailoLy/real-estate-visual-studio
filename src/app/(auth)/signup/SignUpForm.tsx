@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,6 +11,12 @@ import {
   Mail,
   User,
 } from "lucide-react";
+import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import {
+  DEFAULT_TURNSTILE_COPY,
+  normalizeTurnstileSiteKey,
+  type TurnstileCopy,
+} from "@/components/auth/turnstile";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { safeInternalPath } from "@/lib/safe-redirect";
 
@@ -34,6 +40,7 @@ export type SignUpFormCopy = {
   shortPassword: string;
   passwordMismatch: string;
   unexpectedError: string;
+  turnstile: TurnstileCopy;
 };
 
 const DEFAULT_COPY: SignUpFormCopy = {
@@ -57,18 +64,23 @@ const DEFAULT_COPY: SignUpFormCopy = {
   shortPassword: "Password must be at least 8 characters.",
   passwordMismatch: "Passwords do not match.",
   unexpectedError: "An unexpected error occurred. Please try again.",
+  turnstile: DEFAULT_TURNSTILE_COPY,
 };
 
 export default function SignUpForm({
   copy = DEFAULT_COPY,
   loginHref = "/login",
+  turnstileSiteKey,
 }: {
   copy?: SignUpFormCopy;
   loginHref?: string;
+  turnstileSiteKey?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeInternalPath(searchParams.get("redirectTo"));
+  const normalizedTurnstileSiteKey = normalizeTurnstileSiteKey(turnstileSiteKey);
+  const turnstileEnabled = Boolean(normalizedTurnstileSiteKey);
   const hasRedirect = redirectTo !== "/dashboard";
   const loginHrefWithRedirect = hasRedirect
     ? `${loginHref}${loginHref.includes("?") ? "&" : "?"}redirectTo=${encodeURIComponent(redirectTo)}`
@@ -76,12 +88,22 @@ export default function SignUpForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+
+  const onTurnstileTokenChange = useCallback((token: string | null) => {
+    setTurnstileToken(token);
+  }, []);
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken(null);
+    setTurnstileResetSignal((value) => value + 1);
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
     setError(null);
-    setLoading(true);
 
     const form = e.currentTarget;
     const name = (form.elements.namedItem("name") as HTMLInputElement).value.trim();
@@ -91,19 +113,24 @@ export default function SignUpForm({
 
     if (!name) {
       setError(copy.missingName);
-      setLoading(false);
       return;
     }
     if (password.length < 8) {
       setError(copy.shortPassword);
-      setLoading(false);
       return;
     }
     if (password !== confirm) {
       setError(copy.passwordMismatch);
-      setLoading(false);
       return;
     }
+
+    const captchaToken = turnstileEnabled ? turnstileToken : null;
+    if (turnstileEnabled && !captchaToken) {
+      setError(copy.turnstile.required);
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const supabase = createBrowserSupabaseClient();
@@ -119,11 +146,13 @@ export default function SignUpForm({
         options: {
           data: { full_name: name },
           emailRedirectTo: callbackUrl.toString(),
+          ...(captchaToken ? { captchaToken } : {}),
         },
       });
 
       if (authError) {
         setError(authError.message);
+        if (turnstileEnabled) resetTurnstile();
         return;
       }
 
@@ -137,6 +166,7 @@ export default function SignUpForm({
       setSuccess(true);
     } catch {
       setError(copy.unexpectedError);
+      if (turnstileEnabled) resetTurnstile();
     } finally {
       setLoading(false);
     }
@@ -245,6 +275,14 @@ export default function SignUpForm({
         </div>
       </div>
 
+      <TurnstileWidget
+        siteKey={normalizedTurnstileSiteKey}
+        action="signup"
+        resetSignal={turnstileResetSignal}
+        copy={copy.turnstile}
+        onTokenChange={onTurnstileTokenChange}
+      />
+
       {error && (
         <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-3.5 py-3 leading-relaxed">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden />
@@ -254,7 +292,7 @@ export default function SignUpForm({
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || (turnstileEnabled && !turnstileToken)}
         className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm mt-1"
       >
         {loading ? (

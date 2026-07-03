@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
+import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import SignUpForm, { type SignUpFormCopy } from "../../signup/SignUpForm";
 
 export const metadata: Metadata = {
@@ -31,9 +32,17 @@ const signUpCopy: SignUpFormCopy = {
   shortPassword: "La contraseña debe tener al menos 8 caracteres.",
   passwordMismatch: "Las contraseñas no coinciden.",
   unexpectedError: "Ha ocurrido un error inesperado. Inténtalo de nuevo.",
+  turnstile: {
+    loading: "Completando comprobacion de seguridad...",
+    required: "Completa la comprobacion de seguridad.",
+    failed: "La comprobacion de seguridad fallo. Intentalo de nuevo.",
+    retry: "Reintentar comprobacion",
+  },
 };
 
 export default function SpanishSignUpPage() {
+  const turnstileSiteKey = getTurnstileSiteKeyFromEnv();
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md mb-6">
@@ -75,7 +84,11 @@ export default function SpanishSignUpPage() {
 
         <div className="bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
           <Suspense fallback={<SignUpFormSkeleton />}>
-            <SignUpForm copy={signUpCopy} loginHref="/es/login" />
+            <SignUpForm
+              copy={signUpCopy}
+              loginHref="/es/login"
+              turnstileSiteKey={turnstileSiteKey}
+            />
           </Suspense>
         </div>
 
