@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
+import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import SignUpForm from "./SignUpForm";
 
 export const metadata: Metadata = {
@@ -11,6 +12,8 @@ export const metadata: Metadata = {
 };
 
 export default function SignUpPage() {
+  const turnstileSiteKey = getTurnstileSiteKeyFromEnv();
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
       {/* Back to website */}
@@ -56,7 +59,7 @@ export default function SignUpPage() {
         <div className="bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
           {/* useSearchParams (redirectTo) needs Suspense in the App Router */}
           <Suspense fallback={<SignUpFormSkeleton />}>
-            <SignUpForm />
+            <SignUpForm turnstileSiteKey={turnstileSiteKey} />
           </Suspense>
         </div>
 

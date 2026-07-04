@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
+import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -11,6 +12,8 @@ export const metadata: Metadata = {
 };
 
 export default function LoginPage() {
+  const turnstileSiteKey = getTurnstileSiteKeyFromEnv();
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
       {/* Back to website */}
@@ -56,7 +59,7 @@ export default function LoginPage() {
         <div className="bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
           {/* useSearchParams needs Suspense in Next.js App Router */}
           <Suspense fallback={<LoginFormSkeleton />}>
-            <LoginForm />
+            <LoginForm turnstileSiteKey={turnstileSiteKey} />
           </Suspense>
         </div>
 

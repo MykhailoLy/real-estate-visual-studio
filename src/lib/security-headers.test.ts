@@ -38,7 +38,7 @@ const forbiddenHeaders = [
 ];
 
 const expectedContentSecurityPolicy =
-  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
 
 const expectedContentSecurityPolicyHeader: ResponseHeader = {
   key: "Content-Security-Policy",
@@ -91,12 +91,14 @@ const expectedContentSecurityPolicyOrigins = [
   "https://storage.crisp.chat",
   "wss://client.relay.crisp.chat",
   "https://grvltquwenaorucsvooc.supabase.co",
+  "https://challenges.cloudflare.com",
 ];
 
 const expectedExternalSourcesByDirective = {
   "script-src": [
     "https://www.googletagmanager.com",
     "https://client.crisp.chat",
+    "https://challenges.cloudflare.com",
   ],
   "style-src": ["https://client.crisp.chat"],
   "img-src": [
@@ -116,7 +118,10 @@ const expectedExternalSourcesByDirective = {
     "https://storage.crisp.chat",
     "wss://client.relay.crisp.chat",
   ],
-  "frame-src": ["https://grvltquwenaorucsvooc.supabase.co"],
+  "frame-src": [
+    "https://grvltquwenaorucsvooc.supabase.co",
+    "https://challenges.cloudflare.com",
+  ],
   "media-src": [
     "https://grvltquwenaorucsvooc.supabase.co",
     "https://client.crisp.chat",
@@ -306,6 +311,30 @@ test("content security policy does not add Crisp sources to frame-src", () => {
   const frameSources = getDirectiveSources(value, "frame-src");
 
   assert.equal(frameSources.some((source) => source.includes("crisp")), false);
+});
+
+test("content security policy allows Cloudflare Turnstile only for scripts and frames", () => {
+  const { value } = getContentSecurityPolicyHeader();
+  const turnstileOrigin = "https://challenges.cloudflare.com";
+
+  assert.equal(
+    getDirectiveSources(value, "script-src").includes(turnstileOrigin),
+    true,
+  );
+  assert.equal(
+    getDirectiveSources(value, "frame-src").includes(turnstileOrigin),
+    true,
+  );
+
+  for (const directive of expectedContentSecurityPolicyDirectives) {
+    if (directive === "script-src" || directive === "frame-src") continue;
+
+    assert.equal(
+      getDirectiveSources(value, directive).includes(turnstileOrigin),
+      false,
+      `Expected ${turnstileOrigin} to stay out of ${directive}`,
+    );
+  }
 });
 
 test("content security policy header is returned without shared mutable state", () => {

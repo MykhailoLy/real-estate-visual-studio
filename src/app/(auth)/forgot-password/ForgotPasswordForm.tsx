@@ -1,19 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { Loader2, Mail, AlertCircle, CheckCircle2 } from "lucide-react";
+import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import {
+  DEFAULT_TURNSTILE_COPY,
+  normalizeTurnstileSiteKey,
+} from "@/components/auth/turnstile";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-export default function ForgotPasswordForm() {
+export default function ForgotPasswordForm({
+  turnstileSiteKey,
+}: {
+  turnstileSiteKey?: string | null;
+}) {
+  const normalizedTurnstileSiteKey = normalizeTurnstileSiteKey(turnstileSiteKey);
+  const turnstileEnabled = Boolean(normalizedTurnstileSiteKey);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
   const [sent,    setSent]    = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+
+  const onTurnstileTokenChange = useCallback((token: string | null) => {
+    setTurnstileToken(token);
+  }, []);
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken(null);
+    setTurnstileResetSignal((value) => value + 1);
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
     setError(null);
+
+    const captchaToken = turnstileEnabled ? turnstileToken : null;
+    if (turnstileEnabled && !captchaToken) {
+      setError(DEFAULT_TURNSTILE_COPY.required);
+      return;
+    }
+
     setLoading(true);
 
     const email = ((e.currentTarget).elements.namedItem("email") as HTMLInputElement).value.trim();
@@ -23,12 +52,18 @@ export default function ForgotPasswordForm() {
       // redirectTo must include type=recovery so /auth/callback routes to /reset-password
       const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+        ...(captchaToken ? { captchaToken } : {}),
       });
 
-      if (authError) { setError(authError.message); return; }
+      if (authError) {
+        setError(authError.message);
+        if (turnstileEnabled) resetTurnstile();
+        return;
+      }
       setSent(true);
     } catch {
       setError("An unexpected error occurred. Please try again.");
+      if (turnstileEnabled) resetTurnstile();
     } finally {
       setLoading(false);
     }
@@ -71,6 +106,14 @@ export default function ForgotPasswordForm() {
         </div>
       </div>
 
+      <TurnstileWidget
+        siteKey={normalizedTurnstileSiteKey}
+        action="password_reset"
+        resetSignal={turnstileResetSignal}
+        copy={DEFAULT_TURNSTILE_COPY}
+        onTokenChange={onTurnstileTokenChange}
+      />
+
       {error && (
         <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-3.5 py-3 leading-relaxed">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden />
@@ -78,7 +121,7 @@ export default function ForgotPasswordForm() {
         </div>
       )}
 
-      <button type="submit" disabled={loading}
+      <button type="submit" disabled={loading || (turnstileEnabled && !turnstileToken)}
         className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm"
       >
         {loading ? (

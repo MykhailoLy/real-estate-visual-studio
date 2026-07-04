@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
+import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import ForgotPasswordForm from "./ForgotPasswordForm";
 
 export const metadata: Metadata = {
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
 };
 
 export default function ForgotPasswordPage() {
+  const turnstileSiteKey = getTurnstileSiteKeyFromEnv();
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
       {/* Back link */}
@@ -54,7 +57,7 @@ export default function ForgotPasswordPage() {
 
         {/* Card */}
         <div className="bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
-          <ForgotPasswordForm />
+          <ForgotPasswordForm turnstileSiteKey={turnstileSiteKey} />
         </div>
       </div>
     </div>
