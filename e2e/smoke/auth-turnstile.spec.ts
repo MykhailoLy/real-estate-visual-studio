@@ -4,6 +4,9 @@ import { expectNavigationResponseOk } from "../support/network";
 const TURNSTILE_SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const TURNSTILE_DUMMY_SITE_KEY = "1x00000000000000000000AA";
+const hasAnyTurnstileSiteKey = Boolean(
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim(),
+);
 const hasTurnstileSiteKey =
   process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ===
   TURNSTILE_DUMMY_SITE_KEY;
@@ -34,6 +37,7 @@ const dormantAuthRoutes = [
     route: "/login",
     heading: "Welcome back",
     button: "Sign in to your account",
+    secondaryButton: "Email me a sign-in link",
   },
   {
     route: "/signup",
@@ -50,8 +54,8 @@ const dormantAuthRoutes = [
 test.describe("auth Turnstile dormant state", () => {
   test.skip(hasTurnstileSiteKey, "This check needs a build without a site key.");
 
-  for (const { route, heading, button } of dormantAuthRoutes) {
-    test(`${route} does not load Turnstile without a site key`, async ({
+  for (const authRoute of dormantAuthRoutes) {
+    test(`${authRoute.route} does not load Turnstile without a site key`, async ({
       page,
     }) => {
       let turnstileRequests = 0;
@@ -60,13 +64,20 @@ test.describe("auth Turnstile dormant state", () => {
         await route.abort("blockedbyclient");
       });
 
-      const response = await page.goto(route);
+      const response = await page.goto(authRoute.route);
 
-      expectNavigationResponseOk(response, route);
+      expectNavigationResponseOk(response, authRoute.route);
       await expect(
-        page.getByRole("heading", { name: heading, exact: true }),
+        page.getByRole("heading", { name: authRoute.heading, exact: true }),
       ).toBeVisible();
-      await expect(page.getByRole("button", { name: button })).toBeEnabled();
+      await expect(
+        page.getByRole("button", { name: authRoute.button }),
+      ).toBeEnabled();
+      if ("secondaryButton" in authRoute) {
+        await expect(
+          page.getByRole("button", { name: authRoute.secondaryButton }),
+        ).toBeEnabled();
+      }
       await expect(
         page.locator(`script[src="${TURNSTILE_SCRIPT_SRC}"]`),
       ).toHaveCount(0);
@@ -79,6 +90,21 @@ test.describe("auth Turnstile dormant state", () => {
       expect(turnstileRequests).toBe(0);
     });
   }
+});
+
+test("Spanish login page renders the Magic Link action", async ({ page }) => {
+  if (hasAnyTurnstileSiteKey) {
+    await installFakeTurnstile(page);
+  }
+
+  const response = await page.goto("/es/login");
+  expectNavigationResponseOk(response, "/es/login");
+  await expect(
+    page.getByRole("heading", { name: "Bienvenido de nuevo", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Enviarme un enlace de acceso" }),
+  ).toBeVisible();
 });
 
 test.describe("auth Turnstile enabled state", () => {
@@ -172,6 +198,130 @@ test.describe("auth Turnstile enabled state", () => {
     const calls = await supabase.calls();
     expect(calls).toHaveLength(1);
     expect(calls[0]?.pathname).toBe("/auth/v1/token");
+    expect(calls[0]?.body.email).toBe("client@example.com");
+    expect(calls[0]?.body.password).toBe("not-the-password");
+    expect(readCaptchaToken(calls[0])).toMatch(/^token-login-/);
+    expect((await getTurnstileState(page)).resetCount).toBe(1);
+  });
+
+  test("magic link requires email before contacting Supabase", async ({
+    page,
+  }) => {
+    await installFakeTurnstile(page);
+    const supabase = await installSupabaseAuthStub(page, {
+      "/auth/v1/otp": {
+        status: 200,
+        body: {},
+      },
+    });
+
+    const response = await page.goto("/login");
+    expectNavigationResponseOk(response, "/login");
+
+    await page
+      .getByRole("button", { name: "Email me a sign-in link" })
+      .click();
+
+    await expect(page.getByText("Enter your email address.")).toBeVisible();
+    expect(await supabase.calls()).toHaveLength(0);
+    expect((await getTurnstileState(page)).resetCount).toBe(0);
+  });
+
+  test("magic link requires Turnstile token without resetting local validation", async ({
+    page,
+  }) => {
+    await installFakeTurnstile(page);
+    const supabase = await installSupabaseAuthStub(page, {
+      "/auth/v1/otp": {
+        status: 200,
+        body: {},
+      },
+    });
+
+    const response = await page.goto("/login");
+    expectNavigationResponseOk(response, "/login");
+
+    await page.getByLabel("Email address").fill("client@example.com");
+    await expireTurnstile(page);
+    await page
+      .getByRole("button", { name: "Email me a sign-in link" })
+      .click();
+
+    await expect(
+      page.getByText("Please complete the security check."),
+    ).toBeVisible();
+    expect(await supabase.calls()).toHaveLength(0);
+    expect((await getTurnstileState(page)).resetCount).toBe(0);
+  });
+
+  test("magic link sends OTP with captcha and preserves safe redirect", async ({
+    page,
+  }) => {
+    await installFakeTurnstile(page);
+    const supabase = await installSupabaseAuthStub(page, {
+      "/auth/v1/otp": {
+        status: 200,
+        body: {},
+      },
+    });
+    const redirectPath = "/dashboard/orders/new/virtual-staging?source=login";
+
+    const response = await page.goto(
+      `/login?redirectTo=${encodeURIComponent(redirectPath)}`,
+    );
+    expectNavigationResponseOk(response, "/login");
+
+    await page.getByLabel("Email address").fill("client@example.com");
+    await page
+      .getByRole("button", { name: "Email me a sign-in link" })
+      .click();
+
+    await expect(
+      page.getByRole("heading", { name: "Check your inbox", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/If an account exists for that email/),
+    ).toBeVisible();
+
+    const calls = await supabase.calls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.pathname).toBe("/auth/v1/otp");
+    expect(calls[0]?.body.email).toBe("client@example.com");
+    expect(calls[0]?.body.create_user).toBe(false);
+    expect(readCaptchaToken(calls[0])).toMatch(/^token-login-/);
+
+    const redirectTo = readRedirectTo(calls[0]);
+    const redirectUrl = new URL(redirectTo);
+    expect(redirectUrl.origin).toBe(new URL(page.url()).origin);
+    expect(redirectUrl.pathname).toBe("/auth/callback");
+    expect(redirectUrl.searchParams.get("next")).toBe(redirectPath);
+  });
+
+  test("magic link resets Turnstile after auth failure", async ({
+    page,
+  }) => {
+    await installFakeTurnstile(page);
+    const supabase = await installSupabaseAuthStub(page, {
+      "/auth/v1/otp": {
+        status: 400,
+        body: {
+          error: "captcha_failed",
+          msg: "Magic link request failed.",
+        },
+      },
+    });
+
+    const response = await page.goto("/login");
+    expectNavigationResponseOk(response, "/login");
+
+    await page.getByLabel("Email address").fill("client@example.com");
+    await page
+      .getByRole("button", { name: "Email me a sign-in link" })
+      .click();
+
+    await expect(page.getByText("Magic link request failed.")).toBeVisible();
+    const calls = await supabase.calls();
+    expect(calls).toHaveLength(1);
     expect(readCaptchaToken(calls[0])).toMatch(/^token-login-/);
     expect((await getTurnstileState(page)).resetCount).toBe(1);
   });
@@ -429,6 +579,10 @@ function readCaptchaToken(call: CapturedSupabaseCall | undefined) {
     | undefined;
 
   return String(security?.captcha_token ?? "");
+}
+
+function readRedirectTo(call: CapturedSupabaseCall | undefined) {
+  return new URLSearchParams(call?.search ?? "").get("redirect_to") ?? "";
 }
 
 async function getTurnstileState(page: Page): Promise<TurnstileTestState> {

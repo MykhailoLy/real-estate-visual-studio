@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState, type FormEvent } from "react";
-import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
+import { useCallback, useState, type FormEvent, type MouseEvent } from "react";
+import { AlertCircle, CheckCircle2, Loader2, Mail, Lock } from "lucide-react";
 import TurnstileWidget from "@/components/auth/TurnstileWidget";
 import {
   DEFAULT_TURNSTILE_COPY,
@@ -21,6 +21,11 @@ export type LoginFormCopy = {
   forgotPassword: string;
   submit: string;
   submitting: string;
+  magicLinkSubmit: string;
+  magicLinkSubmitting: string;
+  magicLinkSuccessTitle: string;
+  magicLinkSuccessMessage: string;
+  magicLinkMissingEmail: string;
   noAccount: string;
   createAccount: string;
   invalidCredentials: string;
@@ -36,6 +41,12 @@ const DEFAULT_COPY: LoginFormCopy = {
   forgotPassword: "Forgot password?",
   submit: "Sign in to your account",
   submitting: "Signing in...",
+  magicLinkSubmit: "Email me a sign-in link",
+  magicLinkSubmitting: "Sending sign-in link...",
+  magicLinkSuccessTitle: "Check your inbox",
+  magicLinkSuccessMessage:
+    "If an account exists for that email, we'll send a sign-in link shortly. Check your inbox and spam folder.",
+  magicLinkMissingEmail: "Enter your email address.",
   noAccount: "Don't have an account?",
   createAccount: "Create one",
   invalidCredentials: "Incorrect email or password. Please try again.",
@@ -56,7 +67,30 @@ function withRedirect(href: string, redirectTo: string): string {
   return `${href}${sep}redirectTo=${encodeURIComponent(redirectTo)}`;
 }
 
+function buildAuthCallbackUrl(redirectTo: string): string {
+  const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+  if (redirectTo !== "/dashboard") {
+    callbackUrl.searchParams.set("next", redirectTo);
+  }
+
+  return callbackUrl.toString();
+}
+
+function isNonEnumeratingMagicLinkError(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes("signup not allowed") ||
+    lowerMessage.includes("signups not allowed") ||
+    lowerMessage.includes("user not found") ||
+    lowerMessage.includes("account not found") ||
+    lowerMessage.includes("email not found") ||
+    lowerMessage.includes("does not exist")
+  );
+}
+
 // ── component ─────────────────────────────────────────────────
+
+type LoginPendingAction = "password" | "magic-link";
 
 export default function LoginForm({
   copy = DEFAULT_COPY,
@@ -79,10 +113,13 @@ export default function LoginForm({
   // Show inline error forwarded from /auth/callback (e.g. expired link)
   const callbackError = searchParams.get("error");
 
-  const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] =
+    useState<LoginPendingAction | null>(null);
   const [error, setError] = useState<string | null>(callbackError ?? null);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+  const loading = pendingAction !== null;
 
   const onTurnstileTokenChange = useCallback((token: string | null) => {
     setTurnstileToken(token);
@@ -104,7 +141,7 @@ export default function LoginForm({
       return;
     }
 
-    setLoading(true);
+    setPendingAction("password");
 
     const form = e.currentTarget;
     const email    = (form.elements.namedItem("email")    as HTMLInputElement).value.trim();
@@ -136,8 +173,84 @@ export default function LoginForm({
       setError(copy.unexpectedError);
       if (turnstileEnabled) resetTurnstile();
     } finally {
-      setLoading(false);
+      setPendingAction(null);
     }
+  }
+
+  async function onMagicLinkClick(e: MouseEvent<HTMLButtonElement>) {
+    if (loading) return;
+    setError(null);
+
+    const form = e.currentTarget.form;
+    const email = (
+      form?.elements.namedItem("email") as HTMLInputElement | null
+    )?.value.trim();
+
+    if (!email) {
+      setError(copy.magicLinkMissingEmail);
+      return;
+    }
+
+    const captchaToken = turnstileEnabled ? turnstileToken : null;
+    if (turnstileEnabled && !captchaToken) {
+      setError(copy.turnstile.required);
+      return;
+    }
+
+    setPendingAction("magic-link");
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { error: authError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: buildAuthCallbackUrl(redirectTo),
+          shouldCreateUser: false,
+          ...(captchaToken ? { captchaToken } : {}),
+        },
+      });
+
+      if (authError) {
+        if (turnstileEnabled) resetTurnstile();
+
+        if (isNonEnumeratingMagicLinkError(authError.message)) {
+          setMagicLinkSent(true);
+          return;
+        }
+
+        setError(authError.message);
+        return;
+      }
+
+      setMagicLinkSent(true);
+    } catch {
+      setError(copy.unexpectedError);
+      if (turnstileEnabled) resetTurnstile();
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  if (magicLinkSent) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="text-center py-4 space-y-4"
+      >
+        <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
+          <CheckCircle2 className="w-6 h-6 text-emerald-600" aria-hidden />
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-foreground mb-1">
+            {copy.magicLinkSuccessTitle}
+          </h2>
+          <p className="text-sm text-muted leading-relaxed">
+            {copy.magicLinkSuccessMessage}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -221,10 +334,29 @@ export default function LoginForm({
         disabled={loading || (turnstileEnabled && !turnstileToken)}
         className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm"
       >
-        {loading ? (
+        {pendingAction === "password" ? (
           <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />{copy.submitting}</>
         ) : (
           copy.submit
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={onMagicLinkClick}
+        disabled={loading}
+        className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-primary/30 bg-white text-primary font-bold text-sm hover:bg-primary/5 transition-colors disabled:opacity-60 shadow-sm"
+      >
+        {pendingAction === "magic-link" ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+            {copy.magicLinkSubmitting}
+          </>
+        ) : (
+          <>
+            <Mail className="w-4 h-4" aria-hidden />
+            {copy.magicLinkSubmit}
+          </>
         )}
       </button>
 

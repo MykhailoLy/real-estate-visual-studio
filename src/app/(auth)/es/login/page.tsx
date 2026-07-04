@@ -19,6 +19,12 @@ const loginCopy: LoginFormCopy = {
   forgotPassword: "¿Has olvidado la contraseña?",
   submit: "Iniciar sesión en tu cuenta",
   submitting: "Iniciando sesión...",
+  magicLinkSubmit: "Enviarme un enlace de acceso",
+  magicLinkSubmitting: "Enviando enlace...",
+  magicLinkSuccessTitle: "Revisa tu correo",
+  magicLinkSuccessMessage:
+    "Si existe una cuenta con ese correo, te enviaremos un enlace de acceso en breve. Revisa tu bandeja de entrada y la carpeta de spam.",
+  magicLinkMissingEmail: "Introduce tu correo electrónico.",
   noAccount: "¿No tienes cuenta?",
   createAccount: "Crear una",
   invalidCredentials:
