@@ -11,7 +11,7 @@ import {
 import {
   GALLERY_CARD_DESCRIPTIONS,
 } from "@/lib/gallery";
-import { localizedAlternates } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/seo";
 
 // ============================================================
 // /gallery  —  Gallery landing page (EN)
@@ -27,16 +27,13 @@ import { localizedAlternates } from "@/lib/seo";
 //   Render one GalleryCategoryCard per visible service
 // ============================================================
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Gallery",
   description:
-    "Browse real before-and-after property visual work from PicchuSpot — virtual staging, renovation, floor plans, photo editing, and more.",
-  alternates: localizedAlternates({
-    canonicalPath: "/gallery",
-    englishPath: "/gallery",
-    spanishPath: "/es/gallery",
-  }),
-};
+    "Browse real before-and-after examples of PicchuSpot property visuals, including virtual staging, renovation, floor plans, and photo editing.",
+  canonicalPath: "/gallery",
+  spanishPath: "/es/gallery",
+});
 
 export default async function GalleryPage() {
   const featuredItems = await getGalleryCoverItems();

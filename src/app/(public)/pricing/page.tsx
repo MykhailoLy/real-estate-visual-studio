@@ -4,7 +4,7 @@ import Container from "@/components/layout/Container";
 import SectionHeader from "@/components/sections/SectionHeader";
 import CtaSection from "@/components/sections/CtaSection";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
-import { localizedAlternates } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/seo";
 import { Check } from "lucide-react";
 import {
   FLOOR_PLAN_TYPES,
@@ -19,16 +19,13 @@ import {
 } from "@/lib/pricing/public";
 import type { PriceKey } from "@/lib/pricing/types";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Pricing",
   description:
-    "Clear per-image pricing for virtual staging, photo editing & floor plans. No subscriptions, no hidden fees. See exactly what you pay.",
-  alternates: localizedAlternates({
-    canonicalPath: "/pricing",
-    englishPath: "/pricing",
-    spanishPath: "/es/pricing",
-  }),
-};
+    "Transparent pricing for virtual staging, floor plans, photo editing, and local real estate media. See service costs before you order.",
+  canonicalPath: "/pricing",
+  spanishPath: "/es/pricing",
+});
 
 type PublicPricingRow = {
   label: string;
