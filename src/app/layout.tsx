@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import CookieConsentBanner from "@/components/privacy/CookieConsentBanner";
 import { SupportChatProvider } from "@/components/support/SupportChatProvider";
+import { SITE_NAME, SITE_URL, SOCIAL_IMAGE } from "@/lib/seo";
 import "./globals.css";
 
 // NOTE: Header and Footer are rendered by the (public) route-group layout.
@@ -19,11 +20,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-  "https://picchuspot.com";
-
-const SITE_NAME = "PicchuSpot";
 const SITE_DESCRIPTOR = "Real Estate Visuals";
 const SITE_TAGLINE = "Property visuals that make listings stand out.";
 const DEFAULT_TITLE = `${SITE_NAME} — ${SITE_DESCRIPTOR}`;
@@ -61,11 +57,13 @@ export const metadata: Metadata = {
     title: DEFAULT_TITLE,
     description: SITE_TAGLINE,
     locale: "en_US",
+    images: [SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: DEFAULT_TITLE,
     description: SITE_TAGLINE,
+    images: [SOCIAL_IMAGE.url],
   },
 };
 

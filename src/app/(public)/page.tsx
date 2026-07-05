@@ -17,20 +17,17 @@ import {
   getHomepageSliderItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
-import { localizedAlternates } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
 
-export const metadata: Metadata = {
-  title: "PicchuSpot - Real Estate Visuals",
+export const metadata: Metadata = publicPageMetadata({
+  title: "Real Estate Visuals for Listings",
   description:
     "Property visuals that make listings stand out. Virtual staging, virtual renovation, floor plans, photo editing, and local real estate media.",
-  alternates: localizedAlternates({
-    canonicalPath: "/",
-    englishPath: "/",
-    spanishPath: "/es",
-  }),
-};
+  canonicalPath: "/",
+  spanishPath: "/es",
+});
 
 // ============================================================
 // HOME / REMOTE DIGITAL SERVICES

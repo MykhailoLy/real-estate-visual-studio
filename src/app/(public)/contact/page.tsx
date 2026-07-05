@@ -11,18 +11,15 @@ import {
 import TrackedLink from "@/components/analytics/TrackedLink";
 import TrackedOutboundLink from "@/components/analytics/TrackedOutboundLink";
 import Container from "@/components/layout/Container";
-import { localizedAlternates } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Contact PicchuSpot",
   description:
     "Contact PicchuSpot for real estate visual service quotes, existing order support, and custom or local media requests.",
-  alternates: localizedAlternates({
-    canonicalPath: "/contact",
-    englishPath: "/contact",
-    spanishPath: "/es/contact",
-  }),
-};
+  canonicalPath: "/contact",
+  spanishPath: "/es/contact",
+});
 
 const contactEmail = "hello@picchuspot.com";
 

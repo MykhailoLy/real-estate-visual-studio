@@ -21,18 +21,15 @@ import {
   ArrowRight,
   Play,
 } from "lucide-react";
-import { localizedAlternates } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = publicPageMetadata({
   title: "Services",
   description:
     "Remote digital editing services for real estate worldwide and on-location real estate media in Alicante & Costa Blanca. Virtual staging, renovation, floor plans, photo editing, photography, 360 tours, video.",
-  alternates: localizedAlternates({
-    canonicalPath: "/services",
-    englishPath: "/services",
-    spanishPath: "/es/services",
-  }),
-};
+  canonicalPath: "/services",
+  spanishPath: "/es/services",
+});
 
 // ============================================================
 // LAYOUT HELPER — wider container than the default
