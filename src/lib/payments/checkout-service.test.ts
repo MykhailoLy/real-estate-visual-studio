@@ -72,6 +72,7 @@ function payment(overrides: Record<string, unknown> = {}) {
     stripe_livemode: false,
     checkout_attempt: 0,
     checkout_expires_at: null,
+    paid_at: null,
     ...overrides,
   };
 }
@@ -81,6 +82,17 @@ class FakeRepository {
   currentPayment: ReturnType<typeof payment> | null = null;
   created: Array<Record<string, unknown>> = [];
   markedPaid = false;
+  onReserveAttempt: (() => void) | null = null;
+  onMarkCheckoutOpen: (() => void) | null = null;
+  onMarkExpired: (() => void) | null = null;
+  onMarkFailed: (() => void) | null = null;
+
+  markPaid() {
+    if (!this.currentPayment) throw new Error("missing payment");
+    this.currentPayment.payment_status = "paid";
+    this.currentPayment.paid_at = now.toISOString();
+    this.markedPaid = true;
+  }
 
   async getOrder() {
     return this.order;
@@ -106,7 +118,15 @@ class FakeRepository {
     nextAttempt: number;
     leaseExpiresAt: string;
   }) {
+    this.onReserveAttempt?.();
+    this.onReserveAttempt = null;
     if (!this.currentPayment || this.currentPayment.checkout_attempt !== input.expectedAttempt) {
+      return null;
+    }
+    if (
+      this.currentPayment.paid_at !== null ||
+      !["pending", "expired", "failed"].includes(this.currentPayment.payment_status)
+    ) {
       return null;
     }
     this.currentPayment.checkout_attempt = input.nextAttempt;
@@ -120,23 +140,52 @@ class FakeRepository {
     stripeLivemode: boolean;
     checkoutExpiresAt: string | null;
   }) {
+    this.onMarkCheckoutOpen?.();
+    this.onMarkCheckoutOpen = null;
     assert.equal(this.currentPayment?.checkout_attempt, input.attempt);
     if (!this.currentPayment) throw new Error("missing payment");
+    if (
+      this.currentPayment.paid_at !== null ||
+      !["pending", "expired", "failed"].includes(this.currentPayment.payment_status)
+    ) {
+      return false;
+    }
     this.currentPayment.payment_status = "checkout_open";
     this.currentPayment.stripe_checkout_session_id = input.stripeCheckoutSessionId;
     this.currentPayment.stripe_livemode = input.stripeLivemode;
     this.currentPayment.checkout_expires_at = input.checkoutExpiresAt;
+    return true;
   }
 
-  async markExpired() {
+  async markExpired(input: { attempt: number; stripeCheckoutSessionId: string }) {
+    this.onMarkExpired?.();
+    this.onMarkExpired = null;
     if (!this.currentPayment) throw new Error("missing payment");
+    if (
+      this.currentPayment.paid_at !== null ||
+      this.currentPayment.payment_status !== "checkout_open" ||
+      this.currentPayment.checkout_attempt !== input.attempt ||
+      this.currentPayment.stripe_checkout_session_id !== input.stripeCheckoutSessionId
+    ) {
+      return false;
+    }
     this.currentPayment.payment_status = "expired";
+    return true;
   }
 
   async markFailed() {
+    this.onMarkFailed?.();
+    this.onMarkFailed = null;
     if (!this.currentPayment) throw new Error("missing payment");
+    if (
+      this.currentPayment.paid_at !== null ||
+      !["pending", "expired", "failed"].includes(this.currentPayment.payment_status)
+    ) {
+      return false;
+    }
     this.currentPayment.payment_status = "failed";
     this.currentPayment.checkout_expires_at = null;
+    return true;
   }
 }
 
@@ -320,6 +369,128 @@ test("does not create another session for paid payment or a test/live mismatch",
       CheckoutServiceError,
     );
   }
+});
+
+test("does not reserve or create a Checkout Session when payment becomes paid concurrently", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment();
+  repository.onReserveAttempt = () => repository.markPaid();
+  const { stripe, calls } = fakeStripe();
+
+  await assert.rejects(
+    createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, stripe),
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof CheckoutServiceError);
+      assert.equal(error.code, "payment-paid");
+      return true;
+    },
+  );
+  assert.equal(calls.length, 0);
+  assert.equal(repository.currentPayment?.payment_status, "paid");
+});
+
+test("never overwrites a payment that becomes paid before checkout_open is persisted", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment();
+  repository.onMarkCheckoutOpen = () => repository.markPaid();
+  const { stripe, calls } = fakeStripe();
+
+  await assert.rejects(
+    createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, stripe),
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof CheckoutServiceError);
+      assert.equal(error.code, "payment-paid");
+      return true;
+    },
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(repository.currentPayment?.payment_status, "paid");
+  assert.notEqual(repository.currentPayment?.stripe_checkout_session_id, "cs_test_123");
+});
+
+test("does not reserve a replacement Session when expiry loses a race to paid", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment({
+    payment_status: "checkout_open",
+    checkout_attempt: 1,
+    stripe_checkout_session_id: "cs_test_expired",
+    checkout_expires_at: new Date(now.getTime() - 60000).toISOString(),
+  });
+  repository.onMarkExpired = () => repository.markPaid();
+  const expired = fakeStripe({
+    status: "expired",
+    expires_at: Math.floor(now.getTime() / 1000) - 1,
+  });
+
+  await assert.rejects(
+    createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, expired.stripe),
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof CheckoutServiceError);
+      assert.equal(error.code, "payment-paid");
+      return true;
+    },
+  );
+  assert.equal(expired.calls.length, 0);
+  assert.equal(repository.currentPayment?.payment_status, "paid");
+  assert.equal(repository.currentPayment?.checkout_attempt, 1);
+});
+
+test("failure handling cannot regress a concurrently paid payment", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment();
+  let createCalls = 0;
+  const stripe = {
+    checkout: {
+      sessions: {
+        async create() {
+          createCalls += 1;
+          repository.markPaid();
+          throw new Error("provider failure");
+        },
+        async retrieve() {
+          throw new Error("unused");
+        },
+      },
+    },
+  };
+
+  await assert.rejects(
+    createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, stripe),
+    ),
+    CheckoutServiceError,
+  );
+  assert.equal(createCalls, 1);
+  assert.equal(repository.currentPayment?.payment_status, "paid");
+});
+
+test("a non-null paid_at blocks Checkout even when payment_status is inconsistent", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment({ paid_at: now.toISOString() });
+  const { stripe, calls } = fakeStripe();
+
+  await assert.rejects(
+    createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, stripe),
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof CheckoutServiceError);
+      assert.equal(error.code, "payment-paid");
+      return true;
+    },
+  );
+  assert.equal(calls.length, 0);
 });
 
 test("uses a stable attempt key and sanitizes configuration and Stripe errors", async () => {

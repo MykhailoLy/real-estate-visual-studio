@@ -124,11 +124,8 @@ export async function createCheckoutSession(
     }
   }
 
+  assertPaymentIsNotPaid(payment);
   ensurePaymentMatchesOrder(payment, price.subtotalCents, price.currency, stripeLivemode);
-
-  if (payment.payment_status === "paid") {
-    throw new CheckoutServiceError(409, "payment-paid", "This order has already been paid.");
-  }
 
   const stripe = getStripeClient(dependencies);
   if (payment.payment_status === "checkout_open") {
@@ -144,9 +141,11 @@ export async function createCheckoutSession(
     if (!payment) {
       throw new CheckoutServiceError(502, "payment-storage", "Payment service is unavailable.");
     }
+    assertPaymentIsNotPaid(payment);
     ensurePaymentMatchesOrder(payment, price.subtotalCents, price.currency, stripeLivemode);
   }
 
+  assertPaymentIsNotPaid(payment);
   const attempt = await reserveOrRetryAttempt({
     payment,
     repository: dependencies.repository,
@@ -170,13 +169,20 @@ export async function createCheckoutSession(
   }
 
   try {
-    await dependencies.repository.markCheckoutOpen({
+    const markedOpen = await dependencies.repository.markCheckoutOpen({
       paymentId: payment.id,
       attempt,
       stripeCheckoutSessionId: session.id,
       stripeLivemode,
       checkoutExpiresAt: toIsoDate(session.expires_at),
     });
+    if (!markedOpen) {
+      await throwForConditionalMutationNoOp(
+        dependencies.repository,
+        order.id,
+        "checkout-state-conflict",
+      );
+    }
   } catch (error) {
     // The persisted attempt and stable Stripe idempotency key mean a later
     // retry reuses this same creation attempt instead of producing an
@@ -246,6 +252,28 @@ function ensurePaymentMatchesOrder(
   }
 }
 
+export function isPaymentPaid(payment: OrderPaymentRecord): boolean {
+  return payment.payment_status === "paid" || payment.paid_at !== null;
+}
+
+function assertPaymentIsNotPaid(payment: OrderPaymentRecord): void {
+  if (isPaymentPaid(payment)) {
+    throw new CheckoutServiceError(409, "payment-paid", "This order has already been paid.");
+  }
+}
+
+async function throwForConditionalMutationNoOp(
+  repository: CheckoutRepository,
+  orderId: string,
+  code: string,
+): Promise<never> {
+  const currentPayment = await repository.getPayment(orderId);
+  if (currentPayment && isPaymentPaid(currentPayment)) {
+    assertPaymentIsNotPaid(currentPayment);
+  }
+  throw new CheckoutServiceError(502, code, "Payment service is temporarily unavailable.");
+}
+
 async function reuseOrExpireOpenCheckout({
   payment,
   repository,
@@ -270,13 +298,27 @@ async function reuseOrExpireOpenCheckout({
 
   const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
   if (session.status === "open" && session.url && (!expiresAt || expiresAt > now)) {
+    const currentPayment = await repository.getPayment(payment.order_id);
+    if (currentPayment) assertPaymentIsNotPaid(currentPayment);
     return { url: session.url };
   }
 
   if (session.status === "expired" || (expiresAt && expiresAt <= now)) {
     try {
-      await repository.markExpired(payment.id);
-    } catch {
+      const markedExpired = await repository.markExpired({
+        paymentId: payment.id,
+        stripeCheckoutSessionId: payment.stripe_checkout_session_id,
+        attempt: payment.checkout_attempt,
+      });
+      if (!markedExpired) {
+        await throwForConditionalMutationNoOp(
+          repository,
+          payment.order_id,
+          "checkout-state-conflict",
+        );
+      }
+    } catch (error) {
+      if (error instanceof CheckoutServiceError) throw error;
       throw new CheckoutServiceError(502, "payment-storage", "Payment service is unavailable.");
     }
     return null;
@@ -296,24 +338,30 @@ async function reserveOrRetryAttempt({
   repository: CheckoutRepository;
   now: Date;
 }): Promise<number> {
+  assertPaymentIsNotPaid(payment);
+  if (
+    payment.payment_status !== "pending" &&
+    payment.payment_status !== "expired" &&
+    payment.payment_status !== "failed"
+  ) {
+    throw new CheckoutServiceError(409, "checkout-state-invalid", "Payment is being processed.");
+  }
+
   const reservedUntil = payment.checkout_expires_at
     ? new Date(payment.checkout_expires_at)
     : null;
-
-  if (payment.payment_status === "pending" && payment.checkout_attempt > 0) {
-    if (reservedUntil && reservedUntil > now) {
-      throw new CheckoutServiceError(409, "checkout-in-progress", "Payment is being prepared.");
-    }
-    // A prior process may have created a Stripe Session but failed before its
-    // database write. Reuse its stable attempt/idempotency key on retry.
-    return payment.checkout_attempt;
-  }
 
   if (reservedUntil && reservedUntil > now) {
     throw new CheckoutServiceError(409, "checkout-in-progress", "Payment is being prepared.");
   }
 
-  const nextAttempt = payment.checkout_attempt + 1;
+  // A stale pending reservation can be retried with the same stable attempt
+  // key after a database write failure. The conditional write still proves it
+  // has not become paid before another Stripe call is allowed.
+  const nextAttempt =
+    payment.payment_status === "pending" && payment.checkout_attempt > 0
+      ? payment.checkout_attempt
+      : payment.checkout_attempt + 1;
   const reserved = await repository.reserveAttempt({
     paymentId: payment.id,
     expectedAttempt: payment.checkout_attempt,
@@ -321,6 +369,8 @@ async function reserveOrRetryAttempt({
     leaseExpiresAt: new Date(now.getTime() + ATTEMPT_LEASE_MS).toISOString(),
   });
   if (!reserved) {
+    const currentPayment = await repository.getPayment(payment.order_id);
+    if (currentPayment) assertPaymentIsNotPaid(currentPayment);
     throw new CheckoutServiceError(409, "checkout-in-progress", "Payment is being prepared.");
   }
   return nextAttempt;

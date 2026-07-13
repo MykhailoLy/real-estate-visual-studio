@@ -15,6 +15,7 @@ export interface OrderPaymentRecord {
   stripe_livemode: boolean | null;
   checkout_attempt: number;
   checkout_expires_at: string | null;
+  paid_at: string | null;
 }
 
 export interface CheckoutRepository {
@@ -38,9 +39,13 @@ export interface CheckoutRepository {
     stripeCheckoutSessionId: string;
     stripeLivemode: boolean;
     checkoutExpiresAt: string | null;
-  }): Promise<void>;
-  markExpired(paymentId: string): Promise<void>;
-  markFailed(input: { paymentId: string; attempt: number }): Promise<void>;
+  }): Promise<boolean>;
+  markExpired(input: {
+    paymentId: string;
+    stripeCheckoutSessionId: string;
+    attempt: number;
+  }): Promise<boolean>;
+  markFailed(input: { paymentId: string; attempt: number }): Promise<boolean>;
 }
 
 export class CheckoutRepositoryError extends Error {
@@ -55,7 +60,8 @@ const ORDER_COLUMNS =
   "estimated_total_cents, currency, pricing_snapshot";
 const PAYMENT_COLUMNS =
   "id, order_id, payment_status, refund_status, subtotal_cents, currency, " +
-  "stripe_checkout_session_id, stripe_livemode, checkout_attempt, checkout_expires_at";
+  "stripe_checkout_session_id, stripe_livemode, checkout_attempt, checkout_expires_at, paid_at";
+const RETRYABLE_UNPAID_PAYMENT_STATUSES = ["pending", "expired", "failed"];
 
 export function createSupabaseCheckoutRepository(
   supabase: SupabaseClient,
@@ -118,6 +124,8 @@ export function createSupabaseCheckoutRepository(
         })
         .eq("id", input.paymentId)
         .eq("checkout_attempt", input.expectedAttempt)
+        .in("payment_status", RETRYABLE_UNPAID_PAYMENT_STATUSES)
+        .is("paid_at", null)
         .select(PAYMENT_COLUMNS)
         .maybeSingle();
       if (error) throw new CheckoutRepositoryError();
@@ -135,27 +143,41 @@ export function createSupabaseCheckoutRepository(
         })
         .eq("id", input.paymentId)
         .eq("checkout_attempt", input.attempt)
+        .in("payment_status", RETRYABLE_UNPAID_PAYMENT_STATUSES)
+        .is("paid_at", null)
         .select("id")
         .maybeSingle();
-      if (error || !data) throw new CheckoutRepositoryError();
+      if (error) throw new CheckoutRepositoryError();
+      return Boolean(data);
     },
 
-    async markExpired(paymentId) {
-      const { error } = await supabase
+    async markExpired(input) {
+      const { data, error } = await supabase
         .from("order_payments")
         .update({ payment_status: "expired" })
-        .eq("id", paymentId)
-        .eq("payment_status", "checkout_open");
+        .eq("id", input.paymentId)
+        .eq("stripe_checkout_session_id", input.stripeCheckoutSessionId)
+        .eq("checkout_attempt", input.attempt)
+        .eq("payment_status", "checkout_open")
+        .is("paid_at", null)
+        .select("id")
+        .maybeSingle();
       if (error) throw new CheckoutRepositoryError();
+      return Boolean(data);
     },
 
     async markFailed(input) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("order_payments")
         .update({ payment_status: "failed", checkout_expires_at: null })
         .eq("id", input.paymentId)
-        .eq("checkout_attempt", input.attempt);
+        .eq("checkout_attempt", input.attempt)
+        .in("payment_status", RETRYABLE_UNPAID_PAYMENT_STATUSES)
+        .is("paid_at", null)
+        .select("id")
+        .maybeSingle();
       if (error) throw new CheckoutRepositoryError();
+      return Boolean(data);
     },
   };
 }
