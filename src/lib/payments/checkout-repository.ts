@@ -1,0 +1,161 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CheckoutEligibleOrder } from "./checkout-eligibility.ts";
+import type { PaymentStatus, RefundStatus } from "./domain.ts";
+
+export interface OrderPaymentRecord {
+  id: string;
+  order_id: string;
+  payment_status: PaymentStatus;
+  refund_status: RefundStatus;
+  subtotal_cents: number;
+  currency: string;
+  stripe_checkout_session_id: string | null;
+  stripe_livemode: boolean | null;
+  checkout_attempt: number;
+  checkout_expires_at: string | null;
+}
+
+export interface CheckoutRepository {
+  getOrder(orderId: string): Promise<CheckoutEligibleOrder | null>;
+  getPayment(orderId: string): Promise<OrderPaymentRecord | null>;
+  createPayment(input: {
+    orderId: string;
+    subtotalCents: number;
+    currency: string;
+    stripeLivemode: boolean;
+  }): Promise<OrderPaymentRecord | null>;
+  reserveAttempt(input: {
+    paymentId: string;
+    expectedAttempt: number;
+    nextAttempt: number;
+    leaseExpiresAt: string;
+  }): Promise<OrderPaymentRecord | null>;
+  markCheckoutOpen(input: {
+    paymentId: string;
+    attempt: number;
+    stripeCheckoutSessionId: string;
+    stripeLivemode: boolean;
+    checkoutExpiresAt: string | null;
+  }): Promise<void>;
+  markExpired(paymentId: string): Promise<void>;
+  markFailed(input: { paymentId: string; attempt: number }): Promise<void>;
+}
+
+export class CheckoutRepositoryError extends Error {
+  constructor(message = "Payment storage is unavailable.") {
+    super(message);
+    this.name = "CheckoutRepositoryError";
+  }
+}
+
+const ORDER_COLUMNS =
+  "id, order_number, user_id, client_email, status, service_type, " +
+  "estimated_total_cents, currency, pricing_snapshot";
+const PAYMENT_COLUMNS =
+  "id, order_id, payment_status, refund_status, subtotal_cents, currency, " +
+  "stripe_checkout_session_id, stripe_livemode, checkout_attempt, checkout_expires_at";
+
+export function createSupabaseCheckoutRepository(
+  supabase: SupabaseClient,
+): CheckoutRepository {
+  return {
+    async getOrder(orderId) {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(ORDER_COLUMNS)
+        .eq("id", orderId)
+        .maybeSingle();
+      if (error) throw new CheckoutRepositoryError();
+      return (data as unknown as CheckoutEligibleOrder | null) ?? null;
+    },
+
+    async getPayment(orderId) {
+      const { data, error } = await supabase
+        .from("order_payments")
+        .select(PAYMENT_COLUMNS)
+        .eq("order_id", orderId)
+        .maybeSingle();
+      if (error) throw new CheckoutRepositoryError();
+      return (data as unknown as OrderPaymentRecord | null) ?? null;
+    },
+
+    async createPayment(input) {
+      const { data, error } = await supabase
+        .from("order_payments")
+        .insert({
+          order_id: input.orderId,
+          provider: "stripe",
+          payment_status: "pending",
+          refund_status: "none",
+          subtotal_cents: input.subtotalCents,
+          currency: input.currency,
+          tax_cents: null,
+          total_cents: null,
+          stripe_livemode: input.stripeLivemode,
+        })
+        .select(PAYMENT_COLUMNS)
+        .maybeSingle();
+
+      // A concurrent request can win the order_id UNIQUE constraint. The
+      // caller reloads the row in that expected case; all other failures are
+      // deliberately kept server-side.
+      if (error) {
+        if (error.code === "23505") return null;
+        throw new CheckoutRepositoryError();
+      }
+      if (!data) throw new CheckoutRepositoryError();
+      return data as unknown as OrderPaymentRecord;
+    },
+
+    async reserveAttempt(input) {
+      const { data, error } = await supabase
+        .from("order_payments")
+        .update({
+          checkout_attempt: input.nextAttempt,
+          checkout_expires_at: input.leaseExpiresAt,
+        })
+        .eq("id", input.paymentId)
+        .eq("checkout_attempt", input.expectedAttempt)
+        .select(PAYMENT_COLUMNS)
+        .maybeSingle();
+      if (error) throw new CheckoutRepositoryError();
+      return (data as unknown as OrderPaymentRecord | null) ?? null;
+    },
+
+    async markCheckoutOpen(input) {
+      const { data, error } = await supabase
+        .from("order_payments")
+        .update({
+          payment_status: "checkout_open",
+          stripe_checkout_session_id: input.stripeCheckoutSessionId,
+          stripe_livemode: input.stripeLivemode,
+          checkout_expires_at: input.checkoutExpiresAt,
+        })
+        .eq("id", input.paymentId)
+        .eq("checkout_attempt", input.attempt)
+        .select("id")
+        .maybeSingle();
+      if (error || !data) throw new CheckoutRepositoryError();
+    },
+
+    async markExpired(paymentId) {
+      const { error } = await supabase
+        .from("order_payments")
+        .update({ payment_status: "expired" })
+        .eq("id", paymentId)
+        .eq("payment_status", "checkout_open");
+      if (error) throw new CheckoutRepositoryError();
+    },
+
+    async markFailed(input) {
+      const { error } = await supabase
+        .from("order_payments")
+        .update({ payment_status: "failed", checkout_expires_at: null })
+        .eq("id", input.paymentId)
+        .eq("checkout_attempt", input.attempt);
+      if (error) throw new CheckoutRepositoryError();
+    },
+  };
+}
