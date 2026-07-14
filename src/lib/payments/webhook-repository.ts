@@ -8,6 +8,8 @@ export type WebhookEventProcessingStatus = "received" | "processed" | "ignored" 
 export interface StripeWebhookEventRecord {
   stripe_event_id: string;
   processing_status: WebhookEventProcessingStatus;
+  processed_at: string | null;
+  order_id: string | null;
 }
 
 export interface WebhookPaymentRecord {
@@ -33,7 +35,6 @@ export interface WebhookRepository {
     eventType: string;
     stripeLivemode: boolean;
     stripeObjectId: string | null;
-    orderId: string | null;
     stripeCreatedAt: string | null;
     receivedAt: string;
   }): Promise<StripeWebhookEventRecord | null>;
@@ -41,9 +42,10 @@ export interface WebhookRepository {
   finishEvent(input: {
     stripeEventId: string;
     status: Exclude<WebhookEventProcessingStatus, "received">;
-    processedAt: string;
+    processedAt: string | null;
     errorMessage: string | null;
-  }): Promise<void>;
+    orderId: string | null;
+  }): Promise<boolean>;
   getPayment(orderId: string): Promise<WebhookPaymentRecord | null>;
   markPaid(input: {
     payment: WebhookPaymentRecord;
@@ -73,12 +75,14 @@ export class WebhookRepositoryError extends Error {
   }
 }
 
-const EVENT_COLUMNS = "stripe_event_id, processing_status";
+const EVENT_COLUMNS = "stripe_event_id, processing_status, processed_at, order_id";
 const PAYMENT_COLUMNS =
   "id, order_id, provider, payment_status, subtotal_cents, tax_cents, total_cents, " +
   "currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_customer_id, " +
   "stripe_livemode, checkout_expires_at, paid_at";
 const UNPAID_PAYMENT_STATUSES = ["pending", "checkout_open", "expired", "failed"];
+const RETRYABLE_EVENT_FILTER =
+  "processing_status.eq.received,and(processing_status.eq.failed,processed_at.is.null)";
 
 export function createSupabaseWebhookRepository(
   supabase: SupabaseClient,
@@ -92,7 +96,9 @@ export function createSupabaseWebhookRepository(
           event_type: input.eventType,
           stripe_livemode: input.stripeLivemode,
           stripe_object_id: input.stripeObjectId,
-          order_id: input.orderId,
+          // Metadata is not a database identity proof. A payment lookup must
+          // succeed before a later conditional finalization may link this FK.
+          order_id: null,
           processing_status: "received",
           stripe_created_at: input.stripeCreatedAt,
           received_at: input.receivedAt,
@@ -118,15 +124,20 @@ export function createSupabaseWebhookRepository(
     },
 
     async finishEvent(input) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("stripe_webhook_events")
         .update({
           processing_status: input.status,
           processed_at: input.processedAt,
           error_message: input.errorMessage,
+          ...(input.orderId ? { order_id: input.orderId } : {}),
         })
-        .eq("stripe_event_id", input.stripeEventId);
+        .eq("stripe_event_id", input.stripeEventId)
+        .or(RETRYABLE_EVENT_FILTER)
+        .select("stripe_event_id")
+        .maybeSingle();
       if (error) throw new WebhookRepositoryError();
+      return Boolean(data);
     },
 
     async getPayment(orderId) {

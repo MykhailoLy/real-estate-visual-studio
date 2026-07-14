@@ -18,7 +18,7 @@ registerHooks({
 });
 
 const orderId = "11111111-1111-4111-8111-111111111111";
-const now = new Date("2026-07-13T12:00:00.000Z");
+const now = new Date("2026-07-14T12:00:00.000Z");
 const { handleStripeWebhookRequest } = await import("./webhook-request.ts");
 const { processVerifiedStripeWebhook } = await import("./webhook-service.ts");
 
@@ -36,18 +36,22 @@ function payment(overrides: Record<string, unknown> = {}) {
     stripe_payment_intent_id: null,
     stripe_customer_id: null,
     stripe_livemode: false,
-    checkout_expires_at: "2026-07-13T12:30:00.000Z",
+    checkout_expires_at: "2026-07-14T12:30:00.000Z",
     paid_at: null,
     ...overrides,
   };
 }
 
-function event(type: string, overrides: Record<string, unknown> = {}) {
+function event(
+  type: string,
+  sessionOverrides: Record<string, unknown> = {},
+  eventOverrides: Record<string, unknown> = {},
+) {
   return {
     id: "evt_test_123",
     type,
     livemode: false,
-    created: 1783944000,
+    created: 1784030400,
     data: {
       object: {
         id: "cs_test_123",
@@ -62,23 +66,40 @@ function event(type: string, overrides: Record<string, unknown> = {}) {
         payment_intent: { id: "pi_test_123" },
         customer: { id: "cus_test_123" },
         total_details: { amount_tax: 100, amount_discount: 0, amount_shipping: 0 },
-        ...overrides,
+        ...sessionOverrides,
       },
     },
+    ...eventOverrides,
   };
 }
 
+type EventRecord = {
+  stripe_event_id: string;
+  processing_status: "received" | "processed" | "ignored" | "failed";
+  processed_at: string | null;
+  order_id: string | null;
+  error: string | null;
+};
+
 class FakeRepository {
   currentPayment: ReturnType<typeof payment> | null = payment();
-  events = new Map<string, { stripe_event_id: string; processing_status: "received" | "processed" | "ignored" | "failed"; error?: string | null }>();
+  events = new Map<string, EventRecord>();
+  registrations: Array<Record<string, unknown>> = [];
   updates = 0;
-  failStorage = false;
+  onGetPayment: (() => void) | null = null;
 
-  async registerEvent(input: { stripeEventId: string }) {
-    if (this.failStorage) throw new Error("db unavailable");
-    if (this.events.has(input.stripeEventId)) return null;
-    const row = { stripe_event_id: input.stripeEventId, processing_status: "received" as const };
-    this.events.set(input.stripeEventId, row);
+  async registerEvent(input: Record<string, unknown>) {
+    this.registrations.push(input);
+    const id = input.stripeEventId as string;
+    if (this.events.has(id)) return null;
+    const row: EventRecord = {
+      stripe_event_id: id,
+      processing_status: "received",
+      processed_at: null,
+      order_id: null,
+      error: null,
+    };
+    this.events.set(id, row);
     return row;
   }
 
@@ -86,16 +107,28 @@ class FakeRepository {
     return this.events.get(stripeEventId) ?? null;
   }
 
-  async finishEvent(input: { stripeEventId: string; status: "processed" | "ignored" | "failed"; errorMessage: string | null }) {
-    if (this.failStorage) throw new Error("db unavailable");
+  async finishEvent(input: {
+    stripeEventId: string;
+    status: "processed" | "ignored" | "failed";
+    processedAt: string | null;
+    errorMessage: string | null;
+    orderId: string | null;
+  }) {
     const current = this.events.get(input.stripeEventId);
     if (!current) throw new Error("missing event");
+    const retryable = current.processing_status === "received" ||
+      (current.processing_status === "failed" && current.processed_at === null);
+    if (!retryable) return false;
     current.processing_status = input.status;
+    current.processed_at = input.processedAt;
     current.error = input.errorMessage;
+    if (input.orderId) current.order_id = input.orderId;
+    return true;
   }
 
   async getPayment() {
-    if (this.failStorage) throw new Error("db unavailable");
+    this.onGetPayment?.();
+    this.onGetPayment = null;
     return this.currentPayment;
   }
 
@@ -143,13 +176,12 @@ function dependencies(repository: FakeRepository) {
   return { repository, now: () => now };
 }
 
-test("verifies the exact raw body once, returns 400 for invalid signatures, and 503 for absent webhook configuration", async () => {
-  const repository = new FakeRepository();
+test("keeps raw-body signature behavior and does not disclose configuration errors", async () => {
   let captured: string | null = null;
   const accepted = await handleStripeWebhookRequest(
     { rawBody: "{ exact raw payload }", stripeSignature: "t=1,v1=valid" },
     {
-      ...dependencies(repository),
+      ...dependencies(new FakeRepository()),
       getWebhookSecret: () => "test-webhook-secret",
       verifyEvent: (rawBody, signature) => {
         captured = `${rawBody}|${signature}`;
@@ -165,100 +197,213 @@ test("verifies the exact raw body once, returns 400 for invalid signatures, and 
     { ...dependencies(new FakeRepository()), getWebhookSecret: () => "test-secret", verifyEvent: () => { throw new Error("signature"); } },
   );
   assert.equal(invalid.status, 400);
-
   const unconfigured = await handleStripeWebhookRequest(
     { rawBody: "payload", stripeSignature: "present" },
     { ...dependencies(new FakeRepository()), getWebhookSecret: () => { throw new Error("missing configuration"); }, verifyEvent: () => event("checkout.session.completed") },
   );
-  assert.deepEqual(unconfigured, { status: 503, body: { received: true } });
+  assert.equal(unconfigured.status, 503);
 });
 
-test("records signed unsupported and non-PicchuSpot events as ignored without payment effects", async () => {
+test("records all initial events with a null foreign key and retries missing payments safely", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = null;
+  const missing = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(repository));
+  assert.equal(missing.status, 500);
+  assert.deepEqual(repository.registrations[0], {
+    stripeEventId: "evt_test_123",
+    eventType: "checkout.session.completed",
+    stripeLivemode: false,
+    stripeObjectId: "cs_test_123",
+    stripeCreatedAt: "2026-07-14T12:00:00.000Z",
+    receivedAt: now.toISOString(),
+  });
+  assert.deepEqual(repository.events.get("evt_test_123"), {
+    stripe_event_id: "evt_test_123",
+    processing_status: "failed",
+    processed_at: null,
+    order_id: null,
+    error: "Payment webhook processing could not be completed.",
+  });
+  assert.equal(repository.updates, 0);
+
+  repository.currentPayment = payment();
+  const retried = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(repository));
+  assert.equal(retried.status, 200);
+  assert.equal(repository.updates, 1);
+  assert.equal(repository.events.get("evt_test_123")?.processing_status, "processed");
+  assert.equal(repository.events.get("evt_test_123")?.order_id, orderId);
+});
+
+test("keeps unsupported and non-PicchuSpot events unlinked and ignored", async () => {
   for (const candidate of [
     event("payment_intent.succeeded"),
-    event("checkout.session.completed", { metadata: { picchuspot_order_id: "not-an-order" } }),
+    event("checkout.session.completed", { metadata: { picchuspot_order_id: "not-an-order" } }, { id: "evt_ignored" }),
   ]) {
     const repository = new FakeRepository();
     const result = await processVerifiedStripeWebhook(candidate, dependencies(repository));
     assert.equal(result.status, 200);
-    assert.equal(repository.currentPayment?.payment_status, "checkout_open");
-    assert.equal(repository.events.get("evt_test_123")?.processing_status, "ignored");
+    const stored = repository.events.get(candidate.id);
+    assert.equal(stored?.processing_status, "ignored");
+    assert.equal(stored?.order_id, null);
+    assert.equal(repository.updates, 0);
   }
 });
 
-test("processes a valid paid Checkout Session exactly once with validated tax, totals, IDs, and event timestamp", async () => {
+test("never regresses processed or ignored events to retryable failures", async () => {
+  for (const terminalStatus of ["processed", "ignored"] as const) {
+    const repository = new FakeRepository();
+    repository.onGetPayment = () => {
+      const current = repository.events.get("evt_test_123");
+      if (!current) throw new Error("missing event");
+      current.processing_status = terminalStatus;
+      current.processed_at = now.toISOString();
+      throw new Error("transient storage error");
+    };
+    const result = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(repository));
+    assert.equal(result.status, 200);
+    assert.equal(repository.events.get("evt_test_123")?.processing_status, terminalStatus);
+  }
+});
+
+test("permanent failures are final while retryable failures are processed on a later delivery", async () => {
+  const permanent = new FakeRepository();
+  permanent.events.set("evt_test_123", {
+    stripe_event_id: "evt_test_123",
+    processing_status: "failed",
+    processed_at: now.toISOString(),
+    order_id: null,
+    error: "Payment does not match its Checkout Session.",
+  });
+  const finalDuplicate = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(permanent));
+  assert.equal(finalDuplicate.status, 200);
+  assert.equal(permanent.updates, 0);
+
+  const retryable = new FakeRepository();
+  retryable.events.set("evt_test_123", {
+    stripe_event_id: "evt_test_123",
+    processing_status: "failed",
+    processed_at: null,
+    order_id: null,
+    error: "Payment webhook processing could not be completed.",
+  });
+  const retried = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(retryable));
+  assert.equal(retried.status, 200);
+  assert.equal(retryable.updates, 1);
+  assert.equal(retryable.events.get("evt_test_123")?.processing_status, "processed");
+});
+
+test("requires matching event, Session, and payment livemode", async () => {
+  for (const sessionLivemode of [true, undefined, "false"]) {
+    const repository = new FakeRepository();
+    const result = await processVerifiedStripeWebhook(
+      event("checkout.session.completed", { livemode: sessionLivemode }),
+      dependencies(repository),
+    );
+    assert.equal(result.status, 200);
+    assert.equal(repository.currentPayment?.payment_status, "checkout_open");
+    assert.equal(repository.events.get("evt_test_123")?.processing_status, "failed");
+    assert.notEqual(repository.events.get("evt_test_123")?.processed_at, null);
+  }
+});
+
+test("marks complete paid and async succeeded Sessions as paid, but ignores completed unpaid Sessions", async () => {
+  for (const [type, expectedStatus] of [
+    ["checkout.session.completed", "paid"],
+    ["checkout.session.async_payment_succeeded", "paid"],
+    ["checkout.session.completed", "checkout_open"],
+  ] as const) {
+    const repository = new FakeRepository();
+    const candidate = expectedStatus === "paid"
+      ? event(type, {}, { id: `evt_${type}` })
+      : event(type, { payment_status: "unpaid" }, { id: `evt_${type}` });
+    const result = await processVerifiedStripeWebhook(candidate, dependencies(repository));
+    assert.equal(result.status, 200);
+    assert.equal(repository.currentPayment?.payment_status, expectedStatus);
+    assert.equal(
+      repository.events.get(candidate.id)?.processing_status,
+      expectedStatus === "paid" ? "processed" : "ignored",
+    );
+  }
+});
+
+test("failed and expired deliveries cannot regress a matching paid payment", async () => {
+  for (const type of ["checkout.session.async_payment_failed", "checkout.session.expired"]) {
+    const repository = new FakeRepository();
+    repository.currentPayment = payment({
+      payment_status: "paid",
+      stripe_payment_intent_id: "pi_test_123",
+      tax_cents: 100,
+      total_cents: 1450,
+      paid_at: now.toISOString(),
+    });
+    const result = await processVerifiedStripeWebhook(
+      event(type, { payment_status: "unpaid" }, { id: `evt_paid_${type}` }),
+      dependencies(repository),
+    );
+    assert.equal(result.status, 200);
+    assert.equal(repository.currentPayment?.payment_status, "paid");
+    assert.equal(repository.events.get(`evt_paid_${type}`)?.processing_status, "processed");
+  }
+});
+
+test("adopts an early Session ID only after payment validation and never duplicates the paid mutation", async () => {
   const repository = new FakeRepository();
+  repository.currentPayment = payment({ stripe_checkout_session_id: null });
   const result = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(repository));
   assert.equal(result.status, 200);
-  assert.deepEqual(repository.currentPayment, payment({
+  assert.equal(repository.currentPayment?.stripe_checkout_session_id, "cs_test_123");
+  assert.equal(repository.updates, 1);
+});
+
+test("accepts an already-paid replay only when every immutable payment field matches", async () => {
+  const matching = new FakeRepository();
+  matching.currentPayment = payment({
     payment_status: "paid",
     stripe_payment_intent_id: "pi_test_123",
     stripe_customer_id: "cus_test_123",
     tax_cents: 100,
     total_cents: 1450,
-    checkout_expires_at: null,
-    paid_at: "2026-07-13T12:00:00.000Z",
-  }));
-  assert.equal(repository.events.get("evt_test_123")?.processing_status, "processed");
-
-  const duplicate = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(repository));
-  assert.equal(duplicate.status, 200);
-  assert.equal(repository.updates, 1);
-});
-
-test("rejects inconsistent paid sessions without overwriting paid history or exposing provider data", async () => {
-  const repository = new FakeRepository();
-  const result = await processVerifiedStripeWebhook(
-    event("checkout.session.completed", { amount_total: 999, payment_intent: "pi_secret_not_logged" }),
-    dependencies(repository),
-  );
-  assert.equal(result.status, 200);
-  assert.equal(repository.currentPayment?.payment_status, "checkout_open");
-  const row = repository.events.get("evt_test_123");
-  assert.equal(row?.processing_status, "failed");
-  assert.equal(row?.error?.includes("pi_secret_not_logged"), false);
-
-  const paidRepository = new FakeRepository();
-  paidRepository.currentPayment = payment({
-    payment_status: "paid",
     paid_at: now.toISOString(),
-    stripe_payment_intent_id: "pi_original",
   });
-  const paidResult = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(paidRepository));
-  assert.equal(paidResult.status, 200);
-  assert.equal(paidRepository.currentPayment?.stripe_payment_intent_id, "pi_original");
+  const replay = await processVerifiedStripeWebhook(
+    event("checkout.session.completed", {}, { id: "evt_matching_paid" }),
+    dependencies(matching),
+  );
+  assert.equal(replay.status, 200);
+  assert.equal(matching.events.get("evt_matching_paid")?.processing_status, "processed");
+  assert.equal(matching.updates, 0);
+
+  for (const override of [{ currency: "eur" }, { subtotal_cents: 999 }]) {
+    const conflict = new FakeRepository();
+    conflict.currentPayment = payment({
+      payment_status: "paid",
+      stripe_payment_intent_id: "pi_test_123",
+      stripe_customer_id: "cus_test_123",
+      tax_cents: 100,
+      total_cents: 1450,
+      paid_at: now.toISOString(),
+      ...override,
+    });
+    const result = await processVerifiedStripeWebhook(
+      event("checkout.session.completed", {}, { id: `evt_conflict_${override.currency ?? override.subtotal_cents}` }),
+      dependencies(conflict),
+    );
+    assert.equal(result.status, 200);
+    assert.equal(conflict.events.get(`evt_conflict_${override.currency ?? override.subtotal_cents}`)?.processing_status, "failed");
+  }
 });
 
-test("marks matching async failures and expirations without regressing paid payments", async () => {
-  const failedRepository = new FakeRepository();
-  const failed = await processVerifiedStripeWebhook(
-    event("checkout.session.async_payment_failed", { payment_status: "unpaid", payment_intent: "pi_test_123" }),
-    dependencies(failedRepository),
-  );
-  assert.equal(failed.status, 200);
-  assert.equal(failedRepository.currentPayment?.payment_status, "failed");
-
-  const expiredRepository = new FakeRepository();
-  const expired = await processVerifiedStripeWebhook(
-    event("checkout.session.expired", { payment_status: "unpaid", payment_intent: null }),
-    dependencies(expiredRepository),
-  );
-  assert.equal(expired.status, 200);
-  assert.equal(expiredRepository.currentPayment?.payment_status, "expired");
-
-  const paidRepository = new FakeRepository();
-  paidRepository.currentPayment = payment({ payment_status: "paid", paid_at: now.toISOString() });
-  const harmless = await processVerifiedStripeWebhook(
-    event("checkout.session.async_payment_failed", { payment_status: "unpaid" }),
-    dependencies(paidRepository),
-  );
-  assert.equal(harmless.status, 200);
-  assert.equal(paidRepository.currentPayment?.payment_status, "paid");
-});
-
-test("returns 500 for transient storage failures while retaining only sanitized event errors", async () => {
+test("persists only reconciliation metadata and sanitized static errors", async () => {
   const repository = new FakeRepository();
-  repository.failStorage = true;
-  const result = await processVerifiedStripeWebhook(event("checkout.session.completed"), dependencies(repository));
-  assert.deepEqual(result, { status: 500, body: { received: true } });
+  repository.currentPayment = null;
+  const candidate = event("checkout.session.completed", {
+    customer: { email: "customer@example.com", address: { line1: "private" } },
+    payment_method_types: ["card"],
+  });
+  const result = await processVerifiedStripeWebhook(candidate, dependencies(repository));
+  assert.equal(result.status, 500);
+  const serialized = JSON.stringify([...repository.events.values(), repository.registrations]);
+  assert.equal(serialized.includes("customer@example.com"), false);
+  assert.equal(serialized.includes("private"), false);
+  assert.equal(serialized.includes("payment_method_types"), false);
 });

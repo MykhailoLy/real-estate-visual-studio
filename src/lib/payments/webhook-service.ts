@@ -1,6 +1,10 @@
 import "server-only";
 
-import type { WebhookPaymentRecord, WebhookRepository } from "./webhook-repository.ts";
+import type {
+  StripeWebhookEventRecord,
+  WebhookPaymentRecord,
+  WebhookRepository,
+} from "./webhook-repository.ts";
 
 const HANDLED_EVENT_TYPES = new Set([
   "checkout.session.completed",
@@ -9,6 +13,7 @@ const HANDLED_EVENT_TYPES = new Set([
   "checkout.session.expired",
 ]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TRANSIENT_ERROR_MESSAGE = "Payment webhook processing could not be completed.";
 
 export interface StripeWebhookCheckoutSession {
   id?: unknown;
@@ -46,8 +51,9 @@ export interface StripeWebhookResult {
 class PermanentWebhookError extends Error {}
 
 /**
- * Processes only already-verified Stripe events. It persists reconciliation
- * metadata, never raw payloads, and performs no Stripe API calls.
+ * Processes only already-verified Stripe events. Raw event data never reaches
+ * storage, and event rows are linked to orders only after a payment lookup
+ * proves the metadata UUID belongs to an existing payment record.
  */
 export async function processVerifiedStripeWebhook(
   event: VerifiedStripeWebhookEvent,
@@ -55,45 +61,61 @@ export async function processVerifiedStripeWebhook(
 ): Promise<StripeWebhookResult> {
   const now = dependencies.now ?? (() => new Date());
   const normalized = normalizeEvent(event);
-  if (!normalized) return { status: 200, body: { received: true } };
+  if (!normalized) return received(200);
 
-  const identity = getPicchuSpotOrderId(normalized.session);
-  let registered;
+  let existing: StripeWebhookEventRecord | null;
   try {
-    registered = await dependencies.repository.registerEvent({
+    existing = await dependencies.repository.registerEvent({
       stripeEventId: normalized.id,
       eventType: normalized.type,
       stripeLivemode: normalized.livemode,
       stripeObjectId: normalized.sessionId,
-      orderId: identity,
       stripeCreatedAt: normalized.createdAt,
       receivedAt: now().toISOString(),
     });
-    if (!registered) {
-      const existing = await dependencies.repository.getEvent(normalized.id);
-      if (!existing) throw new Error("Missing duplicate webhook event.");
-      if (existing.processing_status === "processed" || existing.processing_status === "ignored") {
-        return { status: 200, body: { received: true } };
-      }
+    if (!existing) {
+      existing = await dependencies.repository.getEvent(normalized.id);
+      if (!existing) throw new Error("Webhook event could not be reloaded.");
+      if (isFinalEvent(existing)) return received(200);
     }
   } catch {
-    return { status: 500, body: { received: true } };
+    return received(500);
   }
 
+  let linkedOrderId: string | null = null;
   try {
-    if (!HANDLED_EVENT_TYPES.has(normalized.type) || !identity) {
-      await finishEvent(dependencies.repository, normalized.id, "ignored", null, now());
-      return { status: 200, body: { received: true } };
+    const verifiedOrderId = getPicchuSpotOrderId(normalized.session);
+    if (!HANDLED_EVENT_TYPES.has(normalized.type) || !verifiedOrderId) {
+      await finishTerminal(
+        dependencies.repository,
+        normalized.id,
+        "ignored",
+        null,
+        null,
+        now(),
+      );
+      return received(200);
     }
 
-    const payment = await dependencies.repository.getPayment(identity);
+    const payment = await dependencies.repository.getPayment(verifiedOrderId);
     if (!payment) throw new Error("Payment record is unavailable.");
+    if (payment.order_id !== verifiedOrderId) {
+      throw new PermanentWebhookError("Payment order does not match verified Checkout metadata.");
+    }
+    linkedOrderId = payment.order_id;
     assertPaymentMatchesSession(payment, normalized);
 
     if (normalized.type === "checkout.session.completed") {
       if (normalized.session.payment_status !== "paid") {
-        await finishEvent(dependencies.repository, normalized.id, "ignored", null, now());
-        return { status: 200, body: { received: true } };
+        await finishTerminal(
+          dependencies.repository,
+          normalized.id,
+          "ignored",
+          null,
+          linkedOrderId,
+          now(),
+        );
+        return received(200);
       }
       await processPaidEvent(payment, normalized, dependencies.repository);
     } else if (normalized.type === "checkout.session.async_payment_succeeded") {
@@ -104,36 +126,42 @@ export async function processVerifiedStripeWebhook(
       await processExpiredEvent(payment, normalized, dependencies.repository);
     }
 
-    await finishEvent(dependencies.repository, normalized.id, "processed", null, now());
-    return { status: 200, body: { received: true } };
+    await finishTerminal(
+      dependencies.repository,
+      normalized.id,
+      "processed",
+      null,
+      linkedOrderId,
+      now(),
+    );
+    return received(200);
   } catch (error) {
     if (error instanceof PermanentWebhookError) {
       try {
-        await finishEvent(
+        await finishTerminal(
           dependencies.repository,
           normalized.id,
           "failed",
           sanitizePermanentError(error),
+          linkedOrderId,
           now(),
         );
-        return { status: 200, body: { received: true } };
+        return received(200);
       } catch {
-        return { status: 500, body: { received: true } };
+        return received(500);
       }
     }
 
     try {
-      await finishEvent(
+      const terminalStateWon = await finishTransientFailure(
         dependencies.repository,
         normalized.id,
-        "failed",
-        "Payment webhook processing could not be completed.",
-        now(),
+        linkedOrderId,
       );
+      return received(terminalStateWon ? 200 : 500);
     } catch {
-      // The only safe action is a retry: no payload or provider details leave this boundary.
+      return received(500);
     }
-    return { status: 500, body: { received: true } };
   }
 }
 
@@ -144,6 +172,14 @@ interface NormalizedEvent {
   createdAt: string | null;
   sessionId: string | null;
   session: StripeWebhookCheckoutSession;
+}
+
+interface PaymentMatch {
+  orderId: string;
+  livemode: boolean;
+  currency: string;
+  subtotalCents: number;
+  sessionId: string;
 }
 
 function normalizeEvent(event: VerifiedStripeWebhookEvent): NormalizedEvent | null {
@@ -182,7 +218,7 @@ function getPicchuSpotOrderId(session: StripeWebhookCheckoutSession): string | n
 function assertPaymentMatchesSession(
   payment: WebhookPaymentRecord,
   event: NormalizedEvent,
-): void {
+): PaymentMatch {
   const sessionId = optionalId(event.session.id);
   const currency = normalizeCurrency(event.session.currency);
   const subtotal = safeAmount(event.session.amount_subtotal);
@@ -190,6 +226,8 @@ function assertPaymentMatchesSession(
     !sessionId ||
     !currency ||
     subtotal === null ||
+    typeof event.session.livemode !== "boolean" ||
+    event.session.livemode !== event.livemode ||
     payment.provider !== "stripe" ||
     payment.stripe_livemode !== event.livemode ||
     payment.currency !== currency ||
@@ -199,6 +237,13 @@ function assertPaymentMatchesSession(
   ) {
     throw new PermanentWebhookError("Payment does not match its Checkout Session.");
   }
+  return {
+    orderId: payment.order_id,
+    livemode: event.livemode,
+    currency,
+    subtotalCents: subtotal,
+    sessionId,
+  };
 }
 
 async function processPaidEvent(
@@ -206,8 +251,8 @@ async function processPaidEvent(
   event: NormalizedEvent,
   repository: WebhookRepository,
 ): Promise<void> {
+  const match = assertPaymentMatchesSession(payment, event);
   const session = event.session;
-  const sessionId = requiredId(session.id, "Checkout Session ID is invalid.");
   const paymentIntentId = requiredId(
     extractStripeId(session.payment_intent),
     "Payment Intent is required for a paid Checkout Session.",
@@ -217,7 +262,6 @@ async function processPaidEvent(
   const discount = readAmountDetail(session.total_details, "amount_discount");
   const shipping = readAmountDetail(session.total_details, "amount_shipping");
   const total = safeAmount(session.amount_total);
-  const subtotal = safeAmount(session.amount_subtotal);
   if (
     session.payment_status !== "paid" ||
     session.status !== "complete" ||
@@ -225,11 +269,9 @@ async function processPaidEvent(
     discount === null ||
     shipping === null ||
     total === null ||
-    subtotal === null ||
     discount !== 0 ||
     shipping !== 0 ||
-    total !== subtotal + tax ||
-    total > Number.MAX_SAFE_INTEGER
+    total !== match.subtotalCents + tax
   ) {
     throw new PermanentWebhookError("Paid Checkout Session has inconsistent amounts or status.");
   }
@@ -242,7 +284,7 @@ async function processPaidEvent(
   const paidAt = requiredStripeTimestamp(event.createdAt);
   const updated = await repository.markPaid({
     payment,
-    stripeCheckoutSessionId: sessionId,
+    stripeCheckoutSessionId: match.sessionId,
     stripePaymentIntentId: paymentIntentId,
     stripeCustomerId: customerId,
     taxCents: tax,
@@ -253,7 +295,7 @@ async function processPaidEvent(
 
   const current = await repository.getPayment(payment.order_id);
   if (isSamePaidPayment(current, {
-    sessionId,
+    ...match,
     paymentIntentId,
     customerId,
     tax,
@@ -267,14 +309,21 @@ async function processFailedEvent(
   event: NormalizedEvent,
   repository: WebhookRepository,
 ): Promise<void> {
-  const sessionId = requiredId(event.session.id, "Checkout Session ID is invalid.");
+  const match = assertPaymentMatchesSession(payment, event);
   const paymentIntentId = extractStripeId(event.session.payment_intent);
   assertPaymentIntentMatches(payment, paymentIntentId);
   if (isPaid(payment)) return;
-  const updated = await repository.markFailed({ payment, stripeCheckoutSessionId: sessionId, stripePaymentIntentId: paymentIntentId });
+  const updated = await repository.markFailed({
+    payment,
+    stripeCheckoutSessionId: match.sessionId,
+    stripePaymentIntentId: paymentIntentId,
+  });
   if (updated) return;
   const current = await repository.getPayment(payment.order_id);
-  if (isPaid(current) || isSameTerminalSession(current, "failed", sessionId, paymentIntentId)) return;
+  if (
+    isPaidWithMatchingCore(current, match, paymentIntentId) ||
+    isSameTerminalSession(current, "failed", match, paymentIntentId)
+  ) return;
   throw new PermanentWebhookError("Payment state conflicts with a failed Checkout Session.");
 }
 
@@ -283,15 +332,67 @@ async function processExpiredEvent(
   event: NormalizedEvent,
   repository: WebhookRepository,
 ): Promise<void> {
-  const sessionId = requiredId(event.session.id, "Checkout Session ID is invalid.");
+  const match = assertPaymentMatchesSession(payment, event);
   const paymentIntentId = extractStripeId(event.session.payment_intent);
   assertPaymentIntentMatches(payment, paymentIntentId);
   if (isPaid(payment)) return;
-  const updated = await repository.markExpired({ payment, stripeCheckoutSessionId: sessionId, stripePaymentIntentId: paymentIntentId });
+  const updated = await repository.markExpired({
+    payment,
+    stripeCheckoutSessionId: match.sessionId,
+    stripePaymentIntentId: paymentIntentId,
+  });
   if (updated) return;
   const current = await repository.getPayment(payment.order_id);
-  if (isPaid(current) || isSameTerminalSession(current, "expired", sessionId, paymentIntentId)) return;
+  if (
+    isPaidWithMatchingCore(current, match, paymentIntentId) ||
+    isSameTerminalSession(current, "expired", match, paymentIntentId)
+  ) return;
   throw new PermanentWebhookError("Payment state conflicts with an expired Checkout Session.");
+}
+
+async function finishTerminal(
+  repository: WebhookRepository,
+  stripeEventId: string,
+  status: "processed" | "ignored" | "failed",
+  errorMessage: string | null,
+  orderId: string | null,
+  now: Date,
+): Promise<void> {
+  const updated = await repository.finishEvent({
+    stripeEventId,
+    status,
+    processedAt: now.toISOString(),
+    errorMessage,
+    orderId,
+  });
+  if (updated) return;
+  const current = await repository.getEvent(stripeEventId);
+  if (current && isFinalEvent(current)) return;
+  throw new Error("Webhook event finalization did not complete.");
+}
+
+async function finishTransientFailure(
+  repository: WebhookRepository,
+  stripeEventId: string,
+  orderId: string | null,
+): Promise<boolean> {
+  const updated = await repository.finishEvent({
+    stripeEventId,
+    status: "failed",
+    processedAt: null,
+    errorMessage: TRANSIENT_ERROR_MESSAGE,
+    orderId,
+  });
+  if (updated) return false;
+  const current = await repository.getEvent(stripeEventId);
+  if (current && isFinalEvent(current)) return true;
+  throw new Error("Webhook transient failure could not be stored.");
+}
+
+function isFinalEvent(event: StripeWebhookEventRecord): boolean {
+  return event.processing_status === "processed" ||
+    event.processing_status === "ignored" ||
+    (event.processing_status === "failed" && event.processed_at !== null);
 }
 
 function assertPaymentIntentMatches(payment: WebhookPaymentRecord, paymentIntentId: string | null): void {
@@ -302,10 +403,20 @@ function assertPaymentIntentMatches(payment: WebhookPaymentRecord, paymentIntent
 
 function isSamePaidPayment(
   payment: WebhookPaymentRecord | null,
-  expected: { sessionId: string; paymentIntentId: string; customerId: string | null; tax: number; total: number },
+  expected: PaymentMatch & {
+    paymentIntentId: string;
+    customerId: string | null;
+    tax: number;
+    total: number;
+  },
 ): boolean {
   return Boolean(
     payment &&
+      payment.provider === "stripe" &&
+      payment.order_id === expected.orderId &&
+      payment.stripe_livemode === expected.livemode &&
+      payment.currency === expected.currency &&
+      payment.subtotal_cents === expected.subtotalCents &&
       payment.payment_status === "paid" &&
       payment.paid_at !== null &&
       payment.stripe_checkout_session_id === expected.sessionId &&
@@ -319,14 +430,37 @@ function isSamePaidPayment(
 function isSameTerminalSession(
   payment: WebhookPaymentRecord | null,
   status: "failed" | "expired",
-  sessionId: string,
+  expected: PaymentMatch,
   paymentIntentId: string | null,
 ): boolean {
   return Boolean(
     payment &&
+      payment.provider === "stripe" &&
+      payment.order_id === expected.orderId &&
+      payment.stripe_livemode === expected.livemode &&
+      payment.currency === expected.currency &&
+      payment.subtotal_cents === expected.subtotalCents &&
       payment.payment_status === status &&
-      payment.stripe_checkout_session_id === sessionId &&
+      payment.stripe_checkout_session_id === expected.sessionId &&
       payment.stripe_payment_intent_id === paymentIntentId,
+  );
+}
+
+function isPaidWithMatchingCore(
+  payment: WebhookPaymentRecord | null,
+  expected: PaymentMatch,
+  paymentIntentId: string | null,
+): boolean {
+  return Boolean(
+    payment &&
+      isPaid(payment) &&
+      payment.provider === "stripe" &&
+      payment.order_id === expected.orderId &&
+      payment.stripe_livemode === expected.livemode &&
+      payment.currency === expected.currency &&
+      payment.subtotal_cents === expected.subtotalCents &&
+      payment.stripe_checkout_session_id === expected.sessionId &&
+      (paymentIntentId === null || payment.stripe_payment_intent_id === paymentIntentId),
   );
 }
 
@@ -334,23 +468,12 @@ function isPaid(payment: WebhookPaymentRecord | null): boolean {
   return payment?.payment_status === "paid" || payment?.paid_at !== null;
 }
 
-async function finishEvent(
-  repository: WebhookRepository,
-  stripeEventId: string,
-  status: "processed" | "ignored" | "failed",
-  errorMessage: string | null,
-  now: Date,
-): Promise<void> {
-  await repository.finishEvent({
-    stripeEventId,
-    status,
-    processedAt: now.toISOString(),
-    errorMessage,
-  });
-}
-
 function sanitizePermanentError(error: PermanentWebhookError): string {
   return error.message.slice(0, 180);
+}
+
+function received(status: 200 | 500): StripeWebhookResult {
+  return { status, body: { received: true } };
 }
 
 function toStripeTimestamp(value: unknown): string | null {
