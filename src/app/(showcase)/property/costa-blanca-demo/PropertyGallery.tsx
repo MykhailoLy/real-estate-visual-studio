@@ -157,7 +157,7 @@ export default function PropertyGallery({
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-6 pb-6 pt-16 sm:px-8 sm:pb-8">
               <p className="text-base font-semibold text-white sm:text-lg">{activeImage.label}</p>
               <p className="mt-1 text-xs text-white/55">
-                {activeIndex + 1} of {images.length}
+                {(activeIndex ?? 0) + 1} of {images.length}
               </p>
             </div>
           </div>
