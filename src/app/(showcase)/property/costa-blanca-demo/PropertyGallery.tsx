@@ -10,11 +10,19 @@ export interface PropertyGalleryImage {
   label: string;
 }
 
+type PropertyGalleryProps = {
+  images: PropertyGalleryImage[];
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+};
+
 export default function PropertyGallery({
   images,
-}: {
-  images: PropertyGalleryImage[];
-}) {
+  eyebrow = "Photo gallery",
+  title = "Explore the residence.",
+  description = "Select any image to open the full-screen gallery.",
+}: PropertyGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -66,14 +74,14 @@ export default function PropertyGallery({
         <div className="mb-9 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d4bc6a]">
-              Photo gallery
+              {eyebrow}
             </p>
             <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
-              Explore the residence.
+              {title}
             </h2>
           </div>
           <p className="max-w-lg text-sm leading-6 text-white/55 sm:text-right">
-            Select any image to open the full-screen gallery. Real client photography can replace these demonstration visuals later.
+            {description}
           </p>
         </div>
 
@@ -82,7 +90,7 @@ export default function PropertyGallery({
             const featured = index === 0;
             return (
               <button
-                key={image.src}
+                key={`${image.src}-${index}`}
                 type="button"
                 onClick={() => setActiveIndex(index)}
                 className={`group relative overflow-hidden rounded-2xl bg-white/5 text-left focus-visible:outline-white ${
