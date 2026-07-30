@@ -18,6 +18,8 @@ interface PropertyShowcaseDatabaseRow {
   updated_at: string;
 }
 
+const MISSING_SCHEMA_CODES = new Set(["42P01", "PGRST205"]);
+
 export function isPropertyShowcaseSupabaseConfigured(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -61,9 +63,11 @@ export async function getPropertyShowcasesForAdmin(): Promise<PropertyShowcaseAd
       .order("updated_at", { ascending: false });
 
     if (error) {
-      console.error("property-showcase: admin list unavailable", {
-        code: error.code,
-      });
+      if (!MISSING_SCHEMA_CODES.has(error.code)) {
+        console.error("property-showcase: admin list unavailable", {
+          code: error.code,
+        });
+      }
       return { records: [], schemaReady: false };
     }
 
@@ -93,7 +97,11 @@ export async function getPublishedPropertyShowcase(
       .maybeSingle();
 
     if (error || !data) {
-      if (error && error.code !== "PGRST116") {
+      if (
+        error &&
+        error.code !== "PGRST116" &&
+        !MISSING_SCHEMA_CODES.has(error.code)
+      ) {
         console.error("property-showcase: public read unavailable", {
           code: error.code,
           slug,
