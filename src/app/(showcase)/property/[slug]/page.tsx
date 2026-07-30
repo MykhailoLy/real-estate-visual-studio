@@ -4,7 +4,7 @@ import {
   getPropertyShowcase,
   getPropertyShowcaseSlugs,
 } from "@/features/property-showcase/registry";
-import CostaBlancaDemoPage from "../costa-blanca-demo/page";
+import PropertyShowcaseView from "../PropertyShowcaseView";
 
 type PropertyPageProps = {
   params: Promise<{
@@ -63,7 +63,5 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     notFound();
   }
 
-  // The approved visual layout is reused while its sections are progressively
-  // connected to PropertyShowcase data and, later, to Supabase records.
-  return <CostaBlancaDemoPage />;
+  return <PropertyShowcaseView property={property} />;
 }
