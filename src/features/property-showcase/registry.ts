@@ -100,7 +100,12 @@ const costaBlancaDemo: PropertyShowcase = {
         es: "Salón abierto y luminoso con vistas al Mediterráneo",
       },
       label: { en: "Living room", es: "Salón" },
+      note: {
+        en: "Open-plan living space with direct access to the terrace.",
+        es: "Zona de día abierta con acceso directo a la terraza.",
+      },
       roomId: "living-room",
+      hotspot: { xPercent: 48, yPercent: 48 },
       sortOrder: 2,
     },
     {
@@ -111,7 +116,12 @@ const costaBlancaDemo: PropertyShowcase = {
         es: "Terraza privada con vistas a la costa mediterránea",
       },
       label: { en: "Sea-view terrace", es: "Terraza con vistas al mar" },
+      note: {
+        en: "Sea-facing outdoor area connected to the main living zone.",
+        es: "Espacio exterior orientado al mar y conectado con la zona de día.",
+      },
       roomId: "terrace",
+      hotspot: { xPercent: 49, yPercent: 16 },
       sortOrder: 3,
     },
     {
@@ -122,7 +132,12 @@ const costaBlancaDemo: PropertyShowcase = {
         es: "Dormitorio principal tranquilo con acabados naturales",
       },
       label: { en: "Principal bedroom", es: "Dormitorio principal" },
+      note: {
+        en: "Private bedroom zone separated from the social spaces.",
+        es: "Zona de descanso privada y separada de los espacios sociales.",
+      },
       roomId: "principal-bedroom",
+      hotspot: { xPercent: 24, yPercent: 58 },
       sortOrder: 4,
     },
   ],
@@ -152,10 +167,12 @@ const costaBlancaDemo: PropertyShowcase = {
   },
   agent: {
     agencyName: "Demo Real Estate Agency",
+    agentName: "Costa Blanca Property Team",
     role: {
       en: "International property advisor",
       es: "Asesor inmobiliario internacional",
     },
+    website: "https://picchuspot.com",
   },
 };
 
