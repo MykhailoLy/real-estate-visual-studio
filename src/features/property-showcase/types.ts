@@ -32,12 +32,19 @@ export interface PropertyHighlight {
   description: LocalizedText;
 }
 
+export interface PropertyHotspot {
+  xPercent: number;
+  yPercent: number;
+}
+
 export interface PropertyGalleryImage {
   id: string;
   src: string;
   alt: LocalizedText;
   label: LocalizedText;
+  note?: LocalizedText;
   roomId?: string;
+  hotspot?: PropertyHotspot;
   sortOrder: number;
 }
 
@@ -87,6 +94,7 @@ export interface PropertyShowcase {
   priceLabel: LocalizedText;
   price: string;
   coverImage: string;
+  brochureUrl?: string;
   languages: Array<"en" | "es">;
   facts: PropertyFact[];
   highlights: PropertyHighlight[];
