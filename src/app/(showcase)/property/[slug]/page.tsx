@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import {
-  getPropertyShowcase,
-  getPropertyShowcaseSlugs,
-} from "@/features/property-showcase/registry";
+import { getPropertyShowcase } from "@/features/property-showcase/registry";
+import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
 import PropertyShowcaseView from "../PropertyShowcaseView";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 type PropertyPageProps = {
   params: Promise<{
@@ -12,15 +13,15 @@ type PropertyPageProps = {
   }>;
 };
 
-export function generateStaticParams() {
-  return getPropertyShowcaseSlugs().map((slug) => ({ slug }));
+async function resolveProperty(slug: string) {
+  return (await getPublishedPropertyShowcase(slug)) ?? getPropertyShowcase(slug);
 }
 
 export async function generateMetadata({
   params,
 }: PropertyPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const property = getPropertyShowcase(slug);
+  const property = await resolveProperty(slug);
 
   if (!property) {
     return {
@@ -57,7 +58,7 @@ export async function generateMetadata({
 
 export default async function PropertyPage({ params }: PropertyPageProps) {
   const { slug } = await params;
-  const property = getPropertyShowcase(slug);
+  const property = await resolveProperty(slug);
 
   if (!property) {
     notFound();
