@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Briefcase,
+  Building2,
   ChevronDown,
   ImagePlus,
   LayoutDashboard,
@@ -28,6 +29,12 @@ const adminNav = [
     href: "/admin/orders",
     icon: Briefcase,
     description: "Customer orders and files",
+  },
+  {
+    label: "Properties",
+    href: "/admin/properties",
+    icon: Building2,
+    description: "Property showcase pages",
   },
   {
     label: "Portfolio",
@@ -166,53 +173,53 @@ export default function AdminShell({
                 />
               </button>
               {mobileOpen && (
-              <div
-                id="admin-mobile-menu"
-                className="absolute right-0 mt-3 w-[min(88vw,340px)] rounded-2xl border border-border bg-white p-3 shadow-xl"
-              >
-                <div className="space-y-1">
-                  {adminNav.map((item) => {
-                    const active = activeFor(pathname, item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() =>
-                          setMobileMenu({ open: false, pathname })
-                        }
-                        aria-current={active ? "page" : undefined}
-                        className={`flex items-start gap-3 rounded-xl px-3 py-3 transition-colors ${
-                          active
-                            ? "bg-primary text-white"
-                            : "text-foreground hover:bg-surface"
-                        }`}
-                      >
-                        <item.icon
-                          className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
-                            active ? "text-white" : "text-secondary-dark"
+                <div
+                  id="admin-mobile-menu"
+                  className="absolute right-0 mt-3 w-[min(88vw,340px)] rounded-2xl border border-border bg-white p-3 shadow-xl"
+                >
+                  <div className="space-y-1">
+                    {adminNav.map((item) => {
+                      const active = activeFor(pathname, item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() =>
+                            setMobileMenu({ open: false, pathname })
+                          }
+                          aria-current={active ? "page" : undefined}
+                          className={`flex items-start gap-3 rounded-xl px-3 py-3 transition-colors ${
+                            active
+                              ? "bg-primary text-white"
+                              : "text-foreground hover:bg-surface"
                           }`}
-                          aria-hidden
-                        />
-                        <span>
-                          <span className="block text-sm font-bold">
-                            {item.label}
-                          </span>
-                          <span
-                            className={`block text-xs leading-relaxed ${
-                              active ? "text-white/70" : "text-muted"
+                        >
+                          <item.icon
+                            className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
+                              active ? "text-white" : "text-secondary-dark"
                             }`}
-                          >
-                            {item.description}
+                            aria-hidden
+                          />
+                          <span>
+                            <span className="block text-sm font-bold">
+                              {item.label}
+                            </span>
+                            <span
+                              className={`block text-xs leading-relaxed ${
+                                active ? "text-white/70" : "text-muted"
+                              }`}
+                            >
+                              {item.description}
+                            </span>
                           </span>
-                        </span>
-                      </Link>
-                    );
-                  })}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 border-t border-border pt-3">
+                    <AdminLogoutButton className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-60" />
+                  </div>
                 </div>
-                <div className="mt-3 border-t border-border pt-3">
-                  <AdminLogoutButton className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-60" />
-                </div>
-              </div>
               )}
             </div>
           </div>
