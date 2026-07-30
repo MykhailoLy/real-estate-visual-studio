@@ -14,12 +14,12 @@ import {
   MapPinned,
   MessageCircle,
   MousePointer2,
-  Play,
   Ruler,
   Share2,
   Sun,
   Waves,
 } from "lucide-react";
+import ImmersiveTourDemo from "./ImmersiveTourDemo";
 import InteractiveFloorPlanDemo from "./InteractiveFloorPlanDemo";
 import PropertyGallery, {
   type PropertyGalleryImage,
@@ -268,57 +268,7 @@ export default function CostaBlancaDemoPage() {
           <PropertyGallery images={galleryImages} />
         </div>
 
-        <section id="virtual-tour" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
-          <div className="overflow-hidden rounded-[2rem] bg-[#0f2440] text-white shadow-[0_30px_90px_rgba(15,36,64,0.18)]">
-            <div className="grid lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="relative min-h-[430px] overflow-hidden lg:min-h-[620px]">
-                <Image
-                  src="/property-demo/terrace.svg"
-                  alt="Panoramic terrace preview for the 360 degree virtual tour"
-                  fill
-                  sizes="(min-width: 1024px) 60vw, 100vw"
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/5 to-[#0f2440]/25" />
-                <button
-                  type="button"
-                  className="absolute inset-0 m-auto flex h-24 w-24 flex-col items-center justify-center rounded-full border border-white/35 bg-white/15 text-white shadow-2xl backdrop-blur transition hover:scale-105 hover:bg-white/20"
-                  aria-label="Open the 360 degree virtual tour"
-                >
-                  <Play className="h-7 w-7 fill-current" aria-hidden />
-                  <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em]">360 tour</span>
-                </button>
-              </div>
-              <div className="flex flex-col justify-center p-8 sm:p-12 lg:p-14">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d4bc6a]">
-                  Virtual viewing
-                </p>
-                <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
-                  Walk through every room from anywhere.
-                </h2>
-                <p className="mt-6 text-base leading-7 text-white/65">
-                  A Kuula or Matterport tour can be embedded directly here, so buyers can understand circulation, scale and views without leaving the property page.
-                </p>
-                <div className="mt-9 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
-                  >
-                    <Play className="h-4 w-4 fill-current" aria-hidden />
-                    Start virtual tour
-                  </button>
-                  <Link
-                    href="/contact"
-                    className="inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
-                  >
-                    Book guided viewing
-                    <ArrowUpRight className="h-4 w-4" aria-hidden />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <ImmersiveTourDemo />
 
         <section id="floor-plan" className="scroll-mt-36 border-y border-black/8 bg-white">
           <div className="mx-auto grid max-w-[1480px] gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-10 lg:py-28">
