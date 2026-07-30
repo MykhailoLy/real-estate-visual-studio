@@ -11,16 +11,20 @@ import {
   Download,
   Languages,
   MapPin,
+  MapPinned,
   MessageCircle,
+  MousePointer2,
   Play,
   Ruler,
   Share2,
   Sun,
   Waves,
 } from "lucide-react";
+import InteractiveFloorPlanDemo from "./InteractiveFloorPlanDemo";
 import PropertyGallery, {
   type PropertyGalleryImage,
 } from "./PropertyGallery";
+import PropertySectionNav from "./PropertySectionNav";
 
 const PROPERTY_PATH = "/property/costa-blanca-demo";
 
@@ -133,8 +137,10 @@ export default function CostaBlancaDemoPage() {
         </div>
       </header>
 
+      <PropertySectionNav />
+
       <main>
-        <section className="relative isolate overflow-hidden bg-[#0f2440]">
+        <section id="home" className="relative isolate scroll-mt-36 overflow-hidden bg-[#0f2440]">
           <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[780px]">
             <Image
               src="/property-demo/exterior.svg"
@@ -227,7 +233,7 @@ export default function CostaBlancaDemoPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1480px] px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
+        <section id="overview" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
           <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
             <div>
               <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
@@ -258,9 +264,11 @@ export default function CostaBlancaDemoPage() {
           </div>
         </section>
 
-        <PropertyGallery images={galleryImages} />
+        <div id="gallery" className="scroll-mt-36">
+          <PropertyGallery images={galleryImages} />
+        </div>
 
-        <section className="mx-auto max-w-[1480px] px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
+        <section id="virtual-tour" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
           <div className="overflow-hidden rounded-[2rem] bg-[#0f2440] text-white shadow-[0_30px_90px_rgba(15,36,64,0.18)]">
             <div className="grid lg:grid-cols-[1.2fr_0.8fr]">
               <div className="relative min-h-[430px] overflow-hidden lg:min-h-[620px]">
@@ -312,7 +320,7 @@ export default function CostaBlancaDemoPage() {
           </div>
         </section>
 
-        <section className="border-y border-black/8 bg-white">
+        <section id="floor-plan" className="scroll-mt-36 border-y border-black/8 bg-white">
           <div className="mx-auto grid max-w-[1480px] gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-10 lg:py-28">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
@@ -338,13 +346,22 @@ export default function CostaBlancaDemoPage() {
                   Suitable for portal uploads and PDF brochures
                 </li>
               </ul>
-              <button
-                type="button"
-                className="mt-9 inline-flex items-center gap-2 rounded-full border border-[#0f2440]/15 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
-              >
-                <Download className="h-4 w-4" aria-hidden />
-                Download floor plan
-              </button>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#0f2440]/15 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
+                >
+                  <Download className="h-4 w-4" aria-hidden />
+                  Download floor plan
+                </button>
+                <a
+                  href="#interactive-floor-plan"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
+                >
+                  <MousePointer2 className="h-4 w-4" aria-hidden />
+                  Interactive floor plan
+                </a>
+              </div>
             </div>
 
             <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-black/8 bg-[#f6f4ef] p-3 shadow-sm sm:p-6">
@@ -359,7 +376,59 @@ export default function CostaBlancaDemoPage() {
           </div>
         </section>
 
-        <section id="contact" className="mx-auto max-w-[1480px] px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
+        <InteractiveFloorPlanDemo />
+
+        <section id="location" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
+          <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:items-center lg:gap-16">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
+                Location
+              </p>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#0f2440] sm:text-4xl">
+                Understand the area as well as the home.
+              </h2>
+              <p className="mt-6 text-base leading-7 text-slate-600">
+                A live listing can show the exact address or an approximate map, depending on the agent&apos;s privacy settings. Nearby beaches, schools, airports and services can be highlighted for overseas buyers.
+              </p>
+              <div className="mt-8 space-y-3 text-sm text-slate-600">
+                <p className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 text-[#a88b3a]" aria-hidden />
+                  Altea, Alicante, Costa Blanca
+                </p>
+                <p className="flex items-center gap-3">
+                  <Car className="h-4 w-4 text-[#a88b3a]" aria-hidden />
+                  Approximately 45 minutes to Alicante Airport
+                </p>
+              </div>
+            </div>
+
+            <div className="relative min-h-[430px] overflow-hidden rounded-[2rem] border border-black/8 bg-[#dce5df] shadow-sm">
+              <div
+                className="absolute inset-0 opacity-55"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(15,36,64,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(15,36,64,0.12) 1px, transparent 1px)",
+                  backgroundSize: "44px 44px",
+                }}
+              />
+              <div className="absolute left-[18%] top-[20%] h-28 w-72 rotate-[-18deg] rounded-full border-[18px] border-white/65" />
+              <div className="absolute bottom-[18%] right-[8%] h-36 w-[68%] rotate-[10deg] rounded-full border-[22px] border-white/55" />
+              <div className="absolute inset-0 grid place-items-center">
+                <div className="grid h-20 w-20 place-items-center rounded-full bg-[#0f2440] text-white shadow-[0_18px_50px_rgba(15,36,64,0.35)]">
+                  <MapPinned className="h-9 w-9" aria-hidden />
+                </div>
+              </div>
+              <div className="absolute inset-x-5 bottom-5 rounded-2xl border border-white/65 bg-white/88 p-5 shadow-lg backdrop-blur sm:inset-x-8 sm:bottom-8">
+                <p className="text-sm font-semibold text-[#0f2440]">Sea View Residence · Altea</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Interactive Google Maps or Mapbox embed can replace this demonstration map.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
           <div className="overflow-hidden rounded-[2rem] border border-black/8 bg-[#e8e2d4]">
             <div className="grid lg:grid-cols-[1fr_0.9fr]">
               <div className="p-8 sm:p-12 lg:p-16">
