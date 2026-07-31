@@ -27,10 +27,6 @@ export function normalizeTourEmbedUrl(
   if (!url) return undefined;
 
   if (provider === "kuula") {
-    const hostname = url.hostname.toLowerCase();
-    if (hostname === "mls.kuu.la" || hostname === "mls.kuula.co") {
-      url.hostname = "kuula.co";
-    }
     if (url.pathname.startsWith("/post/")) {
       url.pathname = url.pathname.replace(/^\/post\//, "/share/");
     }
