@@ -5,6 +5,10 @@ import type {
   PropertyShowcaseAdminListResult,
   PropertyShowcaseAdminRecord,
 } from "./admin-types";
+import {
+  isPublicSupabaseObjectUrl,
+  repairPropertyMediaUrl,
+} from "./provider-urls";
 import { PropertyShowcaseSchema } from "./schema";
 import type { PropertyShowcase } from "./types";
 
@@ -27,6 +31,45 @@ export function isPropertyShowcaseSupabaseConfigured(): boolean {
   );
 }
 
+function repairStoredProperty(property: PropertyShowcase): PropertyShowcase {
+  const coverImage = repairPropertyMediaUrl(property.coverImage) ?? property.coverImage;
+  const gallery = property.gallery.map((image) => ({
+    ...image,
+    src: repairPropertyMediaUrl(image.src) ?? image.src,
+  }));
+  const floorPlans = property.floorPlans.map((plan) => {
+    const repairedImage = repairPropertyMediaUrl(plan.imageUrl);
+    const repairedDownload = repairPropertyMediaUrl(plan.downloadUrl);
+    const imageUrl =
+      repairedImage && isPublicSupabaseObjectUrl(repairedImage)
+        ? repairedImage
+        : repairedDownload && isPublicSupabaseObjectUrl(repairedDownload)
+          ? repairedDownload
+          : repairedImage ?? plan.imageUrl;
+
+    return {
+      ...plan,
+      imageUrl,
+      downloadUrl: repairedDownload ?? plan.downloadUrl,
+    };
+  });
+
+  return {
+    ...property,
+    coverImage,
+    gallery,
+    floorPlans,
+    virtualTour: property.virtualTour
+      ? {
+          ...property.virtualTour,
+          posterImage:
+            repairPropertyMediaUrl(property.virtualTour.posterImage) ??
+            property.virtualTour.posterImage,
+        }
+      : undefined,
+  };
+}
+
 function parseRow(
   row: PropertyShowcaseDatabaseRow,
 ): PropertyShowcaseAdminRecord | null {
@@ -46,7 +89,7 @@ function parseRow(
     publishedAt: row.published_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    property: parsed.data,
+    property: repairStoredProperty(parsed.data),
   };
 }
 
