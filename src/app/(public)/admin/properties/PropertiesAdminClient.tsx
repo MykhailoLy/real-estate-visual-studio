@@ -66,6 +66,8 @@ interface FormState {
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15";
+const protectedMediaInputClass =
+  "mt-1.5 w-full cursor-not-allowed rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-muted outline-none";
 
 function optional(value: string): string | undefined {
   const trimmed = value.trim();
@@ -153,7 +155,7 @@ function buildProperty(
   state: FormState,
   existing: PropertyShowcase | null,
 ): PropertyShowcase {
-  const coverImage = state.coverImage.trim();
+  const coverImage = existing?.coverImage ?? state.coverImage.trim();
   let gallery = existing?.gallery ?? [];
 
   if (gallery.length === 0) {
@@ -166,33 +168,33 @@ function buildProperty(
         sortOrder: 1,
       },
     ];
-  } else if (
-    existing &&
-    gallery[0]?.src === existing.coverImage &&
-    existing.coverImage !== coverImage
-  ) {
-    gallery = [{ ...gallery[0], src: coverImage }, ...gallery.slice(1)];
   }
 
   const hasTour = Boolean(
     state.tourEmbedUrl.trim() || state.tourExternalUrl.trim(),
   );
-  const floorPlans: PropertyShowcase["floorPlans"] = state.floorPlanImageUrl.trim()
-    ? [
-        {
-          id: existing?.floorPlans[0]?.id ?? "main-floor",
-          title: existing?.floorPlans[0]?.title ?? {
-            en: "Main floor",
-            es: "Planta principal",
-          },
-          imageUrl: state.floorPlanImageUrl.trim(),
-          downloadUrl: existing?.floorPlans[0]?.downloadUrl,
-          interactiveUrl: optional(state.floorPlanInteractiveUrl),
-          sortOrder: existing?.floorPlans[0]?.sortOrder ?? 1,
-        },
-        ...(existing?.floorPlans.slice(1) ?? []),
-      ]
-    : [];
+  const existingFloorPlans = existing?.floorPlans ?? [];
+  const floorPlans: PropertyShowcase["floorPlans"] =
+    existingFloorPlans.length > 0
+      ? existingFloorPlans.map((plan, index) =>
+          index === 0
+            ? {
+                ...plan,
+                interactiveUrl: optional(state.floorPlanInteractiveUrl),
+              }
+            : plan,
+        )
+      : state.floorPlanImageUrl.trim()
+        ? [
+            {
+              id: "main-floor",
+              title: { en: "Main floor", es: "Planta principal" },
+              imageUrl: state.floorPlanImageUrl.trim(),
+              interactiveUrl: optional(state.floorPlanInteractiveUrl),
+              sortOrder: 1,
+            },
+          ]
+        : [];
 
   return {
     slug: state.slug.trim(),
@@ -259,12 +261,22 @@ async function responseError(response: Response): Promise<string> {
   }
 }
 
-function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+function Field({
+  label,
+  children,
+  hint,
+}: {
+  label: string;
+  children: ReactNode;
+  hint?: string;
+}) {
   return (
     <label className="block text-sm font-semibold text-foreground">
       {label}
       {children}
-      {hint ? <span className="mt-1 block text-xs font-normal text-muted">{hint}</span> : null}
+      {hint ? (
+        <span className="mt-1 block text-xs font-normal text-muted">{hint}</span>
+      ) : null}
     </label>
   );
 }
@@ -348,7 +360,7 @@ export default function PropertiesAdminClient({
             {records.length} property showcase{records.length === 1 ? "" : "s"}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Metadata CRUD is ready. Media upload and drag-to-sort follow next.
+            Listing details, publishing and external tour links.
           </p>
         </div>
         <button
@@ -396,18 +408,24 @@ export default function PropertiesAdminClient({
         ) : (
           <ul className="divide-y divide-border">
             {records.map((record) => (
-              <li key={record.id} className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+              <li
+                key={record.id}
+                className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between"
+              >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="truncate text-base font-bold text-primary">
                       {record.property.title.en}
                     </h2>
-                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${record.published ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${record.published ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}
+                    >
                       {record.published ? "Published" : "Draft"}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted">
-                    /property/{record.slug} · {record.property.reference} · {record.property.price}
+                    /property/{record.slug} · {record.property.reference} ·{" "}
+                    {record.property.price}
                   </p>
                   <p className="mt-1 text-xs text-muted">
                     Updated {new Date(record.updatedAt).toLocaleString()}
@@ -415,14 +433,28 @@ export default function PropertiesAdminClient({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {record.published ? (
-                    <Link href={`/property/${record.slug}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40">
+                    <Link
+                      href={`/property/${record.slug}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40"
+                    >
                       <ExternalLink className="h-4 w-4" aria-hidden /> Open
                     </Link>
                   ) : null}
-                  <button type="button" onClick={() => setEditor({ kind: "edit", record })} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50">
+                  <button
+                    type="button"
+                    onClick={() => setEditor({ kind: "edit", record })}
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50"
+                  >
                     <Pencil className="h-4 w-4" aria-hidden /> Edit
                   </button>
-                  <button type="button" onClick={() => remove(record)} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3.5 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50">
+                  <button
+                    type="button"
+                    onClick={() => remove(record)}
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3.5 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                  >
                     <Trash2 className="h-4 w-4" aria-hidden /> Delete
                   </button>
                 </div>
@@ -462,7 +494,10 @@ function PropertyEditor({
     onError(null);
 
     const property = buildProperty(form, record?.property ?? null);
-    const endpoint = mode === "create" ? "/api/admin/properties" : `/api/admin/properties/${record?.id}`;
+    const endpoint =
+      mode === "create"
+        ? "/api/admin/properties"
+        : `/api/admin/properties/${record?.id}`;
 
     try {
       const response = await fetch(endpoint, {
@@ -475,7 +510,9 @@ function PropertyEditor({
         onError(await responseError(response));
         return;
       }
-      onSaved(`${mode === "create" ? "Created" : "Updated"} “${property.title.en}”.`);
+      onSaved(
+        `${mode === "create" ? "Created" : "Updated"} “${property.title.en}”.`,
+      );
     } catch {
       onError("Network error while saving the property.");
     } finally {
@@ -484,15 +521,25 @@ function PropertyEditor({
   }
 
   return (
-    <form onSubmit={submit} className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+    <form
+      onSubmit={submit}
+      className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+    >
       <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
         <div>
           <h2 className="text-lg font-bold text-primary">
             {mode === "create" ? "New property showcase" : "Edit property showcase"}
           </h2>
-          <p className="mt-1 text-xs text-muted">Main listing data, tour and plan links.</p>
+          <p className="mt-1 text-xs text-muted">
+            Main listing data and external tour links. Photos and floor-plan files are managed separately.
+          </p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-surface hover:text-primary" aria-label="Close property editor">
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-surface hover:text-primary"
+          aria-label="Close property editor"
+        >
           <X className="h-5 w-5" aria-hidden />
         </button>
       </div>
@@ -500,70 +547,325 @@ function PropertyEditor({
       <div className="space-y-8 p-5 sm:p-6">
         <Section title="Identity">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Slug"><input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value={form.slug} onChange={(event) => set("slug", event.target.value.toLowerCase())} className={inputClass} placeholder="villa-altea-hills" /></Field>
-            <Field label="Reference"><input required value={form.reference} onChange={(event) => set("reference", event.target.value)} className={inputClass} /></Field>
-            <Field label="Status"><select value={form.status} onChange={(event) => set("status", event.target.value as PropertyStatus)} className={inputClass}><option value="for-sale">For sale</option><option value="reserved">Reserved</option><option value="sold">Sold</option><option value="off-market">Off market</option></select></Field>
-            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end"><input type="checkbox" checked={form.published} onChange={(event) => set("published", event.target.checked)} className="h-4 w-4 accent-primary" />Publish publicly</label>
+            <Field label="Slug">
+              <input
+                required
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                value={form.slug}
+                onChange={(event) =>
+                  set("slug", event.target.value.toLowerCase())
+                }
+                className={inputClass}
+                placeholder="villa-altea-hills"
+              />
+            </Field>
+            <Field label="Reference">
+              <input
+                required
+                value={form.reference}
+                onChange={(event) => set("reference", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Status">
+              <select
+                value={form.status}
+                onChange={(event) =>
+                  set("status", event.target.value as PropertyStatus)
+                }
+                className={inputClass}
+              >
+                <option value="for-sale">For sale</option>
+                <option value="reserved">Reserved</option>
+                <option value="sold">Sold</option>
+                <option value="off-market">Off market</option>
+              </select>
+            </Field>
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
+              <input
+                type="checkbox"
+                checked={form.published}
+                onChange={(event) => set("published", event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Publish publicly
+            </label>
           </div>
         </Section>
 
         <Section title="Copy">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Title — English"><input required value={form.titleEn} onChange={(event) => set("titleEn", event.target.value)} className={inputClass} /></Field>
-            <Field label="Title — Spanish"><input value={form.titleEs} onChange={(event) => set("titleEs", event.target.value)} className={inputClass} /></Field>
-            <Field label="Summary — English"><textarea required rows={3} value={form.summaryEn} onChange={(event) => set("summaryEn", event.target.value)} className={inputClass} /></Field>
-            <Field label="Summary — Spanish"><textarea rows={3} value={form.summaryEs} onChange={(event) => set("summaryEs", event.target.value)} className={inputClass} /></Field>
-            <Field label="Description — English"><textarea rows={5} value={form.descriptionEn} onChange={(event) => set("descriptionEn", event.target.value)} className={inputClass} /></Field>
-            <Field label="Description — Spanish"><textarea rows={5} value={form.descriptionEs} onChange={(event) => set("descriptionEs", event.target.value)} className={inputClass} /></Field>
+            <Field label="Title — English">
+              <input
+                required
+                value={form.titleEn}
+                onChange={(event) => set("titleEn", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Title — Spanish">
+              <input
+                value={form.titleEs}
+                onChange={(event) => set("titleEs", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Summary — English">
+              <textarea
+                required
+                rows={3}
+                value={form.summaryEn}
+                onChange={(event) => set("summaryEn", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Summary — Spanish">
+              <textarea
+                rows={3}
+                value={form.summaryEs}
+                onChange={(event) => set("summaryEs", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Description — English">
+              <textarea
+                rows={5}
+                value={form.descriptionEn}
+                onChange={(event) => set("descriptionEn", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Description — Spanish">
+              <textarea
+                rows={5}
+                value={form.descriptionEs}
+                onChange={(event) => set("descriptionEs", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
           </div>
         </Section>
 
         <Section title="Listing facts">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Price"><input required value={form.price} onChange={(event) => set("price", event.target.value)} className={inputClass} placeholder="€695,000" /></Field>
-            <Field label="Bedrooms"><input value={form.bedrooms} onChange={(event) => set("bedrooms", event.target.value)} className={inputClass} /></Field>
-            <Field label="Bathrooms"><input value={form.bathrooms} onChange={(event) => set("bathrooms", event.target.value)} className={inputClass} /></Field>
-            <Field label="Built area"><input value={form.builtArea} onChange={(event) => set("builtArea", event.target.value)} className={inputClass} placeholder="142 m²" /></Field>
-            <Field label="Parking"><input value={form.parking} onChange={(event) => set("parking", event.target.value)} className={inputClass} /></Field>
-            <Field label="Cover image URL" hint="Upload control comes next."><input required value={form.coverImage} onChange={(event) => set("coverImage", event.target.value)} className={inputClass} /></Field>
+            <Field label="Price">
+              <input
+                required
+                value={form.price}
+                onChange={(event) => set("price", event.target.value)}
+                className={inputClass}
+                placeholder="€695,000"
+              />
+            </Field>
+            <Field label="Bedrooms">
+              <input
+                value={form.bedrooms}
+                onChange={(event) => set("bedrooms", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Bathrooms">
+              <input
+                value={form.bathrooms}
+                onChange={(event) => set("bathrooms", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Built area">
+              <input
+                value={form.builtArea}
+                onChange={(event) => set("builtArea", event.target.value)}
+                className={inputClass}
+                placeholder="142 m²"
+              />
+            </Field>
+            <Field label="Parking">
+              <input
+                value={form.parking}
+                onChange={(event) => set("parking", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Cover image"
+              hint="Protected. Change it in Manage photos & floor plans."
+            >
+              <input
+                value={form.coverImage}
+                readOnly
+                aria-readonly="true"
+                className={protectedMediaInputClass}
+              />
+            </Field>
           </div>
         </Section>
 
         <Section title="Location">
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Address — English"><input required value={form.addressEn} onChange={(event) => set("addressEn", event.target.value)} className={inputClass} /></Field>
-            <Field label="Address — Spanish"><input value={form.addressEs} onChange={(event) => set("addressEs", event.target.value)} className={inputClass} /></Field>
-            <Field label="Privacy"><select value={form.privacyMode} onChange={(event) => set("privacyMode", event.target.value as FormState["privacyMode"])} className={inputClass}><option value="exact">Exact</option><option value="approximate">Approximate</option><option value="hidden">Hidden</option></select></Field>
+            <Field label="Address — English">
+              <input
+                required
+                value={form.addressEn}
+                onChange={(event) => set("addressEn", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Address — Spanish">
+              <input
+                value={form.addressEs}
+                onChange={(event) => set("addressEs", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Privacy">
+              <select
+                value={form.privacyMode}
+                onChange={(event) =>
+                  set(
+                    "privacyMode",
+                    event.target.value as FormState["privacyMode"],
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="exact">Exact</option>
+                <option value="approximate">Approximate</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </Field>
           </div>
         </Section>
 
         <Section title="360 tour and floor plan">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Field label="Tour provider"><select value={form.tourProvider} onChange={(event) => set("tourProvider", event.target.value as PropertyTourProvider)} className={inputClass}><option value="kuula">Kuula</option><option value="matterport">Matterport</option><option value="cubiCasa">CubiCasa</option><option value="floorfy">Floorfy</option><option value="nodalview">Nodalview</option><option value="custom">Custom</option></select></Field>
-            <Field label="Tour embed URL"><input value={form.tourEmbedUrl} onChange={(event) => set("tourEmbedUrl", event.target.value)} className={inputClass} /></Field>
-            <Field label="Tour external URL"><input value={form.tourExternalUrl} onChange={(event) => set("tourExternalUrl", event.target.value)} className={inputClass} /></Field>
-            <Field label="Floor plan image URL"><input value={form.floorPlanImageUrl} onChange={(event) => set("floorPlanImageUrl", event.target.value)} className={inputClass} /></Field>
-            <Field label="Interactive plan URL"><input value={form.floorPlanInteractiveUrl} onChange={(event) => set("floorPlanInteractiveUrl", event.target.value)} className={inputClass} /></Field>
+            <Field label="Tour provider">
+              <select
+                value={form.tourProvider}
+                onChange={(event) =>
+                  set(
+                    "tourProvider",
+                    event.target.value as PropertyTourProvider,
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="kuula">Kuula</option>
+                <option value="matterport">Matterport</option>
+                <option value="cubiCasa">CubiCasa</option>
+                <option value="floorfy">Floorfy</option>
+                <option value="nodalview">Nodalview</option>
+                <option value="custom">Custom</option>
+              </select>
+            </Field>
+            <Field label="Tour embed URL">
+              <input
+                value={form.tourEmbedUrl}
+                onChange={(event) => set("tourEmbedUrl", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Tour external URL">
+              <input
+                value={form.tourExternalUrl}
+                onChange={(event) => set("tourExternalUrl", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Floor plan image"
+              hint="Protected. Upload or replace it in Manage photos & floor plans."
+            >
+              <input
+                value={form.floorPlanImageUrl}
+                readOnly
+                aria-readonly="true"
+                className={protectedMediaInputClass}
+              />
+            </Field>
+            <Field label="Interactive plan URL">
+              <input
+                value={form.floorPlanInteractiveUrl}
+                onChange={(event) =>
+                  set("floorPlanInteractiveUrl", event.target.value)
+                }
+                className={inputClass}
+              />
+            </Field>
           </div>
         </Section>
 
         <Section title="Agent">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Agency"><input required value={form.agencyName} onChange={(event) => set("agencyName", event.target.value)} className={inputClass} /></Field>
-            <Field label="Agent name"><input value={form.agentName} onChange={(event) => set("agentName", event.target.value)} className={inputClass} /></Field>
-            <Field label="Phone"><input value={form.phone} onChange={(event) => set("phone", event.target.value)} className={inputClass} /></Field>
-            <Field label="WhatsApp"><input value={form.whatsapp} onChange={(event) => set("whatsapp", event.target.value)} className={inputClass} /></Field>
-            <Field label="Email"><input type="email" value={form.email} onChange={(event) => set("email", event.target.value)} className={inputClass} /></Field>
-            <Field label="Website"><input value={form.website} onChange={(event) => set("website", event.target.value)} className={inputClass} /></Field>
+            <Field label="Agency">
+              <input
+                required
+                value={form.agencyName}
+                onChange={(event) => set("agencyName", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Agent name">
+              <input
+                value={form.agentName}
+                onChange={(event) => set("agentName", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Phone">
+              <input
+                value={form.phone}
+                onChange={(event) => set("phone", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="WhatsApp">
+              <input
+                value={form.whatsapp}
+                onChange={(event) => set("whatsapp", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) => set("email", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Website">
+              <input
+                value={form.website}
+                onChange={(event) => set("website", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
           </div>
         </Section>
       </div>
 
       <div className="flex flex-col-reverse gap-3 border-t border-border bg-surface px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-        <button type="button" onClick={onClose} disabled={saving} className="rounded-xl border border-border bg-white px-5 py-2.5 text-sm font-bold text-primary disabled:opacity-50">Cancel</button>
-        <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-light disabled:opacity-60">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-          {saving ? "Saving…" : mode === "create" ? "Create property" : "Save changes"}
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="rounded-xl border border-border bg-white px-5 py-2.5 text-sm font-bold text-primary disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-light disabled:opacity-60"
+        >
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : null}
+          {saving
+            ? "Saving…"
+            : mode === "create"
+              ? "Create property"
+              : "Save changes"}
         </button>
       </div>
     </form>
