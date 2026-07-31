@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPropertyShowcase } from "@/features/property-showcase/registry";
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
+import type { PropertyShowcase } from "@/features/property-showcase/types";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,31 @@ type PropertyPageProps = {
 
 async function resolveProperty(slug: string) {
   return (await getPublishedPropertyShowcase(slug)) ?? getPropertyShowcase(slug);
+}
+
+function activateExternalInteractivePlan(
+  property: PropertyShowcase,
+): PropertyShowcase {
+  const hasExternalInteractivePlan = property.floorPlans.some((plan) =>
+    Boolean(plan.interactiveUrl?.trim()),
+  );
+  const hasRoomLinks = property.gallery.some((image) => Boolean(image.roomId));
+
+  if (!hasExternalInteractivePlan || hasRoomLinks || !property.gallery[0]) {
+    return property;
+  }
+
+  return {
+    ...property,
+    gallery: property.gallery.map((image, index) =>
+      index === 0
+        ? {
+            ...image,
+            roomId: "external-interactive-plan",
+          }
+        : image,
+    ),
+  };
 }
 
 export async function generateMetadata({
@@ -64,5 +90,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     notFound();
   }
 
-  return <PropertyShowcaseView property={property} />;
+  return (
+    <PropertyShowcaseView property={activateExternalInteractivePlan(property)} />
+  );
 }
