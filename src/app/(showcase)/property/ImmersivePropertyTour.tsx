@@ -10,6 +10,10 @@ import {
   ScanLine,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import {
+  normalizeExternalInteractiveUrl,
+  normalizeTourEmbedUrl,
+} from "@/features/property-showcase/provider-urls";
 import type { PropertyVirtualTour } from "@/features/property-showcase/types";
 
 type ImmersivePropertyTourProps = {
@@ -26,7 +30,13 @@ export default function ImmersivePropertyTour({
   const tourRef = useRef<HTMLDivElement>(null);
   const [activated, setActivated] = useState(false);
   const posterImage = tour?.posterImage ?? "/property-demo/living-room.svg";
-  const hasEmbed = Boolean(tour?.embedUrl);
+  const embedUrl = tour
+    ? normalizeTourEmbedUrl(tour.provider, tour.embedUrl)
+    : undefined;
+  const externalUrl = normalizeExternalInteractiveUrl(
+    tour?.externalUrl ?? tour?.embedUrl,
+  );
+  const hasEmbed = Boolean(embedUrl);
   const showEmbed = hasEmbed && activated;
 
   const openFullscreen = async () => {
@@ -53,12 +63,13 @@ export default function ImmersivePropertyTour({
         >
           {showEmbed ? (
             <iframe
-              src={tour?.embedUrl}
+              src={embedUrl}
               title={`360 virtual tour of ${propertyTitle}`}
-              className="absolute inset-0 h-full w-full border-0"
-              allow="fullscreen; accelerometer; gyroscope"
+              className="absolute inset-0 h-full w-full border-0 bg-black"
+              allow="xr-spatial-tracking; gyroscope; accelerometer; fullscreen"
               allowFullScreen
-              loading="lazy"
+              scrolling="no"
+              loading="eager"
               referrerPolicy="strict-origin-when-cross-origin"
             />
           ) : (
@@ -74,7 +85,7 @@ export default function ImmersivePropertyTour({
             </>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-4 sm:p-6 lg:p-8">
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-4 sm:p-6 lg:p-8">
             <div className="max-w-2xl rounded-2xl border border-white/15 bg-black/45 p-4 backdrop-blur-md sm:p-5">
               <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4bc6a] sm:text-xs">
                 <ScanLine className="h-4 w-4" aria-hidden />
@@ -85,11 +96,11 @@ export default function ImmersivePropertyTour({
               </h2>
               {!hasEmbed ? (
                 <p className="mt-2 hidden max-w-xl text-sm leading-6 text-white/65 sm:block">
-                  A Kuula, Matterport or compatible panorama will fill this media stage when its embed URL is added.
+                  Add a valid Kuula, Matterport or compatible share link to activate the live tour.
                 </p>
               ) : !activated ? (
                 <p className="mt-2 hidden max-w-xl text-sm leading-6 text-white/65 sm:block">
-                  The external tour loads only after the visitor starts it, keeping the initial property page fast.
+                  The provider loads only after the visitor starts the tour.
                 </p>
               ) : null}
             </div>
@@ -109,12 +120,12 @@ export default function ImmersivePropertyTour({
               <div className="flex flex-col items-center gap-3 rounded-full border border-white/20 bg-black/30 px-6 py-4 text-center backdrop-blur-sm">
                 <MoveHorizontal className="h-7 w-7" aria-hidden />
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/85">
-                  360 tour placeholder
+                  Tour link is not embeddable
                 </span>
               </div>
             </div>
           ) : !activated ? (
-            <div className="absolute inset-0 grid place-items-center px-4">
+            <div className="absolute inset-0 z-[5] grid place-items-center px-4">
               <button
                 type="button"
                 onClick={() => setActivated(true)}
@@ -135,7 +146,7 @@ export default function ImmersivePropertyTour({
             </div>
           ) : null}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-8">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="rounded-2xl border border-white/15 bg-black/45 px-4 py-3 backdrop-blur-md">
                 <p className="text-sm font-semibold">{propertyTitle}</p>
@@ -144,14 +155,14 @@ export default function ImmersivePropertyTour({
                     ? `${tour?.provider ?? "360"} interactive experience`
                     : hasEmbed
                       ? "Ready to load the external interactive tour"
-                      : "Add an embed URL to activate the live tour"}
+                      : "Check the tour link in Properties"}
                 </p>
               </div>
 
               <div className="pointer-events-auto flex flex-wrap gap-2">
-                {tour?.externalUrl ? (
+                {externalUrl ? (
                   <a
-                    href={tour.externalUrl}
+                    href={externalUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-black/45 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/70"
