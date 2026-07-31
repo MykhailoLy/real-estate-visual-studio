@@ -34,7 +34,7 @@ const CONTENT_SECURITY_POLICY_DIRECTIVES = [
   "img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat",
   "font-src 'self' https://client.crisp.chat",
   "connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat",
-  "frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com https://kuula.co https://*.kuula.co https://mls.kuu.la https://*.kuu.la https://my.matterport.com https://*.visithome.ai https://*.floorfy.com https://*.nodalview.com",
+  "frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com https://kuula.co https://mls.kuu.la https://my.matterport.com https://unbranded.visithome.ai",
   "media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat",
   "worker-src 'self' blob: https://client.crisp.chat",
   "manifest-src 'self'",
