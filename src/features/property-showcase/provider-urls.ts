@@ -27,6 +27,11 @@ export function normalizeTourEmbedUrl(
   if (!url) return undefined;
 
   if (provider === "kuula") {
+    // Kuula's MLS domain is ideal for an external unbranded link, while the
+    // standard kuula.co host is the most reliable host for website embeds.
+    if (url.hostname.toLowerCase() === "mls.kuu.la") {
+      url.hostname = "kuula.co";
+    }
     if (url.pathname.startsWith("/post/")) {
       url.pathname = url.pathname.replace(/^\/post\//, "/share/");
     }
