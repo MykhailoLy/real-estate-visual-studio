@@ -1,8 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, ExternalLink, Maximize2, MousePointer2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Maximize2,
+  MousePointer2,
+  Play,
+} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { normalizeExternalInteractiveUrl } from "@/features/property-showcase/provider-urls";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
@@ -22,7 +30,155 @@ const fallbackPositions = [
   { xPercent: 34, yPercent: 35 },
 ];
 
-export default function InteractivePropertyFloorPlan({
+export default function InteractivePropertyFloorPlan(
+  props: InteractivePropertyFloorPlanProps,
+) {
+  const externalUrl = normalizeExternalInteractiveUrl(
+    props.floorPlan.interactiveUrl,
+  );
+
+  if (externalUrl) {
+    return <ExternalInteractiveFloorPlan {...props} externalUrl={externalUrl} />;
+  }
+
+  return <NativeInteractiveFloorPlan {...props} />;
+}
+
+function ExternalInteractiveFloorPlan({
+  propertyTitle,
+  floorPlan,
+  externalUrl,
+}: InteractivePropertyFloorPlanProps & { externalUrl: string }) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [activated, setActivated] = useState(false);
+
+  const openFullscreen = async () => {
+    const element = stageRef.current;
+    if (!element || !document.fullscreenEnabled) return;
+    setActivated(true);
+    try {
+      await element.requestFullscreen();
+    } catch {
+      // The embedded plan remains available without browser fullscreen.
+    }
+  };
+
+  return (
+    <section
+      id="interactive-floor-plan"
+      className="scroll-mt-36 bg-[#0f2440] py-6 text-white sm:py-10"
+    >
+      <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8">
+        <div
+          ref={stageRef}
+          className="relative min-h-[78svh] overflow-hidden rounded-[1.5rem] bg-[#111] shadow-[0_35px_120px_rgba(0,0,0,0.35)] sm:min-h-[86svh] sm:rounded-[2rem]"
+        >
+          {activated ? (
+            <iframe
+              src={externalUrl}
+              title={`Interactive floor plan of ${propertyTitle}`}
+              className="absolute inset-0 h-full w-full border-0 bg-white"
+              allow="fullscreen; accelerometer; gyroscope"
+              allowFullScreen
+              loading="eager"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          ) : (
+            <>
+              <Image
+                src={floorPlan.imageUrl}
+                alt={`${floorPlan.title.en} for ${propertyTitle}`}
+                fill
+                sizes="100vw"
+                className="object-contain bg-[#ece9e2] p-5 sm:p-10"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/5 to-black/55" />
+            </>
+          )}
+
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-4 sm:p-6 lg:p-8">
+            <div className="rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-md sm:p-5">
+              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4bc6a] sm:text-xs">
+                <MousePointer2 className="h-4 w-4" aria-hidden />
+                Interactive floor plan
+              </p>
+              <h2 className="mt-2 text-xl font-semibold sm:text-3xl">
+                Walk through the home room by room.
+              </h2>
+              {!activated ? (
+                <p className="mt-2 hidden text-sm text-white/65 sm:block">
+                  The CubiCasa experience loads only after it is opened.
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={openFullscreen}
+              className="pointer-events-auto grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/20 bg-black/60 text-white shadow-lg backdrop-blur transition hover:bg-black/80 sm:h-14 sm:w-14"
+              aria-label="Open interactive floor plan fullscreen"
+            >
+              <Maximize2 className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+            </button>
+          </div>
+
+          {!activated ? (
+            <div className="absolute inset-0 z-[5] grid place-items-center px-4">
+              <button
+                type="button"
+                onClick={() => setActivated(true)}
+                className="group flex flex-col items-center gap-4 rounded-[2rem] border border-white/20 bg-black/55 px-8 py-7 text-center shadow-2xl backdrop-blur-md transition hover:scale-[1.02] hover:bg-black/70"
+              >
+                <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-[#0f2440] shadow-xl transition group-hover:scale-105 sm:h-20 sm:w-20">
+                  <Play className="ml-1 h-7 w-7 fill-current sm:h-9 sm:w-9" aria-hidden />
+                </span>
+                <span>
+                  <span className="block text-base font-bold sm:text-lg">
+                    Open interactive floor plan
+                  </span>
+                  <span className="mt-1 block text-xs text-white/65 sm:text-sm">
+                    Loaded directly from CubiCasa
+                  </span>
+                </span>
+              </button>
+            </div>
+          ) : null}
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4 sm:p-6 lg:p-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="rounded-2xl border border-white/15 bg-black/55 px-4 py-3 backdrop-blur-md">
+                <p className="text-sm font-semibold">{propertyTitle}</p>
+                <p className="mt-1 text-xs text-white/55">
+                  {activated ? "Live interactive plan" : "Ready to open"}
+                </p>
+              </div>
+              <div className="pointer-events-auto flex flex-wrap gap-2">
+                <a
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/75"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden />
+                  Open original
+                </a>
+                <button
+                  type="button"
+                  onClick={openFullscreen}
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
+                >
+                  <Maximize2 className="h-4 w-4" aria-hidden />
+                  View fullscreen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NativeInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
   gallery,
@@ -52,7 +208,6 @@ export default function InteractivePropertyFloorPlan({
   const openFullscreen = async () => {
     const element = stageRef.current;
     if (!element || !document.fullscreenEnabled) return;
-
     try {
       await element.requestFullscreen();
     } catch {
@@ -61,7 +216,10 @@ export default function InteractivePropertyFloorPlan({
   };
 
   return (
-    <section id="interactive-floor-plan" className="scroll-mt-36 bg-[#0f2440] py-6 text-white sm:py-10">
+    <section
+      id="interactive-floor-plan"
+      className="scroll-mt-36 bg-[#0f2440] py-6 text-white sm:py-10"
+    >
       <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8">
         <div
           ref={stageRef}
@@ -77,28 +235,14 @@ export default function InteractivePropertyFloorPlan({
                 {propertyTitle} · {selectedRoom.label.en}
               </p>
             </div>
-
-            <div className="flex gap-2">
-              {floorPlan.interactiveUrl ? (
-                <a
-                  href={floorPlan.interactiveUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/8 text-white transition hover:bg-white/15 sm:h-12 sm:w-12"
-                  aria-label="Open original interactive floor plan"
-                >
-                  <ExternalLink className="h-5 w-5" aria-hidden />
-                </a>
-              ) : null}
-              <button
-                type="button"
-                onClick={openFullscreen}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/8 text-white transition hover:bg-white/15 sm:h-12 sm:w-12"
-                aria-label="Open interactive floor plan fullscreen"
-              >
-                <Maximize2 className="h-5 w-5" aria-hidden />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={openFullscreen}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/8 text-white transition hover:bg-white/15 sm:h-12 sm:w-12"
+              aria-label="Open interactive floor plan fullscreen"
+            >
+              <Maximize2 className="h-5 w-5" aria-hidden />
+            </button>
           </div>
 
           <div className="grid flex-1 lg:grid-cols-[0.46fr_0.54fr]">
@@ -113,7 +257,8 @@ export default function InteractivePropertyFloorPlan({
 
               {rooms.map((room, index) => {
                 const isSelected = room.id === selectedRoom.id;
-                const position = room.hotspot ?? fallbackPositions[index % fallbackPositions.length];
+                const position =
+                  room.hotspot ?? fallbackPositions[index % fallbackPositions.length];
                 return (
                   <button
                     key={room.id}
@@ -122,31 +267,19 @@ export default function InteractivePropertyFloorPlan({
                     aria-label={`Show ${room.label.en}`}
                     aria-pressed={isSelected}
                     className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-xs font-bold shadow-xl transition hover:scale-110 sm:h-11 sm:w-11 ${
-                      isSelected ? "bg-[#c7a94e] text-[#0f2440]" : "bg-[#0f2440] text-white"
+                      isSelected
+                        ? "bg-[#c7a94e] text-[#0f2440]"
+                        : "bg-[#0f2440] text-white"
                     }`}
-                    style={{ left: `${position.xPercent}%`, top: `${position.yPercent}%` }}
+                    style={{
+                      left: `${position.xPercent}%`,
+                      top: `${position.yPercent}%`,
+                    }}
                   >
                     {room.label.en.charAt(0)}
                   </button>
                 );
               })}
-
-              <div className="absolute inset-x-4 bottom-4 flex flex-wrap justify-center gap-2 sm:inset-x-6 sm:bottom-6">
-                {rooms.map((room) => (
-                  <button
-                    key={room.id}
-                    type="button"
-                    onClick={() => setSelectedRoomId(room.id)}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur transition sm:px-4 sm:text-sm ${
-                      room.id === selectedRoom.id
-                        ? "bg-[#0f2440] text-white"
-                        : "border border-black/10 bg-white/90 text-[#0f2440] hover:bg-white"
-                    }`}
-                  >
-                    {room.label.en}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="flex min-h-[520px] flex-col bg-black lg:min-h-0">
@@ -159,7 +292,6 @@ export default function InteractivePropertyFloorPlan({
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/65" />
-
                 <button
                   type="button"
                   onClick={() => selectRelativeRoom(-1)}
@@ -176,9 +308,10 @@ export default function InteractivePropertyFloorPlan({
                 >
                   <ChevronRight className="h-6 w-6" aria-hidden />
                 </button>
-
                 <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7 lg:p-8">
-                  <p className="text-2xl font-semibold sm:text-3xl">{selectedRoom.label.en}</p>
+                  <p className="text-2xl font-semibold sm:text-3xl">
+                    {selectedRoom.label.en}
+                  </p>
                   <p className="mt-2 max-w-xl text-sm leading-6 text-white/65 sm:text-base">
                     {selectedRoom.note?.en ?? selectedRoom.alt.en}
                   </p>
@@ -201,7 +334,13 @@ export default function InteractivePropertyFloorPlan({
                     }`}
                     aria-label={`Open ${room.label.en}`}
                   >
-                    <Image src={room.src} alt="" fill sizes="144px" className="object-cover" />
+                    <Image
+                      src={room.src}
+                      alt=""
+                      fill
+                      sizes="144px"
+                      className="object-cover"
+                    />
                     <span className="absolute inset-x-0 bottom-0 bg-black/65 px-2 py-1.5 text-left text-[10px] font-semibold text-white sm:text-xs">
                       {room.label.en}
                     </span>
