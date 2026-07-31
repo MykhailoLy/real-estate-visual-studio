@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import PropertyMediaManagerClient from "./PropertyMediaManagerClient";
+import OptimizedPropertyMediaManagerClient from "./OptimizedPropertyMediaManagerClient";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getPropertyShowcasesForAdmin } from "@/features/property-showcase/server";
 
@@ -20,7 +20,7 @@ export default async function AdminPropertyMediaPage() {
   const result = await getPropertyShowcasesForAdmin();
 
   return (
-    <PropertyMediaManagerClient
+    <OptimizedPropertyMediaManagerClient
       records={result.records}
       schemaReady={result.schemaReady}
     />
