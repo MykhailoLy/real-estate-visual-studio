@@ -33,10 +33,6 @@ export function isPropertyShowcaseSupabaseConfigured(): boolean {
 
 function repairStoredProperty(property: PropertyShowcase): PropertyShowcase {
   const coverImage = repairPropertyMediaUrl(property.coverImage) ?? property.coverImage;
-  const gallery = property.gallery.map((image) => ({
-    ...image,
-    src: repairPropertyMediaUrl(image.src) ?? image.src,
-  }));
   const floorPlans = property.floorPlans.map((plan) => {
     const repairedImage = repairPropertyMediaUrl(plan.imageUrl);
     const repairedDownload = repairPropertyMediaUrl(plan.downloadUrl);
@@ -53,6 +49,21 @@ function repairStoredProperty(property: PropertyShowcase): PropertyShowcase {
       downloadUrl: repairedDownload ?? plan.downloadUrl,
     };
   });
+  const hasExternalInteractivePlan = floorPlans.some((plan) =>
+    Boolean(plan.interactiveUrl),
+  );
+  const hasNativeRoomLinks = property.gallery.some((image) =>
+    Boolean(image.roomId),
+  );
+  const gallery = property.gallery.map((image, index) => ({
+    ...image,
+    src: repairPropertyMediaUrl(image.src) ?? image.src,
+    roomId:
+      image.roomId ??
+      (hasExternalInteractivePlan && !hasNativeRoomLinks && index === 0
+        ? "external-interactive-plan"
+        : undefined),
+  }));
 
   return {
     ...property,
