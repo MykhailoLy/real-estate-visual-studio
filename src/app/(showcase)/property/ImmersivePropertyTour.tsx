@@ -1,8 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { Expand, ExternalLink, Maximize2, MoveHorizontal, ScanLine } from "lucide-react";
-import { useRef } from "react";
+import {
+  Expand,
+  ExternalLink,
+  Maximize2,
+  MoveHorizontal,
+  Play,
+  ScanLine,
+} from "lucide-react";
+import { useRef, useState } from "react";
 import type { PropertyVirtualTour } from "@/features/property-showcase/types";
 
 type ImmersivePropertyTourProps = {
@@ -17,13 +24,16 @@ export default function ImmersivePropertyTour({
   posterAlt,
 }: ImmersivePropertyTourProps) {
   const tourRef = useRef<HTMLDivElement>(null);
+  const [activated, setActivated] = useState(false);
   const posterImage = tour?.posterImage ?? "/property-demo/living-room.svg";
   const hasEmbed = Boolean(tour?.embedUrl);
+  const showEmbed = hasEmbed && activated;
 
   const openFullscreen = async () => {
     const element = tourRef.current;
     if (!element || !document.fullscreenEnabled) return;
 
+    if (hasEmbed) setActivated(true);
     try {
       await element.requestFullscreen();
     } catch {
@@ -32,13 +42,16 @@ export default function ImmersivePropertyTour({
   };
 
   return (
-    <section id="virtual-tour" className="scroll-mt-36 bg-[#071426] py-6 text-white sm:py-10">
+    <section
+      id="virtual-tour"
+      className="scroll-mt-36 bg-[#071426] py-6 text-white sm:py-10"
+    >
       <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8">
         <div
           ref={tourRef}
           className="relative min-h-[76svh] overflow-hidden rounded-[1.5rem] bg-black shadow-[0_35px_120px_rgba(0,0,0,0.42)] sm:min-h-[82svh] sm:rounded-[2rem]"
         >
-          {hasEmbed ? (
+          {showEmbed ? (
             <iframe
               src={tour?.embedUrl}
               title={`360 virtual tour of ${propertyTitle}`}
@@ -57,7 +70,7 @@ export default function ImmersivePropertyTour({
                 sizes="100vw"
                 className="object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/0 to-black/65" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/70" />
             </>
           )}
 
@@ -73,6 +86,10 @@ export default function ImmersivePropertyTour({
               {!hasEmbed ? (
                 <p className="mt-2 hidden max-w-xl text-sm leading-6 text-white/65 sm:block">
                   A Kuula, Matterport or compatible panorama will fill this media stage when its embed URL is added.
+                </p>
+              ) : !activated ? (
+                <p className="mt-2 hidden max-w-xl text-sm leading-6 text-white/65 sm:block">
+                  The external tour loads only after the visitor starts it, keeping the initial property page fast.
                 </p>
               ) : null}
             </div>
@@ -96,6 +113,26 @@ export default function ImmersivePropertyTour({
                 </span>
               </div>
             </div>
+          ) : !activated ? (
+            <div className="absolute inset-0 grid place-items-center px-4">
+              <button
+                type="button"
+                onClick={() => setActivated(true)}
+                className="group flex flex-col items-center gap-4 rounded-[2rem] border border-white/20 bg-black/50 px-8 py-7 text-center shadow-2xl backdrop-blur-md transition hover:scale-[1.02] hover:bg-black/65"
+              >
+                <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-[#0f2440] shadow-xl transition group-hover:scale-105 sm:h-20 sm:w-20">
+                  <Play className="ml-1 h-7 w-7 fill-current sm:h-9 sm:w-9" aria-hidden />
+                </span>
+                <span>
+                  <span className="block text-base font-bold sm:text-lg">
+                    Start 360 tour
+                  </span>
+                  <span className="mt-1 block text-xs text-white/65 sm:text-sm">
+                    Loaded directly from {tour?.provider ?? "the tour provider"}
+                  </span>
+                </span>
+              </button>
+            </div>
           ) : null}
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-8">
@@ -103,7 +140,11 @@ export default function ImmersivePropertyTour({
               <div className="rounded-2xl border border-white/15 bg-black/45 px-4 py-3 backdrop-blur-md">
                 <p className="text-sm font-semibold">{propertyTitle}</p>
                 <p className="mt-1 text-xs text-white/55">
-                  {hasEmbed ? `${tour?.provider ?? "360"} interactive experience` : "Add an embed URL to activate the live tour"}
+                  {showEmbed
+                    ? `${tour?.provider ?? "360"} interactive experience`
+                    : hasEmbed
+                      ? "Ready to load the external interactive tour"
+                      : "Add an embed URL to activate the live tour"}
                 </p>
               </div>
 
