@@ -1,0 +1,275 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { costaBlancaDemo } from "./registry.ts";
+import {
+  collectPropertyShowcaseMediaPaths,
+  failedPropertyShowcaseUploadCleanupCandidates,
+  isOwnedPropertyShowcaseStoragePath,
+  propertyShowcaseMediaDeletionCandidates,
+  siteMediaObjectPathFromUrl,
+} from "./storage-cleanup.ts";
+import type { PropertyShowcase } from "./types.ts";
+
+const STORAGE_ORIGIN = "https://demo.supabase.co";
+process.env.NEXT_PUBLIC_SUPABASE_URL = STORAGE_ORIGIN;
+
+function cloneProperty(): PropertyShowcase {
+  return structuredClone(costaBlancaDemo);
+}
+
+function storageUrl(path: string): string {
+  return `${STORAGE_ORIGIN}/storage/v1/object/public/site-media/${path}`;
+}
+
+test("property showcase storage ownership is restricted to the current slug folder", () => {
+  assert.equal(
+    isOwnedPropertyShowcaseStoragePath(
+      storageUrl("property-showcases/altea/cover.webp"),
+      "altea",
+    ),
+    true,
+  );
+  assert.equal(
+    isOwnedPropertyShowcaseStoragePath(
+      storageUrl("property-showcases/moraira/cover.webp"),
+      "altea",
+    ),
+    false,
+  );
+  assert.equal(
+    isOwnedPropertyShowcaseStoragePath("property-showcases/altea", "altea"),
+    false,
+  );
+  assert.equal(
+    isOwnedPropertyShowcaseStoragePath(
+      "property-showcases/altea/../shared.webp",
+      "altea",
+    ),
+    false,
+  );
+  assert.equal(
+    isOwnedPropertyShowcaseStoragePath(
+      "https://unbranded.visithome.ai/demo-plan",
+      "altea",
+    ),
+    false,
+  );
+});
+
+test("storage URL parsing rejects unrelated and lookalike Supabase public URLs", () => {
+  const path = "property-showcases/altea/photo.webp";
+  const valid = storageUrl(path);
+
+  assert.equal(siteMediaObjectPathFromUrl(valid), path);
+  assert.equal(siteMediaObjectPathFromUrl(path), null);
+  assert.equal(
+    siteMediaObjectPathFromUrl(path, { allowRelativeObjectPath: true }),
+    path,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "https://evil.example/storage/v1/object/public/site-media/property-showcases/altea/photo.webp",
+    ),
+    null,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "https://demo.supabase.co.evil.example/storage/v1/object/public/site-media/property-showcases/altea/photo.webp",
+    ),
+    null,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "https://user:pass@demo.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/photo.webp",
+    ),
+    null,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "https://demo.supabase.co:444/storage/v1/object/public/site-media/property-showcases/altea/photo.webp",
+    ),
+    null,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "http://demo.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/photo.webp",
+    ),
+    null,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "https://demo.supabase.co/storage/v1/object/public/avatars/property-showcases/altea/photo.webp",
+    ),
+    null,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "https://demo.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/%2e%2e/shared.webp",
+    ),
+    null,
+  );
+  assert.equal(
+    siteMediaObjectPathFromUrl(
+      "https://demo.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/%E0%A4%A",
+    ),
+    null,
+  );
+});
+
+test("external lookalike URLs cannot become deletion candidates", () => {
+  const existing = cloneProperty();
+  existing.slug = "altea";
+  existing.coverImage = storageUrl("property-showcases/altea/cover.webp");
+  existing.gallery = [
+    {
+      id: "gallery-1",
+      src: "https://evil.example/storage/v1/object/public/site-media/property-showcases/altea/evil.webp",
+      alt: { en: "Spoofed" },
+      label: { en: "Spoofed" },
+      sortOrder: 1,
+    },
+    {
+      id: "gallery-2",
+      src: "https://demo.supabase.co.evil.example/storage/v1/object/public/site-media/property-showcases/altea/lookalike.webp",
+      alt: { en: "Lookalike" },
+      label: { en: "Lookalike" },
+      sortOrder: 2,
+    },
+  ];
+
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({
+      existing,
+      next: { ...existing, gallery: [] },
+      slug: "altea",
+    }),
+    [],
+  );
+});
+
+test("deletion candidates include only detached current-property media objects", () => {
+  const existing = cloneProperty();
+  existing.slug = "altea";
+  existing.coverImage = storageUrl("property-showcases/altea/cover.webp");
+  existing.gallery = [
+    {
+      id: "gallery-1",
+      src: existing.coverImage,
+      alt: { en: "Cover" },
+      label: { en: "Cover" },
+      sortOrder: 1,
+    },
+    {
+      id: "gallery-2",
+      src: storageUrl("property-showcases/altea/kitchen.webp"),
+      alt: { en: "Kitchen" },
+      label: { en: "Kitchen" },
+      sortOrder: 2,
+    },
+  ];
+  existing.virtualTour = {
+    provider: "kuula",
+    externalUrl: "https://mls.kuu.la/share/demo",
+    posterImage: storageUrl("property-showcases/altea/tour-poster.webp"),
+  };
+  existing.floorPlans = [
+    {
+      id: "main-floor",
+      title: { en: "Main floor" },
+      imageUrl: storageUrl("property-showcases/altea/floor.webp"),
+      downloadUrl: storageUrl("property-showcases/shared/floor.webp"),
+      interactiveProvider: "cubiCasa",
+      interactiveExternalUrl: "https://unbranded.visithome.ai/demo-plan",
+      interactiveEmbedUrl: "https://unbranded.visithome.ai/demo-plan?embed=1",
+      sortOrder: 1,
+    },
+  ];
+
+  const next = {
+    ...existing,
+    gallery: [existing.gallery[0]],
+    virtualTour: undefined,
+    floorPlans: [],
+  };
+
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({
+      existing,
+      next,
+      slug: "altea",
+    }),
+    [
+      "property-showcases/altea/floor.webp",
+      "property-showcases/altea/kitchen.webp",
+      "property-showcases/altea/tour-poster.webp",
+    ],
+  );
+});
+
+test("failed upload cleanup ignores external, shared, and retained paths", () => {
+  assert.deepEqual(
+    failedPropertyShowcaseUploadCleanupCandidates({
+      slug: "altea",
+      uploaded: [
+        storageUrl("property-showcases/altea/batch-1.webp"),
+        storageUrl("property-showcases/moraira/batch-2.webp"),
+        storageUrl("property-showcases/altea/batch-3.webp"),
+        "https://unbranded.visithome.ai/demo-plan",
+      ],
+      retained: [storageUrl("property-showcases/altea/batch-3.webp")],
+    }),
+    ["property-showcases/altea/batch-1.webp"],
+  );
+});
+
+test("property delete collection includes only owned current-slug media paths", () => {
+  const property = cloneProperty();
+  property.slug = "altea";
+  property.coverImage = storageUrl("property-showcases/altea/cover.webp");
+  property.gallery = [
+    {
+      id: "gallery-1",
+      src: property.coverImage,
+      alt: { en: "Cover" },
+      label: { en: "Cover" },
+      sortOrder: 1,
+    },
+    {
+      id: "gallery-2",
+      src: storageUrl("property-showcases/altea/kitchen.webp"),
+      alt: { en: "Kitchen" },
+      label: { en: "Kitchen" },
+      sortOrder: 2,
+    },
+    {
+      id: "gallery-3",
+      src: storageUrl("property-showcases/moraira/shared.webp"),
+      alt: { en: "Shared" },
+      label: { en: "Shared" },
+      sortOrder: 3,
+    },
+  ];
+  property.virtualTour = {
+    provider: "kuula",
+    externalUrl: "https://mls.kuu.la/share/demo",
+    posterImage: storageUrl("property-showcases/altea/poster.webp"),
+  };
+  property.floorPlans = [
+    {
+      id: "main-floor",
+      title: { en: "Main floor" },
+      imageUrl: storageUrl("property-showcases/altea/floor.webp"),
+      downloadUrl:
+        "https://evil.example/storage/v1/object/public/site-media/property-showcases/altea/fake-floor.webp",
+      interactiveExternalUrl: "https://unbranded.visithome.ai/demo-plan",
+      sortOrder: 1,
+    },
+  ];
+
+  assert.deepEqual(collectPropertyShowcaseMediaPaths(property, "altea"), [
+    "property-showcases/altea/cover.webp",
+    "property-showcases/altea/floor.webp",
+    "property-showcases/altea/kitchen.webp",
+    "property-showcases/altea/poster.webp",
+  ]);
+});

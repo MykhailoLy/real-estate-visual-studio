@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Contemporary Costa Blanca residence</title>
+  <desc id="desc">Stylised architectural illustration of a white Mediterranean residence, pool and sea view.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b9d9e8"/>
+      <stop offset="0.58" stop-color="#e7dfce"/>
+      <stop offset="1" stop-color="#f3d6a8"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f91a6"/>
+      <stop offset="1" stop-color="#214f6d"/>
+    </linearGradient>
+    <linearGradient id="pool" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b5edf2"/>
+      <stop offset="1" stop-color="#2d91ad"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#86aebb"/>
+      <stop offset="1" stop-color="#244a5d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="24" stdDeviation="22" flood-color="#071426" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <circle cx="1280" cy="178" r="74" fill="#fff6d7" opacity="0.92"/>
+  <path d="M0 420 C250 376 410 401 620 371 C850 338 1110 383 1600 326 L1600 655 L0 655 Z" fill="#8ea0a0" opacity="0.38"/>
+  <path d="M0 462 C300 410 500 444 740 418 C1030 385 1260 415 1600 365 L1600 702 L0 702 Z" fill="url(#sea)"/>
+  <path d="M0 552 C320 528 520 584 775 548 C1050 510 1300 553 1600 512" fill="none" stroke="#e7f5f2" stroke-width="7" opacity="0.45"/>
+  <path d="M0 610 C315 588 520 626 820 598 C1090 570 1280 610 1600 570" fill="none" stroke="#d4eff0" stroke-width="4" opacity="0.26"/>
+  <g filter="url(#shadow)">
+    <path d="M250 330 H1180 L1288 432 V744 H250 Z" fill="#f6f3ea"/>
+    <path d="M250 330 H1180 L1288 432 H358 Z" fill="#e4ded0"/>
+    <rect x="320" y="395" width="382" height="257" rx="4" fill="url(#glass)"/>
+    <rect x="718" y="395" width="474" height="257" rx="4" fill="url(#glass)"/>
+    <rect x="340" y="414" width="7" height="220" fill="#d8d5cc" opacity="0.7"/>
+    <rect x="492" y="414" width="7" height="220" fill="#d8d5cc" opacity="0.7"/>
+    <rect x="644" y="414" width="7" height="220" fill="#d8d5cc" opacity="0.7"/>
+    <rect x="742" y="414" width="7" height="220" fill="#d8d5cc" opacity="0.7"/>
+    <rect x="895" y="414" width="7" height="220" fill="#d8d5cc" opacity="0.7"/>
+    <rect x="1048" y="414" width="7" height="220" fill="#d8d5cc" opacity="0.7"/>
+    <rect x="250" y="652" width="1038" height="92" fill="#e8e1d3"/>
+    <rect x="1168" y="432" width="120" height="312" fill="#d8cebb"/>
+    <path d="M1175 430 L1288 432 L1288 745 L1228 745 Z" fill="#c6bca8" opacity="0.52"/>
+  </g>
+  <g opacity="0.72">
+    <rect x="395" y="532" width="115" height="48" rx="9" fill="#ddd0be"/>
+    <rect x="526" y="532" width="115" height="48" rx="9" fill="#ddd0be"/>
+    <rect x="457" y="503" width="120" height="35" rx="12" fill="#c9b59a"/>
+    <circle cx="848" cy="557" r="30" fill="#d9c2a2"/>
+    <path d="M830 557 h36" stroke="#8c765b" stroke-width="5"/>
+  </g>
+  <path d="M126 720 H1375 L1510 943 H0 L0 820 Z" fill="#d8c8af"/>
+  <path d="M192 730 H1298 L1388 892 H88 Z" fill="url(#pool)"/>
+  <path d="M192 730 H1298" stroke="#f7f2e8" stroke-width="16"/>
+  <path d="M102 907 H1420" stroke="#c1ad8d" stroke-width="10" opacity="0.65"/>
+  <g fill="#3d6c4d">
+    <path d="M70 746 C80 667 105 604 143 552 C153 640 147 706 121 760 Z"/>
+    <path d="M1374 755 C1362 678 1379 610 1415 553 C1438 639 1439 704 1413 772 Z"/>
+  </g>
+  <g fill="#244f3c">
+    <ellipse cx="131" cy="595" rx="40" ry="98" transform="rotate(-11 131 595)"/>
+    <ellipse cx="1408" cy="607" rx="42" ry="105" transform="rotate(12 1408 607)"/>
+  </g>
+  <path d="M0 939 C350 900 655 940 880 910 C1110 880 1310 918 1600 886 V1000 H0 Z" fill="#baa98e"/>
+</svg>

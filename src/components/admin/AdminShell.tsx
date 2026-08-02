@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Briefcase,
+  Building2,
   ChevronDown,
   ImagePlus,
   LayoutDashboard,
@@ -28,6 +29,12 @@ const adminNav = [
     href: "/admin/orders",
     icon: Briefcase,
     description: "Customer orders and files",
+  },
+  {
+    label: "Properties",
+    href: "/admin/properties",
+    icon: Building2,
+    description: "Property showcase pages",
   },
   {
     label: "Portfolio",
@@ -78,6 +85,26 @@ export default function AdminShell({
     pathname,
   });
   const mobileOpen = mobileMenu.open && mobileMenu.pathname === pathname;
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileMenu({ open: false, pathname });
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileOpen, pathname]);
 
   if (pathname === "/admin/login") {
     return <>{children}</>;
@@ -139,7 +166,7 @@ export default function AdminShell({
               <AdminLogoutButton />
             </div>
 
-            <div className="relative lg:hidden">
+            <div className="lg:hidden">
               <button
                 type="button"
                 onClick={() =>
@@ -166,53 +193,76 @@ export default function AdminShell({
                 />
               </button>
               {mobileOpen && (
-              <div
-                id="admin-mobile-menu"
-                className="absolute right-0 mt-3 w-[min(88vw,340px)] rounded-2xl border border-border bg-white p-3 shadow-xl"
-              >
-                <div className="space-y-1">
-                  {adminNav.map((item) => {
-                    const active = activeFor(pathname, item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
+                <div
+                  id="admin-mobile-menu"
+                  className="fixed inset-0 z-[80]"
+                >
+                  <button
+                    type="button"
+                    aria-label="Close admin menu"
+                    onClick={() => setMobileMenu({ open: false, pathname })}
+                    className="absolute inset-0 bg-primary/35 backdrop-blur-[2px]"
+                  />
+                  <div className="absolute right-3 top-3 max-h-[calc(100svh-1.5rem)] w-[min(92vw,360px)] overflow-y-auto rounded-2xl border border-border bg-white p-3 shadow-2xl overscroll-contain sm:right-5 sm:top-5">
+                    <div className="mb-2 flex items-center justify-between gap-3 px-2 py-1">
+                      <span className="text-xs font-bold uppercase tracking-[0.18em] text-secondary-dark">
+                        Admin menu
+                      </span>
+                      <button
+                        type="button"
                         onClick={() =>
                           setMobileMenu({ open: false, pathname })
                         }
-                        aria-current={active ? "page" : undefined}
-                        className={`flex items-start gap-3 rounded-xl px-3 py-3 transition-colors ${
-                          active
-                            ? "bg-primary text-white"
-                            : "text-foreground hover:bg-surface"
-                        }`}
+                        className="grid h-9 w-9 place-items-center rounded-full text-muted transition hover:bg-surface hover:text-primary"
+                        aria-label="Close admin menu"
                       >
-                        <item.icon
-                          className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
-                            active ? "text-white" : "text-secondary-dark"
-                          }`}
-                          aria-hidden
-                        />
-                        <span>
-                          <span className="block text-sm font-bold">
-                            {item.label}
-                          </span>
-                          <span
-                            className={`block text-xs leading-relaxed ${
-                              active ? "text-white/70" : "text-muted"
+                        <X className="h-4 w-4" aria-hidden />
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {adminNav.map((item) => {
+                        const active = activeFor(pathname, item.href);
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() =>
+                              setMobileMenu({ open: false, pathname })
+                            }
+                            aria-current={active ? "page" : undefined}
+                            className={`flex items-start gap-3 rounded-xl px-3 py-3 transition-colors ${
+                              active
+                                ? "bg-primary text-white"
+                                : "text-foreground hover:bg-surface"
                             }`}
                           >
-                            {item.description}
-                          </span>
-                        </span>
-                      </Link>
-                    );
-                  })}
+                            <item.icon
+                              className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
+                                active ? "text-white" : "text-secondary-dark"
+                              }`}
+                              aria-hidden
+                            />
+                            <span>
+                              <span className="block text-sm font-bold">
+                                {item.label}
+                              </span>
+                              <span
+                                className={`block text-xs leading-relaxed ${
+                                  active ? "text-white/70" : "text-muted"
+                                }`}
+                              >
+                                {item.description}
+                              </span>
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3 border-t border-border pt-3">
+                      <AdminLogoutButton className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-60" />
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-3 border-t border-border pt-3">
-                  <AdminLogoutButton className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-60" />
-                </div>
-              </div>
               )}
             </div>
           </div>
