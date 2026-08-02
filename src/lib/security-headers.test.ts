@@ -186,6 +186,24 @@ function getDirectiveSources(value: string, directive: string): string[] {
   return sources;
 }
 
+function requireNextHeaders(): NonNullable<typeof nextConfig.headers> {
+  const headers = nextConfig.headers;
+  if (typeof headers !== "function") {
+    throw new Error("nextConfig.headers must be a function.");
+  }
+
+  return headers;
+}
+
+function requireNextRedirects(): NonNullable<typeof nextConfig.redirects> {
+  const redirects = nextConfig.redirects;
+  if (typeof redirects !== "function") {
+    throw new Error("nextConfig.redirects must be a function.");
+  }
+
+  return redirects;
+}
+
 test("baseline security headers match the approved policy exactly", () => {
   const headers = getBaselineSecurityHeaders();
 
@@ -385,10 +403,7 @@ test("content security policy header is returned without shared mutable state", 
 });
 
 test("next config exposes baseline security headers for all paths", async () => {
-  const headers = nextConfig.headers;
-  assert.equal(typeof headers, "function");
-
-  const headerRules = await headers();
+  const headerRules = await requireNextHeaders()();
 
   assert.deepEqual(headerRules, [
     {
@@ -399,10 +414,7 @@ test("next config exposes baseline security headers for all paths", async () => 
 });
 
 test("next config exposes one enforced CSP and no report-only CSP", async () => {
-  const headers = nextConfig.headers;
-  assert.equal(typeof headers, "function");
-
-  const headerRules = await headers();
+  const headerRules = await requireNextHeaders()();
   const headerNames = headerRules.flatMap((rule) =>
     rule.headers.map((header) => header.key),
   );
@@ -424,8 +436,7 @@ test("next config exposes one enforced CSP and no report-only CSP", async () => 
 });
 
 test("next config keeps the existing redirects and image configuration", async () => {
-  assert.equal(typeof nextConfig.redirects, "function");
-  assert.deepEqual(await nextConfig.redirects(), [
+  assert.deepEqual(await requireNextRedirects()(), [
     {
       source: "/:path*",
       has: [
