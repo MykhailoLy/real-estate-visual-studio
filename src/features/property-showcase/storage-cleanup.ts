@@ -3,8 +3,23 @@ import type { PropertyShowcase } from "./types";
 export const PROPERTY_SHOWCASE_STORAGE_ROOT = "property-showcases";
 export const PROPERTY_SHOWCASE_SITE_MEDIA_BUCKET = "site-media";
 
+interface StoragePathParseOptions {
+  allowRelativeObjectPath?: boolean;
+}
+
 export function propertyShowcaseStorageFolder(slug: string): string {
   return `${PROPERTY_SHOWCASE_STORAGE_ROOT}/${slug}/`;
+}
+
+function configuredSupabaseOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!raw) return null;
+
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeObjectPath(value: string | undefined): string | null {
@@ -19,24 +34,36 @@ function normalizeObjectPath(value: string | undefined): string | null {
   return path;
 }
 
+function hasEncodedPathControl(value: string): boolean {
+  const lower = value.toLowerCase();
+  return lower.includes("%2e") || lower.includes("%2f") || lower.includes("%5c");
+}
+
 export function siteMediaObjectPathFromUrl(
   value: string | undefined,
+  options: StoragePathParseOptions = {},
 ): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
 
   const directPath = normalizeObjectPath(trimmed);
-  if (directPath?.startsWith(`${PROPERTY_SHOWCASE_STORAGE_ROOT}/`)) {
+  if (
+    options.allowRelativeObjectPath &&
+    directPath?.startsWith(`${PROPERTY_SHOWCASE_STORAGE_ROOT}/`)
+  ) {
     return directPath;
   }
 
   try {
+    if (hasEncodedPathControl(trimmed)) return null;
     const url = new URL(trimmed);
     if (url.protocol !== "https:") return null;
+    if (url.username || url.password) return null;
+    if (url.origin !== configuredSupabaseOrigin()) return null;
     const marker = `/storage/v1/object/public/${PROPERTY_SHOWCASE_SITE_MEDIA_BUCKET}/`;
-    const markerIndex = url.pathname.indexOf(marker);
-    if (markerIndex < 0) return null;
-    const encodedPath = url.pathname.slice(markerIndex + marker.length);
+    if (!url.pathname.startsWith(marker)) return null;
+    const encodedPath = url.pathname.slice(marker.length);
+    if (hasEncodedPathControl(encodedPath)) return null;
     return normalizeObjectPath(decodeURIComponent(encodedPath));
   } catch {
     return null;
@@ -46,8 +73,9 @@ export function siteMediaObjectPathFromUrl(
 export function ownedPropertyShowcaseStoragePath(
   value: string | undefined,
   slug: string,
+  options: StoragePathParseOptions = {},
 ): string | null {
-  const path = siteMediaObjectPathFromUrl(value);
+  const path = siteMediaObjectPathFromUrl(value, options);
   if (!path) return null;
   const folder = propertyShowcaseStorageFolder(slug);
   if (!path.startsWith(folder) || path.length <= folder.length) return null;

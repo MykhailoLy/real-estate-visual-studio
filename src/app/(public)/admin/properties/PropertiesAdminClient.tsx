@@ -647,15 +647,28 @@ function PropertyEditor({
       <div className="space-y-8 p-5 sm:p-6">
         <Section title="Identity and publishing">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Slug">
+            <Field
+              label="Slug"
+              hint={
+                mode === "edit"
+                  ? "Locked after creation so uploaded media stays in the same Storage folder."
+                  : undefined
+              }
+            >
               <input
                 required
                 pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
                 value={form.slug}
-                onChange={(event) =>
-                  set("slug", event.target.value.toLowerCase())
+                readOnly={mode === "edit"}
+                aria-readonly={mode === "edit"}
+                onChange={(event) => {
+                  if (mode === "create") {
+                    set("slug", event.target.value.toLowerCase());
+                  }
+                }}
+                className={
+                  mode === "edit" ? protectedMediaInputClass : inputClass
                 }
-                className={inputClass}
                 placeholder="villa-altea-hills"
               />
             </Field>

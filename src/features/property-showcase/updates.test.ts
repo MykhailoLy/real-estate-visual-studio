@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
-import { mergePropertyShowcaseUpdate } from "./updates.ts";
+import {
+  immutablePropertySlugError,
+  mergePropertyShowcaseUpdate,
+} from "./updates.ts";
 import type { PropertyShowcase } from "./types.ts";
 
 function cloneProperty(): PropertyShowcase {
@@ -68,6 +71,19 @@ test("editing price preserves gallery", () => {
     "https://unbranded.visithome.ai/demo-plan",
   );
   assert.equal(result.property?.price, "EUR 725,000");
+});
+
+test("slug changes after creation are rejected", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    slug: "new-altea-slug",
+  };
+
+  assert.equal(
+    immutablePropertySlugError(existing, incoming),
+    "Property slug cannot be changed after creation.",
+  );
 });
 
 test("editing description preserves floor plans", () => {

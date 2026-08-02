@@ -22,6 +22,15 @@ export interface PropertyShowcaseUpdateResult {
   errors: string[];
 }
 
+export function immutablePropertySlugError(
+  existing: PropertyShowcase,
+  incoming: PropertyShowcase,
+): string | null {
+  return existing.slug === incoming.slug
+    ? null
+    : "Property slug cannot be changed after creation.";
+}
+
 function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
 }

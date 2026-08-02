@@ -148,14 +148,16 @@ function ExternalInteractiveFloorPlan({
                 </p>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={openFullscreen}
-              className="pointer-events-auto grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/20 bg-black/60 text-white shadow-lg backdrop-blur transition hover:bg-black/80 sm:h-14 sm:w-14"
-              aria-label="Open interactive floor plan fullscreen"
-            >
-              <Maximize2 className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
-            </button>
+            {canEmbed ? (
+              <button
+                type="button"
+                onClick={openFullscreen}
+                className="pointer-events-auto grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/20 bg-black/60 text-white shadow-lg backdrop-blur transition hover:bg-black/80 sm:h-14 sm:w-14"
+                aria-label="Open interactive floor plan fullscreen"
+              >
+                <Maximize2 className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+              </button>
+            ) : null}
           </div>
 
           {status === "poster" && canEmbed ? (
@@ -239,14 +241,16 @@ function ExternalInteractiveFloorPlan({
                     Open interactive plan
                   </a>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={openFullscreen}
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
-                >
-                  <Maximize2 className="h-4 w-4" aria-hidden />
-                  View fullscreen
-                </button>
+                {canEmbed ? (
+                  <button
+                    type="button"
+                    onClick={openFullscreen}
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
+                  >
+                    <Maximize2 className="h-4 w-4" aria-hidden />
+                    View fullscreen
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

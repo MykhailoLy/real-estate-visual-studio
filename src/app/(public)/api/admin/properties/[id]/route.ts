@@ -5,8 +5,14 @@ import {
   PropertyShowcaseMutationSchema,
   PropertyShowcaseSchema,
 } from "@/features/property-showcase/schema";
-import { propertyShowcaseMediaDeletionCandidates } from "@/features/property-showcase/storage-cleanup";
-import { mergePropertyShowcaseUpdate } from "@/features/property-showcase/updates";
+import {
+  collectPropertyShowcaseMediaPaths,
+  propertyShowcaseMediaDeletionCandidates,
+} from "@/features/property-showcase/storage-cleanup";
+import {
+  immutablePropertySlugError,
+  mergePropertyShowcaseUpdate,
+} from "@/features/property-showcase/updates";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { deleteSiteMediaFiles } from "@/lib/site-media-server";
 import { createServerClient } from "@/lib/supabase";
@@ -92,11 +98,19 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const existingProperty = PropertyShowcaseSchema.safeParse(existing.content);
-  if (!existingProperty.success) {
+  if (!existingProperty.success || existingProperty.data.slug !== existing.slug) {
     return NextResponse.json(
       { error: "Stored property content is invalid." },
       { status: 500 },
     );
+  }
+
+  const slugError = immutablePropertySlugError(
+    existingProperty.data,
+    parsed.data.property,
+  );
+  if (slugError) {
+    return NextResponse.json({ error: slugError }, { status: 400 });
   }
 
   const publishedAt = parsed.data.published
@@ -193,6 +207,19 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Property not found." }, { status: 404 });
   }
 
+  const existingProperty = PropertyShowcaseSchema.safeParse(existing.content);
+  if (!existingProperty.success || existingProperty.data.slug !== existing.slug) {
+    return NextResponse.json(
+      { error: "Stored property content is invalid." },
+      { status: 500 },
+    );
+  }
+
+  const storagePaths = collectPropertyShowcaseMediaPaths(
+    existingProperty.data,
+    existing.slug,
+  );
+
   const supabase = createServerClient();
   const { error } = await supabase
     .from("property_showcases")
@@ -208,6 +235,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   revalidatePath(`/property/${existing.slug}`);
+  await deleteSiteMediaFiles(storagePaths);
 
   return NextResponse.json({ ok: true });
 }
