@@ -13,7 +13,11 @@ export function hasExternalInteractiveFloorPlan(
     (a, b) => a.sortOrder - b.sortOrder,
   )[0];
 
-  return Boolean(primaryFloorPlan?.interactiveUrl?.trim());
+  return Boolean(
+    primaryFloorPlan?.interactiveExternalUrl?.trim() ||
+      primaryFloorPlan?.interactiveEmbedUrl?.trim() ||
+      primaryFloorPlan?.interactiveUrl?.trim(),
+  );
 }
 
 export function shouldRenderInteractiveFloorPlan(

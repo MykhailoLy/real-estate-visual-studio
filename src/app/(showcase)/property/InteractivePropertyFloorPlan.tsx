@@ -12,8 +12,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  normalizeFloorPlanInteractiveUrl,
-  type NormalizedProviderUrl,
+  normalizeInteractiveFloorPlanInput,
+  type NormalizedInteractiveFloorPlanUrl,
 } from "@/features/property-showcase/provider-urls";
 import type {
   PropertyFloorPlan,
@@ -37,9 +37,12 @@ const fallbackPositions = [
 export default function InteractivePropertyFloorPlan(
   props: InteractivePropertyFloorPlanProps,
 ) {
-  const externalPlan = normalizeFloorPlanInteractiveUrl(
-    props.floorPlan.interactiveUrl,
-  );
+  const externalPlan = normalizeInteractiveFloorPlanInput({
+    provider: props.floorPlan.interactiveProvider,
+    externalUrl: props.floorPlan.interactiveExternalUrl,
+    embedUrl: props.floorPlan.interactiveEmbedUrl,
+    interactiveUrl: props.floorPlan.interactiveUrl,
+  });
 
   if (externalPlan) {
     return (
@@ -54,12 +57,15 @@ function ExternalInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
   externalPlan,
-}: InteractivePropertyFloorPlanProps & { externalPlan: NormalizedProviderUrl }) {
+}: InteractivePropertyFloorPlanProps & {
+  externalPlan: NormalizedInteractiveFloorPlanUrl;
+}) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"poster" | "loading" | "loaded" | "failed">(
     "poster",
   );
   const canEmbed = Boolean(externalPlan.embedUrl);
+  const openPlanUrl = externalPlan.externalUrl ?? externalPlan.embedUrl ?? "";
   const showIframe = canEmbed && status !== "poster" && status !== "failed";
 
   useEffect(() => {
@@ -199,7 +205,7 @@ function ExternalInteractiveFloorPlan({
                   This provider may restrict iframe playback. The full experience opens securely with the provider controls intact.
                 </p>
                 <a
-                  href={externalPlan.externalUrl}
+                  href={openPlanUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
@@ -222,15 +228,17 @@ function ExternalInteractiveFloorPlan({
                 </p>
               </div>
               <div className="pointer-events-auto flex flex-wrap gap-2">
-                <a
-                  href={externalPlan.externalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/75"
-                >
-                  <ExternalLink className="h-4 w-4" aria-hidden />
-                  Open original
-                </a>
+                {openPlanUrl ? (
+                  <a
+                    href={openPlanUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/75"
+                  >
+                    <ExternalLink className="h-4 w-4" aria-hidden />
+                    Open interactive plan
+                  </a>
+                ) : null}
                 <button
                   type="button"
                   onClick={openFullscreen}

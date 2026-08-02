@@ -1,9 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { failedPropertyShowcaseUploadCleanupCandidates } from "@/features/property-showcase/storage-cleanup";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   createSiteMediaSignedUploadUrl,
+  deleteSiteMediaFiles,
   safeFilename,
   SITE_MEDIA_ALLOWED_MIMES,
 } from "@/lib/site-media-server";
@@ -25,6 +27,19 @@ const Body = z
     filename: z.string().trim().min(1).max(255),
     content_type: z.enum(SITE_MEDIA_ALLOWED_MIMES),
     file_size: z.number().int().min(1).max(MAX_PROPERTY_MEDIA_BYTES),
+  })
+  .strict();
+
+const CleanupBody = z
+  .object({
+    slug: z
+      .string()
+      .trim()
+      .min(3)
+      .max(120)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    publicUrls: z.array(z.string().trim().min(1).max(2048)).max(100),
+    retainedUrls: z.array(z.string().trim().min(1).max(2048)).max(200).optional(),
   })
   .strict();
 
@@ -78,4 +93,38 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+export async function DELETE(request: Request) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const parsed = CleanupBody.safeParse(raw);
+  if (!parsed.success) {
+    const message =
+      Object.values(parsed.error.flatten().fieldErrors)
+        .flat()
+        .find((item): item is string => Boolean(item)) ?? "Invalid request.";
+    return NextResponse.json(
+      { error: message, details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const paths = failedPropertyShowcaseUploadCleanupCandidates({
+    uploaded: parsed.data.publicUrls,
+    retained: parsed.data.retainedUrls,
+    slug: parsed.data.slug,
+  });
+
+  await deleteSiteMediaFiles(paths);
+  return NextResponse.json({ ok: true, deleted: paths.length });
 }

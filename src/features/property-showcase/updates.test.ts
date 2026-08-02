@@ -42,7 +42,10 @@ function withExternalMedia(): PropertyShowcase {
         "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/floor.webp",
       downloadUrl:
         "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/floor-download.webp",
-      interactiveUrl: "https://unbranded.visithome.ai/demo-plan",
+      interactiveProvider: "cubiCasa",
+      interactiveExternalUrl: "https://unbranded.visithome.ai/demo-plan",
+      interactiveEmbedUrl:
+        "https://unbranded.visithome.ai/demo-plan?mode=embed",
       sortOrder: 1,
     },
   ];
@@ -59,6 +62,11 @@ test("editing price preserves gallery", () => {
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.property?.gallery, existing.gallery);
+  assert.equal(result.property?.virtualTour?.provider, "kuula");
+  assert.equal(
+    result.property?.floorPlans[0]?.interactiveExternalUrl,
+    "https://unbranded.visithome.ai/demo-plan",
+  );
   assert.equal(result.property?.price, "EUR 725,000");
 });
 
@@ -75,7 +83,7 @@ test("editing description preserves floor plans", () => {
   assert.equal(result.property?.description[0]?.en, "Updated description.");
 });
 
-test("editing agent data preserves CubiCasa interactiveUrl", () => {
+test("editing agent data preserves CubiCasa interactive URLs", () => {
   const existing = withExternalMedia();
   const incoming = cloneProperty();
   incoming.agent = {
@@ -85,7 +93,9 @@ test("editing agent data preserves CubiCasa interactiveUrl", () => {
   incoming.floorPlans = [
     {
       ...existing.floorPlans[0],
-      interactiveUrl: undefined,
+      interactiveProvider: undefined,
+      interactiveExternalUrl: undefined,
+      interactiveEmbedUrl: undefined,
     },
   ];
 
@@ -93,10 +103,67 @@ test("editing agent data preserves CubiCasa interactiveUrl", () => {
 
   assert.equal(result.ok, true);
   assert.equal(
-    result.property?.floorPlans[0]?.interactiveUrl,
+    result.property?.floorPlans[0]?.interactiveExternalUrl,
     "https://unbranded.visithome.ai/demo-plan",
   );
+  assert.equal(
+    result.property?.floorPlans[0]?.interactiveEmbedUrl,
+    "https://unbranded.visithome.ai/demo-plan?mode=embed",
+  );
   assert.equal(result.property?.agent.agentName, "Updated Agent");
+});
+
+test("explicitly removing Kuula clears the virtual tour", () => {
+  const existing = withExternalMedia();
+  const incoming = cloneProperty();
+  incoming.virtualTour = undefined;
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details", {
+    removeVirtualTour: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.virtualTour, undefined);
+});
+
+test("explicitly removing CubiCasa clears interactive floor plan URLs", () => {
+  const existing = withExternalMedia();
+  const incoming = cloneProperty();
+  incoming.floorPlans = [
+    {
+      ...existing.floorPlans[0],
+      interactiveProvider: undefined,
+      interactiveExternalUrl: undefined,
+      interactiveEmbedUrl: undefined,
+      interactiveUrl: undefined,
+    },
+  ];
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details", {
+    removeInteractiveFloorPlan: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.floorPlans[0]?.imageUrl, existing.floorPlans[0].imageUrl);
+  assert.equal(result.property?.floorPlans[0]?.interactiveProvider, undefined);
+  assert.equal(result.property?.floorPlans[0]?.interactiveExternalUrl, undefined);
+  assert.equal(result.property?.floorPlans[0]?.interactiveEmbedUrl, undefined);
+  assert.equal(result.property?.floorPlans[0]?.interactiveUrl, undefined);
+});
+
+test("explicitly removing ordinary floor plans leaves floorPlans empty", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    floorPlans: [],
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    removeFloorPlan: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.property?.floorPlans, []);
 });
 
 test("media sorting preserves Kuula settings", () => {
@@ -136,7 +203,7 @@ test("replacing the cover preserves all other property data", () => {
   assert.deepEqual(result.property?.agent, existing.agent);
 });
 
-test("replacing a normal floor plan preserves its interactiveUrl", () => {
+test("replacing a normal floor plan preserves its interactive URLs", () => {
   const existing = withExternalMedia();
   const incoming = {
     ...existing,
@@ -147,7 +214,9 @@ test("replacing a normal floor plan preserves its interactiveUrl", () => {
           "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/new-floor.webp",
         downloadUrl:
           "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/new-floor.webp",
-        interactiveUrl: undefined,
+        interactiveProvider: undefined,
+        interactiveExternalUrl: undefined,
+        interactiveEmbedUrl: undefined,
       },
     ],
   };
@@ -156,8 +225,12 @@ test("replacing a normal floor plan preserves its interactiveUrl", () => {
 
   assert.equal(result.ok, true);
   assert.equal(
-    result.property?.floorPlans[0]?.interactiveUrl,
+    result.property?.floorPlans[0]?.interactiveExternalUrl,
     "https://unbranded.visithome.ai/demo-plan",
+  );
+  assert.equal(
+    result.property?.floorPlans[0]?.interactiveEmbedUrl,
+    "https://unbranded.visithome.ai/demo-plan?mode=embed",
   );
   assert.equal(result.property?.floorPlans[0]?.imageUrl, incoming.floorPlans[0].imageUrl);
 });

@@ -18,7 +18,8 @@ test("external CubiCasa floor plan renders without native roomId mappings", () =
   property.floorPlans = [
     {
       ...property.floorPlans[0],
-      interactiveUrl: "https://unbranded.visithome.ai/demo-plan",
+      interactiveProvider: "cubiCasa",
+      interactiveExternalUrl: "https://unbranded.visithome.ai/demo-plan",
     },
   ];
 
@@ -35,6 +36,9 @@ test("native interactive plan does not render without roomId or external URL", (
   property.floorPlans = [
     {
       ...property.floorPlans[0],
+      interactiveProvider: undefined,
+      interactiveExternalUrl: undefined,
+      interactiveEmbedUrl: undefined,
       interactiveUrl: undefined,
     },
   ];

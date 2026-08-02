@@ -160,6 +160,36 @@ async function uploadPropertyFile(
   return { path: signed.path, publicUrl: data.publicUrl };
 }
 
+async function cleanupUploadedPropertyFiles(
+  slug: string,
+  publicUrls: readonly string[],
+  retainedUrls: readonly string[] = [],
+): Promise<void> {
+  if (publicUrls.length === 0) return;
+
+  try {
+    const response = await fetch("/api/admin/properties/upload-url", {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        publicUrls,
+        retainedUrls,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(
+        "property-showcase: failed upload cleanup returned an error",
+        await readError(response),
+      );
+    }
+  } catch (error) {
+    console.warn("property-showcase: failed upload cleanup could not run", error);
+  }
+}
+
 export default function OptimizedPropertyMediaManagerClient({
   records,
   schemaReady,
@@ -322,7 +352,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   function removeImage(imageId: string) {
     if (
       !window.confirm(
-        "Remove this photo from the property page? The Storage file will not be deleted.",
+        "Remove this photo from the property page? After you save, its property-owned Storage file will be deleted if nothing else uses it.",
       )
     ) {
       return;
@@ -355,6 +385,8 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     setNotice(null);
     setLastSavings(null);
 
+    const uploadedPublicUrls: string[] = [];
+
     try {
       let next = gallery.filter((item) => !isDemoAsset(item.src));
       let nextCover = isDemoAsset(coverImage) ? "" : coverImage;
@@ -377,6 +409,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           optimized.file,
           "gallery",
         );
+        uploadedPublicUrls.push(uploaded.publicUrl);
         const label = displayName(sourceFile.name) || `Photo ${next.length + 1}`;
         const item: PropertyGalleryImage = {
           id: `gallery-${crypto.randomUUID()}`,
@@ -397,6 +430,10 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         `${files.length} photo${files.length === 1 ? "" : "s"} optimized and uploaded. ${formatImageBytes(originalBytes)} → ${formatImageBytes(optimizedBytes)} (${savingsPercent(summary)}% saved).`,
       );
     } catch (uploadError) {
+      await cleanupUploadedPropertyFiles(record.slug, uploadedPublicUrls, [
+        ...gallery.map((image) => image.src),
+        coverImage,
+      ]);
       setError(
         uploadError instanceof Error ? uploadError.message : "Photo upload failed.",
       );
@@ -422,6 +459,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     setError(null);
     setNotice(null);
     setLastSavings(null);
+    let uploadedPublicUrl = "";
     try {
       const optimized = await optimizePropertyImage(sourceFile, "floor-plan");
       setUploadDetail(
@@ -432,6 +470,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         optimized.file,
         "floor-plan",
       );
+      uploadedPublicUrl = uploaded.publicUrl;
       setFloorPlanUrl(uploaded.publicUrl);
       const summary = {
         count: 1,
@@ -443,6 +482,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         `Floor plan optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
       );
     } catch (uploadError) {
+      await cleanupUploadedPropertyFiles(
+        record.slug,
+        uploadedPublicUrl ? [uploadedPublicUrl] : [],
+        [floorPlanUrl],
+      );
       setError(
         uploadError instanceof Error ? uploadError.message : "Floor plan upload failed.",
       );
@@ -468,6 +512,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     setError(null);
     setNotice(null);
     setLastSavings(null);
+    let uploadedPublicUrl = "";
     try {
       const optimized = await optimizePropertyImage(sourceFile, "gallery");
       setUploadDetail(
@@ -478,6 +523,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         optimized.file,
         "tour-poster",
       );
+      uploadedPublicUrl = uploaded.publicUrl;
       setTourPosterUrl(uploaded.publicUrl);
       const summary = {
         count: 1,
@@ -489,6 +535,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         `Tour poster optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
       );
     } catch (uploadError) {
+      await cleanupUploadedPropertyFiles(
+        record.slug,
+        uploadedPublicUrl ? [uploadedPublicUrl] : [],
+        [tourPosterUrl],
+      );
       setError(
         uploadError instanceof Error ? uploadError.message : "Tour poster upload failed.",
       );
@@ -514,6 +565,8 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     }
 
     const existingPlan = record.property.floorPlans[0];
+    const removeFloorPlan =
+      !floorPlanUrl.trim() && record.property.floorPlans.length > 0;
     const floorPlans: PropertyShowcase["floorPlans"] = floorPlanUrl
       ? [
           {
@@ -524,12 +577,15 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
             },
             imageUrl: floorPlanUrl,
             downloadUrl: floorPlanUrl,
+            interactiveProvider: existingPlan?.interactiveProvider,
+            interactiveExternalUrl: existingPlan?.interactiveExternalUrl,
+            interactiveEmbedUrl: existingPlan?.interactiveEmbedUrl,
             interactiveUrl: existingPlan?.interactiveUrl,
             sortOrder: 1,
           },
           ...record.property.floorPlans.slice(1),
         ]
-      : record.property.floorPlans;
+      : [];
 
     const property: PropertyShowcase = {
       ...record.property,
@@ -562,6 +618,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           property,
           published: record.published,
           updateMode: "media",
+          removeFloorPlan,
         }),
       });
       if (!response.ok) {
@@ -763,7 +820,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           )}
           <p className="mt-4 text-xs text-muted">
             {realGallery.length} optimized photo
-            {realGallery.length === 1 ? "" : "s"}. Removing a saved photo from the page does not yet delete its old Storage object automatically.
+            {realGallery.length === 1 ? "" : "s"}. Removing a saved photo from the page deletes its old property-owned Storage object after the next successful save.
           </p>
         </div>
       </section>
@@ -801,7 +858,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                 onClick={() => {
                   if (
                     window.confirm(
-                      "Remove this floor plan from the property page? The Storage file will not be deleted.",
+                      "Remove this floor plan from the property page? After you save, its property-owned Storage file will be deleted if nothing else uses it.",
                     )
                   ) {
                     setFloorPlanUrl("");

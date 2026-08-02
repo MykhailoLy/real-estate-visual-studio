@@ -60,6 +60,9 @@ export interface PropertyFloorPlan {
   title: LocalizedText;
   imageUrl: string;
   downloadUrl?: string;
+  interactiveProvider?: PropertyTourProvider;
+  interactiveExternalUrl?: string;
+  interactiveEmbedUrl?: string;
   interactiveUrl?: string;
   sortOrder: number;
 }

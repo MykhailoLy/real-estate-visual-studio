@@ -4,6 +4,7 @@ import {
   extractIframeSrc,
   getTrustedPropertyFrameOrigins,
   normalizeFloorPlanInteractiveUrl,
+  normalizeInteractiveFloorPlanInput,
   normalizeTourInput,
 } from "./provider-urls.ts";
 
@@ -58,8 +59,36 @@ test("CubiCasa unbranded URLs are valid external interactive floor plans", () =>
   );
 
   assert.equal(normalized?.provider, "cubiCasa");
+  assert.equal(normalized?.externalUrl, "https://unbranded.visithome.ai/12345");
+  assert.equal(normalized?.canEmbed, false);
+  assert.equal(normalized?.embedUrl, undefined);
+});
+
+test("CubiCasa iframe HTML extracts a validated embed URL separately", () => {
+  const normalized = normalizeInteractiveFloorPlanInput({
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/12345",
+    embedUrl:
+      '<iframe src="https://unbranded.visithome.ai/12345?mode=embed&amp;lang=en"></iframe>',
+  });
+
+  assert.equal(normalized?.provider, "cubiCasa");
+  assert.equal(normalized?.externalUrl, "https://unbranded.visithome.ai/12345");
+  assert.equal(
+    normalized?.embedUrl,
+    "https://unbranded.visithome.ai/12345?mode=embed&lang=en",
+  );
   assert.equal(normalized?.canEmbed, true);
-  assert.equal(normalized?.embedUrl, "https://unbranded.visithome.ai/12345");
+});
+
+test("interactive floor plan embed input rejects unsafe iframe sources", () => {
+  const normalized = normalizeInteractiveFloorPlanInput({
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/12345",
+    embedUrl: '<iframe src="https://evil.example/12345"></iframe>',
+  });
+
+  assert.equal(normalized, null);
 });
 
 test("Nodalview share URLs produce iframe-mode embed URLs", () => {

@@ -5,8 +5,10 @@ import {
   PropertyShowcaseMutationSchema,
   PropertyShowcaseSchema,
 } from "@/features/property-showcase/schema";
+import { propertyShowcaseMediaDeletionCandidates } from "@/features/property-showcase/storage-cleanup";
 import { mergePropertyShowcaseUpdate } from "@/features/property-showcase/updates";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { deleteSiteMediaFiles } from "@/lib/site-media-server";
 import { createServerClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -107,6 +109,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       publishedAt,
     },
     parsed.data.updateMode ?? "details",
+    {
+      removeVirtualTour: parsed.data.removeVirtualTour,
+      removeInteractiveFloorPlan: parsed.data.removeInteractiveFloorPlan,
+      removeFloorPlan: parsed.data.removeFloorPlan,
+    },
   );
 
   if (!merged.ok || !merged.property) {
@@ -147,6 +154,16 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   revalidatePath(`/property/${existing.slug}`);
   revalidatePath(`/property/${property.slug}`);
+
+  if (existingProperty.data.slug === property.slug) {
+    await deleteSiteMediaFiles(
+      propertyShowcaseMediaDeletionCandidates({
+        existing: existingProperty.data,
+        next: property,
+        slug: property.slug,
+      }),
+    );
+  }
 
   return NextResponse.json({ ok: true, item: data });
 }

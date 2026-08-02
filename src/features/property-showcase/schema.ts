@@ -81,6 +81,18 @@ const PropertyFloorPlanSchema = z
     title: LocalizedTextSchema,
     imageUrl: z.string().trim().min(1).max(2048),
     downloadUrl: optionalTrimmed(2048),
+    interactiveProvider: z
+      .enum([
+        "kuula",
+        "matterport",
+        "cubiCasa",
+        "floorfy",
+        "nodalview",
+        "custom",
+      ])
+      .optional(),
+    interactiveExternalUrl: optionalTrimmed(2048),
+    interactiveEmbedUrl: optionalTrimmed(4096),
     interactiveUrl: optionalTrimmed(2048),
     sortOrder: z.number().int().min(-9999).max(9999),
   })
@@ -147,6 +159,9 @@ export const PropertyShowcaseMutationSchema = z
     property: PropertyShowcaseSchema,
     published: z.boolean(),
     updateMode: z.enum(["details", "media", "replace"]).optional(),
+    removeVirtualTour: z.boolean().optional(),
+    removeInteractiveFloorPlan: z.boolean().optional(),
+    removeFloorPlan: z.boolean().optional(),
   })
   .strict();
 

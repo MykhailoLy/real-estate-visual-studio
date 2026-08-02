@@ -58,7 +58,9 @@ interface FormState {
   tourEmbedUrl: string;
   tourExternalUrl: string;
   floorPlanImageUrl: string;
-  floorPlanInteractiveUrl: string;
+  floorPlanInteractiveProvider: PropertyTourProvider;
+  floorPlanInteractiveExternalUrl: string;
+  floorPlanInteractiveEmbedUrl: string;
   agencyName: string;
   agentName: string;
   phone: string;
@@ -109,7 +111,11 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
     tourEmbedUrl: property?.virtualTour?.embedUrl ?? "",
     tourExternalUrl: property?.virtualTour?.externalUrl ?? "",
     floorPlanImageUrl: floorPlan?.imageUrl ?? "",
-    floorPlanInteractiveUrl: floorPlan?.interactiveUrl ?? "",
+    floorPlanInteractiveProvider:
+      floorPlan?.interactiveProvider ?? "cubiCasa",
+    floorPlanInteractiveExternalUrl:
+      floorPlan?.interactiveExternalUrl ?? floorPlan?.interactiveUrl ?? "",
+    floorPlanInteractiveEmbedUrl: floorPlan?.interactiveEmbedUrl ?? "",
     agencyName: property?.agent.agencyName ?? "",
     agentName: property?.agent.agentName ?? "",
     phone: property?.agent.phone ?? "",
@@ -184,7 +190,11 @@ function buildProperty(
           index === 0
             ? {
                 ...plan,
-                interactiveUrl: optional(state.floorPlanInteractiveUrl),
+                interactiveProvider: state.floorPlanInteractiveProvider,
+                interactiveExternalUrl: optional(
+                  state.floorPlanInteractiveExternalUrl,
+                ),
+                interactiveEmbedUrl: optional(state.floorPlanInteractiveEmbedUrl),
               }
             : plan,
         )
@@ -194,7 +204,11 @@ function buildProperty(
               id: "main-floor",
               title: { en: "Main floor", es: "Planta principal" },
               imageUrl: state.floorPlanImageUrl.trim(),
-              interactiveUrl: optional(state.floorPlanInteractiveUrl),
+              interactiveProvider: state.floorPlanInteractiveProvider,
+              interactiveExternalUrl: optional(
+                state.floorPlanInteractiveExternalUrl,
+              ),
+              interactiveEmbedUrl: optional(state.floorPlanInteractiveEmbedUrl),
               sortOrder: 1,
             },
           ]
@@ -557,6 +571,23 @@ function PropertyEditor({
     onError(null);
 
     const property = buildProperty(form, record?.property ?? null);
+    const existingProperty = record?.property ?? null;
+    const existingPrimaryFloorPlan = existingProperty?.floorPlans[0];
+    const hasExistingInteractiveFloorPlan = Boolean(
+      existingPrimaryFloorPlan?.interactiveExternalUrl?.trim() ||
+        existingPrimaryFloorPlan?.interactiveEmbedUrl?.trim() ||
+        existingPrimaryFloorPlan?.interactiveUrl?.trim(),
+    );
+    const removeVirtualTour =
+      mode === "edit" &&
+      Boolean(existingProperty?.virtualTour) &&
+      !form.tourEmbedUrl.trim() &&
+      !form.tourExternalUrl.trim();
+    const removeInteractiveFloorPlan =
+      mode === "edit" &&
+      hasExistingInteractiveFloorPlan &&
+      !form.floorPlanInteractiveExternalUrl.trim() &&
+      !form.floorPlanInteractiveEmbedUrl.trim();
     const endpoint =
       mode === "create"
         ? "/api/admin/properties"
@@ -571,6 +602,8 @@ function PropertyEditor({
           property,
           published: form.published,
           updateMode: mode === "create" ? "replace" : "details",
+          removeVirtualTour,
+          removeInteractiveFloorPlan,
         }),
       });
       if (!response.ok) {
@@ -842,7 +875,7 @@ function PropertyEditor({
         </Section>
 
         <Section title="Floor plans">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Field
               label="Floor plan image"
               hint="Protected. Upload or replace it in Manage photos & floor plans."
@@ -854,11 +887,40 @@ function PropertyEditor({
                 className={protectedMediaInputClass}
               />
             </Field>
-            <Field label="Interactive plan URL or iframe">
-              <input
-                value={form.floorPlanInteractiveUrl}
+            <Field label="Interactive plan provider">
+              <select
+                value={form.floorPlanInteractiveProvider}
                 onChange={(event) =>
-                  set("floorPlanInteractiveUrl", event.target.value)
+                  set(
+                    "floorPlanInteractiveProvider",
+                    event.target.value as PropertyTourProvider,
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="cubiCasa">CubiCasa</option>
+                <option value="kuula">Kuula</option>
+                <option value="matterport">Matterport</option>
+                <option value="floorfy">Floorfy</option>
+                <option value="nodalview">Nodalview</option>
+                <option value="custom">Custom</option>
+              </select>
+            </Field>
+            <Field label="Interactive plan share/original URL">
+              <input
+                value={form.floorPlanInteractiveExternalUrl}
+                onChange={(event) =>
+                  set("floorPlanInteractiveExternalUrl", event.target.value)
+                }
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Interactive plan embed iframe or URL">
+              <textarea
+                rows={3}
+                value={form.floorPlanInteractiveEmbedUrl}
+                onChange={(event) =>
+                  set("floorPlanInteractiveEmbedUrl", event.target.value)
                 }
                 className={inputClass}
               />

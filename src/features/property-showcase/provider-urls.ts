@@ -14,6 +14,15 @@ export interface NormalizedProviderUrl {
   inputKind: "url" | "iframe";
 }
 
+export interface NormalizedInteractiveFloorPlanUrl {
+  provider: PropertyTourProvider;
+  providerName: string;
+  externalUrl?: string;
+  embedUrl?: string;
+  canEmbed: boolean;
+  inputKind: "url" | "iframe";
+}
+
 export interface ProviderUrlValidationResult {
   ok: boolean;
   property?: PropertyShowcase;
@@ -25,6 +34,12 @@ interface ProviderConfig {
   origins: readonly string[];
   embedOrigins: readonly string[];
   normalizeEmbed?: (url: URL) => URL | null;
+}
+
+interface NormalizeProviderUrlOptions {
+  allowIframeAsEmbed?: boolean;
+  allowUrlAsEmbed?: boolean;
+  requireEmbed?: boolean;
 }
 
 const KNOWN_PROVIDER_CONFIGS: Record<
@@ -188,6 +203,7 @@ function normalizeNodalviewEmbedUrl(url: URL): URL | null {
 function normalizeProviderUrl(
   provider: PropertyTourProvider,
   value: string | undefined,
+  options: NormalizeProviderUrlOptions = {},
 ): NormalizedProviderUrl | null {
   const url = safeHttpsUrl(value);
   if (!url) return null;
@@ -197,12 +213,21 @@ function normalizeProviderUrl(
     return null;
   }
 
-  const normalizedEmbed =
-    config.normalizeEmbed?.(url) ?? (hasOrigin(url, config.embedOrigins) ? url : null);
+  const kind = inputKind(value);
+  const shouldResolveEmbed =
+    options.requireEmbed === true ||
+    (kind === "iframe" && options.allowIframeAsEmbed !== false) ||
+    (kind === "url" && options.allowUrlAsEmbed !== false);
+  const normalizedEmbed = shouldResolveEmbed
+    ? config.normalizeEmbed?.(url) ??
+      (hasOrigin(url, config.embedOrigins) ? url : null)
+    : null;
   const embedUrl =
     normalizedEmbed && hasOrigin(normalizedEmbed, config.embedOrigins)
       ? normalizedEmbed.toString()
       : undefined;
+
+  if (options.requireEmbed && !embedUrl) return null;
 
   return {
     provider,
@@ -210,8 +235,25 @@ function normalizeProviderUrl(
     externalUrl: url.toString(),
     embedUrl,
     canEmbed: Boolean(embedUrl),
-    inputKind: inputKind(value),
+    inputKind: kind,
   };
+}
+
+function normalizeProviderExternalUrl(
+  provider: PropertyTourProvider,
+  value: string | undefined,
+): NormalizedProviderUrl | null {
+  return normalizeProviderUrl(provider, value, {
+    allowIframeAsEmbed: false,
+    allowUrlAsEmbed: false,
+  });
+}
+
+function normalizeProviderEmbedUrl(
+  provider: PropertyTourProvider,
+  value: string | undefined,
+): NormalizedProviderUrl | null {
+  return normalizeProviderUrl(provider, value, { requireEmbed: true });
 }
 
 export function normalizeTourInput(
@@ -249,25 +291,114 @@ export function normalizeExternalInteractiveUrl(
   value: string | undefined,
   provider?: PropertyTourProvider,
 ): string | undefined {
-  if (provider) return normalizeProviderUrl(provider, value)?.externalUrl;
-  return normalizeAnyProviderUrl(value)?.externalUrl;
+  if (provider) return normalizeProviderExternalUrl(provider, value)?.externalUrl;
+  return normalizeAnyProviderExternalUrl(value)?.externalUrl;
 }
 
 export function normalizeFloorPlanInteractiveUrl(
   value: string | undefined,
-): NormalizedProviderUrl | null {
-  return normalizeAnyProviderUrl(value);
+): NormalizedInteractiveFloorPlanUrl | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const normalized =
+    inputKind(trimmed) === "iframe"
+      ? normalizeAnyProviderEmbedUrl(trimmed)
+      : normalizeAnyProviderExternalUrl(trimmed);
+  if (!normalized) return null;
+
+  return {
+    provider: normalized.provider,
+    providerName: normalized.providerName,
+    externalUrl:
+      normalized.inputKind === "iframe" ? undefined : normalized.externalUrl,
+    embedUrl: normalized.embedUrl,
+    canEmbed: Boolean(normalized.embedUrl),
+    inputKind: normalized.inputKind,
+  };
 }
 
-function normalizeAnyProviderUrl(
+function normalizeAnyProviderExternalUrl(
   value: string | undefined,
 ): NormalizedProviderUrl | null {
   for (const provider of TOUR_PROVIDER_ORDER) {
-    const result = normalizeProviderUrl(provider, value);
+    const result = normalizeProviderExternalUrl(provider, value);
     if (result) return result;
   }
 
   return null;
+}
+
+function normalizeAnyProviderEmbedUrl(
+  value: string | undefined,
+): NormalizedProviderUrl | null {
+  for (const provider of TOUR_PROVIDER_ORDER) {
+    const result = normalizeProviderEmbedUrl(provider, value);
+    if (result) return result;
+  }
+
+  return null;
+}
+
+export function normalizeInteractiveFloorPlanInput(input: {
+  provider?: PropertyTourProvider;
+  externalUrl?: string;
+  embedUrl?: string;
+  interactiveUrl?: string;
+}): NormalizedInteractiveFloorPlanUrl | null {
+  const externalCandidate = input.externalUrl?.trim()
+    ? input.provider
+      ? normalizeProviderExternalUrl(input.provider, input.externalUrl)
+      : normalizeAnyProviderExternalUrl(input.externalUrl)
+    : null;
+  const embedCandidate = input.embedUrl?.trim()
+    ? input.provider
+      ? normalizeProviderEmbedUrl(input.provider, input.embedUrl)
+      : normalizeAnyProviderEmbedUrl(input.embedUrl)
+    : null;
+  const legacyCandidate = input.interactiveUrl?.trim()
+    ? normalizeFloorPlanInteractiveUrl(input.interactiveUrl)
+    : null;
+
+  if (input.externalUrl?.trim() && !externalCandidate) return null;
+  if (input.embedUrl?.trim() && !embedCandidate) return null;
+  if (input.interactiveUrl?.trim() && !legacyCandidate) return null;
+
+  const candidates = [externalCandidate, embedCandidate, legacyCandidate].filter(
+    (candidate): candidate is
+      | NormalizedProviderUrl
+      | NormalizedInteractiveFloorPlanUrl => Boolean(candidate),
+  );
+
+  if (candidates.length === 0) return null;
+
+  const providers = new Set(candidates.map((candidate) => candidate.provider));
+  if (providers.size > 1) return null;
+
+  const provider =
+    input.provider ??
+    externalCandidate?.provider ??
+    embedCandidate?.provider ??
+    legacyCandidate?.provider;
+  if (!provider) return null;
+
+  const config = providerConfig(provider);
+  const embedUrl = embedCandidate?.embedUrl ?? legacyCandidate?.embedUrl;
+  const externalUrl =
+    externalCandidate?.externalUrl ?? legacyCandidate?.externalUrl;
+
+  return {
+    provider,
+    providerName: config.label,
+    externalUrl,
+    embedUrl,
+    canEmbed: Boolean(embedUrl),
+    inputKind:
+      embedCandidate?.inputKind ??
+      externalCandidate?.inputKind ??
+      legacyCandidate?.inputKind ??
+      "url",
+  };
 }
 
 function normalizeStoredTour(
@@ -299,8 +430,27 @@ function normalizeStoredFloorPlan(
   floorPlan: PropertyFloorPlan,
   errors: string[],
 ): PropertyFloorPlan {
-  if (!floorPlan.interactiveUrl?.trim()) return floorPlan;
-  const normalized = normalizeFloorPlanInteractiveUrl(floorPlan.interactiveUrl);
+  const hasInteractiveInput = Boolean(
+    floorPlan.interactiveExternalUrl?.trim() ||
+      floorPlan.interactiveEmbedUrl?.trim() ||
+      floorPlan.interactiveUrl?.trim(),
+  );
+  if (!hasInteractiveInput) {
+    return {
+      id: floorPlan.id,
+      title: floorPlan.title,
+      imageUrl: floorPlan.imageUrl,
+      downloadUrl: floorPlan.downloadUrl,
+      sortOrder: floorPlan.sortOrder,
+    };
+  }
+
+  const normalized = normalizeInteractiveFloorPlanInput({
+    provider: floorPlan.interactiveProvider,
+    externalUrl: floorPlan.interactiveExternalUrl,
+    embedUrl: floorPlan.interactiveEmbedUrl,
+    interactiveUrl: floorPlan.interactiveUrl,
+  });
 
   if (!normalized) {
     errors.push(`Unsupported or unsafe interactive floor-plan URL.`);
@@ -308,8 +458,14 @@ function normalizeStoredFloorPlan(
   }
 
   return {
-    ...floorPlan,
-    interactiveUrl: normalized.externalUrl,
+    id: floorPlan.id,
+    title: floorPlan.title,
+    imageUrl: floorPlan.imageUrl,
+    downloadUrl: floorPlan.downloadUrl,
+    sortOrder: floorPlan.sortOrder,
+    interactiveProvider: normalized.provider,
+    interactiveExternalUrl: normalized.externalUrl,
+    interactiveEmbedUrl: normalized.embedUrl,
   };
 }
 

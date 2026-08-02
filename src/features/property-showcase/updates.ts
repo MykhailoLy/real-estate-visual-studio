@@ -10,6 +10,12 @@ import type {
 
 export type PropertyShowcaseUpdateMode = "details" | "media" | "replace";
 
+export interface PropertyShowcaseUpdateOptions {
+  removeVirtualTour?: boolean;
+  removeInteractiveFloorPlan?: boolean;
+  removeFloorPlan?: boolean;
+}
+
 export interface PropertyShowcaseUpdateResult {
   ok: boolean;
   property?: PropertyShowcase;
@@ -23,13 +29,23 @@ function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
 function mergeDetailsFloorPlans(
   existing: readonly PropertyFloorPlan[],
   incoming: readonly PropertyFloorPlan[],
+  options: PropertyShowcaseUpdateOptions,
 ): PropertyFloorPlan[] {
-  if (existing.length === 0) return [...incoming];
-  if (incoming.length === 0) return [...existing];
+  if (options.removeFloorPlan) return [];
+  if (existing.length === 0) {
+    return options.removeInteractiveFloorPlan
+      ? incoming.map(clearFloorPlanInteractiveFields)
+      : [...incoming];
+  }
+  if (incoming.length === 0) {
+    return options.removeInteractiveFloorPlan
+      ? existing.map(clearFloorPlanInteractiveFields)
+      : [...existing];
+  }
 
   const existingById = byId(existing);
 
-  return existing.map((existingPlan, index) => {
+  const merged = existing.map((existingPlan, index) => {
     const incomingPlan =
       existingById.has(incoming[index]?.id ?? "")
         ? incoming[index]
@@ -40,18 +56,35 @@ function mergeDetailsFloorPlans(
     return {
       ...existingPlan,
       title: incomingPlan.title,
+      interactiveProvider:
+        incomingPlan.interactiveProvider ?? existingPlan.interactiveProvider,
+      interactiveExternalUrl:
+        incomingPlan.interactiveExternalUrl ??
+        existingPlan.interactiveExternalUrl,
+      interactiveEmbedUrl:
+        incomingPlan.interactiveEmbedUrl ?? existingPlan.interactiveEmbedUrl,
       interactiveUrl:
         incomingPlan.interactiveUrl ?? existingPlan.interactiveUrl,
       sortOrder: incomingPlan.sortOrder,
     };
   });
+
+  return options.removeInteractiveFloorPlan
+    ? merged.map(clearFloorPlanInteractiveFields)
+    : merged;
 }
 
 function mergeMediaFloorPlans(
   existing: readonly PropertyFloorPlan[],
   incoming: readonly PropertyFloorPlan[],
+  options: PropertyShowcaseUpdateOptions,
 ): PropertyFloorPlan[] {
-  if (incoming.length === 0) return [...existing];
+  if (options.removeFloorPlan) return [];
+  if (incoming.length === 0) {
+    return options.removeInteractiveFloorPlan
+      ? existing.map(clearFloorPlanInteractiveFields)
+      : [...existing];
+  }
   const existingById = byId(existing);
   const incomingIds = new Set(incoming.map((plan) => plan.id));
 
@@ -60,20 +93,44 @@ function mergeMediaFloorPlans(
 
     return {
       ...incomingPlan,
+      interactiveProvider:
+        existingPlan?.interactiveProvider ?? incomingPlan.interactiveProvider,
+      interactiveExternalUrl:
+        existingPlan?.interactiveExternalUrl ??
+        incomingPlan.interactiveExternalUrl,
+      interactiveEmbedUrl:
+        existingPlan?.interactiveEmbedUrl ?? incomingPlan.interactiveEmbedUrl,
       interactiveUrl:
         existingPlan?.interactiveUrl ?? incomingPlan.interactiveUrl,
     };
   });
 
-  return [
+  const merged = [
     ...mergedIncoming,
     ...existing.filter((existingPlan) => !incomingIds.has(existingPlan.id)),
   ];
+
+  return options.removeInteractiveFloorPlan
+    ? merged.map(clearFloorPlanInteractiveFields)
+    : merged;
+}
+
+function clearFloorPlanInteractiveFields(
+  floorPlan: PropertyFloorPlan,
+): PropertyFloorPlan {
+  return {
+    id: floorPlan.id,
+    title: floorPlan.title,
+    imageUrl: floorPlan.imageUrl,
+    downloadUrl: floorPlan.downloadUrl,
+    sortOrder: floorPlan.sortOrder,
+  };
 }
 
 function mergeDetailsUpdate(
   existing: PropertyShowcase,
   incoming: PropertyShowcase,
+  options: PropertyShowcaseUpdateOptions,
 ): PropertyShowcase {
   const existingTour = existing.virtualTour;
   const incomingTour = incoming.virtualTour;
@@ -83,16 +140,22 @@ function mergeDetailsUpdate(
     coverImage: existing.coverImage || incoming.coverImage,
     brochureUrl: existing.brochureUrl ?? incoming.brochureUrl,
     gallery: existing.gallery.length > 0 ? existing.gallery : incoming.gallery,
-    virtualTour: incomingTour
-      ? {
-          ...incomingTour,
-          posterImage:
-            existingTour?.posterImage ??
-            incomingTour.posterImage ??
-            existing.coverImage,
-        }
-      : existingTour,
-    floorPlans: mergeDetailsFloorPlans(existing.floorPlans, incoming.floorPlans),
+    virtualTour: options.removeVirtualTour
+      ? undefined
+      : incomingTour
+        ? {
+            ...incomingTour,
+            posterImage:
+              existingTour?.posterImage ??
+              incomingTour.posterImage ??
+              existing.coverImage,
+          }
+        : existingTour,
+    floorPlans: mergeDetailsFloorPlans(
+      existing.floorPlans,
+      incoming.floorPlans,
+      options,
+    ),
     publishedAt: existing.publishedAt,
   };
 }
@@ -100,6 +163,7 @@ function mergeDetailsUpdate(
 function mergeMediaUpdate(
   existing: PropertyShowcase,
   incoming: PropertyShowcase,
+  options: PropertyShowcaseUpdateOptions,
 ): PropertyShowcase {
   const gallery: PropertyGalleryImage[] = incoming.gallery;
   const coverImage = incoming.coverImage || existing.coverImage;
@@ -108,16 +172,22 @@ function mergeMediaUpdate(
     ...existing,
     coverImage,
     gallery,
-    floorPlans: mergeMediaFloorPlans(existing.floorPlans, incoming.floorPlans),
-    virtualTour: existing.virtualTour
-      ? {
-          ...existing.virtualTour,
-          posterImage:
-            incoming.virtualTour?.posterImage ??
-            existing.virtualTour.posterImage ??
-            coverImage,
-        }
-      : incoming.virtualTour,
+    floorPlans: mergeMediaFloorPlans(
+      existing.floorPlans,
+      incoming.floorPlans,
+      options,
+    ),
+    virtualTour: options.removeVirtualTour
+      ? undefined
+      : existing.virtualTour
+        ? {
+            ...existing.virtualTour,
+            posterImage:
+              incoming.virtualTour?.posterImage ??
+              existing.virtualTour.posterImage ??
+              coverImage,
+          }
+        : incoming.virtualTour,
   };
 }
 
@@ -145,12 +215,13 @@ export function mergePropertyShowcaseUpdate(
   existing: PropertyShowcase | null,
   incoming: PropertyShowcase,
   mode: PropertyShowcaseUpdateMode,
+  options: PropertyShowcaseUpdateOptions = {},
 ): PropertyShowcaseUpdateResult {
   if (!existing || mode === "replace") return finish(incoming);
 
   if (mode === "media") {
-    return finish(mergeMediaUpdate(existing, incoming));
+    return finish(mergeMediaUpdate(existing, incoming, options));
   }
 
-  return finish(mergeDetailsUpdate(existing, incoming));
+  return finish(mergeDetailsUpdate(existing, incoming, options));
 }
