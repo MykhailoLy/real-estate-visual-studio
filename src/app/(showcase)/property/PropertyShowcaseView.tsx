@@ -25,6 +25,10 @@ import type {
   PropertyFactKey,
   PropertyShowcase,
 } from "@/features/property-showcase/types";
+import {
+  hasExternalInteractiveFloorPlan,
+  hasNativeInteractiveFloorPlan,
+} from "@/features/property-showcase/rendering";
 import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
@@ -72,6 +76,8 @@ export default function PropertyShowcaseView({
   const gallery = [...property.gallery].sort((a, b) => a.sortOrder - b.sortOrder);
   const floorPlans = [...property.floorPlans].sort((a, b) => a.sortOrder - b.sortOrder);
   const primaryFloorPlan = floorPlans[0];
+  const hasNativeInteractivePlan = hasNativeInteractiveFloorPlan(gallery);
+  const hasExternalInteractivePlan = hasExternalInteractiveFloorPlan(property);
   const title = text(property.title, locale);
   const summary = text(property.summary, locale);
   const address = text(property.location.displayAddress, locale);
@@ -154,7 +160,7 @@ export default function PropertyShowcaseView({
                       <MapPin className="h-4 w-4" aria-hidden />
                       {address}
                     </p>
-                    <h1 className="max-w-4xl text-4xl font-semibold leading-[0.98] tracking-[-0.04em] text-white sm:text-6xl lg:text-7xl">
+                    <h1 className="max-w-4xl text-4xl font-semibold leading-[0.98] text-white sm:text-6xl lg:text-7xl">
                       {title}
                     </h1>
                     <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
@@ -210,7 +216,7 @@ export default function PropertyShowcaseView({
               <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
                 The property
               </p>
-              <h2 className="max-w-3xl text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#0f2440] sm:text-4xl lg:text-5xl">
+              <h2 className="max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl lg:text-5xl">
                 Understand the home before you book the flight.
               </h2>
               <div className="mt-8 max-w-3xl space-y-5 text-base leading-8 text-slate-600 sm:text-lg">
@@ -267,7 +273,7 @@ export default function PropertyShowcaseView({
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
                   Floor plan
                 </p>
-                <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#0f2440] sm:text-4xl">
+                <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
                   See how the spaces connect.
                 </h2>
                 <p className="mt-6 text-base leading-7 text-slate-600">
@@ -285,13 +291,15 @@ export default function PropertyShowcaseView({
                       Download floor plan
                     </a>
                   ) : null}
-                  {gallery.some((image) => image.roomId) ? (
+                  {hasNativeInteractivePlan || hasExternalInteractivePlan ? (
                     <a
                       href="#interactive-floor-plan"
                       className="inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
                     >
                       <MousePointer2 className="h-4 w-4" aria-hidden />
-                      Interactive floor plan
+                      {hasExternalInteractivePlan
+                        ? "External interactive plan"
+                        : "Interactive floor plan"}
                     </a>
                   ) : null}
                 </div>
@@ -310,7 +318,8 @@ export default function PropertyShowcaseView({
           </section>
         ) : null}
 
-        {primaryFloorPlan && gallery.some((image) => image.roomId) ? (
+        {primaryFloorPlan &&
+        (hasExternalInteractivePlan || hasNativeInteractivePlan) ? (
           <InteractivePropertyFloorPlan
             propertyTitle={title}
             floorPlan={primaryFloorPlan}
@@ -324,7 +333,7 @@ export default function PropertyShowcaseView({
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
                 Location
               </p>
-              <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#0f2440] sm:text-4xl">
+              <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
                 Understand the area as well as the home.
               </h2>
               <p className="mt-6 text-base leading-7 text-slate-600">
@@ -377,7 +386,7 @@ export default function PropertyShowcaseView({
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8d7531]">
                   Private online viewing
                 </p>
-                <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#0f2440] sm:text-5xl">
+                <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-5xl">
                   Interested, but not in Spain yet?
                 </h2>
                 <p className="mt-6 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
@@ -439,9 +448,9 @@ export default function PropertyShowcaseView({
                   </div>
                 </div>
                 <div className="mt-8 space-y-2 border-t border-black/8 pt-7 text-sm text-slate-600">
-                  {agent.phone ? <a href={`tel:${agent.phone}`} className="block hover:text-[#0f2440]">{agent.phone}</a> : null}
-                  {agent.email ? <a href={`mailto:${agent.email}`} className="flex items-center gap-2 hover:text-[#0f2440]"><Mail className="h-4 w-4" aria-hidden />{agent.email}</a> : null}
-                  {agent.website ? <a href={agent.website} target="_blank" rel="noreferrer" className="block hover:text-[#0f2440]">{agent.website}</a> : null}
+                  {agent.phone ? <a href={`tel:${agent.phone}`} className="block break-all hover:text-[#0f2440]">{agent.phone}</a> : null}
+                  {agent.email ? <a href={`mailto:${agent.email}`} className="flex min-w-0 items-center gap-2 break-all hover:text-[#0f2440]"><Mail className="h-4 w-4 shrink-0" aria-hidden />{agent.email}</a> : null}
+                  {agent.website ? <a href={agent.website} target="_blank" rel="noreferrer" className="block break-all hover:text-[#0f2440]">{agent.website}</a> : null}
                 </div>
               </aside>
             </div>

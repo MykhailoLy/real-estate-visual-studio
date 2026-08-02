@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
 import { PropertyShowcaseMutationSchema } from "@/features/property-showcase/schema";
+import { mergePropertyShowcaseUpdate } from "@/features/property-showcase/updates";
 
 export const runtime = "nodejs";
 
@@ -39,10 +40,23 @@ export async function POST(request: Request) {
   const publishedAt = parsed.data.published
     ? new Date().toISOString()
     : undefined;
-  const property = {
-    ...parsed.data.property,
-    publishedAt,
-  };
+  const normalized = mergePropertyShowcaseUpdate(
+    null,
+    {
+      ...parsed.data.property,
+      publishedAt,
+    },
+    "replace",
+  );
+
+  if (!normalized.ok || !normalized.property) {
+    return NextResponse.json(
+      { error: normalized.errors[0] ?? "Invalid property provider URL." },
+      { status: 400 },
+    );
+  }
+
+  const property = normalized.property;
 
   let supabase;
   try {

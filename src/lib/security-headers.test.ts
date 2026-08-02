@@ -23,7 +23,7 @@ const expectedHeaders: ResponseHeader[] = [
   {
     key: "Permissions-Policy",
     value:
-      'camera=(), microphone=(), geolocation=(), payment=(), accelerometer=(self "https://kuula.co" "https://mls.kuu.la" "https://my.matterport.com"), gyroscope=(self "https://kuula.co" "https://mls.kuu.la" "https://my.matterport.com"), magnetometer=(), browsing-topics=()',
+      'camera=(), microphone=(), geolocation=(), payment=(), accelerometer=(self "https://kuula.co" "https://my.matterport.com" "https://unbranded.visithome.ai" "https://visithome.ai" "https://floorfy.com" "https://www.floorfy.com" "https://www.nodalview.com"), gyroscope=(self "https://kuula.co" "https://my.matterport.com" "https://unbranded.visithome.ai" "https://visithome.ai" "https://floorfy.com" "https://www.floorfy.com" "https://www.nodalview.com"), magnetometer=(), browsing-topics=()',
   },
 ];
 
@@ -38,7 +38,7 @@ const forbiddenHeaders = [
 ];
 
 const expectedContentSecurityPolicy =
-  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com https://kuula.co https://mls.kuu.la https://my.matterport.com https://unbranded.visithome.ai; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com https://kuula.co https://my.matterport.com https://unbranded.visithome.ai https://visithome.ai https://floorfy.com https://www.floorfy.com https://www.nodalview.com; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
 
 const expectedContentSecurityPolicyHeader: ResponseHeader = {
   key: "Content-Security-Policy",
@@ -93,9 +93,12 @@ const expectedContentSecurityPolicyOrigins = [
   "https://grvltquwenaorucsvooc.supabase.co",
   "https://challenges.cloudflare.com",
   "https://kuula.co",
-  "https://mls.kuu.la",
   "https://my.matterport.com",
   "https://unbranded.visithome.ai",
+  "https://visithome.ai",
+  "https://floorfy.com",
+  "https://www.floorfy.com",
+  "https://www.nodalview.com",
 ];
 
 const expectedExternalSourcesByDirective = {
@@ -126,9 +129,12 @@ const expectedExternalSourcesByDirective = {
     "https://grvltquwenaorucsvooc.supabase.co",
     "https://challenges.cloudflare.com",
     "https://kuula.co",
-    "https://mls.kuu.la",
     "https://my.matterport.com",
     "https://unbranded.visithome.ai",
+    "https://visithome.ai",
+    "https://floorfy.com",
+    "https://www.floorfy.com",
+    "https://www.nodalview.com",
   ],
   "media-src": [
     "https://grvltquwenaorucsvooc.supabase.co",
@@ -350,9 +356,12 @@ test("property tour providers are allowed only as exact frame origins", () => {
   const frameSources = getDirectiveSources(value, "frame-src");
   const trustedTourOrigins = [
     "https://kuula.co",
-    "https://mls.kuu.la",
     "https://my.matterport.com",
     "https://unbranded.visithome.ai",
+    "https://visithome.ai",
+    "https://floorfy.com",
+    "https://www.floorfy.com",
+    "https://www.nodalview.com",
   ];
 
   for (const origin of trustedTourOrigins) {
@@ -376,9 +385,10 @@ test("content security policy header is returned without shared mutable state", 
 });
 
 test("next config exposes baseline security headers for all paths", async () => {
-  assert.equal(typeof nextConfig.headers, "function");
+  const headers = nextConfig.headers;
+  assert.equal(typeof headers, "function");
 
-  const headerRules = await nextConfig.headers();
+  const headerRules = await headers();
 
   assert.deepEqual(headerRules, [
     {
@@ -389,9 +399,10 @@ test("next config exposes baseline security headers for all paths", async () => 
 });
 
 test("next config exposes one enforced CSP and no report-only CSP", async () => {
-  assert.equal(typeof nextConfig.headers, "function");
+  const headers = nextConfig.headers;
+  assert.equal(typeof headers, "function");
 
-  const headerRules = await nextConfig.headers();
+  const headerRules = await headers();
   const headerNames = headerRules.flatMap((rule) =>
     rule.headers.map((header) => header.key),
   );

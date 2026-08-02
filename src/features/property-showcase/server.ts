@@ -49,20 +49,9 @@ function repairStoredProperty(property: PropertyShowcase): PropertyShowcase {
       downloadUrl: repairedDownload ?? plan.downloadUrl,
     };
   });
-  const hasExternalInteractivePlan = floorPlans.some((plan) =>
-    Boolean(plan.interactiveUrl),
-  );
-  const hasNativeRoomLinks = property.gallery.some((image) =>
-    Boolean(image.roomId),
-  );
-  const gallery = property.gallery.map((image, index) => ({
+  const gallery = property.gallery.map((image) => ({
     ...image,
     src: repairPropertyMediaUrl(image.src) ?? image.src,
-    roomId:
-      image.roomId ??
-      (hasExternalInteractivePlan && !hasNativeRoomLinks && index === 0
-        ? "external-interactive-plan"
-        : undefined),
   }));
 
   return {
@@ -167,6 +156,40 @@ export async function getPublishedPropertyShowcase(
     return parseRow(data as PropertyShowcaseDatabaseRow)?.property ?? null;
   } catch (error) {
     console.error("property-showcase: public read init failed", error);
+    return null;
+  }
+}
+
+export async function getPropertyShowcaseForAdminById(
+  id: string,
+): Promise<PropertyShowcaseAdminRecord | null> {
+  if (!isPropertyShowcaseSupabaseConfigured()) return null;
+
+  try {
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from("property_showcases")
+      .select("id, slug, content, published, published_at, created_at, updated_at")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error || !data) {
+      if (
+        error &&
+        error.code !== "PGRST116" &&
+        !MISSING_SCHEMA_CODES.has(error.code)
+      ) {
+        console.error("property-showcase: admin preview unavailable", {
+          code: error.code,
+          id,
+        });
+      }
+      return null;
+    }
+
+    return parseRow(data as PropertyShowcaseDatabaseRow);
+  } catch (error) {
+    console.error("property-showcase: admin preview init failed", error);
     return null;
   }
 }

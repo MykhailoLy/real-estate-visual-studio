@@ -146,6 +146,7 @@ export const PropertyShowcaseMutationSchema = z
   .object({
     property: PropertyShowcaseSchema,
     published: z.boolean(),
+    updateMode: z.enum(["details", "media", "replace"]).optional(),
   })
   .strict();
 

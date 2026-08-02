@@ -19,6 +19,10 @@ import {
 } from "lucide-react";
 import type { PropertyShowcaseAdminRecord } from "@/features/property-showcase/admin-types";
 import {
+  propertyPreviewHref,
+  resolvePropertySelection,
+} from "@/features/property-showcase/admin-routing";
+import {
   formatImageBytes,
   optimizePropertyImage,
 } from "@/features/property-showcase/client-image-optimizer";
@@ -38,6 +42,7 @@ type UploadKind = "gallery" | "floor-plan" | "tour-poster";
 interface Props {
   records: PropertyShowcaseAdminRecord[];
   schemaReady: boolean;
+  initialPropertyId: string;
 }
 
 interface SignedUploadInfo {
@@ -158,12 +163,16 @@ async function uploadPropertyFile(
 export default function OptimizedPropertyMediaManagerClient({
   records,
   schemaReady,
+  initialPropertyId,
 }: Props) {
-  const [selectedId, setSelectedId] = useState(records[0]?.id ?? "");
-  const selected = useMemo(
-    () => records.find((record) => record.id === selectedId) ?? records[0] ?? null,
-    [records, selectedId],
+  const router = useRouter();
+  const [selectedId, setSelectedId] = useState(initialPropertyId);
+  const [requestedId, setRequestedId] = useState(initialPropertyId);
+  const selection = useMemo(
+    () => resolvePropertySelection(records, selectedId, requestedId),
+    [records, selectedId, requestedId],
   );
+  const selected = selection.selected;
 
   if (!schemaReady) {
     return (
@@ -198,9 +207,17 @@ export default function OptimizedPropertyMediaManagerClient({
           Property
           <select
             value={selected?.id ?? ""}
-            onChange={(event) => setSelectedId(event.target.value)}
+            onChange={(event) => {
+              const nextId = event.target.value;
+              setSelectedId(nextId);
+              setRequestedId(nextId);
+              router.replace(`/admin/properties/media?property=${encodeURIComponent(nextId)}`);
+            }}
             className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
           >
+            {selection.missingRequestedProperty ? (
+              <option value="">Property not found</option>
+            ) : null}
             {records.map((record) => (
               <option key={record.id} value={record.id}>
                 {record.property.title.en} · /property/{record.slug}
@@ -225,8 +242,25 @@ export default function OptimizedPropertyMediaManagerClient({
               Open page
             </Link>
           ) : null}
+          {selected ? (
+            <Link
+              href={propertyPreviewHref(selected.id)}
+              target="_blank"
+              className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-primary hover:border-primary/40"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+              Preview draft
+            </Link>
+          ) : null}
         </div>
       </div>
+
+      {selection.missingRequestedProperty ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-800">
+          Property <span className="font-mono">{selection.requestedId}</span>{" "}
+          was not found. Choose a property from the list, or return to Properties.
+        </div>
+      ) : null}
 
       {selected ? <PropertyMediaEditor key={selected.id} record={selected} /> : null}
     </div>
@@ -242,6 +276,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const [coverImage, setCoverImage] = useState(record.property.coverImage);
   const [floorPlanUrl, setFloorPlanUrl] = useState(
     record.property.floorPlans[0]?.imageUrl ?? "",
+  );
+  const [tourPosterUrl, setTourPosterUrl] = useState(
+    record.property.virtualTour?.posterImage ?? "",
   );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -283,6 +320,14 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   }
 
   function removeImage(imageId: string) {
+    if (
+      !window.confirm(
+        "Remove this photo from the property page? The Storage file will not be deleted.",
+      )
+    ) {
+      return;
+    }
+
     setGallery((current) => {
       const removed = current.find((item) => item.id === imageId);
       const next = current.filter((item) => item.id !== imageId);
@@ -407,6 +452,52 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     }
   }
 
+  async function uploadTourPoster(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const sourceFile = input.files?.[0] ?? null;
+    input.value = "";
+    if (!sourceFile || uploading) return;
+    const validation = validateSourceFile(sourceFile);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+
+    setUploading(true);
+    setUploadDetail(`Optimizing tour poster: ${sourceFile.name}`);
+    setError(null);
+    setNotice(null);
+    setLastSavings(null);
+    try {
+      const optimized = await optimizePropertyImage(sourceFile, "gallery");
+      setUploadDetail(
+        `Uploading tour poster: ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} × ${optimized.height})`,
+      );
+      const uploaded = await uploadPropertyFile(
+        record.slug,
+        optimized.file,
+        "tour-poster",
+      );
+      setTourPosterUrl(uploaded.publicUrl);
+      const summary = {
+        count: 1,
+        originalBytes: optimized.originalBytes,
+        optimizedBytes: optimized.optimizedBytes,
+      };
+      setLastSavings(summary);
+      setNotice(
+        `Tour poster optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
+      );
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error ? uploadError.message : "Tour poster upload failed.",
+      );
+    } finally {
+      setUploading(false);
+      setUploadDetail("");
+    }
+  }
+
   async function save() {
     if (saving || uploading) return;
     const cleanedGallery = normalize(
@@ -449,10 +540,12 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         ? {
             ...record.property.virtualTour,
             posterImage:
-              !record.property.virtualTour.posterImage ||
-              isDemoAsset(record.property.virtualTour.posterImage)
-                ? finalCover
-                : record.property.virtualTour.posterImage,
+              tourPosterUrl && !isDemoAsset(tourPosterUrl)
+                ? tourPosterUrl
+                : !record.property.virtualTour.posterImage ||
+                    isDemoAsset(record.property.virtualTour.posterImage)
+                  ? finalCover
+                  : record.property.virtualTour.posterImage,
           }
         : undefined,
     };
@@ -465,7 +558,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         method: "PATCH",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ property, published: record.published }),
+        body: JSON.stringify({
+          property,
+          published: record.published,
+          updateMode: "media",
+        }),
       });
       if (!response.ok) {
         setError(await readError(response));
@@ -701,7 +798,15 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
               />
               <button
                 type="button"
-                onClick={() => setFloorPlanUrl("")}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Remove this floor plan from the property page? The Storage file will not be deleted.",
+                    )
+                  ) {
+                    setFloorPlanUrl("");
+                  }
+                }}
                 className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-black/65 text-white"
                 aria-label="Remove floor plan"
               >
@@ -715,6 +820,45 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           )}
         </div>
       </section>
+
+      {record.property.virtualTour ? (
+        <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+          <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-primary">360 tour poster</h2>
+              <p className="mt-1 text-sm text-muted">
+                Shown before the external tour loads, and used when a provider opens in a new tab.
+              </p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-primary hover:border-primary/40">
+              <Upload className="h-4 w-4" aria-hidden /> Upload poster
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                disabled={uploading || saving}
+                onChange={uploadTourPoster}
+                className="sr-only"
+              />
+            </label>
+          </header>
+          <div className="p-5">
+            {tourPosterUrl ? (
+              <div className="relative overflow-hidden rounded-2xl border border-border bg-surface">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={tourPosterUrl}
+                  alt="360 tour poster preview"
+                  className="aspect-video w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center text-sm text-muted">
+                No tour poster uploaded.
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <div className="sticky bottom-4 z-20 flex justify-end">
         <button

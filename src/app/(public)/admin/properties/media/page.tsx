@@ -12,17 +12,27 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminPropertyMediaPage() {
+type AdminPropertyMediaPageProps = {
+  searchParams: Promise<{
+    property?: string;
+  }>;
+};
+
+export default async function AdminPropertyMediaPage({
+  searchParams,
+}: AdminPropertyMediaPageProps) {
   if (!(await isAdminAuthenticated())) {
     redirect("/admin/login");
   }
 
+  const { property } = await searchParams;
   const result = await getPropertyShowcasesForAdmin();
 
   return (
     <OptimizedPropertyMediaManagerClient
       records={result.records}
       schemaReady={result.schemaReady}
+      initialPropertyId={property ?? ""}
     />
   );
 }

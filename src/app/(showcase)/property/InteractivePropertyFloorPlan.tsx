@@ -5,12 +5,16 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Loader2,
   Maximize2,
   MousePointer2,
   Play,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
-import { normalizeExternalInteractiveUrl } from "@/features/property-showcase/provider-urls";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  normalizeFloorPlanInteractiveUrl,
+  type NormalizedProviderUrl,
+} from "@/features/property-showcase/provider-urls";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
@@ -33,12 +37,14 @@ const fallbackPositions = [
 export default function InteractivePropertyFloorPlan(
   props: InteractivePropertyFloorPlanProps,
 ) {
-  const externalUrl = normalizeExternalInteractiveUrl(
+  const externalPlan = normalizeFloorPlanInteractiveUrl(
     props.floorPlan.interactiveUrl,
   );
 
-  if (externalUrl) {
-    return <ExternalInteractiveFloorPlan {...props} externalUrl={externalUrl} />;
+  if (externalPlan) {
+    return (
+      <ExternalInteractiveFloorPlan {...props} externalPlan={externalPlan} />
+    );
   }
 
   return <NativeInteractiveFloorPlan {...props} />;
@@ -47,15 +53,35 @@ export default function InteractivePropertyFloorPlan(
 function ExternalInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
-  externalUrl,
-}: InteractivePropertyFloorPlanProps & { externalUrl: string }) {
+  externalPlan,
+}: InteractivePropertyFloorPlanProps & { externalPlan: NormalizedProviderUrl }) {
   const stageRef = useRef<HTMLDivElement>(null);
-  const [activated, setActivated] = useState(false);
+  const [status, setStatus] = useState<"poster" | "loading" | "loaded" | "failed">(
+    "poster",
+  );
+  const canEmbed = Boolean(externalPlan.embedUrl);
+  const showIframe = canEmbed && status !== "poster" && status !== "failed";
+
+  useEffect(() => {
+    if (status !== "loading") return undefined;
+
+    const timeout = window.setTimeout(() => {
+      setStatus((current) => (current === "loading" ? "failed" : current));
+    }, 8000);
+
+    return () => window.clearTimeout(timeout);
+  }, [status]);
+
+  function activate() {
+    if (canEmbed) {
+      setStatus("loading");
+    }
+  }
 
   const openFullscreen = async () => {
     const element = stageRef.current;
     if (!element || !document.fullscreenEnabled) return;
-    setActivated(true);
+    activate();
     try {
       await element.requestFullscreen();
     } catch {
@@ -73,17 +99,22 @@ function ExternalInteractiveFloorPlan({
           ref={stageRef}
           className="relative min-h-[78svh] overflow-hidden rounded-[1.5rem] bg-[#111] shadow-[0_35px_120px_rgba(0,0,0,0.35)] sm:min-h-[86svh] sm:rounded-[2rem]"
         >
-          {activated ? (
+          {showIframe ? (
             <iframe
-              src={externalUrl}
+              src={externalPlan.embedUrl}
               title={`Interactive floor plan of ${propertyTitle}`}
-              className="absolute inset-0 h-full w-full border-0 bg-white"
+              className={`absolute inset-0 h-full w-full border-0 bg-white transition-opacity duration-300 ${
+                status === "loaded" ? "opacity-100" : "opacity-0"
+              }`}
               allow="fullscreen; accelerometer; gyroscope"
               allowFullScreen
-              loading="eager"
+              loading="lazy"
+              onLoad={() => setStatus("loaded")}
               referrerPolicy="strict-origin-when-cross-origin"
             />
-          ) : (
+          ) : null}
+
+          {status !== "loaded" ? (
             <>
               <Image
                 src={floorPlan.imageUrl}
@@ -94,7 +125,7 @@ function ExternalInteractiveFloorPlan({
               />
               <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/5 to-black/55" />
             </>
-          )}
+          ) : null}
 
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-4 sm:p-6 lg:p-8">
             <div className="rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-md sm:p-5">
@@ -105,9 +136,9 @@ function ExternalInteractiveFloorPlan({
               <h2 className="mt-2 text-xl font-semibold sm:text-3xl">
                 Walk through the home room by room.
               </h2>
-              {!activated ? (
+              {status === "poster" ? (
                 <p className="mt-2 hidden text-sm text-white/65 sm:block">
-                  The CubiCasa experience loads only after it is opened.
+                  The provider experience loads only after it is opened.
                 </p>
               ) : null}
             </div>
@@ -121,11 +152,11 @@ function ExternalInteractiveFloorPlan({
             </button>
           </div>
 
-          {!activated ? (
+          {status === "poster" && canEmbed ? (
             <div className="absolute inset-0 z-[5] grid place-items-center px-4">
               <button
                 type="button"
-                onClick={() => setActivated(true)}
+                onClick={activate}
                 className="group flex flex-col items-center gap-4 rounded-[2rem] border border-white/20 bg-black/55 px-8 py-7 text-center shadow-2xl backdrop-blur-md transition hover:scale-[1.02] hover:bg-black/70"
               >
                 <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-[#0f2440] shadow-xl transition group-hover:scale-105 sm:h-20 sm:w-20">
@@ -136,10 +167,47 @@ function ExternalInteractiveFloorPlan({
                     Open interactive floor plan
                   </span>
                   <span className="mt-1 block text-xs text-white/65 sm:text-sm">
-                    Loaded directly from CubiCasa
+                    Loaded directly from {externalPlan.providerName}
                   </span>
                 </span>
               </button>
+            </div>
+          ) : null}
+
+          {status === "loading" ? (
+            <div className="absolute inset-0 z-[6] grid place-items-center px-4">
+              <div className="flex flex-col items-center gap-3 rounded-[1.5rem] border border-white/15 bg-black/60 px-6 py-5 text-center backdrop-blur-md">
+                <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+                <p className="text-sm font-bold">Loading {externalPlan.providerName}</p>
+                <p className="max-w-sm text-xs leading-5 text-white/65">
+                  If the provider blocks embedding, the tour will open securely in a new tab.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {status === "failed" || !canEmbed ? (
+            <div className="absolute inset-0 z-[6] grid place-items-center px-4">
+              <div className="max-w-lg rounded-[1.5rem] border border-white/15 bg-black/65 p-6 text-center shadow-2xl backdrop-blur-md">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#d4bc6a]">
+                  {externalPlan.providerName}
+                </p>
+                <h3 className="mt-3 text-2xl font-semibold">
+                  Open the interactive plan in a new tab.
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-white/70">
+                  This provider may restrict iframe playback. The full experience opens securely with the provider controls intact.
+                </p>
+                <a
+                  href={externalPlan.externalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden />
+                  Open interactive plan
+                </a>
+              </div>
             </div>
           ) : null}
 
@@ -148,12 +216,14 @@ function ExternalInteractiveFloorPlan({
               <div className="rounded-2xl border border-white/15 bg-black/55 px-4 py-3 backdrop-blur-md">
                 <p className="text-sm font-semibold">{propertyTitle}</p>
                 <p className="mt-1 text-xs text-white/55">
-                  {activated ? "Live interactive plan" : "Ready to open"}
+                  {status === "loaded"
+                    ? `${externalPlan.providerName} interactive plan`
+                    : "Ready to open"}
                 </p>
               </div>
               <div className="pointer-events-auto flex flex-wrap gap-2">
                 <a
-                  href={externalUrl}
+                  href={externalPlan.externalUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/75"

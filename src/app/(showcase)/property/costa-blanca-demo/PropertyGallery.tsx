@@ -76,7 +76,7 @@ export default function PropertyGallery({
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#d4bc6a]">
               {eyebrow}
             </p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+            <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">
               {title}
             </h2>
           </div>

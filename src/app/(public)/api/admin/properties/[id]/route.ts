@@ -1,7 +1,11 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { PropertyShowcaseMutationSchema } from "@/features/property-showcase/schema";
+import {
+  PropertyShowcaseMutationSchema,
+  PropertyShowcaseSchema,
+} from "@/features/property-showcase/schema";
+import { mergePropertyShowcaseUpdate } from "@/features/property-showcase/updates";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
 
@@ -17,7 +21,7 @@ async function getExisting(id: string) {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("property_showcases")
-    .select("id, slug, published_at")
+    .select("id, slug, content, published_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -29,7 +33,7 @@ async function getExisting(id: string) {
   }
 
   return data as
-    | { id: string; slug: string; published_at: string | null }
+    | { id: string; slug: string; content: unknown; published_at: string | null }
     | null;
 }
 
@@ -85,13 +89,34 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Property not found." }, { status: 404 });
   }
 
+  const existingProperty = PropertyShowcaseSchema.safeParse(existing.content);
+  if (!existingProperty.success) {
+    return NextResponse.json(
+      { error: "Stored property content is invalid." },
+      { status: 500 },
+    );
+  }
+
   const publishedAt = parsed.data.published
     ? existing.published_at ?? new Date().toISOString()
     : undefined;
-  const property = {
-    ...parsed.data.property,
-    publishedAt,
-  };
+  const merged = mergePropertyShowcaseUpdate(
+    existingProperty.data,
+    {
+      ...parsed.data.property,
+      publishedAt,
+    },
+    parsed.data.updateMode ?? "details",
+  );
+
+  if (!merged.ok || !merged.property) {
+    return NextResponse.json(
+      { error: merged.errors[0] ?? "Invalid property provider URL." },
+      { status: 400 },
+    );
+  }
+
+  const property = merged.property;
 
   const supabase = createServerClient();
   const { data, error } = await supabase
