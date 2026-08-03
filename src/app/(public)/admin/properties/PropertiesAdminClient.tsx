@@ -17,8 +17,16 @@ import {
   propertyCardActions,
 } from "@/features/property-showcase/admin-routing";
 import type { PropertyShowcaseAdminRecord } from "@/features/property-showcase/admin-types";
+import {
+  descriptionParagraphsFromText,
+  descriptionTextForAdmin,
+  formatPriceLabel,
+  generatePropertyPageSlug,
+} from "@/features/property-showcase/formatting";
+import { normalizeTourPrimaryInput } from "@/features/property-showcase/provider-urls";
 import type {
   PropertyFact,
+  PropertyHighlight,
   PropertyShowcase,
   PropertyStatus,
   PropertyTourProvider,
@@ -55,12 +63,9 @@ interface FormState {
   addressEs: string;
   privacyMode: "exact" | "approximate" | "hidden";
   tourProvider: PropertyTourProvider;
-  tourEmbedUrl: string;
+  tourInput: string;
   tourExternalUrl: string;
-  floorPlanImageUrl: string;
-  floorPlanInteractiveProvider: PropertyTourProvider;
-  floorPlanInteractiveExternalUrl: string;
-  floorPlanInteractiveEmbedUrl: string;
+  highlights: HighlightFormState[];
   agencyName: string;
   agentName: string;
   phone: string;
@@ -68,6 +73,14 @@ interface FormState {
   email: string;
   website: string;
   published: boolean;
+}
+
+interface HighlightFormState {
+  id: string;
+  titleEn: string;
+  titleEs: string;
+  descriptionEn: string;
+  descriptionEs: string;
 }
 
 const inputClass =
@@ -86,7 +99,6 @@ function factValue(property: PropertyShowcase | null, key: PropertyFact["key"]) 
 
 function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
   const property = record?.property ?? null;
-  const floorPlan = property?.floorPlans[0];
 
   return {
     slug: property?.slug ?? "",
@@ -96,8 +108,8 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
     titleEs: property?.title.es ?? "",
     summaryEn: property?.summary.en ?? "",
     summaryEs: property?.summary.es ?? "",
-    descriptionEn: property?.description[0]?.en ?? "",
-    descriptionEs: property?.description[0]?.es ?? "",
+    descriptionEn: descriptionTextForAdmin(property?.description, "en"),
+    descriptionEs: descriptionTextForAdmin(property?.description, "es"),
     price: property?.price ?? "",
     coverImage: property?.coverImage ?? "/property-demo/exterior.svg",
     bedrooms: factValue(property, "bedrooms"),
@@ -108,14 +120,17 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
     addressEs: property?.location.displayAddress.es ?? "",
     privacyMode: property?.location.privacyMode ?? "approximate",
     tourProvider: property?.virtualTour?.provider ?? "kuula",
-    tourEmbedUrl: property?.virtualTour?.embedUrl ?? "",
+    tourInput:
+      property?.virtualTour?.externalUrl ?? property?.virtualTour?.embedUrl ?? "",
     tourExternalUrl: property?.virtualTour?.externalUrl ?? "",
-    floorPlanImageUrl: floorPlan?.imageUrl ?? "",
-    floorPlanInteractiveProvider:
-      floorPlan?.interactiveProvider ?? "cubiCasa",
-    floorPlanInteractiveExternalUrl:
-      floorPlan?.interactiveExternalUrl ?? floorPlan?.interactiveUrl ?? "",
-    floorPlanInteractiveEmbedUrl: floorPlan?.interactiveEmbedUrl ?? "",
+    highlights:
+      property?.highlights.map((highlight, index) => ({
+        id: `highlight-${index}-${highlight.title.en}`,
+        titleEn: highlight.title.en,
+        titleEs: highlight.title.es ?? "",
+        descriptionEn: highlight.description.en,
+        descriptionEs: highlight.description.es ?? "",
+      })) ?? [],
     agencyName: property?.agent.agencyName ?? "",
     agentName: property?.agent.agentName ?? "",
     phone: property?.agent.phone ?? "",
@@ -161,6 +176,25 @@ function buildFacts(state: FormState): PropertyFact[] {
   return facts;
 }
 
+function buildHighlights(items: readonly HighlightFormState[]): PropertyHighlight[] {
+  return items
+    .slice(0, 6)
+    .map((item) => ({
+      title: {
+        en: item.titleEn.trim(),
+        es: optional(item.titleEs),
+      },
+      description: {
+        en: item.descriptionEn.trim(),
+        es: optional(item.descriptionEs),
+      },
+    }))
+    .filter(
+      (highlight) =>
+        highlight.title.en.length > 0 && highlight.description.en.length > 0,
+    );
+}
+
 function buildProperty(
   state: FormState,
   existing: PropertyShowcase | null,
@@ -180,71 +214,41 @@ function buildProperty(
     ];
   }
 
-  const hasTour = Boolean(
-    state.tourEmbedUrl.trim() || state.tourExternalUrl.trim(),
-  );
-  const existingFloorPlans = existing?.floorPlans ?? [];
-  const floorPlans: PropertyShowcase["floorPlans"] =
-    existingFloorPlans.length > 0
-      ? existingFloorPlans.map((plan, index) =>
-          index === 0
-            ? {
-                ...plan,
-                interactiveProvider: state.floorPlanInteractiveProvider,
-                interactiveExternalUrl: optional(
-                  state.floorPlanInteractiveExternalUrl,
-                ),
-                interactiveEmbedUrl: optional(state.floorPlanInteractiveEmbedUrl),
-              }
-            : plan,
-        )
-      : state.floorPlanImageUrl.trim()
-        ? [
-            {
-              id: "main-floor",
-              title: { en: "Main floor", es: "Planta principal" },
-              imageUrl: state.floorPlanImageUrl.trim(),
-              interactiveProvider: state.floorPlanInteractiveProvider,
-              interactiveExternalUrl: optional(
-                state.floorPlanInteractiveExternalUrl,
-              ),
-              interactiveEmbedUrl: optional(state.floorPlanInteractiveEmbedUrl),
-              sortOrder: 1,
-            },
-          ]
-        : [];
+  const tourInput = state.tourInput.trim();
+  const hasTour = Boolean(tourInput || state.tourExternalUrl.trim());
+  const normalizedTour =
+    normalizeTourPrimaryInput(tourInput) ??
+    normalizeTourPrimaryInput(tourInput, state.tourProvider);
 
   return {
-    slug: state.slug.trim(),
+    slug:
+      state.slug.trim() ||
+      generatePropertyPageSlug(state.titleEn, state.reference),
     reference: state.reference.trim(),
     status: state.status,
     title: { en: state.titleEn.trim(), es: optional(state.titleEs) },
     summary: { en: state.summaryEn.trim(), es: optional(state.summaryEs) },
-    description: state.descriptionEn.trim()
-      ? [
-          {
-            en: state.descriptionEn.trim(),
-            es: optional(state.descriptionEs),
-          },
-        ]
-      : [],
+    description: descriptionParagraphsFromText(
+      state.descriptionEn,
+      state.descriptionEs,
+    ),
     priceLabel: { en: "Asking price", es: "Precio de venta" },
     price: state.price.trim(),
     coverImage,
     brochureUrl: existing?.brochureUrl,
     languages: ["en", "es"],
     facts: buildFacts(state),
-    highlights: existing?.highlights ?? [],
+    highlights: buildHighlights(state.highlights),
     gallery,
     virtualTour: hasTour
       ? {
-          provider: state.tourProvider,
-          embedUrl: optional(state.tourEmbedUrl),
+          provider: normalizedTour?.provider ?? state.tourProvider,
+          embedUrl: optional(tourInput),
           externalUrl: optional(state.tourExternalUrl),
           posterImage: existing?.virtualTour?.posterImage ?? coverImage,
         }
       : undefined,
-    floorPlans,
+    floorPlans: existing?.floorPlans ?? [],
     location: {
       displayAddress: {
         en: state.addressEn.trim(),
@@ -456,7 +460,7 @@ export default function PropertiesAdminClient({
                   </div>
                   <p className="mt-1 text-sm text-muted">
                     /property/{record.slug} · {record.property.reference} ·{" "}
-                    {record.property.price}
+                    {formatPriceLabel(record.property.price)}
                   </p>
                   <p className="mt-1 text-xs text-muted">
                     Updated {new Date(record.updatedAt).toLocaleString()}
@@ -464,7 +468,7 @@ export default function PropertiesAdminClient({
                   <dl className="grid gap-3 text-sm sm:grid-cols-2">
                     <div className="min-w-0">
                       <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
-                        Slug
+                        Page URL
                       </dt>
                       <dd className="mt-1 break-all text-foreground">
                         /property/{record.slug}
@@ -480,10 +484,12 @@ export default function PropertiesAdminClient({
                     </div>
                     <div>
                       <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
-                        Floor plan
+                        Floor plans
                       </dt>
                       <dd className="mt-1 text-foreground">
-                        {record.property.floorPlans.length > 0 ? "ready" : "not set"}
+                        {record.property.floorPlans.length > 0
+                          ? `${record.property.floorPlans.length} ready`
+                          : "not set"}
                       </dd>
                     </div>
                     <div>
@@ -558,10 +564,99 @@ function PropertyEditor({
   onError: (message: string | null) => void;
 }) {
   const [form, setForm] = useState<FormState>(() => initialState(record));
+  const [pageUrlTouched, setPageUrlTouched] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
+  const normalizedTourPreview =
+    normalizeTourPrimaryInput(form.tourInput) ??
+    normalizeTourPrimaryInput(form.tourInput, form.tourProvider);
+  const pageUrlPreview = `/property/${
+    form.slug.trim() || generatePropertyPageSlug(form.titleEn, form.reference)
+  }`;
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function setTitleEn(value: string) {
+    setForm((current) => ({
+      ...current,
+      titleEn: value,
+      slug:
+        mode === "create" && !pageUrlTouched
+          ? generatePropertyPageSlug(value, current.reference)
+          : current.slug,
+    }));
+  }
+
+  function setReference(value: string) {
+    setForm((current) => ({
+      ...current,
+      reference: value,
+      slug:
+        mode === "create" && !pageUrlTouched && !current.titleEn.trim()
+          ? generatePropertyPageSlug("", value)
+          : current.slug,
+    }));
+  }
+
+  function setPageUrl(value: string) {
+    setPageUrlTouched(true);
+    set("slug", generatePropertyPageSlug(value, value));
+  }
+
+  function addHighlight() {
+    setForm((current) => {
+      if (current.highlights.length >= 6) return current;
+      return {
+        ...current,
+        highlights: [
+          ...current.highlights,
+          {
+            id: `highlight-${crypto.randomUUID()}`,
+            titleEn: "",
+            titleEs: "",
+            descriptionEn: "",
+            descriptionEs: "",
+          },
+        ],
+      };
+    });
+  }
+
+  function updateHighlight<K extends keyof HighlightFormState>(
+    id: string,
+    key: K,
+    value: HighlightFormState[K],
+  ) {
+    setForm((current) => ({
+      ...current,
+      highlights: current.highlights.map((highlight) =>
+        highlight.id === id ? { ...highlight, [key]: value } : highlight,
+      ),
+    }));
+  }
+
+  function removeHighlight(id: string) {
+    setForm((current) => ({
+      ...current,
+      highlights: current.highlights.filter((highlight) => highlight.id !== id),
+    }));
+  }
+
+  function moveHighlight(id: string, direction: -1 | 1) {
+    setForm((current) => {
+      const index = current.highlights.findIndex((highlight) => highlight.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= current.highlights.length) {
+        return current;
+      }
+      const highlights = [...current.highlights];
+      [highlights[index], highlights[target]] = [
+        highlights[target],
+        highlights[index],
+      ];
+      return { ...current, highlights };
+    });
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -572,22 +667,11 @@ function PropertyEditor({
 
     const property = buildProperty(form, record?.property ?? null);
     const existingProperty = record?.property ?? null;
-    const existingPrimaryFloorPlan = existingProperty?.floorPlans[0];
-    const hasExistingInteractiveFloorPlan = Boolean(
-      existingPrimaryFloorPlan?.interactiveExternalUrl?.trim() ||
-        existingPrimaryFloorPlan?.interactiveEmbedUrl?.trim() ||
-        existingPrimaryFloorPlan?.interactiveUrl?.trim(),
-    );
     const removeVirtualTour =
       mode === "edit" &&
       Boolean(existingProperty?.virtualTour) &&
-      !form.tourEmbedUrl.trim() &&
+      !form.tourInput.trim() &&
       !form.tourExternalUrl.trim();
-    const removeInteractiveFloorPlan =
-      mode === "edit" &&
-      hasExistingInteractiveFloorPlan &&
-      !form.floorPlanInteractiveExternalUrl.trim() &&
-      !form.floorPlanInteractiveEmbedUrl.trim();
     const endpoint =
       mode === "create"
         ? "/api/admin/properties"
@@ -603,7 +687,6 @@ function PropertyEditor({
           published: form.published,
           updateMode: mode === "create" ? "replace" : "details",
           removeVirtualTour,
-          removeInteractiveFloorPlan,
         }),
       });
       if (!response.ok) {
@@ -648,11 +731,11 @@ function PropertyEditor({
         <Section title="Identity and publishing">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Field
-              label="Slug"
+              label="Page URL"
               hint={
                 mode === "edit"
-                  ? "Locked after creation so uploaded media stays in the same Storage folder."
-                  : undefined
+                  ? "Locked because uploaded media and the public page address use this path."
+                  : "Lowercase letters, numbers and hyphens only."
               }
             >
               <input
@@ -663,7 +746,7 @@ function PropertyEditor({
                 aria-readonly={mode === "edit"}
                 onChange={(event) => {
                   if (mode === "create") {
-                    set("slug", event.target.value.toLowerCase());
+                    setPageUrl(event.target.value);
                   }
                 }}
                 className={
@@ -671,12 +754,15 @@ function PropertyEditor({
                 }
                 placeholder="villa-altea-hills"
               />
+              <span className="mt-1 block break-all text-xs font-normal text-muted">
+                picchuspot.com{pageUrlPreview}
+              </span>
             </Field>
             <Field label="Reference">
               <input
                 required
                 value={form.reference}
-                onChange={(event) => set("reference", event.target.value)}
+                onChange={(event) => setReference(event.target.value)}
                 className={inputClass}
               />
             </Field>
@@ -712,7 +798,7 @@ function PropertyEditor({
               <input
                 required
                 value={form.titleEn}
-                onChange={(event) => set("titleEn", event.target.value)}
+                onChange={(event) => setTitleEn(event.target.value)}
                 className={inputClass}
               />
             </Field>
@@ -740,7 +826,10 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Description — English">
+            <Field
+              label="Description — English"
+              hint="Separate paragraphs with a blank line."
+            >
               <textarea
                 rows={5}
                 value={form.descriptionEn}
@@ -748,7 +837,10 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Description — Spanish">
+            <Field
+              label="Description — Spanish"
+              hint="Separate paragraphs with a blank line."
+            >
               <textarea
                 rows={5}
                 value={form.descriptionEs}
@@ -759,9 +851,117 @@ function PropertyEditor({
           </div>
         </Section>
 
+        <Section title="Highlights">
+          <div className="space-y-4">
+            {form.highlights.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-surface px-4 py-5 text-sm text-muted">
+                No highlights yet.
+              </div>
+            ) : (
+              form.highlights.map((highlight, index) => (
+                <article
+                  key={highlight.id}
+                  className="rounded-xl border border-border bg-surface p-4"
+                >
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-primary">
+                      Highlight {index + 1}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => moveHighlight(highlight.id, -1)}
+                        disabled={index === 0}
+                        className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                      >
+                        Earlier
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveHighlight(highlight.id, 1)}
+                        disabled={index === form.highlights.length - 1}
+                        className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                      >
+                        Later
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeHighlight(highlight.id)}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Title — English">
+                      <input
+                        value={highlight.titleEn}
+                        onChange={(event) =>
+                          updateHighlight(highlight.id, "titleEn", event.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Title — Spanish">
+                      <input
+                        value={highlight.titleEs}
+                        onChange={(event) =>
+                          updateHighlight(highlight.id, "titleEs", event.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Description — English">
+                      <textarea
+                        rows={3}
+                        value={highlight.descriptionEn}
+                        onChange={(event) =>
+                          updateHighlight(
+                            highlight.id,
+                            "descriptionEn",
+                            event.target.value,
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Description — Spanish">
+                      <textarea
+                        rows={3}
+                        value={highlight.descriptionEs}
+                        onChange={(event) =>
+                          updateHighlight(
+                            highlight.id,
+                            "descriptionEs",
+                            event.target.value,
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </article>
+              ))
+            )}
+            <button
+              type="button"
+              onClick={addHighlight}
+              disabled={form.highlights.length >= 6}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add highlight
+            </button>
+          </div>
+        </Section>
+
         <Section title="Listing facts">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Price">
+            <Field
+              label="Price"
+              hint="Costa Blanca default is EUR, so 385560 displays as €385,560. For non-European listings, include the symbol, for example $385,560."
+            >
               <input
                 required
                 value={form.price}
@@ -784,7 +984,10 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Built area">
+            <Field
+              label="Built area"
+              hint="Costa Blanca default is m². For non-European listings, include the unit, for example 1,900 sq ft or 9.19 acres."
+            >
               <input
                 value={form.builtArea}
                 onChange={(event) => set("builtArea", event.target.value)}
@@ -850,94 +1053,83 @@ function PropertyEditor({
         </Section>
 
         <Section title="360 tour">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Field label="Tour provider">
-              <select
-                value={form.tourProvider}
-                onChange={(event) =>
-                  set(
-                    "tourProvider",
-                    event.target.value as PropertyTourProvider,
-                  )
-                }
-                className={inputClass}
-              >
-                <option value="kuula">Kuula</option>
-                <option value="matterport">Matterport</option>
-                <option value="cubiCasa">CubiCasa</option>
-                <option value="floorfy">Floorfy</option>
-                <option value="nodalview">Nodalview</option>
-                <option value="custom">Custom</option>
-              </select>
-            </Field>
-            <Field label="Tour embed URL or iframe">
-              <input
-                value={form.tourEmbedUrl}
-                onChange={(event) => set("tourEmbedUrl", event.target.value)}
+          <div className="space-y-4">
+            <Field
+              label="Tour link or embed code"
+              hint="Paste a provider share link, MLS/unbranded link, embed URL or full iframe code."
+            >
+              <textarea
+                rows={3}
+                value={form.tourInput}
+                onChange={(event) => set("tourInput", event.target.value)}
                 className={inputClass}
               />
             </Field>
-            <Field label="Tour share/original URL">
-              <input
-                value={form.tourExternalUrl}
-                onChange={(event) => set("tourExternalUrl", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
+
+            <details className="rounded-xl border border-border bg-surface px-4 py-3">
+              <summary className="cursor-pointer text-sm font-bold text-primary">
+                Advanced settings
+              </summary>
+              <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Field label="Provider">
+                  <select
+                    value={normalizedTourPreview?.provider ?? form.tourProvider}
+                    onChange={(event) =>
+                      set(
+                        "tourProvider",
+                        event.target.value as PropertyTourProvider,
+                      )
+                    }
+                    className={inputClass}
+                  >
+                    <option value="kuula">Kuula</option>
+                    <option value="matterport">Matterport</option>
+                    <option value="cubiCasa">CubiCasa</option>
+                    <option value="floorfy">Floorfy</option>
+                    <option value="nodalview">Nodalview</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </Field>
+                <Field label="Original/fallback URL">
+                  <input
+                    value={form.tourExternalUrl}
+                    onChange={(event) => set("tourExternalUrl", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Normalized embed URL preview">
+                  <input
+                    value={normalizedTourPreview?.embedUrl ?? ""}
+                    readOnly
+                    aria-readonly="true"
+                    className={protectedMediaInputClass}
+                  />
+                </Field>
+              </div>
+            </details>
           </div>
         </Section>
 
         <Section title="Floor plans">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Field
-              label="Floor plan image"
-              hint="Protected. Upload or replace it in Manage photos & floor plans."
-            >
-              <input
-                value={form.floorPlanImageUrl}
-                readOnly
-                aria-readonly="true"
-                className={protectedMediaInputClass}
-              />
-            </Field>
-            <Field label="Interactive plan provider">
-              <select
-                value={form.floorPlanInteractiveProvider}
-                onChange={(event) =>
-                  set(
-                    "floorPlanInteractiveProvider",
-                    event.target.value as PropertyTourProvider,
-                  )
-                }
-                className={inputClass}
+          <div className="rounded-xl border border-border bg-surface p-4 text-sm leading-6 text-muted">
+            <p>
+              {record?.property.floorPlans.length ?? 0} ordinary floor plan
+              {(record?.property.floorPlans.length ?? 0) === 1 ? "" : "s"} saved.
+              Upload, order, title and connect interactive plans in Manage media.
+            </p>
+            {record ? (
+              <Link
+                href={`/admin/properties/media?property=${encodeURIComponent(record.id)}`}
+                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-bold text-primary transition hover:border-primary/40"
               >
-                <option value="cubiCasa">CubiCasa</option>
-                <option value="kuula">Kuula</option>
-                <option value="matterport">Matterport</option>
-                <option value="floorfy">Floorfy</option>
-                <option value="nodalview">Nodalview</option>
-                <option value="custom">Custom</option>
-              </select>
-            </Field>
-            <Field label="Interactive plan share/original URL">
-              <input
-                value={form.floorPlanInteractiveExternalUrl}
-                onChange={(event) =>
-                  set("floorPlanInteractiveExternalUrl", event.target.value)
-                }
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Interactive plan embed iframe or URL">
-              <textarea
-                rows={3}
-                value={form.floorPlanInteractiveEmbedUrl}
-                onChange={(event) =>
-                  set("floorPlanInteractiveEmbedUrl", event.target.value)
-                }
-                className={inputClass}
-              />
-            </Field>
+                <Images className="h-4 w-4" aria-hidden />
+                Manage floor plans
+              </Link>
+            ) : (
+              <p className="mt-2 text-xs">
+                Create the property first, then upload floor-plan files.
+              </p>
+            )}
           </div>
         </Section>
 

@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   extractIframeSrc,
+  getInteractiveFloorPlanOpenAction,
   getTrustedPropertyFrameOrigins,
   normalizeFloorPlanInteractiveUrl,
   normalizeInteractiveFloorPlanInput,
+  normalizeInteractiveFloorPlanPrimaryInput,
   normalizeTourInput,
+  normalizeTourPrimaryInput,
 } from "./provider-urls.ts";
 
 test("extractIframeSrc reads iframe HTML src and decodes ampersands", () => {
@@ -22,6 +25,27 @@ test("provider URL normalization rejects unsafe and non-HTTPS URLs", () => {
   assert.equal(normalizeFloorPlanInteractiveUrl("data:text/html,hi"), null);
   assert.equal(normalizeFloorPlanInteractiveUrl("http://kuula.co/share/abc"), null);
   assert.equal(normalizeFloorPlanInteractiveUrl("https://evil.example/tour"), null);
+  assert.equal(
+    normalizeFloorPlanInteractiveUrl("https://user:pass@kuula.co/share/abc"),
+    null,
+  );
+  assert.equal(
+    normalizeFloorPlanInteractiveUrl("https://kuula.co:444/share/abc"),
+    null,
+  );
+});
+
+test("single tour input detects supported providers and iframe sources", () => {
+  const share = normalizeTourPrimaryInput("https://mls.kuu.la/share/abc");
+  assert.equal(share?.provider, "kuula");
+  assert.equal(share?.externalUrl, "https://mls.kuu.la/share/abc");
+  assert.equal(share?.embedUrl, "https://kuula.co/share/abc?initload=1&fs=1");
+
+  const iframe = normalizeTourPrimaryInput(
+    '<iframe src="https://kuula.co/share/abc?fs=1"></iframe>',
+  );
+  assert.equal(iframe?.provider, "kuula");
+  assert.equal(iframe?.inputKind, "iframe");
 });
 
 test("Kuula MLS URLs preserve the original fallback and produce a standard embed URL", () => {
@@ -64,6 +88,30 @@ test("CubiCasa unbranded URLs are valid external interactive floor plans", () =>
   assert.equal(normalized?.embedUrl, undefined);
 });
 
+test("interactive primary input keeps CubiCasa share-only links external", () => {
+  const normalized = normalizeInteractiveFloorPlanPrimaryInput(
+    "https://unbranded.visithome.ai/12345",
+  );
+
+  assert.equal(normalized?.provider, "cubiCasa");
+  assert.equal(normalized?.externalUrl, "https://unbranded.visithome.ai/12345");
+  assert.equal(normalized?.embedUrl, undefined);
+  assert.equal(normalized?.canEmbed, false);
+});
+
+test("interactive primary input accepts explicit CubiCasa embed URLs", () => {
+  const normalized = normalizeInteractiveFloorPlanPrimaryInput(
+    "https://unbranded.visithome.ai/12345?mode=embed",
+  );
+
+  assert.equal(normalized?.provider, "cubiCasa");
+  assert.equal(
+    normalized?.embedUrl,
+    "https://unbranded.visithome.ai/12345?mode=embed",
+  );
+  assert.equal(normalized?.canEmbed, true);
+});
+
 test("CubiCasa iframe HTML extracts a validated embed URL separately", () => {
   const normalized = normalizeInteractiveFloorPlanInput({
     provider: "cubiCasa",
@@ -79,6 +127,32 @@ test("CubiCasa iframe HTML extracts a validated embed URL separately", () => {
     "https://unbranded.visithome.ai/12345?mode=embed&lang=en",
   );
   assert.equal(normalized?.canEmbed, true);
+});
+
+test("interactive open action labels separate originals from embed-only fallbacks", () => {
+  const withOriginal = normalizeInteractiveFloorPlanInput({
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/12345",
+    embedUrl: "https://unbranded.visithome.ai/12345?mode=embed",
+  });
+  assert.ok(withOriginal);
+  assert.deepEqual(getInteractiveFloorPlanOpenAction(withOriginal), {
+    url: "https://unbranded.visithome.ai/12345",
+    label: "Open original interactive plan",
+    isOriginalUrl: true,
+  });
+
+  const embedOnly = normalizeInteractiveFloorPlanInput({
+    provider: "cubiCasa",
+    embedUrl:
+      '<iframe src="https://unbranded.visithome.ai/12345?mode=embed&amp;lang=en"></iframe>',
+  });
+  assert.ok(embedOnly);
+  assert.deepEqual(getInteractiveFloorPlanOpenAction(embedOnly), {
+    url: "https://unbranded.visithome.ai/12345?mode=embed&lang=en",
+    label: "Open interactive plan in new tab",
+    isOriginalUrl: false,
+  });
 });
 
 test("interactive floor plan embed input rejects unsafe iframe sources", () => {

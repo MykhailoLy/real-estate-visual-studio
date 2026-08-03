@@ -127,6 +127,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       removeVirtualTour: parsed.data.removeVirtualTour,
       removeInteractiveFloorPlan: parsed.data.removeInteractiveFloorPlan,
       removeFloorPlan: parsed.data.removeFloorPlan,
+      replaceFloorPlans: parsed.data.replaceFloorPlans,
     },
   );
 

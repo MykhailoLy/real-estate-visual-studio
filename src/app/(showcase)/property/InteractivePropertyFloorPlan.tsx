@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  getInteractiveFloorPlanOpenAction,
   normalizeInteractiveFloorPlanInput,
   type NormalizedInteractiveFloorPlanUrl,
 } from "@/features/property-showcase/provider-urls";
@@ -33,6 +34,12 @@ const fallbackPositions = [
   { xPercent: 66, yPercent: 52 },
   { xPercent: 34, yPercent: 35 },
 ];
+
+type EmbeddedFrameStatus =
+  | "poster"
+  | "opening"
+  | "frame-visible"
+  | "frame-unconfirmed";
 
 export default function InteractivePropertyFloorPlan(
   props: InteractivePropertyFloorPlanProps,
@@ -61,18 +68,32 @@ function ExternalInteractiveFloorPlan({
   externalPlan: NormalizedInteractiveFloorPlanUrl;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState<"poster" | "loading" | "loaded" | "failed">(
-    "poster",
-  );
+  const [status, setStatus] = useState<EmbeddedFrameStatus>("poster");
   const canEmbed = Boolean(externalPlan.embedUrl);
-  const openPlanUrl = externalPlan.externalUrl ?? externalPlan.embedUrl ?? "";
-  const showIframe = canEmbed && status !== "poster" && status !== "failed";
+  const openAction = getInteractiveFloorPlanOpenAction(externalPlan);
+  const openPlanUrl = openAction?.url ?? "";
+  const openPlanLabel = openAction?.label ?? "Open interactive plan";
+  const showIframe = canEmbed && status !== "poster";
+  const showPoster =
+    !canEmbed || status === "poster" || status === "opening";
+  const iframeIsVisible =
+    status === "frame-visible" || status === "frame-unconfirmed";
+  const footerStatusText =
+    status === "frame-visible"
+      ? "Embedded provider view is open"
+      : status === "frame-unconfirmed"
+        ? "Open in a new tab if the embedded view looks blank"
+        : status === "opening"
+          ? `Opening ${externalPlan.providerName}`
+          : "Ready to open";
 
   useEffect(() => {
-    if (status !== "loading") return undefined;
+    if (status !== "opening") return undefined;
 
     const timeout = window.setTimeout(() => {
-      setStatus((current) => (current === "loading" ? "failed" : current));
+      setStatus((current) =>
+        current === "opening" ? "frame-unconfirmed" : current,
+      );
     }, 8000);
 
     return () => window.clearTimeout(timeout);
@@ -80,7 +101,9 @@ function ExternalInteractiveFloorPlan({
 
   function activate() {
     if (canEmbed) {
-      setStatus("loading");
+      setStatus((current) =>
+        current === "poster" ? "opening" : current,
+      );
     }
   }
 
@@ -110,17 +133,17 @@ function ExternalInteractiveFloorPlan({
               src={externalPlan.embedUrl}
               title={`Interactive floor plan of ${propertyTitle}`}
               className={`absolute inset-0 h-full w-full border-0 bg-white transition-opacity duration-300 ${
-                status === "loaded" ? "opacity-100" : "opacity-0"
+                iframeIsVisible ? "opacity-100" : "opacity-0"
               }`}
               allow="fullscreen; accelerometer; gyroscope"
               allowFullScreen
               loading="lazy"
-              onLoad={() => setStatus("loaded")}
+              onLoad={() => setStatus("frame-visible")}
               referrerPolicy="strict-origin-when-cross-origin"
             />
           ) : null}
 
-          {status !== "loaded" ? (
+          {showPoster ? (
             <>
               <Image
                 src={floorPlan.imageUrl}
@@ -175,26 +198,26 @@ function ExternalInteractiveFloorPlan({
                     Open interactive floor plan
                   </span>
                   <span className="mt-1 block text-xs text-white/65 sm:text-sm">
-                    Loaded directly from {externalPlan.providerName}
+                    Opens directly from {externalPlan.providerName}
                   </span>
                 </span>
               </button>
             </div>
           ) : null}
 
-          {status === "loading" ? (
-            <div className="absolute inset-0 z-[6] grid place-items-center px-4">
+          {status === "opening" ? (
+            <div className="pointer-events-none absolute inset-0 z-[6] grid place-items-center px-4">
               <div className="flex flex-col items-center gap-3 rounded-[1.5rem] border border-white/15 bg-black/60 px-6 py-5 text-center backdrop-blur-md">
                 <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
-                <p className="text-sm font-bold">Loading {externalPlan.providerName}</p>
+                <p className="text-sm font-bold">Opening {externalPlan.providerName}</p>
                 <p className="max-w-sm text-xs leading-5 text-white/65">
-                  If the provider blocks embedding, the tour will open securely in a new tab.
+                  The new-tab fallback stays available if the embedded provider view is blank or blocked.
                 </p>
               </div>
             </div>
           ) : null}
 
-          {status === "failed" || !canEmbed ? (
+          {!canEmbed ? (
             <div className="absolute inset-0 z-[6] grid place-items-center px-4">
               <div className="max-w-lg rounded-[1.5rem] border border-white/15 bg-black/65 p-6 text-center shadow-2xl backdrop-blur-md">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#d4bc6a]">
@@ -213,7 +236,7 @@ function ExternalInteractiveFloorPlan({
                   className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
                 >
                   <ExternalLink className="h-4 w-4" aria-hidden />
-                  Open interactive plan
+                  {openPlanLabel}
                 </a>
               </div>
             </div>
@@ -223,11 +246,7 @@ function ExternalInteractiveFloorPlan({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="rounded-2xl border border-white/15 bg-black/55 px-4 py-3 backdrop-blur-md">
                 <p className="text-sm font-semibold">{propertyTitle}</p>
-                <p className="mt-1 text-xs text-white/55">
-                  {status === "loaded"
-                    ? `${externalPlan.providerName} interactive plan`
-                    : "Ready to open"}
-                </p>
+                <p className="mt-1 text-xs text-white/55">{footerStatusText}</p>
               </div>
               <div className="pointer-events-auto flex flex-wrap gap-2">
                 {openPlanUrl ? (
@@ -238,7 +257,17 @@ function ExternalInteractiveFloorPlan({
                     className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/75"
                   >
                     <ExternalLink className="h-4 w-4" aria-hidden />
-                    Open interactive plan
+                    {openPlanLabel}
+                  </a>
+                ) : null}
+                {canEmbed && openPlanUrl ? (
+                  <a
+                    href={openPlanUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/35 px-4 py-3 text-xs font-bold text-white/80 backdrop-blur transition hover:bg-black/65 hover:text-white"
+                  >
+                    Having trouble viewing the plan?
                   </a>
                 ) : null}
                 {canEmbed ? (
