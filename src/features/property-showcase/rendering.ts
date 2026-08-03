@@ -1,4 +1,8 @@
-import type { PropertyGalleryImage, PropertyShowcase } from "./types";
+import type {
+  PropertyFloorPlan,
+  PropertyGalleryImage,
+  PropertyShowcase,
+} from "./types";
 
 export function hasNativeInteractiveFloorPlan(
   gallery: readonly PropertyGalleryImage[],
@@ -9,14 +13,30 @@ export function hasNativeInteractiveFloorPlan(
 export function hasExternalInteractiveFloorPlan(
   property: PropertyShowcase,
 ): boolean {
-  const primaryFloorPlan = [...property.floorPlans].sort(
-    (a, b) => a.sortOrder - b.sortOrder,
-  )[0];
+  return getExternalInteractiveFloorPlan(property) !== undefined;
+}
 
+export function hasFloorPlanInteractiveInput(
+  floorPlan: PropertyFloorPlan | undefined,
+): boolean {
   return Boolean(
-    primaryFloorPlan?.interactiveExternalUrl?.trim() ||
-      primaryFloorPlan?.interactiveEmbedUrl?.trim() ||
-      primaryFloorPlan?.interactiveUrl?.trim(),
+    floorPlan?.interactiveExternalUrl?.trim() ||
+      floorPlan?.interactiveEmbedUrl?.trim() ||
+      floorPlan?.interactiveUrl?.trim(),
+  );
+}
+
+export function sortedPropertyFloorPlans(
+  floorPlans: readonly PropertyFloorPlan[],
+): PropertyFloorPlan[] {
+  return [...floorPlans].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function getExternalInteractiveFloorPlan(
+  property: PropertyShowcase,
+): PropertyFloorPlan | undefined {
+  return sortedPropertyFloorPlans(property.floorPlans).find(
+    hasFloorPlanInteractiveInput,
   );
 }
 

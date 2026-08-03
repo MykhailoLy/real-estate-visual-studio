@@ -81,6 +81,7 @@ export default function SupportChatWidget({
   const copy = supportChatCopy[language];
   const router = useRouter();
   const pathname = usePathname() ?? "/";
+  const isPropertyShowcasePage = pathname.startsWith("/property/");
   const dialogId = "support-chat-widget";
   const titleId = useId();
   const nameInputId = useId();
@@ -551,7 +552,8 @@ export default function SupportChatWidget({
         aria-label={copy.dialogLabel}
         className={cn(
           "fixed z-[70] flex min-h-0 flex-col overflow-hidden border border-primary/15 bg-white shadow-2xl shadow-primary/25 transition-[opacity,transform] motion-reduce:transition-none",
-          "inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[calc(100dvh_-_1.5rem_-_env(safe-area-inset-bottom))] max-h-[720px] rounded-2xl lg:inset-auto lg:bottom-6 lg:right-6 lg:h-[min(620px,calc(100dvh-3rem))] lg:max-h-none lg:w-[400px]",
+          "inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[calc(100dvh_-_1.5rem_-_env(safe-area-inset-bottom))] max-h-[720px] rounded-2xl lg:inset-auto lg:right-6 lg:h-[min(620px,calc(100dvh-3rem))] lg:max-h-none lg:w-[400px]",
+          isPropertyShowcasePage ? "lg:bottom-24" : "lg:bottom-6",
         )}
       >
         <div className="flex flex-shrink-0 items-center gap-3 bg-primary px-4 py-4 text-white">
@@ -851,7 +853,10 @@ export default function SupportChatWidget({
           aria-expanded={open}
           aria-controls={dialogId}
           aria-label={copy.launcherAriaLabel}
-          className="fixed bottom-6 right-6 z-[70] hidden min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-secondary px-4 py-3 text-sm font-bold text-primary-dark shadow-xl shadow-primary/30 transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark focus-visible:ring-offset-2 lg:inline-flex"
+          className={cn(
+            "fixed right-6 z-[70] hidden min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-secondary px-4 py-3 text-sm font-bold text-primary-dark shadow-xl shadow-primary/30 transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark focus-visible:ring-offset-2 lg:inline-flex",
+            isPropertyShowcasePage ? "bottom-24" : "bottom-6",
+          )}
         >
           <MessageCircle className="h-5 w-5 text-primary-dark" aria-hidden />
           {copy.launcherLabel}

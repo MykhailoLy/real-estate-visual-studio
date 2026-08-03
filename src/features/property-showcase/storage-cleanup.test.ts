@@ -206,6 +206,51 @@ test("deletion candidates include only detached current-property media objects",
   );
 });
 
+test("deleting one floor plan keeps retained floor-plan images out of cleanup", () => {
+  const existing = cloneProperty();
+  existing.slug = "altea";
+  existing.coverImage = storageUrl("property-showcases/altea/cover.webp");
+  existing.gallery = [
+    {
+      id: "gallery-1",
+      src: existing.coverImage,
+      alt: { en: "Cover" },
+      label: { en: "Cover" },
+      sortOrder: 1,
+    },
+  ];
+  existing.floorPlans = [
+    {
+      id: "ground-floor",
+      title: { en: "Ground floor" },
+      imageUrl: storageUrl("property-showcases/altea/ground-floor.webp"),
+      downloadUrl: storageUrl("property-showcases/altea/ground-floor.webp"),
+      sortOrder: 1,
+    },
+    {
+      id: "first-floor",
+      title: { en: "First floor" },
+      imageUrl: storageUrl("property-showcases/altea/first-floor.webp"),
+      downloadUrl: storageUrl("property-showcases/altea/first-floor.webp"),
+      sortOrder: 2,
+    },
+  ];
+
+  const next = {
+    ...existing,
+    floorPlans: [existing.floorPlans[1]],
+  };
+
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({
+      existing,
+      next,
+      slug: "altea",
+    }),
+    ["property-showcases/altea/ground-floor.webp"],
+  );
+});
+
 test("failed upload cleanup ignores external, shared, and retained paths", () => {
   assert.deepEqual(
     failedPropertyShowcaseUploadCleanupCandidates({

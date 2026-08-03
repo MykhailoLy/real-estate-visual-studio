@@ -14,6 +14,7 @@ export interface PropertyShowcaseUpdateOptions {
   removeVirtualTour?: boolean;
   removeInteractiveFloorPlan?: boolean;
   removeFloorPlan?: boolean;
+  replaceFloorPlans?: boolean;
 }
 
 export interface PropertyShowcaseUpdateResult {
@@ -89,6 +90,15 @@ function mergeMediaFloorPlans(
   options: PropertyShowcaseUpdateOptions,
 ): PropertyFloorPlan[] {
   if (options.removeFloorPlan) return [];
+  if (options.replaceFloorPlans) {
+    const replaced = incoming.map((plan, index) => ({
+      ...plan,
+      sortOrder: index + 1,
+    }));
+    return options.removeInteractiveFloorPlan
+      ? replaced.map(clearFloorPlanInteractiveFields)
+      : replaced;
+  }
   if (incoming.length === 0) {
     return options.removeInteractiveFloorPlan
       ? existing.map(clearFloorPlanInteractiveFields)

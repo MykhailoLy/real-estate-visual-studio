@@ -7,7 +7,6 @@ import {
   Building2,
   CalendarDays,
   Car,
-  Download,
   Languages,
   LandPlot,
   Mail,
@@ -26,11 +25,18 @@ import type {
   PropertyShowcase,
 } from "@/features/property-showcase/types";
 import {
+  formatPriceLabel,
+  formatPropertyFactValue,
+} from "@/features/property-showcase/formatting";
+import {
+  getExternalInteractiveFloorPlan,
   hasExternalInteractiveFloorPlan,
   hasNativeInteractiveFloorPlan,
+  sortedPropertyFloorPlans,
 } from "@/features/property-showcase/rendering";
 import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
+import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
 import PropertyGallery from "./costa-blanca-demo/PropertyGallery";
 import PropertySectionNav from "./costa-blanca-demo/PropertySectionNav";
@@ -74,13 +80,18 @@ export default function PropertyShowcaseView({
   locale = "en",
 }: PropertyShowcaseViewProps) {
   const gallery = [...property.gallery].sort((a, b) => a.sortOrder - b.sortOrder);
-  const floorPlans = [...property.floorPlans].sort((a, b) => a.sortOrder - b.sortOrder);
+  const floorPlans = sortedPropertyFloorPlans(property.floorPlans);
   const primaryFloorPlan = floorPlans[0];
+  const externalInteractiveFloorPlan = getExternalInteractiveFloorPlan(property);
+  const interactiveFloorPlan = externalInteractiveFloorPlan ?? primaryFloorPlan;
   const hasNativeInteractivePlan = hasNativeInteractiveFloorPlan(gallery);
   const hasExternalInteractivePlan = hasExternalInteractiveFloorPlan(property);
+  const hasHighlights = property.highlights.length > 0;
   const title = text(property.title, locale);
   const summary = text(property.summary, locale);
   const address = text(property.location.displayAddress, locale);
+  const aboutHeading =
+    locale === "es" ? "Sobre esta propiedad" : "About this property";
   const agent = property.agent;
   const agentRole = text(agent.role, locale);
   const contactHref = agent.whatsapp
@@ -173,7 +184,7 @@ export default function PropertyShowcaseView({
                       {text(property.priceLabel, locale)}
                     </span>
                     <span className="mt-2 block text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                      {property.price}
+                      {formatPriceLabel(property.price)}
                     </span>
                   </div>
                 </div>
@@ -198,7 +209,7 @@ export default function PropertyShowcaseView({
                   </div>
                   <div>
                     <span className="block text-lg font-semibold leading-none text-[#0f2440] sm:text-xl">
-                      {fact.value}
+                      {formatPropertyFactValue(fact)}
                     </span>
                     <span className="mt-1.5 block text-xs font-medium text-slate-500 sm:text-sm">
                       {text(fact.label, locale)}
@@ -211,37 +222,51 @@ export default function PropertyShowcaseView({
         </section>
 
         <section id="overview" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
-          <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
+          <div
+            className={`grid gap-12 ${
+              hasHighlights
+                ? "lg:grid-cols-[1.05fr_0.95fr] lg:gap-20"
+                : "max-w-4xl"
+            }`}
+          >
             <div>
               <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
                 The property
               </p>
-              <h2 className="max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl lg:text-5xl">
-                Understand the home before you book the flight.
+              <h2 className="max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
+                {aboutHeading}
               </h2>
-              <div className="mt-8 max-w-3xl space-y-5 text-base leading-8 text-slate-600 sm:text-lg">
+              <div className="mt-8 max-w-3xl space-y-5 text-base leading-8 text-slate-600">
                 {property.description.map((paragraph, index) => (
                   <p key={index}>{text(paragraph, locale)}</p>
                 ))}
               </div>
             </div>
 
-            <div className="grid gap-px overflow-hidden rounded-3xl border border-black/8 bg-black/8 sm:grid-cols-2">
-              {property.highlights.map((highlight, index) => {
-                const Icon = highlightIcons[index % highlightIcons.length];
-                return (
-                  <div key={`${text(highlight.title, locale)}-${index}`} className="bg-white p-6 sm:p-7">
-                    <Icon className="h-6 w-6 text-[#a88b3a]" aria-hidden />
-                    <h3 className="mt-5 text-base font-semibold text-[#0f2440]">
-                      {text(highlight.title, locale)}
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      {text(highlight.description, locale)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
+            {hasHighlights ? (
+              <div
+                data-testid="property-highlights"
+                className="grid gap-3 sm:grid-cols-2"
+              >
+                {property.highlights.slice(0, 6).map((highlight, index) => {
+                  const Icon = highlightIcons[index % highlightIcons.length];
+                  return (
+                    <div
+                      key={`${text(highlight.title, locale)}-${index}`}
+                      className="rounded-2xl border border-black/8 bg-white p-5 shadow-sm"
+                    >
+                      <Icon className="h-5 w-5 text-[#a88b3a]" aria-hidden />
+                      <h3 className="mt-4 text-base font-semibold text-[#0f2440]">
+                        {text(highlight.title, locale)}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-500">
+                        {text(highlight.description, locale)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -271,7 +296,7 @@ export default function PropertyShowcaseView({
             <div className="mx-auto grid max-w-[1480px] gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-10 lg:py-28">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
-                  Floor plan
+                  Floor plans
                 </p>
                 <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
                   See how the spaces connect.
@@ -280,17 +305,6 @@ export default function PropertyShowcaseView({
                   A clear plan answers practical questions that photography cannot: room relationships, circulation, storage and outdoor access.
                 </p>
                 <div className="mt-9 flex flex-wrap gap-3">
-                  {primaryFloorPlan.downloadUrl ? (
-                    <a
-                      href={primaryFloorPlan.downloadUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-full border border-[#0f2440]/15 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
-                    >
-                      <Download className="h-4 w-4" aria-hidden />
-                      Download floor plan
-                    </a>
-                  ) : null}
                   {hasNativeInteractivePlan || hasExternalInteractivePlan ? (
                     <a
                       href="#interactive-floor-plan"
@@ -305,24 +319,20 @@ export default function PropertyShowcaseView({
                 </div>
               </div>
 
-              <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-black/8 bg-[#f6f4ef] p-3 shadow-sm sm:p-6">
-                <Image
-                  src={primaryFloorPlan.imageUrl}
-                  alt={`${text(primaryFloorPlan.title, locale)} for ${title}`}
-                  fill
-                  sizes="(min-width: 1024px) 58vw, 100vw"
-                  className="object-contain p-5 sm:p-8"
-                />
-              </div>
+              <PropertyFloorPlanViewer
+                plans={floorPlans}
+                propertyTitle={title}
+                locale={locale}
+              />
             </div>
           </section>
         ) : null}
 
-        {primaryFloorPlan &&
+        {interactiveFloorPlan &&
         (hasExternalInteractivePlan || hasNativeInteractivePlan) ? (
           <InteractivePropertyFloorPlan
             propertyTitle={title}
-            floorPlan={primaryFloorPlan}
+            floorPlan={interactiveFloorPlan}
             gallery={gallery}
           />
         ) : null}

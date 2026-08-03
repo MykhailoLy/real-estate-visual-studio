@@ -162,6 +162,7 @@ export const PropertyShowcaseMutationSchema = z
     removeVirtualTour: z.boolean().optional(),
     removeInteractiveFloorPlan: z.boolean().optional(),
     removeFloorPlan: z.boolean().optional(),
+    replaceFloorPlans: z.boolean().optional(),
   })
   .strict();
 

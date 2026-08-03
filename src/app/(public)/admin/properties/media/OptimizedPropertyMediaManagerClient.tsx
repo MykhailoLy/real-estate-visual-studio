@@ -26,9 +26,12 @@ import {
   formatImageBytes,
   optimizePropertyImage,
 } from "@/features/property-showcase/client-image-optimizer";
+import { normalizeFloorPlanInteractiveUrl } from "@/features/property-showcase/provider-urls";
 import type {
+  PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyShowcase,
+  PropertyTourProvider,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
 import { getSupabaseBrowser } from "@/lib/supabase";
@@ -38,6 +41,17 @@ const MAX_SOURCE_MB = MAX_SOURCE_BYTES / (1024 * 1024);
 const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
 type AllowedMime = (typeof ALLOWED_MIMES)[number];
 type UploadKind = "gallery" | "floor-plan" | "tour-poster";
+
+const FLOOR_PLAN_PRESETS = [
+  { en: "Ground floor", es: "Planta baja" },
+  { en: "First floor", es: "Primera planta" },
+  { en: "Second floor", es: "Segunda planta" },
+  { en: "Basement", es: "Sótano" },
+  { en: "Site plan", es: "Plano de parcela" },
+  { en: "Garage", es: "Garaje" },
+  { en: "Annex", es: "Anexo" },
+  { en: "Other", es: "Otro" },
+] as const;
 
 interface Props {
   records: PropertyShowcaseAdminRecord[];
@@ -302,15 +316,20 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const initialGallery = [...record.property.gallery].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
+  const initialFloorPlans = [...record.property.floorPlans].sort(
+    (a, b) => a.sortOrder - b.sortOrder,
+  );
   const [gallery, setGallery] = useState<PropertyGalleryImage[]>(initialGallery);
   const [coverImage, setCoverImage] = useState(record.property.coverImage);
-  const [floorPlanUrl, setFloorPlanUrl] = useState(
-    record.property.floorPlans[0]?.imageUrl ?? "",
-  );
+  const [floorPlans, setFloorPlans] =
+    useState<PropertyFloorPlan[]>(initialFloorPlans);
   const [tourPosterUrl, setTourPosterUrl] = useState(
     record.property.virtualTour?.posterImage ?? "",
   );
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [draggedFloorPlanId, setDraggedFloorPlanId] = useState<string | null>(
+    null,
+  );
   const [uploading, setUploading] = useState(false);
   const [uploadDetail, setUploadDetail] = useState("");
   const [saving, setSaving] = useState(false);
@@ -321,6 +340,12 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const realGallery = gallery.filter((item) => !isDemoAsset(item.src));
 
   function normalize(items: PropertyGalleryImage[]): PropertyGalleryImage[] {
+    return items.map((item, index) => ({ ...item, sortOrder: index + 1 }));
+  }
+
+  function normalizeFloorPlans(
+    items: PropertyFloorPlan[],
+  ): PropertyFloorPlan[] {
     return items.map((item, index) => ({ ...item, sortOrder: index + 1 }));
   }
 
@@ -347,6 +372,132 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       return normalize(next);
     });
     setDraggedId(null);
+  }
+
+  function moveFloorPlan(planId: string, direction: -1 | 1) {
+    setFloorPlans((current) => {
+      const index = current.findIndex((item) => item.id === planId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return normalizeFloorPlans(next);
+    });
+  }
+
+  function dropFloorPlanOn(targetId: string) {
+    if (!draggedFloorPlanId || draggedFloorPlanId === targetId) return;
+    setFloorPlans((current) => {
+      const from = current.findIndex((item) => item.id === draggedFloorPlanId);
+      const to = current.findIndex((item) => item.id === targetId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return normalizeFloorPlans(next);
+    });
+    setDraggedFloorPlanId(null);
+  }
+
+  function updateFloorPlan(
+    planId: string,
+    patch: Partial<PropertyFloorPlan>,
+  ) {
+    setFloorPlans((current) =>
+      current.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              ...patch,
+            }
+          : plan,
+      ),
+    );
+  }
+
+  function applyFloorPlanPreset(planId: string, preset: string) {
+    const match = FLOOR_PLAN_PRESETS.find((item) => item.en === preset);
+    if (!match) return;
+    updateFloorPlan(planId, {
+      title: { en: match.en, es: match.es },
+    });
+  }
+
+  function clearFloorPlanInteractive(plan: PropertyFloorPlan): PropertyFloorPlan {
+    return {
+      id: plan.id,
+      title: plan.title,
+      imageUrl: plan.imageUrl,
+      downloadUrl: plan.downloadUrl,
+      sortOrder: plan.sortOrder,
+    };
+  }
+
+  function interactiveInputValue(plan: PropertyFloorPlan): string {
+    return (
+      plan.interactiveEmbedUrl ??
+      plan.interactiveExternalUrl ??
+      plan.interactiveUrl ??
+      ""
+    );
+  }
+
+  function updateFloorPlanInteractiveInput(planId: string, value: string) {
+    const trimmed = value.trim();
+    const normalized = normalizeFloorPlanInteractiveUrl(trimmed);
+
+    setFloorPlans((current) =>
+      current.map((plan) => {
+        if (plan.id !== planId) return plan;
+        if (!trimmed) return clearFloorPlanInteractive(plan);
+        if (!normalized) {
+          return {
+            ...clearFloorPlanInteractive(plan),
+            interactiveUrl: value,
+          };
+        }
+
+        return {
+          ...clearFloorPlanInteractive(plan),
+          interactiveProvider: normalized.provider,
+          interactiveExternalUrl: normalized.externalUrl,
+          interactiveEmbedUrl: normalized.embedUrl,
+        };
+      }),
+    );
+  }
+
+  function updateFloorPlanInteractiveProvider(
+    planId: string,
+    provider: PropertyTourProvider,
+  ) {
+    updateFloorPlan(planId, { interactiveProvider: provider });
+  }
+
+  function updateFloorPlanExternalUrl(planId: string, value: string) {
+    updateFloorPlan(planId, {
+      interactiveExternalUrl: value.trim() ? value : undefined,
+    });
+  }
+
+  function updateFloorPlanEmbedUrl(planId: string, value: string) {
+    updateFloorPlan(planId, {
+      interactiveEmbedUrl: value.trim() ? value : undefined,
+    });
+  }
+
+  function removeFloorPlan(planId: string) {
+    if (
+      !window.confirm(
+        "Remove this floor plan from the property page? After you save, its property-owned Storage file will be deleted if nothing else uses it.",
+      )
+    ) {
+      return;
+    }
+
+    setFloorPlans((current) =>
+      normalizeFloorPlans(current.filter((plan) => plan.id !== planId)),
+    );
   }
 
   function removeImage(imageId: string) {
@@ -445,9 +596,98 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
 
   async function uploadFloorPlan(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
+    const files = Array.from(input.files ?? []);
+    input.value = "";
+    if (files.length === 0 || uploading) return;
+    const validation = files.map(validateSourceFile).find(Boolean);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    setNotice(null);
+    setLastSavings(null);
+    const uploadedPublicUrls: string[] = [];
+
+    try {
+      let next = [...floorPlans];
+      let originalBytes = 0;
+      let optimizedBytes = 0;
+
+      for (let index = 0; index < files.length; index += 1) {
+        const sourceFile = files[index];
+        setUploadDetail(
+          `Optimizing floor plan ${index + 1} of ${files.length}: ${sourceFile.name}`,
+        );
+        const optimized = await optimizePropertyImage(sourceFile, "floor-plan");
+        originalBytes += optimized.originalBytes;
+        optimizedBytes += optimized.optimizedBytes;
+        setUploadDetail(
+          `Uploading floor plan ${index + 1} of ${files.length}: ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} × ${optimized.height})`,
+        );
+        const uploaded = await uploadPropertyFile(
+          record.slug,
+          optimized.file,
+          "floor-plan",
+        );
+        uploadedPublicUrls.push(uploaded.publicUrl);
+        const label =
+          displayName(sourceFile.name) || `Floor plan ${next.length + 1}`;
+        next = [
+          ...next,
+          {
+            id: `floor-plan-${crypto.randomUUID()}`,
+            title: { en: label },
+            imageUrl: uploaded.publicUrl,
+            downloadUrl: uploaded.publicUrl,
+            sortOrder: next.length + 1,
+          },
+        ];
+      }
+
+      const summary = {
+        count: files.length,
+        originalBytes,
+        optimizedBytes,
+      };
+      setFloorPlans(normalizeFloorPlans(next));
+      setLastSavings(summary);
+      setNotice(
+        `${files.length} floor plan${files.length === 1 ? "" : "s"} optimized and uploaded. ${formatImageBytes(originalBytes)} → ${formatImageBytes(optimizedBytes)} (${savingsPercent(summary)}% saved).`,
+      );
+    } catch (uploadError) {
+      await cleanupUploadedPropertyFiles(
+        record.slug,
+        uploadedPublicUrls,
+        floorPlans.flatMap((plan) => [plan.imageUrl, plan.downloadUrl ?? ""]),
+      );
+      setError(
+        uploadError instanceof Error ? uploadError.message : "Floor plan upload failed.",
+      );
+    } finally {
+      setUploading(false);
+      setUploadDetail("");
+    }
+  }
+
+  async function replaceFloorPlanImage(
+    planId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const input = event.currentTarget;
     const sourceFile = input.files?.[0] ?? null;
     input.value = "";
     if (!sourceFile || uploading) return;
+    if (
+      !window.confirm(
+        "Replace this floor-plan image? After you save, the detached property-owned Storage file will be deleted if nothing else uses it.",
+      )
+    ) {
+      return;
+    }
+
     const validation = validateSourceFile(sourceFile);
     if (validation) {
       setError(validation);
@@ -455,15 +695,16 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     }
 
     setUploading(true);
-    setUploadDetail(`Optimizing floor plan: ${sourceFile.name}`);
+    setUploadDetail(`Optimizing replacement floor plan: ${sourceFile.name}`);
     setError(null);
     setNotice(null);
     setLastSavings(null);
     let uploadedPublicUrl = "";
+
     try {
       const optimized = await optimizePropertyImage(sourceFile, "floor-plan");
       setUploadDetail(
-        `Uploading floor plan: ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} × ${optimized.height})`,
+        `Uploading replacement floor plan: ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} × ${optimized.height})`,
       );
       const uploaded = await uploadPropertyFile(
         record.slug,
@@ -471,7 +712,17 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         "floor-plan",
       );
       uploadedPublicUrl = uploaded.publicUrl;
-      setFloorPlanUrl(uploaded.publicUrl);
+      setFloorPlans((current) =>
+        current.map((plan) =>
+          plan.id === planId
+            ? {
+                ...plan,
+                imageUrl: uploaded.publicUrl,
+                downloadUrl: uploaded.publicUrl,
+              }
+            : plan,
+        ),
+      );
       const summary = {
         count: 1,
         originalBytes: optimized.originalBytes,
@@ -479,16 +730,18 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       };
       setLastSavings(summary);
       setNotice(
-        `Floor plan optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
+        `Floor plan replacement optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
       );
     } catch (uploadError) {
       await cleanupUploadedPropertyFiles(
         record.slug,
         uploadedPublicUrl ? [uploadedPublicUrl] : [],
-        [floorPlanUrl],
+        floorPlans.flatMap((plan) => [plan.imageUrl, plan.downloadUrl ?? ""]),
       );
       setError(
-        uploadError instanceof Error ? uploadError.message : "Floor plan upload failed.",
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Floor plan replacement failed.",
       );
     } finally {
       setUploading(false);
@@ -564,34 +817,17 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       return;
     }
 
-    const existingPlan = record.property.floorPlans[0];
+    const cleanedFloorPlans = normalizeFloorPlans(
+      floorPlans.filter((plan) => plan.imageUrl.trim()),
+    );
     const removeFloorPlan =
-      !floorPlanUrl.trim() && record.property.floorPlans.length > 0;
-    const floorPlans: PropertyShowcase["floorPlans"] = floorPlanUrl
-      ? [
-          {
-            id: existingPlan?.id ?? "main-floor",
-            title: existingPlan?.title ?? {
-              en: "Main floor",
-              es: "Planta principal",
-            },
-            imageUrl: floorPlanUrl,
-            downloadUrl: floorPlanUrl,
-            interactiveProvider: existingPlan?.interactiveProvider,
-            interactiveExternalUrl: existingPlan?.interactiveExternalUrl,
-            interactiveEmbedUrl: existingPlan?.interactiveEmbedUrl,
-            interactiveUrl: existingPlan?.interactiveUrl,
-            sortOrder: 1,
-          },
-          ...record.property.floorPlans.slice(1),
-        ]
-      : [];
+      cleanedFloorPlans.length === 0 && record.property.floorPlans.length > 0;
 
     const property: PropertyShowcase = {
       ...record.property,
       coverImage: finalCover,
       gallery: cleanedGallery,
-      floorPlans,
+      floorPlans: cleanedFloorPlans,
       virtualTour: record.property.virtualTour
         ? {
             ...record.property.virtualTour,
@@ -619,6 +855,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           published: record.published,
           updateMode: "media",
           removeFloorPlan,
+          replaceFloorPlans: true,
         }),
       });
       if (!response.ok) {
@@ -627,6 +864,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       }
       setGallery(cleanedGallery);
       setCoverImage(finalCover);
+      setFloorPlans(cleanedFloorPlans);
       setNotice("Property media saved successfully.");
       router.refresh();
     } catch {
@@ -828,16 +1066,17 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
         <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-primary">Floor plan</h2>
+            <h2 className="text-lg font-bold text-primary">Floor plans</h2>
             <p className="mt-1 text-sm text-muted">
-              Uses a sharper WebP profile up to 4000 px so room labels remain readable.
+              Upload one or several plans. The sharper WebP profile keeps room labels readable up to 4000 px.
             </p>
           </div>
           <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-primary hover:border-primary/40">
-            <Upload className="h-4 w-4" aria-hidden /> Upload floor plan
+            <Upload className="h-4 w-4" aria-hidden /> Add floor plans
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              multiple
               disabled={uploading || saving}
               onChange={uploadFloorPlan}
               className="sr-only"
@@ -845,34 +1084,243 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           </label>
         </header>
         <div className="p-5">
-          {floorPlanUrl ? (
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={floorPlanUrl}
-                alt="Floor plan preview"
-                className="mx-auto max-h-[560px] w-full object-contain"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Remove this floor plan from the property page? After you save, its property-owned Storage file will be deleted if nothing else uses it.",
-                    )
-                  ) {
-                    setFloorPlanUrl("");
-                  }
-                }}
-                className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-black/65 text-white"
-                aria-label="Remove floor plan"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-              </button>
+          {floorPlans.length > 0 ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {floorPlans.map((plan, index) => {
+                const primary = index === 0;
+                const interactiveValue = interactiveInputValue(plan);
+
+                return (
+                  <article
+                    key={plan.id}
+                    draggable
+                    onDragStart={() => setDraggedFloorPlanId(plan.id)}
+                    onDragEnd={() => setDraggedFloorPlanId(null)}
+                    onDragOver={(event: DragEvent<HTMLElement>) =>
+                      event.preventDefault()
+                    }
+                    onDrop={() => dropFloorPlanOn(plan.id)}
+                    className={`overflow-hidden rounded-2xl border bg-white transition ${
+                      draggedFloorPlanId === plan.id
+                        ? "border-primary opacity-55"
+                        : "border-border"
+                    }`}
+                  >
+                    <div className="relative aspect-[16/11] bg-surface">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={plan.imageUrl}
+                        alt=""
+                        className="h-full w-full object-contain p-3"
+                      />
+                      <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
+                        <span className="rounded-full bg-black/65 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
+                          {index + 1}
+                        </span>
+                        {primary ? (
+                          <span className="rounded-full bg-secondary px-2 py-1 text-[10px] font-bold text-primary-dark">
+                            Primary
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-black/55 text-white backdrop-blur">
+                        <GripVertical className="h-4 w-4" aria-hidden />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 p-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="block text-xs font-bold text-foreground">
+                          English title
+                          <input
+                            value={plan.title.en}
+                            onChange={(event) =>
+                              updateFloorPlan(plan.id, {
+                                title: {
+                                  ...plan.title,
+                                  en: event.target.value,
+                                },
+                              })
+                            }
+                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                          />
+                        </label>
+                        <label className="block text-xs font-bold text-foreground">
+                          Spanish title
+                          <input
+                            value={plan.title.es ?? ""}
+                            onChange={(event) =>
+                              updateFloorPlan(plan.id, {
+                                title: {
+                                  ...plan.title,
+                                  es: event.target.value,
+                                },
+                              })
+                            }
+                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                          />
+                        </label>
+                        <label className="block text-xs font-bold text-foreground">
+                          Preset
+                          <select
+                            value=""
+                            onChange={(event) =>
+                              applyFloorPlanPreset(plan.id, event.target.value)
+                            }
+                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                          >
+                            <option value="">Choose a preset</option>
+                            {FLOOR_PLAN_PRESETS.map((preset) => (
+                              <option key={preset.en} value={preset.en}>
+                                {preset.en} / {preset.es}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block text-xs font-bold text-foreground">
+                          Download URL
+                          <input
+                            value={plan.downloadUrl ?? ""}
+                            onChange={(event) =>
+                              updateFloorPlan(plan.id, {
+                                downloadUrl: event.target.value || undefined,
+                              })
+                            }
+                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="rounded-xl border border-border bg-surface p-3">
+                        <label className="block text-xs font-bold text-foreground">
+                          Interactive plan link or embed code
+                          <textarea
+                            rows={3}
+                            value={interactiveValue}
+                            onChange={(event) =>
+                              updateFloorPlanInteractiveInput(
+                                plan.id,
+                                event.target.value,
+                              )
+                            }
+                            className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                          />
+                        </label>
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-xs font-bold text-primary">
+                            Advanced settings
+                          </summary>
+                          <div className="mt-3 grid gap-3 md:grid-cols-3">
+                            <label className="block text-xs font-bold text-foreground">
+                              Provider
+                              <select
+                                value={plan.interactiveProvider ?? "cubiCasa"}
+                                onChange={(event) =>
+                                  updateFloorPlanInteractiveProvider(
+                                    plan.id,
+                                    event.target.value as PropertyTourProvider,
+                                  )
+                                }
+                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                              >
+                                <option value="cubiCasa">CubiCasa</option>
+                                <option value="floorfy">Floorfy</option>
+                                <option value="nodalview">Nodalview</option>
+                                <option value="kuula">Kuula</option>
+                                <option value="matterport">Matterport</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                            </label>
+                            <label className="block text-xs font-bold text-foreground">
+                              Original/fallback URL
+                              <input
+                                value={plan.interactiveExternalUrl ?? ""}
+                                onChange={(event) =>
+                                  updateFloorPlanExternalUrl(
+                                    plan.id,
+                                    event.target.value,
+                                  )
+                                }
+                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                              />
+                            </label>
+                            <label className="block text-xs font-bold text-foreground">
+                              Normalized embed URL
+                              <input
+                                value={plan.interactiveEmbedUrl ?? ""}
+                                onChange={(event) =>
+                                  updateFloorPlanEmbedUrl(
+                                    plan.id,
+                                    event.target.value,
+                                  )
+                                }
+                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                              />
+                            </label>
+                          </div>
+                        </details>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary">
+                          <Upload className="h-3.5 w-3.5" aria-hidden />
+                          Replace image
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                            disabled={uploading || saving}
+                            onChange={(event) =>
+                              replaceFloorPlanImage(plan.id, event)
+                            }
+                            className="sr-only"
+                          />
+                        </label>
+                        {plan.downloadUrl ? (
+                          <a
+                            href={plan.downloadUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                            Open file
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => moveFloorPlan(plan.id, -1)}
+                          disabled={index === 0}
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-border text-primary disabled:opacity-30"
+                          aria-label="Move floor plan earlier"
+                        >
+                          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveFloorPlan(plan.id, 1)}
+                          disabled={index === floorPlans.length - 1}
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-border text-primary disabled:opacity-30"
+                          aria-label="Move floor plan later"
+                        >
+                          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFloorPlan(plan.id)}
+                          className="ml-auto grid h-8 w-8 place-items-center rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                          aria-label="Remove floor plan"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center text-sm text-muted">
-              No floor plan uploaded.
+              No floor plans uploaded.
             </div>
           )}
         </div>

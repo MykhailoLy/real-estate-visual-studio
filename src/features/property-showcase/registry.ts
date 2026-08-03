@@ -148,10 +148,19 @@ const costaBlancaDemo: PropertyShowcase = {
   floorPlans: [
     {
       id: "main-floor",
-      title: { en: "Main floor", es: "Planta principal" },
+      title: { en: "Ground floor", es: "Planta baja" },
       imageUrl: "/property-demo/floor-plan.svg",
       downloadUrl: "/property-demo/floor-plan.svg",
+      interactiveProvider: "cubiCasa",
+      interactiveExternalUrl: "https://unbranded.visithome.ai/demo-plan",
       sortOrder: 1,
+    },
+    {
+      id: "first-floor",
+      title: { en: "First floor", es: "Primera planta" },
+      imageUrl: "/property-demo/floor-plan.svg",
+      downloadUrl: "/property-demo/floor-plan.svg",
+      sortOrder: 2,
     },
   ],
   location: {
@@ -176,8 +185,33 @@ const costaBlancaDemo: PropertyShowcase = {
   },
 };
 
+const noHighlightsDemo: PropertyShowcase = {
+  ...costaBlancaDemo,
+  slug: "quiet-townhouse",
+  reference: "PS-002",
+  title: {
+    en: "Quiet Townhouse",
+    es: "Casa adosada tranquila",
+  },
+  summary: {
+    en: "A compact showcase variant used to verify that the overview remains balanced without highlight cards.",
+    es: "Una variante compacta de la presentación para comprobar que la vista general funciona sin destacados.",
+  },
+  highlights: [],
+  floorPlans: [
+    {
+      ...costaBlancaDemo.floorPlans[0],
+      interactiveProvider: undefined,
+      interactiveExternalUrl: undefined,
+      interactiveEmbedUrl: undefined,
+      interactiveUrl: undefined,
+    },
+  ],
+};
+
 const propertyShowcases: Record<string, PropertyShowcase> = {
   [costaBlancaDemo.slug]: costaBlancaDemo,
+  [noHighlightsDemo.slug]: noHighlightsDemo,
 };
 
 export function getPropertyShowcase(slug: string): PropertyShowcase | null {

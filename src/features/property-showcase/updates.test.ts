@@ -279,6 +279,131 @@ test("saving partial floor plan media preserves omitted floor plans", () => {
   assert.equal(result.property?.floorPlans[1]?.id, "upper-floor");
 });
 
+test("adding a second plan with media replace does not replace the first", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    floorPlans: [
+      existing.floorPlans[0],
+      {
+        id: "first-floor",
+        title: { en: "First floor", es: "Primera planta" },
+        imageUrl:
+          "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/first-floor.webp",
+        downloadUrl:
+          "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/first-floor.webp",
+        sortOrder: 2,
+      },
+    ],
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    replaceFloorPlans: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.floorPlans.length, 2);
+  assert.equal(result.property?.floorPlans[0]?.id, "main-floor");
+  assert.equal(result.property?.floorPlans[1]?.id, "first-floor");
+});
+
+test("deleting one plan with media replace does not delete other plans", () => {
+  const existing = withExternalMedia();
+  existing.floorPlans.push({
+    id: "first-floor",
+    title: { en: "First floor" },
+    imageUrl:
+      "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/first-floor.webp",
+    sortOrder: 2,
+  });
+
+  const incoming = {
+    ...existing,
+    floorPlans: [existing.floorPlans[1]],
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    replaceFloorPlans: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.floorPlans.length, 1);
+  assert.equal(result.property?.floorPlans[0]?.id, "first-floor");
+});
+
+test("sorting plans preserves titles and interactive metadata", () => {
+  const existing = withExternalMedia();
+  existing.floorPlans.push({
+    id: "first-floor",
+    title: { en: "First floor", es: "Primera planta" },
+    imageUrl:
+      "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/first-floor.webp",
+    sortOrder: 2,
+  });
+
+  const incoming = {
+    ...existing,
+    floorPlans: [existing.floorPlans[1], existing.floorPlans[0]],
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    replaceFloorPlans: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.floorPlans[0]?.id, "first-floor");
+  assert.equal(result.property?.floorPlans[0]?.sortOrder, 1);
+  assert.equal(result.property?.floorPlans[1]?.id, "main-floor");
+  assert.equal(
+    result.property?.floorPlans[1]?.interactiveExternalUrl,
+    "https://unbranded.visithome.ai/demo-plan",
+  );
+});
+
+test("virtual tour changes do not remove floor plans", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    virtualTour: {
+      provider: "kuula" as const,
+      embedUrl: "https://kuula.co/share/new-tour",
+      externalUrl: "https://mls.kuu.la/share/new-tour",
+    },
+    floorPlans: [],
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details");
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.property?.floorPlans, existing.floorPlans);
+  assert.equal(
+    result.property?.virtualTour?.externalUrl,
+    "https://mls.kuu.la/share/new-tour",
+  );
+});
+
+test("floor plan media changes do not remove Kuula", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    floorPlans: [
+      {
+        ...existing.floorPlans[0],
+        imageUrl:
+          "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/replaced-floor.webp",
+      },
+    ],
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    replaceFloorPlans: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.virtualTour?.provider, "kuula");
+  assert.equal(result.property?.floorPlans[0]?.imageUrl, incoming.floorPlans[0].imageUrl);
+});
+
 test("saving media does not remove highlights, location or agent data", () => {
   const existing = withExternalMedia();
   const incoming = {

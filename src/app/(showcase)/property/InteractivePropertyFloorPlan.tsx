@@ -66,6 +66,9 @@ function ExternalInteractiveFloorPlan({
   );
   const canEmbed = Boolean(externalPlan.embedUrl);
   const openPlanUrl = externalPlan.externalUrl ?? externalPlan.embedUrl ?? "";
+  const openPlanLabel = canEmbed
+    ? "Open original interactive plan"
+    : "Open interactive plan";
   const showIframe = canEmbed && status !== "poster" && status !== "failed";
 
   useEffect(() => {
@@ -213,7 +216,7 @@ function ExternalInteractiveFloorPlan({
                   className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
                 >
                   <ExternalLink className="h-4 w-4" aria-hidden />
-                  Open interactive plan
+                  {openPlanLabel}
                 </a>
               </div>
             </div>
@@ -238,7 +241,7 @@ function ExternalInteractiveFloorPlan({
                     className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/75"
                   >
                     <ExternalLink className="h-4 w-4" aria-hidden />
-                    Open interactive plan
+                    {openPlanLabel}
                   </a>
                 ) : null}
                 {canEmbed ? (

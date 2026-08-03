@@ -26,9 +26,28 @@ for (const viewport of propertyViewports) {
     await expect(
       page.getByRole("heading", { level: 1, name: "Sea View Residence" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "About this property" }),
+    ).toBeVisible();
     await expect(page.locator("#gallery")).toBeVisible();
     await expect(page.locator("#floor-plan")).toBeVisible();
     await expect(page.locator("#location")).toBeVisible();
+    if (viewport.width >= 768) {
+      await expect(page.getByRole("button", { name: "Ground floor" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "First floor" })).toBeVisible();
+    } else {
+      await expect(page.getByLabel("Floor plan")).toBeVisible();
+    }
+    await expect(
+      page.locator("#interactive-floor-plan").getByRole("link", {
+        name: "Open interactive plan",
+      }).first(),
+    ).toBeVisible();
+    await expect(
+      page.locator("#interactive-floor-plan").getByRole("button", {
+        name: "View fullscreen",
+      }),
+    ).toHaveCount(0);
 
     const dimensions = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
@@ -38,6 +57,99 @@ for (const viewport of propertyViewports) {
     await guard.expectNoPageErrorsOrServerErrors();
   });
 }
+
+test("property showcase floor plan tabs switch plans on desktop", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const response = await page.goto("/property/sea-view-residence");
+
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+  await page.getByRole("button", { name: "First floor" }).click();
+  await expect(page.getByTestId("selected-floor-plan-title")).toHaveText(
+    "First floor",
+  );
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("property showcase floor plan selector works on mobile", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 375, height: 812 });
+
+  const response = await page.goto("/property/sea-view-residence");
+
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+  await page.getByLabel("Floor plan").selectOption("first-floor");
+  await expect(page.getByTestId("selected-floor-plan-title")).toHaveText(
+    "First floor",
+  );
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("property showcase overview omits empty highlights", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1024, height: 768 });
+
+  const response = await page.goto("/property/quiet-townhouse");
+
+  expectNavigationResponseOk(response, "/property/quiet-townhouse");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Quiet Townhouse" }),
+  ).toBeVisible();
+  await expect(page.locator("[data-testid='property-highlights']")).toHaveCount(0);
+  const dimensions = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(dimensions.scrollWidth).toBe(dimensions.clientWidth);
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("property showcase support launcher does not cover interactive actions", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const response = await page.goto("/property/sea-view-residence");
+
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+  await page.locator("#interactive-floor-plan").scrollIntoViewIfNeeded();
+
+  const launcher = page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  });
+  const action = page.locator("#interactive-floor-plan").getByRole("link", {
+    name: "Open interactive plan",
+  }).first();
+  await expect(launcher).toBeVisible();
+  await expect(action).toBeVisible();
+
+  const boxes = await Promise.all([
+    launcher.boundingBox(),
+    action.boundingBox(),
+  ]);
+  expect(boxes[0]).not.toBeNull();
+  expect(boxes[1]).not.toBeNull();
+
+  const [launcherBox, actionBox] = boxes as [
+    NonNullable<(typeof boxes)[number]>,
+    NonNullable<(typeof boxes)[number]>,
+  ];
+  const overlaps =
+    launcherBox.x < actionBox.x + actionBox.width &&
+    launcherBox.x + launcherBox.width > actionBox.x &&
+    launcherBox.y < actionBox.y + actionBox.height &&
+    launcherBox.y + launcherBox.height > actionBox.y;
+  expect(overlaps).toBe(false);
+  await guard.expectNoPageErrorsOrServerErrors();
+});
 
 test("draft preview is protected for unauthenticated visitors", async ({
   page,

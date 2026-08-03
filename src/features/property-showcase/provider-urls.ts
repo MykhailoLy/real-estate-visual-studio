@@ -132,7 +132,7 @@ function providerConfig(provider: PropertyTourProvider): ProviderConfig {
 }
 
 function originOf(url: URL): string {
-  return `${url.protocol}//${url.hostname.toLowerCase()}`;
+  return url.origin.toLowerCase();
 }
 
 function hasOrigin(url: URL, origins: readonly string[]): boolean {
@@ -166,7 +166,10 @@ function safeHttpsUrl(value: string | undefined): URL | null {
 
   try {
     const url = new URL(extracted);
-    return url.protocol === "https:" ? url : null;
+    if (url.protocol !== "https:") return null;
+    if (url.username || url.password) return null;
+    if (url.port) return null;
+    return url;
   } catch {
     return null;
   }
@@ -256,6 +259,22 @@ function normalizeProviderEmbedUrl(
   return normalizeProviderUrl(provider, value, { requireEmbed: true });
 }
 
+export function normalizeTourPrimaryInput(
+  value: string | undefined,
+  preferredProvider?: PropertyTourProvider,
+): NormalizedProviderUrl | null {
+  const providers = preferredProvider
+    ? [preferredProvider, ...TOUR_PROVIDER_ORDER.filter((item) => item !== preferredProvider)]
+    : TOUR_PROVIDER_ORDER;
+
+  for (const provider of providers) {
+    const result = normalizeProviderUrl(provider, value);
+    if (result) return result;
+  }
+
+  return null;
+}
+
 export function normalizeTourInput(
   provider: PropertyTourProvider,
   input: {
@@ -301,10 +320,7 @@ export function normalizeFloorPlanInteractiveUrl(
   const trimmed = value?.trim();
   if (!trimmed) return null;
 
-  const normalized =
-    inputKind(trimmed) === "iframe"
-      ? normalizeAnyProviderEmbedUrl(trimmed)
-      : normalizeAnyProviderExternalUrl(trimmed);
+  const normalized = normalizeInteractiveFloorPlanPrimaryInput(trimmed);
   if (!normalized) return null;
 
   return {
@@ -316,6 +332,55 @@ export function normalizeFloorPlanInteractiveUrl(
     canEmbed: Boolean(normalized.embedUrl),
     inputKind: normalized.inputKind,
   };
+}
+
+function looksLikeExplicitEmbedUrl(url: URL): boolean {
+  const pathname = url.pathname.toLowerCase();
+  const params = url.searchParams;
+  return (
+    pathname.includes("/embed") ||
+    pathname.includes("/iframe") ||
+    params.get("iframe") === "true" ||
+    params.get("mode") === "embed" ||
+    params.has("embed")
+  );
+}
+
+export function normalizeInteractiveFloorPlanPrimaryInput(
+  value: string | undefined,
+  preferredProvider?: PropertyTourProvider,
+):
+  | (NormalizedProviderUrl & {
+      inputKind: "url" | "iframe";
+    })
+  | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const providers = preferredProvider
+    ? [preferredProvider, ...TOUR_PROVIDER_ORDER.filter((item) => item !== preferredProvider)]
+    : TOUR_PROVIDER_ORDER;
+
+  if (inputKind(trimmed) === "iframe") {
+    for (const provider of providers) {
+      const result = normalizeProviderEmbedUrl(provider, trimmed);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  const url = safeHttpsUrl(trimmed);
+  if (!url) return null;
+  const explicitEmbed = looksLikeExplicitEmbedUrl(url);
+
+  for (const provider of providers) {
+    const result = explicitEmbed
+      ? normalizeProviderEmbedUrl(provider, trimmed)
+      : normalizeProviderExternalUrl(provider, trimmed);
+    if (result) return result;
+  }
+
+  return null;
 }
 
 function normalizeAnyProviderExternalUrl(
