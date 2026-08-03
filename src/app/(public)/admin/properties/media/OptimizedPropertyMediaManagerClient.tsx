@@ -40,7 +40,13 @@ const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
 const MAX_SOURCE_MB = MAX_SOURCE_BYTES / (1024 * 1024);
 const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
 type AllowedMime = (typeof ALLOWED_MIMES)[number];
-type UploadKind = "gallery" | "floor-plan" | "tour-poster";
+type UploadKind =
+  | "gallery"
+  | "floor-plan"
+  | "tour-poster"
+  | "interactive-poster"
+  | "agent-portrait"
+  | "agency-logo";
 
 const FLOOR_PLAN_PRESETS = [
   { en: "Ground floor", es: "Planta baja" },
@@ -325,6 +331,15 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     useState<PropertyFloorPlan[]>(initialFloorPlans);
   const [tourPosterUrl, setTourPosterUrl] = useState(
     record.property.virtualTour?.posterImage ?? "",
+  );
+  const [interactivePosterUrl, setInteractivePosterUrl] = useState(
+    record.property.interactiveFloorPlanTour?.posterImage ?? "",
+  );
+  const [agentPortraitUrl, setAgentPortraitUrl] = useState(
+    record.property.agent.portraitUrl ?? "",
+  );
+  const [agencyLogoUrl, setAgencyLogoUrl] = useState(
+    record.property.agent.logoUrl ?? "",
   );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedFloorPlanId, setDraggedFloorPlanId] = useState<string | null>(
@@ -802,6 +817,82 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     }
   }
 
+  async function uploadSingleGalleryAsset(
+    event: ChangeEvent<HTMLInputElement>,
+    kind: Extract<
+      UploadKind,
+      "interactive-poster" | "agent-portrait" | "agency-logo"
+    >,
+    label: string,
+    currentUrl: string,
+    onUploaded: (url: string) => void,
+  ) {
+    const input = event.currentTarget;
+    const sourceFile = input.files?.[0] ?? null;
+    input.value = "";
+    if (!sourceFile || uploading) return;
+    const validation = validateSourceFile(sourceFile);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+
+    setUploading(true);
+    setUploadDetail(`Optimizing ${label}: ${sourceFile.name}`);
+    setError(null);
+    setNotice(null);
+    setLastSavings(null);
+    let uploadedPublicUrl = "";
+    try {
+      const optimized = await optimizePropertyImage(sourceFile, "gallery");
+      setUploadDetail(
+        `Uploading ${label}: ${formatImageBytes(optimized.originalBytes)} в†’ ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} Г— ${optimized.height})`,
+      );
+      const uploaded = await uploadPropertyFile(record.slug, optimized.file, kind);
+      uploadedPublicUrl = uploaded.publicUrl;
+      onUploaded(uploaded.publicUrl);
+      const summary = {
+        count: 1,
+        originalBytes: optimized.originalBytes,
+        optimizedBytes: optimized.optimizedBytes,
+      };
+      setLastSavings(summary);
+      setNotice(
+        `${label} optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} в†’ ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
+      );
+    } catch (uploadError) {
+      await cleanupUploadedPropertyFiles(
+        record.slug,
+        uploadedPublicUrl ? [uploadedPublicUrl] : [],
+        [
+          currentUrl,
+          interactivePosterUrl,
+          agentPortraitUrl,
+          agencyLogoUrl,
+        ],
+      );
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : `${label} upload failed.`,
+      );
+    } finally {
+      setUploading(false);
+      setUploadDetail("");
+    }
+  }
+
+  function removeSingleAsset(label: string, onRemoved: () => void) {
+    if (
+      !window.confirm(
+        `Remove this ${label}? After you save, its property-owned Storage file will be deleted if nothing else uses it.`,
+      )
+    ) {
+      return;
+    }
+    onRemoved();
+  }
+
   async function save() {
     if (saving || uploading) return;
     const cleanedGallery = normalize(
@@ -840,6 +931,26 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                   : record.property.virtualTour.posterImage,
           }
         : undefined,
+      interactiveFloorPlanTour: record.property.interactiveFloorPlanTour
+        ? {
+            ...record.property.interactiveFloorPlanTour,
+            posterImage:
+              interactivePosterUrl && !isDemoAsset(interactivePosterUrl)
+                ? interactivePosterUrl
+                : record.property.interactiveFloorPlanTour.posterImage,
+          }
+        : undefined,
+      agent: {
+        ...record.property.agent,
+        portraitUrl:
+          agentPortraitUrl && !isDemoAsset(agentPortraitUrl)
+            ? agentPortraitUrl
+            : undefined,
+        logoUrl:
+          agencyLogoUrl && !isDemoAsset(agencyLogoUrl)
+            ? agencyLogoUrl
+            : undefined,
+      },
     };
 
     setSaving(true);
@@ -865,6 +976,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       setGallery(cleanedGallery);
       setCoverImage(finalCover);
       setFloorPlans(cleanedFloorPlans);
+      setInteractivePosterUrl(property.interactiveFloorPlanTour?.posterImage ?? "");
+      setAgentPortraitUrl(property.agent.portraitUrl ?? "");
+      setAgencyLogoUrl(property.agent.logoUrl ?? "");
       setNotice("Property media saved successfully.");
       router.refresh();
     } catch {
@@ -1193,10 +1307,12 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
 
                       <div className="rounded-xl border border-border bg-surface p-3">
                         <label className="block text-xs font-bold text-foreground">
-                          Interactive plan link or embed code
+                          Legacy interactive plan metadata
                           <textarea
                             rows={3}
                             value={interactiveValue}
+                            readOnly
+                            aria-readonly="true"
                             onChange={(event) =>
                               updateFloorPlanInteractiveInput(
                                 plan.id,
@@ -1207,9 +1323,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                           />
                         </label>
                         <p className="mt-2 text-xs leading-5 text-muted">
-                          A normal CubiCasa share link opens in a new tab. To
-                          display CubiCasa inside PicchuSpot, paste the full
-                          code from CubiCasa → Share → Embedded code.
+                          Preserved as a fallback for older listings. Edit the
+                          property-level interactive floor-plan tour in
+                          Properties.
                         </p>
                         <details className="mt-3">
                           <summary className="cursor-pointer text-xs font-bold text-primary">
@@ -1369,6 +1485,179 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           </div>
         </section>
       ) : null}
+
+      {record.property.interactiveFloorPlanTour ? (
+        <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+          <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-primary">Interactive floor-plan poster</h2>
+              <p className="mt-1 text-sm text-muted">
+                Used behind external-only interactive floor-plan links and before embeds activate.
+              </p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-primary hover:border-primary/40">
+              <Upload className="h-4 w-4" aria-hidden /> Upload poster
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                disabled={uploading || saving}
+                onChange={(event) =>
+                  uploadSingleGalleryAsset(
+                    event,
+                    "interactive-poster",
+                    "Interactive floor-plan poster",
+                    interactivePosterUrl,
+                    setInteractivePosterUrl,
+                  )
+                }
+                className="sr-only"
+              />
+            </label>
+          </header>
+          <div className="p-5">
+            {interactivePosterUrl ? (
+              <div className="space-y-3">
+                <div className="relative overflow-hidden rounded-2xl border border-border bg-surface">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={interactivePosterUrl}
+                    alt="Interactive floor-plan poster preview"
+                    className="aspect-video w-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    removeSingleAsset("interactive floor-plan poster", () =>
+                      setInteractivePosterUrl(""),
+                    )
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  Remove poster
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center text-sm text-muted">
+                No interactive floor-plan poster uploaded.
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-primary">Realtor and agency media</h2>
+            <p className="mt-1 text-sm text-muted">
+              Upload the public contact-card portrait and agency logo into this property&apos;s media folder.
+            </p>
+          </div>
+        </header>
+        <div className="grid gap-5 p-5 lg:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-primary">Realtor photo</h3>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-primary hover:border-primary/40">
+                <Upload className="h-3.5 w-3.5" aria-hidden /> Upload
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  disabled={uploading || saving}
+                  onChange={(event) =>
+                    uploadSingleGalleryAsset(
+                      event,
+                      "agent-portrait",
+                      "Realtor photo",
+                      agentPortraitUrl,
+                      setAgentPortraitUrl,
+                    )
+                  }
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            {agentPortraitUrl ? (
+              <div className="mt-4 space-y-3">
+                <div className="relative h-36 w-36 overflow-hidden rounded-full border border-border bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={agentPortraitUrl}
+                    alt="Realtor portrait preview"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    removeSingleAsset("realtor photo", () => setAgentPortraitUrl(""))
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  Remove photo
+                </button>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl border border-dashed border-border bg-white px-4 py-5 text-sm text-muted">
+                No realtor photo uploaded.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-primary">Agency logo</h3>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-primary hover:border-primary/40">
+                <Upload className="h-3.5 w-3.5" aria-hidden /> Upload
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  disabled={uploading || saving}
+                  onChange={(event) =>
+                    uploadSingleGalleryAsset(
+                      event,
+                      "agency-logo",
+                      "Agency logo",
+                      agencyLogoUrl,
+                      setAgencyLogoUrl,
+                    )
+                  }
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            {agencyLogoUrl ? (
+              <div className="mt-4 space-y-3">
+                <div className="relative h-28 w-48 overflow-hidden rounded-2xl border border-border bg-white p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={agencyLogoUrl}
+                    alt="Agency logo preview"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    removeSingleAsset("agency logo", () => setAgencyLogoUrl(""))
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  Remove logo
+                </button>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl border border-dashed border-border bg-white px-4 py-5 text-sm text-muted">
+                No agency logo uploaded.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
 
       <div className="sticky bottom-4 z-20 flex justify-end">
         <button

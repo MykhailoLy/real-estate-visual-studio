@@ -4,81 +4,128 @@ const costaBlancaDemo: PropertyShowcase = {
   slug: "sea-view-residence",
   reference: "PS-001",
   status: "for-sale",
+  primaryLanguage: "en",
   title: {
     en: "Sea View Residence",
     es: "Residencia con vistas al mar",
+    de: "Residenz mit Meerblick",
   },
   summary: {
     en: "A bright contemporary home designed around the terrace, natural light and uninterrupted Mediterranean views.",
-    es: "Una vivienda contemporánea y luminosa, diseñada alrededor de la terraza, la luz natural y las vistas abiertas al Mediterráneo.",
+    es: "Una vivienda contemporanea con terraza, luz natural y vistas abiertas al Mediterraneo.",
+    de: "Ein helles modernes Zuhause mit Terrasse, Tageslicht und freiem Mittelmeerblick.",
   },
   description: [
     {
       en: "The residence combines an open living space, a generous sea-facing terrace and three well-separated bedrooms. Full-height glazing keeps the main rooms bright throughout the day.",
-      es: "La vivienda combina una zona de día abierta, una amplia terraza orientada al mar y tres dormitorios bien separados. Los grandes ventanales mantienen las estancias principales luminosas durante todo el día.",
+      es: "La vivienda combina una zona de dia abierta, una amplia terraza orientada al mar y tres dormitorios bien separados.",
+      de: "Die Residenz verbindet einen offenen Wohnbereich, eine grosse Meerterrasse und drei klar getrennte Schlafzimmer.",
     },
     {
       en: "This digital presentation brings photography, planning information and remote viewing tools into one clear link, helping international buyers make confident decisions before travelling to Spain.",
-      es: "Esta presentación digital reúne fotografías, planos y herramientas de visita remota en un único enlace, ayudando a compradores internacionales a tomar decisiones antes de viajar a España.",
+      es: "Esta presentacion digital reune fotografias, planos y herramientas de visita remota en un unico enlace.",
+      de: "Diese digitale Praesentation vereint Fotos, Grundrisse und Remote-Besichtigung in einem klaren Link.",
     },
   ],
   priceLabel: {
     en: "Asking price",
     es: "Precio de venta",
+    de: "Kaufpreis",
   },
-  price: "€695,000",
+  price: "\u20ac695,000",
   coverImage: "/property-demo/exterior.svg",
-  languages: ["en", "es"],
+  brochureUrl: "/property-demo/floor-plan.svg",
+  languages: ["en", "es", "de"],
+  translations: {
+    es: {
+      title: "Residencia con vistas al mar",
+      summary:
+        "Una vivienda contemporanea con terraza, luz natural y vistas abiertas al Mediterraneo.",
+      description: [
+        "La vivienda combina una zona de dia abierta, una amplia terraza orientada al mar y tres dormitorios bien separados.",
+        "Esta presentacion digital reune fotografias, planos y herramientas de visita remota en un unico enlace.",
+      ],
+      highlights: [
+        "Vistas abiertas al Mediterraneo",
+        "Orientacion sureste",
+        "Vivienda lista para entrar",
+        "Preparada para compradores a distancia",
+      ],
+    },
+    de: {
+      title: "Residenz mit Meerblick",
+      summary:
+        "Ein helles modernes Zuhause mit Terrasse, Tageslicht und freiem Mittelmeerblick.",
+    },
+  },
   facts: [
     {
       key: "bedrooms",
       value: "3",
-      label: { en: "Bedrooms", es: "Dormitorios" },
+      label: { en: "Bedrooms", es: "Dormitorios", de: "Schlafzimmer" },
     },
     {
       key: "bathrooms",
       value: "2",
-      label: { en: "Bathrooms", es: "Baños" },
-    },
-    {
-      key: "built-area",
-      value: "142 m²",
-      label: { en: "Built area", es: "Superficie construida" },
+      label: { en: "Bathrooms", es: "Banos", de: "Badezimmer" },
     },
     {
       key: "parking",
-      value: "1",
-      label: { en: "Parking", es: "Aparcamiento" },
+      value: "Garage + driveway",
+      label: { en: "Parking", es: "Aparcamiento", de: "Parken" },
+    },
+    {
+      key: "built-area",
+      value: "142 m\u00b2",
+      label: {
+        en: "Built area",
+        es: "Superficie construida",
+        de: "Wohnflache",
+      },
+    },
+    {
+      key: "year-built",
+      value: "2022",
+      label: { en: "Year built", es: "Ano de construccion", de: "Baujahr" },
+    },
+    {
+      key: "plot-area",
+      value: "480 m\u00b2",
+      label: { en: "Lot size", es: "Parcela", de: "Grundstuck" },
     },
   ],
   highlights: [
     {
-      title: { en: "Open Mediterranean views", es: "Vistas abiertas al Mediterráneo" },
-      description: {
-        en: "Uninterrupted coastal outlook from the living area and terrace.",
-        es: "Vistas despejadas desde el salón y la terraza.",
+      text: {
+        en: "Open Mediterranean views",
+        es: "Vistas abiertas al Mediterraneo",
+        de: "Freier Mittelmeerblick",
       },
+      sortOrder: 1,
     },
     {
-      title: { en: "South-east orientation", es: "Orientación sureste" },
-      description: {
-        en: "Morning light, bright interiors and comfortable shaded afternoons.",
-        es: "Luz de mañana, interiores luminosos y tardes agradables a la sombra.",
+      text: {
+        en: "South-east orientation with morning light",
+        es: "Orientacion sureste con luz de manana",
+        de: "Suedostausrichtung mit Morgensonne",
       },
+      sortOrder: 2,
     },
     {
-      title: { en: "Turn-key residence", es: "Vivienda lista para entrar" },
-      description: {
-        en: "Contemporary finishes, integrated appliances and climate control.",
-        es: "Acabados contemporáneos, electrodomésticos integrados y climatización.",
+      text: {
+        en: "Turn-key residence with contemporary finishes",
+        es: "Vivienda lista para entrar con acabados contemporaneos",
+        de: "Bezugsfertig mit modernen Ausstattungen",
       },
+      sortOrder: 3,
     },
     {
-      title: { en: "Remote buyer ready", es: "Preparada para compradores a distancia" },
-      description: {
-        en: "English and Spanish presentation prepared for international clients.",
-        es: "Presentación en inglés y español preparada para clientes internacionales.",
+      text: {
+        en: "Prepared for remote international buyers",
+        es: "Preparada para compradores internacionales a distancia",
+        de: "Vorbereitet fuer internationale Kaeufer aus der Ferne",
       },
+      sortOrder: 4,
     },
   ],
   gallery: [
@@ -87,9 +134,9 @@ const costaBlancaDemo: PropertyShowcase = {
       src: "/property-demo/exterior.svg",
       alt: {
         en: "Contemporary Costa Blanca residence with pool and sea view",
-        es: "Vivienda contemporánea en la Costa Blanca con piscina y vistas al mar",
+        es: "Vivienda contemporanea en la Costa Blanca con piscina y vistas al mar",
       },
-      label: { en: "Exterior & pool", es: "Exterior y piscina" },
+      label: { en: "Exterior and pool", es: "Exterior y piscina" },
       sortOrder: 1,
     },
     {
@@ -97,12 +144,12 @@ const costaBlancaDemo: PropertyShowcase = {
       src: "/property-demo/living-room.svg",
       alt: {
         en: "Bright open-plan living room with Mediterranean sea view",
-        es: "Salón abierto y luminoso con vistas al Mediterráneo",
+        es: "Salon abierto y luminoso con vistas al Mediterraneo",
       },
-      label: { en: "Living room", es: "Salón" },
+      label: { en: "Living room", es: "Salon" },
       note: {
         en: "Open-plan living space with direct access to the terrace.",
-        es: "Zona de día abierta con acceso directo a la terraza.",
+        es: "Zona de dia abierta con acceso directo a la terraza.",
       },
       roomId: "living-room",
       hotspot: { xPercent: 48, yPercent: 48 },
@@ -113,12 +160,12 @@ const costaBlancaDemo: PropertyShowcase = {
       src: "/property-demo/terrace.svg",
       alt: {
         en: "Private terrace overlooking the Mediterranean coast",
-        es: "Terraza privada con vistas a la costa mediterránea",
+        es: "Terraza privada con vistas a la costa mediterranea",
       },
       label: { en: "Sea-view terrace", es: "Terraza con vistas al mar" },
       note: {
         en: "Sea-facing outdoor area connected to the main living zone.",
-        es: "Espacio exterior orientado al mar y conectado con la zona de día.",
+        es: "Espacio exterior orientado al mar y conectado con la zona de dia.",
       },
       roomId: "terrace",
       hotspot: { xPercent: 49, yPercent: 16 },
@@ -145,10 +192,15 @@ const costaBlancaDemo: PropertyShowcase = {
     provider: "kuula",
     posterImage: "/property-demo/living-room.svg",
   },
+  interactiveFloorPlanTour: {
+    enabled: true,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/demo-plan",
+  },
   floorPlans: [
     {
       id: "main-floor",
-      title: { en: "Ground floor", es: "Planta baja" },
+      title: { en: "Ground floor", es: "Planta baja", de: "Erdgeschoss" },
       imageUrl: "/property-demo/floor-plan.svg",
       downloadUrl: "/property-demo/floor-plan.svg",
       interactiveProvider: "cubiCasa",
@@ -157,7 +209,7 @@ const costaBlancaDemo: PropertyShowcase = {
     },
     {
       id: "first-floor",
-      title: { en: "First floor", es: "Primera planta" },
+      title: { en: "First floor", es: "Primera planta", de: "Obergeschoss" },
       imageUrl: "/property-demo/floor-plan.svg",
       downloadUrl: "/property-demo/floor-plan.svg",
       sortOrder: 2,
@@ -167,21 +219,42 @@ const costaBlancaDemo: PropertyShowcase = {
     displayAddress: {
       en: "Altea, Alicante, Costa Blanca",
       es: "Altea, Alicante, Costa Blanca",
+      de: "Altea, Alicante, Costa Blanca",
     },
     privacyMode: "approximate",
+    showMap: true,
+    mapExternalUrl: "https://www.google.com/maps/place/Altea,+Alicante",
     airportTravelTime: {
       en: "Approximately 45 minutes to Alicante Airport",
       es: "Aproximadamente 45 minutos al Aeropuerto de Alicante",
+      de: "Etwa 45 Minuten zum Flughafen Alicante",
     },
   },
   agent: {
     agencyName: "Demo Real Estate Agency",
+    displayProfile: true,
     agentName: "Costa Blanca Property Team",
     role: {
       en: "International property advisor",
       es: "Asesor inmobiliario internacional",
+      de: "Internationaler Immobilienberater",
     },
+    phone: "+34 600 000 000",
+    whatsapp: "+34 600 000 000",
+    email: "listings@example.com",
     website: "https://picchuspot.com",
+    socialLinks: [
+      {
+        provider: "instagram",
+        url: "https://www.instagram.com/picchuspot",
+        sortOrder: 1,
+      },
+      {
+        provider: "linkedin",
+        url: "https://www.linkedin.com/company/picchuspot",
+        sortOrder: 2,
+      },
+    ],
   },
 };
 
@@ -189,14 +262,20 @@ const noHighlightsDemo: PropertyShowcase = {
   ...costaBlancaDemo,
   slug: "quiet-townhouse",
   reference: "PS-002",
+  primaryLanguage: "en",
+  languages: ["en"],
+  translations: undefined,
   title: {
     en: "Quiet Townhouse",
-    es: "Casa adosada tranquila",
   },
   summary: {
-    en: "A compact showcase variant used to verify that the overview remains balanced without highlight cards.",
-    es: "Una variante compacta de la presentación para comprobar que la vista general funciona sin destacados.",
+    en: "A compact showcase variant used to verify that the overview remains balanced without highlights.",
   },
+  description: [
+    {
+      en: "A simple one-language listing with the same media tools but fewer public sections.",
+    },
+  ],
   highlights: [],
   floorPlans: [
     {
@@ -207,6 +286,16 @@ const noHighlightsDemo: PropertyShowcase = {
       interactiveUrl: undefined,
     },
   ],
+  interactiveFloorPlanTour: undefined,
+  location: {
+    displayAddress: { en: "Moraira, Alicante" },
+    privacyMode: "hidden",
+    showMap: false,
+  },
+  agent: {
+    agencyName: "Demo Real Estate Agency",
+    displayProfile: true,
+  },
 };
 
 const propertyShowcases: Record<string, PropertyShowcase> = {
@@ -222,4 +311,4 @@ export function getPropertyShowcaseSlugs(): string[] {
   return Object.keys(propertyShowcases);
 }
 
-export { costaBlancaDemo };
+export { costaBlancaDemo, noHighlightsDemo };

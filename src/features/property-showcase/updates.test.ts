@@ -52,6 +52,14 @@ function withExternalMedia(): PropertyShowcase {
       sortOrder: 1,
     },
   ];
+  property.interactiveFloorPlanTour = {
+    enabled: true,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/demo-plan",
+    embedUrl: "https://unbranded.visithome.ai/demo-plan?mode=embed",
+    posterImage:
+      "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/floor.webp",
+  };
   return property;
 }
 
@@ -68,6 +76,10 @@ test("editing price preserves gallery", () => {
   assert.equal(result.property?.virtualTour?.provider, "kuula");
   assert.equal(
     result.property?.floorPlans[0]?.interactiveExternalUrl,
+    "https://unbranded.visithome.ai/demo-plan",
+  );
+  assert.equal(
+    result.property?.interactiveFloorPlanTour?.externalUrl,
     "https://unbranded.visithome.ai/demo-plan",
   );
   assert.equal(result.property?.price, "EUR 725,000");
@@ -161,6 +173,7 @@ test("explicitly removing CubiCasa clears interactive floor plan URLs", () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.property?.floorPlans[0]?.imageUrl, existing.floorPlans[0].imageUrl);
+  assert.equal(result.property?.interactiveFloorPlanTour, undefined);
   assert.equal(result.property?.floorPlans[0]?.interactiveProvider, undefined);
   assert.equal(result.property?.floorPlans[0]?.interactiveExternalUrl, undefined);
   assert.equal(result.property?.floorPlans[0]?.interactiveEmbedUrl, undefined);
@@ -217,6 +230,28 @@ test("replacing the cover preserves all other property data", () => {
   assert.deepEqual(result.property?.highlights, existing.highlights);
   assert.deepEqual(result.property?.location, existing.location);
   assert.deepEqual(result.property?.agent, existing.agent);
+  assert.deepEqual(
+    result.property?.interactiveFloorPlanTour,
+    existing.interactiveFloorPlanTour,
+  );
+});
+
+test("ordinary detail saves preserve property-level interactive floor plan tour", () => {
+  const existing = withExternalMedia();
+  const incoming = cloneProperty();
+  incoming.agent = {
+    ...incoming.agent,
+    agentName: "Updated Agent",
+  };
+  incoming.interactiveFloorPlanTour = undefined;
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details");
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    result.property?.interactiveFloorPlanTour,
+    existing.interactiveFloorPlanTour,
+  );
 });
 
 test("replacing a normal floor plan preserves its interactive URLs", () => {

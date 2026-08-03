@@ -2,14 +2,13 @@ import type {
   LocalizedText,
   PropertyFact,
   PropertyFactKey,
+  PropertyLanguageCode,
 } from "./types";
 
-const DEFAULT_CURRENCY_SYMBOL = "€";
-
 const CURRENCY_PATTERNS = [
-  { symbol: "€", pattern: /(?:€|\bEUR\b|\beuro\b)/i },
+  { symbol: "\u20ac", pattern: /(?:\u20ac|\bEUR\b|\beuro\b)/i },
   { symbol: "$", pattern: /(?:\$|\bUSD\b|\bdollar\b)/i },
-  { symbol: "£", pattern: /(?:£|\bGBP\b|\bpound\b)/i },
+  { symbol: "\u00a3", pattern: /(?:\u00a3|\bGBP\b|\bpound\b)/i },
 ] as const;
 
 export function generatePropertyPageSlug(
@@ -54,9 +53,40 @@ export function descriptionParagraphsFromText(
   }).filter((paragraph) => paragraph.en.trim());
 }
 
+export function descriptionParagraphsFromLanguageTexts(
+  values: Partial<Record<PropertyLanguageCode, string>>,
+  primaryLanguage: PropertyLanguageCode,
+): LocalizedText[] {
+  const paragraphMap = new Map<PropertyLanguageCode, string[]>();
+  const count = Object.entries(values).reduce((max, [language, value]) => {
+    const paragraphs = splitParagraphText(value);
+    if (paragraphs.length > 0) {
+      paragraphMap.set(language as PropertyLanguageCode, paragraphs);
+    }
+    return Math.max(max, paragraphs.length);
+  }, 0);
+
+  const primaryParagraphs = paragraphMap.get(primaryLanguage) ?? [];
+  const englishParagraphs = paragraphMap.get("en") ?? [];
+
+  return Array.from({ length: count }, (_, index) => {
+    const primary = primaryParagraphs[index] ?? englishParagraphs[index] ?? "";
+    const en = englishParagraphs[index] ?? primary;
+    const paragraph: LocalizedText = { en };
+
+    for (const [language, paragraphs] of paragraphMap) {
+      const value = paragraphs[index];
+      if (value) paragraph[language] = value;
+    }
+
+    if (!paragraph.en) paragraph.en = primary;
+    return paragraph;
+  }).filter((paragraph) => paragraph.en.trim());
+}
+
 export function descriptionTextForAdmin(
   description: readonly LocalizedText[] | undefined,
-  locale: keyof LocalizedText,
+  locale: string,
 ): string {
   return (description ?? [])
     .map((paragraph) => paragraph[locale] ?? (locale === "en" ? "" : paragraph.en))
@@ -64,16 +94,14 @@ export function descriptionTextForAdmin(
     .join("\n\n");
 }
 
-function detectCurrencySymbol(value: string): string {
-  return (
-    CURRENCY_PATTERNS.find((currency) => currency.pattern.test(value))?.symbol ??
-    DEFAULT_CURRENCY_SYMBOL
-  );
+function detectCurrencySymbol(value: string): string | null {
+  return CURRENCY_PATTERNS.find((currency) => currency.pattern.test(value))
+    ?.symbol ?? null;
 }
 
 function digitsFromNumberishText(value: string): string | null {
   const withoutCurrency = value
-    .replace(/[€$£]/g, "")
+    .replace(/[\u20ac$\u00a3]/g, "")
     .replace(/\b(EUR|USD|GBP|euro|euros|dollar|dollars|pound|pounds)\b/gi, "")
     .trim();
 
@@ -104,13 +132,14 @@ export function formatPriceLabel(value: string | undefined): string {
   const amount = Number(digits);
   if (!Number.isSafeInteger(amount)) return trimmed;
 
-  return `${detectCurrencySymbol(trimmed)}${formatInteger(amount)}`;
+  const currency = detectCurrencySymbol(trimmed);
+  return currency ? `${currency}${formatInteger(amount)}` : formatInteger(amount);
 }
 
 function normalizeAreaUnit(rawUnit: string): string {
   const unit = rawUnit.trim().replace(/\s+/g, " ");
-  if (/^(m2|m²|sqm|sq m)$/i.test(unit)) return "m²";
-  if (/^(ft2|ft²|sqft|sq ft)$/i.test(unit)) return "sq ft";
+  if (/^(m2|m\u00b2|sqm|sq m)$/i.test(unit)) return "m\u00b2";
+  if (/^(ft2|ft\u00b2|sqft|sq ft)$/i.test(unit)) return "sq ft";
   return unit;
 }
 
@@ -125,11 +154,14 @@ export function formatAreaLabel(value: string | undefined): string {
   const amount = parseMeasurementAmount(numberText);
   if (amount === null) return trimmed;
 
-  const unit = normalizeAreaUnit(match[2] ?? "m²");
-  return `${formatMeasurementNumber(amount)} ${unit}`;
+  const unit = normalizeAreaUnit(match[2] ?? "");
+  return unit
+    ? `${formatMeasurementNumber(amount)} ${unit}`
+    : formatMeasurementNumber(amount);
 }
 
 export function formatPropertyFactValue(fact: PropertyFact): string {
+  if (fact.key === "price") return formatPriceLabel(fact.value);
   if (isAreaFactKey(fact.key)) return formatAreaLabel(fact.value);
   return fact.value;
 }

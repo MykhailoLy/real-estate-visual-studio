@@ -1,5 +1,6 @@
 import type {
   PropertyFloorPlan,
+  PropertyInteractiveFloorPlanTour,
   PropertyShowcase,
   PropertyTourProvider,
   PropertyVirtualTour,
@@ -562,6 +563,35 @@ function normalizeStoredFloorPlan(
   };
 }
 
+function normalizeStoredInteractiveFloorPlanTour(
+  tour: PropertyInteractiveFloorPlanTour | undefined,
+  errors: string[],
+): PropertyInteractiveFloorPlanTour | undefined {
+  if (!tour) return undefined;
+  const hasInteractiveInput = Boolean(
+    tour.externalUrl?.trim() || tour.embedUrl?.trim(),
+  );
+  if (!tour.enabled || !hasInteractiveInput) return tour;
+
+  const normalized = normalizeInteractiveFloorPlanInput({
+    provider: tour.provider,
+    externalUrl: tour.externalUrl,
+    embedUrl: tour.embedUrl,
+  });
+
+  if (!normalized) {
+    errors.push("Unsupported or unsafe property-level interactive floor-plan URL.");
+    return tour;
+  }
+
+  return {
+    ...tour,
+    provider: normalized.provider,
+    externalUrl: normalized.externalUrl,
+    embedUrl: normalized.embedUrl,
+  };
+}
+
 export function normalizePropertyProviderUrls(
   property: PropertyShowcase,
 ): ProviderUrlValidationResult {
@@ -569,6 +599,10 @@ export function normalizePropertyProviderUrls(
   const next: PropertyShowcase = {
     ...property,
     virtualTour: normalizeStoredTour(property.virtualTour, errors),
+    interactiveFloorPlanTour: normalizeStoredInteractiveFloorPlanTour(
+      property.interactiveFloorPlanTour,
+      errors,
+    ),
     floorPlans: property.floorPlans.map((floorPlan) =>
       normalizeStoredFloorPlan(floorPlan, errors),
     ),

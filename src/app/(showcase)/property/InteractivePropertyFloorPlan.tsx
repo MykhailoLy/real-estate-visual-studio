@@ -19,11 +19,13 @@ import {
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
+  PropertyInteractiveFloorPlanTour,
 } from "@/features/property-showcase/types";
 
 type InteractivePropertyFloorPlanProps = {
   propertyTitle: string;
-  floorPlan: PropertyFloorPlan;
+  floorPlan?: PropertyFloorPlan;
+  interactiveTour?: PropertyInteractiveFloorPlanTour;
   gallery: PropertyGalleryImage[];
 };
 
@@ -44,12 +46,20 @@ type EmbeddedFrameStatus =
 export default function InteractivePropertyFloorPlan(
   props: InteractivePropertyFloorPlanProps,
 ) {
-  const externalPlan = normalizeInteractiveFloorPlanInput({
-    provider: props.floorPlan.interactiveProvider,
-    externalUrl: props.floorPlan.interactiveExternalUrl,
-    embedUrl: props.floorPlan.interactiveEmbedUrl,
-    interactiveUrl: props.floorPlan.interactiveUrl,
-  });
+  const externalPlan = props.interactiveTour?.enabled
+    ? normalizeInteractiveFloorPlanInput({
+        provider: props.interactiveTour.provider,
+        externalUrl: props.interactiveTour.externalUrl,
+        embedUrl: props.interactiveTour.embedUrl,
+      })
+    : props.floorPlan
+      ? normalizeInteractiveFloorPlanInput({
+          provider: props.floorPlan.interactiveProvider,
+          externalUrl: props.floorPlan.interactiveExternalUrl,
+          embedUrl: props.floorPlan.interactiveEmbedUrl,
+          interactiveUrl: props.floorPlan.interactiveUrl,
+        })
+      : null;
 
   if (externalPlan) {
     return (
@@ -57,12 +67,15 @@ export default function InteractivePropertyFloorPlan(
     );
   }
 
-  return <NativeInteractiveFloorPlan {...props} />;
+  if (!props.floorPlan) return null;
+  return <NativeInteractiveFloorPlan {...props} floorPlan={props.floorPlan} />;
 }
 
 function ExternalInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
+  interactiveTour,
+  gallery,
   externalPlan,
 }: InteractivePropertyFloorPlanProps & {
   externalPlan: NormalizedInteractiveFloorPlanUrl;
@@ -73,6 +86,9 @@ function ExternalInteractiveFloorPlan({
   const openAction = getInteractiveFloorPlanOpenAction(externalPlan);
   const openPlanUrl = openAction?.url ?? "";
   const openPlanLabel = openAction?.label ?? "Open interactive plan";
+  const posterImage =
+    interactiveTour?.posterImage ?? floorPlan?.imageUrl ?? gallery[0]?.src ?? "";
+  const posterTitle = floorPlan?.title.en ?? "Interactive floor plan";
   const showIframe = canEmbed && status !== "poster";
   const showPoster =
     !canEmbed || status === "poster" || status === "opening";
@@ -145,13 +161,15 @@ function ExternalInteractiveFloorPlan({
 
           {showPoster ? (
             <>
-              <Image
-                src={floorPlan.imageUrl}
-                alt={`${floorPlan.title.en} for ${propertyTitle}`}
-                fill
-                sizes="100vw"
-                className="object-contain bg-[#ece9e2] p-5 sm:p-10"
-              />
+              {posterImage ? (
+                <Image
+                  src={posterImage}
+                  alt={`${posterTitle} for ${propertyTitle}`}
+                  fill
+                  sizes="100vw"
+                  className="object-contain bg-[#ece9e2] p-5 sm:p-10"
+                />
+              ) : null}
               <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/5 to-black/55" />
             </>
           ) : null}
@@ -293,7 +311,7 @@ function NativeInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
   gallery,
-}: InteractivePropertyFloorPlanProps) {
+}: InteractivePropertyFloorPlanProps & { floorPlan: PropertyFloorPlan }) {
   const rooms = useMemo(
     () =>
       gallery

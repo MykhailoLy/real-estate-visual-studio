@@ -172,6 +172,17 @@ test("deletion candidates include only detached current-property media objects",
     externalUrl: "https://mls.kuu.la/share/demo",
     posterImage: storageUrl("property-showcases/altea/tour-poster.webp"),
   };
+  existing.interactiveFloorPlanTour = {
+    enabled: true,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/demo-plan",
+    posterImage: storageUrl("property-showcases/altea/interactive-poster.webp"),
+  };
+  existing.agent = {
+    ...existing.agent,
+    portraitUrl: storageUrl("property-showcases/altea/agent.webp"),
+    logoUrl: storageUrl("property-showcases/altea/logo.webp"),
+  };
   existing.floorPlans = [
     {
       id: "main-floor",
@@ -189,6 +200,12 @@ test("deletion candidates include only detached current-property media objects",
     ...existing,
     gallery: [existing.gallery[0]],
     virtualTour: undefined,
+    interactiveFloorPlanTour: undefined,
+    agent: {
+      ...existing.agent,
+      portraitUrl: undefined,
+      logoUrl: undefined,
+    },
     floorPlans: [],
   };
 
@@ -199,8 +216,11 @@ test("deletion candidates include only detached current-property media objects",
       slug: "altea",
     }),
     [
+      "property-showcases/altea/agent.webp",
       "property-showcases/altea/floor.webp",
+      "property-showcases/altea/interactive-poster.webp",
       "property-showcases/altea/kitchen.webp",
+      "property-showcases/altea/logo.webp",
       "property-showcases/altea/tour-poster.webp",
     ],
   );
@@ -299,6 +319,17 @@ test("property delete collection includes only owned current-slug media paths", 
     externalUrl: "https://mls.kuu.la/share/demo",
     posterImage: storageUrl("property-showcases/altea/poster.webp"),
   };
+  property.interactiveFloorPlanTour = {
+    enabled: true,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/demo-plan",
+    posterImage: storageUrl("property-showcases/altea/interactive-poster.webp"),
+  };
+  property.agent = {
+    ...property.agent,
+    portraitUrl: storageUrl("property-showcases/altea/agent.webp"),
+    logoUrl: storageUrl("property-showcases/moraira/shared-logo.webp"),
+  };
   property.floorPlans = [
     {
       id: "main-floor",
@@ -312,8 +343,10 @@ test("property delete collection includes only owned current-slug media paths", 
   ];
 
   assert.deepEqual(collectPropertyShowcaseMediaPaths(property, "altea"), [
+    "property-showcases/altea/agent.webp",
     "property-showcases/altea/cover.webp",
     "property-showcases/altea/floor.webp",
+    "property-showcases/altea/interactive-poster.webp",
     "property-showcases/altea/kitchen.webp",
     "property-showcases/altea/poster.webp",
   ]);

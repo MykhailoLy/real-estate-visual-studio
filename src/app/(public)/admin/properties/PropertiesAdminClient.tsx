@@ -13,20 +13,33 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import {
-  propertyCardActions,
-} from "@/features/property-showcase/admin-routing";
+import { propertyCardActions } from "@/features/property-showcase/admin-routing";
 import type { PropertyShowcaseAdminRecord } from "@/features/property-showcase/admin-types";
 import {
-  descriptionParagraphsFromText,
+  descriptionParagraphsFromLanguageTexts,
   descriptionTextForAdmin,
   formatPriceLabel,
   generatePropertyPageSlug,
 } from "@/features/property-showcase/formatting";
-import { normalizeTourPrimaryInput } from "@/features/property-showcase/provider-urls";
+import {
+  getPrimaryLanguage,
+  getPropertyLanguageOptions,
+  localizedText,
+  PROPERTY_LANGUAGE_LABELS,
+  SUPPORTED_PROPERTY_LANGUAGES,
+  translationCompletion,
+} from "@/features/property-showcase/localization";
+import { normalizeGoogleMapsInput } from "@/features/property-showcase/listing-details";
+import {
+  normalizeInteractiveFloorPlanInput,
+  normalizeTourPrimaryInput,
+} from "@/features/property-showcase/provider-urls";
 import type {
+  LocalizedText,
+  PropertyAgentSocialProvider,
   PropertyFact,
   PropertyHighlight,
+  PropertyLanguageCode,
   PropertyShowcase,
   PropertyStatus,
   PropertyTourProvider,
@@ -43,49 +56,71 @@ type EditorMode =
   | "create"
   | { kind: "edit"; record: PropertyShowcaseAdminRecord };
 
-interface FormState {
-  slug: string;
-  reference: string;
-  status: PropertyStatus;
-  titleEn: string;
-  titleEs: string;
-  summaryEn: string;
-  summaryEs: string;
-  descriptionEn: string;
-  descriptionEs: string;
-  price: string;
-  coverImage: string;
-  bedrooms: string;
-  bathrooms: string;
-  builtArea: string;
-  parking: string;
-  addressEn: string;
-  addressEs: string;
-  privacyMode: "exact" | "approximate" | "hidden";
-  tourProvider: PropertyTourProvider;
-  tourInput: string;
-  tourExternalUrl: string;
-  highlights: HighlightFormState[];
-  agencyName: string;
-  agentName: string;
-  phone: string;
-  whatsapp: string;
-  email: string;
-  website: string;
-  published: boolean;
+interface TranslationFormState {
+  id: string;
+  language: PropertyLanguageCode;
+  title: string;
+  summary: string;
+  description: string;
+  highlights: string[];
 }
 
 interface HighlightFormState {
   id: string;
-  titleEn: string;
-  titleEs: string;
-  descriptionEn: string;
-  descriptionEs: string;
+  text: string;
+}
+
+type SocialFormState = Record<PropertyAgentSocialProvider, string>;
+type AgentSocialLink = NonNullable<PropertyShowcase["agent"]["socialLinks"]>[number];
+
+interface FormState {
+  slug: string;
+  reference: string;
+  status: PropertyStatus;
+  primaryLanguage: PropertyLanguageCode;
+  title: string;
+  summary: string;
+  description: string;
+  price: string;
+  coverImage: string;
+  bedrooms: string;
+  bathrooms: string;
+  parking: string;
+  builtArea: string;
+  yearBuilt: string;
+  plotArea: string;
+  address: string;
+  privacyMode: "exact" | "approximate" | "hidden";
+  showMap: boolean;
+  latitude: string;
+  longitude: string;
+  mapExternalUrl: string;
+  mapEmbedUrl: string;
+  mapZoom: string;
+  tourProvider: PropertyTourProvider;
+  tourInput: string;
+  tourExternalUrl: string;
+  interactiveEnabled: boolean;
+  interactiveProvider: PropertyTourProvider;
+  interactiveExternalUrl: string;
+  interactiveEmbedUrl: string;
+  highlights: HighlightFormState[];
+  translations: TranslationFormState[];
+  agentDisplayProfile: boolean;
+  agencyName: string;
+  agentName: string;
+  agentRole: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  website: string;
+  socials: SocialFormState;
+  published: boolean;
 }
 
 const inputClass =
   "mt-1.5 w-full min-w-0 rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15";
-const protectedMediaInputClass =
+const protectedInputClass =
   "mt-1.5 w-full min-w-0 cursor-not-allowed truncate rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-muted outline-none";
 
 function optional(value: string): string | undefined {
@@ -93,106 +128,283 @@ function optional(value: string): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function directText(value: LocalizedText | undefined, language: string): string {
+  return value?.[language]?.trim() ?? "";
+}
+
 function factValue(property: PropertyShowcase | null, key: PropertyFact["key"]) {
   return property?.facts.find((fact) => fact.key === key)?.value ?? "";
 }
 
+function paragraphs(value: string): string[] | undefined {
+  const items = value
+    .split(/\r?\n\s*\r?\n/g)
+    .map((item) => item.replace(/\s*\r?\n\s*/g, " ").trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : undefined;
+}
+
+function socialState(property: PropertyShowcase | null): SocialFormState {
+  const socials = property?.agent.socialLinks ?? [];
+  return {
+    facebook: socials.find((link) => link.provider === "facebook")?.url ?? "",
+    instagram: socials.find((link) => link.provider === "instagram")?.url ?? "",
+    linkedin: socials.find((link) => link.provider === "linkedin")?.url ?? "",
+    youtube: socials.find((link) => link.provider === "youtube")?.url ?? "",
+    tiktok: socials.find((link) => link.provider === "tiktok")?.url ?? "",
+    custom: socials.find((link) => link.provider === "custom")?.url ?? "",
+  };
+}
+
 function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
   const property = record?.property ?? null;
+  const primaryLanguage = property ? getPrimaryLanguage(property) : "en";
+  const languageOptions: PropertyLanguageCode[] = property
+    ? getPropertyLanguageOptions(property)
+    : ["en"];
+  const highlightTexts =
+    property?.highlights.map((highlight, index) => ({
+      id: `highlight-${index}-${localizedText(highlight.text ?? highlight.title, primaryLanguage, primaryLanguage)}`,
+      text: localizedText(
+        highlight.text ?? highlight.title ?? highlight.description,
+        primaryLanguage,
+        primaryLanguage,
+      ),
+    })) ?? [];
+  const translations: TranslationFormState[] =
+    property
+      ? languageOptions
+          .filter((language) => language !== primaryLanguage)
+          .map((language) => ({
+            id: `translation-${language}`,
+            language,
+            title: directText(property.title, language),
+            summary: directText(property.summary, language),
+            description: descriptionTextForAdmin(property.description, language),
+            highlights: property.highlights.map((highlight) =>
+              directText(
+                highlight.text ?? highlight.title ?? highlight.description,
+                language,
+              ),
+            ),
+          }))
+      : [];
+  const interactiveTour = property?.interactiveFloorPlanTour;
 
   return {
     slug: property?.slug ?? "",
     reference: property?.reference ?? "PS-",
     status: property?.status ?? "for-sale",
-    titleEn: property?.title.en ?? "",
-    titleEs: property?.title.es ?? "",
-    summaryEn: property?.summary.en ?? "",
-    summaryEs: property?.summary.es ?? "",
-    descriptionEn: descriptionTextForAdmin(property?.description, "en"),
-    descriptionEs: descriptionTextForAdmin(property?.description, "es"),
+    primaryLanguage,
+    title: property ? localizedText(property.title, primaryLanguage, primaryLanguage) : "",
+    summary: property ? localizedText(property.summary, primaryLanguage, primaryLanguage) : "",
+    description: descriptionTextForAdmin(property?.description, primaryLanguage),
     price: property?.price ?? "",
     coverImage: property?.coverImage ?? "/property-demo/exterior.svg",
     bedrooms: factValue(property, "bedrooms"),
     bathrooms: factValue(property, "bathrooms"),
-    builtArea: factValue(property, "built-area"),
     parking: factValue(property, "parking"),
-    addressEn: property?.location.displayAddress.en ?? "",
-    addressEs: property?.location.displayAddress.es ?? "",
+    builtArea: factValue(property, "built-area"),
+    yearBuilt: factValue(property, "year-built"),
+    plotArea: factValue(property, "plot-area"),
+    address: property
+      ? localizedText(property.location.displayAddress, primaryLanguage, primaryLanguage)
+      : "",
     privacyMode: property?.location.privacyMode ?? "approximate",
+    showMap: property?.location.showMap ?? false,
+    latitude:
+      typeof property?.location.latitude === "number"
+        ? String(property.location.latitude)
+        : "",
+    longitude:
+      typeof property?.location.longitude === "number"
+        ? String(property.location.longitude)
+        : "",
+    mapExternalUrl: property?.location.mapExternalUrl ?? "",
+    mapEmbedUrl: property?.location.mapEmbedUrl ?? "",
+    mapZoom:
+      typeof property?.location.mapZoom === "number"
+        ? String(property.location.mapZoom)
+        : "14",
     tourProvider: property?.virtualTour?.provider ?? "kuula",
     tourInput:
-      property?.virtualTour?.externalUrl ?? property?.virtualTour?.embedUrl ?? "",
+      property?.virtualTour?.embedUrl ?? property?.virtualTour?.externalUrl ?? "",
     tourExternalUrl: property?.virtualTour?.externalUrl ?? "",
-    highlights:
-      property?.highlights.map((highlight, index) => ({
-        id: `highlight-${index}-${highlight.title.en}`,
-        titleEn: highlight.title.en,
-        titleEs: highlight.title.es ?? "",
-        descriptionEn: highlight.description.en,
-        descriptionEs: highlight.description.es ?? "",
-      })) ?? [],
+    interactiveEnabled: interactiveTour?.enabled ?? false,
+    interactiveProvider: interactiveTour?.provider ?? "cubiCasa",
+    interactiveExternalUrl: interactiveTour?.externalUrl ?? "",
+    interactiveEmbedUrl: interactiveTour?.embedUrl ?? "",
+    highlights: highlightTexts,
+    translations,
+    agentDisplayProfile: property?.agent.displayProfile ?? true,
     agencyName: property?.agent.agencyName ?? "",
     agentName: property?.agent.agentName ?? "",
+    agentRole: property ? localizedText(property.agent.role, primaryLanguage, primaryLanguage) : "",
     phone: property?.agent.phone ?? "",
     whatsapp: property?.agent.whatsapp ?? "",
     email: property?.agent.email ?? "",
     website: property?.agent.website ?? "",
+    socials: socialState(property),
     published: record?.published ?? false,
   };
 }
 
+function localizedValue(
+  primaryLanguage: PropertyLanguageCode,
+  primaryValue: string,
+  translations: readonly TranslationFormState[],
+  key: "title" | "summary",
+): LocalizedText {
+  const primary = primaryValue.trim();
+  const english =
+    primaryLanguage === "en"
+      ? primary
+      : translations.find((translation) => translation.language === "en")?.[key]
+          .trim() || primary;
+  const value: LocalizedText = { en: english };
+
+  value[primaryLanguage] = primary;
+  for (const translation of translations) {
+    const translated = translation[key].trim();
+    if (translated) value[translation.language] = translated;
+  }
+
+  return value;
+}
+
+function localizedRole(
+  primaryLanguage: PropertyLanguageCode,
+  role: string,
+): LocalizedText | undefined {
+  const trimmed = role.trim();
+  if (!trimmed) return undefined;
+  return simpleLocalizedText(primaryLanguage, trimmed);
+}
+
+function simpleLocalizedText(
+  primaryLanguage: PropertyLanguageCode,
+  text: string,
+): LocalizedText {
+  const trimmed = text.trim();
+  return primaryLanguage === "en"
+    ? { en: trimmed }
+    : { en: trimmed, [primaryLanguage]: trimmed };
+}
+
 function buildFacts(state: FormState): PropertyFact[] {
   const facts: PropertyFact[] = [];
+  const push = (
+    key: PropertyFact["key"],
+    value: string,
+    label: LocalizedText,
+    sortOrder: number,
+  ) => {
+    if (value.trim()) {
+      facts.push({ key, value: value.trim(), label, sortOrder });
+    }
+  };
 
-  if (state.bedrooms.trim()) {
-    facts.push({
-      key: "bedrooms",
-      value: state.bedrooms.trim(),
-      label: { en: "Bedrooms", es: "Dormitorios" },
-    });
-  }
-  if (state.bathrooms.trim()) {
-    facts.push({
-      key: "bathrooms",
-      value: state.bathrooms.trim(),
-      label: { en: "Bathrooms", es: "Baños" },
-    });
-  }
-  if (state.builtArea.trim()) {
-    facts.push({
-      key: "built-area",
-      value: state.builtArea.trim(),
-      label: { en: "Built area", es: "Superficie construida" },
-    });
-  }
-  if (state.parking.trim()) {
-    facts.push({
-      key: "parking",
-      value: state.parking.trim(),
-      label: { en: "Parking", es: "Aparcamiento" },
-    });
-  }
-
+  push("bedrooms", state.bedrooms, { en: "Bedrooms", es: "Dormitorios" }, 10);
+  push("bathrooms", state.bathrooms, { en: "Bathrooms", es: "Banos" }, 20);
+  push("parking", state.parking, { en: "Parking", es: "Aparcamiento" }, 30);
+  push(
+    "built-area",
+    state.builtArea,
+    { en: "Built area", es: "Superficie construida" },
+    40,
+  );
+  push(
+    "year-built",
+    state.yearBuilt,
+    { en: "Year built", es: "Ano de construccion" },
+    50,
+  );
+  push("plot-area", state.plotArea, { en: "Lot size", es: "Parcela" }, 60);
   return facts;
 }
 
-function buildHighlights(items: readonly HighlightFormState[]): PropertyHighlight[] {
-  return items
-    .slice(0, 6)
-    .map((item) => ({
-      title: {
-        en: item.titleEn.trim(),
-        es: optional(item.titleEs),
-      },
-      description: {
-        en: item.descriptionEn.trim(),
-        es: optional(item.descriptionEs),
-      },
-    }))
+function buildHighlights(state: FormState): PropertyHighlight[] {
+  const highlights: PropertyHighlight[] = [];
+
+  state.highlights.slice(0, 12).forEach((highlight, index) => {
+    const primary = highlight.text.trim();
+    if (!primary) return;
+    const text: LocalizedText =
+      state.primaryLanguage === "en"
+        ? { en: primary }
+        : { en: primary, [state.primaryLanguage]: primary };
+
+    for (const translation of state.translations) {
+      const translated = translation.highlights[index]?.trim();
+      if (translated) text[translation.language] = translated;
+    }
+
+    highlights.push({ text, sortOrder: index + 1 });
+  });
+
+  return highlights;
+}
+
+function buildLanguages(state: FormState): PropertyLanguageCode[] {
+  const translated = state.translations
     .filter(
-      (highlight) =>
-        highlight.title.en.length > 0 && highlight.description.en.length > 0,
-    );
+      (translation) =>
+        translation.title.trim() ||
+        translation.summary.trim() ||
+        translation.description.trim() ||
+        translation.highlights.some((item) => item.trim()),
+    )
+    .map((translation) => translation.language);
+  return [...new Set([state.primaryLanguage, ...translated])];
+}
+
+function buildTranslations(
+  state: FormState,
+): PropertyShowcase["translations"] | undefined {
+  const translations: NonNullable<PropertyShowcase["translations"]> = {};
+  for (const translation of state.translations) {
+    const highlights = translation.highlights
+      .map(optional)
+      .filter((item): item is string => Boolean(item));
+    const description = paragraphs(translation.description);
+    const title = optional(translation.title);
+    const summary = optional(translation.summary);
+    const content: NonNullable<PropertyShowcase["translations"]>[PropertyLanguageCode] = {};
+    if (title) content.title = title;
+    if (summary) content.summary = summary;
+    if (description) content.description = description;
+    if (highlights.length > 0) content.highlights = highlights;
+    if (
+      title ||
+      summary ||
+      (description?.length ?? 0) > 0 ||
+      highlights.length > 0
+    ) {
+      translations[translation.language] = content;
+    }
+  }
+
+  return Object.keys(translations).length > 0 ? translations : undefined;
+}
+
+function numberValue(value: string, min: number, max: number): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max
+    ? parsed
+    : undefined;
+}
+
+function buildSocialLinks(state: FormState): PropertyShowcase["agent"]["socialLinks"] {
+  const links: AgentSocialLink[] = [];
+  (Object.entries(state.socials) as Array<[PropertyAgentSocialProvider, string]>)
+    .forEach(([provider, url], index) => {
+      const trimmed = url.trim();
+      if (trimmed) {
+        links.push({ provider, url: trimmed, sortOrder: index + 1 });
+      }
+    });
+  return links;
 }
 
 function buildProperty(
@@ -207,68 +419,107 @@ function buildProperty(
       {
         id: "cover",
         src: coverImage,
-        alt: { en: state.titleEn.trim(), es: optional(state.titleEs) },
-        label: { en: "Cover image", es: "Imagen principal" },
+        alt: localizedValue(state.primaryLanguage, state.title, state.translations, "title"),
+        label: { en: "Cover image" },
         sortOrder: 1,
       },
     ];
   }
 
+  const descriptionValues: Partial<Record<PropertyLanguageCode, string>> = {
+    [state.primaryLanguage]: state.description,
+  };
+  for (const translation of state.translations) {
+    if (translation.description.trim()) {
+      descriptionValues[translation.language] = translation.description;
+    }
+  }
+
   const tourInput = state.tourInput.trim();
   const hasTour = Boolean(tourInput || state.tourExternalUrl.trim());
   const normalizedTour =
-    normalizeTourPrimaryInput(tourInput) ??
-    normalizeTourPrimaryInput(tourInput, state.tourProvider);
+    normalizeTourPrimaryInput(tourInput, state.tourProvider) ??
+    normalizeTourPrimaryInput(tourInput);
+  const interactiveExternal = state.interactiveExternalUrl.trim();
+  const interactiveEmbed = state.interactiveEmbedUrl.trim();
+  const hasInteractive = Boolean(interactiveExternal || interactiveEmbed);
+  const normalizedInteractive = normalizeInteractiveFloorPlanInput({
+    provider: state.interactiveProvider,
+    externalUrl: interactiveExternal,
+    embedUrl: interactiveEmbed,
+  });
 
   return {
     slug:
       state.slug.trim() ||
-      generatePropertyPageSlug(state.titleEn, state.reference),
+      generatePropertyPageSlug(state.title, state.reference),
     reference: state.reference.trim(),
     status: state.status,
-    title: { en: state.titleEn.trim(), es: optional(state.titleEs) },
-    summary: { en: state.summaryEn.trim(), es: optional(state.summaryEs) },
-    description: descriptionParagraphsFromText(
-      state.descriptionEn,
-      state.descriptionEs,
+    primaryLanguage: state.primaryLanguage,
+    title: localizedValue(state.primaryLanguage, state.title, state.translations, "title"),
+    summary: localizedValue(
+      state.primaryLanguage,
+      state.summary,
+      state.translations,
+      "summary",
+    ),
+    description: descriptionParagraphsFromLanguageTexts(
+      descriptionValues,
+      state.primaryLanguage,
     ),
     priceLabel: { en: "Asking price", es: "Precio de venta" },
     price: state.price.trim(),
     coverImage,
     brochureUrl: existing?.brochureUrl,
-    languages: ["en", "es"],
+    languages: buildLanguages(state),
+    translations: buildTranslations(state),
     facts: buildFacts(state),
-    highlights: buildHighlights(state.highlights),
+    highlights: buildHighlights(state),
     gallery,
     virtualTour: hasTour
       ? {
           provider: normalizedTour?.provider ?? state.tourProvider,
-          embedUrl: optional(tourInput),
-          externalUrl: optional(state.tourExternalUrl),
+          embedUrl: optional(normalizedTour?.embedUrl ?? tourInput),
+          externalUrl: optional(state.tourExternalUrl || normalizedTour?.externalUrl || ""),
           posterImage: existing?.virtualTour?.posterImage ?? coverImage,
+        }
+      : undefined,
+    interactiveFloorPlanTour: state.interactiveEnabled || hasInteractive
+      ? {
+          enabled: state.interactiveEnabled,
+          provider: normalizedInteractive?.provider ?? state.interactiveProvider,
+          externalUrl:
+            optional(normalizedInteractive?.externalUrl ?? interactiveExternal),
+          embedUrl: optional(normalizedInteractive?.embedUrl ?? interactiveEmbed),
+          posterImage:
+            existing?.interactiveFloorPlanTour?.posterImage ??
+            existing?.floorPlans[0]?.imageUrl,
         }
       : undefined,
     floorPlans: existing?.floorPlans ?? [],
     location: {
-      displayAddress: {
-        en: state.addressEn.trim(),
-        es: optional(state.addressEs),
-      },
-      latitude: existing?.location.latitude,
-      longitude: existing?.location.longitude,
+      displayAddress: simpleLocalizedText(state.primaryLanguage, state.address),
+      latitude: numberValue(state.latitude, -90, 90),
+      longitude: numberValue(state.longitude, -180, 180),
       privacyMode: state.privacyMode,
+      showMap: state.showMap,
+      mapExternalUrl: optional(state.mapExternalUrl),
+      mapEmbedUrl: optional(state.mapEmbedUrl),
+      mapZoom: numberValue(state.mapZoom, 1, 22),
       airportTravelTime: existing?.location.airportTravelTime,
     },
     agent: {
       agencyName: state.agencyName.trim(),
+      displayProfile: state.agentDisplayProfile,
       agentName: optional(state.agentName),
-      role: existing?.agent.role,
+      role: localizedRole(state.primaryLanguage, state.agentRole),
       logoUrl: existing?.agent.logoUrl,
       portraitUrl: existing?.agent.portraitUrl,
       phone: optional(state.phone),
       whatsapp: optional(state.whatsapp),
       email: optional(state.email),
       website: optional(state.website),
+      socialLinks: buildSocialLinks(state),
     },
     publishedAt: existing?.publishedAt,
   };
@@ -290,7 +541,7 @@ function Field({
 }: {
   label: string;
   children: ReactNode;
-  hint?: string;
+  hint?: ReactNode;
 }) {
   return (
     <label className="block text-sm font-semibold text-foreground">
@@ -332,7 +583,12 @@ export default function PropertiesAdminClient({
   }
 
   async function remove(record: PropertyShowcaseAdminRecord) {
-    if (busy || !window.confirm(`Delete “${record.property.title.en}”?`)) return;
+    const title = localizedText(
+      record.property.title,
+      getPrimaryLanguage(record.property),
+      getPrimaryLanguage(record.property),
+    );
+    if (busy || !window.confirm(`Delete "${title}"?`)) return;
     setBusy(true);
     setError(null);
 
@@ -346,7 +602,7 @@ export default function PropertiesAdminClient({
         return;
       }
       setEditor("closed");
-      flash(`Deleted “${record.property.title.en}”.`);
+      flash(`Deleted "${title}".`);
       router.refresh();
     } catch {
       setError("Network error while deleting the property.");
@@ -382,7 +638,7 @@ export default function PropertiesAdminClient({
             {records.length} property showcase{records.length === 1 ? "" : "s"}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Listing details, publishing and external tour links.
+            Listing details, publishing, translations, maps and realtor profile.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -441,105 +697,121 @@ export default function PropertiesAdminClient({
             {records.map((record) => {
               const [viewAction, editAction, mediaAction, deleteAction] =
                 propertyCardActions(record);
+              const title = localizedText(
+                record.property.title,
+                getPrimaryLanguage(record.property),
+                getPrimaryLanguage(record.property),
+              );
 
               return (
                 <li
-                key={record.id}
-                className="min-w-0 rounded-2xl border border-border bg-white p-5 shadow-sm"
-              >
-                <div className="min-w-0 space-y-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <h2 className="min-w-0 break-words text-lg font-bold text-primary">
-                      {record.property.title.en}
-                    </h2>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${record.published ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}
-                    >
-                      {record.published ? "Published" : "Draft"}
-                    </span>
+                  key={record.id}
+                  className="min-w-0 rounded-2xl border border-border bg-white p-5 shadow-sm"
+                >
+                  <div className="min-w-0 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <h2 className="min-w-0 break-words text-lg font-bold text-primary">
+                        {title}
+                      </h2>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${record.published ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}
+                      >
+                        {record.published ? "Published" : "Draft"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted">
+                      /property/{record.slug} {"\u00b7"} {record.property.reference}{" "}
+                      {"\u00b7"}{" "}
+                      {formatPriceLabel(record.property.price)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Updated {new Date(record.updatedAt).toLocaleString()}
+                    </p>
+                    <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                          Languages
+                        </dt>
+                        <dd className="mt-1 text-foreground">
+                          {getPropertyLanguageOptions(record.property)
+                            .map((language) => language.toUpperCase())
+                            .join(", ")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                          Realtor profile
+                        </dt>
+                        <dd className="mt-1 text-foreground">
+                          {record.property.agent.displayProfile === false
+                            ? "hidden"
+                            : "visible"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                          Map
+                        </dt>
+                        <dd className="mt-1 text-foreground">
+                          {record.property.location.showMap
+                            ? record.property.location.privacyMode
+                            : "hidden"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                          Interactive plan
+                        </dt>
+                        <dd className="mt-1 text-foreground">
+                          {record.property.interactiveFloorPlanTour?.enabled
+                            ? record.property.interactiveFloorPlanTour.provider
+                            : record.property.floorPlans.some(
+                                  (plan) =>
+                                    plan.interactiveExternalUrl ||
+                                    plan.interactiveEmbedUrl ||
+                                    plan.interactiveUrl,
+                                )
+                              ? "legacy fallback"
+                              : "not set"}
+                        </dd>
+                      </div>
+                    </dl>
                   </div>
-                  <p className="mt-1 text-sm text-muted">
-                    /property/{record.slug} · {record.property.reference} ·{" "}
-                    {formatPriceLabel(record.property.price)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    Updated {new Date(record.updatedAt).toLocaleString()}
-                  </p>
-                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div className="min-w-0">
-                      <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
-                        Page URL
-                      </dt>
-                      <dd className="mt-1 break-all text-foreground">
-                        /property/{record.slug}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
-                        Image count
-                      </dt>
-                      <dd className="mt-1 text-foreground">
-                        {record.property.gallery.length}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
-                        Floor plans
-                      </dt>
-                      <dd className="mt-1 text-foreground">
-                        {record.property.floorPlans.length > 0
-                          ? `${record.property.floorPlans.length} ready`
-                          : "not set"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
-                        360 tour
-                      </dt>
-                      <dd className="mt-1 text-foreground">
-                        {record.property.virtualTour?.embedUrl ||
-                        record.property.virtualTour?.externalUrl
-                          ? record.property.virtualTour.provider
-                          : "not set"}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-                <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  <Link
-                    href={viewAction.href}
-                    target="_blank"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40"
-                  >
-                    <ExternalLink className="h-4 w-4" aria-hidden />{" "}
-                    {viewAction.label}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setEditor({ kind: "edit", record })}
-                    disabled={busy}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden />{" "}
-                    {editAction.label}
-                  </button>
-                  <Link
-                    href={mediaAction.href}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40"
-                  >
-                    <Images className="h-4 w-4" aria-hidden />
-                    {mediaAction.label}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => remove(record)}
-                    disabled={busy}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 px-3.5 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />{" "}
-                    {deleteAction.label}
-                  </button>
-                </div>
+                  <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <Link
+                      href={viewAction.href}
+                      target="_blank"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40"
+                    >
+                      <ExternalLink className="h-4 w-4" aria-hidden />{" "}
+                      {viewAction.label}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setEditor({ kind: "edit", record })}
+                      disabled={busy}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden />{" "}
+                      {editAction.label}
+                    </button>
+                    <Link
+                      href={mediaAction.href}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40"
+                    >
+                      <Images className="h-4 w-4" aria-hidden />
+                      {mediaAction.label}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => remove(record)}
+                      disabled={busy}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 px-3.5 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />{" "}
+                      {deleteAction.label}
+                    </button>
+                  </div>
                 </li>
               );
             })}
@@ -567,20 +839,27 @@ function PropertyEditor({
   const [pageUrlTouched, setPageUrlTouched] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
   const normalizedTourPreview =
-    normalizeTourPrimaryInput(form.tourInput) ??
-    normalizeTourPrimaryInput(form.tourInput, form.tourProvider);
+    normalizeTourPrimaryInput(form.tourInput, form.tourProvider) ??
+    normalizeTourPrimaryInput(form.tourInput);
+  const normalizedInteractivePreview = normalizeInteractiveFloorPlanInput({
+    provider: form.interactiveProvider,
+    externalUrl: form.interactiveExternalUrl,
+    embedUrl: form.interactiveEmbedUrl,
+  });
+  const normalizedMapExternal = normalizeGoogleMapsInput(form.mapExternalUrl);
+  const normalizedMapEmbed = normalizeGoogleMapsInput(form.mapEmbedUrl);
   const pageUrlPreview = `/property/${
-    form.slug.trim() || generatePropertyPageSlug(form.titleEn, form.reference)
+    form.slug.trim() || generatePropertyPageSlug(form.title, form.reference)
   }`;
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function setTitleEn(value: string) {
+  function setTitle(value: string) {
     setForm((current) => ({
       ...current,
-      titleEn: value,
+      title: value,
       slug:
         mode === "create" && !pageUrlTouched
           ? generatePropertyPageSlug(value, current.reference)
@@ -593,7 +872,7 @@ function PropertyEditor({
       ...current,
       reference: value,
       slug:
-        mode === "create" && !pageUrlTouched && !current.titleEn.trim()
+        mode === "create" && !pageUrlTouched && !current.title.trim()
           ? generatePropertyPageSlug("", value)
           : current.slug,
     }));
@@ -606,57 +885,108 @@ function PropertyEditor({
 
   function addHighlight() {
     setForm((current) => {
-      if (current.highlights.length >= 6) return current;
+      if (current.highlights.length >= 12) return current;
       return {
         ...current,
         highlights: [
           ...current.highlights,
-          {
-            id: `highlight-${crypto.randomUUID()}`,
-            titleEn: "",
-            titleEs: "",
-            descriptionEn: "",
-            descriptionEs: "",
-          },
+          { id: `highlight-${crypto.randomUUID()}`, text: "" },
         ],
+        translations: current.translations.map((translation) => ({
+          ...translation,
+          highlights: [...translation.highlights, ""],
+        })),
       };
     });
   }
 
-  function updateHighlight<K extends keyof HighlightFormState>(
-    id: string,
-    key: K,
-    value: HighlightFormState[K],
-  ) {
+  function updateHighlight(id: string, value: string) {
     setForm((current) => ({
       ...current,
       highlights: current.highlights.map((highlight) =>
-        highlight.id === id ? { ...highlight, [key]: value } : highlight,
+        highlight.id === id ? { ...highlight, text: value } : highlight,
       ),
     }));
   }
 
   function removeHighlight(id: string) {
+    setForm((current) => {
+      const index = current.highlights.findIndex((highlight) => highlight.id === id);
+      return {
+        ...current,
+        highlights: current.highlights.filter((highlight) => highlight.id !== id),
+        translations: current.translations.map((translation) => ({
+          ...translation,
+          highlights: translation.highlights.filter((_, itemIndex) => itemIndex !== index),
+        })),
+      };
+    });
+  }
+
+  function addTranslation(language: PropertyLanguageCode) {
+    if (
+      language === form.primaryLanguage ||
+      form.translations.some((translation) => translation.language === language)
+    ) {
+      return;
+    }
     setForm((current) => ({
       ...current,
-      highlights: current.highlights.filter((highlight) => highlight.id !== id),
+      translations: [
+        ...current.translations,
+        {
+          id: `translation-${language}`,
+          language,
+          title: "",
+          summary: "",
+          description: "",
+          highlights: current.highlights.map(() => ""),
+        },
+      ],
     }));
   }
 
-  function moveHighlight(id: string, direction: -1 | 1) {
-    setForm((current) => {
-      const index = current.highlights.findIndex((highlight) => highlight.id === id);
-      const target = index + direction;
-      if (index < 0 || target < 0 || target >= current.highlights.length) {
-        return current;
-      }
-      const highlights = [...current.highlights];
-      [highlights[index], highlights[target]] = [
-        highlights[target],
-        highlights[index],
-      ];
-      return { ...current, highlights };
-    });
+  function removeTranslation(id: string) {
+    setForm((current) => ({
+      ...current,
+      translations: current.translations.filter((translation) => translation.id !== id),
+    }));
+  }
+
+  function updateTranslation<K extends keyof TranslationFormState>(
+    id: string,
+    key: K,
+    value: TranslationFormState[K],
+  ) {
+    setForm((current) => ({
+      ...current,
+      translations: current.translations.map((translation) =>
+        translation.id === id ? { ...translation, [key]: value } : translation,
+      ),
+    }));
+  }
+
+  function updateTranslationHighlight(
+    id: string,
+    index: number,
+    value: string,
+  ) {
+    setForm((current) => ({
+      ...current,
+      translations: current.translations.map((translation) => {
+        if (translation.id !== id) return translation;
+        const highlights = [...translation.highlights];
+        highlights[index] = value;
+        return { ...translation, highlights };
+      }),
+    }));
+  }
+
+  function updateSocial(provider: PropertyAgentSocialProvider, value: string) {
+    setForm((current) => ({
+      ...current,
+      socials: { ...current.socials, [provider]: value },
+    }));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -694,7 +1024,7 @@ function PropertyEditor({
         return;
       }
       onSaved(
-        `${mode === "create" ? "Created" : "Updated"} “${property.title.en}”.`,
+        `${mode === "create" ? "Created" : "Updated"} "${property.title.en}".`,
       );
     } catch {
       onError("Network error while saving the property.");
@@ -702,6 +1032,12 @@ function PropertyEditor({
       setSaving(false);
     }
   }
+
+  const availableTranslationLanguages = SUPPORTED_PROPERTY_LANGUAGES.filter(
+    (language) =>
+      language !== form.primaryLanguage &&
+      !form.translations.some((translation) => translation.language === language),
+  );
 
   return (
     <form
@@ -714,7 +1050,7 @@ function PropertyEditor({
             {mode === "create" ? "New property showcase" : "Edit property showcase"}
           </h2>
           <p className="mt-1 text-xs text-muted">
-            Main listing data and external tour links. Photos and floor-plan files are managed separately.
+            Main listing details, translations, map and realtor profile.
           </p>
         </div>
         <button
@@ -728,13 +1064,13 @@ function PropertyEditor({
       </div>
 
       <div className="space-y-8 p-5 sm:p-6">
-        <Section title="Identity and publishing">
+        <Section title="1. Page and publishing">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Field
               label="Page URL"
               hint={
                 mode === "edit"
-                  ? "Locked because uploaded media and the public page address use this path."
+                  ? "Locked after creation because Storage media uses this folder."
                   : "Lowercase letters, numbers and hyphens only."
               }
             >
@@ -745,20 +1081,16 @@ function PropertyEditor({
                 readOnly={mode === "edit"}
                 aria-readonly={mode === "edit"}
                 onChange={(event) => {
-                  if (mode === "create") {
-                    setPageUrl(event.target.value);
-                  }
+                  if (mode === "create") setPageUrl(event.target.value);
                 }}
-                className={
-                  mode === "edit" ? protectedMediaInputClass : inputClass
-                }
+                className={mode === "edit" ? protectedInputClass : inputClass}
                 placeholder="villa-altea-hills"
               />
               <span className="mt-1 block break-all text-xs font-normal text-muted">
                 picchuspot.com{pageUrlPreview}
               </span>
             </Field>
-            <Field label="Reference">
+            <Field label="Reference / listing number">
               <input
                 required
                 value={form.reference}
@@ -780,194 +1112,90 @@ function PropertyEditor({
                 <option value="off-market">Off market</option>
               </select>
             </Field>
-            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
+            <Field
+              label="Cover image"
+              hint="Protected. Change it in Manage media."
+            >
               <input
-                type="checkbox"
-                checked={form.published}
-                onChange={(event) => set("published", event.target.checked)}
-                className="h-4 w-4 accent-primary"
+                value={form.coverImage}
+                readOnly
+                aria-readonly="true"
+                className={protectedInputClass}
               />
-              Publish publicly
-            </label>
+            </Field>
           </div>
         </Section>
 
-        <Section title="English and Spanish copy">
+        <Section title="2. Primary language">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Primary content language">
+              <select
+                value={form.primaryLanguage}
+                onChange={(event) =>
+                  set("primaryLanguage", event.target.value as PropertyLanguageCode)
+                }
+                className={inputClass}
+              >
+                {SUPPORTED_PROPERTY_LANGUAGES.map((language) => (
+                  <option key={language} value={language}>
+                    {PROPERTY_LANGUAGE_LABELS[language]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="3. Property description">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Title — English">
+            <Field label="Title">
               <input
                 required
-                value={form.titleEn}
-                onChange={(event) => setTitleEn(event.target.value)}
+                value={form.title}
+                onChange={(event) => setTitle(event.target.value)}
                 className={inputClass}
               />
             </Field>
-            <Field label="Title — Spanish">
-              <input
-                value={form.titleEs}
-                onChange={(event) => set("titleEs", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Summary — English">
+            <Field label="Summary">
               <textarea
                 required
                 rows={3}
-                value={form.summaryEn}
-                onChange={(event) => set("summaryEn", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Summary — Spanish">
-              <textarea
-                rows={3}
-                value={form.summaryEs}
-                onChange={(event) => set("summaryEs", event.target.value)}
+                value={form.summary}
+                onChange={(event) => set("summary", event.target.value)}
                 className={inputClass}
               />
             </Field>
             <Field
-              label="Description — English"
+              label="Description"
               hint="Separate paragraphs with a blank line."
             >
               <textarea
-                rows={5}
-                value={form.descriptionEn}
-                onChange={(event) => set("descriptionEn", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field
-              label="Description — Spanish"
-              hint="Separate paragraphs with a blank line."
-            >
-              <textarea
-                rows={5}
-                value={form.descriptionEs}
-                onChange={(event) => set("descriptionEs", event.target.value)}
+                rows={6}
+                value={form.description}
+                onChange={(event) => set("description", event.target.value)}
                 className={inputClass}
               />
             </Field>
           </div>
         </Section>
 
-        <Section title="Highlights">
-          <div className="space-y-4">
-            {form.highlights.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-surface px-4 py-5 text-sm text-muted">
-                No highlights yet.
-              </div>
-            ) : (
-              form.highlights.map((highlight, index) => (
-                <article
-                  key={highlight.id}
-                  className="rounded-xl border border-border bg-surface p-4"
-                >
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold text-primary">
-                      Highlight {index + 1}
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => moveHighlight(highlight.id, -1)}
-                        disabled={index === 0}
-                        className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
-                      >
-                        Earlier
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveHighlight(highlight.id, 1)}
-                        disabled={index === form.highlights.length - 1}
-                        className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
-                      >
-                        Later
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeHighlight(highlight.id)}
-                        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-700"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Title — English">
-                      <input
-                        value={highlight.titleEn}
-                        onChange={(event) =>
-                          updateHighlight(highlight.id, "titleEn", event.target.value)
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="Title — Spanish">
-                      <input
-                        value={highlight.titleEs}
-                        onChange={(event) =>
-                          updateHighlight(highlight.id, "titleEs", event.target.value)
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="Description — English">
-                      <textarea
-                        rows={3}
-                        value={highlight.descriptionEn}
-                        onChange={(event) =>
-                          updateHighlight(
-                            highlight.id,
-                            "descriptionEn",
-                            event.target.value,
-                          )
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="Description — Spanish">
-                      <textarea
-                        rows={3}
-                        value={highlight.descriptionEs}
-                        onChange={(event) =>
-                          updateHighlight(
-                            highlight.id,
-                            "descriptionEs",
-                            event.target.value,
-                          )
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
-                </article>
-              ))
-            )}
-            <button
-              type="button"
-              onClick={addHighlight}
-              disabled={form.highlights.length >= 6}
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50"
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              Add highlight
-            </button>
-          </div>
-        </Section>
-
-        <Section title="Listing facts">
+        <Section title="4. Listing facts">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Field
               label="Price"
-              hint="Costa Blanca default is EUR, so 385560 displays as €385,560. For non-European listings, include the symbol, for example $385,560."
+              hint={
+                <>
+                  Costa Blanca defaults use EUR. Enter the symbol when needed, for
+                  example {"\u20ac"}695,000 or $385,560.
+                </>
+              }
             >
               <input
                 required
                 value={form.price}
                 onChange={(event) => set("price", event.target.value)}
                 className={inputClass}
-                placeholder="€695,000"
+                placeholder={"\u20ac695,000"}
               />
             </Field>
             <Field label="Bedrooms">
@@ -984,18 +1212,7 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field
-              label="Built area"
-              hint="Costa Blanca default is m². For non-European listings, include the unit, for example 1,900 sq ft or 9.19 acres."
-            >
-              <input
-                value={form.builtArea}
-                onChange={(event) => set("builtArea", event.target.value)}
-                className={inputClass}
-                placeholder="142 m²"
-              />
-            </Field>
-            <Field label="Parking">
+            <Field label="Parking / garage">
               <input
                 value={form.parking}
                 onChange={(event) => set("parking", event.target.value)}
@@ -1003,56 +1220,80 @@ function PropertyEditor({
               />
             </Field>
             <Field
-              label="Cover image"
-              hint="Protected. Change it in Manage photos & floor plans."
+              label="Built area"
+              hint={
+                <>
+                  Costa Blanca default is m{"\u00b2"}. For non-European listings,
+                  enter the unit, for example 1,900 sq ft or 9.19 acres.
+                </>
+              }
             >
               <input
-                value={form.coverImage}
-                readOnly
-                aria-readonly="true"
-                className={protectedMediaInputClass}
+                value={form.builtArea}
+                onChange={(event) => set("builtArea", event.target.value)}
+                className={inputClass}
+                placeholder={`142 m${"\u00b2"}`}
+              />
+            </Field>
+            <Field label="Year built">
+              <input
+                value={form.yearBuilt}
+                onChange={(event) => set("yearBuilt", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Lot / plot size">
+              <input
+                value={form.plotArea}
+                onChange={(event) => set("plotArea", event.target.value)}
+                className={inputClass}
               />
             </Field>
           </div>
         </Section>
 
-        <Section title="Location">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Address — English">
-              <input
-                required
-                value={form.addressEn}
-                onChange={(event) => set("addressEn", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Address — Spanish">
-              <input
-                value={form.addressEs}
-                onChange={(event) => set("addressEs", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Privacy">
-              <select
-                value={form.privacyMode}
-                onChange={(event) =>
-                  set(
-                    "privacyMode",
-                    event.target.value as FormState["privacyMode"],
-                  )
-                }
-                className={inputClass}
-              >
-                <option value="exact">Exact</option>
-                <option value="approximate">Approximate</option>
-                <option value="hidden">Hidden</option>
-              </select>
-            </Field>
+        <Section title="5. Highlights">
+          <div className="space-y-4">
+            {form.highlights.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-surface px-4 py-5 text-sm text-muted">
+                No highlights yet.
+              </div>
+            ) : (
+              form.highlights.map((highlight, index) => (
+                <div key={highlight.id} className="flex gap-3">
+                  <Field label={`Highlight ${index + 1}`}>
+                    <input
+                      value={highlight.text}
+                      onChange={(event) =>
+                        updateHighlight(highlight.id, event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                  <button
+                    type="button"
+                    onClick={() => removeHighlight(highlight.id)}
+                    className="mt-7 grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-red-200 text-red-700 hover:bg-red-50"
+                    aria-label="Remove highlight"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              ))
+            )}
+            <button
+              type="button"
+              onClick={addHighlight}
+              disabled={form.highlights.length >= 12}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add highlight
+            </button>
           </div>
         </Section>
 
-        <Section title="360 tour">
+        <Section title="6. 360 virtual tour">
           <div className="space-y-4">
             <Field
               label="Tour link or embed code"
@@ -1065,76 +1306,213 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-
-            <details className="rounded-xl border border-border bg-surface px-4 py-3">
-              <summary className="cursor-pointer text-sm font-bold text-primary">
-                Advanced settings
-              </summary>
-              <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Field label="Provider">
-                  <select
-                    value={normalizedTourPreview?.provider ?? form.tourProvider}
-                    onChange={(event) =>
-                      set(
-                        "tourProvider",
-                        event.target.value as PropertyTourProvider,
-                      )
-                    }
-                    className={inputClass}
-                  >
-                    <option value="kuula">Kuula</option>
-                    <option value="matterport">Matterport</option>
-                    <option value="cubiCasa">CubiCasa</option>
-                    <option value="floorfy">Floorfy</option>
-                    <option value="nodalview">Nodalview</option>
-                    <option value="custom">Custom</option>
-                  </select>
-                </Field>
-                <Field label="Original/fallback URL">
-                  <input
-                    value={form.tourExternalUrl}
-                    onChange={(event) => set("tourExternalUrl", event.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Normalized embed URL preview">
-                  <input
-                    value={normalizedTourPreview?.embedUrl ?? ""}
-                    readOnly
-                    aria-readonly="true"
-                    className={protectedMediaInputClass}
-                  />
-                </Field>
-              </div>
-            </details>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="Provider">
+                <select
+                  value={normalizedTourPreview?.provider ?? form.tourProvider}
+                  onChange={(event) =>
+                    set("tourProvider", event.target.value as PropertyTourProvider)
+                  }
+                  className={inputClass}
+                >
+                  <option value="kuula">Kuula</option>
+                  <option value="matterport">Matterport</option>
+                  <option value="cubiCasa">CubiCasa</option>
+                  <option value="floorfy">Floorfy</option>
+                  <option value="nodalview">Nodalview</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </Field>
+              <Field label="Original/fallback URL">
+                <input
+                  value={form.tourExternalUrl}
+                  onChange={(event) => set("tourExternalUrl", event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Normalized embed URL preview">
+                <input
+                  value={normalizedTourPreview?.embedUrl ?? ""}
+                  readOnly
+                  aria-readonly="true"
+                  className={protectedInputClass}
+                />
+              </Field>
+            </div>
           </div>
         </Section>
 
-        <Section title="Floor plans">
-          <div className="rounded-xl border border-border bg-surface p-4 text-sm leading-6 text-muted">
-            <p>
-              {record?.property.floorPlans.length ?? 0} ordinary floor plan
-              {(record?.property.floorPlans.length ?? 0) === 1 ? "" : "s"} saved.
-              Upload, order, title and connect interactive plans in Manage media.
-            </p>
-            {record ? (
-              <Link
-                href={`/admin/properties/media?property=${encodeURIComponent(record.id)}`}
-                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-bold text-primary transition hover:border-primary/40"
-              >
-                <Images className="h-4 w-4" aria-hidden />
-                Manage floor plans
-              </Link>
-            ) : (
-              <p className="mt-2 text-xs">
-                Create the property first, then upload floor-plan files.
-              </p>
-            )}
+        <Section title="7. Interactive floor-plan tour">
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
+              <input
+                type="checkbox"
+                checked={form.interactiveEnabled}
+                onChange={(event) => set("interactiveEnabled", event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Show property-level interactive floor-plan tour
+            </label>
+            <Field
+              label="Interactive plan link or embed code"
+              hint="A normal CubiCasa share link opens in a new tab. To display CubiCasa inside PicchuSpot, paste the full code from CubiCasa -> Share -> Embedded code."
+            >
+              <textarea
+                rows={3}
+                value={form.interactiveEmbedUrl || form.interactiveExternalUrl}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const normalized = normalizeInteractiveFloorPlanInput({
+                    provider: form.interactiveProvider,
+                    externalUrl: value,
+                    embedUrl: value,
+                  });
+                  if (normalized?.embedUrl && !normalized.externalUrl) {
+                    set("interactiveEmbedUrl", value);
+                    set("interactiveExternalUrl", "");
+                  } else {
+                    set("interactiveExternalUrl", value);
+                    set("interactiveEmbedUrl", "");
+                  }
+                }}
+                className={inputClass}
+              />
+            </Field>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="Provider">
+                <select
+                  value={normalizedInteractivePreview?.provider ?? form.interactiveProvider}
+                  onChange={(event) =>
+                    set(
+                      "interactiveProvider",
+                      event.target.value as PropertyTourProvider,
+                    )
+                  }
+                  className={inputClass}
+                >
+                  <option value="cubiCasa">CubiCasa</option>
+                  <option value="floorfy">Floorfy</option>
+                  <option value="nodalview">Nodalview</option>
+                  <option value="kuula">Kuula</option>
+                  <option value="matterport">Matterport</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </Field>
+              <Field label="External URL">
+                <input
+                  value={form.interactiveExternalUrl}
+                  onChange={(event) => set("interactiveExternalUrl", event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Embed URL preview">
+                <input
+                  value={normalizedInteractivePreview?.embedUrl ?? form.interactiveEmbedUrl}
+                  onChange={(event) => set("interactiveEmbedUrl", event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
           </div>
         </Section>
 
-        <Section title="Agent and agency">
+        <Section title="8. Location and map">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Field label="Address">
+              <input
+                required
+                value={form.address}
+                onChange={(event) => set("address", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Privacy">
+              <select
+                value={form.privacyMode}
+                onChange={(event) =>
+                  set("privacyMode", event.target.value as FormState["privacyMode"])
+                }
+                className={inputClass}
+              >
+                <option value="exact">Exact</option>
+                <option value="approximate">Approximate</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </Field>
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
+              <input
+                type="checkbox"
+                checked={form.showMap}
+                onChange={(event) => set("showMap", event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Show map
+            </label>
+            <Field label="Zoom">
+              <input
+                value={form.mapZoom}
+                onChange={(event) => set("mapZoom", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Latitude">
+              <input
+                value={form.latitude}
+                onChange={(event) => set("latitude", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Longitude">
+              <input
+                value={form.longitude}
+                onChange={(event) => set("longitude", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Google Maps link"
+              hint={
+                normalizedMapExternal || !form.mapExternalUrl
+                  ? "Normal Maps links open as a fallback card action."
+                  : "Only exact Google Maps origins are accepted."
+              }
+            >
+              <input
+                value={form.mapExternalUrl}
+                onChange={(event) => set("mapExternalUrl", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Google Maps iframe/embed"
+              hint={
+                normalizedMapEmbed?.embedUrl || !form.mapEmbedUrl
+                  ? "Exact mode can render a validated Google Maps embed."
+                  : "Paste a Google Maps embed iframe or /maps/embed URL."
+              }
+            >
+              <input
+                value={form.mapEmbedUrl}
+                onChange={(event) => set("mapEmbedUrl", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="9. Realtor and agency">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
+              <input
+                type="checkbox"
+                checked={form.agentDisplayProfile}
+                onChange={(event) =>
+                  set("agentDisplayProfile", event.target.checked)
+                }
+                className="h-4 w-4 accent-primary"
+              />
+              Show realtor profile
+            </label>
             <Field label="Agency">
               <input
                 required
@@ -1147,6 +1525,13 @@ function PropertyEditor({
               <input
                 value={form.agentName}
                 onChange={(event) => set("agentName", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Role / title">
+              <input
+                value={form.agentRole}
+                onChange={(event) => set("agentRole", event.target.value)}
                 className={inputClass}
               />
             </Field>
@@ -1172,14 +1557,159 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Website">
+            <Field label="Agency website">
               <input
                 value={form.website}
                 onChange={(event) => set("website", event.target.value)}
                 className={inputClass}
               />
             </Field>
+            {(Object.keys(form.socials) as PropertyAgentSocialProvider[]).map(
+              (provider) => (
+                <Field key={provider} label={`${provider} URL`}>
+                  <input
+                    value={form.socials[provider]}
+                    onChange={(event) => updateSocial(provider, event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              ),
+            )}
           </div>
+          <p className="mt-3 text-xs text-muted">
+            Upload the realtor photo and agency logo in Manage media. They stay
+            inside this property&apos;s Storage folder and are cleaned up only after
+            a successful save.
+          </p>
+        </Section>
+
+        <Section title="10. Translations">
+          <div className="space-y-5">
+            <div className="flex flex-wrap gap-2">
+              {availableTranslationLanguages.map((language) => (
+                <button
+                  key={language}
+                  type="button"
+                  onClick={() => addTranslation(language)}
+                  className="rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-primary hover:border-primary/40"
+                >
+                  Add {PROPERTY_LANGUAGE_LABELS[language]}
+                </button>
+              ))}
+            </div>
+            {form.translations.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-surface px-4 py-5 text-sm text-muted">
+                No additional translations yet.
+              </div>
+            ) : (
+              form.translations.map((translation) => {
+                const completion = record
+                  ? translationCompletion(
+                      buildProperty(form, record.property),
+                      translation.language,
+                    )
+                  : 0;
+                return (
+                  <article
+                    key={translation.id}
+                    className="rounded-xl border border-border bg-surface p-4"
+                  >
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-bold text-primary">
+                          {PROPERTY_LANGUAGE_LABELS[translation.language]}
+                        </h4>
+                        <p className="mt-1 text-xs text-muted">
+                          Completion: {completion}%
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeTranslation(translation.id)}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Title">
+                        <input
+                          value={translation.title}
+                          onChange={(event) =>
+                            updateTranslation(
+                              translation.id,
+                              "title",
+                              event.target.value,
+                            )
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="Summary">
+                        <textarea
+                          rows={3}
+                          value={translation.summary}
+                          onChange={(event) =>
+                            updateTranslation(
+                              translation.id,
+                              "summary",
+                              event.target.value,
+                            )
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="Description">
+                        <textarea
+                          rows={5}
+                          value={translation.description}
+                          onChange={(event) =>
+                            updateTranslation(
+                              translation.id,
+                              "description",
+                              event.target.value,
+                            )
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
+                    {form.highlights.length > 0 ? (
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        {form.highlights.map((highlight, index) => (
+                          <Field key={highlight.id} label={`Highlight ${index + 1}`}>
+                            <input
+                              value={translation.highlights[index] ?? ""}
+                              onChange={(event) =>
+                                updateTranslationHighlight(
+                                  translation.id,
+                                  index,
+                                  event.target.value,
+                                )
+                              }
+                              className={inputClass}
+                            />
+                          </Field>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </Section>
+
+        <Section title="11. Publishing controls">
+          <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
+            <input
+              type="checkbox"
+              checked={form.published}
+              onChange={(event) => set("published", event.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            Publish publicly
+          </label>
         </Section>
       </div>
 
@@ -1201,7 +1731,7 @@ function PropertyEditor({
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           ) : null}
           {saving
-            ? "Saving…"
+            ? "Saving..."
             : mode === "create"
               ? "Create property"
               : "Save changes"}

@@ -1,8 +1,10 @@
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
+  PropertyInteractiveFloorPlanTour,
   PropertyShowcase,
 } from "./types";
+import { normalizeInteractiveFloorPlanInput } from "./provider-urls.ts";
 
 export function hasNativeInteractiveFloorPlan(
   gallery: readonly PropertyGalleryImage[],
@@ -13,7 +15,10 @@ export function hasNativeInteractiveFloorPlan(
 export function hasExternalInteractiveFloorPlan(
   property: PropertyShowcase,
 ): boolean {
-  return getExternalInteractiveFloorPlan(property) !== undefined;
+  return (
+    getPropertyLevelInteractiveFloorPlanTour(property) !== undefined ||
+    getExternalInteractiveFloorPlan(property) !== undefined
+  );
 }
 
 export function hasFloorPlanInteractiveInput(
@@ -40,9 +45,23 @@ export function getExternalInteractiveFloorPlan(
   );
 }
 
+export function getPropertyLevelInteractiveFloorPlanTour(
+  property: PropertyShowcase,
+): PropertyInteractiveFloorPlanTour | undefined {
+  const tour = property.interactiveFloorPlanTour;
+  if (!tour?.enabled) return undefined;
+  const normalized = normalizeInteractiveFloorPlanInput({
+    provider: tour.provider,
+    externalUrl: tour.externalUrl,
+    embedUrl: tour.embedUrl,
+  });
+  return normalized ? tour : undefined;
+}
+
 export function shouldRenderInteractiveFloorPlan(
   property: PropertyShowcase,
 ): boolean {
+  if (getPropertyLevelInteractiveFloorPlanTour(property)) return true;
   if (property.floorPlans.length === 0) return false;
   return (
     hasExternalInteractiveFloorPlan(property) ||

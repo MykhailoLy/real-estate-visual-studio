@@ -38,7 +38,7 @@ const forbiddenHeaders = [
 ];
 
 const expectedContentSecurityPolicy =
-  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com https://kuula.co https://my.matterport.com https://unbranded.visithome.ai https://visithome.ai https://floorfy.com https://www.floorfy.com https://www.nodalview.com; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://client.crisp.chat https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://client.crisp.chat; img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat; font-src 'self' https://client.crisp.chat; connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat; frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com https://kuula.co https://my.matterport.com https://unbranded.visithome.ai https://visithome.ai https://floorfy.com https://www.floorfy.com https://www.nodalview.com https://www.google.com https://maps.google.com; media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat; worker-src 'self' blob: https://client.crisp.chat; manifest-src 'self'";
 
 const expectedContentSecurityPolicyHeader: ResponseHeader = {
   key: "Content-Security-Policy",
@@ -99,6 +99,8 @@ const expectedContentSecurityPolicyOrigins = [
   "https://floorfy.com",
   "https://www.floorfy.com",
   "https://www.nodalview.com",
+  "https://www.google.com",
+  "https://maps.google.com",
 ];
 
 const expectedExternalSourcesByDirective = {
@@ -135,6 +137,8 @@ const expectedExternalSourcesByDirective = {
     "https://floorfy.com",
     "https://www.floorfy.com",
     "https://www.nodalview.com",
+    "https://www.google.com",
+    "https://maps.google.com",
   ],
   "media-src": [
     "https://grvltquwenaorucsvooc.supabase.co",
