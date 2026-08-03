@@ -23,6 +23,12 @@ export interface NormalizedInteractiveFloorPlanUrl {
   inputKind: "url" | "iframe";
 }
 
+export interface InteractiveFloorPlanOpenAction {
+  url: string;
+  label: string;
+  isOriginalUrl: boolean;
+}
+
 export interface ProviderUrlValidationResult {
   ok: boolean;
   property?: PropertyShowcase;
@@ -332,6 +338,28 @@ export function normalizeFloorPlanInteractiveUrl(
     canEmbed: Boolean(normalized.embedUrl),
     inputKind: normalized.inputKind,
   };
+}
+
+export function getInteractiveFloorPlanOpenAction(
+  plan: NormalizedInteractiveFloorPlanUrl,
+): InteractiveFloorPlanOpenAction | null {
+  if (plan.externalUrl?.trim()) {
+    return {
+      url: plan.externalUrl,
+      label: "Open original interactive plan",
+      isOriginalUrl: true,
+    };
+  }
+
+  if (plan.embedUrl?.trim()) {
+    return {
+      url: plan.embedUrl,
+      label: "Open interactive plan in new tab",
+      isOriginalUrl: false,
+    };
+  }
+
+  return null;
 }
 
 function looksLikeExplicitEmbedUrl(url: URL): boolean {

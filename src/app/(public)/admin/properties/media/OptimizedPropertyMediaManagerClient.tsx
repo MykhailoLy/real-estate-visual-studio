@@ -1206,6 +1206,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                             className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
                           />
                         </label>
+                        <p className="mt-2 text-xs leading-5 text-muted">
+                          A normal CubiCasa share link opens in a new tab. To
+                          display CubiCasa inside PicchuSpot, paste the full
+                          code from CubiCasa → Share → Embedded code.
+                        </p>
                         <details className="mt-3">
                           <summary className="cursor-pointer text-xs font-bold text-primary">
                             Advanced settings

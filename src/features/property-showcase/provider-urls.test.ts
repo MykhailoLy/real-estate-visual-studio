@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   extractIframeSrc,
+  getInteractiveFloorPlanOpenAction,
   getTrustedPropertyFrameOrigins,
   normalizeFloorPlanInteractiveUrl,
   normalizeInteractiveFloorPlanInput,
@@ -126,6 +127,32 @@ test("CubiCasa iframe HTML extracts a validated embed URL separately", () => {
     "https://unbranded.visithome.ai/12345?mode=embed&lang=en",
   );
   assert.equal(normalized?.canEmbed, true);
+});
+
+test("interactive open action labels separate originals from embed-only fallbacks", () => {
+  const withOriginal = normalizeInteractiveFloorPlanInput({
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/12345",
+    embedUrl: "https://unbranded.visithome.ai/12345?mode=embed",
+  });
+  assert.ok(withOriginal);
+  assert.deepEqual(getInteractiveFloorPlanOpenAction(withOriginal), {
+    url: "https://unbranded.visithome.ai/12345",
+    label: "Open original interactive plan",
+    isOriginalUrl: true,
+  });
+
+  const embedOnly = normalizeInteractiveFloorPlanInput({
+    provider: "cubiCasa",
+    embedUrl:
+      '<iframe src="https://unbranded.visithome.ai/12345?mode=embed&amp;lang=en"></iframe>',
+  });
+  assert.ok(embedOnly);
+  assert.deepEqual(getInteractiveFloorPlanOpenAction(embedOnly), {
+    url: "https://unbranded.visithome.ai/12345?mode=embed&lang=en",
+    label: "Open interactive plan in new tab",
+    isOriginalUrl: false,
+  });
 });
 
 test("interactive floor plan embed input rejects unsafe iframe sources", () => {

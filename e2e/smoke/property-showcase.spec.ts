@@ -40,7 +40,7 @@ for (const viewport of propertyViewports) {
     }
     await expect(
       page.locator("#interactive-floor-plan").getByRole("link", {
-        name: "Open interactive plan",
+        name: "Open original interactive plan",
       }).first(),
     ).toBeVisible();
     await expect(
@@ -126,7 +126,7 @@ test("property showcase support launcher does not cover interactive actions", as
     name: "Open PicchuSpot AI assistant",
   });
   const action = page.locator("#interactive-floor-plan").getByRole("link", {
-    name: "Open interactive plan",
+    name: "Open original interactive plan",
   }).first();
   await expect(launcher).toBeVisible();
   await expect(action).toBeVisible();

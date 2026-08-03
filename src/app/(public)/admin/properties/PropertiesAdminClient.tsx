@@ -960,7 +960,7 @@ function PropertyEditor({
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Field
               label="Price"
-              hint="Examples: 385560, €385,560, $385,560, 385.560 €."
+              hint="Costa Blanca default is EUR, so 385560 displays as €385,560. For non-European listings, include the symbol, for example $385,560."
             >
               <input
                 required
@@ -986,7 +986,7 @@ function PropertyEditor({
             </Field>
             <Field
               label="Built area"
-              hint="Include the unit when it is not metric, for example 1,900 sq ft or 9.19 acres."
+              hint="Costa Blanca default is m². For non-European listings, include the unit, for example 1,900 sq ft or 9.19 acres."
             >
               <input
                 value={form.builtArea}
