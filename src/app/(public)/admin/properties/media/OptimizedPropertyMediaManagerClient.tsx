@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import {
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ChangeEvent,
+  type DragEvent,
+} from "react";
+import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -31,13 +38,18 @@ import {
   getPropertyLanguageOptions,
   PROPERTY_LANGUAGE_LABELS,
 } from "@/features/property-showcase/localization";
-import { updateGallerySocialPreview } from "@/features/property-showcase/social-preview";
+import {
+  getPropertySocialPreview,
+  resolvedPropertySocialImages,
+  updateGallerySocialPreview,
+} from "@/features/property-showcase/social-preview";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyShowcase,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
+import { absoluteUrl } from "@/lib/seo";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
@@ -62,6 +74,8 @@ const FLOOR_PLAN_PRESETS = [
   { en: "Annex", es: "Anexo" },
   { en: "Other", es: "Otro" },
 ] as const;
+
+const subscribeToPreviewHost = () => () => undefined;
 
 interface Props {
   records: PropertyShowcaseAdminRecord[];
@@ -355,10 +369,27 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSavings, setLastSavings] = useState<SavingsSummary | null>(null);
+  const isVercelPreview = useSyncExternalStore(
+    subscribeToPreviewHost,
+    () => window.location.hostname.endsWith(".vercel.app"),
+    () => false,
+  );
 
   const realGallery = gallery.filter((item) => !isDemoAsset(item.src));
   const primaryLanguage = getPrimaryLanguage(record.property);
   const floorPlanLanguages = getPropertyLanguageOptions(record.property);
+  const socialPreviewProperty = useMemo(
+    () => ({ ...record.property, coverImage, gallery }),
+    [coverImage, gallery, record.property],
+  );
+  const socialPreview = useMemo(
+    () => getPropertySocialPreview(socialPreviewProperty),
+    [socialPreviewProperty],
+  );
+  const resolvedSocialImages = useMemo(
+    () => resolvedPropertySocialImages(socialPreviewProperty),
+    [socialPreviewProperty],
+  );
 
   function normalize(items: PropertyGalleryImage[]): PropertyGalleryImage[] {
     return items.map((item, index) => ({ ...item, sortOrder: index + 1 }));
@@ -1187,6 +1218,107 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           <p className="mt-2 text-xs text-muted">
             Mark the strongest images as featured for sharing. The social primary is used first; otherwise the first featured image or cover is used.
           </p>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <header className="border-b border-border p-5">
+          <h2 className="text-lg font-bold text-primary">Social sharing preview</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            This compact preview uses the selected sharing images and the public-safe listing facts that will be rendered into the 1200 x 630 PNG.
+          </p>
+        </header>
+        <div className="space-y-4 p-5">
+          <div
+            data-testid="social-card-admin-preview"
+            className="mx-auto grid min-h-72 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface md:aspect-[1200/630] md:min-h-0 md:grid-cols-[1.72fr_1fr]"
+          >
+            <div className="flex min-h-52 flex-col overflow-hidden bg-slate-200">
+              {socialPreview.images[0] ? (
+                <div className="relative min-h-0 flex-1 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={socialPreview.images[0].imageUrl}
+                    alt={socialPreview.images[0].imageAlt}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="grid flex-1 place-items-center px-5 text-center text-sm text-muted">
+                  No public social image available
+                </div>
+              )}
+              {socialPreview.images.length > 1 ? (
+                <div className="grid h-20 shrink-0 grid-cols-2 gap-0.5 border-t-2 border-white sm:h-28">
+                  {socialPreview.images.slice(1, 3).map((image) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={image.imageUrl}
+                      src={image.imageUrl}
+                      alt={image.imageAlt}
+                      className="h-full w-full object-cover"
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex min-w-0 flex-col bg-[#0B1F3A] p-5 text-white sm:p-6">
+              <p className="text-sm font-bold">
+                Picchu<span className="text-[#B88A44]">Spot</span>
+              </p>
+              {socialPreview.location ? (
+                <p className="mt-5 text-xs leading-5 text-white/65">
+                  {socialPreview.location}
+                </p>
+              ) : null}
+              <p className="mt-2 break-words text-xl font-bold leading-tight">
+                {record.property.title[primaryLanguage] ?? record.property.title.en}
+              </p>
+              {socialPreview.price ? (
+                <p className="mt-3 text-2xl font-bold text-[#d6b665]">
+                  {socialPreview.price}
+                </p>
+              ) : null}
+              <p className="mt-4 border-t border-white/15 pt-4 text-xs leading-5 text-white/70">
+                {socialPreview.description}
+              </p>
+              {socialPreview.agencyName ? (
+                <p className="mt-auto pt-4 text-xs text-white/55">
+                  Presented by {socialPreview.agencyName}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          {resolvedSocialImages.length === 0 ? (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              No public social image is available. Choose a property-owned gallery image or a public PicchuSpot image.
+            </div>
+          ) : null}
+          {!record.published ? (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              This property is unpublished, so social crawlers cannot access its public card yet.
+            </div>
+          ) : null}
+          {isVercelPreview ? (
+            <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              Protected Vercel branch previews cannot be scraped by Telegram or WhatsApp. Test after merge on picchuspot.com, or temporarily disable Vercel Authentication for the preview deployment.
+            </div>
+          ) : null}
+          {record.published ? (
+            <a
+              href={absoluteUrl(`/property/${record.slug}/opengraph-image`)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+              Open generated social PNG
+            </a>
+          ) : null}
         </div>
       </section>
 

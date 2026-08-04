@@ -3,8 +3,12 @@ import type {
   PropertyGalleryImage,
   PropertyInteractiveFloorPlanTour,
   PropertyShowcase,
+  PropertyVirtualTour,
 } from "./types";
-import { normalizeInteractiveFloorPlanInput } from "./provider-urls.ts";
+import {
+  normalizeInteractiveFloorPlanInput,
+  normalizeTourInput,
+} from "./provider-urls.ts";
 
 export interface LegacyInteractiveTourCandidate {
   id: string;
@@ -22,10 +26,26 @@ export function hasNativeInteractiveFloorPlan(
 export function hasExternalInteractiveFloorPlan(
   property: PropertyShowcase,
 ): boolean {
+  if (property.interactiveFloorPlanTour !== undefined) {
+    return getPropertyLevelInteractiveFloorPlanTour(property) !== undefined;
+  }
+
   return (
-    getPropertyLevelInteractiveFloorPlanTour(property) !== undefined ||
     getExternalInteractiveFloorPlan(property) !== undefined
   );
+}
+
+export function getVisibleVirtualTour(
+  property: PropertyShowcase,
+): PropertyVirtualTour | undefined {
+  const tour = property.virtualTour;
+  if (!tour || tour.enabled === false) return undefined;
+
+  const normalized = normalizeTourInput(tour.provider, {
+    embedUrl: tour.embedUrl,
+    externalUrl: tour.externalUrl,
+  });
+  return normalized ? tour : undefined;
 }
 
 export function hasFloorPlanInteractiveInput(
@@ -116,7 +136,9 @@ export function promoteLegacyInteractiveTour(
   property: PropertyShowcase,
   candidateId?: string,
 ): PropertyShowcase | null {
-  if (getPropertyLevelInteractiveFloorPlanTour(property)) return property;
+  if (property.interactiveFloorPlanTour !== undefined) {
+    return getPropertyLevelInteractiveFloorPlanTour(property) ? property : null;
+  }
   const candidates = getLegacyInteractiveTourCandidates(property);
   const selected = candidateId
     ? candidates.find((candidate) => candidate.id === candidateId)
@@ -134,7 +156,9 @@ export function promoteLegacyInteractiveTour(
 export function shouldRenderInteractiveFloorPlan(
   property: PropertyShowcase,
 ): boolean {
-  if (getPropertyLevelInteractiveFloorPlanTour(property)) return true;
+  if (property.interactiveFloorPlanTour !== undefined) {
+    return getPropertyLevelInteractiveFloorPlanTour(property) !== undefined;
+  }
   if (property.floorPlans.length === 0) return false;
   return (
     hasExternalInteractiveFloorPlan(property) ||

@@ -37,6 +37,34 @@ const interactivePlanSource = readFileSync(
   ),
   "utf8",
 );
+const propertyShowcaseSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertyShowcaseView.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const propertySectionNavSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/costa-blanca-demo/PropertySectionNav.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const propertyPageSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/[slug]/page.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const propertyOpenGraphImageSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/[slug]/opengraph-image/route.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("ordinary floor-plan cards hide legacy CubiCasa and raw URL controls", () => {
   assert.equal(mediaManagerSource.includes("Legacy interactive plan metadata"), false);
@@ -102,6 +130,74 @@ test("map admin exposes a fixed approximate center and radius preview", () => {
 test("media manager exposes featured and primary social image controls", () => {
   assert.equal(mediaManagerSource.includes("Featured / best for sharing"), true);
   assert.equal(mediaManagerSource.includes("Set social primary"), true);
+  assert.equal(mediaManagerSource.includes("Social sharing preview"), true);
+  assert.equal(mediaManagerSource.includes("social-card-admin-preview"), true);
+  assert.equal(
+    mediaManagerSource.includes("Protected Vercel branch previews"),
+    true,
+  );
+});
+
+test("listing facts and highlights use one open responsive composition", () => {
+  assert.equal(
+    propertyShowcaseSource.includes("property-details-composition"),
+    true,
+  );
+  assert.equal(propertyShowcaseSource.includes("min-[1400px]:grid-cols-8"), true);
+  assert.equal(propertyShowcaseSource.includes("min-[900px]:grid-cols-4"), true);
+  assert.equal(propertyShowcaseSource.includes("grid-cols-2 gap-x-4"), true);
+  assert.equal(
+    propertyShowcaseSource.includes("min-[900px]:grid-cols-2"),
+    true,
+  );
+  assert.equal(propertyShowcaseSource.includes("border-r border-black/8"), false);
+  assert.equal(propertyShowcaseSource.includes("min-h-40"), false);
+  assert.equal(propertyShowcaseSource.includes("<h2 className=\"sr-only\">"), true);
+});
+
+test("realtor section is compact and never prints a raw website URL", () => {
+  assert.equal(propertyShowcaseSource.includes("property-contact-section"), true);
+  assert.equal(propertyShowcaseSource.includes("lg:py-10"), true);
+  assert.equal(propertyShowcaseSource.includes(">{agent.website}<"), false);
+  assert.equal(propertyShowcaseSource.includes(">\n                            Website"), true);
+});
+
+test("media visibility controls and navigation are driven by rendered sections", () => {
+  assert.equal(propertyEditorSource.includes("Show 360 virtual tour"), true);
+  assert.equal(
+    propertyEditorSource.includes(
+      "Show property-level interactive floor-plan tour",
+    ),
+    true,
+  );
+  assert.equal(propertySectionNavSource.includes("showVirtualTour"), true);
+  assert.equal(propertySectionNavSource.includes("showInteractivePlan"), true);
+  assert.equal(propertySectionNavSource.includes("showContact"), true);
+  assert.equal(propertySectionNavSource.includes("showLocation"), true);
+  assert.equal(
+    propertyEditorSource.indexOf('<Section title="4. Listing facts">') <
+      propertyEditorSource.indexOf('<Section title="5. Highlights">'),
+    true,
+  );
+});
+
+test("property metadata uses a production-domain 1200 by 630 PNG route", () => {
+  assert.equal(propertyPageSource.includes("absoluteUrl(canonicalPath)"), true);
+  assert.equal(
+    propertyPageSource.includes("`${canonicalPath}/opengraph-image`"),
+    true,
+  );
+  assert.equal(propertyPageSource.includes('width: 1200'), true);
+  assert.equal(propertyPageSource.includes('height: 630'), true);
+  assert.equal(propertyPageSource.includes('type: "image/png"'), true);
+  assert.equal(propertyOpenGraphImageSource.includes("ImageResponse"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("width: 1200"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("height: 630"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("export async function GET"), true);
+  assert.equal(
+    propertyOpenGraphImageSource.includes("resolvedPropertySocialImages"),
+    true,
+  );
 });
 
 test("immersive provider views omit large marketing and status overlays", () => {

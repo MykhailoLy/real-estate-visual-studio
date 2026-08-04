@@ -495,6 +495,74 @@ test("saving media does not remove highlights, location or agent data", () => {
   assert.deepEqual(result.property?.agent, existing.agent);
 });
 
+test("details saves preserve 360 URLs while visibility is disabled and restored", () => {
+  const existing = withExternalMedia();
+  const disabled = structuredClone(existing);
+  disabled.virtualTour = {
+    ...existing.virtualTour!,
+    enabled: false,
+  };
+
+  const disabledResult = mergePropertyShowcaseUpdate(
+    existing,
+    disabled,
+    "details",
+  );
+  assert.equal(disabledResult.ok, true);
+  assert.equal(disabledResult.property?.virtualTour?.enabled, false);
+  assert.equal(
+    disabledResult.property?.virtualTour?.externalUrl,
+    existing.virtualTour?.externalUrl,
+  );
+
+  const reenabled = structuredClone(disabledResult.property!);
+  reenabled.virtualTour!.enabled = true;
+  const reenabledResult = mergePropertyShowcaseUpdate(
+    disabledResult.property!,
+    reenabled,
+    "details",
+  );
+  assert.equal(reenabledResult.property?.virtualTour?.enabled, true);
+  assert.equal(
+    reenabledResult.property?.virtualTour?.externalUrl,
+    existing.virtualTour?.externalUrl,
+  );
+});
+
+test("details saves preserve interactive URLs across disable and re-enable", () => {
+  const existing = withExternalMedia();
+  const disabled = structuredClone(existing);
+  disabled.interactiveFloorPlanTour = {
+    ...existing.interactiveFloorPlanTour!,
+    enabled: false,
+  };
+
+  const disabledResult = mergePropertyShowcaseUpdate(
+    existing,
+    disabled,
+    "details",
+  );
+  assert.equal(disabledResult.ok, true);
+  assert.equal(disabledResult.property?.interactiveFloorPlanTour?.enabled, false);
+  assert.equal(
+    disabledResult.property?.interactiveFloorPlanTour?.externalUrl,
+    existing.interactiveFloorPlanTour?.externalUrl,
+  );
+
+  const reenabled = structuredClone(disabledResult.property!);
+  reenabled.interactiveFloorPlanTour!.enabled = true;
+  const reenabledResult = mergePropertyShowcaseUpdate(
+    disabledResult.property!,
+    reenabled,
+    "details",
+  );
+  assert.equal(reenabledResult.property?.interactiveFloorPlanTour?.enabled, true);
+  assert.equal(
+    reenabledResult.property?.interactiveFloorPlanTour?.externalUrl,
+    existing.interactiveFloorPlanTour?.externalUrl,
+  );
+});
+
 test("media saves do not duplicate property-level CubiCasa data onto ordinary plans", () => {
   const existing = withExternalMedia();
   existing.floorPlans = existing.floorPlans.map((plan) => ({

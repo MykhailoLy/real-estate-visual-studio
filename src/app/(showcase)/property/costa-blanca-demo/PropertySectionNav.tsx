@@ -4,21 +4,57 @@ import {
   Images,
   Mail,
   MapPinned,
+  MousePointer2,
   PanelsTopLeft,
   ScanLine,
 } from "lucide-react";
 
-const sections = [
-  { href: "#home", label: "Home", icon: House },
-  { href: "#overview", label: "Overview", icon: BookOpenText },
-  { href: "#gallery", label: "Gallery", icon: Images },
-  { href: "#virtual-tour", label: "360 tour", icon: ScanLine },
-  { href: "#floor-plan", label: "Floor plans", icon: PanelsTopLeft },
-  { href: "#contact", label: "Contact", icon: Mail },
-  { href: "#location", label: "Location", icon: MapPinned },
-];
+interface PropertySectionNavProps {
+  showVirtualTour: boolean;
+  showFloorPlans: boolean;
+  showInteractivePlan: boolean;
+  showContact: boolean;
+  showLocation: boolean;
+}
 
-export default function PropertySectionNav() {
+export default function PropertySectionNav({
+  showVirtualTour,
+  showFloorPlans,
+  showInteractivePlan,
+  showContact,
+  showLocation,
+}: PropertySectionNavProps) {
+  const sections = [
+    { href: "#home", label: "Home", icon: House, visible: true },
+    { href: "#overview", label: "Overview", icon: BookOpenText, visible: true },
+    { href: "#gallery", label: "Gallery", icon: Images, visible: true },
+    {
+      href: "#virtual-tour",
+      label: "360 tour",
+      icon: ScanLine,
+      visible: showVirtualTour,
+    },
+    {
+      href: "#floor-plan",
+      label: "Floor plans",
+      icon: PanelsTopLeft,
+      visible: showFloorPlans,
+    },
+    {
+      href: "#interactive-floor-plan",
+      label: "Interactive plan",
+      icon: MousePointer2,
+      visible: showInteractivePlan,
+    },
+    { href: "#contact", label: "Contact", icon: Mail, visible: showContact },
+    {
+      href: "#location",
+      label: "Location",
+      icon: MapPinned,
+      visible: showLocation,
+    },
+  ].filter((section) => section.visible);
+
   return (
     <nav
       aria-label="Property page sections"

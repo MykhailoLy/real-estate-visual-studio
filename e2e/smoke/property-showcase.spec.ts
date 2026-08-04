@@ -13,6 +13,16 @@ const propertyViewports = [
   { width: 1920, height: 1080 },
 ] as const;
 
+function pngDimensions(body: Buffer): { width: number; height: number } {
+  expect(body.subarray(0, 8)).toEqual(
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+  );
+  return {
+    width: body.readUInt32BE(16),
+    height: body.readUInt32BE(20),
+  };
+}
+
 for (const viewport of propertyViewports) {
   test(`property showcase has no horizontal overflow at ${viewport.width}x${viewport.height}`, async ({
     page,
@@ -35,9 +45,7 @@ for (const viewport of propertyViewports) {
     await expect(page.getByTestId("property-facts")).toBeVisible();
     for (const key of ["price", "listing-reference", "built-area", "plot-area"]) {
       const value = page
-        .getByTestId(`property-fact-${key}`)
-        .locator("span")
-        .first();
+        .getByTestId(`property-fact-value-${key}`);
       await expect(value).toBeVisible();
       const metrics = await value.evaluate((element) => {
         const style = window.getComputedStyle(element);
@@ -56,12 +64,52 @@ for (const viewport of propertyViewports) {
         window.getComputedStyle(element).gridTemplateColumns.split(" ").length,
     );
     expect(factColumns).toBe(
-      viewport.width >= 1536
+      viewport.width >= 1400
         ? 8
-        : viewport.width >= 768
+        : viewport.width >= 900
           ? 4
           : 2,
     );
+    const factsAreOpen = await page.getByTestId("property-facts").evaluate(
+      (element) => {
+        const containerStyle = window.getComputedStyle(element);
+        const itemStyle = window.getComputedStyle(element.firstElementChild!);
+        return {
+          containerBackground: containerStyle.backgroundColor,
+          itemBackground: itemStyle.backgroundColor,
+          itemRightBorder: itemStyle.borderRightWidth,
+        };
+      },
+    );
+    expect(factsAreOpen.containerBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(factsAreOpen.itemBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(factsAreOpen.itemRightBorder).toBe("0px");
+
+    const highlights = page.getByTestId("property-highlights");
+    await expect(highlights).toBeVisible();
+    const compositionOrder = await page
+      .getByTestId("property-details-composition")
+      .evaluate((element) => {
+        const facts = element.querySelector('[data-testid="property-facts"]');
+        const highlights = element.querySelector(
+          '[data-testid="property-highlights"]',
+        );
+        return facts?.nextElementSibling === highlights;
+      });
+    expect(compositionOrder).toBe(true);
+    const highlightColumns = await highlights.locator("ul").evaluate(
+      (element) =>
+        window.getComputedStyle(element).gridTemplateColumns.split(" ").length,
+    );
+    expect(highlightColumns).toBe(viewport.width >= 900 ? 2 : 1);
+    const highlightHeadingMetrics = await highlights
+      .getByRole("heading", { name: "Highlights" })
+      .evaluate((element) => ({
+        width: element.getBoundingClientRect().width,
+        height: element.getBoundingClientRect().height,
+      }));
+    expect(highlightHeadingMetrics.width).toBeLessThanOrEqual(1);
+    expect(highlightHeadingMetrics.height).toBeLessThanOrEqual(1);
     await expect(page.getByText("Open Mediterranean views")).toBeVisible();
     if (viewport.width >= 768) {
       await expect(page.getByRole("button", { name: "Ground floor" })).toBeVisible();
@@ -241,7 +289,27 @@ test("property showcase facts and map privacy render as listing details", async 
 
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     "content",
-    /property-demo\/terrace\.svg$/,
+    "https://picchuspot.com/property/sea-view-residence/opengraph-image",
+  );
+  await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute(
+    "content",
+    "1200",
+  );
+  await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute(
+    "content",
+    "630",
+  );
+  await expect(page.locator('meta[property="og:image:type"]')).toHaveAttribute(
+    "content",
+    "image/png",
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://picchuspot.com/property/sea-view-residence",
+  );
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
+    "content",
+    /PS-001.*3 bedrooms.*2 bathrooms.*142\u00a0m\u00b2/,
   );
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
     "content",
@@ -280,6 +348,7 @@ test("disabled map and empty highlights do not render empty panels", async ({
   expect(html).not.toContain("hidden-moraira-parcel");
   await expect(page.locator("[data-testid='property-highlights']")).toHaveCount(0);
   await expect(page.locator("#location")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Location" })).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -290,13 +359,54 @@ test("complete and minimal realtor profiles stay usable", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.goto("/property/sea-view-residence");
-  await expect(page.locator("#contact")).toContainText("Costa Blanca Property Team");
-  await expect(page.locator("#contact").getByRole("link", { name: "WhatsApp" })).toBeVisible();
-  await expect(page.locator("#contact").getByRole("link", { name: "Instagram" })).toBeVisible();
+  const completeContact = page.locator("#contact");
+  await expect(completeContact).toContainText("Costa Blanca Property Team");
+  await expect(completeContact.getByRole("link", { name: "WhatsApp" })).toBeVisible();
+  await expect(completeContact.getByRole("link", { name: "Instagram" })).toBeVisible();
+  await expect(completeContact.getByRole("link", { name: "Website" })).toBeVisible();
+  await expect(completeContact).not.toContainText("https://picchuspot.com");
+  expect((await completeContact.boundingBox())!.height).toBeLessThanOrEqual(440);
 
   await page.goto("/property/quiet-townhouse");
-  await expect(page.locator("#contact")).toContainText("Demo Real Estate Agency");
-  await expect(page.locator("#contact").getByRole("link", { name: "WhatsApp" })).toHaveCount(0);
+  const minimalContact = page.locator("#contact");
+  await expect(minimalContact).toContainText("Demo Real Estate Agency");
+  await expect(minimalContact.getByRole("link", { name: "WhatsApp" })).toHaveCount(0);
+  expect((await minimalContact.boundingBox())!.height).toBeLessThanOrEqual(360);
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("property social image is a public 1200 by 630 PNG", async ({
+  request,
+}) => {
+  const response = await request.get(
+    "/property/sea-view-residence/opengraph-image",
+  );
+  expect(response.ok()).toBe(true);
+  expect(response.headers()["content-type"]).toContain("image/png");
+  expect(pngDimensions(await response.body())).toEqual({
+    width: 1200,
+    height: 630,
+  });
+});
+
+test("explicitly hidden media does not render sections or navigation targets", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1024, height: 768 });
+
+  const response = await page.goto("/property/hidden-media-listing");
+  expectNavigationResponseOk(response, "/property/hidden-media-listing");
+
+  await expect(page.locator("#virtual-tour")).toHaveCount(0);
+  await expect(page.locator("#interactive-floor-plan")).toHaveCount(0);
+  await expect(page.locator("#contact")).toHaveCount(0);
+  await expect(page.locator("#location")).toHaveCount(0);
+  await expect(page.locator("#floor-plan")).toBeVisible();
+  await expect(page.getByRole("link", { name: "360 tour" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Interactive plan" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Contact" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Location" })).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -313,10 +423,45 @@ test("hidden realtor profile does not fall back to PicchuSpot contact", async ({
     page.getByRole("heading", { level: 1, name: "Private Contact Listing" }),
   ).toBeVisible();
   await expect(page.locator("#contact")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Contact" })).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Request a viewing" }),
   ).toHaveCount(0);
   await expect(page.getByRole("link", { name: /PicchuSpot contact/i })).toHaveCount(0);
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("compact contact actions do not overlap the support launcher on mobile", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 375, height: 812 });
+
+  const response = await page.goto("/property/sea-view-residence");
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+  const contact = page.locator("#contact");
+  await contact.scrollIntoViewIfNeeded();
+
+  const action = contact.getByRole("link", { name: "Request a viewing" });
+  const launcher = page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  });
+  await expect(action).toBeVisible();
+  if ((await launcher.count()) > 0) {
+    await expect(launcher).toBeVisible();
+    const [actionBox, launcherBox] = await Promise.all([
+      action.boundingBox(),
+      launcher.boundingBox(),
+    ]);
+    expect(actionBox).not.toBeNull();
+    expect(launcherBox).not.toBeNull();
+    const overlaps =
+      actionBox!.x < launcherBox!.x + launcherBox!.width &&
+      actionBox!.x + actionBox!.width > launcherBox!.x &&
+      actionBox!.y < launcherBox!.y + launcherBox!.height &&
+      actionBox!.y + actionBox!.height > launcherBox!.y;
+    expect(overlaps).toBe(false);
+  }
   await guard.expectNoPageErrorsOrServerErrors();
 });
 

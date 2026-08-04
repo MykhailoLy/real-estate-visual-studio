@@ -5,6 +5,8 @@ import {
   getExternalInteractiveFloorPlan,
   getLegacyInteractiveTourCandidates,
   getPropertyLevelInteractiveFloorPlanTour,
+  getVisibleVirtualTour,
+  hasExternalInteractiveFloorPlan,
   promoteLegacyInteractiveTour,
   shouldRenderInteractiveFloorPlan,
 } from "./rendering.ts";
@@ -169,4 +171,60 @@ test("property-level interactive tour remains preferred over legacy metadata", (
     promoteLegacyInteractiveTour(property)?.interactiveFloorPlanTour?.externalUrl,
     "https://unbranded.visithome.ai/property-level",
   );
+});
+
+test("explicit interactive disable suppresses every legacy fallback", () => {
+  const property = cloneProperty();
+  property.interactiveFloorPlanTour = {
+    enabled: false,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/preserved-property-level",
+  };
+  property.floorPlans[0].interactiveProvider = "cubiCasa";
+  property.floorPlans[0].interactiveExternalUrl =
+    "https://unbranded.visithome.ai/legacy-fallback";
+
+  assert.equal(getPropertyLevelInteractiveFloorPlanTour(property), undefined);
+  assert.equal(hasExternalInteractiveFloorPlan(property), false);
+  assert.equal(shouldRenderInteractiveFloorPlan(property), false);
+  assert.equal(promoteLegacyInteractiveTour(property), null);
+  assert.equal(
+    property.interactiveFloorPlanTour.externalUrl,
+    "https://unbranded.visithome.ai/preserved-property-level",
+  );
+});
+
+test("interactive tour returns after re-enabling without replacing URLs", () => {
+  const property = cloneProperty();
+  property.interactiveFloorPlanTour = {
+    enabled: false,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/preserved-tour",
+  };
+
+  assert.equal(shouldRenderInteractiveFloorPlan(property), false);
+  property.interactiveFloorPlanTour.enabled = true;
+  assert.equal(shouldRenderInteractiveFloorPlan(property), true);
+  assert.equal(
+    getPropertyLevelInteractiveFloorPlanTour(property)?.externalUrl,
+    "https://unbranded.visithome.ai/preserved-tour",
+  );
+});
+
+test("360 visibility defaults on for legacy URLs and honors explicit disable", () => {
+  const property = cloneProperty();
+  assert.equal(getVisibleVirtualTour(property)?.provider, "kuula");
+
+  property.virtualTour = {
+    ...property.virtualTour!,
+    enabled: false,
+  };
+  assert.equal(getVisibleVirtualTour(property), undefined);
+  assert.equal(
+    property.virtualTour.externalUrl,
+    "https://mls.kuu.la/share/abc",
+  );
+
+  property.virtualTour.enabled = true;
+  assert.equal(getVisibleVirtualTour(property)?.provider, "kuula");
 });

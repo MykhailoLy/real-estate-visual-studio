@@ -8,17 +8,24 @@ import {
   BedDouble,
   CalendarDays,
   Car,
-  CheckCircle2,
+  Check,
   CircleDollarSign,
+  Camera,
+  BriefcaseBusiness,
   ExternalLink,
+  Globe2,
   Home,
   LandPlot,
   Mail,
   MapPin,
   MessageCircle,
+  Music2,
   MousePointer2,
+  Phone,
+  Play,
   Ruler,
   Tag,
+  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -41,12 +48,14 @@ import {
 import {
   getExternalInteractiveFloorPlan,
   getPropertyLevelInteractiveFloorPlanTour,
+  getVisibleVirtualTour,
   hasExternalInteractiveFloorPlan,
   shouldRenderInteractiveFloorPlan,
   sortedPropertyFloorPlans,
 } from "@/features/property-showcase/rendering";
 import type {
   PropertyFactKey,
+  PropertyAgentSocialProvider,
   PropertyLanguageCode,
   PropertyShowcase,
 } from "@/features/property-showcase/types";
@@ -73,6 +82,24 @@ const factIcons: Record<PropertyFactKey, LucideIcon> = {
   "plot-area": LandPlot,
   "year-built": CalendarDays,
 };
+
+const socialIcons: Record<PropertyAgentSocialProvider, LucideIcon> = {
+  facebook: Users,
+  instagram: Camera,
+  linkedin: BriefcaseBusiness,
+  youtube: Play,
+  tiktok: Music2,
+  custom: Globe2,
+};
+
+function keepFactValueTogether(key: PropertyFactKey): boolean {
+  return (
+    key === "price" ||
+    key === "listing-reference" ||
+    key === "built-area" ||
+    key === "plot-area"
+  );
+}
 
 function initials(value: string): string {
   return value
@@ -105,8 +132,11 @@ export default function PropertyShowcaseView({
     [property.floorPlans],
   );
   const primaryFloorPlan = floorPlans[0];
+  const visibleVirtualTour = getVisibleVirtualTour(property);
   const propertyInteractiveTour = getPropertyLevelInteractiveFloorPlanTour(property);
-  const legacyInteractiveFloorPlan = getExternalInteractiveFloorPlan(property);
+  const legacyInteractiveFloorPlan = property.interactiveFloorPlanTour === undefined
+    ? getExternalInteractiveFloorPlan(property)
+    : undefined;
   const interactiveFloorPlan = legacyInteractiveFloorPlan ?? primaryFloorPlan;
   const hasExternalInteractivePlan = hasExternalInteractiveFloorPlan(property);
   const showInteractivePlan = shouldRenderInteractiveFloorPlan(property);
@@ -186,7 +216,13 @@ export default function PropertyShowcaseView({
         </div>
       </header>
 
-      <PropertySectionNav />
+      <PropertySectionNav
+        showVirtualTour={Boolean(visibleVirtualTour)}
+        showFloorPlans={Boolean(primaryFloorPlan)}
+        showInteractivePlan={showInteractivePlan}
+        showContact={showContactSection}
+        showLocation={showLocation}
+      />
 
       <main>
         <section id="home" className="relative isolate scroll-mt-36 overflow-hidden bg-[#0f2440]">
@@ -264,45 +300,73 @@ export default function PropertyShowcaseView({
           </section>
         ) : null}
 
-        {facts.length > 0 ? (
-          <section className="relative z-10 border-y border-black/8 bg-white">
-            <div
-              data-testid="property-facts"
-              className="mx-auto grid max-w-[1480px] grid-cols-2 px-4 sm:px-6 md:grid-cols-4 lg:px-10 2xl:grid-cols-8"
-            >
-              {facts.map((fact, index) => {
-                const Icon = factIcons[fact.key] ?? Home;
-                const hasLongValue = fact.value.length > 18;
-                return (
-                  <div
-                    key={`${fact.key}-${index}`}
-                    data-testid={`property-fact-${fact.key}`}
-                    className="flex min-h-40 min-w-0 flex-col items-center justify-center border-b border-r border-black/8 px-3 py-7 text-center sm:min-h-44 sm:px-5 sm:py-9"
-                  >
-                    <Icon
-                      className="mb-4 h-8 w-8 shrink-0 stroke-[1.5] text-[#a88b3a] sm:h-9 sm:w-9"
-                      aria-hidden
-                    />
-                    <div className="min-w-0 max-w-full">
-                      <span
-                        className={`block max-w-full font-semibold leading-snug tabular-nums ${
-                          fact.key === "price" ? "text-[#8d7531]" : "text-[#0f2440]"
-                        } ${
-                          hasLongValue
-                            ? "break-words text-base sm:text-lg"
-                            : "text-xl sm:text-2xl"
-                        }`}
-                        title={fact.value}
+        {facts.length > 0 || highlights.length > 0 ? (
+          <section
+            data-testid="property-details-composition"
+            className="border-b border-black/10"
+          >
+            <div className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-10">
+              {facts.length > 0 ? (
+                <div
+                  data-testid="property-facts"
+                  className="grid grid-cols-2 gap-x-4 gap-y-9 py-10 sm:py-12 min-[900px]:grid-cols-4 min-[1400px]:grid-cols-8"
+                >
+                  {facts.map((fact, index) => {
+                    const Icon = factIcons[fact.key] ?? Home;
+                    const keepTogether = keepFactValueTogether(fact.key);
+                    const hasLongValue = fact.value.length > 18;
+                    return (
+                      <div
+                        key={`${fact.key}-${index}`}
+                        data-testid={`property-fact-${fact.key}`}
+                        className="flex min-w-0 flex-col items-center px-1 text-center"
                       >
-                        {fact.value}
-                      </span>
-                      <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500 sm:text-sm">
-                        {fact.label}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-slate-300/90 text-[#0f2440]">
+                          <Icon
+                            className="h-6 w-6 stroke-[1.6]"
+                            aria-hidden
+                          />
+                        </span>
+                        <span className="mt-4 block max-w-full text-[10px] font-bold uppercase leading-4 tracking-[0.14em] text-slate-500 sm:text-[11px]">
+                          {fact.label}
+                        </span>
+                        <span
+                          data-testid={`property-fact-value-${fact.key}`}
+                          className={`mt-1.5 block max-w-full font-semibold leading-6 tabular-nums text-[#0f2440] ${
+                            hasLongValue ? "text-sm sm:text-base" : "text-lg sm:text-xl"
+                          } ${keepTogether ? "whitespace-nowrap" : "break-words"}`}
+                          title={fact.value}
+                        >
+                          {fact.value}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {highlights.length > 0 ? (
+                <div
+                  data-testid="property-highlights"
+                  className="border-t border-black/10 py-9 sm:py-11"
+                >
+                  <h2 className="sr-only">{ui.checklistHeading}</h2>
+                  <ul className="grid grid-cols-1 gap-x-14 gap-y-5 min-[900px]:grid-cols-2">
+                    {highlights.map((highlight, index) => (
+                      <li
+                        key={`${highlight}-${index}`}
+                        className="flex min-w-0 items-start gap-4 text-lg font-medium leading-7 text-[#0f2440] sm:text-xl sm:leading-8"
+                      >
+                        <Check
+                          className="mt-1 h-5 w-5 shrink-0 stroke-[2] text-[#0f2440]"
+                          aria-hidden
+                        />
+                        <span className="min-w-0 break-words">{highlight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -340,30 +404,6 @@ export default function PropertyShowcaseView({
             </div>
           </div>
 
-          {highlights.length > 0 ? (
-            <div
-              data-testid="property-highlights"
-              className="mt-14 border-y border-black/8 bg-white px-5 py-8 sm:mt-16 sm:px-8 sm:py-10 lg:mt-20 lg:px-10"
-            >
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a88b3a]">
-                {ui.highlightsEyebrow}
-              </p>
-              <ul className="mt-6 grid gap-x-10 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
-                {highlights.map((highlight, index) => (
-                  <li
-                    key={`${highlight}-${index}`}
-                    className="flex min-w-0 items-start gap-4 text-base font-semibold leading-7 text-[#0f2440] sm:text-lg"
-                  >
-                    <CheckCircle2
-                      className="mt-0.5 h-6 w-6 shrink-0 stroke-[1.75] text-[#a88b3a]"
-                      aria-hidden
-                    />
-                    <span className="min-w-0 break-words">{highlight}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </section>
 
         <div id="gallery" className="scroll-mt-36">
@@ -379,10 +419,10 @@ export default function PropertyShowcaseView({
           />
         </div>
 
-        {property.virtualTour ? (
+        {visibleVirtualTour ? (
           <ImmersivePropertyTour
             propertyTitle={title}
-            tour={property.virtualTour}
+            tour={visibleVirtualTour}
             posterAlt={`360 virtual tour of ${title}`}
             locale={language}
           />
@@ -432,145 +472,164 @@ export default function PropertyShowcaseView({
         ) : null}
 
         {showContactSection ? (
-        <section id="contact" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-24">
-          <div className="overflow-hidden rounded-3xl border border-black/8 bg-[#e8e2d4]">
-            <div className="grid lg:grid-cols-[1fr_0.9fr]">
-              <div className="p-8 sm:p-12 lg:p-16">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8d7531]">
-                  {ui.contactHeading}
-                </p>
-                <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-5xl">
-                  {title}
-                </h2>
-                {contactHref ? (
-                <div className="mt-9 flex flex-wrap gap-3">
-                  <a
-                    href={contactHref}
-                    target={contactIsExternal ? "_blank" : undefined}
-                    rel={contactIsExternal ? "noreferrer" : undefined}
-                    className="inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#1a365d]"
-                  >
-                    <CalendarDays className="h-4 w-4" aria-hidden />
-                    {ui.requestViewing}
-                  </a>
-                  {agent?.emailHref ? (
-                    <a
-                      href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-[#0f2440]/20 px-6 py-3.5 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
-                    >
-                      <MessageCircle className="h-4 w-4" aria-hidden />
-                      {ui.askQuestion}
-                    </a>
+          <section
+            id="contact"
+            data-testid="property-contact-section"
+            className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-8 sm:px-6 sm:py-10 lg:px-10 lg:py-10"
+          >
+            <div className="overflow-hidden rounded-lg border border-black/8 bg-[#e8e2d4]">
+              <div className="grid lg:grid-cols-[1fr_0.95fr]">
+                <div className="p-6 sm:p-8 lg:p-10">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8d7531]">
+                    {ui.contactHeading}
+                  </p>
+                  <h2 className="mt-3 max-w-2xl text-2xl font-semibold leading-tight text-[#0f2440] sm:text-3xl">
+                    {title}
+                  </h2>
+                  {contactHref ? (
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <a
+                        href={contactHref}
+                        target={contactIsExternal ? "_blank" : undefined}
+                        rel={contactIsExternal ? "noreferrer" : undefined}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
+                      >
+                        <CalendarDays className="h-4 w-4" aria-hidden />
+                        {ui.requestViewing}
+                      </a>
+                      {agent?.emailHref ? (
+                        <a
+                          href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#0f2440]/20 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
+                        >
+                          <MessageCircle className="h-4 w-4" aria-hidden />
+                          {ui.askQuestion}
+                        </a>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
+
+                {agent ? (
+                  <aside
+                    data-testid="property-agent-profile"
+                    className="border-t border-black/8 bg-white/55 p-6 sm:p-8 lg:border-l lg:border-t-0"
+                  >
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                      {ui.presentedBy}
+                    </span>
+                    <div className="mt-4 flex items-center gap-4">
+                      {agent.portraitUrl || agent.logoUrl ? (
+                        <div className="relative h-22 w-22 shrink-0 overflow-hidden rounded-full border border-black/8 bg-white">
+                          <Image
+                            src={agent.portraitUrl ?? agent.logoUrl ?? ""}
+                            alt={agent.displayName}
+                            fill
+                            sizes="88px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="grid h-22 w-22 shrink-0 place-items-center rounded-full bg-[#0f2440] text-lg font-bold text-white">
+                          {initials(agent.displayName)}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="break-words text-xl font-semibold text-[#0f2440]">
+                          {agent.displayName}
+                        </h3>
+                        {agent.role ? (
+                          <p className="mt-1 text-sm text-slate-500">{agent.role}</p>
+                        ) : null}
+                        {agent.displayName !== agent.agencyName ? (
+                          <p className="mt-1 text-sm font-medium text-slate-600">
+                            {agent.agencyName}
+                          </p>
+                        ) : null}
+                      </div>
+                      {agent.logoUrl && agent.logoUrl !== agent.portraitUrl ? (
+                        <div className="relative hidden h-10 w-28 shrink-0 sm:block">
+                          <Image
+                            src={agent.logoUrl}
+                            alt={agent.agencyName}
+                            fill
+                            sizes="112px"
+                            className="object-contain object-right"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {agent.phoneHref || agent.whatsappHref || agent.emailHref || agent.website ? (
+                      <div className="mt-5 grid gap-2 border-t border-black/8 pt-5 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                        {agent.phoneHref && agent.phone ? (
+                          <a
+                            href={agent.phoneHref}
+                            className="flex min-w-0 items-center gap-2 hover:text-[#0f2440]"
+                          >
+                            <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                            <span className="truncate">{agent.phone}</span>
+                          </a>
+                        ) : null}
+                        {agent.whatsappHref ? (
+                          <a
+                            href={agent.whatsappHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 hover:text-[#0f2440]"
+                          >
+                            <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
+                            {ui.whatsapp}
+                          </a>
+                        ) : null}
+                        {agent.emailHref && agent.email ? (
+                          <a
+                            href={agent.emailHref}
+                            className="flex min-w-0 items-center gap-2 hover:text-[#0f2440]"
+                          >
+                            <Mail className="h-4 w-4 shrink-0" aria-hidden />
+                            <span className="truncate">{agent.email}</span>
+                          </a>
+                        ) : null}
+                        {agent.website ? (
+                          <a
+                            href={agent.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 font-semibold text-[#0f2440] hover:underline"
+                          >
+                            <Globe2 className="h-4 w-4 shrink-0" aria-hidden />
+                            Website
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {agent.socialLinks.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {agent.socialLinks.map((link) => {
+                          const SocialIcon = socialIcons[link.provider];
+                          return (
+                            <a
+                              key={`${link.provider}-${link.url}`}
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={link.labelText}
+                              title={link.labelText}
+                              className="grid h-10 w-10 place-items-center rounded-full border border-[#0f2440]/15 text-[#0f2440] transition hover:border-[#0f2440] hover:bg-white"
+                            >
+                              <SocialIcon className="h-4.5 w-4.5" aria-hidden />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </aside>
                 ) : null}
               </div>
-
-              {agent ? (
-                <aside className="border-t border-black/8 bg-white/55 p-8 sm:p-12 lg:border-l lg:border-t-0 lg:p-14">
-                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                    {ui.presentedBy}
-                  </span>
-                  <div className="mt-7 flex items-center gap-5">
-                    {agent.portraitUrl || agent.logoUrl ? (
-                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white shadow-lg">
-                        <Image
-                          src={agent.portraitUrl ?? agent.logoUrl ?? ""}
-                          alt={agent.displayName}
-                          fill
-                          sizes="80px"
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-[#0f2440] text-xl font-bold text-white shadow-lg">
-                        {initials(agent.displayName)}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <h3 className="break-words text-xl font-semibold text-[#0f2440]">
-                        {agent.displayName}
-                      </h3>
-                      {agent.displayName !== agent.agencyName ? (
-                        <p className="mt-1 text-sm font-medium text-slate-600">
-                          {agent.agencyName}
-                        </p>
-                      ) : null}
-                      {agent.role ? (
-                        <p className="mt-1 text-sm text-slate-500">{agent.role}</p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {agent.logoUrl && agent.logoUrl !== agent.portraitUrl ? (
-                    <div className="relative mt-7 h-16 max-w-56">
-                      <Image
-                        src={agent.logoUrl}
-                        alt={agent.agencyName}
-                        fill
-                        sizes="224px"
-                        className="object-contain object-left"
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="mt-8 space-y-2 border-t border-black/8 pt-7 text-sm text-slate-600">
-                    {agent.phoneHref && agent.phone ? (
-                      <a href={agent.phoneHref} className="block break-all hover:text-[#0f2440]">
-                        {agent.phone}
-                      </a>
-                    ) : null}
-                    {agent.whatsappHref ? (
-                      <a
-                        href={agent.whatsappHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block break-all hover:text-[#0f2440]"
-                      >
-                        {ui.whatsapp}
-                      </a>
-                    ) : null}
-                    {agent.emailHref && agent.email ? (
-                      <a
-                        href={agent.emailHref}
-                        className="flex min-w-0 items-center gap-2 break-all hover:text-[#0f2440]"
-                      >
-                        <Mail className="h-4 w-4 shrink-0" aria-hidden />
-                        {agent.email}
-                      </a>
-                    ) : null}
-                    {agent.website ? (
-                      <a
-                        href={agent.website}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block break-all hover:text-[#0f2440]"
-                      >
-                        {agent.website}
-                      </a>
-                    ) : null}
-                  </div>
-
-                  {agent.socialLinks.length > 0 ? (
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {agent.socialLinks.map((link) => (
-                        <a
-                          key={`${link.provider}-${link.url}`}
-                          href={link.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-full border border-[#0f2440]/15 px-3 py-1.5 text-xs font-bold text-[#0f2440] hover:border-[#0f2440]"
-                        >
-                          {link.labelText}
-                        </a>
-                      ))}
-                    </div>
-                  ) : null}
-                </aside>
-              ) : null}
             </div>
-          </div>
-        </section>
+          </section>
         ) : null}
 
         {showLocation ? (

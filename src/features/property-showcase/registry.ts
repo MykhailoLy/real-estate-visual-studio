@@ -142,6 +142,7 @@ const costaBlancaDemo: PropertyShowcase = {
     {
       id: "living-room",
       src: "/property-demo/living-room.svg",
+      featuredForSharing: true,
       alt: {
         en: "Bright open-plan living room with Mediterranean sea view",
         es: "Salon abierto y luminoso con vistas al Mediterraneo",
@@ -223,6 +224,11 @@ const costaBlancaDemo: PropertyShowcase = {
       en: "Altea, Alicante, Costa Blanca",
       es: "Altea, Alicante, Costa Blanca",
       de: "Altea, Alicante, Costa Blanca",
+    },
+    approximateLabel: {
+      en: "Altea, Alicante",
+      es: "Altea, Alicante",
+      de: "Altea, Alicante",
     },
     privacyMode: "approximate",
     showMap: true,
@@ -334,10 +340,38 @@ const hiddenProfileDemo: PropertyShowcase = {
   },
 };
 
+const hiddenMediaDemo: PropertyShowcase = {
+  ...noHighlightsDemo,
+  slug: "hidden-media-listing",
+  reference: "PS-004",
+  title: {
+    en: "Hidden Media Listing",
+  },
+  summary: {
+    en: "A listing used to verify explicit media visibility and section navigation.",
+  },
+  virtualTour: {
+    ...costaBlancaDemo.virtualTour!,
+    enabled: false,
+  },
+  interactiveFloorPlanTour: {
+    enabled: false,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/preserved-property-plan",
+    posterImage: "/property-demo/floor-plan.svg",
+  },
+  floorPlans: costaBlancaDemo.floorPlans,
+  agent: {
+    agencyName: "Hidden Listing Agency",
+    displayProfile: false,
+  },
+};
+
 const propertyShowcases: Record<string, PropertyShowcase> = {
   [costaBlancaDemo.slug]: costaBlancaDemo,
   [noHighlightsDemo.slug]: noHighlightsDemo,
   [hiddenProfileDemo.slug]: hiddenProfileDemo,
+  [hiddenMediaDemo.slug]: hiddenMediaDemo,
 };
 
 export function getPropertyShowcase(slug: string): PropertyShowcase | null {
@@ -348,4 +382,9 @@ export function getPropertyShowcaseSlugs(): string[] {
   return Object.keys(propertyShowcases);
 }
 
-export { costaBlancaDemo, hiddenProfileDemo, noHighlightsDemo };
+export {
+  costaBlancaDemo,
+  hiddenMediaDemo,
+  hiddenProfileDemo,
+  noHighlightsDemo,
+};

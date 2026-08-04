@@ -139,7 +139,7 @@ export function formatPriceLabel(value: string | undefined): string {
 function normalizeAreaUnit(rawUnit: string): string {
   const unit = rawUnit.trim().replace(/\s+/g, " ");
   if (/^(m2|m\u00b2|sqm|sq m)$/i.test(unit)) return "m\u00b2";
-  if (/^(ft2|ft\u00b2|sqft|sq ft)$/i.test(unit)) return "sq ft";
+  if (/^(ft2|ft\u00b2|sqft|sq ft)$/i.test(unit)) return "sq\u00a0ft";
   return unit;
 }
 

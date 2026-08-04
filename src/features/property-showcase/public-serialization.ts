@@ -41,7 +41,8 @@ function sanitizedApproximateLocation(
 ): PropertyLocation {
   return {
     ...location,
-    displayAddress: blankLocalizedText(location.displayAddress),
+    displayAddress:
+      location.approximateLabel ?? blankLocalizedText(location.displayAddress),
     latitude: undefined,
     longitude: undefined,
     approximateLatitude: approximateCoordinate(
@@ -62,6 +63,7 @@ function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {
   return {
     ...location,
     displayAddress: blankLocalizedText(location.displayAddress),
+    approximateLabel: undefined,
     latitude: undefined,
     longitude: undefined,
     approximateLatitude: undefined,
@@ -90,13 +92,18 @@ function sanitizedNoMapLocation(location: PropertyLocation): PropertyLocation {
 export function serializePublicPropertyLocation(
   location: PropertyLocation,
 ): PropertyLocation {
-  return location.privacyMode === "hidden"
-    ? sanitizedHiddenLocation(location)
-    : location.showMap === false
-      ? sanitizedNoMapLocation(location)
-      : location.privacyMode === "approximate"
-        ? sanitizedApproximateLocation(location)
-        : sanitizedExactLocation(location);
+  if (location.privacyMode === "hidden") {
+    return sanitizedHiddenLocation(location);
+  }
+
+  const privacySafeLocation =
+    location.privacyMode === "approximate"
+      ? sanitizedApproximateLocation(location)
+      : sanitizedExactLocation(location);
+
+  return location.showMap === false
+    ? sanitizedNoMapLocation(privacySafeLocation)
+    : privacySafeLocation;
 }
 
 export function serializePublicPropertyShowcase(

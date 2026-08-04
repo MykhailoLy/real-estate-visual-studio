@@ -36,7 +36,7 @@ test("facts rendering adds price and listing reference without empty cells", () 
   assert.deepEqual(normalizeListingFacts(property, "en"), [
     { key: "price", label: "Price", value: "$385,560" },
     { key: "listing-reference", label: "Reference", value: "MLS-123" },
-    { key: "built-area", label: "Interior", value: "1,900\u00a0sq ft" },
+    { key: "built-area", label: "Interior", value: "1,900\u00a0sq\u00a0ft" },
   ]);
 });
 

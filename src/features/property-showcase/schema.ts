@@ -93,6 +93,7 @@ const PropertyGalleryImageSchema = z
 
 const PropertyVirtualTourSchema = z
   .object({
+    enabled: z.boolean().optional(),
     provider: PropertyTourProviderSchema,
     embedUrl: optionalTrimmed(2048),
     externalUrl: optionalTrimmed(2048),
@@ -127,6 +128,7 @@ const PropertyFloorPlanSchema = z
 const PropertyLocationSchema = z
   .object({
     displayAddress: LocalizedTextSchema,
+    approximateLabel: OptionalLocalizedTextSchema.optional(),
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),
     approximateLatitude: z.number().min(-90).max(90).optional(),

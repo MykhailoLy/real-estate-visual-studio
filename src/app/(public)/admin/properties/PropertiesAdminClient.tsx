@@ -110,10 +110,12 @@ interface FormState {
   approximateLatitude: string;
   approximateLongitude: string;
   approximateRadiusMeters: string;
+  approximateLabel: string;
   mapExternalUrl: string;
   mapEmbedUrl: string;
   useCustomMapEmbed: boolean;
   mapZoom: string;
+  tourEnabled: boolean;
   tourProvider: PropertyTourProvider;
   tourInput: string;
   tourExternalUrl: string;
@@ -280,6 +282,13 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
       typeof property?.location.approximateRadiusMeters === "number"
         ? String(property.location.approximateRadiusMeters)
         : "1500",
+    approximateLabel: property
+      ? localizedText(
+          property.location.approximateLabel,
+          primaryLanguage,
+          primaryLanguage,
+        )
+      : "",
     mapExternalUrl: property?.location.mapExternalUrl ?? "",
     mapEmbedUrl: property?.location.mapEmbedUrl ?? "",
     useCustomMapEmbed: property?.location.useCustomMapEmbed ?? false,
@@ -287,6 +296,13 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
       typeof property?.location.mapZoom === "number"
         ? String(property.location.mapZoom)
         : "14",
+    tourEnabled: property
+      ? property.virtualTour?.enabled ??
+        Boolean(
+          property.virtualTour?.embedUrl?.trim() ||
+            property.virtualTour?.externalUrl?.trim(),
+        )
+      : true,
     tourProvider: property?.virtualTour?.provider ?? "kuula",
     tourInput:
       property?.virtualTour?.embedUrl ?? property?.virtualTour?.externalUrl ?? "",
@@ -553,6 +569,7 @@ function buildProperty(
     gallery,
     virtualTour: hasTour
       ? {
+          enabled: state.tourEnabled,
           provider: normalizedTour?.provider ?? state.tourProvider,
           embedUrl: optional(normalizedTour?.embedUrl ?? tourInput),
           externalUrl: optional(state.tourExternalUrl || normalizedTour?.externalUrl || ""),
@@ -574,6 +591,9 @@ function buildProperty(
     floorPlans: existing?.floorPlans ?? [],
     location: {
       displayAddress: simpleLocalizedText(state.primaryLanguage, state.address),
+      approximateLabel: state.approximateLabel.trim()
+        ? simpleLocalizedText(state.primaryLanguage, state.approximateLabel)
+        : undefined,
       latitude: numberValue(state.latitude, -90, 90),
       longitude: numberValue(state.longitude, -180, 180),
       approximateLatitude: numberValue(state.approximateLatitude, -90, 90),
@@ -1536,6 +1556,15 @@ function PropertyEditor({
 
         <Section title="6. 360 virtual tour">
           <div className="space-y-4">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
+              <input
+                type="checkbox"
+                checked={form.tourEnabled}
+                onChange={(event) => set("tourEnabled", event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Show 360 virtual tour
+            </label>
             <Field
               label="Tour link or embed code"
               hint="Paste a provider share link, MLS/unbranded link, embed URL or full iframe code."
@@ -1772,7 +1801,20 @@ function PropertyEditor({
                     Save a public-safe center that is separate from the exact property coordinates. The radius is shown in meters and remains anchored to this center.
                   </p>
                 </div>
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Field
+                    label="Approximate public location label"
+                    hint="Use only a city, district, or other location label that is safe to publish. Leave blank to omit location text."
+                  >
+                    <input
+                      value={form.approximateLabel}
+                      onChange={(event) =>
+                        set("approximateLabel", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="Altea, Alicante"
+                    />
+                  </Field>
                   <Field label="Approximate center latitude">
                     <input
                       type="number"

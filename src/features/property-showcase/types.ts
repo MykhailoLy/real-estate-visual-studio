@@ -75,6 +75,7 @@ export interface PropertyGalleryImage {
 }
 
 export interface PropertyVirtualTour {
+  enabled?: boolean;
   provider: PropertyTourProvider;
   embedUrl?: string;
   externalUrl?: string;
@@ -132,6 +133,7 @@ export interface PropertyAgent {
 
 export interface PropertyLocation {
   displayAddress: LocalizedText;
+  approximateLabel?: LocalizedText;
   latitude?: number;
   longitude?: number;
   approximateLatitude?: number;

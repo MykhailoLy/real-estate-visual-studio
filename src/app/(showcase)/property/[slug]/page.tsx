@@ -5,6 +5,7 @@ import { getPropertyShowcase } from "@/features/property-showcase/registry";
 import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
 import { getPropertySocialPreview } from "@/features/property-showcase/social-preview";
+import { absoluteUrl, SITE_NAME } from "@/lib/seo";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
 export const dynamic = "force-dynamic";
@@ -37,22 +38,29 @@ export async function generateMetadata({
   }
 
   const canonicalPath = `/property/${property.slug}`;
+  const canonicalUrl = absoluteUrl(canonicalPath);
+  const socialImageUrl = absoluteUrl(`${canonicalPath}/opengraph-image`);
   const preview = getPropertySocialPreview(property);
 
   return {
     title: preview.title,
     description: preview.description,
     alternates: {
-      canonical: canonicalPath,
+      canonical: canonicalUrl,
     },
     openGraph: {
       type: "website",
-      url: canonicalPath,
+      url: canonicalUrl,
+      siteName: SITE_NAME,
       title: preview.title,
       description: preview.description,
       images: [
         {
-          url: preview.imageUrl,
+          url: socialImageUrl,
+          secureUrl: socialImageUrl,
+          width: 1200,
+          height: 630,
+          type: "image/png",
           alt: preview.imageAlt,
         },
       ],
@@ -61,7 +69,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title: preview.title,
       description: preview.description,
-      images: [preview.imageUrl],
+      images: [socialImageUrl],
     },
   };
 }
