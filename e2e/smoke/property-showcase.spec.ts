@@ -123,13 +123,17 @@ test("property showcase facts and map privacy render as listing details", async 
   const response = await page.goto("/property/sea-view-residence");
 
   expectNavigationResponseOk(response, "/property/sea-view-residence");
+  const html = await response!.text();
+  expect(html).not.toContain("38.603912");
+  expect(html).not.toContain("-0.045316");
+  expect(html).not.toContain("exact-altea-parcel");
   await expect(page.getByTestId("property-facts")).toContainText("\u20ac695,000");
   await expect(page.getByTestId("property-facts")).toContainText("PS-001");
   await expect(page.getByTestId("property-facts")).toContainText("142 m\u00b2");
   await expect(page.locator("#location")).toContainText("Approximate location");
   await expect(
     page.locator("#location").getByRole("link", { name: "Open map" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -142,11 +146,12 @@ test("disabled map and empty highlights do not render empty panels", async ({
   const response = await page.goto("/property/quiet-townhouse");
 
   expectNavigationResponseOk(response, "/property/quiet-townhouse");
+  const html = await response!.text();
+  expect(html).not.toContain("38.688771");
+  expect(html).not.toContain("0.134412");
+  expect(html).not.toContain("hidden-moraira-parcel");
   await expect(page.locator("[data-testid='property-highlights']")).toHaveCount(0);
-  await expect(page.locator("#location iframe")).toHaveCount(0);
-  await expect(
-    page.locator("#location").getByRole("link", { name: "Open map" }),
-  ).toHaveCount(0);
+  await expect(page.locator("#location")).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -164,6 +169,26 @@ test("complete and minimal realtor profiles stay usable", async ({
   await page.goto("/property/quiet-townhouse");
   await expect(page.locator("#contact")).toContainText("Demo Real Estate Agency");
   await expect(page.locator("#contact").getByRole("link", { name: "WhatsApp" })).toHaveCount(0);
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("hidden realtor profile does not fall back to PicchuSpot contact", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1024, height: 768 });
+
+  const response = await page.goto("/property/private-contact-listing");
+
+  expectNavigationResponseOk(response, "/property/private-contact-listing");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Private Contact Listing" }),
+  ).toBeVisible();
+  await expect(page.locator("#contact")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Request a viewing" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /PicchuSpot contact/i })).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 

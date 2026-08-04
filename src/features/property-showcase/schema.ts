@@ -221,6 +221,7 @@ export const PropertyShowcaseMutationSchema = z
     updateMode: z.enum(["details", "media", "replace"]).optional(),
     removeVirtualTour: z.boolean().optional(),
     removeInteractiveFloorPlan: z.boolean().optional(),
+    removeInteractivePoster: z.boolean().optional(),
     removeFloorPlan: z.boolean().optional(),
     replaceFloorPlans: z.boolean().optional(),
   })

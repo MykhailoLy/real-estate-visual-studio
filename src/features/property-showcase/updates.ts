@@ -3,6 +3,7 @@ import {
   type ProviderUrlValidationResult,
 } from "./provider-urls.ts";
 import { normalizeGoogleMapsInput } from "./listing-details.ts";
+import { getPrimaryLanguage } from "./localization.ts";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
@@ -14,6 +15,7 @@ export type PropertyShowcaseUpdateMode = "details" | "media" | "replace";
 export interface PropertyShowcaseUpdateOptions {
   removeVirtualTour?: boolean;
   removeInteractiveFloorPlan?: boolean;
+  removeInteractivePoster?: boolean;
   removeFloorPlan?: boolean;
   replaceFloorPlans?: boolean;
 }
@@ -31,6 +33,15 @@ export function immutablePropertySlugError(
   return existing.slug === incoming.slug
     ? null
     : "Property slug cannot be changed after creation.";
+}
+
+export function immutablePropertyPrimaryLanguageError(
+  existing: PropertyShowcase,
+  incoming: PropertyShowcase,
+): string | null {
+  return getPrimaryLanguage(existing) === getPrimaryLanguage(incoming)
+    ? null
+    : "Primary content language cannot be changed after creation.";
 }
 
 function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
@@ -237,8 +248,10 @@ function mergeMediaUpdate(
         ? {
             ...existing.interactiveFloorPlanTour,
             posterImage:
-              incoming.interactiveFloorPlanTour?.posterImage ??
-              existing.interactiveFloorPlanTour.posterImage,
+              options.removeInteractivePoster
+                ? undefined
+                : (incoming.interactiveFloorPlanTour?.posterImage ??
+                  existing.interactiveFloorPlanTour.posterImage),
           }
         : incoming.interactiveFloorPlanTour,
     agent,

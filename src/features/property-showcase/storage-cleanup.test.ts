@@ -226,6 +226,44 @@ test("deletion candidates include only detached current-property media objects",
   );
 });
 
+test("interactive poster removal deletes only the detached owned poster", () => {
+  const existing = cloneProperty();
+  existing.slug = "altea";
+  existing.interactiveFloorPlanTour = {
+    enabled: true,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/demo-plan",
+    posterImage: storageUrl("property-showcases/altea/interactive-poster.webp"),
+  };
+  existing.coverImage = storageUrl("property-showcases/altea/cover.webp");
+  existing.gallery = [
+    {
+      id: "gallery-1",
+      src: existing.coverImage,
+      alt: { en: "Cover" },
+      label: { en: "Cover" },
+      sortOrder: 1,
+    },
+  ];
+
+  const next = {
+    ...existing,
+    interactiveFloorPlanTour: {
+      ...existing.interactiveFloorPlanTour,
+      posterImage: undefined,
+    },
+  };
+
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({
+      existing,
+      next,
+      slug: "altea",
+    }),
+    ["property-showcases/altea/interactive-poster.webp"],
+  );
+});
+
 test("deleting one floor plan keeps retained floor-plan images out of cleanup", () => {
   const existing = cloneProperty();
   existing.slug = "altea";

@@ -223,7 +223,11 @@ const costaBlancaDemo: PropertyShowcase = {
     },
     privacyMode: "approximate",
     showMap: true,
-    mapExternalUrl: "https://www.google.com/maps/place/Altea,+Alicante",
+    latitude: 38.603912,
+    longitude: -0.045316,
+    mapExternalUrl:
+      "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact-altea-parcel",
     airportTravelTime: {
       en: "Approximately 45 minutes to Alicante Airport",
       es: "Aproximadamente 45 minutos al Aeropuerto de Alicante",
@@ -291,6 +295,11 @@ const noHighlightsDemo: PropertyShowcase = {
     displayAddress: { en: "Moraira, Alicante" },
     privacyMode: "hidden",
     showMap: false,
+    latitude: 38.688771,
+    longitude: 0.134412,
+    mapExternalUrl:
+      "https://www.google.com/maps/search/?api=1&query=38.688771%2C0.134412",
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=hidden-moraira-parcel",
   },
   agent: {
     agencyName: "Demo Real Estate Agency",
@@ -298,9 +307,31 @@ const noHighlightsDemo: PropertyShowcase = {
   },
 };
 
+const hiddenProfileDemo: PropertyShowcase = {
+  ...noHighlightsDemo,
+  slug: "private-contact-listing",
+  reference: "PS-003",
+  title: {
+    en: "Private Contact Listing",
+  },
+  summary: {
+    en: "A one-language listing used to verify hidden realtor contact behavior.",
+  },
+  description: [
+    {
+      en: "This listing intentionally hides the public realtor profile and has no configured listing contact destination.",
+    },
+  ],
+  agent: {
+    agencyName: "White Label Realty",
+    displayProfile: false,
+  },
+};
+
 const propertyShowcases: Record<string, PropertyShowcase> = {
   [costaBlancaDemo.slug]: costaBlancaDemo,
   [noHighlightsDemo.slug]: noHighlightsDemo,
+  [hiddenProfileDemo.slug]: hiddenProfileDemo,
 };
 
 export function getPropertyShowcase(slug: string): PropertyShowcase | null {
@@ -311,4 +342,4 @@ export function getPropertyShowcaseSlugs(): string[] {
   return Object.keys(propertyShowcases);
 }
 
-export { costaBlancaDemo, noHighlightsDemo };
+export { costaBlancaDemo, hiddenProfileDemo, noHighlightsDemo };

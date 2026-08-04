@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPropertyShowcase } from "@/features/property-showcase/registry";
+import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
@@ -64,5 +65,5 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     notFound();
   }
 
-  return <PropertyShowcaseView property={property} />;
+  return <PropertyShowcaseView property={serializePublicPropertyShowcase(property)} />;
 }

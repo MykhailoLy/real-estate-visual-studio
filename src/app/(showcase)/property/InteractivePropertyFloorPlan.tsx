@@ -16,10 +16,15 @@ import {
   normalizeInteractiveFloorPlanInput,
   type NormalizedInteractiveFloorPlanUrl,
 } from "@/features/property-showcase/provider-urls";
+import {
+  localizedText,
+  PUBLIC_UI_LABELS,
+} from "@/features/property-showcase/localization";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyInteractiveFloorPlanTour,
+  PropertyLanguageCode,
 } from "@/features/property-showcase/types";
 
 type InteractivePropertyFloorPlanProps = {
@@ -27,6 +32,8 @@ type InteractivePropertyFloorPlanProps = {
   floorPlan?: PropertyFloorPlan;
   interactiveTour?: PropertyInteractiveFloorPlanTour;
   gallery: PropertyGalleryImage[];
+  locale?: PropertyLanguageCode;
+  primaryLanguage?: PropertyLanguageCode;
 };
 
 const fallbackPositions = [
@@ -76,6 +83,8 @@ function ExternalInteractiveFloorPlan({
   floorPlan,
   interactiveTour,
   gallery,
+  locale,
+  primaryLanguage,
   externalPlan,
 }: InteractivePropertyFloorPlanProps & {
   externalPlan: NormalizedInteractiveFloorPlanUrl;
@@ -88,7 +97,12 @@ function ExternalInteractiveFloorPlan({
   const openPlanLabel = openAction?.label ?? "Open interactive plan";
   const posterImage =
     interactiveTour?.posterImage ?? floorPlan?.imageUrl ?? gallery[0]?.src ?? "";
-  const posterTitle = floorPlan?.title.en ?? "Interactive floor plan";
+  const language = locale ?? primaryLanguage ?? "en";
+  const fallbackLanguage = primaryLanguage ?? language;
+  const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
+  const posterTitle =
+    localizedText(floorPlan?.title, language, fallbackLanguage) ||
+    ui.interactiveFloorPlan;
   const showIframe = canEmbed && status !== "poster";
   const showPoster =
     !canEmbed || status === "poster" || status === "opening";
@@ -147,7 +161,7 @@ function ExternalInteractiveFloorPlan({
           {showIframe ? (
             <iframe
               src={externalPlan.embedUrl}
-              title={`Interactive floor plan of ${propertyTitle}`}
+              title={`${ui.interactiveFloorPlan}: ${propertyTitle}`}
               className={`absolute inset-0 h-full w-full border-0 bg-white transition-opacity duration-300 ${
                 iframeIsVisible ? "opacity-100" : "opacity-0"
               }`}
@@ -178,7 +192,7 @@ function ExternalInteractiveFloorPlan({
             <div className="rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-md sm:p-5">
               <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4bc6a] sm:text-xs">
                 <MousePointer2 className="h-4 w-4" aria-hidden />
-                Interactive floor plan
+                {ui.interactiveFloorPlan}
               </p>
               <h2 className="mt-2 text-xl font-semibold sm:text-3xl">
                 Walk through the home room by room.
@@ -213,7 +227,7 @@ function ExternalInteractiveFloorPlan({
                 </span>
                 <span>
                   <span className="block text-base font-bold sm:text-lg">
-                    Open interactive floor plan
+                    {ui.interactiveFloorPlanCta}
                   </span>
                   <span className="mt-1 block text-xs text-white/65 sm:text-sm">
                     Opens directly from {externalPlan.providerName}
@@ -311,7 +325,12 @@ function NativeInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
   gallery,
+  locale,
+  primaryLanguage,
 }: InteractivePropertyFloorPlanProps & { floorPlan: PropertyFloorPlan }) {
+  const language = locale ?? primaryLanguage ?? "en";
+  const fallbackLanguage = primaryLanguage ?? language;
+  const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
   const rooms = useMemo(
     () =>
       gallery
@@ -358,10 +377,11 @@ function NativeInteractiveFloorPlan({
             <div>
               <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4bc6a] sm:text-xs">
                 <MousePointer2 className="h-4 w-4" aria-hidden />
-                Interactive floor plan
+                {ui.interactiveFloorPlan}
               </p>
               <p className="mt-1 text-sm font-semibold sm:text-lg">
-                {propertyTitle} · {selectedRoom.label.en}
+                {propertyTitle} {"\u00b7"}{" "}
+                {localizedText(selectedRoom.label, language, fallbackLanguage)}
               </p>
             </div>
             <button
@@ -378,7 +398,11 @@ function NativeInteractiveFloorPlan({
             <div className="relative min-h-[430px] bg-[#ece9e2] p-3 sm:min-h-[560px] sm:p-6 lg:min-h-0">
               <Image
                 src={floorPlan.imageUrl}
-                alt={`${floorPlan.title.en} for ${propertyTitle}`}
+                alt={`${localizedText(
+                  floorPlan.title,
+                  language,
+                  fallbackLanguage,
+                )} for ${propertyTitle}`}
                 fill
                 sizes="(min-width: 1024px) 46vw, 100vw"
                 className="object-contain p-6 sm:p-10"
@@ -393,7 +417,11 @@ function NativeInteractiveFloorPlan({
                     key={room.id}
                     type="button"
                     onClick={() => setSelectedRoomId(room.id)}
-                    aria-label={`Show ${room.label.en}`}
+                    aria-label={`Show ${localizedText(
+                      room.label,
+                      language,
+                      fallbackLanguage,
+                    )}`}
                     aria-pressed={isSelected}
                     className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-xs font-bold shadow-xl transition hover:scale-110 sm:h-11 sm:w-11 ${
                       isSelected
@@ -405,7 +433,7 @@ function NativeInteractiveFloorPlan({
                       top: `${position.yPercent}%`,
                     }}
                   >
-                    {room.label.en.charAt(0)}
+                    {localizedText(room.label, language, fallbackLanguage).charAt(0)}
                   </button>
                 );
               })}
@@ -415,7 +443,11 @@ function NativeInteractiveFloorPlan({
               <div className="relative flex-1 overflow-hidden">
                 <Image
                   src={selectedRoom.src}
-                  alt={selectedRoom.alt.en}
+                  alt={localizedText(
+                    selectedRoom.alt,
+                    language,
+                    fallbackLanguage,
+                  )}
                   fill
                   sizes="(min-width: 1024px) 54vw, 100vw"
                   className="object-cover"
@@ -439,10 +471,14 @@ function NativeInteractiveFloorPlan({
                 </button>
                 <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7 lg:p-8">
                   <p className="text-2xl font-semibold sm:text-3xl">
-                    {selectedRoom.label.en}
+                    {localizedText(selectedRoom.label, language, fallbackLanguage)}
                   </p>
                   <p className="mt-2 max-w-xl text-sm leading-6 text-white/65 sm:text-base">
-                    {selectedRoom.note?.en ?? selectedRoom.alt.en}
+                    {localizedText(
+                      selectedRoom.note ?? selectedRoom.alt,
+                      language,
+                      fallbackLanguage,
+                    )}
                   </p>
                   <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#d4bc6a]">
                     {selectedIndex + 1} of {rooms.length} room groups
@@ -461,7 +497,11 @@ function NativeInteractiveFloorPlan({
                         ? "border-[#c7a94e]"
                         : "border-transparent opacity-70 hover:opacity-100"
                     }`}
-                    aria-label={`Open ${room.label.en}`}
+                    aria-label={`Open ${localizedText(
+                      room.label,
+                      language,
+                      fallbackLanguage,
+                    )}`}
                   >
                     <Image
                       src={room.src}
@@ -471,7 +511,7 @@ function NativeInteractiveFloorPlan({
                       className="object-cover"
                     />
                     <span className="absolute inset-x-0 bottom-0 bg-black/65 px-2 py-1.5 text-left text-[10px] font-semibold text-white sm:text-xs">
-                      {room.label.en}
+                      {localizedText(room.label, language, fallbackLanguage)}
                     </span>
                   </button>
                 ))}

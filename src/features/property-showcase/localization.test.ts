@@ -5,6 +5,7 @@ import {
   getPrimaryLanguage,
   getPropertyLanguageOptions,
   localizedText,
+  PUBLIC_UI_LABELS,
   translationCompletion,
 } from "./localization.ts";
 import { normalizeChecklistHighlights } from "./listing-details.ts";
@@ -38,7 +39,39 @@ test("legacy English and Spanish content remains selectable", () => {
   assert.equal(localizedText(property.title, "es", "en"), "Legacy Spanish");
 });
 
-test("translation selection includes keyed translations", () => {
+test("Spanish-primary property without translations exposes only Spanish", () => {
+  const property = cloneProperty();
+  property.primaryLanguage = "es";
+  property.languages = ["es"];
+  property.translations = undefined;
+  property.title = { en: "Titulo principal", es: "Titulo principal" };
+
+  assert.deepEqual(getPropertyLanguageOptions(property), ["es"]);
+});
+
+test("German-primary property without translations exposes only German", () => {
+  const property = cloneProperty();
+  property.primaryLanguage = "de";
+  property.languages = ["de"];
+  property.translations = undefined;
+  property.title = { en: "Deutscher Titel", de: "Deutscher Titel" };
+
+  assert.deepEqual(getPropertyLanguageOptions(property), ["de"]);
+});
+
+test("Spanish-primary property with a real English translation exposes Spanish and English", () => {
+  const property = cloneProperty();
+  property.primaryLanguage = "es";
+  property.languages = ["es"];
+  property.translations = {
+    en: { title: "English title" },
+  };
+  property.title = { en: "English title", es: "Titulo principal" };
+
+  assert.deepEqual(getPropertyLanguageOptions(property), ["es", "en"]);
+});
+
+test("modern translation selection uses explicit keyed translations only", () => {
   const property = cloneProperty();
   property.languages = ["en"];
   property.translations = {
@@ -47,7 +80,7 @@ test("translation selection includes keyed translations", () => {
   };
   property.title.fr = "Titre francais";
 
-  assert.deepEqual(getPropertyLanguageOptions(property), ["en", "fr", "nl", "es", "de"]);
+  assert.deepEqual(getPropertyLanguageOptions(property), ["en", "fr", "nl"]);
 });
 
 test("translation completion measures direct translations, not fallback text", () => {
@@ -75,4 +108,13 @@ test("checklist conversion supports new text and legacy title highlights", () =>
     "New checklist item",
     "Legacy title",
   ]);
+});
+
+test("public UI labels are translated beyond English and Spanish", () => {
+  assert.equal(PUBLIC_UI_LABELS.de.aboutHeading, "Über diese Immobilie");
+  assert.equal(PUBLIC_UI_LABELS.fr.mapApproximate, "Localisation approximative");
+  assert.equal(PUBLIC_UI_LABELS.nl.requestViewing, "Bezichtiging aanvragen");
+  assert.equal(PUBLIC_UI_LABELS.pl.floorPlans, "Plany pięter");
+  assert.equal(PUBLIC_UI_LABELS.uk.location, "Локація");
+  assert.equal(PUBLIC_UI_LABELS.ru.galleryEyebrow, "Фотогалерея");
 });

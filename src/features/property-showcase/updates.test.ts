@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
 import {
+  immutablePropertyPrimaryLanguageError,
   immutablePropertySlugError,
   mergePropertyShowcaseUpdate,
 } from "./updates.ts";
@@ -95,6 +96,19 @@ test("slug changes after creation are rejected", () => {
   assert.equal(
     immutablePropertySlugError(existing, incoming),
     "Property slug cannot be changed after creation.",
+  );
+});
+
+test("primary language changes after creation are rejected", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    primaryLanguage: "es" as const,
+  };
+
+  assert.equal(
+    immutablePropertyPrimaryLanguageError(existing, incoming),
+    "Primary content language cannot be changed after creation.",
   );
 });
 
@@ -234,6 +248,30 @@ test("replacing the cover preserves all other property data", () => {
     result.property?.interactiveFloorPlanTour,
     existing.interactiveFloorPlanTour,
   );
+});
+
+test("explicitly removing the interactive poster clears only poster media", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    interactiveFloorPlanTour: {
+      ...existing.interactiveFloorPlanTour!,
+      posterImage: "",
+    },
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    removeInteractivePoster: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.interactiveFloorPlanTour?.posterImage, undefined);
+  assert.equal(
+    result.property?.interactiveFloorPlanTour?.externalUrl,
+    existing.interactiveFloorPlanTour?.externalUrl,
+  );
+  assert.deepEqual(result.property?.gallery, existing.gallery);
+  assert.deepEqual(result.property?.floorPlans, existing.floorPlans);
 });
 
 test("ordinary detail saves preserve property-level interactive floor plan tour", () => {

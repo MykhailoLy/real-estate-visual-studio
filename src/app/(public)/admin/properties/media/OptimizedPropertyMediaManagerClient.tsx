@@ -846,7 +846,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     try {
       const optimized = await optimizePropertyImage(sourceFile, "gallery");
       setUploadDetail(
-        `Uploading ${label}: ${formatImageBytes(optimized.originalBytes)} в†’ ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} Г— ${optimized.height})`,
+        `Uploading ${label}: ${formatImageBytes(optimized.originalBytes)} -> ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} x ${optimized.height})`,
       );
       const uploaded = await uploadPropertyFile(record.slug, optimized.file, kind);
       uploadedPublicUrl = uploaded.publicUrl;
@@ -858,7 +858,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       };
       setLastSavings(summary);
       setNotice(
-        `${label} optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} в†’ ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
+        `${label} optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} -> ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
       );
     } catch (uploadError) {
       await cleanupUploadedPropertyFiles(
@@ -913,6 +913,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     );
     const removeFloorPlan =
       cleanedFloorPlans.length === 0 && record.property.floorPlans.length > 0;
+    const removeInteractivePoster =
+      Boolean(record.property.interactiveFloorPlanTour?.posterImage) &&
+      !interactivePosterUrl.trim();
 
     const property: PropertyShowcase = {
       ...record.property,
@@ -935,7 +938,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         ? {
             ...record.property.interactiveFloorPlanTour,
             posterImage:
-              interactivePosterUrl && !isDemoAsset(interactivePosterUrl)
+              !removeInteractivePoster &&
+              interactivePosterUrl &&
+              !isDemoAsset(interactivePosterUrl)
                 ? interactivePosterUrl
                 : record.property.interactiveFloorPlanTour.posterImage,
           }
@@ -966,6 +971,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           published: record.published,
           updateMode: "media",
           removeFloorPlan,
+          removeInteractivePoster,
           replaceFloorPlans: true,
         }),
       });
@@ -976,7 +982,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       setGallery(cleanedGallery);
       setCoverImage(finalCover);
       setFloorPlans(cleanedFloorPlans);
-      setInteractivePosterUrl(property.interactiveFloorPlanTour?.posterImage ?? "");
+      setInteractivePosterUrl(
+        removeInteractivePoster
+          ? ""
+          : property.interactiveFloorPlanTour?.posterImage ?? "",
+      );
       setAgentPortraitUrl(property.agent.portraitUrl ?? "");
       setAgencyLogoUrl(property.agent.logoUrl ?? "");
       setNotice("Property media saved successfully.");

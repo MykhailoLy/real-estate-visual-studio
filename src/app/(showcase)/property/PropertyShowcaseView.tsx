@@ -25,6 +25,7 @@ import { useMemo, useState } from "react";
 import { formatPriceLabel } from "@/features/property-showcase/formatting";
 import {
   getPropertyMapView,
+  getListingReferenceLabel,
   normalizeAgentProfile,
   normalizeChecklistHighlights,
   normalizeListingFacts,
@@ -115,6 +116,7 @@ export default function PropertyShowcaseView({
     primaryLanguage,
   );
   const facts = normalizeListingFacts(property, language);
+  const listingReferenceLabel = getListingReferenceLabel(property, language);
   const highlights = normalizeChecklistHighlights(property, language);
   const description = property.description
     .map((paragraph) => localizedText(paragraph, language, primaryLanguage))
@@ -122,11 +124,12 @@ export default function PropertyShowcaseView({
   const mapView = getPropertyMapView(property, language);
   const agent = normalizeAgentProfile(property, language);
   const contactHref =
-    agent?.whatsappHref ?? agent?.emailHref ?? agent?.website ?? "/contact";
-  const contactIsExternal = contactHref.startsWith("http");
+    agent?.whatsappHref ?? agent?.emailHref ?? agent?.website;
+  const contactIsExternal = contactHref?.startsWith("http") ?? false;
   const showLanguageSwitcher = languages.length > 1;
   const showLocation =
-    address || property.location.airportTravelTime || mapView.mode !== "hidden";
+    mapView.mode !== "hidden" || Boolean(property.location.airportTravelTime);
+  const showContactSection = Boolean(contactHref || agent);
 
   return (
     <div className="min-h-screen bg-[#f2f0ea] text-slate-950">
@@ -167,15 +170,17 @@ export default function PropertyShowcaseView({
                 ))}
               </div>
             ) : null}
-            <a
-              href={contactHref}
-              target={contactIsExternal ? "_blank" : undefined}
-              rel={contactIsExternal ? "noreferrer" : undefined}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] sm:text-sm"
-            >
-              {ui.requestViewing}
-              <ArrowUpRight className="h-4 w-4" aria-hidden />
-            </a>
+            {contactHref ? (
+              <a
+                href={contactHref}
+                target={contactIsExternal ? "_blank" : undefined}
+                rel={contactIsExternal ? "noreferrer" : undefined}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] sm:text-sm"
+              >
+                {ui.requestViewing}
+                <ArrowUpRight className="h-4 w-4" aria-hidden />
+              </a>
+            ) : null}
           </div>
         </div>
       </header>
@@ -203,7 +208,7 @@ export default function PropertyShowcaseView({
                         {ui.status[property.status]}
                       </span>
                       <span className="rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-xs font-medium text-white/85 backdrop-blur">
-                        {ui.reference} {property.reference}
+                        {listingReferenceLabel} {property.reference}
                       </span>
                     </div>
                     {address ? (
@@ -355,7 +360,7 @@ export default function PropertyShowcaseView({
             }))}
             eyebrow={ui.galleryEyebrow}
             title={title}
-            description={`${gallery.length} images`}
+            description={ui.galleryImageCount(gallery.length)}
           />
         </div>
 
@@ -375,7 +380,7 @@ export default function PropertyShowcaseView({
                   {ui.floorPlans}
                 </p>
                 <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
-                  See how the spaces connect.
+                  {ui.floorPlansHeading}
                 </h2>
                 {showInteractivePlan ? (
                   <a
@@ -384,8 +389,8 @@ export default function PropertyShowcaseView({
                   >
                     <MousePointer2 className="h-4 w-4" aria-hidden />
                     {hasExternalInteractivePlan
-                      ? "Interactive floor plan"
-                      : "Room-by-room floor plan"}
+                      ? ui.interactiveFloorPlan
+                      : ui.roomByRoomFloorPlan}
                   </a>
                 ) : null}
               </div>
@@ -405,6 +410,8 @@ export default function PropertyShowcaseView({
             floorPlan={interactiveFloorPlan}
             interactiveTour={propertyInteractiveTour}
             gallery={gallery}
+            locale={language}
+            primaryLanguage={primaryLanguage}
           />
         ) : null}
 
@@ -491,7 +498,7 @@ export default function PropertyShowcaseView({
                       </h3>
                       <p className="mt-2 text-sm leading-6 text-slate-600">
                         {mapView.privacyMode === "approximate"
-                          ? "Exact coordinates are not shown on this public page."
+                          ? ui.mapExactCoordinatesHidden
                           : address}
                       </p>
                       {mapView.externalUrl ? (
@@ -513,6 +520,7 @@ export default function PropertyShowcaseView({
           </section>
         ) : null}
 
+        {showContactSection ? (
         <section id="contact" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-24">
           <div className="overflow-hidden rounded-3xl border border-black/8 bg-[#e8e2d4]">
             <div className="grid lg:grid-cols-[1fr_0.9fr]">
@@ -523,6 +531,7 @@ export default function PropertyShowcaseView({
                 <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-5xl">
                   {title}
                 </h2>
+                {contactHref ? (
                 <div className="mt-9 flex flex-wrap gap-3">
                   <a
                     href={contactHref}
@@ -539,10 +548,11 @@ export default function PropertyShowcaseView({
                       className="inline-flex items-center gap-2 rounded-full border border-[#0f2440]/20 px-6 py-3.5 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
                     >
                       <MessageCircle className="h-4 w-4" aria-hidden />
-                      Email
+                      {ui.askQuestion}
                     </a>
                   ) : null}
                 </div>
+                ) : null}
               </div>
 
               {agent ? (
@@ -606,7 +616,7 @@ export default function PropertyShowcaseView({
                         rel="noreferrer"
                         className="block break-all hover:text-[#0f2440]"
                       >
-                        WhatsApp
+                        {ui.whatsapp}
                       </a>
                     ) : null}
                     {agent.emailHref && agent.email ? (
@@ -650,6 +660,7 @@ export default function PropertyShowcaseView({
             </div>
           </div>
         </section>
+        ) : null}
       </main>
 
       <footer className="border-t border-white/10 bg-[#0f2440] text-white">

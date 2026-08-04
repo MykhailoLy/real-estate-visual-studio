@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { getPropertyShowcaseForAdminById } from "@/features/property-showcase/server";
 import PropertyShowcaseView from "../../../../property/PropertyShowcaseView";
 
@@ -50,7 +51,7 @@ export default async function AdminPropertyPreviewPage({
           </p>
         </div>
       </div>
-      <PropertyShowcaseView property={record.property} />
+      <PropertyShowcaseView property={serializePublicPropertyShowcase(record.property)} />
     </>
   );
 }

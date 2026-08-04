@@ -42,6 +42,12 @@ export interface PropertyFact {
   visible?: boolean;
 }
 
+export type ListingReferenceLabelMode =
+  | "property-reference"
+  | "mls-number"
+  | "listing-number"
+  | "custom";
+
 export interface PropertyHighlight {
   text?: LocalizedText;
   title?: LocalizedText;

@@ -1,5 +1,5 @@
 import { getTrustedPropertyFrameOrigins } from "../features/property-showcase/provider-urls.ts";
-import { TRUSTED_GOOGLE_MAP_ORIGINS } from "../features/property-showcase/listing-details.ts";
+import { TRUSTED_GOOGLE_MAP_FRAME_ORIGINS } from "../features/property-showcase/listing-details.ts";
 
 export interface ResponseHeader {
   key: string;
@@ -7,7 +7,7 @@ export interface ResponseHeader {
 }
 
 const TRUSTED_PROPERTY_FRAME_ORIGINS = getTrustedPropertyFrameOrigins();
-const TRUSTED_MAP_FRAME_ORIGINS = [...TRUSTED_GOOGLE_MAP_ORIGINS];
+const TRUSTED_MAP_FRAME_ORIGINS = [...TRUSTED_GOOGLE_MAP_FRAME_ORIGINS];
 const TRUSTED_PROPERTY_PERMISSION_ORIGINS = TRUSTED_PROPERTY_FRAME_ORIGINS.map(
   (origin) => `"${origin}"`,
 ).join(" ");

@@ -21,6 +21,7 @@ import {
   formatPriceLabel,
   generatePropertyPageSlug,
 } from "@/features/property-showcase/formatting";
+import { moveHighlightItem } from "@/features/property-showcase/highlight-ordering";
 import {
   getPrimaryLanguage,
   getPropertyLanguageOptions,
@@ -29,12 +30,17 @@ import {
   SUPPORTED_PROPERTY_LANGUAGES,
   translationCompletion,
 } from "@/features/property-showcase/localization";
-import { normalizeGoogleMapsInput } from "@/features/property-showcase/listing-details";
+import {
+  labelForListingReferenceMode,
+  LISTING_REFERENCE_LABEL_PRESETS,
+  normalizeGoogleMapsInput,
+} from "@/features/property-showcase/listing-details";
 import {
   normalizeInteractiveFloorPlanInput,
   normalizeTourPrimaryInput,
 } from "@/features/property-showcase/provider-urls";
 import type {
+  ListingReferenceLabelMode,
   LocalizedText,
   PropertyAgentSocialProvider,
   PropertyFact,
@@ -76,6 +82,8 @@ type AgentSocialLink = NonNullable<PropertyShowcase["agent"]["socialLinks"]>[num
 interface FormState {
   slug: string;
   reference: string;
+  referenceLabelMode: ListingReferenceLabelMode;
+  referenceCustomLabel: string;
   status: PropertyStatus;
   primaryLanguage: PropertyLanguageCode;
   title: string;
@@ -136,6 +144,34 @@ function factValue(property: PropertyShowcase | null, key: PropertyFact["key"]) 
   return property?.facts.find((fact) => fact.key === key)?.value ?? "";
 }
 
+function factLabel(property: PropertyShowcase | null, key: PropertyFact["key"]) {
+  return property?.facts.find((fact) => fact.key === key)?.label;
+}
+
+function referenceLabelState(property: PropertyShowcase | null): Pick<
+  FormState,
+  "referenceLabelMode" | "referenceCustomLabel"
+> {
+  const label = factLabel(property, "listing-reference")?.en?.trim() ?? "";
+  const matchingPreset = (
+    Object.entries(LISTING_REFERENCE_LABEL_PRESETS) as Array<
+      [Exclude<ListingReferenceLabelMode, "custom">, LocalizedText]
+    >
+  ).find(([, preset]) => preset.en === label);
+
+  if (matchingPreset) {
+    return {
+      referenceLabelMode: matchingPreset[0],
+      referenceCustomLabel: "",
+    };
+  }
+
+  return {
+    referenceLabelMode: label ? "custom" : "property-reference",
+    referenceCustomLabel: label,
+  };
+}
+
 function paragraphs(value: string): string[] | undefined {
   const items = value
     .split(/\r?\n\s*\r?\n/g)
@@ -159,6 +195,7 @@ function socialState(property: PropertyShowcase | null): SocialFormState {
 function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
   const property = record?.property ?? null;
   const primaryLanguage = property ? getPrimaryLanguage(property) : "en";
+  const referenceLabel = referenceLabelState(property);
   const languageOptions: PropertyLanguageCode[] = property
     ? getPropertyLanguageOptions(property)
     : ["en"];
@@ -194,6 +231,8 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
   return {
     slug: property?.slug ?? "",
     reference: property?.reference ?? "PS-",
+    referenceLabelMode: referenceLabel.referenceLabelMode,
+    referenceCustomLabel: referenceLabel.referenceCustomLabel,
     status: property?.status ?? "for-sale",
     primaryLanguage,
     title: property ? localizedText(property.title, primaryLanguage, primaryLanguage) : "",
@@ -304,8 +343,17 @@ function buildFacts(state: FormState): PropertyFact[] {
     }
   };
 
+  push(
+    "listing-reference",
+    state.reference,
+    labelForListingReferenceMode(
+      state.referenceLabelMode,
+      state.referenceCustomLabel,
+    ),
+    -10,
+  );
   push("bedrooms", state.bedrooms, { en: "Bedrooms", es: "Dormitorios" }, 10);
-  push("bathrooms", state.bathrooms, { en: "Bathrooms", es: "Banos" }, 20);
+  push("bathrooms", state.bathrooms, { en: "Bathrooms", es: "Baños" }, 20);
   push("parking", state.parking, { en: "Parking", es: "Aparcamiento" }, 30);
   push(
     "built-area",
@@ -316,7 +364,7 @@ function buildFacts(state: FormState): PropertyFact[] {
   push(
     "year-built",
     state.yearBuilt,
-    { en: "Year built", es: "Ano de construccion" },
+    { en: "Year built", es: "Año de construcción" },
     50,
   );
   push("plot-area", state.plotArea, { en: "Lot size", es: "Parcela" }, 60);
@@ -923,6 +971,29 @@ function PropertyEditor({
     });
   }
 
+  function moveHighlight(id: string, direction: -1 | 1) {
+    setForm((current) => {
+      const index = current.highlights.findIndex((highlight) => highlight.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.highlights.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        highlights: moveHighlightItem(current.highlights, index, nextIndex),
+        translations: current.translations.map((translation) => ({
+          ...translation,
+          highlights: moveHighlightItem(
+            translation.highlights,
+            index,
+            nextIndex,
+          ),
+        })),
+      };
+    });
+  }
+
   function addTranslation(language: PropertyLanguageCode) {
     if (
       language === form.primaryLanguage ||
@@ -1002,6 +1073,12 @@ function PropertyEditor({
       Boolean(existingProperty?.virtualTour) &&
       !form.tourInput.trim() &&
       !form.tourExternalUrl.trim();
+    const removeInteractiveFloorPlan =
+      mode === "edit" &&
+      Boolean(existingProperty?.interactiveFloorPlanTour) &&
+      !form.interactiveEnabled &&
+      !form.interactiveExternalUrl.trim() &&
+      !form.interactiveEmbedUrl.trim();
     const endpoint =
       mode === "create"
         ? "/api/admin/properties"
@@ -1017,6 +1094,7 @@ function PropertyEditor({
           published: form.published,
           updateMode: mode === "create" ? "replace" : "details",
           removeVirtualTour,
+          removeInteractiveFloorPlan,
         }),
       });
       if (!response.ok) {
@@ -1098,6 +1176,35 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
+            <Field label="Reference label">
+              <select
+                value={form.referenceLabelMode}
+                onChange={(event) =>
+                  set(
+                    "referenceLabelMode",
+                    event.target.value as ListingReferenceLabelMode,
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="property-reference">Property reference</option>
+                <option value="mls-number">MLS number</option>
+                <option value="listing-number">Listing number</option>
+                <option value="custom">Custom label</option>
+              </select>
+            </Field>
+            {form.referenceLabelMode === "custom" ? (
+              <Field label="Custom reference label">
+                <input
+                  value={form.referenceCustomLabel}
+                  onChange={(event) =>
+                    set("referenceCustomLabel", event.target.value)
+                  }
+                  className={inputClass}
+                  placeholder="Property reference"
+                />
+              </Field>
+            ) : null}
             <Field label="Status">
               <select
                 value={form.status}
@@ -1129,19 +1236,35 @@ function PropertyEditor({
         <Section title="2. Primary language">
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Primary content language">
-              <select
-                value={form.primaryLanguage}
-                onChange={(event) =>
-                  set("primaryLanguage", event.target.value as PropertyLanguageCode)
-                }
-                className={inputClass}
-              >
-                {SUPPORTED_PROPERTY_LANGUAGES.map((language) => (
-                  <option key={language} value={language}>
-                    {PROPERTY_LANGUAGE_LABELS[language]}
-                  </option>
-                ))}
-              </select>
+              {mode === "edit" ? (
+                <input
+                  value={PROPERTY_LANGUAGE_LABELS[form.primaryLanguage]}
+                  readOnly
+                  aria-readonly="true"
+                  className={protectedInputClass}
+                />
+              ) : (
+                <select
+                  value={form.primaryLanguage}
+                  onChange={(event) =>
+                    set(
+                      "primaryLanguage",
+                      event.target.value as PropertyLanguageCode,
+                    )
+                  }
+                  className={inputClass}
+                >
+                  {SUPPORTED_PROPERTY_LANGUAGES.map((language) => (
+                    <option key={language} value={language}>
+                      {PROPERTY_LANGUAGE_LABELS[language]}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <span className="mt-1 block text-xs font-normal text-muted">
+                Primary language can be selected during creation and is locked
+                after the property exists.
+              </span>
             </Field>
           </div>
         </Section>
@@ -1260,7 +1383,7 @@ function PropertyEditor({
               </div>
             ) : (
               form.highlights.map((highlight, index) => (
-                <div key={highlight.id} className="flex gap-3">
+                <div key={highlight.id} className="flex flex-col gap-3 rounded-xl border border-border bg-white p-3 sm:flex-row">
                   <Field label={`Highlight ${index + 1}`}>
                     <input
                       value={highlight.text}
@@ -1270,14 +1393,32 @@ function PropertyEditor({
                       className={inputClass}
                     />
                   </Field>
-                  <button
-                    type="button"
-                    onClick={() => removeHighlight(highlight.id)}
-                    className="mt-7 grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-red-200 text-red-700 hover:bg-red-50"
-                    aria-label="Remove highlight"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
+                  <div className="flex shrink-0 flex-wrap gap-2 sm:items-end">
+                    <button
+                      type="button"
+                      onClick={() => moveHighlight(highlight.id, -1)}
+                      disabled={index === 0}
+                      className="rounded-xl border border-border px-3 py-2 text-xs font-bold text-primary hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Move earlier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveHighlight(highlight.id, 1)}
+                      disabled={index === form.highlights.length - 1}
+                      className="rounded-xl border border-border px-3 py-2 text-xs font-bold text-primary hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Move later
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeHighlight(highlight.id)}
+                      className="grid h-10 w-10 place-items-center rounded-xl border border-red-200 text-red-700 hover:bg-red-50"
+                      aria-label="Remove highlight"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
                 </div>
               ))
             )}

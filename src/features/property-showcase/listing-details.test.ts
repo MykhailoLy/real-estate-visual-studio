@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
 import {
+  getListingReferenceLabel,
+  labelForListingReferenceMode,
   getPropertyMapView,
   normalizeAgentProfile,
   normalizeGoogleMapsInput,
@@ -32,9 +34,35 @@ test("facts rendering adds price and listing reference without empty cells", () 
 
   assert.deepEqual(normalizeListingFacts(property, "en"), [
     { key: "price", label: "Price", value: "$385,560" },
-    { key: "listing-reference", label: "Listing ref", value: "MLS-123" },
+    { key: "listing-reference", label: "Reference", value: "MLS-123" },
     { key: "built-area", label: "Interior", value: "1,900 sq ft" },
   ]);
+});
+
+test("listing identifier labels support presets and custom labels", () => {
+  const property = cloneProperty();
+  property.reference = "26-8946";
+
+  property.facts = [
+    {
+      key: "listing-reference",
+      value: property.reference,
+      label: labelForListingReferenceMode("property-reference", ""),
+    },
+  ];
+  assert.equal(getListingReferenceLabel(property, "en"), "Property reference");
+
+  property.facts[0].label = labelForListingReferenceMode("mls-number", "");
+  assert.equal(getListingReferenceLabel(property, "en"), "MLS number");
+
+  property.facts[0].label = labelForListingReferenceMode("listing-number", "");
+  assert.equal(getListingReferenceLabel(property, "en"), "Listing number");
+
+  property.facts[0].label = labelForListingReferenceMode(
+    "custom",
+    "Parcel code",
+  );
+  assert.equal(getListingReferenceLabel(property, "en"), "Parcel code");
 });
 
 test("Google Maps normalization distinguishes links from embeddable iframes", () => {
@@ -77,6 +105,13 @@ test("Google Maps normalization rejects lookalike, unsafe, and non-embed sources
       canEmbed: false,
     },
   );
+  assert.deepEqual(
+    normalizeGoogleMapsInput("https://maps.app.goo.gl/abc123"),
+    {
+      externalUrl: "https://maps.app.goo.gl/abc123",
+      canEmbed: false,
+    },
+  );
 });
 
 test("map view respects hidden, approximate, and exact privacy modes", () => {
@@ -97,6 +132,7 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
     showMap: true,
     latitude: 38.6,
     longitude: -0.05,
+    mapExternalUrl: "https://www.google.com/maps/search/?api=1&query=38.6%2C-0.05",
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact",
   };
   const approximate = getPropertyMapView(property, "en");
@@ -143,4 +179,26 @@ test("agent profile normalizes safe contacts and social links", () => {
     profile?.socialLinks.map((link) => link.labelText),
     ["Instagram", "Team"],
   );
+});
+
+test("agent profile supports minimal and hidden profiles", () => {
+  const property = cloneProperty();
+  property.agent = {
+    agencyName: "Minimal Agency",
+    displayProfile: true,
+  };
+
+  const minimal = normalizeAgentProfile(property, "en");
+  assert.equal(minimal?.agencyName, "Minimal Agency");
+  assert.equal(minimal?.displayName, "Minimal Agency");
+  assert.equal(minimal?.phoneHref, undefined);
+  assert.deepEqual(minimal?.socialLinks, []);
+
+  property.agent = {
+    agencyName: "Hidden Agency",
+    displayProfile: false,
+    website: "https://agency.example",
+  };
+
+  assert.equal(normalizeAgentProfile(property, "en"), null);
 });

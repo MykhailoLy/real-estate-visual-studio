@@ -10,6 +10,7 @@ import {
   propertyShowcaseMediaDeletionCandidates,
 } from "@/features/property-showcase/storage-cleanup";
 import {
+  immutablePropertyPrimaryLanguageError,
   immutablePropertySlugError,
   mergePropertyShowcaseUpdate,
 } from "@/features/property-showcase/updates";
@@ -113,6 +114,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: slugError }, { status: 400 });
   }
 
+  const primaryLanguageError = immutablePropertyPrimaryLanguageError(
+    existingProperty.data,
+    parsed.data.property,
+  );
+  if (primaryLanguageError) {
+    return NextResponse.json({ error: primaryLanguageError }, { status: 400 });
+  }
+
   const publishedAt = parsed.data.published
     ? existing.published_at ?? new Date().toISOString()
     : undefined;
@@ -126,6 +135,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     {
       removeVirtualTour: parsed.data.removeVirtualTour,
       removeInteractiveFloorPlan: parsed.data.removeInteractiveFloorPlan,
+      removeInteractivePoster: parsed.data.removeInteractivePoster,
       removeFloorPlan: parsed.data.removeFloorPlan,
       replaceFloorPlans: parsed.data.replaceFloorPlans,
     },

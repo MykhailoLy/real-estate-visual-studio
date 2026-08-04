@@ -4,8 +4,11 @@ import {
   getPrimaryLanguage,
   highlightChecklistText,
   localizedText,
+  PUBLIC_UI_LABELS,
 } from "./localization.ts";
 import type {
+  ListingReferenceLabelMode,
+  LocalizedText,
   PropertyAgent,
   PropertyAgentSocialLink,
   PropertyFact,
@@ -45,6 +48,42 @@ export interface AgentProfileView {
   socialLinks: Array<PropertyAgentSocialLink & { labelText: string }>;
 }
 
+export const LISTING_REFERENCE_LABEL_PRESETS: Record<
+  Exclude<ListingReferenceLabelMode, "custom">,
+  LocalizedText
+> = {
+  "property-reference": {
+    en: "Property reference",
+    es: "Referencia de la propiedad",
+    de: "Objektreferenz",
+    fr: "Référence du bien",
+    nl: "Woningreferentie",
+    pl: "Referencja nieruchomości",
+    uk: "Референс об'єкта",
+    ru: "Референс объекта",
+  },
+  "mls-number": {
+    en: "MLS number",
+    es: "Número MLS",
+    de: "MLS-Nummer",
+    fr: "Numéro MLS",
+    nl: "MLS-nummer",
+    pl: "Numer MLS",
+    uk: "Номер MLS",
+    ru: "Номер MLS",
+  },
+  "listing-number": {
+    en: "Listing number",
+    es: "Número de anuncio",
+    de: "Angebotsnummer",
+    fr: "Numéro d'annonce",
+    nl: "Advertentienummer",
+    pl: "Numer oferty",
+    uk: "Номер оголошення",
+    ru: "Номер объявления",
+  },
+};
+
 export interface GoogleMapsNormalizationResult {
   externalUrl?: string;
   embedUrl?: string;
@@ -52,6 +91,12 @@ export interface GoogleMapsNormalizationResult {
 }
 
 export const TRUSTED_GOOGLE_MAP_ORIGINS = [
+  "https://www.google.com",
+  "https://maps.google.com",
+  "https://maps.app.goo.gl",
+] as const;
+
+export const TRUSTED_GOOGLE_MAP_FRAME_ORIGINS = [
   "https://www.google.com",
   "https://maps.google.com",
 ] as const;
@@ -79,34 +124,34 @@ const DEFAULT_FACT_LABELS: Record<PropertyFactKey, Record<PropertyLanguageCode, 
     ru: "Price",
   },
   "listing-reference": {
-    en: "Listing ref",
+    en: "Reference",
     es: "Referencia",
     de: "Referenz",
-    fr: "Reference",
+    fr: "Référence",
     nl: "Referentie",
     pl: "Numer oferty",
-    uk: "Listing ref",
-    ru: "Listing ref",
+    uk: "Референс",
+    ru: "Референс",
   },
   bedrooms: {
     en: "Bedrooms",
     es: "Dormitorios",
-    de: "Bedrooms",
+    de: "Schlafzimmer",
     fr: "Chambres",
     nl: "Slaapkamers",
     pl: "Sypialnie",
-    uk: "Bedrooms",
-    ru: "Bedrooms",
+    uk: "Спальні",
+    ru: "Спальни",
   },
   bathrooms: {
     en: "Bathrooms",
-    es: "Banos",
-    de: "Bathrooms",
+    es: "Baños",
+    de: "Badezimmer",
     fr: "Salles de bain",
     nl: "Badkamers",
-    pl: "Lazienki",
-    uk: "Bathrooms",
-    ru: "Bathrooms",
+    pl: "Łazienki",
+    uk: "Ванні кімнати",
+    ru: "Ванные комнаты",
   },
   parking: {
     en: "Parking",
@@ -115,38 +160,38 @@ const DEFAULT_FACT_LABELS: Record<PropertyFactKey, Record<PropertyLanguageCode, 
     fr: "Stationnement",
     nl: "Parkeren",
     pl: "Parking",
-    uk: "Parking",
-    ru: "Parking",
+    uk: "Паркування",
+    ru: "Парковка",
   },
   "built-area": {
     en: "Built area",
     es: "Superficie construida",
-    de: "Wohnflache",
+    de: "Wohnfläche",
     fr: "Surface construite",
     nl: "Woonoppervlakte",
     pl: "Powierzchnia",
-    uk: "Built area",
-    ru: "Built area",
+    uk: "Площа",
+    ru: "Площадь",
   },
   "plot-area": {
     en: "Lot size",
     es: "Parcela",
-    de: "Grundstuck",
+    de: "Grundstück",
     fr: "Terrain",
     nl: "Perceel",
-    pl: "Dzialka",
-    uk: "Lot size",
-    ru: "Lot size",
+    pl: "Działka",
+    uk: "Ділянка",
+    ru: "Участок",
   },
   "year-built": {
     en: "Year built",
-    es: "Ano de construccion",
+    es: "Año de construcción",
     de: "Baujahr",
-    fr: "Annee",
+    fr: "Année",
     nl: "Bouwjaar",
     pl: "Rok budowy",
-    uk: "Year built",
-    ru: "Year built",
+    uk: "Рік побудови",
+    ru: "Год постройки",
   },
 };
 
@@ -164,6 +209,37 @@ function defaultFactLabel(
   language: PropertyLanguageCode,
 ): string {
   return DEFAULT_FACT_LABELS[key][language] ?? DEFAULT_FACT_LABELS[key].en;
+}
+
+function listingReferenceFact(
+  property: PropertyShowcase,
+): PropertyFact | undefined {
+  return property.facts.find((fact) => fact.key === "listing-reference");
+}
+
+export function labelForListingReferenceMode(
+  mode: ListingReferenceLabelMode,
+  customLabel: string,
+): LocalizedText {
+  if (mode === "custom") {
+    const trimmed = customLabel.trim();
+    return { en: trimmed || LISTING_REFERENCE_LABEL_PRESETS["property-reference"].en };
+  }
+
+  return LISTING_REFERENCE_LABEL_PRESETS[mode];
+}
+
+export function getListingReferenceLabel(
+  property: PropertyShowcase,
+  language: PropertyLanguageCode,
+): string {
+  const primaryLanguage = getPrimaryLanguage(property);
+  const fact = listingReferenceFact(property);
+  return (
+    localizedText(fact?.label, language, primaryLanguage) ||
+    PUBLIC_UI_LABELS[language]?.reference ||
+    PUBLIC_UI_LABELS.en.reference
+  );
 }
 
 function factSortOrder(fact: PropertyFact, fallbackIndex: number): number {
@@ -202,7 +278,11 @@ export function normalizeListingFacts(
     generatedFacts.push({
       key: "listing-reference",
       value: property.reference,
-      label: { en: DEFAULT_FACT_LABELS["listing-reference"].en },
+      label: {
+        en:
+          PUBLIC_UI_LABELS[primaryLanguage]?.reference ??
+          DEFAULT_FACT_LABELS["listing-reference"].en,
+      },
       sortOrder: -10,
     });
   }
@@ -255,7 +335,11 @@ function isTrustedGoogleMapUrl(url: URL): boolean {
 }
 
 function isGoogleEmbedUrl(url: URL): boolean {
-  return url.pathname.toLowerCase().startsWith("/maps/embed");
+  return (
+    (TRUSTED_GOOGLE_MAP_FRAME_ORIGINS as readonly string[]).includes(
+      url.origin.toLowerCase(),
+    ) && url.pathname.toLowerCase().startsWith("/maps/embed")
+  );
 }
 
 export function normalizeGoogleMapsInput(
@@ -313,9 +397,11 @@ export function getPropertyMapView(
   const embed = normalizeGoogleMapsInput(location.mapEmbedUrl);
   const external = normalizeGoogleMapsInput(location.mapExternalUrl);
   const externalUrl =
-    external?.externalUrl ??
-    external?.embedUrl ??
-    (location.privacyMode === "exact" ? coordinatesMapUrl(location) : undefined);
+    location.privacyMode === "exact"
+      ? external?.externalUrl ??
+        external?.embedUrl ??
+        coordinatesMapUrl(location)
+      : undefined;
 
   if (location.privacyMode === "exact" && embed?.embedUrl) {
     return {
