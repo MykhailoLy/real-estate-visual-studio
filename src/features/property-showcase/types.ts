@@ -66,6 +66,8 @@ export interface PropertyGalleryImage {
   src: string;
   alt: LocalizedText;
   label: LocalizedText;
+  featuredForSharing?: boolean;
+  primarySocialPreview?: boolean;
   note?: LocalizedText;
   roomId?: string;
   hotspot?: PropertyHotspot;
@@ -132,6 +134,9 @@ export interface PropertyLocation {
   displayAddress: LocalizedText;
   latitude?: number;
   longitude?: number;
+  approximateLatitude?: number;
+  approximateLongitude?: number;
+  approximateRadiusMeters?: number;
   privacyMode: "exact" | "approximate" | "hidden";
   airportTravelTime?: LocalizedText;
   showMap?: boolean;

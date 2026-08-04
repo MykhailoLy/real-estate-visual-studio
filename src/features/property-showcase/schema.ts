@@ -76,6 +76,8 @@ const PropertyGalleryImageSchema = z
     src: z.string().trim().min(1).max(2048),
     alt: LocalizedTextSchema,
     label: LocalizedTextSchema,
+    featuredForSharing: z.boolean().optional(),
+    primarySocialPreview: z.boolean().optional(),
     note: OptionalLocalizedTextSchema.optional(),
     roomId: optionalTrimmed(120),
     hotspot: z
@@ -127,13 +129,16 @@ const PropertyLocationSchema = z
     displayAddress: LocalizedTextSchema,
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),
+    approximateLatitude: z.number().min(-90).max(90).optional(),
+    approximateLongitude: z.number().min(-180).max(180).optional(),
+    approximateRadiusMeters: z.number().int().min(100).max(50000).optional(),
     privacyMode: z.enum(["exact", "approximate", "hidden"]),
     airportTravelTime: OptionalLocalizedTextSchema.optional(),
     showMap: z.boolean().optional(),
     mapExternalUrl: optionalTrimmed(2048),
     mapEmbedUrl: optionalTrimmed(4096),
     useCustomMapEmbed: z.boolean().optional(),
-    mapZoom: z.number().int().min(1).max(22).optional(),
+    mapZoom: z.number().int().min(1).max(23).optional(),
   })
   .strict();
 

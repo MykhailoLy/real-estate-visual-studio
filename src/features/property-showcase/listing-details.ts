@@ -38,6 +38,9 @@ export interface PropertyMapView {
   externalUrl?: string;
   embedUrl?: string;
   markerMode?: "exact" | "approximate";
+  centerLatitude?: number;
+  mapZoom?: number;
+  approximateRadiusMeters?: number;
 }
 
 export interface AgentProfileView {
@@ -385,7 +388,24 @@ export function hasValidPropertyCoordinates(
 
 function normalizedMapZoom(value: number | undefined): number {
   if (!Number.isFinite(value)) return 14;
-  return Math.min(22, Math.max(1, Math.round(value ?? 14)));
+  return Math.min(23, Math.max(1, Math.round(value ?? 14)));
+}
+
+function approximateMapCenter(location: PropertyLocation): {
+  latitude: number;
+  longitude: number;
+} | null {
+  const explicit = {
+    latitude: location.approximateLatitude,
+    longitude: location.approximateLongitude,
+  };
+  if (hasValidPropertyCoordinates(explicit)) return explicit;
+
+  if (!hasValidPropertyCoordinates(location)) return null;
+  return {
+    latitude: Math.round(location.latitude * 10) / 10,
+    longitude: Math.round(location.longitude * 10) / 10,
+  };
 }
 
 export function googleMapsExternalUrlFromCoordinates(
@@ -411,7 +431,7 @@ export function googleMapsEmbedUrlFromCoordinates(
     url.searchParams.set("z", String(requestedZoom));
   } else {
     url.searchParams.set("ll", coordinateValue);
-    url.searchParams.set("z", String(Math.min(requestedZoom, 11)));
+    url.searchParams.set("z", String(Math.min(requestedZoom, 14)));
   }
   url.searchParams.set("output", "embed");
   return url.toString();
@@ -436,7 +456,8 @@ export function getPropertyLocationMapView(
   const externalOverride = normalizeGoogleMapsInput(location.mapExternalUrl);
 
   if (location.privacyMode === "approximate") {
-    if (!coordinatesAreValid) {
+    const center = approximateMapCenter(location);
+    if (!center) {
       return {
         mode: "fallback",
         source: "invalid-coordinates",
@@ -453,16 +474,19 @@ export function getPropertyLocationMapView(
       address: "",
       label: "Approximate location",
       externalUrl: googleMapsExternalUrlFromCoordinates(
-        location.latitude,
-        location.longitude,
+        center.latitude,
+        center.longitude,
       ),
       embedUrl: googleMapsEmbedUrlFromCoordinates(
-        location.latitude,
-        location.longitude,
+        center.latitude,
+        center.longitude,
         location.mapZoom,
         "approximate",
       ),
       markerMode: "approximate",
+      centerLatitude: center.latitude,
+      mapZoom: Math.min(normalizedMapZoom(location.mapZoom), 14),
+      approximateRadiusMeters: location.approximateRadiusMeters ?? 1500,
     };
   }
 

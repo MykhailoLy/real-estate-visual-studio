@@ -158,6 +158,8 @@ const costaBlancaDemo: PropertyShowcase = {
     {
       id: "terrace",
       src: "/property-demo/terrace.svg",
+      featuredForSharing: true,
+      primarySocialPreview: true,
       alt: {
         en: "Private terrace overlooking the Mediterranean coast",
         es: "Terraza privada con vistas a la costa mediterranea",
@@ -190,6 +192,7 @@ const costaBlancaDemo: PropertyShowcase = {
   ],
   virtualTour: {
     provider: "kuula",
+    externalUrl: "https://mls.kuu.la/share/abc",
     posterImage: "/property-demo/living-room.svg",
   },
   interactiveFloorPlanTour: {
@@ -225,6 +228,9 @@ const costaBlancaDemo: PropertyShowcase = {
     showMap: true,
     latitude: 38.603912,
     longitude: -0.045316,
+    approximateLatitude: 38.6,
+    approximateLongitude: 0,
+    approximateRadiusMeters: 1800,
     mapExternalUrl:
       "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact-altea-parcel",

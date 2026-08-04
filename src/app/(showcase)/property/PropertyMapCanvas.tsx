@@ -9,6 +9,20 @@ interface PropertyMapCanvasProps {
   compact?: boolean;
 }
 
+function approximateCircleDiameter(mapView: PropertyMapView): number {
+  const latitude = mapView.centerLatitude ?? 0;
+  const zoom = mapView.mapZoom ?? 11;
+  const radius = mapView.approximateRadiusMeters ?? 1500;
+  const metersPerPixel =
+    (156543.03392 * Math.cos((latitude * Math.PI) / 180)) /
+    2 ** zoom;
+
+  return Math.min(
+    560,
+    Math.max(64, Math.round((radius * 2) / Math.max(metersPerPixel, 0.1))),
+  );
+}
+
 export default function PropertyMapCanvas({
   mapView,
   title,
@@ -17,39 +31,56 @@ export default function PropertyMapCanvas({
   compact = false,
 }: PropertyMapCanvasProps) {
   if (mapView.mode !== "embed" || !mapView.embedUrl) return null;
+  const approximateDiameter = approximateCircleDiameter(mapView);
+  const isApproximate = mapView.markerMode === "approximate";
 
   return (
-    <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-[0_12px_35px_rgba(15,36,64,0.08)]">
+    <div
+      className={
+        compact
+          ? "overflow-hidden rounded-lg border border-black/10 bg-white shadow-[0_12px_35px_rgba(15,36,64,0.08)]"
+          : "w-full overflow-hidden border-y border-black/10 bg-white"
+      }
+    >
       <div
         className={`relative ${
           compact
             ? "aspect-[16/9] min-h-[260px]"
-            : "aspect-[16/9] min-h-[340px] sm:min-h-[420px] lg:min-h-[500px]"
+            : "h-[62svh] min-h-[360px] max-h-[680px] sm:min-h-[460px]"
         }`}
       >
         <iframe
           src={mapView.embedUrl}
           title={title}
-          className="absolute inset-0 h-full w-full border-0"
+          className={`absolute inset-0 h-full w-full border-0 ${
+            isApproximate ? "pointer-events-none" : ""
+          }`}
           loading="lazy"
           referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
+          tabIndex={isApproximate ? -1 : undefined}
           data-testid="property-map-iframe"
         />
 
-        {mapView.markerMode === "approximate" ? (
+        {isApproximate ? (
           <div
             data-testid="approximate-map-area"
             className="pointer-events-none absolute inset-0 grid place-items-center"
             aria-hidden="true"
           >
-            <div className="h-28 w-28 rounded-full border-2 border-[#0f2440]/70 bg-[#d4bc6a]/25 shadow-[0_0_0_12px_rgba(255,255,255,0.32)] sm:h-36 sm:w-36" />
+            <div
+              className="rounded-full border-2 border-[#0f2440]/75 bg-[#d4bc6a]/25 shadow-[0_0_0_10px_rgba(255,255,255,0.28)]"
+              style={{
+                width: `min(${approximateDiameter}px, ${compact ? "72%" : "78vw"})`,
+                aspectRatio: "1",
+              }}
+            />
           </div>
         ) : null}
       </div>
 
       {mapView.externalUrl ? (
-        <div className="flex flex-col items-start gap-3 border-t border-black/8 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex flex-col items-start gap-3 border-t border-black/8 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <span className="text-xs font-medium text-slate-500 sm:text-sm">
             {troubleLabel}
           </span>

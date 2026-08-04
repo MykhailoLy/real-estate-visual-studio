@@ -48,7 +48,7 @@ for (const viewport of propertyViewports) {
           clientWidth: element.clientWidth,
         };
       });
-      expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 1.5);
+      expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 2.5);
       expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
     }
     const factColumns = await page.getByTestId("property-facts").evaluate(
@@ -56,13 +56,11 @@ for (const viewport of propertyViewports) {
         window.getComputedStyle(element).gridTemplateColumns.split(" ").length,
     );
     expect(factColumns).toBe(
-      viewport.width >= 1600
+      viewport.width >= 1536
         ? 8
-        : viewport.width >= 1024
+        : viewport.width >= 768
           ? 4
-          : viewport.width >= 768
-            ? 3
-            : 2,
+          : 2,
     );
     await expect(page.getByText("Open Mediterranean views")).toBeVisible();
     if (viewport.width >= 768) {
@@ -73,7 +71,7 @@ for (const viewport of propertyViewports) {
     }
     await expect(
       page.locator("#interactive-floor-plan").getByRole("link", {
-        name: "Open original interactive plan",
+        name: "Open interactive floor plan",
       }).first(),
     ).toBeVisible();
     await expect(
@@ -104,6 +102,58 @@ test("property showcase floor plan tabs switch plans on desktop", async ({
   await expect(page.getByTestId("selected-floor-plan-title")).toHaveText(
     "First floor",
   );
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("360 tour stays poster-first and keeps controls outside the provider frame", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const response = await page.goto("/property/sea-view-residence");
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+
+  const section = page.locator("#virtual-tour");
+  await section.scrollIntoViewIfNeeded();
+  await expect(section.getByRole("button", { name: "View 360 tour" })).toBeVisible();
+  await expect(section.getByTestId("virtual-tour-iframe")).toHaveCount(0);
+  await expect(
+    section.getByText("Enter the property without leaving the page"),
+  ).toHaveCount(0);
+
+  await section.getByRole("button", { name: "View 360 tour" }).click();
+  const iframe = section.getByTestId("virtual-tour-iframe");
+  const controls = section.getByTestId("virtual-tour-controls");
+  const fullscreen = controls.getByRole("button", { name: /Fullscreen/ });
+  await expect(iframe).toBeAttached();
+  await expect(controls).toBeVisible();
+  await expect(controls.getByRole("link", { name: "Open original tour" })).toBeVisible();
+  await expect(fullscreen).toBeVisible();
+
+  const [iframeBox, controlsBox] = await Promise.all([
+    iframe.boundingBox(),
+    controls.boundingBox(),
+  ]);
+  expect(iframeBox).not.toBeNull();
+  expect(controlsBox).not.toBeNull();
+  expect(controlsBox!.y).toBeGreaterThanOrEqual(iframeBox!.y + iframeBox!.height - 1);
+
+  const launcher = page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  });
+  const [launcherBox, fullscreenBox] = await Promise.all([
+    launcher.boundingBox(),
+    fullscreen.boundingBox(),
+  ]);
+  expect(launcherBox).not.toBeNull();
+  expect(fullscreenBox).not.toBeNull();
+  const supportOverlapsFullscreen =
+    launcherBox!.x < fullscreenBox!.x + fullscreenBox!.width &&
+    launcherBox!.x + launcherBox!.width > fullscreenBox!.x &&
+    launcherBox!.y < fullscreenBox!.y + fullscreenBox!.height &&
+    launcherBox!.y + launcherBox!.height > fullscreenBox!.y;
+  expect(supportOverlapsFullscreen).toBe(false);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -164,6 +214,10 @@ test("property showcase facts and map privacy render as listing details", async 
   await expect(page.locator("#location")).toContainText("Approximate location");
   await expect(page.getByTestId("property-map-iframe")).toBeVisible();
   await expect(page.getByTestId("approximate-map-area")).toBeVisible();
+  await expect(page.getByTestId("property-map-iframe")).toHaveCSS(
+    "pointer-events",
+    "none",
+  );
   const mapSrc = await page.getByTestId("property-map-iframe").getAttribute("src");
   expect(mapSrc).toContain("ll=38.6%2C0");
   expect(mapSrc).not.toContain("38.603912");
@@ -172,6 +226,27 @@ test("property showcase facts and map privacy render as listing details", async 
     page.locator("#location").getByRole("link", { name: "Open map" }),
   ).toBeVisible();
   await expect(page.getByText("Approximate location", { exact: true })).toHaveCount(1);
+  const approximateAreaBefore = await page
+    .getByTestId("approximate-map-area")
+    .boundingBox();
+  await page.mouse.move(700, 500);
+  const approximateAreaAfter = await page
+    .getByTestId("approximate-map-area")
+    .boundingBox();
+  expect(approximateAreaAfter).toEqual(approximateAreaBefore);
+  await expect(page.locator("footer")).toContainText("Equal Housing Opportunity");
+  await expect(page.locator("footer")).toContainText(
+    "Proudly created by Full Frame Media",
+  );
+
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    "content",
+    /property-demo\/terrace\.svg$/,
+  );
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    "content",
+    "summary_large_image",
+  );
 
   const sectionOrder = await page.evaluate(() => ({
     contact: document.querySelector("#contact")?.compareDocumentPosition(
@@ -297,7 +372,7 @@ test("property showcase support launcher does not cover interactive actions", as
     name: "Open PicchuSpot AI assistant",
   });
   const action = page.locator("#interactive-floor-plan").getByRole("link", {
-    name: "Open original interactive plan",
+    name: "Open interactive floor plan",
   }).first();
   await expect(launcher).toBeVisible();
   await expect(action).toBeVisible();

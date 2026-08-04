@@ -11,6 +11,15 @@ function roundPublicCoordinate(value: number | undefined): number | undefined {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
+function approximateCoordinate(
+  explicit: number | undefined,
+  fallback: number | undefined,
+): number | undefined {
+  return typeof explicit === "number"
+    ? explicit
+    : roundPublicCoordinate(fallback);
+}
+
 function blankLocalizedText(value: LocalizedText): LocalizedText {
   const entries = Object.keys(value).map((language) => [language, ""] as const);
   return { en: "", ...Object.fromEntries(entries) };
@@ -33,8 +42,17 @@ function sanitizedApproximateLocation(
   return {
     ...location,
     displayAddress: blankLocalizedText(location.displayAddress),
-    latitude: roundPublicCoordinate(location.latitude),
-    longitude: roundPublicCoordinate(location.longitude),
+    latitude: undefined,
+    longitude: undefined,
+    approximateLatitude: approximateCoordinate(
+      location.approximateLatitude,
+      location.latitude,
+    ),
+    approximateLongitude: approximateCoordinate(
+      location.approximateLongitude,
+      location.longitude,
+    ),
+    approximateRadiusMeters: location.approximateRadiusMeters ?? 1500,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };
@@ -46,6 +64,9 @@ function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {
     displayAddress: blankLocalizedText(location.displayAddress),
     latitude: undefined,
     longitude: undefined,
+    approximateLatitude: undefined,
+    approximateLongitude: undefined,
+    approximateRadiusMeters: undefined,
     showMap: false,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
@@ -57,6 +78,9 @@ function sanitizedNoMapLocation(location: PropertyLocation): PropertyLocation {
     ...location,
     latitude: undefined,
     longitude: undefined,
+    approximateLatitude: undefined,
+    approximateLongitude: undefined,
+    approximateRadiusMeters: undefined,
     showMap: false,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,

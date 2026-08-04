@@ -107,6 +107,9 @@ interface FormState {
   showMap: boolean;
   latitude: string;
   longitude: string;
+  approximateLatitude: string;
+  approximateLongitude: string;
+  approximateRadiusMeters: string;
   mapExternalUrl: string;
   mapEmbedUrl: string;
   useCustomMapEmbed: boolean;
@@ -265,6 +268,18 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
       typeof property?.location.longitude === "number"
         ? String(property.location.longitude)
         : "",
+    approximateLatitude:
+      typeof property?.location.approximateLatitude === "number"
+        ? String(property.location.approximateLatitude)
+        : "",
+    approximateLongitude:
+      typeof property?.location.approximateLongitude === "number"
+        ? String(property.location.approximateLongitude)
+        : "",
+    approximateRadiusMeters:
+      typeof property?.location.approximateRadiusMeters === "number"
+        ? String(property.location.approximateRadiusMeters)
+        : "1500",
     mapExternalUrl: property?.location.mapExternalUrl ?? "",
     mapEmbedUrl: property?.location.mapEmbedUrl ?? "",
     useCustomMapEmbed: property?.location.useCustomMapEmbed ?? false,
@@ -450,6 +465,11 @@ function numberValue(value: string, min: number, max: number): number | undefine
     : undefined;
 }
 
+function integerValue(value: string, min: number, max: number): number | undefined {
+  const parsed = numberValue(value, min, max);
+  return typeof parsed === "number" ? Math.round(parsed) : undefined;
+}
+
 function buildSocialLinks(state: FormState): PropertyShowcase["agent"]["socialLinks"] {
   const links: AgentSocialLink[] = [];
   (Object.entries(state.socials) as Array<[PropertyAgentSocialProvider, string]>)
@@ -556,12 +576,23 @@ function buildProperty(
       displayAddress: simpleLocalizedText(state.primaryLanguage, state.address),
       latitude: numberValue(state.latitude, -90, 90),
       longitude: numberValue(state.longitude, -180, 180),
+      approximateLatitude: numberValue(state.approximateLatitude, -90, 90),
+      approximateLongitude: numberValue(
+        state.approximateLongitude,
+        -180,
+        180,
+      ),
+      approximateRadiusMeters: integerValue(
+        state.approximateRadiusMeters,
+        100,
+        50000,
+      ),
       privacyMode: state.privacyMode,
       showMap: state.showMap,
       mapExternalUrl: optional(state.mapExternalUrl),
       mapEmbedUrl: optional(state.mapEmbedUrl),
       useCustomMapEmbed: state.useCustomMapEmbed,
-      mapZoom: numberValue(state.mapZoom, 1, 22),
+      mapZoom: integerValue(state.mapZoom, 1, 23),
       airportTravelTime: existing?.location.airportTravelTime,
     },
     agent: {
@@ -918,12 +949,23 @@ function PropertyEditor({
     ),
     latitude: numberValue(form.latitude, -90, 90),
     longitude: numberValue(form.longitude, -180, 180),
+    approximateLatitude: numberValue(form.approximateLatitude, -90, 90),
+    approximateLongitude: numberValue(
+      form.approximateLongitude,
+      -180,
+      180,
+    ),
+    approximateRadiusMeters: integerValue(
+      form.approximateRadiusMeters,
+      100,
+      50000,
+    ),
     privacyMode: form.privacyMode,
     showMap: form.showMap,
     mapExternalUrl: optional(form.mapExternalUrl),
     mapEmbedUrl: optional(form.mapEmbedUrl),
     useCustomMapEmbed: form.useCustomMapEmbed,
-    mapZoom: numberValue(form.mapZoom, 1, 22),
+    mapZoom: integerValue(form.mapZoom, 1, 23),
   });
   const mapPreview = getPropertyLocationMapView(
     previewLocation,
@@ -1660,7 +1702,7 @@ function PropertyEditor({
         <Section title="8. Location and map">
           <div className="space-y-5">
             <p className="text-sm leading-6 text-muted">
-              Valid latitude and longitude are sufficient to display the map. Manual Google Maps URLs are optional advanced overrides.
+              Exact maps use the property coordinates. Approximate maps publish only a separate fixed center and radius. Manual Google Maps URLs remain optional advanced overrides.
             </p>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Field label="1. Address">
@@ -1709,12 +1751,70 @@ function PropertyEditor({
             </label>
             <Field label="5. Zoom">
               <input
+                type="number"
+                min="1"
+                max="23"
+                step="1"
                 value={form.mapZoom}
                 onChange={(event) => set("mapZoom", event.target.value)}
                 className={inputClass}
               />
             </Field>
             </div>
+
+            {form.privacyMode === "approximate" ? (
+              <div className="rounded-lg border border-border bg-surface p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold text-primary">
+                    Fixed approximate zone
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-muted">
+                    Save a public-safe center that is separate from the exact property coordinates. The radius is shown in meters and remains anchored to this center.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Field label="Approximate center latitude">
+                    <input
+                      type="number"
+                      min="-90"
+                      max="90"
+                      step="0.000001"
+                      value={form.approximateLatitude}
+                      onChange={(event) =>
+                        set("approximateLatitude", event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Approximate center longitude">
+                    <input
+                      type="number"
+                      min="-180"
+                      max="180"
+                      step="0.000001"
+                      value={form.approximateLongitude}
+                      onChange={(event) =>
+                        set("approximateLongitude", event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Approximate radius (meters)">
+                    <input
+                      type="number"
+                      min="100"
+                      max="50000"
+                      step="100"
+                      value={form.approximateRadiusMeters}
+                      onChange={(event) =>
+                        set("approximateRadiusMeters", event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+              </div>
+            ) : null}
 
             <div className={`rounded-lg border p-4 ${
               mapStatus === "Invalid coordinates"
@@ -1729,7 +1829,7 @@ function PropertyEditor({
                 {mapStatus === "Generated exact marker map"
                   ? "The public map uses the saved coordinates, marker, and zoom."
                   : mapStatus === "Generated approximate map"
-                    ? "The public page receives rounded coordinates and no saved exact map URLs."
+                    ? "The preview uses the saved public-safe center and fixed radius. Exact coordinates and saved map URLs are not serialized."
                     : mapStatus === "Custom Google Maps embed"
                       ? "The saved, validated Google Maps iframe is active for this exact map."
                       : mapStatus === "Invalid coordinates"

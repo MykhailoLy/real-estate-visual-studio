@@ -141,9 +141,12 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
     displayAddress: { en: "" },
     privacyMode: "approximate",
     showMap: true,
-    latitude: 38.6,
-    longitude: 0,
-    mapZoom: 15,
+    latitude: 38.603912,
+    longitude: -0.045316,
+    approximateLatitude: 38.7,
+    approximateLongitude: -0.1,
+    approximateRadiusMeters: 2400,
+    mapZoom: 13,
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact-parcel",
     useCustomMapEmbed: true,
   };
@@ -151,13 +154,15 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
   assert.equal(approximate.mode, "embed");
   assert.equal(approximate.source, "generated-approximate");
   assert.equal(approximate.markerMode, "approximate");
-  assert.equal(approximate.embedUrl?.includes("ll=38.6%2C0"), true);
+  assert.equal(approximate.embedUrl?.includes("ll=38.7%2C-0.1"), true);
   assert.equal(approximate.embedUrl?.includes("q="), false);
-  assert.equal(approximate.embedUrl?.includes("z=11"), true);
+  assert.equal(approximate.embedUrl?.includes("z=13"), true);
   assert.equal(
     approximate.externalUrl,
-    "https://www.google.com/maps/search/?api=1&query=38.6%2C0",
+    "https://www.google.com/maps/search/?api=1&query=38.7%2C-0.1",
   );
+  assert.equal(approximate.approximateRadiusMeters, 2400);
+  assert.equal(approximate.centerLatitude, 38.7);
 
   property.location = {
     displayAddress: { en: "Hidden" },
@@ -223,7 +228,12 @@ test("coordinate map embeds use a marker only for exact mode", () => {
   assert.equal(exact.includes("z=17"), true);
   assert.equal(approximate.includes("ll=38.6%2C-0.04"), true);
   assert.equal(approximate.includes("q="), false);
-  assert.equal(approximate.includes("z=11"), true);
+  assert.equal(approximate.includes("z=14"), true);
+});
+
+test("exact map embeds accept the higher property-detail zoom range", () => {
+  const exact = googleMapsEmbedUrlFromCoordinates(38.6, -0.04, 23, "exact");
+  assert.equal(exact.includes("z=23"), true);
 });
 
 test("agent profile normalizes safe contacts and social links", () => {

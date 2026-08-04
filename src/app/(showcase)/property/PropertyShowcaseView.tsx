@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 import { formatPriceLabel } from "@/features/property-showcase/formatting";
 import {
   getPropertyMapView,
@@ -264,10 +265,10 @@ export default function PropertyShowcaseView({
         ) : null}
 
         {facts.length > 0 ? (
-          <section className="relative z-10 mx-auto max-w-[1480px] px-4 pt-5 sm:px-6 sm:pt-6 lg:px-10">
+          <section className="relative z-10 border-y border-black/8 bg-white">
             <div
               data-testid="property-facts"
-              className="grid grid-cols-2 overflow-hidden rounded-lg border border-black/10 bg-white shadow-[0_12px_35px_rgba(15,36,64,0.07)] md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8"
+              className="mx-auto grid max-w-[1480px] grid-cols-2 px-4 sm:px-6 md:grid-cols-4 lg:px-10 2xl:grid-cols-8"
             >
               {facts.map((fact, index) => {
                 const Icon = factIcons[fact.key] ?? Home;
@@ -276,25 +277,26 @@ export default function PropertyShowcaseView({
                   <div
                     key={`${fact.key}-${index}`}
                     data-testid={`property-fact-${fact.key}`}
-                    className="flex min-w-0 items-center gap-2.5 border-b border-r border-black/8 px-3 py-4 sm:gap-3 sm:px-5 sm:py-5"
+                    className="flex min-h-40 min-w-0 flex-col items-center justify-center border-b border-r border-black/8 px-3 py-7 text-center sm:min-h-44 sm:px-5 sm:py-9"
                   >
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f2f0ea] text-[#1a365d] sm:h-10 sm:w-10">
-                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
-                    </div>
-                    <div className="min-w-0 flex-1">
+                    <Icon
+                      className="mb-4 h-8 w-8 shrink-0 stroke-[1.5] text-[#a88b3a] sm:h-9 sm:w-9"
+                      aria-hidden
+                    />
+                    <div className="min-w-0 max-w-full">
                       <span
-                        className={`block max-w-full font-semibold leading-tight tabular-nums ${
+                        className={`block max-w-full font-semibold leading-snug tabular-nums ${
                           fact.key === "price" ? "text-[#8d7531]" : "text-[#0f2440]"
                         } ${
                           hasLongValue
-                            ? "break-words text-sm sm:text-base"
-                            : "overflow-hidden text-ellipsis whitespace-nowrap text-[15px] sm:text-lg"
+                            ? "break-words text-base sm:text-lg"
+                            : "text-xl sm:text-2xl"
                         }`}
                         title={fact.value}
                       >
                         {fact.value}
                       </span>
-                      <span className="mt-1 block text-[11px] font-medium leading-4 text-slate-500 sm:text-xs">
+                      <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500 sm:text-sm">
                         {fact.label}
                       </span>
                     </div>
@@ -306,7 +308,7 @@ export default function PropertyShowcaseView({
         ) : null}
 
         <section id="overview" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-24">
-          <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20">
+          <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
             <div>
               <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
                 {ui.detailsEyebrow}
@@ -327,26 +329,7 @@ export default function PropertyShowcaseView({
               ) : null}
             </div>
 
-            <div className="space-y-10">
-              {highlights.length > 0 ? (
-                <div data-testid="property-highlights">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a88b3a]">
-                    {ui.highlightsEyebrow}
-                  </p>
-                  <ul className="mt-5 grid gap-3 md:grid-cols-2">
-                    {highlights.map((highlight, index) => (
-                      <li
-                        key={`${highlight}-${index}`}
-                        className="flex gap-3 text-sm font-semibold leading-6 text-[#0f2440]"
-                      >
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#a88b3a]" aria-hidden />
-                        <span>{highlight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
+            <div>
               {description.length > 0 ? (
                 <div className="max-w-3xl space-y-5 text-base leading-8 text-slate-600">
                   {description.map((paragraph, index) => (
@@ -356,6 +339,31 @@ export default function PropertyShowcaseView({
               ) : null}
             </div>
           </div>
+
+          {highlights.length > 0 ? (
+            <div
+              data-testid="property-highlights"
+              className="mt-14 border-y border-black/8 bg-white px-5 py-8 sm:mt-16 sm:px-8 sm:py-10 lg:mt-20 lg:px-10"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a88b3a]">
+                {ui.highlightsEyebrow}
+              </p>
+              <ul className="mt-6 grid gap-x-10 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+                {highlights.map((highlight, index) => (
+                  <li
+                    key={`${highlight}-${index}`}
+                    className="flex min-w-0 items-start gap-4 text-base font-semibold leading-7 text-[#0f2440] sm:text-lg"
+                  >
+                    <CheckCircle2
+                      className="mt-0.5 h-6 w-6 shrink-0 stroke-[1.75] text-[#a88b3a]"
+                      aria-hidden
+                    />
+                    <span className="min-w-0 break-words">{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </section>
 
         <div id="gallery" className="scroll-mt-36">
@@ -376,6 +384,7 @@ export default function PropertyShowcaseView({
             propertyTitle={title}
             tour={property.virtualTour}
             posterAlt={`360 virtual tour of ${title}`}
+            locale={language}
           />
         ) : null}
 
@@ -570,7 +579,7 @@ export default function PropertyShowcaseView({
             data-testid="property-location-section"
             className="scroll-mt-36 border-t border-black/8 bg-white/45"
           >
-            <div className="mx-auto max-w-[1480px] px-4 py-14 sm:px-6 sm:py-16 lg:px-10 lg:py-20">
+            <div className="mx-auto max-w-[1480px] px-4 pb-8 pt-14 sm:px-6 sm:pb-10 sm:pt-16 lg:px-10 lg:pt-20">
               <div className="mb-7 max-w-3xl sm:mb-9">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
                   {ui.location}
@@ -596,15 +605,17 @@ export default function PropertyShowcaseView({
                   </p>
                 ) : null}
               </div>
+            </div>
 
-              {mapView.mode === "embed" ? (
-                <PropertyMapCanvas
-                  mapView={mapView}
-                  title={`${ui.location}: ${title}`}
-                  openLabel={ui.mapOpen}
-                  troubleLabel={ui.mapTrouble}
-                />
-              ) : (
+            {mapView.mode === "embed" ? (
+              <PropertyMapCanvas
+                mapView={mapView}
+                title={`${ui.location}: ${title}`}
+                openLabel={ui.mapOpen}
+                troubleLabel={ui.mapTrouble}
+              />
+            ) : (
+              <div className="mx-auto max-w-[1480px] px-4 pb-14 sm:px-6 sm:pb-16 lg:px-10 lg:pb-20">
                 <div className="grid min-h-64 place-items-center rounded-lg border border-black/10 bg-[#e5ebe7] px-5 text-center">
                   <div>
                     <MapPin className="mx-auto h-7 w-7 text-[#a88b3a]" aria-hidden />
@@ -614,25 +625,35 @@ export default function PropertyShowcaseView({
                     </p>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </section>
         ) : null}
       </main>
 
       <footer className="border-t border-white/10 bg-[#0f2440] text-white">
-        <div className="mx-auto flex max-w-[1480px] flex-col gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-10">
-          <div>
-            <p className="text-sm font-semibold">Property Showcase by PicchuSpot</p>
-            <p className="mt-1 text-xs text-white/50">
-              Photography {"\u00b7"} Floor plans {"\u00b7"} 360 tours{" "}
-              {"\u00b7"} Digital presentation
+        <div className="mx-auto max-w-[1480px] px-4 py-10 text-center sm:px-6 sm:py-12 lg:px-10">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-white/90">
+            Equal Housing Opportunity
+          </p>
+          <div className="mx-auto my-7 h-px max-w-2xl bg-white/12" />
+          <div className="space-y-2 text-sm leading-6 text-white/65">
+            <p className="font-semibold text-white/85">
+              Proudly created by Full Frame Media
             </p>
+            <p>All information deemed reliable but not guaranteed.</p>
+            <p>© 2026 Full Frame Media — All rights reserved.</p>
           </div>
-          <Link href="/contact" className="inline-flex items-center gap-2 text-sm font-semibold text-[#d4bc6a] hover:text-white">
-            Create a page for your listing
-            <ArrowUpRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-7 text-sm text-white/60 sm:flex-row sm:gap-6">
+            <span>
+              Use of this website is subject to our{" "}
+              <Link href="/terms" className="underline decoration-white/30 underline-offset-4 hover:text-white">
+                terms of use
+              </Link>
+              .
+            </span>
+            <CookieSettingsButton />
+          </div>
         </div>
       </footer>
     </div>

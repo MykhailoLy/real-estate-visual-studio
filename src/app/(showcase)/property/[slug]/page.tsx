@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { getPropertyShowcase } from "@/features/property-showcase/registry";
 import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
+import { getPropertySocialPreview } from "@/features/property-showcase/social-preview";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
 export const dynamic = "force-dynamic";
@@ -14,9 +16,9 @@ type PropertyPageProps = {
   }>;
 };
 
-async function resolveProperty(slug: string) {
+const resolveProperty = cache(async (slug: string) => {
   return (await getPublishedPropertyShowcase(slug)) ?? getPropertyShowcase(slug);
-}
+});
 
 export async function generateMetadata({
   params,
@@ -35,24 +37,31 @@ export async function generateMetadata({
   }
 
   const canonicalPath = `/property/${property.slug}`;
+  const preview = getPropertySocialPreview(property);
 
   return {
-    title: property.title.en,
-    description: property.summary.en,
+    title: preview.title,
+    description: preview.description,
     alternates: {
       canonical: canonicalPath,
     },
     openGraph: {
       type: "website",
       url: canonicalPath,
-      title: property.title.en,
-      description: property.summary.en,
+      title: preview.title,
+      description: preview.description,
       images: [
         {
-          url: property.coverImage,
-          alt: property.gallery[0]?.alt.en ?? property.title.en,
+          url: preview.imageUrl,
+          alt: preview.imageAlt,
         },
       ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: preview.title,
+      description: preview.description,
+      images: [preview.imageUrl],
     },
   };
 }

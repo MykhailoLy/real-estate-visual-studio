@@ -23,6 +23,20 @@ const propertyMapCanvasSource = readFileSync(
   ),
   "utf8",
 );
+const virtualTourSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/ImmersivePropertyTour.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const interactivePlanSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/InteractivePropertyFloorPlan.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("ordinary floor-plan cards hide legacy CubiCasa and raw URL controls", () => {
   assert.equal(mediaManagerSource.includes("Legacy interactive plan metadata"), false);
@@ -66,4 +80,41 @@ test("map admin distinguishes generated maps from an explicit custom embed", () 
 test("public exact maps do not add a marker status overlay", () => {
   assert.equal(propertyMapCanvasSource.includes("exact-map-marker-status"), false);
   assert.equal(propertyMapCanvasSource.includes("Exact map with marker"), false);
+});
+
+test("map admin exposes a fixed approximate center and radius preview", () => {
+  assert.equal(propertyEditorSource.includes("Fixed approximate zone"), true);
+  assert.equal(
+    propertyEditorSource.includes("Approximate center latitude"),
+    true,
+  );
+  assert.equal(
+    propertyEditorSource.includes("Approximate center longitude"),
+    true,
+  );
+  assert.equal(
+    propertyEditorSource.includes("Approximate radius (meters)"),
+    true,
+  );
+  assert.equal(propertyMapCanvasSource.includes("pointer-events-none"), true);
+});
+
+test("media manager exposes featured and primary social image controls", () => {
+  assert.equal(mediaManagerSource.includes("Featured / best for sharing"), true);
+  assert.equal(mediaManagerSource.includes("Set social primary"), true);
+});
+
+test("immersive provider views omit large marketing and status overlays", () => {
+  assert.equal(
+    virtualTourSource.includes("Enter the property without leaving the page"),
+    false,
+  );
+  assert.equal(virtualTourSource.includes("Ready to load"), false);
+  assert.equal(
+    interactivePlanSource.includes("Walk through the home room by room"),
+    false,
+  );
+  assert.equal(interactivePlanSource.includes("Ready to open"), false);
+  assert.equal(virtualTourSource.includes("virtual-tour-controls"), true);
+  assert.equal(interactivePlanSource.includes("interactive-plan-controls"), true);
 });

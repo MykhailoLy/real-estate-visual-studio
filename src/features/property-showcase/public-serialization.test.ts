@@ -37,7 +37,7 @@ test("public serialization keeps exact map values only for exact privacy mode", 
   assert.equal(serialized.location.useCustomMapEmbed, false);
 });
 
-test("public serialization removes exact map URLs and rounds approximate coordinates", () => {
+test("public serialization moves legacy rounded coordinates into the approximate zone", () => {
   const property = cloneProperty();
   property.location = {
     displayAddress: { en: "Approx area" },
@@ -54,8 +54,11 @@ test("public serialization removes exact map URLs and rounds approximate coordin
   const serialized = serializePublicPropertyShowcase(property);
   const payload = JSON.stringify(serialized);
 
-  assert.equal(serialized.location.latitude, 38.6);
-  assert.equal(serialized.location.longitude, 0);
+  assert.equal(serialized.location.latitude, undefined);
+  assert.equal(serialized.location.longitude, undefined);
+  assert.equal(serialized.location.approximateLatitude, 38.6);
+  assert.equal(serialized.location.approximateLongitude, 0);
+  assert.equal(serialized.location.approximateRadiusMeters, 1500);
   assert.equal(serialized.location.displayAddress.en, "");
   assert.equal(serialized.location.mapExternalUrl, undefined);
   assert.equal(serialized.location.mapEmbedUrl, undefined);
@@ -63,6 +66,33 @@ test("public serialization removes exact map URLs and rounds approximate coordin
   assert.equal(payload.includes("-0.045316"), false);
   assert.equal(payload.includes("exact-parcel"), false);
   assert.equal(payload.includes("Approx area"), false);
+});
+
+test("public serialization preserves an explicit approximate center and radius only", () => {
+  const property = cloneProperty();
+  property.location = {
+    displayAddress: { en: "Private exact parcel" },
+    privacyMode: "approximate",
+    showMap: true,
+    latitude: 38.603912,
+    longitude: -0.045316,
+    approximateLatitude: 38.72,
+    approximateLongitude: -0.12,
+    approximateRadiusMeters: 2600,
+    mapExternalUrl: "https://www.google.com/maps/place/private-exact-parcel",
+  };
+
+  const serialized = serializePublicPropertyShowcase(property);
+  const payload = JSON.stringify(serialized);
+
+  assert.equal(serialized.location.latitude, undefined);
+  assert.equal(serialized.location.longitude, undefined);
+  assert.equal(serialized.location.approximateLatitude, 38.72);
+  assert.equal(serialized.location.approximateLongitude, -0.12);
+  assert.equal(serialized.location.approximateRadiusMeters, 2600);
+  assert.equal(payload.includes("38.603912"), false);
+  assert.equal(payload.includes("-0.045316"), false);
+  assert.equal(payload.includes("private-exact-parcel"), false);
 });
 
 test("public serialization removes hidden map and address payload", () => {
@@ -73,6 +103,9 @@ test("public serialization removes hidden map and address payload", () => {
     showMap: false,
     latitude: 38.688771,
     longitude: 0.134412,
+    approximateLatitude: 38.7,
+    approximateLongitude: 0.1,
+    approximateRadiusMeters: 1200,
     mapExternalUrl:
       "https://www.google.com/maps/search/?api=1&query=38.688771%2C0.134412",
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=hidden-parcel",
@@ -85,6 +118,9 @@ test("public serialization removes hidden map and address payload", () => {
   assert.equal(serialized.location.displayAddress.en, "");
   assert.equal(serialized.location.latitude, undefined);
   assert.equal(serialized.location.longitude, undefined);
+  assert.equal(serialized.location.approximateLatitude, undefined);
+  assert.equal(serialized.location.approximateLongitude, undefined);
+  assert.equal(serialized.location.approximateRadiusMeters, undefined);
   assert.equal(serialized.location.mapExternalUrl, undefined);
   assert.equal(serialized.location.mapEmbedUrl, undefined);
   assert.equal(payload.includes("38.688771"), false);

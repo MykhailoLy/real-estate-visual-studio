@@ -31,6 +31,7 @@ import {
   getPropertyLanguageOptions,
   PROPERTY_LANGUAGE_LABELS,
 } from "@/features/property-showcase/localization";
+import { updateGallerySocialPreview } from "@/features/property-showcase/social-preview";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
@@ -453,6 +454,18 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
             }
           : plan,
       ),
+    );
+  }
+
+  function toggleFeaturedForSharing(imageId: string) {
+    setGallery((current) =>
+      updateGallerySocialPreview(current, imageId, "toggle-featured"),
+    );
+  }
+
+  function setPrimarySocialPreview(imageId: string) {
+    setGallery((current) =>
+      updateGallerySocialPreview(current, imageId, "set-primary"),
     );
   }
 
@@ -1056,6 +1069,16 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                             <Star className="h-3 w-3" aria-hidden /> Cover
                           </span>
                         ) : null}
+                        {image.featuredForSharing ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-1 text-[10px] font-bold text-sky-900">
+                            <ImageIcon className="h-3 w-3" aria-hidden /> Share featured
+                          </span>
+                        ) : null}
+                        {image.primarySocialPreview ? (
+                          <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white">
+                            Social primary
+                          </span>
+                        ) : null}
                         {demo ? (
                           <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">
                             Demo placeholder
@@ -1093,6 +1116,16 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         className="w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
                         aria-label={`Label for photo ${index + 1}`}
                       />
+                      <label className="flex items-center gap-2 text-xs font-bold text-primary">
+                        <input
+                          type="checkbox"
+                          checked={image.featuredForSharing === true}
+                          onChange={() => toggleFeaturedForSharing(image.id)}
+                          disabled={demo}
+                          className="h-4 w-4 accent-primary disabled:opacity-40"
+                        />
+                        Featured / best for sharing
+                      </label>
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
@@ -1101,6 +1134,18 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                           className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
                         >
                           <Star className="h-3.5 w-3.5" aria-hidden /> Set cover
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrimarySocialPreview(image.id)}
+                          disabled={demo}
+                          aria-pressed={image.primarySocialPreview === true}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                        >
+                          <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+                          {image.primarySocialPreview
+                            ? "Primary social image"
+                            : "Set social primary"}
                         </button>
                         <button
                           type="button"
@@ -1138,6 +1183,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           <p className="mt-4 text-xs text-muted">
             {realGallery.length} optimized photo
             {realGallery.length === 1 ? "" : "s"}. Removing a saved photo from the page deletes its old property-owned Storage object after the next successful save.
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            Mark the strongest images as featured for sharing. The social primary is used first; otherwise the first featured image or cover is used.
           </p>
         </div>
       </section>
