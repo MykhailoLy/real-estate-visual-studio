@@ -43,6 +43,11 @@ function sanitizedApproximateLocation(
     ...location,
     displayAddress:
       location.approximateLabel ?? blankLocalizedText(location.displayAddress),
+    streetAddress: undefined,
+    city: undefined,
+    region: undefined,
+    postalCode: undefined,
+    country: undefined,
     latitude: undefined,
     longitude: undefined,
     approximateLatitude: approximateCoordinate(
@@ -64,6 +69,11 @@ function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {
   return {
     ...location,
     displayAddress: blankLocalizedText(location.displayAddress),
+    streetAddress: undefined,
+    city: undefined,
+    region: undefined,
+    postalCode: undefined,
+    country: undefined,
     approximateLabel: undefined,
     latitude: undefined,
     longitude: undefined,

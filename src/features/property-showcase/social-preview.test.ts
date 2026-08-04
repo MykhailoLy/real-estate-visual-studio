@@ -5,6 +5,7 @@ import {
   getPropertySocialPreview,
   resolvePropertySocialImageUrl,
   resolvedPropertySocialImages,
+  selectPropertyHeroImages,
   selectPropertySocialImage,
   selectPropertySocialImages,
   updateGallerySocialPreview,
@@ -52,6 +53,45 @@ test("social preview uses the first featured image and then the cover", () => {
   );
 });
 
+test("hero selection is static for a cover or one selected sharing image", () => {
+  const property = cloneProperty();
+  property.gallery = property.gallery.map((image) => ({
+    ...image,
+    featuredForSharing: false,
+    primarySocialPreview: false,
+  }));
+
+  assert.deepEqual(selectPropertyHeroImages(property).map((image) => image.imageUrl), [
+    property.coverImage,
+  ]);
+
+  property.gallery = property.gallery.map((image) => ({
+    ...image,
+    featuredForSharing: image.id === "living-room",
+  }));
+  assert.deepEqual(selectPropertyHeroImages(property).map((image) => image.imageUrl), [
+    "/property-demo/living-room.svg",
+  ]);
+});
+
+test("hero selection places the social primary first and removes duplicate URLs", () => {
+  const property = cloneProperty();
+  property.gallery = property.gallery.map((image) => ({
+    ...image,
+    src: image.id === "living-room" ? "/property-demo/shared.svg" : image.src,
+    featuredForSharing: ["exterior", "living-room", "terrace"].includes(image.id),
+    primarySocialPreview: image.id === "terrace",
+  }));
+  property.gallery = property.gallery.map((image) =>
+    image.id === "exterior" ? { ...image, src: "/property-demo/shared.svg" } : image,
+  );
+
+  assert.deepEqual(selectPropertyHeroImages(property).map((image) => image.imageUrl), [
+    "/property-demo/terrace.svg",
+    "/property-demo/shared.svg",
+  ]);
+});
+
 test("social collage keeps the primary image first and adds featured images", () => {
   const property = cloneProperty();
   property.gallery = property.gallery.map((image) => ({
@@ -97,6 +137,9 @@ test("setting a social primary also marks it featured and clears old primaries",
 test("social listing text includes core facts and respects location privacy", () => {
   const property = cloneProperty();
   property.location.displayAddress = { en: "123 Private Parcel Road" };
+  property.location.streetAddress = "123 Private Parcel Road";
+  property.location.city = "Wasilla";
+  property.location.postalCode = "99654";
   property.location.approximateLabel = { en: "Wasilla, Alaska" };
   property.location.privacyMode = "approximate";
   const approximate = getPropertySocialPreview(property);
@@ -113,6 +156,7 @@ test("social listing text includes core facts and respects location privacy", ()
   property.location.privacyMode = "exact";
   const exact = getPropertySocialPreview(property);
   assert.equal(exact.description.includes("123 Private Parcel Road"), true);
+  assert.equal(exact.description.includes("99654"), true);
 
   property.location.privacyMode = "hidden";
   const hidden = getPropertySocialPreview(property);

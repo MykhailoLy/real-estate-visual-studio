@@ -37,6 +37,7 @@ import {
   getPropertyLocationMapView,
   normalizeGoogleMapsInput,
 } from "@/features/property-showcase/listing-details";
+import { formatStructuredPropertyAddress } from "@/features/property-showcase/property-address";
 import {
   normalizeInteractiveFloorPlanInput,
   normalizeTourPrimaryInput,
@@ -103,6 +104,11 @@ interface FormState {
   yearBuilt: string;
   plotArea: string;
   address: string;
+  streetAddress: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  country: string;
   privacyMode: "exact" | "approximate" | "hidden";
   showMap: boolean;
   latitude: string;
@@ -276,6 +282,11 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
     address: property
       ? localizedText(property.location.displayAddress, primaryLanguage, primaryLanguage)
       : "",
+    streetAddress: property?.location.streetAddress ?? "",
+    city: property?.location.city ?? "",
+    region: property?.location.region ?? "",
+    postalCode: property?.location.postalCode ?? "",
+    country: property?.location.country ?? "",
     privacyMode: property?.location.privacyMode ?? "approximate",
     showMap: property?.location.showMap ?? false,
     latitude:
@@ -557,6 +568,8 @@ function buildProperty(
     externalUrl: interactiveExternal,
     embedUrl: interactiveEmbed,
   });
+  const displayAddress =
+    state.address.trim() || formatStructuredPropertyAddress(state);
 
   return {
     slug:
@@ -608,7 +621,12 @@ function buildProperty(
       : undefined,
     floorPlans: existing?.floorPlans ?? [],
     location: {
-      displayAddress: simpleLocalizedText(state.primaryLanguage, state.address),
+      displayAddress: simpleLocalizedText(state.primaryLanguage, displayAddress),
+      streetAddress: optional(state.streetAddress),
+      city: optional(state.city),
+      region: optional(state.region),
+      postalCode: optional(state.postalCode),
+      country: optional(state.country),
       approximateLabel: state.approximateLabel.trim()
         ? simpleLocalizedText(state.primaryLanguage, state.approximateLabel)
         : undefined,
@@ -981,11 +999,18 @@ function PropertyEditor({
   });
   const normalizedMapExternal = normalizeGoogleMapsInput(form.mapExternalUrl);
   const normalizedMapEmbed = normalizeGoogleMapsInput(form.mapEmbedUrl);
+  const exactAddress =
+    form.address.trim() || formatStructuredPropertyAddress(form);
   const previewLocation = serializePublicPropertyLocation({
     displayAddress: simpleLocalizedText(
       form.primaryLanguage,
-      form.address || "Location",
+      exactAddress || "Location",
     ),
+    streetAddress: optional(form.streetAddress),
+    city: optional(form.city),
+    region: optional(form.region),
+    postalCode: optional(form.postalCode),
+    country: optional(form.country),
     latitude: numberValue(form.latitude, -90, 90),
     longitude: numberValue(form.longitude, -180, 180),
     approximateLatitude: numberValue(form.approximateLatitude, -90, 90),
@@ -1013,7 +1038,7 @@ function PropertyEditor({
   const mapPreview = getPropertyLocationMapView(
     previewLocation,
     form.privacyMode === "exact"
-      ? form.address.trim()
+      ? exactAddress
       : form.approximateLabel.trim(),
   );
   const mapStatus =
@@ -1758,62 +1783,120 @@ function PropertyEditor({
             <p className="text-sm leading-6 text-muted">
               Exact maps use the property coordinates. Approximate maps publish only a separate fixed center and radius. Manual Google Maps URLs remain optional advanced overrides.
             </p>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <div className="mb-4">
+                <h3 className="text-sm font-bold text-primary">Property address</h3>
+                <p className="mt-1 text-xs leading-5 text-muted">
+                  Add structured address details for exact listings. Approximate and hidden privacy modes keep these values out of the public page.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <Field label="Street address" hint="Example: Calle San Pablo 46">
+                  <input
+                    value={form.streetAddress}
+                    onChange={(event) => set("streetAddress", event.target.value)}
+                    className={inputClass}
+                    placeholder="Calle San Pablo 46"
+                  />
+                </Field>
+                <Field label="City / locality" hint="Example: Altea">
+                  <input
+                    value={form.city}
+                    onChange={(event) => set("city", event.target.value)}
+                    className={inputClass}
+                    placeholder="Altea"
+                  />
+                </Field>
+                <Field label="Region / province / state (optional)" hint="Example: Alicante">
+                  <input
+                    value={form.region}
+                    onChange={(event) => set("region", event.target.value)}
+                    className={inputClass}
+                    placeholder="Alicante"
+                  />
+                </Field>
+                <Field label="Postal code (optional)" hint="Example: 03590">
+                  <input
+                    value={form.postalCode}
+                    onChange={(event) => set("postalCode", event.target.value)}
+                    className={inputClass}
+                    placeholder="03590"
+                  />
+                </Field>
+                <Field label="Country (optional)">
+                  <input
+                    value={form.country}
+                    onChange={(event) => set("country", event.target.value)}
+                    className={inputClass}
+                    placeholder="Spain"
+                  />
+                </Field>
+              </div>
+              <details className="mt-4 border-t border-border pt-4">
+                <summary className="cursor-pointer text-sm font-bold text-primary">
+                  Full display-address fallback (advanced)
+                </summary>
+                <Field
+                  label="Legacy full display address"
+                  hint="Optional backward-compatible fallback for older records and full-text search."
+                >
+                  <input
+                    value={form.address}
+                    onChange={(event) => set("address", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              </details>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="1. Address">
-              <input
-                required
-                value={form.address}
-                onChange={(event) => set("address", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="2. Latitude">
-              <input
-                value={form.latitude}
-                onChange={(event) => set("latitude", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="2. Longitude">
-              <input
-                value={form.longitude}
-                onChange={(event) => set("longitude", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="3. Privacy">
-              <select
-                value={form.privacyMode}
-                onChange={(event) =>
-                  set("privacyMode", event.target.value as FormState["privacyMode"])
-                }
-                className={inputClass}
-              >
-                <option value="exact">Exact</option>
-                <option value="approximate">Approximate</option>
-                <option value="hidden">Hidden</option>
-              </select>
-            </Field>
-            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
-              <input
-                type="checkbox"
-                checked={form.showMap}
-                onChange={(event) => set("showMap", event.target.checked)}
-                className="h-4 w-4 accent-primary"
-              />
-              4. Show map
-            </label>
-            <Field label="5. Zoom">
-              <input
-                type="number"
-                min="1"
-                max="23"
-                step="1"
-                value={form.mapZoom}
-                onChange={(event) => set("mapZoom", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
+              <Field label="Exact latitude">
+                <input
+                  value={form.latitude}
+                  onChange={(event) => set("latitude", event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Exact longitude">
+                <input
+                  value={form.longitude}
+                  onChange={(event) => set("longitude", event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Privacy">
+                <select
+                  value={form.privacyMode}
+                  onChange={(event) =>
+                    set("privacyMode", event.target.value as FormState["privacyMode"])
+                  }
+                  className={inputClass}
+                >
+                  <option value="exact">Exact</option>
+                  <option value="approximate">Approximate</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+              </Field>
+              <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
+                <input
+                  type="checkbox"
+                  checked={form.showMap}
+                  onChange={(event) => set("showMap", event.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                Show map
+              </label>
+              <Field label="Map zoom">
+                <input
+                  type="number"
+                  min="1"
+                  max="23"
+                  step="1"
+                  value={form.mapZoom}
+                  onChange={(event) => set("mapZoom", event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
             </div>
 
             {form.privacyMode === "approximate" ? (

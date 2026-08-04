@@ -128,6 +128,11 @@ const PropertyFloorPlanSchema = z
 const PropertyLocationSchema = z
   .object({
     displayAddress: LocalizedTextSchema,
+    streetAddress: optionalTrimmed(200),
+    city: optionalTrimmed(160),
+    region: optionalTrimmed(160),
+    postalCode: optionalTrimmed(40),
+    country: optionalTrimmed(120),
     approximateLabel: OptionalLocalizedTextSchema.optional(),
     latitude: z.number().min(-90).max(90).optional(),
     longitude: z.number().min(-180).max(180).optional(),

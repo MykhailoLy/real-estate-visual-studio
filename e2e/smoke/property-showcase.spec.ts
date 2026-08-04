@@ -7,6 +7,7 @@ import {
 const propertyViewports = [
   { width: 320, height: 568 },
   { width: 375, height: 812 },
+  { width: 390, height: 844 },
   { width: 430, height: 932 },
   { width: 768, height: 1024 },
   { width: 1024, height: 768 },
@@ -143,7 +144,13 @@ for (const viewport of propertyViewports) {
       (element) =>
         window.getComputedStyle(element).gridTemplateColumns.split(" ").length,
     );
-    expect(highlightColumns).toBe(viewport.width >= 900 ? 2 : 1);
+    expect(highlightColumns).toBe(
+      viewport.width >= 1280
+        ? 3
+        : viewport.width >= 380
+          ? 2
+          : 1,
+    );
     const highlightHeadingMetrics = await highlights
       .getByRole("heading", { name: "Highlights" })
       .evaluate((element) => ({
@@ -153,6 +160,10 @@ for (const viewport of propertyViewports) {
     expect(highlightHeadingMetrics.width).toBeLessThanOrEqual(1);
     expect(highlightHeadingMetrics.height).toBeLessThanOrEqual(1);
     await expect(page.getByText("Open Mediterranean views")).toBeVisible();
+    const hero = page.locator("#home");
+    await expect(hero).not.toContainText("For sale");
+    await expect(hero).not.toContainText("PS-001");
+    await expect(hero.getByTestId("property-hero-slideshow")).toBeVisible();
     if (viewport.width >= 768) {
       await expect(page.getByRole("button", { name: "Ground floor" })).toBeVisible();
       await expect(page.getByRole("button", { name: "First floor" })).toBeVisible();
@@ -325,9 +336,9 @@ test("property showcase facts and map privacy render as listing details", async 
     .boundingBox();
   expect(approximateAreaAfter).toEqual(approximateAreaBefore);
   await expect(page.locator("footer")).toContainText("Equal Housing Opportunity");
-  await expect(page.locator("footer")).toContainText(
-    "Proudly created by Full Frame Media",
-  );
+  await expect(page.locator("footer")).toContainText("Property showcase by");
+  await expect(page.locator("footer")).toContainText("PicchuSpot");
+  await expect(page.locator("footer")).not.toContainText("Full Frame Media");
 
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     "content",

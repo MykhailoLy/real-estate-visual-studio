@@ -1,6 +1,7 @@
 import { formatPriceLabel } from "./formatting.ts";
 import { normalizeListingFacts } from "./listing-details.ts";
 import { getPrimaryLanguage, localizedText } from "./localization.ts";
+import { getPropertyAddressView } from "./property-address.ts";
 import { ownedPropertyShowcaseStoragePath } from "./storage-cleanup.ts";
 import type {
   PropertyGalleryImage,
@@ -35,13 +36,13 @@ function sortedGallery(
   return [...gallery].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export function selectPropertySocialImages(
+export function selectPropertyHeroImages(
   property: PropertyShowcase,
 ): PropertySocialPreviewImage[] {
   const primaryLanguage = getPrimaryLanguage(property);
   const gallery = sortedGallery(property.gallery);
   const featured = gallery.filter((image) => image.featuredForSharing === true);
-  const primary = featured.find(
+  const primary = gallery.find(
     (image) => image.primarySocialPreview === true,
   );
   const selected = primary
@@ -51,7 +52,7 @@ export function selectPropertySocialImages(
     (image) => image.src === property.coverImage,
   );
   const images = selected.length > 0
-    ? selected.slice(0, 3)
+    ? selected
     : coverGalleryImage
       ? [coverGalleryImage]
       : [];
@@ -69,12 +70,24 @@ export function selectPropertySocialImages(
     ];
   }
 
-  return images.map((image) => ({
-    imageUrl: image.src,
-    imageAlt:
-      localizedText(image.alt, primaryLanguage, primaryLanguage) ||
-      localizedText(property.title, primaryLanguage, primaryLanguage),
-  }));
+  const seenUrls = new Set<string>();
+  return images.flatMap((image) => {
+    const imageUrl = image.src.trim();
+    if (!imageUrl || seenUrls.has(imageUrl)) return [];
+    seenUrls.add(imageUrl);
+    return [{
+      imageUrl,
+      imageAlt:
+        localizedText(image.alt, primaryLanguage, primaryLanguage) ||
+        localizedText(property.title, primaryLanguage, primaryLanguage),
+    }];
+  });
+}
+
+export function selectPropertySocialImages(
+  property: PropertyShowcase,
+): PropertySocialPreviewImage[] {
+  return selectPropertyHeroImages(property).slice(0, 3);
 }
 
 export function selectPropertySocialImage(
@@ -146,19 +159,11 @@ export function getPropertySocialPreview(
     primaryLanguage,
     primaryLanguage,
   );
-  const location = property.location.privacyMode === "exact"
-    ? localizedText(
-        property.location.displayAddress,
-        primaryLanguage,
-        primaryLanguage,
-      )
-    : property.location.privacyMode === "approximate"
-      ? localizedText(
-          property.location.approximateLabel,
-          primaryLanguage,
-          primaryLanguage,
-        )
-      : "";
+  const location = getPropertyAddressView(
+    property.location,
+    primaryLanguage,
+    primaryLanguage,
+  ).socialText;
   const price = property.price.trim()
     ? formatPriceLabel(property.price)
     : "";

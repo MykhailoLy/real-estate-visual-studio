@@ -1,5 +1,6 @@
 import { formatPropertyFactValue } from "./formatting.ts";
 import { extractIframeSrc } from "./provider-urls.ts";
+import { getPropertyAddressView } from "./property-address.ts";
 import {
   getPrimaryLanguage,
   highlightChecklistText,
@@ -554,11 +555,11 @@ export function getPropertyMapView(
 ): PropertyMapView {
   const primaryLanguage = getPrimaryLanguage(property);
   const location = property.location;
-  const address = localizedText(
-    location.displayAddress,
+  const address = getPropertyAddressView(
+    location,
     language,
     primaryLanguage,
-  );
+  ).socialText;
 
   return getPropertyLocationMapView(location, address);
 }

@@ -41,6 +41,9 @@ test("public serialization moves legacy rounded coordinates into the approximate
   const property = cloneProperty();
   property.location = {
     displayAddress: { en: "Approx area" },
+    streetAddress: "123 Private Parcel Road",
+    city: "Altea",
+    postalCode: "03590",
     privacyMode: "approximate",
     showMap: true,
     latitude: 38.603912,
@@ -60,6 +63,9 @@ test("public serialization moves legacy rounded coordinates into the approximate
   assert.equal(serialized.location.approximateLongitude, 0);
   assert.equal(serialized.location.approximateRadiusMeters, 1500);
   assert.equal(serialized.location.displayAddress.en, "");
+  assert.equal(serialized.location.streetAddress, undefined);
+  assert.equal(serialized.location.city, undefined);
+  assert.equal(serialized.location.postalCode, undefined);
   assert.equal(serialized.location.mapExternalUrl, undefined);
   assert.equal(serialized.location.mapEmbedUrl, undefined);
   assert.equal(payload.includes("38.603912"), false);
@@ -72,6 +78,11 @@ test("public serialization preserves an explicit approximate center and radius o
   const property = cloneProperty();
   property.location = {
     displayAddress: { en: "Private exact parcel" },
+    streetAddress: "123 Private Parcel Road",
+    city: "Altea",
+    region: "Alicante",
+    postalCode: "03590",
+    country: "Spain",
     approximateLabel: { en: "Public district" },
     privacyMode: "approximate",
     showMap: true,
@@ -94,6 +105,11 @@ test("public serialization preserves an explicit approximate center and radius o
   assert.equal(serialized.location.approximateRadiusMeters, 2600);
   assert.equal(serialized.location.allowApproximateAreaLink, true);
   assert.equal(serialized.location.displayAddress.en, "Public district");
+  assert.equal(serialized.location.streetAddress, undefined);
+  assert.equal(serialized.location.city, undefined);
+  assert.equal(serialized.location.region, undefined);
+  assert.equal(serialized.location.postalCode, undefined);
+  assert.equal(serialized.location.country, undefined);
   assert.equal(payload.includes("38.603912"), false);
   assert.equal(payload.includes("-0.045316"), false);
   assert.equal(payload.includes("private-exact-parcel"), false);
@@ -133,6 +149,11 @@ test("public serialization removes hidden map and address payload", () => {
   const property = cloneProperty();
   property.location = {
     displayAddress: { en: "123 Hidden Parcel Road" },
+    streetAddress: "123 Hidden Parcel Road",
+    city: "Altea",
+    region: "Alicante",
+    postalCode: "03590",
+    country: "Spain",
     approximateLabel: { en: "Hidden district" },
     privacyMode: "hidden",
     showMap: false,
@@ -152,6 +173,11 @@ test("public serialization removes hidden map and address payload", () => {
 
   assert.equal(serialized.location.displayAddress.en, "");
   assert.equal(serialized.location.approximateLabel, undefined);
+  assert.equal(serialized.location.streetAddress, undefined);
+  assert.equal(serialized.location.city, undefined);
+  assert.equal(serialized.location.region, undefined);
+  assert.equal(serialized.location.postalCode, undefined);
+  assert.equal(serialized.location.country, undefined);
   assert.equal(serialized.location.latitude, undefined);
   assert.equal(serialized.location.longitude, undefined);
   assert.equal(serialized.location.approximateLatitude, undefined);

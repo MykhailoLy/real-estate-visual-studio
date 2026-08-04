@@ -1216,7 +1216,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
             {realGallery.length === 1 ? "" : "s"}. Removing a saved photo from the page deletes its old property-owned Storage object after the next successful save.
           </p>
           <p className="mt-2 text-xs text-muted">
-            Mark the strongest images as featured for sharing. The social primary is used first; otherwise the first featured image or cover is used.
+            Mark the strongest images as featured for sharing. The social primary is used first; otherwise the first featured image or cover is used. Images marked Best for sharing are also used for the automatic hero slideshow.
           </p>
         </div>
       </section>

@@ -135,6 +135,11 @@ export interface PropertyAgent {
 
 export interface PropertyLocation {
   displayAddress: LocalizedText;
+  streetAddress?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
   approximateLabel?: LocalizedText;
   latitude?: number;
   longitude?: number;

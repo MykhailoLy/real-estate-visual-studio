@@ -24,11 +24,11 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { BrandWordmark } from "@/components/brand";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 import { formatPriceLabel } from "@/features/property-showcase/formatting";
 import {
   getPropertyMapView,
-  getListingReferenceLabel,
   normalizeAgentProfile,
   normalizeChecklistHighlights,
   normalizeListingFacts,
@@ -40,6 +40,7 @@ import {
   PROPERTY_LANGUAGE_LABELS,
   PUBLIC_UI_LABELS,
 } from "@/features/property-showcase/localization";
+import { getPropertyAddressView } from "@/features/property-showcase/property-address";
 import {
   getExternalInteractiveFloorPlan,
   getPropertyLevelInteractiveFloorPlanTour,
@@ -48,6 +49,7 @@ import {
   shouldRenderInteractiveFloorPlan,
   sortedPropertyFloorPlans,
 } from "@/features/property-showcase/rendering";
+import { selectPropertyHeroImages } from "@/features/property-showcase/social-preview";
 import type {
   PropertyFactKey,
   PropertyLanguageCode,
@@ -56,6 +58,7 @@ import type {
 import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
+import PropertyHeroSlideshow from "./PropertyHeroSlideshow";
 import PropertyMapCanvas from "./PropertyMapCanvas";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
 import PropertyGallery from "./costa-blanca-demo/PropertyGallery";
@@ -128,13 +131,16 @@ export default function PropertyShowcaseView({
   const showInteractivePlan = shouldRenderInteractiveFloorPlan(property);
   const title = localizedText(property.title, language, primaryLanguage);
   const summary = localizedText(property.summary, language, primaryLanguage);
-  const address = localizedText(
-    property.location.displayAddress,
+  const address = getPropertyAddressView(
+    property.location,
     language,
     primaryLanguage,
   );
+  const heroImages = useMemo(
+    () => selectPropertyHeroImages(property),
+    [property],
+  );
   const facts = normalizeListingFacts(property, language);
-  const listingReferenceLabel = getListingReferenceLabel(property, language);
   const highlights = normalizeChecklistHighlights(property, language);
   const description = property.description
     .map((paragraph) => localizedText(paragraph, language, primaryLanguage))
@@ -147,6 +153,7 @@ export default function PropertyShowcaseView({
   const showLanguageSwitcher = languages.length > 1;
   const showLocation = mapView.mode !== "hidden";
   const showContactSection = Boolean(contactHref || agent);
+  const currentYear = new Date().getFullYear();
 
   return (
     <div className="min-h-screen bg-[#f2f0ea] text-slate-950">
@@ -217,32 +224,24 @@ export default function PropertyShowcaseView({
       <main>
         <section id="home" className="relative isolate scroll-mt-36 overflow-hidden bg-[#0f2440]">
           <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[780px]">
-            <Image
-              src={property.coverImage}
-              alt={gallery[0] ? localizedText(gallery[0].alt, language, primaryLanguage) : title}
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/10 via-[#071426]/5 to-[#071426]/90" />
+            <PropertyHeroSlideshow images={heroImages} />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/50 via-[#071426]/15 to-[#071426]/95" />
             <div className="absolute inset-x-0 bottom-0">
               <div className="mx-auto max-w-[1480px] px-4 pb-8 sm:px-6 sm:pb-12 lg:px-10 lg:pb-16">
                 <div className="flex max-w-5xl flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white backdrop-blur">
-                        {ui.status[property.status]}
-                      </span>
-                      <span className="rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-xs font-medium text-white/85 backdrop-blur">
-                        {listingReferenceLabel} {property.reference}
-                      </span>
-                    </div>
-                    {address ? (
-                      <p className="mb-3 flex items-center gap-2 text-sm font-medium text-white/75 sm:text-base">
-                        <MapPin className="h-4 w-4" aria-hidden />
-                        {address}
-                      </p>
+                  <div className="min-w-0">
+                    {address.primaryLine ? (
+                      <div data-testid="property-hero-address" className="mb-4 max-w-2xl">
+                        <p className="flex items-center gap-2 text-lg font-medium leading-tight text-white/90 sm:text-xl">
+                          <MapPin className="h-4 w-4" aria-hidden />
+                          {address.primaryLine}
+                        </p>
+                        {address.secondaryLine ? (
+                          <p className="mt-1 pl-6 text-[11px] font-semibold uppercase leading-4 tracking-[0.14em] text-white/65 sm:text-xs">
+                            {address.secondaryLine}
+                          </p>
+                        ) : null}
+                      </div>
                     ) : null}
                     <h1 className="max-w-4xl text-4xl font-semibold leading-[0.98] text-white sm:text-6xl lg:text-7xl">
                       {title}
@@ -252,11 +251,11 @@ export default function PropertyShowcaseView({
                     </p>
                   </div>
 
-                  <div className="flex shrink-0 items-end justify-between gap-5 border-t border-white/20 pt-5 lg:block lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                  <div className="flex min-w-0 shrink-0 items-end justify-between gap-5 border-t border-white/20 pt-5 lg:block lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
                     <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-white/55">
                       {localizedText(property.priceLabel, language, primaryLanguage)}
                     </span>
-                    <span className="mt-2 block text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                    <span className="mt-2 block whitespace-nowrap text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                       {formatPriceLabel(property.price)}
                     </span>
                   </div>
@@ -343,14 +342,14 @@ export default function PropertyShowcaseView({
                   className="border-t border-black/10 py-6 sm:py-11"
                 >
                   <h2 className="sr-only">{ui.checklistHeading}</h2>
-                  <ul className="grid grid-cols-1 gap-x-14 gap-y-2 min-[900px]:grid-cols-2 min-[900px]:gap-y-5">
+                  <ul className="grid grid-cols-1 gap-x-5 gap-y-2.5 min-[380px]:grid-cols-2 sm:gap-x-8 sm:gap-y-4 xl:grid-cols-3">
                     {highlights.map((highlight, index) => (
                       <li
                         key={`${highlight}-${index}`}
-                        className="flex min-w-0 items-start gap-2.5 text-sm font-medium leading-5 text-[#0f2440] sm:gap-4 sm:text-xl sm:leading-8"
+                        className="flex min-w-0 items-start gap-2.5 text-[13px] font-medium leading-5 text-[#0f2440] sm:gap-3 sm:text-base sm:leading-6 xl:text-lg xl:leading-7"
                       >
                         <Check
-                          className="mt-0.5 h-4 w-4 shrink-0 stroke-[2] text-[#0f2440] sm:mt-1 sm:h-5 sm:w-5"
+                          className="mt-0.5 h-4 w-4 shrink-0 stroke-[2] text-[#0f2440] sm:h-4.5 sm:w-4.5 xl:mt-1 xl:h-5 xl:w-5"
                           aria-hidden
                         />
                         <span className="min-w-0 break-words">{highlight}</span>
@@ -643,7 +642,7 @@ export default function PropertyShowcaseView({
                 <h2 className="mt-3 text-2xl font-semibold leading-tight text-[#0f2440] sm:text-3xl">
                   {mapView.privacyMode === "approximate"
                     ? ui.mapApproximate
-                    : address || ui.location}
+                    : address.primaryLine || ui.location}
                 </h2>
                 {mapView.privacyMode === "approximate" ? (
                   <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -692,19 +691,20 @@ export default function PropertyShowcaseView({
       </main>
 
       <footer className="border-t border-white/10 bg-[#0f2440] text-white">
-        <div className="mx-auto max-w-[1480px] px-4 py-10 text-center sm:px-6 sm:py-12 lg:px-10">
+        <div className="mx-auto max-w-[1480px] px-4 py-8 text-center sm:px-6 sm:py-10 lg:px-10">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-white/90">
             Equal Housing Opportunity
           </p>
-          <div className="mx-auto my-7 h-px max-w-2xl bg-white/12" />
+          <div className="mx-auto my-5 h-px max-w-xl bg-white/12" />
           <div className="space-y-2 text-sm leading-6 text-white/65">
-            <p className="font-semibold text-white/85">
-              Proudly created by Full Frame Media
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+              Property showcase by
             </p>
+            <BrandWordmark theme="dark" className="text-xl" />
             <p>All information deemed reliable but not guaranteed.</p>
-            <p>© 2026 Full Frame Media — All rights reserved.</p>
+            <p>&copy; {currentYear} PicchuSpot - All rights reserved.</p>
           </div>
-          <div className="mt-7 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-7 text-sm text-white/60 sm:flex-row sm:gap-6">
+          <div className="mt-5 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-5 text-sm text-white/60 sm:flex-row sm:gap-6">
             <span>
               Use of this website is subject to our{" "}
               <Link href="/terms" className="underline decoration-white/30 underline-offset-4 hover:text-white">

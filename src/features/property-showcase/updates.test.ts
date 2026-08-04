@@ -608,6 +608,49 @@ test("details saves preserve exact and approximate privacy selections", () => {
   assert.equal(exactResult.property?.location.privacyMode, "exact");
 });
 
+test("details saves preserve sharing media while updating a structured address", () => {
+  const existing = withExternalMedia();
+  existing.gallery[0].featuredForSharing = true;
+  existing.gallery[0].primarySocialPreview = true;
+  const incoming = structuredClone(existing);
+  incoming.location = {
+    ...incoming.location,
+    streetAddress: "Calle San Pablo 46",
+    city: "Altea",
+    region: "Alicante",
+    postalCode: "03590",
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details");
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.property?.gallery, existing.gallery);
+  assert.equal(result.property?.location.streetAddress, "Calle San Pablo 46");
+  assert.equal(result.property?.location.city, "Altea");
+  assert.equal(result.property?.location.postalCode, "03590");
+});
+
+test("media saves preserve structured address details and privacy settings", () => {
+  const existing = withExternalMedia();
+  existing.location = {
+    ...existing.location,
+    streetAddress: "Calle San Pablo 46",
+    city: "Altea",
+    region: "Alicante",
+    postalCode: "03590",
+    privacyMode: "exact",
+  };
+  const incoming = {
+    ...existing,
+    gallery: [...existing.gallery].reverse(),
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media");
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.property?.location, existing.location);
+});
+
 test("details saves preserve a disabled custom map embed without rendering intent", () => {
   const existing = withExternalMedia();
   existing.location = {

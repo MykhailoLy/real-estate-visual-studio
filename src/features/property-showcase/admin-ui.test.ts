@@ -44,6 +44,13 @@ const propertyShowcaseSource = readFileSync(
   ),
   "utf8",
 );
+const propertyHeroSlideshowSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertyHeroSlideshow.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const propertySectionNavSource = readFileSync(
   new URL(
     "../../app/(showcase)/property/costa-blanca-demo/PropertySectionNav.tsx",
@@ -143,6 +150,12 @@ test("media manager exposes featured and primary social image controls", () => {
     mediaManagerSource.includes("Protected Vercel branch previews"),
     true,
   );
+  assert.equal(
+    mediaManagerSource.includes(
+      "Images marked Best for sharing are also used for the automatic hero slideshow.",
+    ),
+    true,
+  );
 });
 
 test("listing facts and highlights use one open responsive composition", () => {
@@ -154,13 +167,51 @@ test("listing facts and highlights use one open responsive composition", () => {
   assert.equal(propertyShowcaseSource.includes("min-[900px]:grid-cols-4"), true);
   assert.equal(propertyShowcaseSource.includes("min-[360px]:grid-cols-4"), true);
   assert.equal(propertyShowcaseSource.includes("gap-y-5 py-7"), true);
-  assert.equal(
-    propertyShowcaseSource.includes("min-[900px]:grid-cols-2"),
-    true,
-  );
+  assert.equal(propertyShowcaseSource.includes("min-[380px]:grid-cols-2"), true);
+  assert.equal(propertyShowcaseSource.includes("xl:grid-cols-3"), true);
   assert.equal(propertyShowcaseSource.includes("border-r border-black/8"), false);
   assert.equal(propertyShowcaseSource.includes("min-h-40"), false);
   assert.equal(propertyShowcaseSource.includes("<h2 className=\"sr-only\">"), true);
+});
+
+test("property address admin keeps structured fields and the legacy fallback", () => {
+  for (const label of [
+    "Street address",
+    "City / locality",
+    "Region / province / state (optional)",
+    "Postal code (optional)",
+    "Country (optional)",
+    "Full display-address fallback (advanced)",
+  ]) {
+    assert.equal(propertyEditorSource.includes(label), true);
+  }
+  assert.equal(propertyEditorSource.includes("Calle San Pablo 46"), true);
+  assert.equal(propertyEditorSource.includes("formatStructuredPropertyAddress"), true);
+});
+
+test("hero uses the sharing image selection without visible status or reference pills", () => {
+  assert.equal(propertyShowcaseSource.includes("PropertyHeroSlideshow"), true);
+  assert.equal(propertyShowcaseSource.includes("selectPropertyHeroImages"), true);
+  assert.equal(propertyShowcaseSource.includes("ui.status[property.status]"), false);
+  assert.equal(propertyShowcaseSource.includes("listingReferenceLabel"), false);
+  assert.equal(propertyHeroSlideshowSource.includes("ROTATION_INTERVAL_MS = 7000"), true);
+  assert.equal(propertyHeroSlideshowSource.includes("FADE_DURATION_MS = 1500"), true);
+  assert.equal(
+    propertyHeroSlideshowSource.includes("prefers-reduced-motion: reduce"),
+    true,
+  );
+  assert.equal(propertyHeroSlideshowSource.includes("document.hidden"), true);
+  assert.equal(propertyHeroSlideshowSource.includes("preload={activeIndex === 0}"), true);
+  assert.equal(propertyHeroSlideshowSource.includes("property-hero-slideshow"), true);
+});
+
+test("property footer is PicchuSpot-only and calculates the current year", () => {
+  assert.equal(propertyShowcaseSource.includes("Full Frame Media"), false);
+  assert.equal(propertyShowcaseSource.includes("Property showcase by"), true);
+  assert.equal(propertyShowcaseSource.includes("BrandWordmark"), true);
+  assert.equal(propertyShowcaseSource.includes("new Date().getFullYear()"), true);
+  assert.equal(propertyShowcaseSource.includes("CookieSettingsButton"), true);
+  assert.equal(propertyShowcaseSource.includes('href="/terms"'), true);
 });
 
 test("realtor section is compact and never prints a raw website URL", () => {
@@ -206,7 +257,7 @@ test("approximate map links require an explicit text-only public-area option", (
     true,
   );
   assert.equal(
-    /form\.privacyMode === "exact"\s*\?\s*form\.address\.trim\(\)\s*:\s*form\.approximateLabel\.trim\(\)/.test(
+    /form\.privacyMode === "exact"\s*\?\s*exactAddress\s*:\s*form\.approximateLabel\.trim\(\)/.test(
       propertyEditorSource,
     ),
     true,
