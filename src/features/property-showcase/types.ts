@@ -8,7 +8,19 @@ export type PropertyTourProvider =
   | "nodalview"
   | "custom";
 
+export type PropertyLanguageCode =
+  | "en"
+  | "es"
+  | "de"
+  | "fr"
+  | "nl"
+  | "pl"
+  | "uk"
+  | "ru";
+
 export type PropertyFactKey =
+  | "price"
+  | "listing-reference"
   | "bedrooms"
   | "bathrooms"
   | "built-area"
@@ -19,17 +31,29 @@ export type PropertyFactKey =
 export interface LocalizedText {
   en: string;
   es?: string;
+  [language: string]: string | undefined;
 }
 
 export interface PropertyFact {
   key: PropertyFactKey;
   value: string;
   label: LocalizedText;
+  sortOrder?: number;
+  visible?: boolean;
 }
 
+export type ListingReferenceLabelMode =
+  | "property-reference"
+  | "mls-number"
+  | "listing-number"
+  | "custom";
+
 export interface PropertyHighlight {
-  title: LocalizedText;
-  description: LocalizedText;
+  text?: LocalizedText;
+  title?: LocalizedText;
+  description?: LocalizedText;
+  sortOrder?: number;
+  visible?: boolean;
 }
 
 export interface PropertyHotspot {
@@ -42,6 +66,8 @@ export interface PropertyGalleryImage {
   src: string;
   alt: LocalizedText;
   label: LocalizedText;
+  featuredForSharing?: boolean;
+  primarySocialPreview?: boolean;
   note?: LocalizedText;
   roomId?: string;
   hotspot?: PropertyHotspot;
@@ -49,9 +75,18 @@ export interface PropertyGalleryImage {
 }
 
 export interface PropertyVirtualTour {
+  enabled?: boolean;
   provider: PropertyTourProvider;
   embedUrl?: string;
   externalUrl?: string;
+  posterImage?: string;
+}
+
+export interface PropertyInteractiveFloorPlanTour {
+  enabled: boolean;
+  provider: PropertyTourProvider;
+  externalUrl?: string;
+  embedUrl?: string;
   posterImage?: string;
 }
 
@@ -67,8 +102,26 @@ export interface PropertyFloorPlan {
   sortOrder: number;
 }
 
+export type PropertyAgentSocialProvider =
+  | "facebook"
+  | "instagram"
+  | "linkedin"
+  | "youtube"
+  | "tiktok"
+  | "x"
+  | "pinterest"
+  | "custom";
+
+export interface PropertyAgentSocialLink {
+  provider: PropertyAgentSocialProvider;
+  url: string;
+  label?: LocalizedText;
+  sortOrder?: number;
+}
+
 export interface PropertyAgent {
   agencyName: string;
+  displayProfile?: boolean;
   agentName?: string;
   role?: LocalizedText;
   logoUrl?: string;
@@ -77,20 +130,44 @@ export interface PropertyAgent {
   whatsapp?: string;
   email?: string;
   website?: string;
+  socialLinks?: PropertyAgentSocialLink[];
 }
 
 export interface PropertyLocation {
   displayAddress: LocalizedText;
+  streetAddress?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
+  approximateLabel?: LocalizedText;
   latitude?: number;
   longitude?: number;
+  approximateLatitude?: number;
+  approximateLongitude?: number;
+  approximateRadiusMeters?: number;
+  allowApproximateAreaLink?: boolean;
   privacyMode: "exact" | "approximate" | "hidden";
   airportTravelTime?: LocalizedText;
+  showMap?: boolean;
+  mapExternalUrl?: string;
+  mapEmbedUrl?: string;
+  useCustomMapEmbed?: boolean;
+  mapZoom?: number;
+}
+
+export interface PropertyTranslationContent {
+  title?: string;
+  summary?: string;
+  description?: string[];
+  highlights?: string[];
 }
 
 export interface PropertyShowcase {
   slug: string;
   reference: string;
   status: PropertyStatus;
+  primaryLanguage?: PropertyLanguageCode;
   title: LocalizedText;
   summary: LocalizedText;
   description: LocalizedText[];
@@ -98,11 +175,13 @@ export interface PropertyShowcase {
   price: string;
   coverImage: string;
   brochureUrl?: string;
-  languages: Array<"en" | "es">;
+  languages: PropertyLanguageCode[];
+  translations?: Partial<Record<PropertyLanguageCode, PropertyTranslationContent>>;
   facts: PropertyFact[];
   highlights: PropertyHighlight[];
   gallery: PropertyGalleryImage[];
   virtualTour?: PropertyVirtualTour;
+  interactiveFloorPlanTour?: PropertyInteractiveFloorPlanTour;
   floorPlans: PropertyFloorPlan[];
   location: PropertyLocation;
   agent: PropertyAgent;

@@ -16,15 +16,25 @@ import {
   normalizeInteractiveFloorPlanInput,
   type NormalizedInteractiveFloorPlanUrl,
 } from "@/features/property-showcase/provider-urls";
+import {
+  localizedText,
+  PUBLIC_UI_LABELS,
+} from "@/features/property-showcase/localization";
+import { PROPERTY_MEDIA_LABELS } from "@/features/property-showcase/media-labels";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
+  PropertyInteractiveFloorPlanTour,
+  PropertyLanguageCode,
 } from "@/features/property-showcase/types";
 
 type InteractivePropertyFloorPlanProps = {
   propertyTitle: string;
-  floorPlan: PropertyFloorPlan;
+  floorPlan?: PropertyFloorPlan;
+  interactiveTour?: PropertyInteractiveFloorPlanTour;
   gallery: PropertyGalleryImage[];
+  locale?: PropertyLanguageCode;
+  primaryLanguage?: PropertyLanguageCode;
 };
 
 const fallbackPositions = [
@@ -44,12 +54,20 @@ type EmbeddedFrameStatus =
 export default function InteractivePropertyFloorPlan(
   props: InteractivePropertyFloorPlanProps,
 ) {
-  const externalPlan = normalizeInteractiveFloorPlanInput({
-    provider: props.floorPlan.interactiveProvider,
-    externalUrl: props.floorPlan.interactiveExternalUrl,
-    embedUrl: props.floorPlan.interactiveEmbedUrl,
-    interactiveUrl: props.floorPlan.interactiveUrl,
-  });
+  const externalPlan = props.interactiveTour?.enabled
+    ? normalizeInteractiveFloorPlanInput({
+        provider: props.interactiveTour.provider,
+        externalUrl: props.interactiveTour.externalUrl,
+        embedUrl: props.interactiveTour.embedUrl,
+      })
+    : props.floorPlan
+      ? normalizeInteractiveFloorPlanInput({
+          provider: props.floorPlan.interactiveProvider,
+          externalUrl: props.floorPlan.interactiveExternalUrl,
+          embedUrl: props.floorPlan.interactiveEmbedUrl,
+          interactiveUrl: props.floorPlan.interactiveUrl,
+        })
+      : null;
 
   if (externalPlan) {
     return (
@@ -57,12 +75,17 @@ export default function InteractivePropertyFloorPlan(
     );
   }
 
-  return <NativeInteractiveFloorPlan {...props} />;
+  if (!props.floorPlan) return null;
+  return <NativeInteractiveFloorPlan {...props} floorPlan={props.floorPlan} />;
 }
 
 function ExternalInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
+  interactiveTour,
+  gallery,
+  locale,
+  primaryLanguage,
   externalPlan,
 }: InteractivePropertyFloorPlanProps & {
   externalPlan: NormalizedInteractiveFloorPlanUrl;
@@ -72,20 +95,24 @@ function ExternalInteractiveFloorPlan({
   const canEmbed = Boolean(externalPlan.embedUrl);
   const openAction = getInteractiveFloorPlanOpenAction(externalPlan);
   const openPlanUrl = openAction?.url ?? "";
-  const openPlanLabel = openAction?.label ?? "Open interactive plan";
+  const posterImage =
+    interactiveTour?.posterImage ?? floorPlan?.imageUrl ?? gallery[0]?.src ?? "";
+  const language = locale ?? primaryLanguage ?? "en";
+  const fallbackLanguage = primaryLanguage ?? language;
+  const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
+  const mediaLabels =
+    PROPERTY_MEDIA_LABELS[language] ?? PROPERTY_MEDIA_LABELS.en;
+  const openPlanLabel = openAction?.isOriginalUrl
+    ? mediaLabels.openOriginalInteractivePlan
+    : mediaLabels.openInteractivePlanNewTab;
+  const posterTitle =
+    localizedText(floorPlan?.title, language, fallbackLanguage) ||
+    ui.interactiveFloorPlan;
   const showIframe = canEmbed && status !== "poster";
   const showPoster =
     !canEmbed || status === "poster" || status === "opening";
   const iframeIsVisible =
     status === "frame-visible" || status === "frame-unconfirmed";
-  const footerStatusText =
-    status === "frame-visible"
-      ? "Embedded provider view is open"
-      : status === "frame-unconfirmed"
-        ? "Open in a new tab if the embedded view looks blank"
-        : status === "opening"
-          ? `Opening ${externalPlan.providerName}`
-          : "Ready to open";
 
   useEffect(() => {
     if (status !== "opening") return undefined;
@@ -121,17 +148,21 @@ function ExternalInteractiveFloorPlan({
   return (
     <section
       id="interactive-floor-plan"
-      className="scroll-mt-36 bg-[#0f2440] py-6 text-white sm:py-10"
+      className="scroll-mt-36 bg-[#0f2440] py-12 text-white sm:py-16"
     >
       <div className="mx-auto max-w-[1680px] px-3 sm:px-6 lg:px-8">
+        <h2 className="mb-5 px-1 text-2xl font-semibold sm:text-3xl">
+          {ui.interactiveFloorPlan}
+        </h2>
         <div
           ref={stageRef}
-          className="relative min-h-[78svh] overflow-hidden rounded-[1.5rem] bg-[#111] shadow-[0_35px_120px_rgba(0,0,0,0.35)] sm:min-h-[86svh] sm:rounded-[2rem]"
+          className="overflow-hidden rounded-lg border border-white/10 bg-[#111] shadow-[0_28px_80px_rgba(0,0,0,0.3)]"
         >
+          <div className="relative min-h-[68svh] sm:min-h-[78svh]">
           {showIframe ? (
             <iframe
               src={externalPlan.embedUrl}
-              title={`Interactive floor plan of ${propertyTitle}`}
+              title={`${ui.interactiveFloorPlan}: ${propertyTitle}`}
               className={`absolute inset-0 h-full w-full border-0 bg-white transition-opacity duration-300 ${
                 iframeIsVisible ? "opacity-100" : "opacity-0"
               }`}
@@ -145,144 +176,90 @@ function ExternalInteractiveFloorPlan({
 
           {showPoster ? (
             <>
-              <Image
-                src={floorPlan.imageUrl}
-                alt={`${floorPlan.title.en} for ${propertyTitle}`}
-                fill
-                sizes="100vw"
-                className="object-contain bg-[#ece9e2] p-5 sm:p-10"
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/5 to-black/55" />
+              {posterImage ? (
+                <Image
+                  src={posterImage}
+                  alt={`${posterTitle} for ${propertyTitle}`}
+                  fill
+                  sizes="100vw"
+                  className="object-contain bg-[#ece9e2] p-5 sm:p-10"
+                />
+              ) : null}
+              <div className="absolute inset-0 bg-black/15" />
             </>
           ) : null}
-
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 p-4 sm:p-6 lg:p-8">
-            <div className="rounded-2xl border border-white/15 bg-black/55 p-4 backdrop-blur-md sm:p-5">
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4bc6a] sm:text-xs">
-                <MousePointer2 className="h-4 w-4" aria-hidden />
-                Interactive floor plan
-              </p>
-              <h2 className="mt-2 text-xl font-semibold sm:text-3xl">
-                Walk through the home room by room.
-              </h2>
-              {status === "poster" ? (
-                <p className="mt-2 hidden text-sm text-white/65 sm:block">
-                  The provider experience loads only after it is opened.
-                </p>
-              ) : null}
-            </div>
-            {canEmbed ? (
-              <button
-                type="button"
-                onClick={openFullscreen}
-                className="pointer-events-auto grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/20 bg-black/60 text-white shadow-lg backdrop-blur transition hover:bg-black/80 sm:h-14 sm:w-14"
-                aria-label="Open interactive floor plan fullscreen"
-              >
-                <Maximize2 className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
-              </button>
-            ) : null}
-          </div>
 
           {status === "poster" && canEmbed ? (
             <div className="absolute inset-0 z-[5] grid place-items-center px-4">
               <button
                 type="button"
                 onClick={activate}
-                className="group flex flex-col items-center gap-4 rounded-[2rem] border border-white/20 bg-black/55 px-8 py-7 text-center shadow-2xl backdrop-blur-md transition hover:scale-[1.02] hover:bg-black/70"
+                className="inline-flex min-h-12 items-center gap-3 rounded-full bg-white px-6 py-3 text-sm font-bold text-[#0f2440] shadow-xl transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                aria-label={ui.interactiveFloorPlanCta}
               >
-                <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-[#0f2440] shadow-xl transition group-hover:scale-105 sm:h-20 sm:w-20">
-                  <Play className="ml-1 h-7 w-7 fill-current sm:h-9 sm:w-9" aria-hidden />
-                </span>
-                <span>
-                  <span className="block text-base font-bold sm:text-lg">
-                    Open interactive floor plan
-                  </span>
-                  <span className="mt-1 block text-xs text-white/65 sm:text-sm">
-                    Opens directly from {externalPlan.providerName}
-                  </span>
-                </span>
+                <Play className="h-5 w-5 fill-current" aria-hidden />
+                {ui.interactiveFloorPlanCta}
               </button>
             </div>
           ) : null}
 
           {status === "opening" ? (
-            <div className="pointer-events-none absolute inset-0 z-[6] grid place-items-center px-4">
-              <div className="flex flex-col items-center gap-3 rounded-[1.5rem] border border-white/15 bg-black/60 px-6 py-5 text-center backdrop-blur-md">
-                <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
-                <p className="text-sm font-bold">Opening {externalPlan.providerName}</p>
-                <p className="max-w-sm text-xs leading-5 text-white/65">
-                  The new-tab fallback stays available if the embedded provider view is blank or blocked.
-                </p>
-              </div>
+            <div className="pointer-events-none absolute inset-0 z-[6] grid place-items-center">
+              <Loader2 className="h-9 w-9 animate-spin text-white drop-shadow-lg" aria-hidden />
+              <span className="sr-only">{ui.interactiveFloorPlanCta}</span>
             </div>
           ) : null}
 
           {!canEmbed ? (
             <div className="absolute inset-0 z-[6] grid place-items-center px-4">
-              <div className="max-w-lg rounded-[1.5rem] border border-white/15 bg-black/65 p-6 text-center shadow-2xl backdrop-blur-md">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#d4bc6a]">
-                  {externalPlan.providerName}
-                </p>
-                <h3 className="mt-3 text-2xl font-semibold">
-                  Open the interactive plan in a new tab.
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-white/70">
-                  This provider may restrict iframe playback. The full experience opens securely with the provider controls intact.
-                </p>
-                <a
-                  href={openPlanUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
-                >
-                  <ExternalLink className="h-4 w-4" aria-hidden />
-                  {openPlanLabel}
-                </a>
-              </div>
+              <a
+                href={openPlanUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-[#0f2440] shadow-xl transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              >
+                <ExternalLink className="h-5 w-5" aria-hidden />
+                {ui.interactiveFloorPlanCta}
+              </a>
             </div>
           ) : null}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4 sm:p-6 lg:p-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="rounded-2xl border border-white/15 bg-black/55 px-4 py-3 backdrop-blur-md">
-                <p className="text-sm font-semibold">{propertyTitle}</p>
-                <p className="mt-1 text-xs text-white/55">{footerStatusText}</p>
-              </div>
-              <div className="pointer-events-auto flex flex-wrap gap-2">
+          </div>
+
+          {canEmbed && status !== "poster" ? (
+            <div
+              data-testid="interactive-plan-controls"
+              className="flex flex-col gap-3 border-t border-white/10 bg-[#071426] px-3 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-4"
+            >
+              {openPlanUrl ? (
+                <span className="text-xs text-white/60">
+                  {mediaLabels.interactivePlanTrouble}
+                </span>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
                 {openPlanUrl ? (
                   <a
                     href={openPlanUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-black/75"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-xs font-bold text-white transition hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-sm"
                   >
                     <ExternalLink className="h-4 w-4" aria-hidden />
                     {openPlanLabel}
                   </a>
                 ) : null}
-                {canEmbed && openPlanUrl ? (
-                  <a
-                    href={openPlanUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/35 px-4 py-3 text-xs font-bold text-white/80 backdrop-blur transition hover:bg-black/65 hover:text-white"
-                  >
-                    Having trouble viewing the plan?
-                  </a>
-                ) : null}
-                {canEmbed ? (
-                  <button
-                    type="button"
-                    onClick={openFullscreen}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:bg-[#f2e8c7]"
-                  >
-                    <Maximize2 className="h-4 w-4" aria-hidden />
-                    View fullscreen
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={openFullscreen}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-sm"
+                  aria-label={`${mediaLabels.fullscreen}: ${ui.interactiveFloorPlan}`}
+                >
+                  <Maximize2 className="h-4 w-4" aria-hidden />
+                  {mediaLabels.fullscreen}
+                </button>
               </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </section>
@@ -293,7 +270,12 @@ function NativeInteractiveFloorPlan({
   propertyTitle,
   floorPlan,
   gallery,
-}: InteractivePropertyFloorPlanProps) {
+  locale,
+  primaryLanguage,
+}: InteractivePropertyFloorPlanProps & { floorPlan: PropertyFloorPlan }) {
+  const language = locale ?? primaryLanguage ?? "en";
+  const fallbackLanguage = primaryLanguage ?? language;
+  const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
   const rooms = useMemo(
     () =>
       gallery
@@ -340,10 +322,11 @@ function NativeInteractiveFloorPlan({
             <div>
               <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#d4bc6a] sm:text-xs">
                 <MousePointer2 className="h-4 w-4" aria-hidden />
-                Interactive floor plan
+                {ui.interactiveFloorPlan}
               </p>
               <p className="mt-1 text-sm font-semibold sm:text-lg">
-                {propertyTitle} · {selectedRoom.label.en}
+                {propertyTitle} {"\u00b7"}{" "}
+                {localizedText(selectedRoom.label, language, fallbackLanguage)}
               </p>
             </div>
             <button
@@ -360,7 +343,11 @@ function NativeInteractiveFloorPlan({
             <div className="relative min-h-[430px] bg-[#ece9e2] p-3 sm:min-h-[560px] sm:p-6 lg:min-h-0">
               <Image
                 src={floorPlan.imageUrl}
-                alt={`${floorPlan.title.en} for ${propertyTitle}`}
+                alt={`${localizedText(
+                  floorPlan.title,
+                  language,
+                  fallbackLanguage,
+                )} for ${propertyTitle}`}
                 fill
                 sizes="(min-width: 1024px) 46vw, 100vw"
                 className="object-contain p-6 sm:p-10"
@@ -375,7 +362,11 @@ function NativeInteractiveFloorPlan({
                     key={room.id}
                     type="button"
                     onClick={() => setSelectedRoomId(room.id)}
-                    aria-label={`Show ${room.label.en}`}
+                    aria-label={`Show ${localizedText(
+                      room.label,
+                      language,
+                      fallbackLanguage,
+                    )}`}
                     aria-pressed={isSelected}
                     className={`absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-xs font-bold shadow-xl transition hover:scale-110 sm:h-11 sm:w-11 ${
                       isSelected
@@ -387,7 +378,7 @@ function NativeInteractiveFloorPlan({
                       top: `${position.yPercent}%`,
                     }}
                   >
-                    {room.label.en.charAt(0)}
+                    {localizedText(room.label, language, fallbackLanguage).charAt(0)}
                   </button>
                 );
               })}
@@ -397,7 +388,11 @@ function NativeInteractiveFloorPlan({
               <div className="relative flex-1 overflow-hidden">
                 <Image
                   src={selectedRoom.src}
-                  alt={selectedRoom.alt.en}
+                  alt={localizedText(
+                    selectedRoom.alt,
+                    language,
+                    fallbackLanguage,
+                  )}
                   fill
                   sizes="(min-width: 1024px) 54vw, 100vw"
                   className="object-cover"
@@ -421,10 +416,14 @@ function NativeInteractiveFloorPlan({
                 </button>
                 <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7 lg:p-8">
                   <p className="text-2xl font-semibold sm:text-3xl">
-                    {selectedRoom.label.en}
+                    {localizedText(selectedRoom.label, language, fallbackLanguage)}
                   </p>
                   <p className="mt-2 max-w-xl text-sm leading-6 text-white/65 sm:text-base">
-                    {selectedRoom.note?.en ?? selectedRoom.alt.en}
+                    {localizedText(
+                      selectedRoom.note ?? selectedRoom.alt,
+                      language,
+                      fallbackLanguage,
+                    )}
                   </p>
                   <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#d4bc6a]">
                     {selectedIndex + 1} of {rooms.length} room groups
@@ -443,7 +442,11 @@ function NativeInteractiveFloorPlan({
                         ? "border-[#c7a94e]"
                         : "border-transparent opacity-70 hover:opacity-100"
                     }`}
-                    aria-label={`Open ${room.label.en}`}
+                    aria-label={`Open ${localizedText(
+                      room.label,
+                      language,
+                      fallbackLanguage,
+                    )}`}
                   >
                     <Image
                       src={room.src}
@@ -453,7 +456,7 @@ function NativeInteractiveFloorPlan({
                       className="object-cover"
                     />
                     <span className="absolute inset-x-0 bottom-0 bg-black/65 px-2 py-1.5 text-left text-[10px] font-semibold text-white sm:text-xs">
-                      {room.label.en}
+                      {localizedText(room.label, language, fallbackLanguage)}
                     </span>
                   </button>
                 ))}

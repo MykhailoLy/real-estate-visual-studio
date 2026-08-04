@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import {
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ChangeEvent,
+  type DragEvent,
+} from "react";
+import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -26,21 +33,36 @@ import {
   formatImageBytes,
   optimizePropertyImage,
 } from "@/features/property-showcase/client-image-optimizer";
-import { normalizeFloorPlanInteractiveUrl } from "@/features/property-showcase/provider-urls";
+import {
+  getPrimaryLanguage,
+  getPropertyLanguageOptions,
+  PROPERTY_LANGUAGE_LABELS,
+} from "@/features/property-showcase/localization";
+import {
+  getPropertySocialPreview,
+  resolvedPropertySocialImages,
+  updateGallerySocialPreview,
+} from "@/features/property-showcase/social-preview";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyShowcase,
-  PropertyTourProvider,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
+import { absoluteUrl } from "@/lib/seo";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
 const MAX_SOURCE_MB = MAX_SOURCE_BYTES / (1024 * 1024);
 const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
 type AllowedMime = (typeof ALLOWED_MIMES)[number];
-type UploadKind = "gallery" | "floor-plan" | "tour-poster";
+type UploadKind =
+  | "gallery"
+  | "floor-plan"
+  | "tour-poster"
+  | "interactive-poster"
+  | "agent-portrait"
+  | "agency-logo";
 
 const FLOOR_PLAN_PRESETS = [
   { en: "Ground floor", es: "Planta baja" },
@@ -52,6 +74,8 @@ const FLOOR_PLAN_PRESETS = [
   { en: "Annex", es: "Anexo" },
   { en: "Other", es: "Otro" },
 ] as const;
+
+const subscribeToPreviewHost = () => () => undefined;
 
 interface Props {
   records: PropertyShowcaseAdminRecord[];
@@ -326,6 +350,15 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const [tourPosterUrl, setTourPosterUrl] = useState(
     record.property.virtualTour?.posterImage ?? "",
   );
+  const [interactivePosterUrl, setInteractivePosterUrl] = useState(
+    record.property.interactiveFloorPlanTour?.posterImage ?? "",
+  );
+  const [agentPortraitUrl, setAgentPortraitUrl] = useState(
+    record.property.agent.portraitUrl ?? "",
+  );
+  const [agencyLogoUrl, setAgencyLogoUrl] = useState(
+    record.property.agent.logoUrl ?? "",
+  );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedFloorPlanId, setDraggedFloorPlanId] = useState<string | null>(
     null,
@@ -336,8 +369,27 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSavings, setLastSavings] = useState<SavingsSummary | null>(null);
+  const isVercelPreview = useSyncExternalStore(
+    subscribeToPreviewHost,
+    () => window.location.hostname.endsWith(".vercel.app"),
+    () => false,
+  );
 
   const realGallery = gallery.filter((item) => !isDemoAsset(item.src));
+  const primaryLanguage = getPrimaryLanguage(record.property);
+  const floorPlanLanguages = getPropertyLanguageOptions(record.property);
+  const socialPreviewProperty = useMemo(
+    () => ({ ...record.property, coverImage, gallery }),
+    [coverImage, gallery, record.property],
+  );
+  const socialPreview = useMemo(
+    () => getPropertySocialPreview(socialPreviewProperty),
+    [socialPreviewProperty],
+  );
+  const resolvedSocialImages = useMemo(
+    () => resolvedPropertySocialImages(socialPreviewProperty),
+    [socialPreviewProperty],
+  );
 
   function normalize(items: PropertyGalleryImage[]): PropertyGalleryImage[] {
     return items.map((item, index) => ({ ...item, sortOrder: index + 1 }));
@@ -418,72 +470,34 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   function applyFloorPlanPreset(planId: string, preset: string) {
     const match = FLOOR_PLAN_PRESETS.find((item) => item.en === preset);
     if (!match) return;
-    updateFloorPlan(planId, {
-      title: { en: match.en, es: match.es },
-    });
-  }
-
-  function clearFloorPlanInteractive(plan: PropertyFloorPlan): PropertyFloorPlan {
-    return {
-      id: plan.id,
-      title: plan.title,
-      imageUrl: plan.imageUrl,
-      downloadUrl: plan.downloadUrl,
-      sortOrder: plan.sortOrder,
-    };
-  }
-
-  function interactiveInputValue(plan: PropertyFloorPlan): string {
-    return (
-      plan.interactiveEmbedUrl ??
-      plan.interactiveExternalUrl ??
-      plan.interactiveUrl ??
-      ""
-    );
-  }
-
-  function updateFloorPlanInteractiveInput(planId: string, value: string) {
-    const trimmed = value.trim();
-    const normalized = normalizeFloorPlanInteractiveUrl(trimmed);
-
     setFloorPlans((current) =>
-      current.map((plan) => {
-        if (plan.id !== planId) return plan;
-        if (!trimmed) return clearFloorPlanInteractive(plan);
-        if (!normalized) {
-          return {
-            ...clearFloorPlanInteractive(plan),
-            interactiveUrl: value,
-          };
-        }
-
-        return {
-          ...clearFloorPlanInteractive(plan),
-          interactiveProvider: normalized.provider,
-          interactiveExternalUrl: normalized.externalUrl,
-          interactiveEmbedUrl: normalized.embedUrl,
-        };
-      }),
+      current.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              title: {
+                ...plan.title,
+                en: match.en,
+                es: match.es,
+                [primaryLanguage]:
+                  primaryLanguage === "es" ? match.es : match.en,
+              },
+            }
+          : plan,
+      ),
     );
   }
 
-  function updateFloorPlanInteractiveProvider(
-    planId: string,
-    provider: PropertyTourProvider,
-  ) {
-    updateFloorPlan(planId, { interactiveProvider: provider });
+  function toggleFeaturedForSharing(imageId: string) {
+    setGallery((current) =>
+      updateGallerySocialPreview(current, imageId, "toggle-featured"),
+    );
   }
 
-  function updateFloorPlanExternalUrl(planId: string, value: string) {
-    updateFloorPlan(planId, {
-      interactiveExternalUrl: value.trim() ? value : undefined,
-    });
-  }
-
-  function updateFloorPlanEmbedUrl(planId: string, value: string) {
-    updateFloorPlan(planId, {
-      interactiveEmbedUrl: value.trim() ? value : undefined,
-    });
+  function setPrimarySocialPreview(imageId: string) {
+    setGallery((current) =>
+      updateGallerySocialPreview(current, imageId, "set-primary"),
+    );
   }
 
   function removeFloorPlan(planId: string) {
@@ -802,6 +816,82 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     }
   }
 
+  async function uploadSingleGalleryAsset(
+    event: ChangeEvent<HTMLInputElement>,
+    kind: Extract<
+      UploadKind,
+      "interactive-poster" | "agent-portrait" | "agency-logo"
+    >,
+    label: string,
+    currentUrl: string,
+    onUploaded: (url: string) => void,
+  ) {
+    const input = event.currentTarget;
+    const sourceFile = input.files?.[0] ?? null;
+    input.value = "";
+    if (!sourceFile || uploading) return;
+    const validation = validateSourceFile(sourceFile);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+
+    setUploading(true);
+    setUploadDetail(`Optimizing ${label}: ${sourceFile.name}`);
+    setError(null);
+    setNotice(null);
+    setLastSavings(null);
+    let uploadedPublicUrl = "";
+    try {
+      const optimized = await optimizePropertyImage(sourceFile, "gallery");
+      setUploadDetail(
+        `Uploading ${label}: ${formatImageBytes(optimized.originalBytes)} -> ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} x ${optimized.height})`,
+      );
+      const uploaded = await uploadPropertyFile(record.slug, optimized.file, kind);
+      uploadedPublicUrl = uploaded.publicUrl;
+      onUploaded(uploaded.publicUrl);
+      const summary = {
+        count: 1,
+        originalBytes: optimized.originalBytes,
+        optimizedBytes: optimized.optimizedBytes,
+      };
+      setLastSavings(summary);
+      setNotice(
+        `${label} optimized and uploaded. ${formatImageBytes(optimized.originalBytes)} -> ${formatImageBytes(optimized.optimizedBytes)} (${optimized.savedPercent}% saved).`,
+      );
+    } catch (uploadError) {
+      await cleanupUploadedPropertyFiles(
+        record.slug,
+        uploadedPublicUrl ? [uploadedPublicUrl] : [],
+        [
+          currentUrl,
+          interactivePosterUrl,
+          agentPortraitUrl,
+          agencyLogoUrl,
+        ],
+      );
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : `${label} upload failed.`,
+      );
+    } finally {
+      setUploading(false);
+      setUploadDetail("");
+    }
+  }
+
+  function removeSingleAsset(label: string, onRemoved: () => void) {
+    if (
+      !window.confirm(
+        `Remove this ${label}? After you save, its property-owned Storage file will be deleted if nothing else uses it.`,
+      )
+    ) {
+      return;
+    }
+    onRemoved();
+  }
+
   async function save() {
     if (saving || uploading) return;
     const cleanedGallery = normalize(
@@ -822,6 +912,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     );
     const removeFloorPlan =
       cleanedFloorPlans.length === 0 && record.property.floorPlans.length > 0;
+    const removeInteractivePoster =
+      Boolean(record.property.interactiveFloorPlanTour?.posterImage) &&
+      !interactivePosterUrl.trim();
 
     const property: PropertyShowcase = {
       ...record.property,
@@ -840,6 +933,28 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                   : record.property.virtualTour.posterImage,
           }
         : undefined,
+      interactiveFloorPlanTour: record.property.interactiveFloorPlanTour
+        ? {
+            ...record.property.interactiveFloorPlanTour,
+            posterImage:
+              !removeInteractivePoster &&
+              interactivePosterUrl &&
+              !isDemoAsset(interactivePosterUrl)
+                ? interactivePosterUrl
+                : record.property.interactiveFloorPlanTour.posterImage,
+          }
+        : undefined,
+      agent: {
+        ...record.property.agent,
+        portraitUrl:
+          agentPortraitUrl && !isDemoAsset(agentPortraitUrl)
+            ? agentPortraitUrl
+            : undefined,
+        logoUrl:
+          agencyLogoUrl && !isDemoAsset(agencyLogoUrl)
+            ? agencyLogoUrl
+            : undefined,
+      },
     };
 
     setSaving(true);
@@ -855,6 +970,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           published: record.published,
           updateMode: "media",
           removeFloorPlan,
+          removeInteractivePoster,
           replaceFloorPlans: true,
         }),
       });
@@ -865,6 +981,13 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       setGallery(cleanedGallery);
       setCoverImage(finalCover);
       setFloorPlans(cleanedFloorPlans);
+      setInteractivePosterUrl(
+        removeInteractivePoster
+          ? ""
+          : property.interactiveFloorPlanTour?.posterImage ?? "",
+      );
+      setAgentPortraitUrl(property.agent.portraitUrl ?? "");
+      setAgencyLogoUrl(property.agent.logoUrl ?? "");
       setNotice("Property media saved successfully.");
       router.refresh();
     } catch {
@@ -875,7 +998,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-900">
         <span className="font-bold">Automatic optimization is active.</span>{" "}
         Gallery photos are converted to WebP and limited to 2800 px. Floor plans use a sharper 4000 px profile. Original files stay on your computer.
@@ -977,6 +1100,16 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                             <Star className="h-3 w-3" aria-hidden /> Cover
                           </span>
                         ) : null}
+                        {image.featuredForSharing ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-1 text-[10px] font-bold text-sky-900">
+                            <ImageIcon className="h-3 w-3" aria-hidden /> Share featured
+                          </span>
+                        ) : null}
+                        {image.primarySocialPreview ? (
+                          <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white">
+                            Social primary
+                          </span>
+                        ) : null}
                         {demo ? (
                           <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">
                             Demo placeholder
@@ -1014,6 +1147,16 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         className="w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
                         aria-label={`Label for photo ${index + 1}`}
                       />
+                      <label className="flex items-center gap-2 text-xs font-bold text-primary">
+                        <input
+                          type="checkbox"
+                          checked={image.featuredForSharing === true}
+                          onChange={() => toggleFeaturedForSharing(image.id)}
+                          disabled={demo}
+                          className="h-4 w-4 accent-primary disabled:opacity-40"
+                        />
+                        Featured / best for sharing
+                      </label>
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
@@ -1022,6 +1165,18 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                           className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
                         >
                           <Star className="h-3.5 w-3.5" aria-hidden /> Set cover
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrimarySocialPreview(image.id)}
+                          disabled={demo}
+                          aria-pressed={image.primarySocialPreview === true}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                        >
+                          <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+                          {image.primarySocialPreview
+                            ? "Primary social image"
+                            : "Set social primary"}
                         </button>
                         <button
                           type="button"
@@ -1060,6 +1215,110 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
             {realGallery.length} optimized photo
             {realGallery.length === 1 ? "" : "s"}. Removing a saved photo from the page deletes its old property-owned Storage object after the next successful save.
           </p>
+          <p className="mt-2 text-xs text-muted">
+            Mark the strongest images as featured for sharing. The social primary is used first; otherwise the first featured image or cover is used. Images marked Best for sharing are also used for the automatic hero slideshow.
+          </p>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <header className="border-b border-border p-5">
+          <h2 className="text-lg font-bold text-primary">Social sharing preview</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            This compact preview uses the selected sharing images and the public-safe listing facts that will be rendered into the 1200 x 630 PNG.
+          </p>
+        </header>
+        <div className="space-y-4 p-5">
+          <div
+            data-testid="social-card-admin-preview"
+            className="mx-auto grid min-h-72 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface md:aspect-[1200/630] md:min-h-0 md:grid-cols-[1.72fr_1fr]"
+          >
+            <div className="flex min-h-52 flex-col overflow-hidden bg-slate-200">
+              {socialPreview.images[0] ? (
+                <div className="relative min-h-0 flex-1 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={socialPreview.images[0].imageUrl}
+                    alt={socialPreview.images[0].imageAlt}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="grid flex-1 place-items-center px-5 text-center text-sm text-muted">
+                  No public social image available
+                </div>
+              )}
+              {socialPreview.images.length > 1 ? (
+                <div className="grid h-20 shrink-0 grid-cols-2 gap-0.5 border-t-2 border-white sm:h-28">
+                  {socialPreview.images.slice(1, 3).map((image) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={image.imageUrl}
+                      src={image.imageUrl}
+                      alt={image.imageAlt}
+                      className="h-full w-full object-cover"
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex min-w-0 flex-col bg-[#0B1F3A] p-5 text-white sm:p-6">
+              <p className="text-sm font-bold">
+                Picchu<span className="text-[#B88A44]">Spot</span>
+              </p>
+              {socialPreview.location ? (
+                <p className="mt-5 text-xs leading-5 text-white/65">
+                  {socialPreview.location}
+                </p>
+              ) : null}
+              <p className="mt-2 break-words text-xl font-bold leading-tight">
+                {record.property.title[primaryLanguage] ?? record.property.title.en}
+              </p>
+              {socialPreview.price ? (
+                <p className="mt-3 text-2xl font-bold text-[#d6b665]">
+                  {socialPreview.price}
+                </p>
+              ) : null}
+              <p className="mt-4 border-t border-white/15 pt-4 text-xs leading-5 text-white/70">
+                {socialPreview.description}
+              </p>
+              {socialPreview.agencyName ? (
+                <p className="mt-auto pt-4 text-xs text-white/55">
+                  Presented by {socialPreview.agencyName}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          {resolvedSocialImages.length === 0 ? (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              No public social image is available. Choose a property-owned gallery image or a public PicchuSpot image.
+            </div>
+          ) : null}
+          {!record.published ? (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              This property is unpublished, so social crawlers cannot access its public card yet.
+            </div>
+          ) : null}
+          {isVercelPreview ? (
+            <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              Protected Vercel branch previews cannot be scraped by Telegram or WhatsApp. Test after merge on picchuspot.com, or temporarily disable Vercel Authentication for the preview deployment.
+            </div>
+          ) : null}
+          {record.published ? (
+            <a
+              href={absoluteUrl(`/property/${record.slug}/opengraph-image`)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+              Open generated social PNG
+            </a>
+          ) : null}
         </div>
       </section>
 
@@ -1085,10 +1344,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         </header>
         <div className="p-5">
           {floorPlans.length > 0 ? (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 xl:grid-cols-2">
               {floorPlans.map((plan, index) => {
                 const primary = index === 0;
-                const interactiveValue = interactiveInputValue(plan);
 
                 return (
                   <article
@@ -1100,7 +1358,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                       event.preventDefault()
                     }
                     onDrop={() => dropFloorPlanOn(plan.id)}
-                    className={`overflow-hidden rounded-2xl border bg-white transition ${
+                    className={`overflow-hidden rounded-lg border bg-white transition ${
                       draggedFloorPlanId === plan.id
                         ? "border-primary opacity-55"
                         : "border-border"
@@ -1128,40 +1386,31 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                       </div>
                     </div>
 
-                    <div className="space-y-4 p-4">
-                      <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-3 p-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {floorPlanLanguages.map((language) => (
+                          <label
+                            key={language}
+                            className="block min-w-0 text-xs font-bold text-foreground"
+                          >
+                            {PROPERTY_LANGUAGE_LABELS[language]} title
+                            {language === primaryLanguage ? " (primary)" : ""}
+                            <input
+                              value={plan.title[language] ?? ""}
+                              onChange={(event) =>
+                                updateFloorPlan(plan.id, {
+                                  title: {
+                                    ...plan.title,
+                                    [language]: event.target.value,
+                                  },
+                                })
+                              }
+                              className="mt-1.5 w-full min-w-0 rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                            />
+                          </label>
+                        ))}
                         <label className="block text-xs font-bold text-foreground">
-                          English title
-                          <input
-                            value={plan.title.en}
-                            onChange={(event) =>
-                              updateFloorPlan(plan.id, {
-                                title: {
-                                  ...plan.title,
-                                  en: event.target.value,
-                                },
-                              })
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                        <label className="block text-xs font-bold text-foreground">
-                          Spanish title
-                          <input
-                            value={plan.title.es ?? ""}
-                            onChange={(event) =>
-                              updateFloorPlan(plan.id, {
-                                title: {
-                                  ...plan.title,
-                                  es: event.target.value,
-                                },
-                              })
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                        <label className="block text-xs font-bold text-foreground">
-                          Preset
+                          Floor/type preset
                           <select
                             value=""
                             onChange={(event) =>
@@ -1177,93 +1426,6 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                             ))}
                           </select>
                         </label>
-                        <label className="block text-xs font-bold text-foreground">
-                          Download URL
-                          <input
-                            value={plan.downloadUrl ?? ""}
-                            onChange={(event) =>
-                              updateFloorPlan(plan.id, {
-                                downloadUrl: event.target.value || undefined,
-                              })
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="rounded-xl border border-border bg-surface p-3">
-                        <label className="block text-xs font-bold text-foreground">
-                          Interactive plan link or embed code
-                          <textarea
-                            rows={3}
-                            value={interactiveValue}
-                            onChange={(event) =>
-                              updateFloorPlanInteractiveInput(
-                                plan.id,
-                                event.target.value,
-                              )
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                        <p className="mt-2 text-xs leading-5 text-muted">
-                          A normal CubiCasa share link opens in a new tab. To
-                          display CubiCasa inside PicchuSpot, paste the full
-                          code from CubiCasa → Share → Embedded code.
-                        </p>
-                        <details className="mt-3">
-                          <summary className="cursor-pointer text-xs font-bold text-primary">
-                            Advanced settings
-                          </summary>
-                          <div className="mt-3 grid gap-3 md:grid-cols-3">
-                            <label className="block text-xs font-bold text-foreground">
-                              Provider
-                              <select
-                                value={plan.interactiveProvider ?? "cubiCasa"}
-                                onChange={(event) =>
-                                  updateFloorPlanInteractiveProvider(
-                                    plan.id,
-                                    event.target.value as PropertyTourProvider,
-                                  )
-                                }
-                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                              >
-                                <option value="cubiCasa">CubiCasa</option>
-                                <option value="floorfy">Floorfy</option>
-                                <option value="nodalview">Nodalview</option>
-                                <option value="kuula">Kuula</option>
-                                <option value="matterport">Matterport</option>
-                                <option value="custom">Custom</option>
-                              </select>
-                            </label>
-                            <label className="block text-xs font-bold text-foreground">
-                              Original/fallback URL
-                              <input
-                                value={plan.interactiveExternalUrl ?? ""}
-                                onChange={(event) =>
-                                  updateFloorPlanExternalUrl(
-                                    plan.id,
-                                    event.target.value,
-                                  )
-                                }
-                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                              />
-                            </label>
-                            <label className="block text-xs font-bold text-foreground">
-                              Normalized embed URL
-                              <input
-                                value={plan.interactiveEmbedUrl ?? ""}
-                                onChange={(event) =>
-                                  updateFloorPlanEmbedUrl(
-                                    plan.id,
-                                    event.target.value,
-                                  )
-                                }
-                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                              />
-                            </label>
-                          </div>
-                        </details>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -1280,17 +1442,15 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                             className="sr-only"
                           />
                         </label>
-                        {plan.downloadUrl ? (
-                          <a
-                            href={plan.downloadUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                            Open file
-                          </a>
-                        ) : null}
+                        <a
+                          href={plan.downloadUrl ?? plan.imageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                          Open file
+                        </a>
                         <button
                           type="button"
                           onClick={() => moveFloorPlan(plan.id, -1)}
@@ -1370,7 +1530,180 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         </section>
       ) : null}
 
-      <div className="sticky bottom-4 z-20 flex justify-end">
+      {record.property.interactiveFloorPlanTour ? (
+        <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+          <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-primary">Interactive floor-plan poster</h2>
+              <p className="mt-1 text-sm text-muted">
+                Used behind external-only interactive floor-plan links and before embeds activate.
+              </p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-primary hover:border-primary/40">
+              <Upload className="h-4 w-4" aria-hidden /> Upload poster
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                disabled={uploading || saving}
+                onChange={(event) =>
+                  uploadSingleGalleryAsset(
+                    event,
+                    "interactive-poster",
+                    "Interactive floor-plan poster",
+                    interactivePosterUrl,
+                    setInteractivePosterUrl,
+                  )
+                }
+                className="sr-only"
+              />
+            </label>
+          </header>
+          <div className="p-5">
+            {interactivePosterUrl ? (
+              <div className="space-y-3">
+                <div className="relative overflow-hidden rounded-2xl border border-border bg-surface">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={interactivePosterUrl}
+                    alt="Interactive floor-plan poster preview"
+                    className="aspect-video w-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    removeSingleAsset("interactive floor-plan poster", () =>
+                      setInteractivePosterUrl(""),
+                    )
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  Remove poster
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center text-sm text-muted">
+                No interactive floor-plan poster uploaded.
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-primary">Realtor and agency media</h2>
+            <p className="mt-1 text-sm text-muted">
+              Upload the public contact-card portrait and agency logo into this property&apos;s media folder.
+            </p>
+          </div>
+        </header>
+        <div className="grid gap-5 p-5 lg:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-primary">Realtor photo</h3>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-primary hover:border-primary/40">
+                <Upload className="h-3.5 w-3.5" aria-hidden /> Upload
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  disabled={uploading || saving}
+                  onChange={(event) =>
+                    uploadSingleGalleryAsset(
+                      event,
+                      "agent-portrait",
+                      "Realtor photo",
+                      agentPortraitUrl,
+                      setAgentPortraitUrl,
+                    )
+                  }
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            {agentPortraitUrl ? (
+              <div className="mt-4 space-y-3">
+                <div className="relative h-36 w-36 overflow-hidden rounded-full border border-border bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={agentPortraitUrl}
+                    alt="Realtor portrait preview"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    removeSingleAsset("realtor photo", () => setAgentPortraitUrl(""))
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  Remove photo
+                </button>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl border border-dashed border-border bg-white px-4 py-5 text-sm text-muted">
+                No realtor photo uploaded.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-primary">Agency logo</h3>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-primary hover:border-primary/40">
+                <Upload className="h-3.5 w-3.5" aria-hidden /> Upload
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  disabled={uploading || saving}
+                  onChange={(event) =>
+                    uploadSingleGalleryAsset(
+                      event,
+                      "agency-logo",
+                      "Agency logo",
+                      agencyLogoUrl,
+                      setAgencyLogoUrl,
+                    )
+                  }
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            {agencyLogoUrl ? (
+              <div className="mt-4 space-y-3">
+                <div className="relative h-28 w-48 overflow-hidden rounded-2xl border border-border bg-white p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={agencyLogoUrl}
+                    alt="Agency logo preview"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    removeSingleAsset("agency logo", () => setAgencyLogoUrl(""))
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  Remove logo
+                </button>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl border border-dashed border-border bg-white px-4 py-5 text-sm text-muted">
+                No agency logo uploaded.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="sticky bottom-0 z-20 -mx-1 flex justify-end border-t border-border bg-white/95 p-3 shadow-[0_-10px_30px_rgba(15,36,64,0.08)] backdrop-blur">
         <button
           type="button"
           onClick={save}

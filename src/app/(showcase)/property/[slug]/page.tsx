@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { getPropertyShowcase } from "@/features/property-showcase/registry";
+import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
+import { getPropertySocialPreview } from "@/features/property-showcase/social-preview";
+import { absoluteUrl, SITE_NAME } from "@/lib/seo";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +17,9 @@ type PropertyPageProps = {
   }>;
 };
 
-async function resolveProperty(slug: string) {
+const resolveProperty = cache(async (slug: string) => {
   return (await getPublishedPropertyShowcase(slug)) ?? getPropertyShowcase(slug);
-}
+});
 
 export async function generateMetadata({
   params,
@@ -34,24 +38,38 @@ export async function generateMetadata({
   }
 
   const canonicalPath = `/property/${property.slug}`;
+  const canonicalUrl = absoluteUrl(canonicalPath);
+  const socialImageUrl = absoluteUrl(`${canonicalPath}/opengraph-image`);
+  const preview = getPropertySocialPreview(property);
 
   return {
-    title: property.title.en,
-    description: property.summary.en,
+    title: preview.title,
+    description: preview.description,
     alternates: {
-      canonical: canonicalPath,
+      canonical: canonicalUrl,
     },
     openGraph: {
       type: "website",
-      url: canonicalPath,
-      title: property.title.en,
-      description: property.summary.en,
+      url: canonicalUrl,
+      siteName: SITE_NAME,
+      title: preview.title,
+      description: preview.description,
       images: [
         {
-          url: property.coverImage,
-          alt: property.gallery[0]?.alt.en ?? property.title.en,
+          url: socialImageUrl,
+          secureUrl: socialImageUrl,
+          width: 1200,
+          height: 630,
+          type: "image/png",
+          alt: preview.imageAlt,
         },
       ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: preview.title,
+      description: preview.description,
+      images: [socialImageUrl],
     },
   };
 }
@@ -64,5 +82,5 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     notFound();
   }
 
-  return <PropertyShowcaseView property={property} />;
+  return <PropertyShowcaseView property={serializePublicPropertyShowcase(property)} />;
 }

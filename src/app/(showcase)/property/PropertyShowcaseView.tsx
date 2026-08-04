@@ -1,176 +1,248 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowUpRight,
   Bath,
   BedDouble,
-  Building2,
   CalendarDays,
   Car,
-  Languages,
+  Check,
+  CircleDollarSign,
+  ExternalLink,
+  Globe2,
+  Home,
   LandPlot,
   Mail,
   MapPin,
-  MapPinned,
   MessageCircle,
   MousePointer2,
+  Phone,
   Ruler,
-  Sun,
-  Waves,
+  Tag,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type {
-  LocalizedText,
-  PropertyFactKey,
-  PropertyShowcase,
-} from "@/features/property-showcase/types";
+import { useMemo, useState } from "react";
+import { BrandWordmark } from "@/components/brand";
+import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
+import { formatPriceLabel } from "@/features/property-showcase/formatting";
 import {
-  formatPriceLabel,
-  formatPropertyFactValue,
-} from "@/features/property-showcase/formatting";
+  getPropertyMapView,
+  normalizeAgentProfile,
+  normalizeChecklistHighlights,
+  normalizeListingFacts,
+} from "@/features/property-showcase/listing-details";
+import {
+  getPrimaryLanguage,
+  getPropertyLanguageOptions,
+  localizedText,
+  PROPERTY_LANGUAGE_LABELS,
+  PUBLIC_UI_LABELS,
+} from "@/features/property-showcase/localization";
+import { getPropertyAddressView } from "@/features/property-showcase/property-address";
 import {
   getExternalInteractiveFloorPlan,
+  getPropertyLevelInteractiveFloorPlanTour,
+  getVisibleVirtualTour,
   hasExternalInteractiveFloorPlan,
-  hasNativeInteractiveFloorPlan,
+  shouldRenderInteractiveFloorPlan,
   sortedPropertyFloorPlans,
 } from "@/features/property-showcase/rendering";
+import { selectPropertyHeroImages } from "@/features/property-showcase/social-preview";
+import type {
+  PropertyFactKey,
+  PropertyLanguageCode,
+  PropertyShowcase,
+} from "@/features/property-showcase/types";
 import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
+import PropertyHeroSlideshow from "./PropertyHeroSlideshow";
+import PropertyMapCanvas from "./PropertyMapCanvas";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
 import PropertyGallery from "./costa-blanca-demo/PropertyGallery";
 import PropertySectionNav from "./costa-blanca-demo/PropertySectionNav";
-
-type ShowcaseLocale = "en" | "es";
+import PropertySocialBrandIcon from "./PropertySocialBrandIcon";
 
 type PropertyShowcaseViewProps = {
   property: PropertyShowcase;
-  locale?: ShowcaseLocale;
+  locale?: PropertyLanguageCode;
 };
 
 const factIcons: Record<PropertyFactKey, LucideIcon> = {
+  price: CircleDollarSign,
+  "listing-reference": Tag,
   bedrooms: BedDouble,
   bathrooms: Bath,
+  parking: Car,
   "built-area": Ruler,
   "plot-area": LandPlot,
-  parking: Car,
   "year-built": CalendarDays,
 };
 
-const highlightIcons = [Waves, Sun, Building2, Languages];
-
-const statusLabels: Record<PropertyShowcase["status"], Record<ShowcaseLocale, string>> = {
-  "for-sale": { en: "For sale", es: "En venta" },
-  reserved: { en: "Reserved", es: "Reservado" },
-  sold: { en: "Sold", es: "Vendido" },
-  "off-market": { en: "Off market", es: "Fuera de mercado" },
-};
-
-function text(value: LocalizedText | undefined, locale: ShowcaseLocale): string {
-  if (!value) return "";
-  return value[locale] ?? value.en;
+function keepFactValueTogether(key: PropertyFactKey): boolean {
+  return (
+    key === "price" ||
+    key === "listing-reference" ||
+    key === "built-area" ||
+    key === "plot-area"
+  );
 }
 
-function whatsappUrl(phone: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, "")}`;
-}
-
-export default function PropertyShowcaseView({
-  property,
-  locale = "en",
-}: PropertyShowcaseViewProps) {
-  const gallery = [...property.gallery].sort((a, b) => a.sortOrder - b.sortOrder);
-  const floorPlans = sortedPropertyFloorPlans(property.floorPlans);
-  const primaryFloorPlan = floorPlans[0];
-  const externalInteractiveFloorPlan = getExternalInteractiveFloorPlan(property);
-  const interactiveFloorPlan = externalInteractiveFloorPlan ?? primaryFloorPlan;
-  const hasNativeInteractivePlan = hasNativeInteractiveFloorPlan(gallery);
-  const hasExternalInteractivePlan = hasExternalInteractiveFloorPlan(property);
-  const hasHighlights = property.highlights.length > 0;
-  const title = text(property.title, locale);
-  const summary = text(property.summary, locale);
-  const address = text(property.location.displayAddress, locale);
-  const aboutHeading =
-    locale === "es" ? "Sobre esta propiedad" : "About this property";
-  const agent = property.agent;
-  const agentRole = text(agent.role, locale);
-  const contactHref = agent.whatsapp
-    ? whatsappUrl(agent.whatsapp)
-    : agent.email
-      ? `mailto:${agent.email}`
-      : "/contact";
-  const contactIsExternal = contactHref.startsWith("http");
-  const agentInitials = (agent.agentName || agent.agencyName)
+function initials(value: string): string {
+  return value
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((word) => word.charAt(0))
     .join("")
     .toUpperCase();
+}
+
+export default function PropertyShowcaseView({
+  property,
+  locale,
+}: PropertyShowcaseViewProps) {
+  const primaryLanguage = getPrimaryLanguage(property);
+  const languages = getPropertyLanguageOptions(property);
+  const initialLanguage = locale && languages.includes(locale)
+    ? locale
+    : primaryLanguage;
+  const [language, setLanguage] =
+    useState<PropertyLanguageCode>(initialLanguage);
+  const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
+  const gallery = useMemo(
+    () => [...property.gallery].sort((a, b) => a.sortOrder - b.sortOrder),
+    [property.gallery],
+  );
+  const floorPlans = useMemo(
+    () => sortedPropertyFloorPlans(property.floorPlans),
+    [property.floorPlans],
+  );
+  const primaryFloorPlan = floorPlans[0];
+  const visibleVirtualTour = getVisibleVirtualTour(property);
+  const propertyInteractiveTour = getPropertyLevelInteractiveFloorPlanTour(property);
+  const legacyInteractiveFloorPlan = property.interactiveFloorPlanTour === undefined
+    ? getExternalInteractiveFloorPlan(property)
+    : undefined;
+  const interactiveFloorPlan = legacyInteractiveFloorPlan ?? primaryFloorPlan;
+  const hasExternalInteractivePlan = hasExternalInteractiveFloorPlan(property);
+  const showInteractivePlan = shouldRenderInteractiveFloorPlan(property);
+  const title = localizedText(property.title, language, primaryLanguage);
+  const summary = localizedText(property.summary, language, primaryLanguage);
+  const address = getPropertyAddressView(
+    property.location,
+    language,
+    primaryLanguage,
+  );
+  const heroImages = useMemo(
+    () => selectPropertyHeroImages(property),
+    [property],
+  );
+  const facts = normalizeListingFacts(property, language);
+  const highlights = normalizeChecklistHighlights(property, language);
+  const description = property.description
+    .map((paragraph) => localizedText(paragraph, language, primaryLanguage))
+    .filter(Boolean);
+  const mapView = getPropertyMapView(property, language);
+  const agent = normalizeAgentProfile(property, language);
+  const contactHref =
+    agent?.whatsappHref ?? agent?.emailHref ?? agent?.website;
+  const contactIsExternal = contactHref?.startsWith("http") ?? false;
+  const showLanguageSwitcher = languages.length > 1;
+  const showLocation = mapView.mode !== "hidden";
+  const showContactSection = Boolean(contactHref || agent);
+  const currentYear = new Date().getFullYear();
 
   return (
     <div className="min-h-screen bg-[#f2f0ea] text-slate-950">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0f2440]/95 text-white shadow-sm backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[1480px] items-center justify-between px-4 sm:px-6 lg:px-10">
-          <Link href="/" className="flex items-center gap-3" aria-label="PicchuSpot home">
+        <div
+          data-testid="property-brand-bar"
+          className="mx-auto flex h-16 max-w-[1480px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-10"
+        >
+          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="PicchuSpot home">
             <span className="grid h-9 w-9 place-items-center rounded-full border border-white/20 bg-white/10 text-sm font-bold tracking-tight">
               PS
             </span>
-            <span>
+            <span className="min-w-0">
               <span className="block text-sm font-semibold leading-none">PicchuSpot</span>
-              <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.2em] text-white/55">
+              <span className="mt-1 hidden text-[10px] font-medium uppercase tracking-[0.2em] text-white/55 min-[481px]:block">
                 Property showcase
               </span>
             </span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <span className="hidden rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs font-medium text-white/70 sm:inline-flex">
-              {property.languages.map((language) => language.toUpperCase()).join(" · ")}
-            </span>
-            <a
-              href={contactHref}
-              target={contactIsExternal ? "_blank" : undefined}
-              rel={contactIsExternal ? "noreferrer" : undefined}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] sm:text-sm"
-            >
-              Request a viewing
-              <ArrowUpRight className="h-4 w-4" aria-hidden />
-            </a>
+          <div className="flex min-w-0 items-center gap-2">
+            {showLanguageSwitcher ? (
+              <div
+                aria-label={ui.language}
+                className="hidden rounded-full border border-white/15 bg-white/8 p-1 sm:flex"
+              >
+                {languages.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setLanguage(item)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                      item === language
+                        ? "bg-white text-[#0f2440]"
+                        : "text-white/70 hover:text-white"
+                    }`}
+                    aria-pressed={item === language}
+                  >
+                    {item.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {contactHref ? (
+              <a
+                href={contactHref}
+                target={contactIsExternal ? "_blank" : undefined}
+                rel={contactIsExternal ? "noreferrer" : undefined}
+                aria-label={ui.requestViewing}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-3 py-2 text-[11px] font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] min-[381px]:px-4 min-[381px]:text-xs sm:text-sm max-[380px]:h-10 max-[380px]:w-10 max-[380px]:justify-center max-[380px]:px-0"
+              >
+                <span className="max-[380px]:sr-only">{ui.requestViewing}</span>
+                <ArrowUpRight className="h-4 w-4" aria-hidden />
+              </a>
+            ) : null}
           </div>
         </div>
       </header>
 
-      <PropertySectionNav />
+      <PropertySectionNav
+        showVirtualTour={Boolean(visibleVirtualTour)}
+        showFloorPlans={Boolean(primaryFloorPlan)}
+        showInteractivePlan={showInteractivePlan}
+        showContact={showContactSection}
+        showLocation={showLocation}
+      />
 
       <main>
         <section id="home" className="relative isolate scroll-mt-36 overflow-hidden bg-[#0f2440]">
           <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[780px]">
-            <Image
-              src={property.coverImage}
-              alt={gallery[0] ? text(gallery[0].alt, locale) : title}
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/10 via-[#071426]/5 to-[#071426]/90" />
+            <PropertyHeroSlideshow images={heroImages} />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/50 via-[#071426]/15 to-[#071426]/95" />
             <div className="absolute inset-x-0 bottom-0">
               <div className="mx-auto max-w-[1480px] px-4 pb-8 sm:px-6 sm:pb-12 lg:px-10 lg:pb-16">
                 <div className="flex max-w-5xl flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white backdrop-blur">
-                        {statusLabels[property.status][locale]}
-                      </span>
-                      <span className="rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-xs font-medium text-white/85 backdrop-blur">
-                        Reference {property.reference}
-                      </span>
-                    </div>
-                    <p className="mb-3 flex items-center gap-2 text-sm font-medium text-white/75 sm:text-base">
-                      <MapPin className="h-4 w-4" aria-hidden />
-                      {address}
-                    </p>
+                  <div className="min-w-0">
+                    {address.primaryLine ? (
+                      <div data-testid="property-hero-address" className="mb-4 max-w-2xl">
+                        <p className="flex items-center gap-2 text-lg font-medium leading-tight text-white/90 sm:text-xl">
+                          <MapPin className="h-4 w-4" aria-hidden />
+                          {address.primaryLine}
+                        </p>
+                        {address.secondaryLine ? (
+                          <p className="mt-1 pl-6 text-[11px] font-semibold uppercase leading-4 tracking-[0.14em] text-white/65 sm:text-xs">
+                            {address.secondaryLine}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <h1 className="max-w-4xl text-4xl font-semibold leading-[0.98] text-white sm:text-6xl lg:text-7xl">
                       {title}
                     </h1>
@@ -179,11 +251,11 @@ export default function PropertyShowcaseView({
                     </p>
                   </div>
 
-                  <div className="flex shrink-0 items-end justify-between gap-5 border-t border-white/20 pt-5 lg:block lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                  <div className="flex min-w-0 shrink-0 items-end justify-between gap-5 border-t border-white/20 pt-5 lg:block lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
                     <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-white/55">
-                      {text(property.priceLabel, locale)}
+                      {localizedText(property.priceLabel, language, primaryLanguage)}
                     </span>
-                    <span className="mt-2 block text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                    <span className="mt-2 block whitespace-nowrap text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                       {formatPriceLabel(property.price)}
                     </span>
                   </div>
@@ -195,289 +267,453 @@ export default function PropertyShowcaseView({
           </div>
         </section>
 
-        <section className="relative z-10 mx-auto -mt-px max-w-[1480px] px-4 sm:px-6 lg:px-10">
-          <div className={`grid border-x border-b border-black/8 bg-white shadow-[0_24px_70px_rgba(15,36,64,0.08)] ${property.facts.length <= 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"}`}>
-            {property.facts.map((fact, index) => {
-              const Icon = factIcons[fact.key];
-              return (
-                <div
-                  key={`${fact.key}-${index}`}
-                  className="flex items-center gap-4 border-b border-r border-black/8 px-5 py-6 last:border-r-0 sm:px-7 md:border-b-0"
+        {showLanguageSwitcher ? (
+          <section className="border-b border-black/8 bg-white sm:hidden">
+            <div className="mx-auto flex max-w-[1480px] gap-2 overflow-x-auto px-4 py-3">
+              {languages.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setLanguage(item)}
+                  aria-pressed={item === language}
+                  className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${
+                    item === language
+                      ? "bg-[#0f2440] text-white"
+                      : "border border-[#0f2440]/15 text-[#0f2440]"
+                  }`}
                 >
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#f2f0ea] text-[#1a365d]">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </div>
-                  <div>
-                    <span className="block text-lg font-semibold leading-none text-[#0f2440] sm:text-xl">
-                      {formatPropertyFactValue(fact)}
-                    </span>
-                    <span className="mt-1.5 block text-xs font-medium text-slate-500 sm:text-sm">
-                      {text(fact.label, locale)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                  {PROPERTY_LANGUAGE_LABELS[item]}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
-        <section id="overview" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
-          <div
-            className={`grid gap-12 ${
-              hasHighlights
-                ? "lg:grid-cols-[1.05fr_0.95fr] lg:gap-20"
-                : "max-w-4xl"
-            }`}
+        {facts.length > 0 || highlights.length > 0 ? (
+          <section
+            data-testid="property-details-composition"
+            className="border-b border-black/10"
           >
+            <div className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-10">
+              {facts.length > 0 ? (
+                <div
+                  data-testid="property-facts"
+                  className="grid grid-cols-2 gap-x-3 gap-y-5 py-7 min-[360px]:grid-cols-4 min-[360px]:gap-x-1 min-[360px]:py-6 sm:gap-x-4 sm:gap-y-9 sm:py-12 min-[900px]:grid-cols-4 min-[1400px]:grid-cols-8"
+                >
+                  {facts.map((fact, index) => {
+                    const Icon = factIcons[fact.key] ?? Home;
+                    const keepTogether = keepFactValueTogether(fact.key);
+                    const compactValue = fact.key === "parking" || fact.value.length > 18;
+                    return (
+                      <div
+                        key={`${fact.key}-${index}`}
+                        data-testid={`property-fact-${fact.key}`}
+                        className="flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1"
+                      >
+                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-slate-300/90 text-[#0f2440] min-[360px]:h-11 min-[360px]:w-11 sm:h-14 sm:w-14">
+                          <Icon
+                            className="h-5 w-5 stroke-[1.6] sm:h-6 sm:w-6"
+                            aria-hidden
+                          />
+                        </span>
+                        <span className="mt-2 block max-w-full text-[8px] font-bold uppercase leading-3 tracking-normal text-slate-500 min-[360px]:text-[9px] sm:mt-4 sm:text-[11px] sm:leading-4">
+                          {fact.label}
+                        </span>
+                        <span
+                          data-testid={`property-fact-value-${fact.key}`}
+                          className={`mt-1 block max-w-full font-semibold leading-5 tabular-nums text-[#0f2440] sm:mt-1.5 sm:leading-6 ${
+                            compactValue
+                              ? "text-[11px] min-[360px]:text-[9px] sm:text-base"
+                              : "text-[15px] min-[360px]:text-[15px] sm:text-xl"
+                          } ${keepTogether || compactValue ? "whitespace-nowrap" : "break-words"}`}
+                          title={fact.value}
+                        >
+                          {fact.value}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {highlights.length > 0 ? (
+                <div
+                  data-testid="property-highlights"
+                  className="border-t border-black/10 py-6 sm:py-11"
+                >
+                  <h2 className="sr-only">{ui.checklistHeading}</h2>
+                  <ul className="grid grid-cols-1 gap-x-5 gap-y-2.5 min-[380px]:grid-cols-2 sm:gap-x-8 sm:gap-y-4 xl:grid-cols-3">
+                    {highlights.map((highlight, index) => (
+                      <li
+                        key={`${highlight}-${index}`}
+                        className="flex min-w-0 items-start gap-2.5 text-[13px] font-medium leading-5 text-[#0f2440] sm:gap-3 sm:text-base sm:leading-6 xl:text-lg xl:leading-7"
+                      >
+                        <Check
+                          className="mt-0.5 h-4 w-4 shrink-0 stroke-[2] text-[#0f2440] sm:h-4.5 sm:w-4.5 xl:mt-1 xl:h-5 xl:w-5"
+                          aria-hidden
+                        />
+                        <span className="min-w-0 break-words">{highlight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        <section id="overview" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-24">
+          <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
             <div>
               <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
-                The property
+                {ui.detailsEyebrow}
               </p>
               <h2 className="max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
-                {aboutHeading}
+                {ui.aboutHeading}
               </h2>
-              <div className="mt-8 max-w-3xl space-y-5 text-base leading-8 text-slate-600">
-                {property.description.map((paragraph, index) => (
-                  <p key={index}>{text(paragraph, locale)}</p>
-                ))}
-              </div>
+              {property.brochureUrl ? (
+                <a
+                  href={property.brochureUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-7 inline-flex items-center gap-2 rounded-full border border-[#0f2440]/20 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden />
+                  {ui.brochure}
+                </a>
+              ) : null}
             </div>
 
-            {hasHighlights ? (
-              <div
-                data-testid="property-highlights"
-                className="grid gap-3 sm:grid-cols-2"
-              >
-                {property.highlights.slice(0, 6).map((highlight, index) => {
-                  const Icon = highlightIcons[index % highlightIcons.length];
-                  return (
-                    <div
-                      key={`${text(highlight.title, locale)}-${index}`}
-                      className="rounded-2xl border border-black/8 bg-white p-5 shadow-sm"
-                    >
-                      <Icon className="h-5 w-5 text-[#a88b3a]" aria-hidden />
-                      <h3 className="mt-4 text-base font-semibold text-[#0f2440]">
-                        {text(highlight.title, locale)}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-slate-500">
-                        {text(highlight.description, locale)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
+            <div>
+              {description.length > 0 ? (
+                <div className="max-w-3xl space-y-5 text-base leading-8 text-slate-600">
+                  {description.map((paragraph, index) => (
+                    <p key={index}>{paragraph}</p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
+
         </section>
 
         <div id="gallery" className="scroll-mt-36">
           <PropertyGallery
             images={gallery.map((image) => ({
               src: image.src,
-              alt: text(image.alt, locale),
-              label: text(image.label, locale),
+              alt: localizedText(image.alt, language, primaryLanguage),
+              label: localizedText(image.label, language, primaryLanguage),
             }))}
-            eyebrow="Photo gallery"
-            title={`Explore ${title}.`}
-            description={`${gallery.length} professionally prepared property images. Select any image to open the full-screen gallery.`}
+            eyebrow={ui.galleryEyebrow}
+            title={title}
+            description={ui.galleryImageCount(gallery.length)}
           />
         </div>
 
-        {property.virtualTour ? (
+        {visibleVirtualTour ? (
           <ImmersivePropertyTour
             propertyTitle={title}
-            tour={property.virtualTour}
+            tour={visibleVirtualTour}
             posterAlt={`360 virtual tour of ${title}`}
+            locale={language}
           />
         ) : null}
 
         {primaryFloorPlan ? (
           <section id="floor-plan" className="scroll-mt-36 border-y border-black/8 bg-white">
-            <div className="mx-auto grid max-w-[1480px] gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-10 lg:py-28">
+            <div className="mx-auto grid max-w-[1480px] gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-10 lg:py-24">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
-                  Floor plans
+                  {ui.floorPlans}
                 </p>
                 <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
-                  See how the spaces connect.
+                  {ui.floorPlansHeading}
                 </h2>
-                <p className="mt-6 text-base leading-7 text-slate-600">
-                  A clear plan answers practical questions that photography cannot: room relationships, circulation, storage and outdoor access.
-                </p>
-                <div className="mt-9 flex flex-wrap gap-3">
-                  {hasNativeInteractivePlan || hasExternalInteractivePlan ? (
-                    <a
-                      href="#interactive-floor-plan"
-                      className="inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
-                    >
-                      <MousePointer2 className="h-4 w-4" aria-hidden />
-                      {hasExternalInteractivePlan
-                        ? "External interactive plan"
-                        : "Interactive floor plan"}
-                    </a>
-                  ) : null}
-                </div>
+                {showInteractivePlan ? (
+                  <a
+                    href="#interactive-floor-plan"
+                    className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
+                  >
+                    <MousePointer2 className="h-4 w-4" aria-hidden />
+                    {hasExternalInteractivePlan
+                      ? ui.interactiveFloorPlan
+                      : ui.roomByRoomFloorPlan}
+                  </a>
+                ) : null}
               </div>
 
               <PropertyFloorPlanViewer
                 plans={floorPlans}
                 propertyTitle={title}
-                locale={locale}
+                locale={language}
               />
             </div>
           </section>
         ) : null}
 
-        {interactiveFloorPlan &&
-        (hasExternalInteractivePlan || hasNativeInteractivePlan) ? (
+        {showInteractivePlan && (propertyInteractiveTour || interactiveFloorPlan) ? (
           <InteractivePropertyFloorPlan
             propertyTitle={title}
             floorPlan={interactiveFloorPlan}
+            interactiveTour={propertyInteractiveTour}
             gallery={gallery}
+            locale={language}
+            primaryLanguage={primaryLanguage}
           />
         ) : null}
 
-        <section id="location" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
-          <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:items-center lg:gap-16">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
-                Location
-              </p>
-              <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
-                Understand the area as well as the home.
-              </h2>
-              <p className="mt-6 text-base leading-7 text-slate-600">
-                The map can show the exact address, an approximate area or remain hidden according to the seller&apos;s privacy preference.
-              </p>
-              <div className="mt-8 space-y-3 text-sm text-slate-600">
-                <p className="flex items-center gap-3">
-                  <MapPin className="h-4 w-4 text-[#a88b3a]" aria-hidden />
-                  {address}
+        {showContactSection ? (
+          <section
+            id="contact"
+            data-testid="property-contact-section"
+            className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-8 sm:px-6 sm:py-10 lg:px-10 lg:py-10"
+          >
+            <div className="overflow-hidden rounded-lg border border-black/8 bg-[#e8e2d4]">
+              <div className="grid lg:grid-cols-[1fr_0.95fr]">
+                <div className="p-6 sm:p-8 lg:p-10">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8d7531]">
+                    {ui.contactHeading}
+                  </p>
+                  <h2 className="mt-3 max-w-2xl text-2xl font-semibold leading-tight text-[#0f2440] sm:text-3xl">
+                    {title}
+                  </h2>
+                  {contactHref ? (
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <a
+                        href={contactHref}
+                        target={contactIsExternal ? "_blank" : undefined}
+                        rel={contactIsExternal ? "noreferrer" : undefined}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
+                      >
+                        <CalendarDays className="h-4 w-4" aria-hidden />
+                        {ui.requestViewing}
+                      </a>
+                      {agent?.emailHref ? (
+                        <a
+                          href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#0f2440]/20 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
+                        >
+                          <MessageCircle className="h-4 w-4" aria-hidden />
+                          {ui.askQuestion}
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                {agent ? (
+                  <aside
+                    data-testid="property-agent-profile"
+                    className="border-t border-black/8 bg-white/55 p-6 sm:p-8 lg:border-l lg:border-t-0"
+                  >
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                      {ui.presentedBy}
+                    </span>
+                    <div className="mt-4 flex items-center gap-4">
+                      {agent.portraitUrl || agent.logoUrl ? (
+                        <div className="relative h-22 w-22 shrink-0 overflow-hidden rounded-full border border-black/8 bg-white">
+                          <Image
+                            src={agent.portraitUrl ?? agent.logoUrl ?? ""}
+                            alt={agent.displayName}
+                            fill
+                            sizes="88px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="grid h-22 w-22 shrink-0 place-items-center rounded-full bg-[#0f2440] text-lg font-bold text-white">
+                          {initials(agent.displayName)}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="break-words text-xl font-semibold text-[#0f2440]">
+                          {agent.displayName}
+                        </h3>
+                        {agent.role ? (
+                          <p className="mt-1 text-sm text-slate-500">{agent.role}</p>
+                        ) : null}
+                        {agent.displayName !== agent.agencyName ? (
+                          <p className="mt-1 text-sm font-medium text-slate-600">
+                            {agent.agencyName}
+                          </p>
+                        ) : null}
+                      </div>
+                      {agent.logoUrl && agent.logoUrl !== agent.portraitUrl ? (
+                        <div className="relative hidden h-10 w-28 shrink-0 sm:block">
+                          <Image
+                            src={agent.logoUrl}
+                            alt={agent.agencyName}
+                            fill
+                            sizes="112px"
+                            className="object-contain object-right"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {agent.phoneHref || agent.whatsappHref || agent.emailHref || agent.website ? (
+                      <div className="mt-5 grid gap-2 border-t border-black/8 pt-5 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                        {agent.phoneHref && agent.phone ? (
+                          <a
+                            href={agent.phoneHref}
+                            className="flex min-w-0 items-center gap-2 hover:text-[#0f2440]"
+                          >
+                            <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                            <span className="truncate">{agent.phone}</span>
+                          </a>
+                        ) : null}
+                        {agent.whatsappHref ? (
+                          <a
+                            href={agent.whatsappHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 hover:text-[#0f2440]"
+                          >
+                            <PropertySocialBrandIcon
+                              provider="whatsapp"
+                              className="h-4 w-4 shrink-0"
+                            />
+                            {ui.whatsapp}
+                          </a>
+                        ) : null}
+                        {agent.emailHref && agent.email ? (
+                          <a
+                            href={agent.emailHref}
+                            className="flex min-w-0 items-center gap-2 hover:text-[#0f2440]"
+                          >
+                            <Mail className="h-4 w-4 shrink-0" aria-hidden />
+                            <span className="truncate">{agent.email}</span>
+                          </a>
+                        ) : null}
+                        {agent.website ? (
+                          <a
+                            href={agent.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 font-semibold text-[#0f2440] hover:underline"
+                          >
+                            <Globe2 className="h-4 w-4 shrink-0" aria-hidden />
+                            Website
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {agent.socialLinks.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {agent.socialLinks.map((link) => {
+                          return (
+                            <a
+                              key={`${link.provider}-${link.url}`}
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={link.labelText}
+                              title={link.labelText}
+                              className="group grid h-11 w-11 place-items-center rounded-full border border-[#0f2440]/15 text-[#0f2440] transition hover:border-[#0f2440] hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f2440]"
+                            >
+                              <PropertySocialBrandIcon
+                                provider={link.provider}
+                                className="h-4.5 w-4.5 transition-transform group-hover:scale-110"
+                              />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </aside>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {showLocation ? (
+          <section
+            id="location"
+            data-testid="property-location-section"
+            className="scroll-mt-36 border-t border-black/8 bg-white/45"
+          >
+            <div className="mx-auto max-w-[1480px] px-4 pb-8 pt-14 sm:px-6 sm:pb-10 sm:pt-16 lg:px-10 lg:pt-20">
+              <div className="mb-7 max-w-3xl sm:mb-9">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
+                  {ui.location}
                 </p>
+                <h2 className="mt-3 text-2xl font-semibold leading-tight text-[#0f2440] sm:text-3xl">
+                  {mapView.privacyMode === "approximate"
+                    ? ui.mapApproximate
+                    : address.primaryLine || ui.location}
+                </h2>
+                {mapView.privacyMode === "approximate" ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {ui.mapExactCoordinatesHidden}
+                  </p>
+                ) : null}
                 {property.location.airportTravelTime ? (
-                  <p className="flex items-center gap-3">
+                  <p className="mt-3 flex items-center gap-2 text-sm text-slate-600">
                     <Car className="h-4 w-4 text-[#a88b3a]" aria-hidden />
-                    {text(property.location.airportTravelTime, locale)}
+                    {localizedText(
+                      property.location.airportTravelTime,
+                      language,
+                      primaryLanguage,
+                    )}
                   </p>
                 ) : null}
               </div>
             </div>
 
-            <div className="relative min-h-[430px] overflow-hidden rounded-[2rem] border border-black/8 bg-[#dce5df] shadow-sm">
-              <div
-                className="absolute inset-0 opacity-55"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(15,36,64,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(15,36,64,0.12) 1px, transparent 1px)",
-                  backgroundSize: "44px 44px",
-                }}
+            {mapView.mode === "embed" ? (
+              <PropertyMapCanvas
+                mapView={mapView}
+                title={`${ui.location}: ${title}`}
+                openLabel={
+                  mapView.privacyMode === "approximate"
+                    ? ui.mapOpenApproximateArea
+                    : ui.mapOpen
+                }
+                troubleLabel={ui.mapTrouble}
               />
-              <div className="absolute left-[18%] top-[20%] h-28 w-72 rotate-[-18deg] rounded-full border-[18px] border-white/65" />
-              <div className="absolute bottom-[18%] right-[8%] h-36 w-[68%] rotate-[10deg] rounded-full border-[22px] border-white/55" />
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="grid h-20 w-20 place-items-center rounded-full bg-[#0f2440] text-white shadow-[0_18px_50px_rgba(15,36,64,0.35)]">
-                  <MapPinned className="h-9 w-9" aria-hidden />
-                </div>
-              </div>
-              <div className="absolute inset-x-5 bottom-5 rounded-2xl border border-white/65 bg-white/88 p-5 shadow-lg backdrop-blur sm:inset-x-8 sm:bottom-8">
-                <p className="text-sm font-semibold text-[#0f2440]">{title} · {address}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Location privacy: {property.location.privacyMode}. Coordinates can activate a live map later.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="contact" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
-          <div className="overflow-hidden rounded-[2rem] border border-black/8 bg-[#e8e2d4]">
-            <div className="grid lg:grid-cols-[1fr_0.9fr]">
-              <div className="p-8 sm:p-12 lg:p-16">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8d7531]">
-                  Private online viewing
-                </p>
-                <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight text-[#0f2440] sm:text-5xl">
-                  Interested, but not in Spain yet?
-                </h2>
-                <p className="mt-6 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                  Request a guided video call. The agent can walk you through the photography, floor plan and 360 tour and answer practical questions before your trip.
-                </p>
-                <div className="mt-9 flex flex-wrap gap-3">
-                  <a
-                    href={contactHref}
-                    target={contactIsExternal ? "_blank" : undefined}
-                    rel={contactIsExternal ? "noreferrer" : undefined}
-                    className="inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#1a365d]"
-                  >
-                    <CalendarDays className="h-4 w-4" aria-hidden />
-                    Book a viewing
-                  </a>
-                  {agent.email ? (
-                    <a
-                      href={`mailto:${agent.email}?subject=${encodeURIComponent(`Question about ${title}`)}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-[#0f2440]/20 px-6 py-3.5 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
-                    >
-                      <MessageCircle className="h-4 w-4" aria-hidden />
-                      Ask a question
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-
-              <aside className="border-t border-black/8 bg-white/55 p-8 sm:p-12 lg:border-l lg:border-t-0 lg:p-14">
-                <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                  Presented by
-                </span>
-                <div className="mt-7 flex items-center gap-5">
-                  {agent.portraitUrl || agent.logoUrl ? (
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white shadow-lg">
-                      <Image
-                        src={agent.portraitUrl ?? agent.logoUrl ?? ""}
-                        alt={agent.agentName || agent.agencyName}
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-[#0f2440] text-xl font-bold text-white shadow-lg">
-                      {agentInitials}
-                    </div>
-                  )}
+            ) : (
+              <div className="mx-auto max-w-[1480px] px-4 pb-14 sm:px-6 sm:pb-16 lg:px-10 lg:pb-20">
+                <div className="grid min-h-64 place-items-center rounded-lg border border-black/10 bg-[#e5ebe7] px-5 text-center">
                   <div>
-                    <h3 className="text-xl font-semibold text-[#0f2440]">
-                      {agent.agentName || agent.agencyName}
-                    </h3>
-                    {agent.agentName ? (
-                      <p className="mt-1 text-sm font-medium text-slate-600">{agent.agencyName}</p>
-                    ) : null}
-                    {agentRole ? <p className="mt-1 text-sm text-slate-500">{agentRole}</p> : null}
-                    <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-[#8d7531]">
-                      {property.languages.map((language) => language === "en" ? "English" : "Español").join(" · ")}
+                    <MapPin className="mx-auto h-7 w-7 text-[#a88b3a]" aria-hidden />
+                    <p className="mt-3 font-semibold text-[#0f2440]">{mapView.label}</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Map coordinates are unavailable for this listing.
                     </p>
                   </div>
                 </div>
-                <div className="mt-8 space-y-2 border-t border-black/8 pt-7 text-sm text-slate-600">
-                  {agent.phone ? <a href={`tel:${agent.phone}`} className="block break-all hover:text-[#0f2440]">{agent.phone}</a> : null}
-                  {agent.email ? <a href={`mailto:${agent.email}`} className="flex min-w-0 items-center gap-2 break-all hover:text-[#0f2440]"><Mail className="h-4 w-4 shrink-0" aria-hidden />{agent.email}</a> : null}
-                  {agent.website ? <a href={agent.website} target="_blank" rel="noreferrer" className="block break-all hover:text-[#0f2440]">{agent.website}</a> : null}
-                </div>
-              </aside>
-            </div>
-          </div>
-        </section>
+              </div>
+            )}
+          </section>
+        ) : null}
       </main>
 
       <footer className="border-t border-white/10 bg-[#0f2440] text-white">
-        <div className="mx-auto flex max-w-[1480px] flex-col gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-10">
-          <div>
-            <p className="text-sm font-semibold">Property Showcase by PicchuSpot</p>
-            <p className="mt-1 text-xs text-white/50">Photography · Floor plans · 360 tours · Video · Digital presentation</p>
+        <div className="mx-auto max-w-[1480px] px-4 py-8 text-center sm:px-6 sm:py-10 lg:px-10">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-white/90">
+            Equal Housing Opportunity
+          </p>
+          <div className="mx-auto my-5 h-px max-w-xl bg-white/12" />
+          <div className="space-y-2 text-sm leading-6 text-white/65">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+              Property showcase by
+            </p>
+            <BrandWordmark theme="dark" className="text-xl" />
+            <p>All information deemed reliable but not guaranteed.</p>
+            <p>&copy; {currentYear} PicchuSpot - All rights reserved.</p>
           </div>
-          <Link href="/contact" className="inline-flex items-center gap-2 text-sm font-semibold text-[#d4bc6a] hover:text-white">
-            Create a page for your listing
-            <ArrowUpRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <div className="mt-5 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-5 text-sm text-white/60 sm:flex-row sm:gap-6">
+            <span>
+              Use of this website is subject to our{" "}
+              <Link href="/terms" className="underline decoration-white/30 underline-offset-4 hover:text-white">
+                terms of use
+              </Link>
+              .
+            </span>
+            <CookieSettingsButton />
+          </div>
         </div>
       </footer>
     </div>

@@ -6,17 +6,16 @@ import { useMemo, useState } from "react";
 import type {
   LocalizedText,
   PropertyFloorPlan,
+  PropertyLanguageCode,
 } from "@/features/property-showcase/types";
-
-type ShowcaseLocale = "en" | "es";
 
 interface PropertyFloorPlanViewerProps {
   plans: PropertyFloorPlan[];
   propertyTitle: string;
-  locale: ShowcaseLocale;
+  locale: PropertyLanguageCode;
 }
 
-function text(value: LocalizedText | undefined, locale: ShowcaseLocale): string {
+function text(value: LocalizedText | undefined, locale: PropertyLanguageCode): string {
   if (!value) return "";
   return value[locale] ?? value.en;
 }

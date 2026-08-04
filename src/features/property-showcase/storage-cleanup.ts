@@ -94,10 +94,13 @@ function collectMediaValues(property: PropertyShowcase): string[] {
     property.coverImage,
     ...property.gallery.map((image) => image.src),
     property.virtualTour?.posterImage,
+    property.interactiveFloorPlanTour?.posterImage,
     ...property.floorPlans.flatMap((plan) => [
       plan.imageUrl,
       plan.downloadUrl,
     ]),
+    property.agent.logoUrl,
+    property.agent.portraitUrl,
   ].filter((value): value is string => Boolean(value));
 }
 

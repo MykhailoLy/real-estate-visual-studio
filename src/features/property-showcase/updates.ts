@@ -2,6 +2,8 @@ import {
   normalizePropertyProviderUrls,
   type ProviderUrlValidationResult,
 } from "./provider-urls.ts";
+import { normalizeGoogleMapsInput } from "./listing-details.ts";
+import { getPrimaryLanguage } from "./localization.ts";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
@@ -13,6 +15,7 @@ export type PropertyShowcaseUpdateMode = "details" | "media" | "replace";
 export interface PropertyShowcaseUpdateOptions {
   removeVirtualTour?: boolean;
   removeInteractiveFloorPlan?: boolean;
+  removeInteractivePoster?: boolean;
   removeFloorPlan?: boolean;
   replaceFloorPlans?: boolean;
 }
@@ -30,6 +33,15 @@ export function immutablePropertySlugError(
   return existing.slug === incoming.slug
     ? null
     : "Property slug cannot be changed after creation.";
+}
+
+export function immutablePropertyPrimaryLanguageError(
+  existing: PropertyShowcase,
+  incoming: PropertyShowcase,
+): string | null {
+  return getPrimaryLanguage(existing) === getPrimaryLanguage(incoming)
+    ? null
+    : "Primary content language cannot be changed after creation.";
 }
 
 function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
@@ -153,6 +165,8 @@ function mergeDetailsUpdate(
 ): PropertyShowcase {
   const existingTour = existing.virtualTour;
   const incomingTour = incoming.virtualTour;
+  const existingInteractive = existing.interactiveFloorPlanTour;
+  const incomingInteractive = incoming.interactiveFloorPlanTour;
 
   return {
     ...incoming,
@@ -170,6 +184,18 @@ function mergeDetailsUpdate(
               existing.coverImage,
           }
         : existingTour,
+    interactiveFloorPlanTour: options.removeInteractiveFloorPlan
+      ? undefined
+      : incomingInteractive
+        ? {
+            ...incomingInteractive,
+            posterImage:
+              existingInteractive?.posterImage ??
+              incomingInteractive.posterImage ??
+              incoming.floorPlans[0]?.imageUrl ??
+              existing.floorPlans[0]?.imageUrl,
+          }
+        : existingInteractive,
     floorPlans: mergeDetailsFloorPlans(
       existing.floorPlans,
       incoming.floorPlans,
@@ -186,6 +212,15 @@ function mergeMediaUpdate(
 ): PropertyShowcase {
   const gallery: PropertyGalleryImage[] = incoming.gallery;
   const coverImage = incoming.coverImage || existing.coverImage;
+  const agent = {
+    ...existing.agent,
+  };
+  if ("portraitUrl" in incoming.agent || "portraitUrl" in existing.agent) {
+    agent.portraitUrl = incoming.agent.portraitUrl;
+  }
+  if ("logoUrl" in incoming.agent || "logoUrl" in existing.agent) {
+    agent.logoUrl = incoming.agent.logoUrl;
+  }
 
   return {
     ...existing,
@@ -207,6 +242,19 @@ function mergeMediaUpdate(
               coverImage,
           }
         : incoming.virtualTour,
+    interactiveFloorPlanTour: options.removeInteractiveFloorPlan
+      ? undefined
+      : existing.interactiveFloorPlanTour
+        ? {
+            ...existing.interactiveFloorPlanTour,
+            posterImage:
+              options.removeInteractivePoster
+                ? undefined
+                : (incoming.interactiveFloorPlanTour?.posterImage ??
+                  existing.interactiveFloorPlanTour.posterImage),
+          }
+        : incoming.interactiveFloorPlanTour,
+    agent,
   };
 }
 
@@ -223,9 +271,59 @@ function finish(
     };
   }
 
+  const mapNormalized = normalizePropertyMapUrls(normalized.property);
+  if (!mapNormalized.ok || !mapNormalized.property) {
+    return {
+      ok: false,
+      errors: mapNormalized.errors,
+    };
+  }
+
   return {
     ok: true,
-    property: normalized.property,
+    property: mapNormalized.property,
+    errors: [],
+  };
+}
+
+function normalizePropertyMapUrls(
+  property: PropertyShowcase,
+): PropertyShowcaseUpdateResult {
+  const externalInput = property.location.mapExternalUrl?.trim();
+  const embedInput = property.location.mapEmbedUrl?.trim();
+  const errors: string[] = [];
+  const external = externalInput ? normalizeGoogleMapsInput(externalInput) : null;
+  const embed = embedInput ? normalizeGoogleMapsInput(embedInput) : null;
+
+  if (externalInput && !external) {
+    errors.push("Unsupported or unsafe Google Maps link.");
+  }
+  if (embedInput && !embed?.embedUrl) {
+    errors.push("Unsupported or unsafe Google Maps embed URL.");
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  const location = {
+    ...property.location,
+  };
+
+  if (externalInput) {
+    location.mapExternalUrl =
+      external?.externalUrl ?? external?.embedUrl ?? property.location.mapExternalUrl;
+  }
+  if (embedInput) {
+    location.mapEmbedUrl = embed?.embedUrl ?? property.location.mapEmbedUrl;
+  }
+
+  return {
+    ok: true,
+    property: {
+      ...property,
+      location,
+    },
     errors: [],
   };
 }

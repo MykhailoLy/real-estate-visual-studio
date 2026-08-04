@@ -67,6 +67,21 @@ function repairStoredProperty(property: PropertyShowcase): PropertyShowcase {
             property.virtualTour.posterImage,
         }
       : undefined,
+    interactiveFloorPlanTour: property.interactiveFloorPlanTour
+      ? {
+          ...property.interactiveFloorPlanTour,
+          posterImage:
+            repairPropertyMediaUrl(property.interactiveFloorPlanTour.posterImage) ??
+            property.interactiveFloorPlanTour.posterImage,
+        }
+      : undefined,
+    agent: {
+      ...property.agent,
+      logoUrl: repairPropertyMediaUrl(property.agent.logoUrl) ?? property.agent.logoUrl,
+      portraitUrl:
+        repairPropertyMediaUrl(property.agent.portraitUrl) ??
+        property.agent.portraitUrl,
+    },
   };
 }
 

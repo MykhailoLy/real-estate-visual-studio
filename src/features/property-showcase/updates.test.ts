@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
 import {
+  immutablePropertyPrimaryLanguageError,
   immutablePropertySlugError,
   mergePropertyShowcaseUpdate,
 } from "./updates.ts";
@@ -52,6 +53,14 @@ function withExternalMedia(): PropertyShowcase {
       sortOrder: 1,
     },
   ];
+  property.interactiveFloorPlanTour = {
+    enabled: true,
+    provider: "cubiCasa",
+    externalUrl: "https://unbranded.visithome.ai/demo-plan",
+    embedUrl: "https://unbranded.visithome.ai/demo-plan?mode=embed",
+    posterImage:
+      "https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/floor.webp",
+  };
   return property;
 }
 
@@ -70,6 +79,10 @@ test("editing price preserves gallery", () => {
     result.property?.floorPlans[0]?.interactiveExternalUrl,
     "https://unbranded.visithome.ai/demo-plan",
   );
+  assert.equal(
+    result.property?.interactiveFloorPlanTour?.externalUrl,
+    "https://unbranded.visithome.ai/demo-plan",
+  );
   assert.equal(result.property?.price, "EUR 725,000");
 });
 
@@ -83,6 +96,19 @@ test("slug changes after creation are rejected", () => {
   assert.equal(
     immutablePropertySlugError(existing, incoming),
     "Property slug cannot be changed after creation.",
+  );
+});
+
+test("primary language changes after creation are rejected", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    primaryLanguage: "es" as const,
+  };
+
+  assert.equal(
+    immutablePropertyPrimaryLanguageError(existing, incoming),
+    "Primary content language cannot be changed after creation.",
   );
 });
 
@@ -161,6 +187,7 @@ test("explicitly removing CubiCasa clears interactive floor plan URLs", () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.property?.floorPlans[0]?.imageUrl, existing.floorPlans[0].imageUrl);
+  assert.equal(result.property?.interactiveFloorPlanTour, undefined);
   assert.equal(result.property?.floorPlans[0]?.interactiveProvider, undefined);
   assert.equal(result.property?.floorPlans[0]?.interactiveExternalUrl, undefined);
   assert.equal(result.property?.floorPlans[0]?.interactiveEmbedUrl, undefined);
@@ -217,6 +244,52 @@ test("replacing the cover preserves all other property data", () => {
   assert.deepEqual(result.property?.highlights, existing.highlights);
   assert.deepEqual(result.property?.location, existing.location);
   assert.deepEqual(result.property?.agent, existing.agent);
+  assert.deepEqual(
+    result.property?.interactiveFloorPlanTour,
+    existing.interactiveFloorPlanTour,
+  );
+});
+
+test("explicitly removing the interactive poster clears only poster media", () => {
+  const existing = withExternalMedia();
+  const incoming = {
+    ...existing,
+    interactiveFloorPlanTour: {
+      ...existing.interactiveFloorPlanTour!,
+      posterImage: "",
+    },
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    removeInteractivePoster: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.interactiveFloorPlanTour?.posterImage, undefined);
+  assert.equal(
+    result.property?.interactiveFloorPlanTour?.externalUrl,
+    existing.interactiveFloorPlanTour?.externalUrl,
+  );
+  assert.deepEqual(result.property?.gallery, existing.gallery);
+  assert.deepEqual(result.property?.floorPlans, existing.floorPlans);
+});
+
+test("ordinary detail saves preserve property-level interactive floor plan tour", () => {
+  const existing = withExternalMedia();
+  const incoming = cloneProperty();
+  incoming.agent = {
+    ...incoming.agent,
+    agentName: "Updated Agent",
+  };
+  incoming.interactiveFloorPlanTour = undefined;
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details");
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    result.property?.interactiveFloorPlanTour,
+    existing.interactiveFloorPlanTour,
+  );
 });
 
 test("replacing a normal floor plan preserves its interactive URLs", () => {
@@ -420,4 +493,184 @@ test("saving media does not remove highlights, location or agent data", () => {
   assert.deepEqual(result.property?.highlights, existing.highlights);
   assert.deepEqual(result.property?.location, existing.location);
   assert.deepEqual(result.property?.agent, existing.agent);
+});
+
+test("details saves preserve 360 URLs while visibility is disabled and restored", () => {
+  const existing = withExternalMedia();
+  const disabled = structuredClone(existing);
+  disabled.virtualTour = {
+    ...existing.virtualTour!,
+    enabled: false,
+  };
+
+  const disabledResult = mergePropertyShowcaseUpdate(
+    existing,
+    disabled,
+    "details",
+  );
+  assert.equal(disabledResult.ok, true);
+  assert.equal(disabledResult.property?.virtualTour?.enabled, false);
+  assert.equal(
+    disabledResult.property?.virtualTour?.externalUrl,
+    existing.virtualTour?.externalUrl,
+  );
+
+  const reenabled = structuredClone(disabledResult.property!);
+  reenabled.virtualTour!.enabled = true;
+  const reenabledResult = mergePropertyShowcaseUpdate(
+    disabledResult.property!,
+    reenabled,
+    "details",
+  );
+  assert.equal(reenabledResult.property?.virtualTour?.enabled, true);
+  assert.equal(
+    reenabledResult.property?.virtualTour?.externalUrl,
+    existing.virtualTour?.externalUrl,
+  );
+});
+
+test("details saves preserve interactive URLs across disable and re-enable", () => {
+  const existing = withExternalMedia();
+  const disabled = structuredClone(existing);
+  disabled.interactiveFloorPlanTour = {
+    ...existing.interactiveFloorPlanTour!,
+    enabled: false,
+  };
+
+  const disabledResult = mergePropertyShowcaseUpdate(
+    existing,
+    disabled,
+    "details",
+  );
+  assert.equal(disabledResult.ok, true);
+  assert.equal(disabledResult.property?.interactiveFloorPlanTour?.enabled, false);
+  assert.equal(
+    disabledResult.property?.interactiveFloorPlanTour?.externalUrl,
+    existing.interactiveFloorPlanTour?.externalUrl,
+  );
+
+  const reenabled = structuredClone(disabledResult.property!);
+  reenabled.interactiveFloorPlanTour!.enabled = true;
+  const reenabledResult = mergePropertyShowcaseUpdate(
+    disabledResult.property!,
+    reenabled,
+    "details",
+  );
+  assert.equal(reenabledResult.property?.interactiveFloorPlanTour?.enabled, true);
+  assert.equal(
+    reenabledResult.property?.interactiveFloorPlanTour?.externalUrl,
+    existing.interactiveFloorPlanTour?.externalUrl,
+  );
+});
+
+test("media saves do not duplicate property-level CubiCasa data onto ordinary plans", () => {
+  const existing = withExternalMedia();
+  existing.floorPlans = existing.floorPlans.map((plan) => ({
+    id: plan.id,
+    title: plan.title,
+    imageUrl: plan.imageUrl,
+    downloadUrl: plan.downloadUrl,
+    sortOrder: plan.sortOrder,
+  }));
+  const incoming = structuredClone(existing);
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    replaceFloorPlans: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.interactiveFloorPlanTour?.provider, "cubiCasa");
+  assert.equal(result.property?.floorPlans[0]?.interactiveProvider, undefined);
+  assert.equal(result.property?.floorPlans[0]?.interactiveExternalUrl, undefined);
+  assert.equal(result.property?.floorPlans[0]?.interactiveEmbedUrl, undefined);
+});
+
+test("details saves preserve exact and approximate privacy selections", () => {
+  const existing = withExternalMedia();
+  existing.location.privacyMode = "exact";
+  const approximate = structuredClone(existing);
+  approximate.location.privacyMode = "approximate";
+
+  const approximateResult = mergePropertyShowcaseUpdate(
+    existing,
+    approximate,
+    "details",
+  );
+  assert.equal(approximateResult.property?.location.privacyMode, "approximate");
+
+  const exact = structuredClone(approximateResult.property!);
+  exact.location.privacyMode = "exact";
+  const exactResult = mergePropertyShowcaseUpdate(
+    approximateResult.property!,
+    exact,
+    "details",
+  );
+  assert.equal(exactResult.property?.location.privacyMode, "exact");
+});
+
+test("details saves preserve sharing media while updating a structured address", () => {
+  const existing = withExternalMedia();
+  existing.gallery[0].featuredForSharing = true;
+  existing.gallery[0].primarySocialPreview = true;
+  const incoming = structuredClone(existing);
+  incoming.location = {
+    ...incoming.location,
+    streetAddress: "Calle San Pablo 46",
+    city: "Altea",
+    region: "Alicante",
+    postalCode: "03590",
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details");
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.property?.gallery, existing.gallery);
+  assert.equal(result.property?.location.streetAddress, "Calle San Pablo 46");
+  assert.equal(result.property?.location.city, "Altea");
+  assert.equal(result.property?.location.postalCode, "03590");
+});
+
+test("media saves preserve structured address details and privacy settings", () => {
+  const existing = withExternalMedia();
+  existing.location = {
+    ...existing.location,
+    streetAddress: "Calle San Pablo 46",
+    city: "Altea",
+    region: "Alicante",
+    postalCode: "03590",
+    privacyMode: "exact",
+  };
+  const incoming = {
+    ...existing,
+    gallery: [...existing.gallery].reverse(),
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media");
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.property?.location, existing.location);
+});
+
+test("details saves preserve a disabled custom map embed without rendering intent", () => {
+  const existing = withExternalMedia();
+  existing.location = {
+    displayAddress: { en: "Exact address" },
+    privacyMode: "exact",
+    showMap: true,
+    latitude: 38.603912,
+    longitude: -0.045316,
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=legacy-area",
+    useCustomMapEmbed: true,
+  };
+  const incoming = structuredClone(existing);
+  incoming.location.useCustomMapEmbed = false;
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details");
+
+  assert.equal(result.ok, true);
+  assert.equal(
+    result.property?.location.mapEmbedUrl,
+    "https://www.google.com/maps/embed?pb=legacy-area",
+  );
+  assert.equal(result.property?.location.useCustomMapEmbed, false);
 });

@@ -23,7 +23,14 @@ const Body = z
       .min(3)
       .max(120)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-    kind: z.enum(["gallery", "floor-plan", "tour-poster"]),
+    kind: z.enum([
+      "gallery",
+      "floor-plan",
+      "tour-poster",
+      "interactive-poster",
+      "agent-portrait",
+      "agency-logo",
+    ]),
     filename: z.string().trim().min(1).max(255),
     content_type: z.enum(SITE_MEDIA_ALLOWED_MIMES),
     file_size: z.number().int().min(1).max(MAX_PROPERTY_MEDIA_BYTES),
