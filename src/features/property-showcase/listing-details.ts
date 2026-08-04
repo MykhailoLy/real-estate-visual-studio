@@ -211,6 +211,8 @@ const SOCIAL_LABELS: Record<PropertyAgentSocialLink["provider"], string> = {
   linkedin: "LinkedIn",
   youtube: "YouTube",
   tiktok: "TikTok",
+  x: "X / Twitter",
+  pinterest: "Pinterest",
   custom: "Website",
 };
 
@@ -416,6 +418,15 @@ export function googleMapsExternalUrlFromCoordinates(
   return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
+export function googleMapsExternalUrlFromText(
+  locationLabel: string,
+): string | undefined {
+  const trimmedLabel = locationLabel.trim();
+  if (!trimmedLabel) return undefined;
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmedLabel)}`;
+}
+
 export function googleMapsEmbedUrlFromCoordinates(
   latitude: number,
   longitude: number,
@@ -473,10 +484,10 @@ export function getPropertyLocationMapView(
       privacyMode: location.privacyMode,
       address: "",
       label: "Approximate location",
-      externalUrl: googleMapsExternalUrlFromCoordinates(
-        center.latitude,
-        center.longitude,
-      ),
+      externalUrl:
+        location.allowApproximateAreaLink === true
+          ? googleMapsExternalUrlFromText(address)
+          : undefined,
       embedUrl: googleMapsEmbedUrlFromCoordinates(
         center.latitude,
         center.longitude,

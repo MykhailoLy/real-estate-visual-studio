@@ -54,6 +54,7 @@ function sanitizedApproximateLocation(
       location.longitude,
     ),
     approximateRadiusMeters: location.approximateRadiusMeters ?? 1500,
+    allowApproximateAreaLink: location.allowApproximateAreaLink === true,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };
@@ -69,6 +70,7 @@ function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {
     approximateLatitude: undefined,
     approximateLongitude: undefined,
     approximateRadiusMeters: undefined,
+    allowApproximateAreaLink: undefined,
     showMap: false,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
@@ -83,6 +85,7 @@ function sanitizedNoMapLocation(location: PropertyLocation): PropertyLocation {
     approximateLatitude: undefined,
     approximateLongitude: undefined,
     approximateRadiusMeters: undefined,
+    allowApproximateAreaLink: undefined,
     showMap: false,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,

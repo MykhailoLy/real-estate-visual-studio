@@ -48,6 +48,7 @@ export type PublicUiLabels = {
   mapExactCoordinatesHidden: string;
   mapHidden: string;
   mapOpen: string;
+  mapOpenApproximateArea: string;
   mapTrouble: string;
   presentedBy: string;
   reference: string;
@@ -79,6 +80,7 @@ const EN_UI_LABELS: PublicUiLabels = {
     "Exact coordinates are not shown on this public page.",
   mapHidden: "Location is private",
   mapOpen: "Open map",
+  mapOpenApproximateArea: "View approximate area in Google Maps",
   mapTrouble: "Having trouble with the map?",
   presentedBy: "Presented by",
   reference: "Reference",
@@ -115,6 +117,7 @@ const ES_UI_LABELS: PublicUiLabels = {
     "Las coordenadas exactas no se muestran en esta página pública.",
   mapHidden: "Ubicación privada",
   mapOpen: "Abrir mapa",
+  mapOpenApproximateArea: "Ver zona aproximada en Google Maps",
   mapTrouble: "¿Problemas para ver el mapa?",
   presentedBy: "Presentado por",
   reference: "Referencia",
@@ -151,6 +154,7 @@ const DE_UI_LABELS: PublicUiLabels = {
     "Exakte Koordinaten werden auf dieser öffentlichen Seite nicht angezeigt.",
   mapHidden: "Lage ist privat",
   mapOpen: "Karte öffnen",
+  mapOpenApproximateArea: "Ungefähren Bereich in Google Maps ansehen",
   mapTrouble: "Probleme mit der Karte?",
   presentedBy: "Präsentiert von",
   reference: "Referenz",
@@ -187,6 +191,7 @@ const FR_UI_LABELS: PublicUiLabels = {
     "Les coordonnées exactes ne sont pas affichées sur cette page publique.",
   mapHidden: "Localisation privée",
   mapOpen: "Ouvrir la carte",
+  mapOpenApproximateArea: "Voir la zone approximative dans Google Maps",
   mapTrouble: "La carte ne s'affiche pas correctement ?",
   presentedBy: "Présenté par",
   reference: "Référence",
@@ -223,6 +228,7 @@ const NL_UI_LABELS: PublicUiLabels = {
     "Exacte coördinaten worden niet getoond op deze openbare pagina.",
   mapHidden: "Locatie is privé",
   mapOpen: "Kaart openen",
+  mapOpenApproximateArea: "Geschat gebied bekijken in Google Maps",
   mapTrouble: "Problemen met de kaart?",
   presentedBy: "Gepresenteerd door",
   reference: "Referentie",
@@ -259,6 +265,7 @@ const PL_UI_LABELS: PublicUiLabels = {
     "Dokładne współrzędne nie są pokazywane na tej publicznej stronie.",
   mapHidden: "Lokalizacja prywatna",
   mapOpen: "Otwórz mapę",
+  mapOpenApproximateArea: "Zobacz przybliżony obszar w Google Maps",
   mapTrouble: "Problem z wyświetleniem mapy?",
   presentedBy: "Prezentuje",
   reference: "Referencja",
@@ -295,6 +302,7 @@ const UK_UI_LABELS: PublicUiLabels = {
     "Точні координати не показуються на цій публічній сторінці.",
   mapHidden: "Локація прихована",
   mapOpen: "Відкрити карту",
+  mapOpenApproximateArea: "Переглянути приблизну область у Google Maps",
   mapTrouble: "Проблеми з картою?",
   presentedBy: "Представлено",
   reference: "Референс",
@@ -331,6 +339,7 @@ const RU_UI_LABELS: PublicUiLabels = {
     "Точные координаты не показываются на этой публичной странице.",
   mapHidden: "Локация скрыта",
   mapOpen: "Открыть карту",
+  mapOpenApproximateArea: "Посмотреть примерную область в Google Maps",
   mapTrouble: "Проблемы с картой?",
   presentedBy: "Представлено",
   reference: "Референс",

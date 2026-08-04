@@ -51,6 +51,13 @@ const propertySectionNavSource = readFileSync(
   ),
   "utf8",
 );
+const propertySocialBrandIconSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertySocialBrandIcon.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const propertyPageSource = readFileSync(
   new URL(
     "../../app/(showcase)/property/[slug]/page.tsx",
@@ -145,7 +152,8 @@ test("listing facts and highlights use one open responsive composition", () => {
   );
   assert.equal(propertyShowcaseSource.includes("min-[1400px]:grid-cols-8"), true);
   assert.equal(propertyShowcaseSource.includes("min-[900px]:grid-cols-4"), true);
-  assert.equal(propertyShowcaseSource.includes("grid-cols-2 gap-x-4"), true);
+  assert.equal(propertyShowcaseSource.includes("min-[360px]:grid-cols-4"), true);
+  assert.equal(propertyShowcaseSource.includes("gap-y-5 py-7"), true);
   assert.equal(
     propertyShowcaseSource.includes("min-[900px]:grid-cols-2"),
     true,
@@ -174,11 +182,58 @@ test("media visibility controls and navigation are driven by rendered sections",
   assert.equal(propertySectionNavSource.includes("showInteractivePlan"), true);
   assert.equal(propertySectionNavSource.includes("showContact"), true);
   assert.equal(propertySectionNavSource.includes("showLocation"), true);
+  assert.equal(propertySectionNavSource.includes("property-mobile-section-nav"), true);
+  assert.equal(propertySectionNavSource.includes("More sections"), true);
+  assert.equal(propertySectionNavSource.includes("overflow-x-auto"), false);
   assert.equal(
     propertyEditorSource.indexOf('<Section title="4. Listing facts">') <
       propertyEditorSource.indexOf('<Section title="5. Highlights">'),
     true,
   );
+});
+
+test("approximate map links require an explicit text-only public-area option", () => {
+  assert.equal(
+    propertyEditorSource.includes(
+      "Allow opening approximate area in Google Maps",
+    ),
+    true,
+  );
+  assert.equal(
+    propertyEditorSource.includes(
+      "Exact and approximate numeric coordinates are never placed in the external URL.",
+    ),
+    true,
+  );
+  assert.equal(
+    /form\.privacyMode === "exact"\s*\?\s*form\.address\.trim\(\)\s*:\s*form\.approximateLabel\.trim\(\)/.test(
+      propertyEditorSource,
+    ),
+    true,
+  );
+  assert.equal(propertyMapCanvasSource.includes("property-map-external-link"), true);
+});
+
+test("realtor social links use local recognizable brand marks", () => {
+  for (const provider of [
+    "facebook",
+    "instagram",
+    "linkedin",
+    "youtube",
+    "tiktok",
+    "whatsapp",
+    "x",
+    "pinterest",
+  ]) {
+    assert.equal(
+      propertySocialBrandIconSource.includes(`social-icon-${provider}`),
+      true,
+    );
+  }
+  assert.equal(propertyShowcaseSource.includes("PropertySocialBrandIcon"), true);
+  assert.equal(propertyShowcaseSource.includes("BriefcaseBusiness"), false);
+  assert.equal(propertyShowcaseSource.includes("Camera,"), false);
+  assert.equal(propertyShowcaseSource.includes("Users,"), false);
 });
 
 test("property metadata uses a production-domain 1200 by 630 PNG route", () => {

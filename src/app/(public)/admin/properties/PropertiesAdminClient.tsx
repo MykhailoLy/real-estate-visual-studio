@@ -111,6 +111,7 @@ interface FormState {
   approximateLongitude: string;
   approximateRadiusMeters: string;
   approximateLabel: string;
+  allowApproximateAreaLink: boolean;
   mapExternalUrl: string;
   mapEmbedUrl: string;
   useCustomMapEmbed: boolean;
@@ -139,6 +140,19 @@ interface FormState {
 
 const inputClass =
   "mt-1.5 w-full min-w-0 rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15";
+const SOCIAL_PROVIDER_INPUT_LABELS: Record<
+  PropertyAgentSocialProvider,
+  string
+> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  tiktok: "TikTok",
+  x: "X / Twitter",
+  pinterest: "Pinterest",
+  custom: "Custom website",
+};
 const protectedInputClass =
   "mt-1.5 w-full min-w-0 cursor-not-allowed truncate rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-muted outline-none";
 
@@ -199,6 +213,8 @@ function socialState(property: PropertyShowcase | null): SocialFormState {
     linkedin: socials.find((link) => link.provider === "linkedin")?.url ?? "",
     youtube: socials.find((link) => link.provider === "youtube")?.url ?? "",
     tiktok: socials.find((link) => link.provider === "tiktok")?.url ?? "",
+    x: socials.find((link) => link.provider === "x")?.url ?? "",
+    pinterest: socials.find((link) => link.provider === "pinterest")?.url ?? "",
     custom: socials.find((link) => link.provider === "custom")?.url ?? "",
   };
 }
@@ -289,6 +305,8 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
           primaryLanguage,
         )
       : "",
+    allowApproximateAreaLink:
+      property?.location.allowApproximateAreaLink ?? false,
     mapExternalUrl: property?.location.mapExternalUrl ?? "",
     mapEmbedUrl: property?.location.mapEmbedUrl ?? "",
     useCustomMapEmbed: property?.location.useCustomMapEmbed ?? false,
@@ -607,6 +625,7 @@ function buildProperty(
         100,
         50000,
       ),
+      allowApproximateAreaLink: state.allowApproximateAreaLink,
       privacyMode: state.privacyMode,
       showMap: state.showMap,
       mapExternalUrl: optional(state.mapExternalUrl),
@@ -980,6 +999,10 @@ function PropertyEditor({
       100,
       50000,
     ),
+    approximateLabel: form.approximateLabel.trim()
+      ? simpleLocalizedText(form.primaryLanguage, form.approximateLabel)
+      : undefined,
+    allowApproximateAreaLink: form.allowApproximateAreaLink,
     privacyMode: form.privacyMode,
     showMap: form.showMap,
     mapExternalUrl: optional(form.mapExternalUrl),
@@ -989,7 +1012,9 @@ function PropertyEditor({
   });
   const mapPreview = getPropertyLocationMapView(
     previewLocation,
-    form.privacyMode === "exact" ? form.address.trim() : "",
+    form.privacyMode === "exact"
+      ? form.address.trim()
+      : form.approximateLabel.trim(),
   );
   const mapStatus =
     mapPreview.source === "generated-exact"
@@ -1855,6 +1880,38 @@ function PropertyEditor({
                     />
                   </Field>
                 </div>
+                <label className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-white px-4 py-3 text-sm font-bold text-primary">
+                  <input
+                    type="checkbox"
+                    checked={form.allowApproximateAreaLink}
+                    onChange={(event) =>
+                      set("allowApproximateAreaLink", event.target.checked)
+                    }
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                  />
+                  <span>
+                    <span className="block">
+                      Allow opening approximate area in Google Maps
+                    </span>
+                    <span className="mt-1 block text-xs font-normal leading-5 text-muted">
+                      The link uses only the public area name. Exact and approximate numeric coordinates are never placed in the external URL.
+                    </span>
+                  </span>
+                </label>
+                {mapPreview.externalUrl ? (
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+                    <span className="font-bold">Public area-link preview</span>
+                    <a
+                      href={mapPreview.externalUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 font-semibold underline underline-offset-4"
+                    >
+                      View approximate area in Google Maps
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    </a>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -1902,7 +1959,9 @@ function PropertyEditor({
                 <Field
                   label="Google Maps external link"
                   hint={
-                    normalizedMapExternal || !form.mapExternalUrl
+                    form.privacyMode === "approximate"
+                      ? "Ignored publicly in Approximate mode. Use the public area-link setting above for a text-only Google Maps search."
+                      : normalizedMapExternal || !form.mapExternalUrl
                       ? "Optional fallback when exact coordinates are unavailable. Normal share links, including maps.app.goo.gl, open only in a new tab."
                       : "Only exact Google Maps origins are accepted."
                   }
@@ -2010,7 +2069,7 @@ function PropertyEditor({
             </Field>
             {(Object.keys(form.socials) as PropertyAgentSocialProvider[]).map(
               (provider) => (
-                <Field key={provider} label={`${provider} URL`}>
+                <Field key={provider} label={`${SOCIAL_PROVIDER_INPUT_LABELS[provider]} URL`}>
                   <input
                     value={form.socials[provider]}
                     onChange={(event) => updateSocial(provider, event.target.value)}

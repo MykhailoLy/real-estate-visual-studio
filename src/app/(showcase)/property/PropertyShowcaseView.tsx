@@ -10,8 +10,6 @@ import {
   Car,
   Check,
   CircleDollarSign,
-  Camera,
-  BriefcaseBusiness,
   ExternalLink,
   Globe2,
   Home,
@@ -19,13 +17,10 @@ import {
   Mail,
   MapPin,
   MessageCircle,
-  Music2,
   MousePointer2,
   Phone,
-  Play,
   Ruler,
   Tag,
-  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -55,7 +50,6 @@ import {
 } from "@/features/property-showcase/rendering";
 import type {
   PropertyFactKey,
-  PropertyAgentSocialProvider,
   PropertyLanguageCode,
   PropertyShowcase,
 } from "@/features/property-showcase/types";
@@ -66,6 +60,7 @@ import PropertyMapCanvas from "./PropertyMapCanvas";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
 import PropertyGallery from "./costa-blanca-demo/PropertyGallery";
 import PropertySectionNav from "./costa-blanca-demo/PropertySectionNav";
+import PropertySocialBrandIcon from "./PropertySocialBrandIcon";
 
 type PropertyShowcaseViewProps = {
   property: PropertyShowcase;
@@ -81,15 +76,6 @@ const factIcons: Record<PropertyFactKey, LucideIcon> = {
   "built-area": Ruler,
   "plot-area": LandPlot,
   "year-built": CalendarDays,
-};
-
-const socialIcons: Record<PropertyAgentSocialProvider, LucideIcon> = {
-  facebook: Users,
-  instagram: Camera,
-  linkedin: BriefcaseBusiness,
-  youtube: Play,
-  tiktok: Music2,
-  custom: Globe2,
 };
 
 function keepFactValueTogether(key: PropertyFactKey): boolean {
@@ -165,14 +151,17 @@ export default function PropertyShowcaseView({
   return (
     <div className="min-h-screen bg-[#f2f0ea] text-slate-950">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0f2440]/95 text-white shadow-sm backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[1480px] items-center justify-between px-4 sm:px-6 lg:px-10">
-          <Link href="/" className="flex items-center gap-3" aria-label="PicchuSpot home">
+        <div
+          data-testid="property-brand-bar"
+          className="mx-auto flex h-16 max-w-[1480px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-10"
+        >
+          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="PicchuSpot home">
             <span className="grid h-9 w-9 place-items-center rounded-full border border-white/20 bg-white/10 text-sm font-bold tracking-tight">
               PS
             </span>
-            <span>
+            <span className="min-w-0">
               <span className="block text-sm font-semibold leading-none">PicchuSpot</span>
-              <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.2em] text-white/55">
+              <span className="mt-1 hidden text-[10px] font-medium uppercase tracking-[0.2em] text-white/55 min-[481px]:block">
                 Property showcase
               </span>
             </span>
@@ -206,9 +195,10 @@ export default function PropertyShowcaseView({
                 href={contactHref}
                 target={contactIsExternal ? "_blank" : undefined}
                 rel={contactIsExternal ? "noreferrer" : undefined}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] sm:text-sm"
+                aria-label={ui.requestViewing}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-3 py-2 text-[11px] font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] min-[381px]:px-4 min-[381px]:text-xs sm:text-sm max-[380px]:h-10 max-[380px]:w-10 max-[380px]:justify-center max-[380px]:px-0"
               >
-                {ui.requestViewing}
+                <span className="max-[380px]:sr-only">{ui.requestViewing}</span>
                 <ArrowUpRight className="h-4 w-4" aria-hidden />
               </a>
             ) : null}
@@ -309,32 +299,34 @@ export default function PropertyShowcaseView({
               {facts.length > 0 ? (
                 <div
                   data-testid="property-facts"
-                  className="grid grid-cols-2 gap-x-4 gap-y-9 py-10 sm:py-12 min-[900px]:grid-cols-4 min-[1400px]:grid-cols-8"
+                  className="grid grid-cols-2 gap-x-3 gap-y-5 py-7 min-[360px]:grid-cols-4 min-[360px]:gap-x-1 min-[360px]:py-6 sm:gap-x-4 sm:gap-y-9 sm:py-12 min-[900px]:grid-cols-4 min-[1400px]:grid-cols-8"
                 >
                   {facts.map((fact, index) => {
                     const Icon = factIcons[fact.key] ?? Home;
                     const keepTogether = keepFactValueTogether(fact.key);
-                    const hasLongValue = fact.value.length > 18;
+                    const compactValue = fact.key === "parking" || fact.value.length > 18;
                     return (
                       <div
                         key={`${fact.key}-${index}`}
                         data-testid={`property-fact-${fact.key}`}
-                        className="flex min-w-0 flex-col items-center px-1 text-center"
+                        className="flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1"
                       >
-                        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-slate-300/90 text-[#0f2440]">
+                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-slate-300/90 text-[#0f2440] min-[360px]:h-11 min-[360px]:w-11 sm:h-14 sm:w-14">
                           <Icon
-                            className="h-6 w-6 stroke-[1.6]"
+                            className="h-5 w-5 stroke-[1.6] sm:h-6 sm:w-6"
                             aria-hidden
                           />
                         </span>
-                        <span className="mt-4 block max-w-full text-[10px] font-bold uppercase leading-4 tracking-[0.14em] text-slate-500 sm:text-[11px]">
+                        <span className="mt-2 block max-w-full text-[8px] font-bold uppercase leading-3 tracking-normal text-slate-500 min-[360px]:text-[9px] sm:mt-4 sm:text-[11px] sm:leading-4">
                           {fact.label}
                         </span>
                         <span
                           data-testid={`property-fact-value-${fact.key}`}
-                          className={`mt-1.5 block max-w-full font-semibold leading-6 tabular-nums text-[#0f2440] ${
-                            hasLongValue ? "text-sm sm:text-base" : "text-lg sm:text-xl"
-                          } ${keepTogether ? "whitespace-nowrap" : "break-words"}`}
+                          className={`mt-1 block max-w-full font-semibold leading-5 tabular-nums text-[#0f2440] sm:mt-1.5 sm:leading-6 ${
+                            compactValue
+                              ? "text-[11px] min-[360px]:text-[9px] sm:text-base"
+                              : "text-[15px] min-[360px]:text-[15px] sm:text-xl"
+                          } ${keepTogether || compactValue ? "whitespace-nowrap" : "break-words"}`}
                           title={fact.value}
                         >
                           {fact.value}
@@ -348,17 +340,17 @@ export default function PropertyShowcaseView({
               {highlights.length > 0 ? (
                 <div
                   data-testid="property-highlights"
-                  className="border-t border-black/10 py-9 sm:py-11"
+                  className="border-t border-black/10 py-6 sm:py-11"
                 >
                   <h2 className="sr-only">{ui.checklistHeading}</h2>
-                  <ul className="grid grid-cols-1 gap-x-14 gap-y-5 min-[900px]:grid-cols-2">
+                  <ul className="grid grid-cols-1 gap-x-14 gap-y-2 min-[900px]:grid-cols-2 min-[900px]:gap-y-5">
                     {highlights.map((highlight, index) => (
                       <li
                         key={`${highlight}-${index}`}
-                        className="flex min-w-0 items-start gap-4 text-lg font-medium leading-7 text-[#0f2440] sm:text-xl sm:leading-8"
+                        className="flex min-w-0 items-start gap-2.5 text-sm font-medium leading-5 text-[#0f2440] sm:gap-4 sm:text-xl sm:leading-8"
                       >
                         <Check
-                          className="mt-1 h-5 w-5 shrink-0 stroke-[2] text-[#0f2440]"
+                          className="mt-0.5 h-4 w-4 shrink-0 stroke-[2] text-[#0f2440] sm:mt-1 sm:h-5 sm:w-5"
                           aria-hidden
                         />
                         <span className="min-w-0 break-words">{highlight}</span>
@@ -578,7 +570,10 @@ export default function PropertyShowcaseView({
                             rel="noreferrer"
                             className="flex items-center gap-2 hover:text-[#0f2440]"
                           >
-                            <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
+                            <PropertySocialBrandIcon
+                              provider="whatsapp"
+                              className="h-4 w-4 shrink-0"
+                            />
                             {ui.whatsapp}
                           </a>
                         ) : null}
@@ -608,7 +603,6 @@ export default function PropertyShowcaseView({
                     {agent.socialLinks.length > 0 ? (
                       <div className="mt-4 flex flex-wrap gap-2">
                         {agent.socialLinks.map((link) => {
-                          const SocialIcon = socialIcons[link.provider];
                           return (
                             <a
                               key={`${link.provider}-${link.url}`}
@@ -617,9 +611,12 @@ export default function PropertyShowcaseView({
                               rel="noreferrer"
                               aria-label={link.labelText}
                               title={link.labelText}
-                              className="grid h-10 w-10 place-items-center rounded-full border border-[#0f2440]/15 text-[#0f2440] transition hover:border-[#0f2440] hover:bg-white"
+                              className="group grid h-11 w-11 place-items-center rounded-full border border-[#0f2440]/15 text-[#0f2440] transition hover:border-[#0f2440] hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f2440]"
                             >
-                              <SocialIcon className="h-4.5 w-4.5" aria-hidden />
+                              <PropertySocialBrandIcon
+                                provider={link.provider}
+                                className="h-4.5 w-4.5 transition-transform group-hover:scale-110"
+                              />
                             </a>
                           );
                         })}
@@ -670,7 +667,11 @@ export default function PropertyShowcaseView({
               <PropertyMapCanvas
                 mapView={mapView}
                 title={`${ui.location}: ${title}`}
-                openLabel={ui.mapOpen}
+                openLabel={
+                  mapView.privacyMode === "approximate"
+                    ? ui.mapOpenApproximateArea
+                    : ui.mapOpen
+                }
                 troubleLabel={ui.mapTrouble}
               />
             ) : (

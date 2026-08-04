@@ -88,6 +88,9 @@ export default function PropertyMapCanvas({
             href={mapView.externalUrl}
             target="_blank"
             rel="noreferrer"
+            aria-label={openLabel}
+            title={openLabel}
+            data-testid="property-map-external-link"
             className="inline-flex items-center gap-2 rounded-full border border-[#0f2440]/20 bg-white px-4 py-2.5 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
           >
             <ExternalLink className="h-4 w-4" aria-hidden />

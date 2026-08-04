@@ -80,6 +80,7 @@ test("public serialization preserves an explicit approximate center and radius o
     approximateLatitude: 38.72,
     approximateLongitude: -0.12,
     approximateRadiusMeters: 2600,
+    allowApproximateAreaLink: true,
     mapExternalUrl: "https://www.google.com/maps/place/private-exact-parcel",
   };
 
@@ -91,6 +92,7 @@ test("public serialization preserves an explicit approximate center and radius o
   assert.equal(serialized.location.approximateLatitude, 38.72);
   assert.equal(serialized.location.approximateLongitude, -0.12);
   assert.equal(serialized.location.approximateRadiusMeters, 2600);
+  assert.equal(serialized.location.allowApproximateAreaLink, true);
   assert.equal(serialized.location.displayAddress.en, "Public district");
   assert.equal(payload.includes("38.603912"), false);
   assert.equal(payload.includes("-0.045316"), false);
@@ -122,6 +124,7 @@ test("approximate privacy remains safe when the map is disabled", () => {
   assert.equal(serialized.location.approximateLatitude, undefined);
   assert.equal(serialized.location.approximateLongitude, undefined);
   assert.equal(serialized.location.approximateRadiusMeters, undefined);
+  assert.equal(serialized.location.allowApproximateAreaLink, undefined);
   assert.equal(payload.includes("88 Private Exact Street"), false);
   assert.equal(payload.includes("38.603912"), false);
 });

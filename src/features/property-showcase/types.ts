@@ -108,6 +108,8 @@ export type PropertyAgentSocialProvider =
   | "linkedin"
   | "youtube"
   | "tiktok"
+  | "x"
+  | "pinterest"
   | "custom";
 
 export interface PropertyAgentSocialLink {
@@ -139,6 +141,7 @@ export interface PropertyLocation {
   approximateLatitude?: number;
   approximateLongitude?: number;
   approximateRadiusMeters?: number;
+  allowApproximateAreaLink?: boolean;
   privacyMode: "exact" | "approximate" | "hidden";
   airportTravelTime?: LocalizedText;
   showMap?: boolean;

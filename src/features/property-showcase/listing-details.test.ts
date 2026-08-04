@@ -10,6 +10,7 @@ import {
   normalizeGoogleMapsInput,
   normalizeListingFacts,
 } from "./listing-details.ts";
+import { serializePublicPropertyShowcase } from "./public-serialization.ts";
 import type { PropertyShowcase } from "./types.ts";
 
 function cloneProperty(): PropertyShowcase {
@@ -157,10 +158,7 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
   assert.equal(approximate.embedUrl?.includes("ll=38.7%2C-0.1"), true);
   assert.equal(approximate.embedUrl?.includes("q="), false);
   assert.equal(approximate.embedUrl?.includes("z=13"), true);
-  assert.equal(
-    approximate.externalUrl,
-    "https://www.google.com/maps/search/?api=1&query=38.7%2C-0.1",
-  );
+  assert.equal(approximate.externalUrl, undefined);
   assert.equal(approximate.approximateRadiusMeters, 2400);
   assert.equal(approximate.centerLatitude, 38.7);
 
@@ -175,6 +173,48 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
   };
   assert.equal(getPropertyMapView(property, "en").mode, "hidden");
   assert.equal(getPropertyMapView(property, "en").source, "hidden");
+});
+
+test("approximate map links require an enabled public text label", () => {
+  const property = cloneProperty();
+  property.location = {
+    displayAddress: { en: "12 Private Cliff Road" },
+    approximateLabel: { en: "Altea Hills, Alicante" },
+    privacyMode: "approximate",
+    showMap: true,
+    latitude: 38.603912,
+    longitude: -0.045316,
+    approximateLatitude: 38.7,
+    approximateLongitude: -0.1,
+    approximateRadiusMeters: 2400,
+    allowApproximateAreaLink: true,
+    mapExternalUrl:
+      "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
+  };
+
+  const publicProperty = serializePublicPropertyShowcase(property);
+  const enabled = getPropertyMapView(publicProperty, "en");
+  assert.equal(
+    enabled.externalUrl,
+    "https://www.google.com/maps/search/?api=1&query=Altea%20Hills%2C%20Alicante",
+  );
+  assert.equal(enabled.externalUrl?.includes("38.603912"), false);
+  assert.equal(enabled.externalUrl?.includes("-0.045316"), false);
+  assert.equal(enabled.externalUrl?.includes("38.7"), false);
+  assert.equal(enabled.externalUrl?.includes("Private"), false);
+
+  property.location.allowApproximateAreaLink = false;
+  assert.equal(
+    getPropertyMapView(serializePublicPropertyShowcase(property), "en").externalUrl,
+    undefined,
+  );
+
+  property.location.allowApproximateAreaLink = true;
+  property.location.approximateLabel = undefined;
+  assert.equal(
+    getPropertyMapView(serializePublicPropertyShowcase(property), "en").externalUrl,
+    undefined,
+  );
 });
 
 test("exact maps generate the coordinate marker by default despite a saved embed", () => {

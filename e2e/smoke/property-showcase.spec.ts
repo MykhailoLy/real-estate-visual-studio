@@ -7,6 +7,7 @@ import {
 const propertyViewports = [
   { width: 320, height: 568 },
   { width: 375, height: 812 },
+  { width: 430, height: 932 },
   { width: 768, height: 1024 },
   { width: 1024, height: 768 },
   { width: 1440, height: 900 },
@@ -43,7 +44,13 @@ for (const viewport of propertyViewports) {
     await expect(page.locator("#floor-plan")).toBeVisible();
     await expect(page.locator("#location")).toBeVisible();
     await expect(page.getByTestId("property-facts")).toBeVisible();
-    for (const key of ["price", "listing-reference", "built-area", "plot-area"]) {
+    for (const key of [
+      "price",
+      "listing-reference",
+      "parking",
+      "built-area",
+      "plot-area",
+    ]) {
       const value = page
         .getByTestId(`property-fact-value-${key}`);
       await expect(value).toBeVisible();
@@ -66,10 +73,45 @@ for (const viewport of propertyViewports) {
     expect(factColumns).toBe(
       viewport.width >= 1400
         ? 8
-        : viewport.width >= 900
+        : viewport.width >= 360
           ? 4
           : 2,
     );
+
+    if (viewport.width === 430) {
+      const factKeys = [
+        "price",
+        "listing-reference",
+        "bedrooms",
+        "bathrooms",
+        "parking",
+        "built-area",
+        "year-built",
+        "plot-area",
+      ];
+      const boxes = await Promise.all(
+        factKeys.map((key) =>
+          page.getByTestId(`property-fact-${key}`).boundingBox(),
+        ),
+      );
+      expect(boxes.every(Boolean)).toBe(true);
+      const factBoxes = boxes as NonNullable<(typeof boxes)[number]>[];
+      for (const box of factBoxes.slice(1, 4)) {
+        expect(Math.abs(box.y - factBoxes[0].y)).toBeLessThanOrEqual(1);
+      }
+      for (const box of factBoxes.slice(5)) {
+        expect(Math.abs(box.y - factBoxes[4].y)).toBeLessThanOrEqual(1);
+      }
+      expect(factBoxes[4].y).toBeGreaterThan(factBoxes[0].y);
+      expect((await page.getByTestId("property-facts").boundingBox())!.height).toBeLessThan(260);
+      const iconBox = await page
+        .getByTestId("property-fact-price")
+        .locator(":scope > span")
+        .first()
+        .boundingBox();
+      expect(iconBox?.width).toBeLessThanOrEqual(44);
+      expect(iconBox?.height).toBeLessThanOrEqual(44);
+    }
     const factsAreOpen = await page.getByTestId("property-facts").evaluate(
       (element) => {
         const containerStyle = window.getComputedStyle(element);
@@ -271,8 +313,8 @@ test("property showcase facts and map privacy render as listing details", async 
   expect(mapSrc).not.toContain("38.603912");
   expect(mapSrc).not.toContain("-0.045316");
   await expect(
-    page.locator("#location").getByRole("link", { name: "Open map" }),
-  ).toBeVisible();
+    page.getByTestId("property-map-external-link"),
+  ).toHaveCount(0);
   await expect(page.getByText("Approximate location", { exact: true })).toHaveCount(1);
   const approximateAreaBefore = await page
     .getByTestId("approximate-map-area")
@@ -333,6 +375,61 @@ test("property showcase facts and map privacy render as listing details", async 
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
+test("mobile section navigation uses an in-viewport More menu", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 430, height: 932 });
+
+  const response = await page.goto("/property/sea-view-residence");
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+
+  const mobileNav = page.getByTestId("property-mobile-section-nav");
+  const navMetrics = await page
+    .getByTestId("property-mobile-section-nav-row")
+    .evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+  expect(navMetrics.scrollWidth).toBe(navMetrics.clientWidth);
+  await expect(mobileNav.getByRole("link", { name: "Home" })).toBeVisible();
+  await expect(mobileNav.getByRole("link", { name: "Overview" })).toBeVisible();
+  await expect(mobileNav.getByRole("link", { name: "Gallery" })).toBeVisible();
+  await expect(mobileNav.getByRole("link", { name: "360 tour" })).toBeVisible();
+
+  await mobileNav.getByRole("button", { name: "More sections" }).click();
+  const moreMenu = page.getByRole("menu", { name: "More property sections" });
+  await expect(moreMenu.getByRole("menuitem", { name: "Floor plans" })).toBeVisible();
+  await expect(moreMenu.getByRole("menuitem", { name: "Interactive plan" })).toBeVisible();
+  await expect(moreMenu.getByRole("menuitem", { name: "Contact" })).toBeVisible();
+  await expect(moreMenu.getByRole("menuitem", { name: "Location" })).toBeVisible();
+
+  const launcher = page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  });
+  if ((await launcher.count()) > 0) {
+    await expect(launcher).toBeVisible();
+    const [menuBox, launcherBox] = await Promise.all([
+      moreMenu.boundingBox(),
+      launcher.boundingBox(),
+    ]);
+    expect(menuBox).not.toBeNull();
+    expect(launcherBox).not.toBeNull();
+    const overlaps =
+      menuBox!.x < launcherBox!.x + launcherBox!.width &&
+      menuBox!.x + menuBox!.width > launcherBox!.x &&
+      menuBox!.y < launcherBox!.y + launcherBox!.height &&
+      menuBox!.y + menuBox!.height > launcherBox!.y;
+    expect(overlaps).toBe(false);
+  }
+
+  await moreMenu.getByRole("menuitem", { name: "Contact" }).click();
+  await expect(page).toHaveURL(/#contact$/);
+  await expect(moreMenu).toHaveCount(0);
+  await expect(page.locator("#contact")).toBeInViewport();
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
 test("disabled map and empty highlights do not render empty panels", async ({
   page,
 }, testInfo) => {
@@ -363,6 +460,16 @@ test("complete and minimal realtor profiles stay usable", async ({
   await expect(completeContact).toContainText("Costa Blanca Property Team");
   await expect(completeContact.getByRole("link", { name: "WhatsApp" })).toBeVisible();
   await expect(completeContact.getByRole("link", { name: "Instagram" })).toBeVisible();
+  await expect(
+    completeContact
+      .getByRole("link", { name: "Instagram" })
+      .getByTestId("social-icon-instagram"),
+  ).toBeVisible();
+  await expect(
+    completeContact
+      .getByRole("link", { name: "LinkedIn" })
+      .getByTestId("social-icon-linkedin"),
+  ).toBeVisible();
   await expect(completeContact.getByRole("link", { name: "Website" })).toBeVisible();
   await expect(completeContact).not.toContainText("https://picchuspot.com");
   expect((await completeContact.boundingBox())!.height).toBeLessThanOrEqual(440);
@@ -435,7 +542,7 @@ test("compact contact actions do not overlap the support launcher on mobile", as
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
-  await page.setViewportSize({ width: 375, height: 812 });
+  await page.setViewportSize({ width: 430, height: 932 });
 
   const response = await page.goto("/property/sea-view-residence");
   expectNavigationResponseOk(response, "/property/sea-view-residence");
@@ -443,6 +550,8 @@ test("compact contact actions do not overlap the support launcher on mobile", as
   await contact.scrollIntoViewIfNeeded();
 
   const action = contact.getByRole("link", { name: "Request a viewing" });
+  const socialLink = contact.getByRole("link", { name: "LinkedIn" });
+  const highlights = page.getByTestId("property-highlights");
   const launcher = page.getByRole("button", {
     name: "Open PicchuSpot AI assistant",
   });
@@ -461,6 +570,40 @@ test("compact contact actions do not overlap the support launcher on mobile", as
       actionBox!.y < launcherBox!.y + launcherBox!.height &&
       actionBox!.y + actionBox!.height > launcherBox!.y;
     expect(overlaps).toBe(false);
+
+    await socialLink.scrollIntoViewIfNeeded();
+    await expect(socialLink).toBeVisible();
+    const [socialBox, socialLauncherBox] = await Promise.all([
+      socialLink.boundingBox(),
+      launcher.boundingBox(),
+    ]);
+    expect(socialBox).not.toBeNull();
+    expect(socialLauncherBox).not.toBeNull();
+    const socialOverlaps =
+      socialBox!.x < socialLauncherBox!.x + socialLauncherBox!.width &&
+      socialBox!.x + socialBox!.width > socialLauncherBox!.x &&
+      socialBox!.y < socialLauncherBox!.y + socialLauncherBox!.height &&
+      socialBox!.y + socialBox!.height > socialLauncherBox!.y;
+    expect(socialOverlaps).toBe(false);
+
+    await highlights.scrollIntoViewIfNeeded();
+    const highlightItems = highlights.locator("li");
+    const highlightCount = await highlightItems.count();
+    expect(highlightCount).toBeGreaterThan(0);
+    const finalHighlight = highlightItems.nth(highlightCount - 1);
+    await expect(finalHighlight).toBeVisible();
+    const [highlightBox, highlightLauncherBox] = await Promise.all([
+      finalHighlight.boundingBox(),
+      launcher.boundingBox(),
+    ]);
+    expect(highlightBox).not.toBeNull();
+    expect(highlightLauncherBox).not.toBeNull();
+    const highlightOverlaps =
+      highlightBox!.x < highlightLauncherBox!.x + highlightLauncherBox!.width &&
+      highlightBox!.x + highlightBox!.width > highlightLauncherBox!.x &&
+      highlightBox!.y < highlightLauncherBox!.y + highlightLauncherBox!.height &&
+      highlightBox!.y + highlightBox!.height > highlightLauncherBox!.y;
+    expect(highlightOverlaps).toBe(false);
   }
   await guard.expectNoPageErrorsOrServerErrors();
 });
