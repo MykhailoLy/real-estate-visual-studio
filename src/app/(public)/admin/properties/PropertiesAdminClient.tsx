@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Images,
   Loader2,
+  MapPin,
   Pencil,
   Plus,
   Trash2,
@@ -33,12 +34,16 @@ import {
 import {
   labelForListingReferenceMode,
   LISTING_REFERENCE_LABEL_PRESETS,
+  getPropertyLocationMapView,
+  hasValidPropertyCoordinates,
   normalizeGoogleMapsInput,
 } from "@/features/property-showcase/listing-details";
 import {
   normalizeInteractiveFloorPlanInput,
   normalizeTourPrimaryInput,
 } from "@/features/property-showcase/provider-urls";
+import { serializePublicPropertyLocation } from "@/features/property-showcase/public-serialization";
+import { getLegacyInteractiveTourCandidates } from "@/features/property-showcase/rendering";
 import type {
   ListingReferenceLabelMode,
   LocalizedText,
@@ -50,6 +55,7 @@ import type {
   PropertyStatus,
   PropertyTourProvider,
 } from "@/features/property-showcase/types";
+import PropertyMapCanvas from "@/app/(showcase)/property/PropertyMapCanvas";
 
 interface Props {
   records: PropertyShowcaseAdminRecord[];
@@ -883,9 +889,16 @@ function PropertyEditor({
   onSaved: (message: string) => void;
   onError: (message: string | null) => void;
 }) {
+  const legacyTourCandidates =
+    record && !record.property.interactiveFloorPlanTour
+      ? getLegacyInteractiveTourCandidates(record.property)
+      : [];
   const [form, setForm] = useState<FormState>(() => initialState(record));
   const [pageUrlTouched, setPageUrlTouched] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
+  const [legacyTourCandidateId, setLegacyTourCandidateId] = useState(
+    legacyTourCandidates.length === 1 ? legacyTourCandidates[0].id : "",
+  );
   const normalizedTourPreview =
     normalizeTourPrimaryInput(form.tourInput, form.tourProvider) ??
     normalizeTourPrimaryInput(form.tourInput);
@@ -896,6 +909,33 @@ function PropertyEditor({
   });
   const normalizedMapExternal = normalizeGoogleMapsInput(form.mapExternalUrl);
   const normalizedMapEmbed = normalizeGoogleMapsInput(form.mapEmbedUrl);
+  const previewLocation = serializePublicPropertyLocation({
+    displayAddress: simpleLocalizedText(
+      form.primaryLanguage,
+      form.address || "Location",
+    ),
+    latitude: numberValue(form.latitude, -90, 90),
+    longitude: numberValue(form.longitude, -180, 180),
+    privacyMode: form.privacyMode,
+    showMap: form.showMap,
+    mapExternalUrl: optional(form.mapExternalUrl),
+    mapEmbedUrl: optional(form.mapEmbedUrl),
+    mapZoom: numberValue(form.mapZoom, 1, 22),
+  });
+  const previewCoordinatesValid = hasValidPropertyCoordinates(previewLocation);
+  const mapPreview = getPropertyLocationMapView(
+    previewLocation,
+    form.privacyMode === "exact" ? form.address.trim() : "",
+  );
+  const mapStatus = !form.showMap
+    ? "Map disabled"
+    : form.privacyMode === "hidden"
+      ? "Map hidden"
+      : !previewCoordinatesValid
+        ? "Invalid coordinates"
+        : form.privacyMode === "approximate"
+          ? "Approximate public map"
+          : "Exact map with marker";
   const pageUrlPreview = `/property/${
     form.slug.trim() || generatePropertyPageSlug(form.title, form.reference)
   }`;
@@ -929,6 +969,21 @@ function PropertyEditor({
   function setPageUrl(value: string) {
     setPageUrlTouched(true);
     set("slug", generatePropertyPageSlug(value, value));
+  }
+
+  function moveLegacyTourToPropertyLevel() {
+    const candidate = legacyTourCandidates.find(
+      (item) => item.id === legacyTourCandidateId,
+    );
+    if (!candidate) return;
+
+    setForm((current) => ({
+      ...current,
+      interactiveEnabled: true,
+      interactiveProvider: candidate.tour.provider,
+      interactiveExternalUrl: candidate.tour.externalUrl ?? "",
+      interactiveEmbedUrl: candidate.tour.embedUrl ?? "",
+    }));
   }
 
   function addHighlight() {
@@ -1102,7 +1157,7 @@ function PropertyEditor({
         return;
       }
       onSaved(
-        `${mode === "create" ? "Created" : "Updated"} "${property.title.en}".`,
+        `${mode === "create" ? "Created" : "Updated"} "${property.title.en}". Saved public map mode: ${mapStatus}.`,
       );
     } catch {
       onError("Network error while saving the property.");
@@ -1485,6 +1540,48 @@ function PropertyEditor({
 
         <Section title="7. Interactive floor-plan tour">
           <div className="space-y-4">
+            {legacyTourCandidates.length > 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">
+                      Legacy floor-plan tour found
+                    </p>
+                    <p className="mt-1 leading-6">
+                      Move it explicitly into the property-level settings. It will not be migrated during an unrelated save.
+                    </p>
+                    {legacyTourCandidates.length > 1 ? (
+                      <label className="mt-3 block font-bold">
+                        Select the correct legacy tour
+                        <select
+                          value={legacyTourCandidateId}
+                          onChange={(event) =>
+                            setLegacyTourCandidateId(event.target.value)
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">Choose a tour</option>
+                          {legacyTourCandidates.map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>
+                              {candidate.label} ({candidate.tour.provider})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={moveLegacyTourToPropertyLevel}
+                      disabled={!legacyTourCandidateId}
+                      className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#0f2440] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Move legacy tour to property-level settings
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
               <input
                 type="checkbox"
@@ -1558,8 +1655,12 @@ function PropertyEditor({
         </Section>
 
         <Section title="8. Location and map">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Address">
+          <div className="space-y-5">
+            <p className="text-sm leading-6 text-muted">
+              Valid latitude and longitude are sufficient to display the map. Manual Google Maps URLs are optional advanced overrides.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Field label="1. Address">
               <input
                 required
                 value={form.address}
@@ -1567,7 +1668,21 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Privacy">
+            <Field label="2. Latitude">
+              <input
+                value={form.latitude}
+                onChange={(event) => set("latitude", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="2. Longitude">
+              <input
+                value={form.longitude}
+                onChange={(event) => set("longitude", event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="3. Privacy">
               <select
                 value={form.privacyMode}
                 onChange={(event) =>
@@ -1587,57 +1702,87 @@ function PropertyEditor({
                 onChange={(event) => set("showMap", event.target.checked)}
                 className="h-4 w-4 accent-primary"
               />
-              Show map
+              4. Show map
             </label>
-            <Field label="Zoom">
+            <Field label="5. Zoom">
               <input
                 value={form.mapZoom}
                 onChange={(event) => set("mapZoom", event.target.value)}
                 className={inputClass}
               />
             </Field>
-            <Field label="Latitude">
-              <input
-                value={form.latitude}
-                onChange={(event) => set("latitude", event.target.value)}
-                className={inputClass}
+            </div>
+
+            <div className={`rounded-lg border p-4 ${
+              mapStatus === "Invalid coordinates"
+                ? "border-red-200 bg-red-50 text-red-800"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+            }`}>
+              <p className="flex items-center gap-2 text-sm font-bold">
+                <MapPin className="h-4 w-4" aria-hidden />
+                {mapStatus}
+              </p>
+              <p className="mt-1 text-xs leading-5 opacity-80">
+                {mapStatus === "Exact map with marker"
+                  ? "The public map uses the saved coordinates and zoom."
+                  : mapStatus === "Approximate public map"
+                    ? "The public page receives rounded coordinates and no saved exact map URLs."
+                    : mapStatus === "Invalid coordinates"
+                      ? "Enter latitude from -90 to 90 and longitude from -180 to 180."
+                      : "No public map section will be rendered."}
+              </p>
+            </div>
+
+            {mapPreview.mode === "embed" ? (
+              <PropertyMapCanvas
+                mapView={mapPreview}
+                title={`Public map preview: ${form.title || "Property"}`}
+                openLabel="Open preview in Google Maps"
+                troubleLabel={mapStatus}
+                compact
               />
-            </Field>
-            <Field label="Longitude">
-              <input
-                value={form.longitude}
-                onChange={(event) => set("longitude", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field
-              label="Google Maps link"
-              hint={
-                normalizedMapExternal || !form.mapExternalUrl
-                  ? "Normal Maps links open as a fallback card action."
-                  : "Only exact Google Maps origins are accepted."
-              }
-            >
-              <input
-                value={form.mapExternalUrl}
-                onChange={(event) => set("mapExternalUrl", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field
-              label="Google Maps iframe/embed"
-              hint={
-                normalizedMapEmbed?.embedUrl || !form.mapEmbedUrl
-                  ? "Exact mode can render a validated Google Maps embed."
-                  : "Paste a Google Maps embed iframe or /maps/embed URL."
-              }
-            >
-              <input
-                value={form.mapEmbedUrl}
-                onChange={(event) => set("mapEmbedUrl", event.target.value)}
-                className={inputClass}
-              />
-            </Field>
+            ) : (
+              <div className="grid min-h-52 place-items-center rounded-lg border border-dashed border-border bg-surface px-5 text-center text-sm text-muted">
+                {mapStatus}
+              </div>
+            )}
+
+            <details className="rounded-lg border border-border bg-surface p-4">
+              <summary className="cursor-pointer text-sm font-bold text-primary">
+                Advanced Google Maps settings
+              </summary>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Google Maps external link"
+                  hint={
+                    normalizedMapExternal || !form.mapExternalUrl
+                      ? "Optional. Normal share links, including maps.app.goo.gl, open only in a new tab."
+                      : "Only exact Google Maps origins are accepted."
+                  }
+                >
+                  <input
+                    value={form.mapExternalUrl}
+                    onChange={(event) => set("mapExternalUrl", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field
+                  label="Google Maps iframe/embed code"
+                  hint={
+                    normalizedMapEmbed?.embedUrl || !form.mapEmbedUrl
+                      ? "Optional validated embed override for Exact mode."
+                      : "Paste a Google Maps /maps/embed iframe or URL."
+                  }
+                >
+                  <textarea
+                    rows={3}
+                    value={form.mapEmbedUrl}
+                    onChange={(event) => set("mapEmbedUrl", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            </details>
           </div>
         </Section>
 

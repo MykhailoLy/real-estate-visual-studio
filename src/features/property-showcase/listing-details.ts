@@ -31,6 +31,7 @@ export interface PropertyMapView {
   label: string;
   externalUrl?: string;
   embedUrl?: string;
+  markerMode?: "exact" | "approximate";
 }
 
 export interface AgentProfileView {
@@ -361,16 +362,140 @@ export function normalizeGoogleMapsInput(
   };
 }
 
-function coordinatesMapUrl(location: PropertyLocation): string | undefined {
-  if (
-    typeof location.latitude !== "number" ||
-    typeof location.longitude !== "number"
-  ) {
-    return undefined;
+export function hasValidPropertyCoordinates(
+  location: Pick<PropertyLocation, "latitude" | "longitude">,
+): location is { latitude: number; longitude: number } {
+  return (
+    typeof location.latitude === "number" &&
+    Number.isFinite(location.latitude) &&
+    location.latitude >= -90 &&
+    location.latitude <= 90 &&
+    typeof location.longitude === "number" &&
+    Number.isFinite(location.longitude) &&
+    location.longitude >= -180 &&
+    location.longitude <= 180
+  );
+}
+
+function normalizedMapZoom(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 14;
+  return Math.min(22, Math.max(1, Math.round(value ?? 14)));
+}
+
+export function googleMapsExternalUrlFromCoordinates(
+  latitude: number,
+  longitude: number,
+): string {
+  const query = encodeURIComponent(`${latitude},${longitude}`);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
+export function googleMapsEmbedUrlFromCoordinates(
+  latitude: number,
+  longitude: number,
+  zoom: number | undefined,
+  markerMode: "exact" | "approximate",
+): string {
+  const url = new URL("https://maps.google.com/maps");
+  const coordinateValue = `${latitude},${longitude}`;
+  const requestedZoom = normalizedMapZoom(zoom);
+
+  if (markerMode === "exact") {
+    url.searchParams.set("q", coordinateValue);
+    url.searchParams.set("z", String(requestedZoom));
+  } else {
+    url.searchParams.set("ll", coordinateValue);
+    url.searchParams.set("z", String(Math.min(requestedZoom, 11)));
+  }
+  url.searchParams.set("output", "embed");
+  return url.toString();
+}
+
+export function getPropertyLocationMapView(
+  location: PropertyLocation,
+  address: string,
+): PropertyMapView {
+  if (location.privacyMode === "hidden" || location.showMap === false) {
+    return {
+      mode: "hidden",
+      privacyMode: location.privacyMode,
+      address: "",
+      label: "Location is private",
+    };
   }
 
-  const query = encodeURIComponent(`${location.latitude},${location.longitude}`);
-  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+  const coordinatesAreValid = hasValidPropertyCoordinates(location);
+  const embedOverride = normalizeGoogleMapsInput(location.mapEmbedUrl);
+  const externalOverride = normalizeGoogleMapsInput(location.mapExternalUrl);
+
+  if (location.privacyMode === "approximate") {
+    if (!coordinatesAreValid) {
+      return {
+        mode: "fallback",
+        privacyMode: location.privacyMode,
+        address: "",
+        label: "Approximate location",
+      };
+    }
+
+    return {
+      mode: "embed",
+      privacyMode: location.privacyMode,
+      address: "",
+      label: "Approximate location",
+      externalUrl: googleMapsExternalUrlFromCoordinates(
+        location.latitude,
+        location.longitude,
+      ),
+      embedUrl: googleMapsEmbedUrlFromCoordinates(
+        location.latitude,
+        location.longitude,
+        location.mapZoom,
+        "approximate",
+      ),
+      markerMode: "approximate",
+    };
+  }
+
+  const generatedExternalUrl = coordinatesAreValid
+    ? googleMapsExternalUrlFromCoordinates(
+        location.latitude,
+        location.longitude,
+      )
+    : undefined;
+  const generatedEmbedUrl = coordinatesAreValid
+    ? googleMapsEmbedUrlFromCoordinates(
+        location.latitude,
+        location.longitude,
+        location.mapZoom,
+        "exact",
+      )
+    : undefined;
+  const embedUrl = embedOverride?.embedUrl ?? generatedEmbedUrl;
+  const externalUrl =
+    externalOverride?.externalUrl ??
+    generatedExternalUrl ??
+    embedOverride?.embedUrl;
+
+  if (embedUrl) {
+    return {
+      mode: "embed",
+      privacyMode: location.privacyMode,
+      address,
+      label: address || "Location",
+      externalUrl,
+      embedUrl,
+      markerMode: coordinatesAreValid ? "exact" : undefined,
+    };
+  }
+
+  return {
+    mode: "fallback",
+    privacyMode: location.privacyMode,
+    address,
+    label: address || "Location",
+    externalUrl,
+  };
 }
 
 export function getPropertyMapView(
@@ -385,45 +510,7 @@ export function getPropertyMapView(
     primaryLanguage,
   );
 
-  if (location.privacyMode === "hidden" || location.showMap === false) {
-    return {
-      mode: "hidden",
-      privacyMode: location.privacyMode,
-      address,
-      label: "Location is private",
-    };
-  }
-
-  const embed = normalizeGoogleMapsInput(location.mapEmbedUrl);
-  const external = normalizeGoogleMapsInput(location.mapExternalUrl);
-  const externalUrl =
-    location.privacyMode === "exact"
-      ? external?.externalUrl ??
-        external?.embedUrl ??
-        coordinatesMapUrl(location)
-      : undefined;
-
-  if (location.privacyMode === "exact" && embed?.embedUrl) {
-    return {
-      mode: "embed",
-      privacyMode: location.privacyMode,
-      address,
-      label: address,
-      externalUrl,
-      embedUrl: embed.embedUrl,
-    };
-  }
-
-  return {
-    mode: "fallback",
-    privacyMode: location.privacyMode,
-    address,
-    label:
-      location.privacyMode === "approximate"
-        ? "Approximate location"
-        : address || "Location",
-    externalUrl,
-  };
+  return getPropertyLocationMapView(location, address);
 }
 
 function normalizePhone(value: string | undefined): string | undefined {

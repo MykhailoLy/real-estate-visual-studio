@@ -53,11 +53,13 @@ test("public serialization removes exact map URLs and rounds approximate coordin
 
   assert.equal(serialized.location.latitude, 38.6);
   assert.equal(serialized.location.longitude, 0);
+  assert.equal(serialized.location.displayAddress.en, "");
   assert.equal(serialized.location.mapExternalUrl, undefined);
   assert.equal(serialized.location.mapEmbedUrl, undefined);
   assert.equal(payload.includes("38.603912"), false);
   assert.equal(payload.includes("-0.045316"), false);
   assert.equal(payload.includes("exact-parcel"), false);
+  assert.equal(payload.includes("Approx area"), false);
 });
 
 test("public serialization removes hidden map and address payload", () => {

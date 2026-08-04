@@ -32,6 +32,7 @@ function sanitizedApproximateLocation(
 ): PropertyLocation {
   return {
     ...location,
+    displayAddress: blankLocalizedText(location.displayAddress),
     latitude: roundPublicCoordinate(location.latitude),
     longitude: roundPublicCoordinate(location.longitude),
     mapExternalUrl: undefined,
@@ -62,17 +63,22 @@ function sanitizedNoMapLocation(location: PropertyLocation): PropertyLocation {
   };
 }
 
+export function serializePublicPropertyLocation(
+  location: PropertyLocation,
+): PropertyLocation {
+  return location.privacyMode === "hidden"
+    ? sanitizedHiddenLocation(location)
+    : location.showMap === false
+      ? sanitizedNoMapLocation(location)
+      : location.privacyMode === "approximate"
+        ? sanitizedApproximateLocation(location)
+        : sanitizedExactLocation(location);
+}
+
 export function serializePublicPropertyShowcase(
   property: PropertyShowcase,
 ): PropertyShowcase {
-  const location =
-    property.location.privacyMode === "hidden"
-      ? sanitizedHiddenLocation(property.location)
-      : property.location.showMap === false
-        ? sanitizedNoMapLocation(property.location)
-      : property.location.privacyMode === "approximate"
-        ? sanitizedApproximateLocation(property.location)
-        : sanitizedExactLocation(property.location);
+  const location = serializePublicPropertyLocation(property.location);
 
   return {
     ...property,

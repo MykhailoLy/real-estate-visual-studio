@@ -14,8 +14,8 @@ const sections = [
   { href: "#gallery", label: "Gallery", icon: Images },
   { href: "#virtual-tour", label: "360 tour", icon: ScanLine },
   { href: "#floor-plan", label: "Floor plans", icon: PanelsTopLeft },
-  { href: "#location", label: "Location", icon: MapPinned },
   { href: "#contact", label: "Contact", icon: Mail },
+  { href: "#location", label: "Location", icon: MapPinned },
 ];
 
 export default function PropertySectionNav() {

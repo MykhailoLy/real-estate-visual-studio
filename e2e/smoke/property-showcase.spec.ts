@@ -33,6 +33,37 @@ for (const viewport of propertyViewports) {
     await expect(page.locator("#floor-plan")).toBeVisible();
     await expect(page.locator("#location")).toBeVisible();
     await expect(page.getByTestId("property-facts")).toBeVisible();
+    for (const key of ["price", "listing-reference", "built-area", "plot-area"]) {
+      const value = page
+        .getByTestId(`property-fact-${key}`)
+        .locator("span")
+        .first();
+      await expect(value).toBeVisible();
+      const metrics = await value.evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return {
+          height: element.getBoundingClientRect().height,
+          lineHeight: Number.parseFloat(style.lineHeight),
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        };
+      });
+      expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 1.5);
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+    }
+    const factColumns = await page.getByTestId("property-facts").evaluate(
+      (element) =>
+        window.getComputedStyle(element).gridTemplateColumns.split(" ").length,
+    );
+    expect(factColumns).toBe(
+      viewport.width >= 1600
+        ? 8
+        : viewport.width >= 1024
+          ? 4
+          : viewport.width >= 768
+            ? 3
+            : 2,
+    );
     await expect(page.getByText("Open Mediterranean views")).toBeVisible();
     if (viewport.width >= 768) {
       await expect(page.getByRole("button", { name: "Ground floor" })).toBeVisible();
@@ -129,11 +160,33 @@ test("property showcase facts and map privacy render as listing details", async 
   expect(html).not.toContain("exact-altea-parcel");
   await expect(page.getByTestId("property-facts")).toContainText("\u20ac695,000");
   await expect(page.getByTestId("property-facts")).toContainText("PS-001");
-  await expect(page.getByTestId("property-facts")).toContainText("142 m\u00b2");
+  await expect(page.getByTestId("property-facts")).toContainText("142\u00a0m\u00b2");
   await expect(page.locator("#location")).toContainText("Approximate location");
+  await expect(page.getByTestId("property-map-iframe")).toBeVisible();
+  await expect(page.getByTestId("approximate-map-area")).toBeVisible();
+  const mapSrc = await page.getByTestId("property-map-iframe").getAttribute("src");
+  expect(mapSrc).toContain("ll=38.6%2C0");
+  expect(mapSrc).not.toContain("38.603912");
+  expect(mapSrc).not.toContain("-0.045316");
   await expect(
     page.locator("#location").getByRole("link", { name: "Open map" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  await expect(page.getByText("Approximate location", { exact: true })).toHaveCount(1);
+
+  const sectionOrder = await page.evaluate(() => ({
+    contact: document.querySelector("#contact")?.compareDocumentPosition(
+      document.querySelector("#location")!,
+    ),
+    location: document.querySelector("#location")?.compareDocumentPosition(
+      document.querySelector("footer")!,
+    ),
+  }));
+  expect(sectionOrder.contact! & 4).toBeTruthy();
+  expect(sectionOrder.location! & 4).toBeTruthy();
+
+  await page.getByRole("link", { name: "Location", exact: true }).click();
+  await expect(page).toHaveURL(/#location$/);
+  await expect(page.locator("#location")).toBeInViewport();
   await guard.expectNoPageErrorsOrServerErrors();
 });
 

@@ -60,7 +60,7 @@ test("price formatting preserves entered currency instead of assuming EUR", () =
 
 test("area formatting preserves entered units and leaves unitless values unitless", () => {
   assert.equal(formatAreaLabel("120"), "120");
-  assert.equal(formatAreaLabel("1900 sq ft"), "1,900 sq ft");
-  assert.equal(formatAreaLabel("9.19 acres"), "9.19 acres");
+  assert.equal(formatAreaLabel("1900 sq ft"), "1,900\u00a0sq ft");
+  assert.equal(formatAreaLabel("9.19 acres"), "9.19\u00a0acres");
   assert.equal(formatAreaLabel("approx. 120"), "approx. 120");
 });

@@ -52,6 +52,7 @@ import type {
 import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
+import PropertyMapCanvas from "./PropertyMapCanvas";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
 import PropertyGallery from "./costa-blanca-demo/PropertyGallery";
 import PropertySectionNav from "./costa-blanca-demo/PropertySectionNav";
@@ -127,8 +128,7 @@ export default function PropertyShowcaseView({
     agent?.whatsappHref ?? agent?.emailHref ?? agent?.website;
   const contactIsExternal = contactHref?.startsWith("http") ?? false;
   const showLanguageSwitcher = languages.length > 1;
-  const showLocation =
-    mapView.mode !== "hidden" || Boolean(property.location.airportTravelTime);
+  const showLocation = mapView.mode !== "hidden";
   const showContactSection = Boolean(contactHref || agent);
 
   return (
@@ -264,30 +264,37 @@ export default function PropertyShowcaseView({
         ) : null}
 
         {facts.length > 0 ? (
-          <section className="relative z-10 mx-auto -mt-px max-w-[1480px] px-4 sm:px-6 lg:px-10">
+          <section className="relative z-10 mx-auto max-w-[1480px] px-4 pt-5 sm:px-6 sm:pt-6 lg:px-10">
             <div
               data-testid="property-facts"
-              className={`grid border-x border-b border-black/8 bg-white shadow-[0_24px_70px_rgba(15,36,64,0.08)] ${
-                facts.length <= 4
-                  ? "grid-cols-2 md:grid-cols-4"
-                  : "grid-cols-2 md:grid-cols-4 xl:grid-cols-8"
-              }`}
+              className="grid grid-cols-2 overflow-hidden rounded-lg border border-black/10 bg-white shadow-[0_12px_35px_rgba(15,36,64,0.07)] md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8"
             >
               {facts.map((fact, index) => {
                 const Icon = factIcons[fact.key] ?? Home;
+                const hasLongValue = fact.value.length > 18;
                 return (
                   <div
                     key={`${fact.key}-${index}`}
-                    className="flex min-w-0 items-center gap-3 border-b border-r border-black/8 px-4 py-5 last:border-r-0 sm:px-5"
+                    data-testid={`property-fact-${fact.key}`}
+                    className="flex min-w-0 items-center gap-2.5 border-b border-r border-black/8 px-3 py-4 sm:gap-3 sm:px-5 sm:py-5"
                   >
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f2f0ea] text-[#1a365d]">
-                      <Icon className="h-5 w-5" aria-hidden />
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f2f0ea] text-[#1a365d] sm:h-10 sm:w-10">
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
                     </div>
-                    <div className="min-w-0">
-                      <span className="block break-words text-base font-semibold leading-tight text-[#0f2440] sm:text-lg">
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className={`block max-w-full font-semibold leading-tight tabular-nums ${
+                          fact.key === "price" ? "text-[#8d7531]" : "text-[#0f2440]"
+                        } ${
+                          hasLongValue
+                            ? "break-words text-sm sm:text-base"
+                            : "overflow-hidden text-ellipsis whitespace-nowrap text-[15px] sm:text-lg"
+                        }`}
+                        title={fact.value}
+                      >
                         {fact.value}
                       </span>
-                      <span className="mt-1 block text-xs font-medium text-slate-500">
+                      <span className="mt-1 block text-[11px] font-medium leading-4 text-slate-500 sm:text-xs">
                         {fact.label}
                       </span>
                     </div>
@@ -413,111 +420,6 @@ export default function PropertyShowcaseView({
             locale={language}
             primaryLanguage={primaryLanguage}
           />
-        ) : null}
-
-        {showLocation ? (
-          <section id="location" className="mx-auto max-w-[1480px] scroll-mt-36 px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-24">
-            <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:items-center lg:gap-16">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
-                  {ui.location}
-                </p>
-                <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#0f2440] sm:text-4xl">
-                  {mapView.privacyMode === "approximate"
-                    ? ui.mapApproximate
-                    : mapView.privacyMode === "hidden"
-                      ? ui.mapHidden
-                      : address}
-                </h2>
-                <div className="mt-8 space-y-3 text-sm text-slate-600">
-                  {address ? (
-                    <p className="flex items-center gap-3">
-                      <MapPin className="h-4 w-4 text-[#a88b3a]" aria-hidden />
-                      {address}
-                    </p>
-                  ) : null}
-                  {property.location.airportTravelTime ? (
-                    <p className="flex items-center gap-3">
-                      <Car className="h-4 w-4 text-[#a88b3a]" aria-hidden />
-                      {localizedText(
-                        property.location.airportTravelTime,
-                        language,
-                        primaryLanguage,
-                      )}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              {mapView.mode === "embed" ? (
-                <div className="overflow-hidden rounded-3xl border border-black/8 bg-white shadow-sm">
-                  <div className="relative aspect-[16/10] min-h-[360px]">
-                    <iframe
-                      src={mapView.embedUrl}
-                      title={`${ui.location}: ${title}`}
-                      className="absolute inset-0 h-full w-full border-0"
-                      loading="lazy"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                    />
-                  </div>
-                  {mapView.externalUrl ? (
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/8 px-5 py-4">
-                      <span className="text-sm font-medium text-slate-600">
-                        {ui.mapTrouble}
-                      </span>
-                      <a
-                        href={mapView.externalUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white"
-                      >
-                        <ExternalLink className="h-4 w-4" aria-hidden />
-                        {ui.mapOpen}
-                      </a>
-                    </div>
-                  ) : null}
-                </div>
-              ) : mapView.mode === "fallback" ? (
-                <div className="relative min-h-[360px] overflow-hidden rounded-3xl border border-black/8 bg-[#dce5df] shadow-sm">
-                  <div
-                    className="absolute inset-0 opacity-55"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(rgba(15,36,64,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(15,36,64,0.12) 1px, transparent 1px)",
-                      backgroundSize: "44px 44px",
-                    }}
-                  />
-                  <div className="absolute inset-0 grid place-items-center px-5 text-center">
-                    <div>
-                      <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#0f2440] text-white">
-                        <MapPin className="h-8 w-8" aria-hidden />
-                      </div>
-                      <h3 className="mt-5 text-2xl font-semibold text-[#0f2440]">
-                        {mapView.label}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {mapView.privacyMode === "approximate"
-                          ? ui.mapExactCoordinatesHidden
-                          : address}
-                      </p>
-                      {mapView.externalUrl ? (
-                        <a
-                          href={mapView.externalUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white"
-                        >
-                          <ExternalLink className="h-4 w-4" aria-hidden />
-                          {ui.mapOpen}
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </section>
         ) : null}
 
         {showContactSection ? (
@@ -660,6 +562,61 @@ export default function PropertyShowcaseView({
             </div>
           </div>
         </section>
+        ) : null}
+
+        {showLocation ? (
+          <section
+            id="location"
+            data-testid="property-location-section"
+            className="scroll-mt-36 border-t border-black/8 bg-white/45"
+          >
+            <div className="mx-auto max-w-[1480px] px-4 py-14 sm:px-6 sm:py-16 lg:px-10 lg:py-20">
+              <div className="mb-7 max-w-3xl sm:mb-9">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a88b3a]">
+                  {ui.location}
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold leading-tight text-[#0f2440] sm:text-3xl">
+                  {mapView.privacyMode === "approximate"
+                    ? ui.mapApproximate
+                    : address || ui.location}
+                </h2>
+                {mapView.privacyMode === "approximate" ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {ui.mapExactCoordinatesHidden}
+                  </p>
+                ) : null}
+                {property.location.airportTravelTime ? (
+                  <p className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                    <Car className="h-4 w-4 text-[#a88b3a]" aria-hidden />
+                    {localizedText(
+                      property.location.airportTravelTime,
+                      language,
+                      primaryLanguage,
+                    )}
+                  </p>
+                ) : null}
+              </div>
+
+              {mapView.mode === "embed" ? (
+                <PropertyMapCanvas
+                  mapView={mapView}
+                  title={`${ui.location}: ${title}`}
+                  openLabel={ui.mapOpen}
+                  troubleLabel={ui.mapTrouble}
+                />
+              ) : (
+                <div className="grid min-h-64 place-items-center rounded-lg border border-black/10 bg-[#e5ebe7] px-5 text-center">
+                  <div>
+                    <MapPin className="mx-auto h-7 w-7 text-[#a88b3a]" aria-hidden />
+                    <p className="mt-3 font-semibold text-[#0f2440]">{mapView.label}</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Map coordinates are unavailable for this listing.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         ) : null}
       </main>
 

@@ -494,3 +494,48 @@ test("saving media does not remove highlights, location or agent data", () => {
   assert.deepEqual(result.property?.location, existing.location);
   assert.deepEqual(result.property?.agent, existing.agent);
 });
+
+test("media saves do not duplicate property-level CubiCasa data onto ordinary plans", () => {
+  const existing = withExternalMedia();
+  existing.floorPlans = existing.floorPlans.map((plan) => ({
+    id: plan.id,
+    title: plan.title,
+    imageUrl: plan.imageUrl,
+    downloadUrl: plan.downloadUrl,
+    sortOrder: plan.sortOrder,
+  }));
+  const incoming = structuredClone(existing);
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    replaceFloorPlans: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.property?.interactiveFloorPlanTour?.provider, "cubiCasa");
+  assert.equal(result.property?.floorPlans[0]?.interactiveProvider, undefined);
+  assert.equal(result.property?.floorPlans[0]?.interactiveExternalUrl, undefined);
+  assert.equal(result.property?.floorPlans[0]?.interactiveEmbedUrl, undefined);
+});
+
+test("details saves preserve exact and approximate privacy selections", () => {
+  const existing = withExternalMedia();
+  existing.location.privacyMode = "exact";
+  const approximate = structuredClone(existing);
+  approximate.location.privacyMode = "approximate";
+
+  const approximateResult = mergePropertyShowcaseUpdate(
+    existing,
+    approximate,
+    "details",
+  );
+  assert.equal(approximateResult.property?.location.privacyMode, "approximate");
+
+  const exact = structuredClone(approximateResult.property!);
+  exact.location.privacyMode = "exact";
+  const exactResult = mergePropertyShowcaseUpdate(
+    approximateResult.property!,
+    exact,
+    "details",
+  );
+  assert.equal(exactResult.property?.location.privacyMode, "exact");
+});

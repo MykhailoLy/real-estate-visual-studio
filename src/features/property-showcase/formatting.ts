@@ -156,7 +156,7 @@ export function formatAreaLabel(value: string | undefined): string {
 
   const unit = normalizeAreaUnit(match[2] ?? "");
   return unit
-    ? `${formatMeasurementNumber(amount)} ${unit}`
+    ? `${formatMeasurementNumber(amount)}\u00a0${unit}`
     : formatMeasurementNumber(amount);
 }
 

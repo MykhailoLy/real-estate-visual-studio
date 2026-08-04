@@ -26,12 +26,15 @@ import {
   formatImageBytes,
   optimizePropertyImage,
 } from "@/features/property-showcase/client-image-optimizer";
-import { normalizeFloorPlanInteractiveUrl } from "@/features/property-showcase/provider-urls";
+import {
+  getPrimaryLanguage,
+  getPropertyLanguageOptions,
+  PROPERTY_LANGUAGE_LABELS,
+} from "@/features/property-showcase/localization";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyShowcase,
-  PropertyTourProvider,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
 import { getSupabaseBrowser } from "@/lib/supabase";
@@ -353,6 +356,8 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const [lastSavings, setLastSavings] = useState<SavingsSummary | null>(null);
 
   const realGallery = gallery.filter((item) => !isDemoAsset(item.src));
+  const primaryLanguage = getPrimaryLanguage(record.property);
+  const floorPlanLanguages = getPropertyLanguageOptions(record.property);
 
   function normalize(items: PropertyGalleryImage[]): PropertyGalleryImage[] {
     return items.map((item, index) => ({ ...item, sortOrder: index + 1 }));
@@ -433,72 +438,22 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   function applyFloorPlanPreset(planId: string, preset: string) {
     const match = FLOOR_PLAN_PRESETS.find((item) => item.en === preset);
     if (!match) return;
-    updateFloorPlan(planId, {
-      title: { en: match.en, es: match.es },
-    });
-  }
-
-  function clearFloorPlanInteractive(plan: PropertyFloorPlan): PropertyFloorPlan {
-    return {
-      id: plan.id,
-      title: plan.title,
-      imageUrl: plan.imageUrl,
-      downloadUrl: plan.downloadUrl,
-      sortOrder: plan.sortOrder,
-    };
-  }
-
-  function interactiveInputValue(plan: PropertyFloorPlan): string {
-    return (
-      plan.interactiveEmbedUrl ??
-      plan.interactiveExternalUrl ??
-      plan.interactiveUrl ??
-      ""
-    );
-  }
-
-  function updateFloorPlanInteractiveInput(planId: string, value: string) {
-    const trimmed = value.trim();
-    const normalized = normalizeFloorPlanInteractiveUrl(trimmed);
-
     setFloorPlans((current) =>
-      current.map((plan) => {
-        if (plan.id !== planId) return plan;
-        if (!trimmed) return clearFloorPlanInteractive(plan);
-        if (!normalized) {
-          return {
-            ...clearFloorPlanInteractive(plan),
-            interactiveUrl: value,
-          };
-        }
-
-        return {
-          ...clearFloorPlanInteractive(plan),
-          interactiveProvider: normalized.provider,
-          interactiveExternalUrl: normalized.externalUrl,
-          interactiveEmbedUrl: normalized.embedUrl,
-        };
-      }),
+      current.map((plan) =>
+        plan.id === planId
+          ? {
+              ...plan,
+              title: {
+                ...plan.title,
+                en: match.en,
+                es: match.es,
+                [primaryLanguage]:
+                  primaryLanguage === "es" ? match.es : match.en,
+              },
+            }
+          : plan,
+      ),
     );
-  }
-
-  function updateFloorPlanInteractiveProvider(
-    planId: string,
-    provider: PropertyTourProvider,
-  ) {
-    updateFloorPlan(planId, { interactiveProvider: provider });
-  }
-
-  function updateFloorPlanExternalUrl(planId: string, value: string) {
-    updateFloorPlan(planId, {
-      interactiveExternalUrl: value.trim() ? value : undefined,
-    });
-  }
-
-  function updateFloorPlanEmbedUrl(planId: string, value: string) {
-    updateFloorPlan(planId, {
-      interactiveEmbedUrl: value.trim() ? value : undefined,
-    });
   }
 
   function removeFloorPlan(planId: string) {
@@ -999,7 +954,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-900">
         <span className="font-bold">Automatic optimization is active.</span>{" "}
         Gallery photos are converted to WebP and limited to 2800 px. Floor plans use a sharper 4000 px profile. Original files stay on your computer.
@@ -1209,10 +1164,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         </header>
         <div className="p-5">
           {floorPlans.length > 0 ? (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 xl:grid-cols-2">
               {floorPlans.map((plan, index) => {
                 const primary = index === 0;
-                const interactiveValue = interactiveInputValue(plan);
 
                 return (
                   <article
@@ -1224,7 +1178,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                       event.preventDefault()
                     }
                     onDrop={() => dropFloorPlanOn(plan.id)}
-                    className={`overflow-hidden rounded-2xl border bg-white transition ${
+                    className={`overflow-hidden rounded-lg border bg-white transition ${
                       draggedFloorPlanId === plan.id
                         ? "border-primary opacity-55"
                         : "border-border"
@@ -1252,40 +1206,31 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                       </div>
                     </div>
 
-                    <div className="space-y-4 p-4">
-                      <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-3 p-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {floorPlanLanguages.map((language) => (
+                          <label
+                            key={language}
+                            className="block min-w-0 text-xs font-bold text-foreground"
+                          >
+                            {PROPERTY_LANGUAGE_LABELS[language]} title
+                            {language === primaryLanguage ? " (primary)" : ""}
+                            <input
+                              value={plan.title[language] ?? ""}
+                              onChange={(event) =>
+                                updateFloorPlan(plan.id, {
+                                  title: {
+                                    ...plan.title,
+                                    [language]: event.target.value,
+                                  },
+                                })
+                              }
+                              className="mt-1.5 w-full min-w-0 rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
+                            />
+                          </label>
+                        ))}
                         <label className="block text-xs font-bold text-foreground">
-                          English title
-                          <input
-                            value={plan.title.en}
-                            onChange={(event) =>
-                              updateFloorPlan(plan.id, {
-                                title: {
-                                  ...plan.title,
-                                  en: event.target.value,
-                                },
-                              })
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                        <label className="block text-xs font-bold text-foreground">
-                          Spanish title
-                          <input
-                            value={plan.title.es ?? ""}
-                            onChange={(event) =>
-                              updateFloorPlan(plan.id, {
-                                title: {
-                                  ...plan.title,
-                                  es: event.target.value,
-                                },
-                              })
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                        <label className="block text-xs font-bold text-foreground">
-                          Preset
+                          Floor/type preset
                           <select
                             value=""
                             onChange={(event) =>
@@ -1301,95 +1246,6 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                             ))}
                           </select>
                         </label>
-                        <label className="block text-xs font-bold text-foreground">
-                          Download URL
-                          <input
-                            value={plan.downloadUrl ?? ""}
-                            onChange={(event) =>
-                              updateFloorPlan(plan.id, {
-                                downloadUrl: event.target.value || undefined,
-                              })
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="rounded-xl border border-border bg-surface p-3">
-                        <label className="block text-xs font-bold text-foreground">
-                          Legacy interactive plan metadata
-                          <textarea
-                            rows={3}
-                            value={interactiveValue}
-                            readOnly
-                            aria-readonly="true"
-                            onChange={(event) =>
-                              updateFloorPlanInteractiveInput(
-                                plan.id,
-                                event.target.value,
-                              )
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                          />
-                        </label>
-                        <p className="mt-2 text-xs leading-5 text-muted">
-                          Preserved as a fallback for older listings. Edit the
-                          property-level interactive floor-plan tour in
-                          Properties.
-                        </p>
-                        <details className="mt-3">
-                          <summary className="cursor-pointer text-xs font-bold text-primary">
-                            Advanced settings
-                          </summary>
-                          <div className="mt-3 grid gap-3 md:grid-cols-3">
-                            <label className="block text-xs font-bold text-foreground">
-                              Provider
-                              <select
-                                value={plan.interactiveProvider ?? "cubiCasa"}
-                                onChange={(event) =>
-                                  updateFloorPlanInteractiveProvider(
-                                    plan.id,
-                                    event.target.value as PropertyTourProvider,
-                                  )
-                                }
-                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                              >
-                                <option value="cubiCasa">CubiCasa</option>
-                                <option value="floorfy">Floorfy</option>
-                                <option value="nodalview">Nodalview</option>
-                                <option value="kuula">Kuula</option>
-                                <option value="matterport">Matterport</option>
-                                <option value="custom">Custom</option>
-                              </select>
-                            </label>
-                            <label className="block text-xs font-bold text-foreground">
-                              Original/fallback URL
-                              <input
-                                value={plan.interactiveExternalUrl ?? ""}
-                                onChange={(event) =>
-                                  updateFloorPlanExternalUrl(
-                                    plan.id,
-                                    event.target.value,
-                                  )
-                                }
-                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                              />
-                            </label>
-                            <label className="block text-xs font-bold text-foreground">
-                              Normalized embed URL
-                              <input
-                                value={plan.interactiveEmbedUrl ?? ""}
-                                onChange={(event) =>
-                                  updateFloorPlanEmbedUrl(
-                                    plan.id,
-                                    event.target.value,
-                                  )
-                                }
-                                className="mt-1.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold outline-none focus:border-primary"
-                              />
-                            </label>
-                          </div>
-                        </details>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -1406,17 +1262,15 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                             className="sr-only"
                           />
                         </label>
-                        {plan.downloadUrl ? (
-                          <a
-                            href={plan.downloadUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                            Open file
-                          </a>
-                        ) : null}
+                        <a
+                          href={plan.downloadUrl ?? plan.imageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                          Open file
+                        </a>
                         <button
                           type="button"
                           onClick={() => moveFloorPlan(plan.id, -1)}
@@ -1669,7 +1523,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         </div>
       </section>
 
-      <div className="sticky bottom-4 z-20 flex justify-end">
+      <div className="sticky bottom-0 z-20 -mx-1 flex justify-end border-t border-border bg-white/95 p-3 shadow-[0_-10px_30px_rgba(15,36,64,0.08)] backdrop-blur">
         <button
           type="button"
           onClick={save}

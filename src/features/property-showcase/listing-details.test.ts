@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
 import {
+  googleMapsEmbedUrlFromCoordinates,
   getListingReferenceLabel,
   labelForListingReferenceMode,
   getPropertyMapView,
@@ -35,7 +36,7 @@ test("facts rendering adds price and listing reference without empty cells", () 
   assert.deepEqual(normalizeListingFacts(property, "en"), [
     { key: "price", label: "Price", value: "$385,560" },
     { key: "listing-reference", label: "Reference", value: "MLS-123" },
-    { key: "built-area", label: "Interior", value: "1,900 sq ft" },
+    { key: "built-area", label: "Interior", value: "1,900\u00a0sq ft" },
   ]);
 });
 
@@ -121,23 +122,38 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
     displayAddress: { en: "Exact address" },
     privacyMode: "exact",
     showMap: true,
-    mapExternalUrl: "https://www.google.com/maps/place/Exact",
-    mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact",
+    latitude: 38.603912,
+    longitude: -0.045316,
+    mapZoom: 16,
   };
-  assert.equal(getPropertyMapView(property, "en").mode, "embed");
+  const exact = getPropertyMapView(property, "en");
+  assert.equal(exact.mode, "embed");
+  assert.equal(exact.markerMode, "exact");
+  assert.equal(
+    exact.externalUrl,
+    "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
+  );
+  assert.equal(exact.embedUrl?.includes("q=38.603912%2C-0.045316"), true);
+  assert.equal(exact.embedUrl?.includes("z=16"), true);
 
   property.location = {
-    displayAddress: { en: "Approx area" },
+    displayAddress: { en: "" },
     privacyMode: "approximate",
     showMap: true,
     latitude: 38.6,
-    longitude: -0.05,
-    mapExternalUrl: "https://www.google.com/maps/search/?api=1&query=38.6%2C-0.05",
-    mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact",
+    longitude: 0,
+    mapZoom: 15,
   };
   const approximate = getPropertyMapView(property, "en");
-  assert.equal(approximate.mode, "fallback");
-  assert.equal(approximate.externalUrl, undefined);
+  assert.equal(approximate.mode, "embed");
+  assert.equal(approximate.markerMode, "approximate");
+  assert.equal(approximate.embedUrl?.includes("ll=38.6%2C0"), true);
+  assert.equal(approximate.embedUrl?.includes("q="), false);
+  assert.equal(approximate.embedUrl?.includes("z=11"), true);
+  assert.equal(
+    approximate.externalUrl,
+    "https://www.google.com/maps/search/?api=1&query=38.6%2C0",
+  );
 
   property.location = {
     displayAddress: { en: "Hidden" },
@@ -145,6 +161,22 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
     showMap: true,
   };
   assert.equal(getPropertyMapView(property, "en").mode, "hidden");
+});
+
+test("coordinate map embeds use a marker only for exact mode", () => {
+  const exact = googleMapsEmbedUrlFromCoordinates(38.6, -0.04, 17, "exact");
+  const approximate = googleMapsEmbedUrlFromCoordinates(
+    38.6,
+    -0.04,
+    17,
+    "approximate",
+  );
+
+  assert.equal(exact.includes("q=38.6%2C-0.04"), true);
+  assert.equal(exact.includes("z=17"), true);
+  assert.equal(approximate.includes("ll=38.6%2C-0.04"), true);
+  assert.equal(approximate.includes("q="), false);
+  assert.equal(approximate.includes("z=11"), true);
 });
 
 test("agent profile normalizes safe contacts and social links", () => {
