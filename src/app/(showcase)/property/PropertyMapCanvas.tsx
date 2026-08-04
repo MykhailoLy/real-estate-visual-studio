@@ -1,4 +1,4 @@
-import { ExternalLink, MapPin } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { PropertyMapView } from "@/features/property-showcase/listing-details";
 
 interface PropertyMapCanvasProps {
@@ -36,16 +36,6 @@ export default function PropertyMapCanvas({
           allowFullScreen
           data-testid="property-map-iframe"
         />
-
-        {mapView.markerMode === "exact" ? (
-          <div
-            data-testid="exact-map-marker-status"
-            className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/95 px-3 py-2 text-xs font-bold text-[#0f2440] shadow-md"
-          >
-            <MapPin className="h-4 w-4 text-[#a88b3a]" aria-hidden />
-            Exact map with marker
-          </div>
-        ) : null}
 
         {mapView.markerMode === "approximate" ? (
           <div

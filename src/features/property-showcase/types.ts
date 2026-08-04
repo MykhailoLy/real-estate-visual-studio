@@ -137,6 +137,7 @@ export interface PropertyLocation {
   showMap?: boolean;
   mapExternalUrl?: string;
   mapEmbedUrl?: string;
+  useCustomMapEmbed?: boolean;
   mapZoom?: number;
 }
 

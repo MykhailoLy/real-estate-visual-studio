@@ -539,3 +539,27 @@ test("details saves preserve exact and approximate privacy selections", () => {
   );
   assert.equal(exactResult.property?.location.privacyMode, "exact");
 });
+
+test("details saves preserve a disabled custom map embed without rendering intent", () => {
+  const existing = withExternalMedia();
+  existing.location = {
+    displayAddress: { en: "Exact address" },
+    privacyMode: "exact",
+    showMap: true,
+    latitude: 38.603912,
+    longitude: -0.045316,
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=legacy-area",
+    useCustomMapEmbed: true,
+  };
+  const incoming = structuredClone(existing);
+  incoming.location.useCustomMapEmbed = false;
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "details");
+
+  assert.equal(result.ok, true);
+  assert.equal(
+    result.property?.location.mapEmbedUrl,
+    "https://www.google.com/maps/embed?pb=legacy-area",
+  );
+  assert.equal(result.property?.location.useCustomMapEmbed, false);
+});

@@ -16,6 +16,13 @@ const propertyEditorSource = readFileSync(
   ),
   "utf8",
 );
+const propertyMapCanvasSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertyMapCanvas.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("ordinary floor-plan cards hide legacy CubiCasa and raw URL controls", () => {
   assert.equal(mediaManagerSource.includes("Legacy interactive plan metadata"), false);
@@ -35,4 +42,28 @@ test("legacy tour promotion remains an explicit property-editor action", () => {
     propertyEditorSource.includes("Select the correct legacy tour"),
     true,
   );
+});
+
+test("map admin distinguishes generated maps from an explicit custom embed", () => {
+  assert.equal(
+    propertyEditorSource.includes("Use custom Google Maps embed"),
+    true,
+  );
+  assert.equal(
+    propertyEditorSource.includes("Generated exact marker map"),
+    true,
+  );
+  assert.equal(
+    propertyEditorSource.includes("Generated approximate map"),
+    true,
+  );
+  assert.equal(
+    propertyEditorSource.includes("Custom Google Maps embed"),
+    true,
+  );
+});
+
+test("public exact maps do not add a marker status overlay", () => {
+  assert.equal(propertyMapCanvasSource.includes("exact-map-marker-status"), false);
+  assert.equal(propertyMapCanvasSource.includes("Exact map with marker"), false);
 });

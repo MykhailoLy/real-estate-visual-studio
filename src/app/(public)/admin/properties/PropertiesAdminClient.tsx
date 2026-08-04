@@ -35,7 +35,6 @@ import {
   labelForListingReferenceMode,
   LISTING_REFERENCE_LABEL_PRESETS,
   getPropertyLocationMapView,
-  hasValidPropertyCoordinates,
   normalizeGoogleMapsInput,
 } from "@/features/property-showcase/listing-details";
 import {
@@ -110,6 +109,7 @@ interface FormState {
   longitude: string;
   mapExternalUrl: string;
   mapEmbedUrl: string;
+  useCustomMapEmbed: boolean;
   mapZoom: string;
   tourProvider: PropertyTourProvider;
   tourInput: string;
@@ -267,6 +267,7 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
         : "",
     mapExternalUrl: property?.location.mapExternalUrl ?? "",
     mapEmbedUrl: property?.location.mapEmbedUrl ?? "",
+    useCustomMapEmbed: property?.location.useCustomMapEmbed ?? false,
     mapZoom:
       typeof property?.location.mapZoom === "number"
         ? String(property.location.mapZoom)
@@ -559,6 +560,7 @@ function buildProperty(
       showMap: state.showMap,
       mapExternalUrl: optional(state.mapExternalUrl),
       mapEmbedUrl: optional(state.mapEmbedUrl),
+      useCustomMapEmbed: state.useCustomMapEmbed,
       mapZoom: numberValue(state.mapZoom, 1, 22),
       airportTravelTime: existing?.location.airportTravelTime,
     },
@@ -920,22 +922,23 @@ function PropertyEditor({
     showMap: form.showMap,
     mapExternalUrl: optional(form.mapExternalUrl),
     mapEmbedUrl: optional(form.mapEmbedUrl),
+    useCustomMapEmbed: form.useCustomMapEmbed,
     mapZoom: numberValue(form.mapZoom, 1, 22),
   });
-  const previewCoordinatesValid = hasValidPropertyCoordinates(previewLocation);
   const mapPreview = getPropertyLocationMapView(
     previewLocation,
     form.privacyMode === "exact" ? form.address.trim() : "",
   );
-  const mapStatus = !form.showMap
-    ? "Map disabled"
-    : form.privacyMode === "hidden"
-      ? "Map hidden"
-      : !previewCoordinatesValid
-        ? "Invalid coordinates"
-        : form.privacyMode === "approximate"
-          ? "Approximate public map"
-          : "Exact map with marker";
+  const mapStatus =
+    mapPreview.source === "generated-exact"
+      ? "Generated exact marker map"
+      : mapPreview.source === "generated-approximate"
+        ? "Generated approximate map"
+        : mapPreview.source === "custom-embed"
+          ? "Custom Google Maps embed"
+          : mapPreview.source === "hidden"
+            ? "Map hidden"
+            : "Invalid coordinates";
   const pageUrlPreview = `/property/${
     form.slug.trim() || generatePropertyPageSlug(form.title, form.reference)
   }`;
@@ -1723,13 +1726,15 @@ function PropertyEditor({
                 {mapStatus}
               </p>
               <p className="mt-1 text-xs leading-5 opacity-80">
-                {mapStatus === "Exact map with marker"
-                  ? "The public map uses the saved coordinates and zoom."
-                  : mapStatus === "Approximate public map"
+                {mapStatus === "Generated exact marker map"
+                  ? "The public map uses the saved coordinates, marker, and zoom."
+                  : mapStatus === "Generated approximate map"
                     ? "The public page receives rounded coordinates and no saved exact map URLs."
-                    : mapStatus === "Invalid coordinates"
-                      ? "Enter latitude from -90 to 90 and longitude from -180 to 180."
-                      : "No public map section will be rendered."}
+                    : mapStatus === "Custom Google Maps embed"
+                      ? "The saved, validated Google Maps iframe is active for this exact map."
+                      : mapStatus === "Invalid coordinates"
+                        ? "Enter latitude from -90 to 90 and longitude from -180 to 180."
+                        : "No public map section will be rendered."}
               </p>
             </div>
 
@@ -1756,7 +1761,7 @@ function PropertyEditor({
                   label="Google Maps external link"
                   hint={
                     normalizedMapExternal || !form.mapExternalUrl
-                      ? "Optional. Normal share links, including maps.app.goo.gl, open only in a new tab."
+                      ? "Optional fallback when exact coordinates are unavailable. Normal share links, including maps.app.goo.gl, open only in a new tab."
                       : "Only exact Google Maps origins are accepted."
                   }
                 >
@@ -1770,10 +1775,21 @@ function PropertyEditor({
                   label="Google Maps iframe/embed code"
                   hint={
                     normalizedMapEmbed?.embedUrl || !form.mapEmbedUrl
-                      ? "Optional validated embed override for Exact mode."
+                      ? "Preserved for compatibility. It is active only when the custom embed setting is enabled."
                       : "Paste a Google Maps /maps/embed iframe or URL."
                   }
                 >
+                  <label className="mb-3 flex items-center gap-3 text-sm font-bold text-primary">
+                    <input
+                      type="checkbox"
+                      checked={form.useCustomMapEmbed}
+                      onChange={(event) =>
+                        set("useCustomMapEmbed", event.target.checked)
+                      }
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Use custom Google Maps embed
+                  </label>
                   <textarea
                     rows={3}
                     value={form.mapEmbedUrl}

@@ -26,6 +26,12 @@ export interface ListingFactView {
 
 export interface PropertyMapView {
   mode: "hidden" | "fallback" | "embed";
+  source:
+    | "hidden"
+    | "invalid-coordinates"
+    | "generated-exact"
+    | "generated-approximate"
+    | "custom-embed";
   privacyMode: PropertyLocation["privacyMode"];
   address: string;
   label: string;
@@ -418,6 +424,7 @@ export function getPropertyLocationMapView(
   if (location.privacyMode === "hidden" || location.showMap === false) {
     return {
       mode: "hidden",
+      source: "hidden",
       privacyMode: location.privacyMode,
       address: "",
       label: "Location is private",
@@ -432,6 +439,7 @@ export function getPropertyLocationMapView(
     if (!coordinatesAreValid) {
       return {
         mode: "fallback",
+        source: "invalid-coordinates",
         privacyMode: location.privacyMode,
         address: "",
         label: "Approximate location",
@@ -440,6 +448,7 @@ export function getPropertyLocationMapView(
 
     return {
       mode: "embed",
+      source: "generated-approximate",
       privacyMode: location.privacyMode,
       address: "",
       label: "Approximate location",
@@ -471,26 +480,32 @@ export function getPropertyLocationMapView(
         "exact",
       )
     : undefined;
-  const embedUrl = embedOverride?.embedUrl ?? generatedEmbedUrl;
+  const useCustomEmbed = location.useCustomMapEmbed === true;
+  const useGeneratedExactMap = Boolean(generatedEmbedUrl);
+  const customEmbedUrl = useCustomEmbed ? embedOverride?.embedUrl : undefined;
+  const embedUrl = customEmbedUrl ?? generatedEmbedUrl;
   const externalUrl =
-    externalOverride?.externalUrl ??
     generatedExternalUrl ??
-    embedOverride?.embedUrl;
+    externalOverride?.externalUrl ??
+    customEmbedUrl;
 
   if (embedUrl) {
     return {
       mode: "embed",
+      source: customEmbedUrl ? "custom-embed" : "generated-exact",
       privacyMode: location.privacyMode,
       address,
       label: address || "Location",
       externalUrl,
       embedUrl,
-      markerMode: coordinatesAreValid ? "exact" : undefined,
+      markerMode:
+        useGeneratedExactMap && !customEmbedUrl ? "exact" : undefined,
     };
   }
 
   return {
     mode: "fallback",
+    source: "invalid-coordinates",
     privacyMode: location.privacyMode,
     address,
     label: address || "Location",

@@ -132,6 +132,7 @@ const PropertyLocationSchema = z
     showMap: z.boolean().optional(),
     mapExternalUrl: optionalTrimmed(2048),
     mapEmbedUrl: optionalTrimmed(4096),
+    useCustomMapEmbed: z.boolean().optional(),
     mapZoom: z.number().int().min(1).max(22).optional(),
   })
   .strict();

@@ -128,6 +128,7 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
   };
   const exact = getPropertyMapView(property, "en");
   assert.equal(exact.mode, "embed");
+  assert.equal(exact.source, "generated-exact");
   assert.equal(exact.markerMode, "exact");
   assert.equal(
     exact.externalUrl,
@@ -143,9 +144,12 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
     latitude: 38.6,
     longitude: 0,
     mapZoom: 15,
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact-parcel",
+    useCustomMapEmbed: true,
   };
   const approximate = getPropertyMapView(property, "en");
   assert.equal(approximate.mode, "embed");
+  assert.equal(approximate.source, "generated-approximate");
   assert.equal(approximate.markerMode, "approximate");
   assert.equal(approximate.embedUrl?.includes("ll=38.6%2C0"), true);
   assert.equal(approximate.embedUrl?.includes("q="), false);
@@ -159,8 +163,51 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
     displayAddress: { en: "Hidden" },
     privacyMode: "hidden",
     showMap: true,
+    latitude: 38.688771,
+    longitude: 0.134412,
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=hidden-parcel",
+    useCustomMapEmbed: true,
   };
   assert.equal(getPropertyMapView(property, "en").mode, "hidden");
+  assert.equal(getPropertyMapView(property, "en").source, "hidden");
+});
+
+test("exact maps generate the coordinate marker by default despite a saved embed", () => {
+  const property = cloneProperty();
+  const legacyEmbed = "https://www.google.com/maps/embed?pb=old-satellite-area";
+
+  property.location = {
+    displayAddress: { en: "Exact address" },
+    privacyMode: "exact",
+    showMap: true,
+    latitude: 38.603912,
+    longitude: -0.045316,
+    mapZoom: 16,
+    mapExternalUrl: "https://www.google.com/maps/place/Old+area",
+    mapEmbedUrl: legacyEmbed,
+    useCustomMapEmbed: false,
+  };
+
+  const generated = getPropertyMapView(property, "en");
+  assert.equal(generated.source, "generated-exact");
+  assert.equal(generated.markerMode, "exact");
+  assert.equal(generated.embedUrl?.includes("q=38.603912%2C-0.045316"), true);
+  assert.equal(generated.embedUrl?.includes("z=16"), true);
+  assert.notEqual(generated.embedUrl, legacyEmbed);
+  assert.equal(
+    generated.externalUrl,
+    "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
+  );
+
+  property.location.useCustomMapEmbed = true;
+  const custom = getPropertyMapView(property, "en");
+  assert.equal(custom.source, "custom-embed");
+  assert.equal(custom.embedUrl, legacyEmbed);
+  assert.equal(custom.markerMode, undefined);
+  assert.equal(
+    custom.externalUrl,
+    "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
+  );
 });
 
 test("coordinate map embeds use a marker only for exact mode", () => {

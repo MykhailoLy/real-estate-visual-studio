@@ -19,6 +19,7 @@ test("public serialization keeps exact map values only for exact privacy mode", 
     mapExternalUrl:
       "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact-parcel",
+    useCustomMapEmbed: false,
   };
 
   const serialized = serializePublicPropertyShowcase(property);
@@ -33,6 +34,7 @@ test("public serialization keeps exact map values only for exact privacy mode", 
     serialized.location.mapEmbedUrl,
     "https://www.google.com/maps/embed?pb=exact-parcel",
   );
+  assert.equal(serialized.location.useCustomMapEmbed, false);
 });
 
 test("public serialization removes exact map URLs and rounds approximate coordinates", () => {
@@ -46,6 +48,7 @@ test("public serialization removes exact map URLs and rounds approximate coordin
     mapExternalUrl:
       "https://www.google.com/maps/search/?api=1&query=38.603912%2C-0.045316",
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=exact-parcel",
+    useCustomMapEmbed: true,
   };
 
   const serialized = serializePublicPropertyShowcase(property);
@@ -73,6 +76,7 @@ test("public serialization removes hidden map and address payload", () => {
     mapExternalUrl:
       "https://www.google.com/maps/search/?api=1&query=38.688771%2C0.134412",
     mapEmbedUrl: "https://www.google.com/maps/embed?pb=hidden-parcel",
+    useCustomMapEmbed: true,
   };
 
   const serialized = serializePublicPropertyShowcase(property);
