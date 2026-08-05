@@ -8,6 +8,18 @@ export type PropertyTourProvider =
   | "nodalview"
   | "custom";
 
+export type PropertyVideoProvider =
+  | "youtube"
+  | "vimeo"
+  | "cloudflare-stream"
+  | "mux"
+  | "custom";
+
+export type PropertySocialBrandingMode =
+  | "picchuspot"
+  | "agency"
+  | "unbranded";
+
 export type PropertyLanguageCode =
   | "en"
   | "es"
@@ -88,6 +100,28 @@ export interface PropertyInteractiveFloorPlanTour {
   externalUrl?: string;
   embedUrl?: string;
   posterImage?: string;
+}
+
+export interface PropertyVideoItem {
+  id: string;
+  provider: PropertyVideoProvider;
+  title?: LocalizedText;
+  externalUrl?: string;
+  embedUrl?: string;
+  playbackId?: string;
+  posterUrl?: string;
+  enabled?: boolean;
+  primary?: boolean;
+  sortOrder: number;
+}
+
+export interface PropertyVideos {
+  enabled?: boolean;
+  items: PropertyVideoItem[];
+}
+
+export interface PropertySocialPreviewConfig {
+  brandingMode?: PropertySocialBrandingMode;
 }
 
 export interface PropertyFloorPlan {
@@ -180,9 +214,12 @@ export interface PropertyShowcase {
   facts: PropertyFact[];
   highlights: PropertyHighlight[];
   gallery: PropertyGalleryImage[];
+  videos?: PropertyVideos;
   virtualTour?: PropertyVirtualTour;
   interactiveFloorPlanTour?: PropertyInteractiveFloorPlanTour;
+  floorPlansEnabled?: boolean;
   floorPlans: PropertyFloorPlan[];
+  socialPreview?: PropertySocialPreviewConfig;
   location: PropertyLocation;
   agent: PropertyAgent;
   publishedAt?: string;

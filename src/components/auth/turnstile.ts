@@ -5,7 +5,11 @@ export const TURNSTILE_SCRIPT_ID = "cloudflare-turnstile-script";
 export const TURNSTILE_SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
-export type TurnstileAction = "login" | "signup" | "password_reset";
+export type TurnstileAction =
+  | "login"
+  | "signup"
+  | "password_reset"
+  | "property_lead";
 
 export type TurnstileCopy = {
   loading: string;

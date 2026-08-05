@@ -79,6 +79,27 @@ const propertyOpenGraphImageSource = readFileSync(
   ),
   "utf8",
 );
+const propertyVideoSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertyVideoSection.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const viewingDialogSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertyViewingRequestDialog.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const propertyActionsSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertyShowcaseActions.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("ordinary floor-plan cards hide legacy CubiCasa and raw URL controls", () => {
   assert.equal(mediaManagerSource.includes("Legacy interactive plan metadata"), false);
@@ -218,7 +239,7 @@ test("realtor section is compact and never prints a raw website URL", () => {
   assert.equal(propertyShowcaseSource.includes("property-contact-section"), true);
   assert.equal(propertyShowcaseSource.includes("lg:py-10"), true);
   assert.equal(propertyShowcaseSource.includes(">{agent.website}<"), false);
-  assert.equal(propertyShowcaseSource.includes(">\n                            Website"), true);
+  assert.match(propertyShowcaseSource, /<Globe2[\s\S]+Website[\s\S]+<\/a>/);
 });
 
 test("media visibility controls and navigation are driven by rendered sections", () => {
@@ -230,6 +251,7 @@ test("media visibility controls and navigation are driven by rendered sections",
     true,
   );
   assert.equal(propertySectionNavSource.includes("showVirtualTour"), true);
+  assert.equal(propertySectionNavSource.includes("showVideo"), true);
   assert.equal(propertySectionNavSource.includes("showInteractivePlan"), true);
   assert.equal(propertySectionNavSource.includes("showContact"), true);
   assert.equal(propertySectionNavSource.includes("showLocation"), true);
@@ -241,6 +263,68 @@ test("media visibility controls and navigation are driven by rendered sections",
       propertyEditorSource.indexOf('<Section title="5. Highlights">'),
     true,
   );
+});
+
+test("property video admin and public player remain metadata-only and lazy", () => {
+  assert.equal(propertyEditorSource.includes("7. Property video"), true);
+  assert.equal(propertyEditorSource.includes("Show property videos"), true);
+  assert.equal(propertyEditorSource.includes("Add video"), true);
+  assert.equal(propertyEditorSource.includes("Primary video"), true);
+  assert.equal(propertyEditorSource.includes("Public video URL or embed code"), true);
+  assert.equal(propertyEditorSource.includes("upload video"), false);
+  assert.equal(propertyVideoSource.includes("property-video-section"), true);
+  assert.equal(propertyVideoSource.includes('status !== "poster" && canEmbed'), true);
+  assert.equal(propertyVideoSource.includes("property-video-iframe"), true);
+  assert.equal(propertyVideoSource.includes("videos.map"), true);
+  assert.equal(
+    propertyVideoSource.includes('canEmbed && status !== "poster"'),
+    true,
+  );
+});
+
+test("ordinary floor plans have independent visibility without clearing media", () => {
+  assert.equal(propertyEditorSource.includes("Show ordinary floor plans"), true);
+  assert.equal(
+    propertyEditorSource.includes(
+      "without deleting uploaded plan images",
+    ),
+    true,
+  );
+  assert.equal(propertyShowcaseSource.includes("showFloorPlans && primaryFloorPlan"), true);
+});
+
+test("the brand bar is removed and the dynamic section nav is the top sticky bar", () => {
+  assert.equal(propertyShowcaseSource.includes("property-brand-bar"), false);
+  assert.equal(propertySectionNavSource.includes("sticky top-0"), true);
+  assert.equal(propertySectionNavSource.includes('href: "#video"'), true);
+  assert.equal(propertySectionNavSource.includes("PROPERTY_LANGUAGE_LABELS"), true);
+});
+
+test("hero viewing CTA opens an accessible keyboard-native dialog", () => {
+  assert.equal(propertyShowcaseSource.includes("hero-request-viewing"), true);
+  assert.equal(propertyShowcaseSource.includes("setViewingDialogOpen(true)"), true);
+  assert.equal(viewingDialogSource.includes("<dialog"), true);
+  assert.equal(viewingDialogSource.includes("showModal()"), true);
+  assert.equal(viewingDialogSource.includes("onCancel"), true);
+  assert.equal(viewingDialogSource.includes("property_lead"), true);
+  assert.equal(viewingDialogSource.includes("Continue in WhatsApp"), true);
+});
+
+test("sharing never derives a URL from the current admin or preview location", () => {
+  assert.equal(propertyActionsSource.includes("window.location.href"), false);
+  assert.equal(propertyActionsSource.includes("url: canonicalUrl"), true);
+  assert.equal(propertyActionsSource.includes("writeText(canonicalUrl)"), true);
+});
+
+test("social-card rendering validates image bytes and has a deliberate fallback", () => {
+  assert.equal(propertyOpenGraphImageSource.includes("fetchPropertySocialImageDataUri"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("loadUsableSocialImages"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("social-card-branded-fallback"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("return imageUrl"), false);
+  assert.equal(propertyEditorSource.includes("Social-card branding"), true);
+  assert.equal(propertyEditorSource.includes("Property Showcase by PicchuSpot"), true);
+  assert.equal(propertyEditorSource.includes("Powered by PicchuSpot"), true);
+  assert.equal(propertyEditorSource.includes("FullFrame Media"), false);
 });
 
 test("approximate map links require an explicit text-only public-area option", () => {

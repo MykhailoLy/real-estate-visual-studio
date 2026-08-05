@@ -191,3 +191,30 @@ test("public serialization removes hidden map and address payload", () => {
   assert.equal(payload.includes("123 Hidden Parcel Road"), false);
   assert.equal(payload.includes("Hidden district"), false);
 });
+
+test("disabled video metadata remains private while enabled metadata is sanitized", () => {
+  const property = cloneProperty();
+  property.videos = {
+    enabled: false,
+    items: [
+      {
+        id: "hidden-film",
+        provider: "youtube",
+        externalUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+        posterUrl: "https://evil.example/poster.jpg",
+        sortOrder: 1,
+      },
+    ],
+  };
+  const hidden = serializePublicPropertyShowcase(property);
+  assert.deepEqual(hidden.videos, { enabled: false, items: [] });
+
+  property.videos.enabled = true;
+  const enabled = serializePublicPropertyShowcase(property);
+  assert.equal(enabled.videos?.items.length, 1);
+  assert.equal(enabled.videos?.items[0].posterUrl, undefined);
+  assert.equal(
+    enabled.videos?.items[0].embedUrl,
+    "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ",
+  );
+});

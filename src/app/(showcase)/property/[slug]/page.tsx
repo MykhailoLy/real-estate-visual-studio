@@ -6,6 +6,7 @@ import { serializePublicPropertyShowcase } from "@/features/property-showcase/pu
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
 import { getPropertySocialPreview } from "@/features/property-showcase/social-preview";
 import { absoluteUrl, SITE_NAME } from "@/lib/seo";
+import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
 export const dynamic = "force-dynamic";
@@ -82,5 +83,11 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     notFound();
   }
 
-  return <PropertyShowcaseView property={serializePublicPropertyShowcase(property)} />;
+  return (
+    <PropertyShowcaseView
+      property={serializePublicPropertyShowcase(property)}
+      canonicalUrl={absoluteUrl(`/property/${property.slug}`)}
+      turnstileSiteKey={getTurnstileSiteKeyFromEnv()}
+    />
+  );
 }

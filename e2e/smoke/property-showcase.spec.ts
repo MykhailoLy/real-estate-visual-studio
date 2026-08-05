@@ -267,11 +267,13 @@ test("property showcase language switcher falls back cleanly", async ({
   const response = await page.goto("/property/sea-view-residence");
 
   expectNavigationResponseOk(response, "/property/sea-view-residence");
-  await page.getByRole("button", { name: "ES" }).click();
+  const languageSelect = page.locator("nav select");
+  await expect(languageSelect).toHaveCount(1);
+  await languageSelect.selectOption("es");
   await expect(
     page.getByRole("heading", { level: 1, name: "Residencia con vistas al mar" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "DE" }).click();
+  await languageSelect.selectOption("de");
   await expect(
     page.getByRole("heading", { level: 1, name: "Residenz mit Meerblick" }),
   ).toBeVisible();
@@ -291,8 +293,7 @@ test("one-language property omits the public language switcher", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Quiet Townhouse" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Spanish" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "ES" })).toHaveCount(0);
+  await expect(page.locator("nav select")).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -560,7 +561,7 @@ test("compact contact actions do not overlap the support launcher on mobile", as
   const contact = page.locator("#contact");
   await contact.scrollIntoViewIfNeeded();
 
-  const action = contact.getByRole("link", { name: "Request a viewing" });
+  const action = contact.getByRole("button", { name: "Request a viewing" });
   const socialLink = contact.getByRole("link", { name: "LinkedIn" });
   const highlights = page.getByTestId("property-highlights");
   const launcher = page.getByRole("button", {
@@ -616,6 +617,11 @@ test("compact contact actions do not overlap the support launcher on mobile", as
       highlightBox!.y + highlightBox!.height > highlightLauncherBox!.y;
     expect(highlightOverlaps).toBe(false);
   }
+  await action.click();
+  const dialog = page.getByRole("dialog", { name: "Request a viewing" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
   await guard.expectNoPageErrorsOrServerErrors();
 });
 

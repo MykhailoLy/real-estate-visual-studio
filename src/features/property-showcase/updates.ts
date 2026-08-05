@@ -4,6 +4,7 @@ import {
 } from "./provider-urls.ts";
 import { normalizeGoogleMapsInput } from "./listing-details.ts";
 import { getPrimaryLanguage } from "./localization.ts";
+import { normalizePropertyVideoUrls } from "./video-urls.ts";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
@@ -271,7 +272,15 @@ function finish(
     };
   }
 
-  const mapNormalized = normalizePropertyMapUrls(normalized.property);
+  const videoNormalized = normalizePropertyVideoUrls(normalized.property);
+  if (!videoNormalized.ok || !videoNormalized.property) {
+    return {
+      ok: false,
+      errors: videoNormalized.errors,
+    };
+  }
+
+  const mapNormalized = normalizePropertyMapUrls(videoNormalized.property);
   if (!mapNormalized.ok || !mapNormalized.property) {
     return {
       ok: false,

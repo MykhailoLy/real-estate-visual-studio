@@ -4,6 +4,8 @@ import type {
   PropertyLocation,
   PropertyShowcase,
 } from "./types";
+import { resolvePropertySocialImageUrl } from "./social-preview.ts";
+import { normalizePropertyVideoUrls } from "./video-urls.ts";
 
 function roundPublicCoordinate(value: number | undefined): number | undefined {
   if (typeof value !== "number") return undefined;
@@ -123,9 +125,25 @@ export function serializePublicPropertyShowcase(
   property: PropertyShowcase,
 ): PropertyShowcase {
   const location = serializePublicPropertyLocation(property.location);
+  const normalizedVideos = normalizePropertyVideoUrls(property);
+  const videos = normalizedVideos.property?.videos
+    ? {
+        ...normalizedVideos.property.videos,
+        items: normalizedVideos.property.videos.items.map((video) => ({
+          ...video,
+          posterUrl:
+            resolvePropertySocialImageUrl(property, video.posterUrl) ??
+            undefined,
+        })),
+      }
+    : undefined;
 
   return {
     ...property,
     location,
+    videos:
+      videos?.enabled === false
+        ? { enabled: false, items: [] }
+        : videos,
   };
 }

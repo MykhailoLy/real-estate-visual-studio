@@ -1,5 +1,6 @@
 import { getTrustedPropertyFrameOrigins } from "../features/property-showcase/provider-urls.ts";
 import { TRUSTED_GOOGLE_MAP_FRAME_ORIGINS } from "../features/property-showcase/listing-details.ts";
+import { getTrustedPropertyVideoFrameOrigins } from "../features/property-showcase/video-urls.ts";
 
 export interface ResponseHeader {
   key: string;
@@ -7,6 +8,8 @@ export interface ResponseHeader {
 }
 
 const TRUSTED_PROPERTY_FRAME_ORIGINS = getTrustedPropertyFrameOrigins();
+const TRUSTED_PROPERTY_VIDEO_FRAME_ORIGINS =
+  getTrustedPropertyVideoFrameOrigins();
 const TRUSTED_MAP_FRAME_ORIGINS = [...TRUSTED_GOOGLE_MAP_FRAME_ORIGINS];
 const TRUSTED_PROPERTY_PERMISSION_ORIGINS = TRUSTED_PROPERTY_FRAME_ORIGINS.map(
   (origin) => `"${origin}"`,
@@ -43,7 +46,7 @@ const CONTENT_SECURITY_POLICY_DIRECTIVES = [
   "img-src 'self' data: blob: https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://www.googletagmanager.com https://client.crisp.chat https://image.crisp.chat https://storage.crisp.chat",
   "font-src 'self' https://client.crisp.chat",
   "connect-src 'self' https://grvltquwenaorucsvooc.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://client.crisp.chat https://storage.crisp.chat wss://client.relay.crisp.chat",
-  `frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com ${TRUSTED_PROPERTY_FRAME_ORIGINS.join(" ")} ${TRUSTED_MAP_FRAME_ORIGINS.join(" ")}`,
+  `frame-src 'self' https://grvltquwenaorucsvooc.supabase.co https://challenges.cloudflare.com ${TRUSTED_PROPERTY_FRAME_ORIGINS.join(" ")} ${TRUSTED_PROPERTY_VIDEO_FRAME_ORIGINS.join(" ")} ${TRUSTED_MAP_FRAME_ORIGINS.join(" ")}`,
   "media-src 'self' blob: https://grvltquwenaorucsvooc.supabase.co https://client.crisp.chat https://storage.crisp.chat",
   "worker-src 'self' blob: https://client.crisp.chat",
   "manifest-src 'self'",

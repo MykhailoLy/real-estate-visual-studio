@@ -5,22 +5,22 @@ import { ImageResponse } from "next/og";
 import { getPropertyShowcase } from "@/features/property-showcase/registry";
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
 import {
+  PROPERTY_SOCIAL_IMAGE_MAX_BYTES,
+  fetchPropertySocialImageDataUri,
+} from "@/features/property-showcase/social-image-source";
+import {
   getPropertySocialPreview,
   resolvedPropertySocialImages,
 } from "@/features/property-showcase/social-preview";
+import type { PropertyShowcase } from "@/features/property-showcase/types";
 import { SITE_URL } from "@/lib/seo";
 
-const size = {
-  width: 1200,
-  height: 630,
-};
+const size = { width: 1200, height: 630 };
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type PropertyOpenGraphImageContext = {
-  params: Promise<{
-    slug: string;
-  }>;
+  params: Promise<{ slug: string }>;
 };
 
 const localImageMimeTypes: Record<string, string> = {
@@ -31,22 +31,55 @@ const localImageMimeTypes: Record<string, string> = {
   ".webp": "image/webp",
 };
 
-async function loadPropertySocialImageSource(imageUrl: string): Promise<string> {
+function hasEncodedPathControl(value: string): boolean {
+  const lower = value.toLowerCase();
+  return lower.includes("%2e") || lower.includes("%2f") || lower.includes("%5c");
+}
+
+async function loadLocalImageDataUri(imageUrl: string): Promise<string | null> {
   try {
     const url = new URL(imageUrl);
-    if (url.origin !== new URL(SITE_URL).origin) return imageUrl;
+    if (
+      url.origin !== new URL(SITE_URL).origin ||
+      hasEncodedPathControl(url.pathname)
+    ) {
+      return null;
+    }
 
     const publicRoot = resolve(process.cwd(), "public");
     const filePath = resolve(publicRoot, `.${decodeURIComponent(url.pathname)}`);
-    if (!filePath.startsWith(`${publicRoot}${sep}`)) return imageUrl;
-
+    if (!filePath.startsWith(`${publicRoot}${sep}`)) return null;
     const mimeType = localImageMimeTypes[extname(filePath).toLowerCase()];
-    if (!mimeType) return imageUrl;
+    if (!mimeType) return null;
+
     const data = await readFile(filePath);
+    if (data.length === 0 || data.length > PROPERTY_SOCIAL_IMAGE_MAX_BYTES) {
+      return null;
+    }
     return `data:${mimeType};base64,${data.toString("base64")}`;
   } catch {
-    return imageUrl;
+    return null;
   }
+}
+
+async function loadPropertySocialImageSource(
+  property: Pick<PropertyShowcase, "slug">,
+  imageUrl: string,
+): Promise<string | null> {
+  return (
+    (await loadLocalImageDataUri(imageUrl)) ??
+    (await fetchPropertySocialImageDataUri(property, imageUrl))
+  );
+}
+
+async function loadUsableSocialImages(property: PropertyShowcase) {
+  const usable: Array<{ imageUrl: string; imageAlt: string }> = [];
+  for (const image of resolvedPropertySocialImages(property)) {
+    const imageUrl = await loadPropertySocialImageSource(property, image.imageUrl);
+    if (imageUrl) usable.push({ ...image, imageUrl });
+    if (usable.length === 3) break;
+  }
+  return usable;
 }
 
 export async function GET(
@@ -57,20 +90,18 @@ export async function GET(
   const property =
     (await getPublishedPropertyShowcase(slug)) ?? getPropertyShowcase(slug);
 
-  if (!property) {
-    return new Response("Property not found", { status: 404 });
-  }
+  if (!property) return new Response("Property not found", { status: 404 });
 
   const preview = getPropertySocialPreview(property);
-  const images = await Promise.all(
-    resolvedPropertySocialImages(property).map(async (image) => ({
-      ...image,
-      imageUrl: await loadPropertySocialImageSource(image.imageUrl),
-    })),
-  );
+  const images = await loadUsableSocialImages(property);
   const primaryImage = images[0];
   const supportingImages = images.slice(1, 3);
-  const titleSize = preview.title.length > 56 ? 34 : 42;
+  const brandingLogo = preview.brandingLogoUrl
+    ? await loadPropertySocialImageSource(property, preview.brandingLogoUrl)
+    : null;
+  const title =
+    property.title[property.primaryLanguage ?? "en"] ?? property.title.en;
+  const titleSize = title.length > 56 ? 34 : 42;
 
   return new ImageResponse(
     (
@@ -80,7 +111,7 @@ export async function GET(
           height: "100%",
           display: "flex",
           overflow: "hidden",
-          background: "#e8e7e2",
+          background: "#eef0ef",
           color: "#ffffff",
           fontFamily: "Arial, Helvetica, sans-serif",
         }}
@@ -91,7 +122,7 @@ export async function GET(
             height: 630,
             display: "flex",
             flexDirection: "column",
-            background: "#d7d9da",
+            background: primaryImage ? "#dfe3e1" : "#e7e1d3",
           }}
         >
           {primaryImage ? (
@@ -103,7 +134,6 @@ export async function GET(
                 overflow: "hidden",
               }}
             >
-              {/* ImageResponse supports remote HTTPS image sources. */}
               <img
                 src={primaryImage.imageUrl}
                 alt=""
@@ -114,17 +144,42 @@ export async function GET(
             </div>
           ) : (
             <div
+              data-testid="social-card-branded-fallback"
               style={{
                 width: "100%",
                 height: "100%",
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
+                padding: 70,
                 color: "#0B1F3A",
-                fontSize: 28,
+                textAlign: "center",
               }}
             >
-              Property showcase
+              <div
+                style={{
+                  width: 76,
+                  height: 4,
+                  display: "flex",
+                  background: "#B88A44",
+                  marginBottom: 28,
+                }}
+              />
+              <div style={{ display: "flex", fontSize: 20, fontWeight: 700 }}>
+                {preview.location || "Property showcase"}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  marginTop: 16,
+                  fontSize: 42,
+                  fontWeight: 700,
+                  lineHeight: 1.08,
+                }}
+              >
+                {title}
+              </div>
             </div>
           )}
           {supportingImages.length > 0 ? (
@@ -170,10 +225,60 @@ export async function GET(
             background: "#0B1F3A",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", fontSize: 24, fontWeight: 700 }}>
-            <span>Picchu</span>
-            <span style={{ color: "#B88A44" }}>Spot</span>
-          </div>
+          {preview.brandingMode === "picchuspot" ? (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", fontSize: 24, fontWeight: 700 }}>
+                <span>Picchu</span>
+                <span style={{ color: "#B88A44" }}>Spot</span>
+              </div>
+              <span
+                style={{
+                  display: "flex",
+                  marginTop: 5,
+                  color: "rgba(255,255,255,0.56)",
+                  fontSize: 11,
+                }}
+              >
+                Property Showcase by PicchuSpot
+              </span>
+            </div>
+          ) : preview.brandingMode === "agency" ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {brandingLogo ? (
+                <img
+                  src={brandingLogo}
+                  alt=""
+                  width={64}
+                  height={48}
+                  style={{ width: 64, height: 48, objectFit: "contain" }}
+                />
+              ) : null}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ display: "flex", fontSize: 20, fontWeight: 700 }}>
+                  {preview.brandingName ?? "Agency"}
+                </span>
+                <span
+                  style={{
+                    display: "flex",
+                    marginTop: 5,
+                    color: "rgba(255,255,255,0.5)",
+                    fontSize: 11,
+                  }}
+                >
+                  Powered by PicchuSpot
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                width: 52,
+                height: 3,
+                background: "#B88A44",
+              }}
+            />
+          )}
 
           <div
             style={{
@@ -203,7 +308,7 @@ export async function GET(
                 lineHeight: 1.08,
               }}
             >
-              {property.title[property.primaryLanguage ?? "en"] ?? property.title.en}
+              {title}
             </div>
             {preview.price ? (
               <div
@@ -234,47 +339,36 @@ export async function GET(
               ["Bedrooms", preview.bedrooms],
               ["Bathrooms", preview.bathrooms],
               ["Built area", preview.builtArea],
-            ].filter((item) => item[1]).map(([label, value]) => (
-              <div
-                key={label}
-                style={{
-                  width: "50%",
-                  display: "flex",
-                  flexDirection: "column",
-                  marginBottom: 18,
-                  paddingRight: 12,
-                }}
-              >
-                <span
+            ]
+              .filter((item) => item[1])
+              .map(([label, value]) => (
+                <div
+                  key={label}
                   style={{
-                    color: "rgba(255,255,255,0.58)",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: 1.2,
+                    width: "50%",
+                    display: "flex",
+                    flexDirection: "column",
+                    marginBottom: 18,
+                    paddingRight: 12,
                   }}
                 >
-                  {label}
-                </span>
-                <span style={{ marginTop: 5, fontSize: 22, fontWeight: 700 }}>
-                  {value}
-                </span>
-              </div>
-            ))}
+                  <span
+                    style={{
+                      color: "rgba(255,255,255,0.58)",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 1.2,
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span style={{ marginTop: 5, fontSize: 22, fontWeight: 700 }}>
+                    {value}
+                  </span>
+                </div>
+              ))}
           </div>
-
-          {preview.agencyName ? (
-            <div
-              style={{
-                display: "flex",
-                marginTop: "auto",
-                color: "rgba(255,255,255,0.65)",
-                fontSize: 14,
-              }}
-            >
-              Presented by {preview.agencyName}
-            </div>
-          ) : null}
         </div>
       </div>
     ),

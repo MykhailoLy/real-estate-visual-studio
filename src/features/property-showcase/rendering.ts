@@ -64,6 +64,12 @@ export function sortedPropertyFloorPlans(
   return [...floorPlans].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+export function shouldRenderOrdinaryFloorPlans(
+  property: PropertyShowcase,
+): boolean {
+  return property.floorPlansEnabled !== false && property.floorPlans.length > 0;
+}
+
 export function getExternalInteractiveFloorPlan(
   property: PropertyShowcase,
 ): PropertyFloorPlan | undefined {
