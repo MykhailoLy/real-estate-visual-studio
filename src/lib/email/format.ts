@@ -1,6 +1,9 @@
 import type { ServiceType } from "@/lib/server-validation";
 import type { TransactionalCurrency } from "@/lib/pricing/types";
 import { formatMoney } from "@/lib/pricing/format";
+import { escapeHtml } from "./escape-html";
+
+export { escapeHtml } from "./escape-html";
 
 // ============================================================
 // EMAIL FORMATTING HELPERS
@@ -28,22 +31,6 @@ export function formatCents(
 ): string {
   const safe = typeof cents === "number" && Number.isFinite(cents) ? cents : 0;
   return formatMoney(safe, currency);
-}
-
-/**
- * Minimal HTML escaper. Sufficient for inserting user-supplied
- * strings (names, instructions, links, room labels) into our own
- * email HTML templates. We do NOT need a full DOM-safe sanitizer
- * because the surrounding markup is fixed by us.
- */
-export function escapeHtml(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 /**
