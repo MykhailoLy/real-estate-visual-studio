@@ -178,6 +178,19 @@ test("deletion candidates include only detached current-property media objects",
     externalUrl: "https://unbranded.visithome.ai/demo-plan",
     posterImage: storageUrl("property-showcases/altea/interactive-poster.webp"),
   };
+  existing.videos = {
+    enabled: true,
+    items: [
+      {
+        id: "video-1",
+        provider: "youtube",
+        externalUrl: "https://www.youtube.com/watch?v=abcdefghijk",
+        embedUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk",
+        posterUrl: storageUrl("property-showcases/altea/video-poster.webp"),
+        sortOrder: 1,
+      },
+    ],
+  };
   existing.agent = {
     ...existing.agent,
     portraitUrl: storageUrl("property-showcases/altea/agent.webp"),
@@ -201,6 +214,7 @@ test("deletion candidates include only detached current-property media objects",
     gallery: [existing.gallery[0]],
     virtualTour: undefined,
     interactiveFloorPlanTour: undefined,
+    videos: { enabled: false, items: [] },
     agent: {
       ...existing.agent,
       portraitUrl: undefined,
@@ -222,6 +236,7 @@ test("deletion candidates include only detached current-property media objects",
       "property-showcases/altea/kitchen.webp",
       "property-showcases/altea/logo.webp",
       "property-showcases/altea/tour-poster.webp",
+      "property-showcases/altea/video-poster.webp",
     ],
   );
 });
@@ -363,6 +378,26 @@ test("property delete collection includes only owned current-slug media paths", 
     externalUrl: "https://unbranded.visithome.ai/demo-plan",
     posterImage: storageUrl("property-showcases/altea/interactive-poster.webp"),
   };
+  property.videos = {
+    enabled: true,
+    items: [
+      {
+        id: "video-1",
+        provider: "vimeo",
+        externalUrl: "https://vimeo.com/123456789",
+        embedUrl: "https://player.vimeo.com/video/123456789",
+        posterUrl: storageUrl("property-showcases/altea/video-poster.webp"),
+        sortOrder: 1,
+      },
+      {
+        id: "video-2",
+        provider: "youtube",
+        externalUrl: "https://www.youtube.com/watch?v=abcdefghijk",
+        posterUrl: storageUrl("property-showcases/moraira/shared-video.webp"),
+        sortOrder: 2,
+      },
+    ],
+  };
   property.agent = {
     ...property.agent,
     portraitUrl: storageUrl("property-showcases/altea/agent.webp"),
@@ -387,5 +422,6 @@ test("property delete collection includes only owned current-slug media paths", 
     "property-showcases/altea/interactive-poster.webp",
     "property-showcases/altea/kitchen.webp",
     "property-showcases/altea/poster.webp",
+    "property-showcases/altea/video-poster.webp",
   ]);
 });

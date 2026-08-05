@@ -4,22 +4,24 @@ import { Download, Share2 } from "lucide-react";
 
 type PropertyShowcaseActionsProps = {
   title: string;
+  text: string;
+  canonicalUrl: string;
   brochureUrl?: string;
 };
 
 export default function PropertyShowcaseActions({
   title,
+  text,
+  canonicalUrl,
   brochureUrl,
 }: PropertyShowcaseActionsProps) {
   const shareProperty = async () => {
-    const url = window.location.href;
-
     try {
       if (navigator.share) {
-        await navigator.share({ title, url });
+        await navigator.share({ title, text, url: canonicalUrl });
         return;
       }
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(canonicalUrl);
     } catch {
       // Closing the native share sheet or denying clipboard access needs no error UI.
     }

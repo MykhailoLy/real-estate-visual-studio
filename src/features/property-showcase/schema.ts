@@ -24,6 +24,14 @@ const PropertyTourProviderSchema = z.enum([
   "custom",
 ]);
 
+const PropertyVideoProviderSchema = z.enum([
+  "youtube",
+  "vimeo",
+  "cloudflare-stream",
+  "mux",
+  "custom",
+]);
+
 const LocalizedTextSchema = z
   .object({
     en: z.string().trim().min(1).max(4000),
@@ -108,6 +116,36 @@ const PropertyInteractiveFloorPlanTourSchema = z
     externalUrl: optionalTrimmed(2048),
     embedUrl: optionalTrimmed(4096),
     posterImage: optionalTrimmed(2048),
+  })
+  .strict();
+
+const PropertyVideoItemSchema = z
+  .object({
+    id: z.string().trim().min(1).max(120),
+    provider: PropertyVideoProviderSchema,
+    title: OptionalLocalizedTextSchema.optional(),
+    externalUrl: optionalTrimmed(2048),
+    embedUrl: optionalTrimmed(4096),
+    playbackId: optionalTrimmed(240),
+    posterUrl: optionalTrimmed(2048),
+    enabled: z.boolean().optional(),
+    primary: z.boolean().optional(),
+    sortOrder: z.number().int().min(-9999).max(9999),
+  })
+  .strict();
+
+const PropertyVideosSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    items: z.array(PropertyVideoItemSchema).max(20),
+  })
+  .strict();
+
+const PropertySocialPreviewSchema = z
+  .object({
+    brandingMode: z
+      .enum(["picchuspot", "agency", "unbranded"])
+      .optional(),
   })
   .strict();
 
@@ -221,9 +259,12 @@ export const PropertyShowcaseSchema: z.ZodType<PropertyShowcase> = z
     facts: z.array(PropertyFactSchema).max(12),
     highlights: z.array(PropertyHighlightSchema).max(12),
     gallery: z.array(PropertyGalleryImageSchema).max(200),
+    videos: PropertyVideosSchema.optional(),
     virtualTour: PropertyVirtualTourSchema.optional(),
     interactiveFloorPlanTour: PropertyInteractiveFloorPlanTourSchema.optional(),
+    floorPlansEnabled: z.boolean().optional(),
     floorPlans: z.array(PropertyFloorPlanSchema).max(20),
+    socialPreview: PropertySocialPreviewSchema.optional(),
     location: PropertyLocationSchema,
     agent: PropertyAgentSchema,
     publishedAt: z.string().datetime({ offset: true }).optional(),

@@ -53,11 +53,22 @@ function repairStoredProperty(property: PropertyShowcase): PropertyShowcase {
     ...image,
     src: repairPropertyMediaUrl(image.src) ?? image.src,
   }));
+  const videos = property.videos
+    ? {
+        ...property.videos,
+        items: property.videos.items.map((video) => ({
+          ...video,
+          posterUrl:
+            repairPropertyMediaUrl(video.posterUrl) ?? video.posterUrl,
+        })),
+      }
+    : undefined;
 
   return {
     ...property,
     coverImage,
     gallery,
+    videos,
     floorPlans,
     virtualTour: property.virtualTour
       ? {

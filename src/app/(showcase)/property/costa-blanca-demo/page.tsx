@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { costaBlancaDemo } from "@/features/property-showcase/registry";
 import PropertyShowcaseView from "../PropertyShowcaseView";
+import { absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Sea View Residence - Costa Blanca",
@@ -20,6 +21,7 @@ export default function CostaBlancaDemoPage() {
   return (
     <PropertyShowcaseView
       property={serializePublicPropertyShowcase(costaBlancaDemo)}
+      canonicalUrl={absoluteUrl(`/property/${costaBlancaDemo.slug}`)}
     />
   );
 }

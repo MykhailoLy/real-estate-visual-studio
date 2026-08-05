@@ -6,6 +6,7 @@ import {
   resolvePropertySocialImageUrl,
   resolvedPropertySocialImages,
   selectPropertyHeroImages,
+  selectPropertySocialImageCandidates,
   selectPropertySocialImage,
   selectPropertySocialImages,
   updateGallerySocialPreview,
@@ -181,5 +182,48 @@ test("social image resolution accepts public site paths and rejects external loo
     resolvePropertySocialImageUrl(property, "/property-demo/%2e%2e/private"),
     null,
   );
-  assert.equal(resolvedPropertySocialImages(property).length, 2);
+  assert.equal(resolvedPropertySocialImages(property).length, 3);
+});
+
+test("social image candidates preserve primary, featured and cover fallback order", () => {
+  const property = cloneProperty();
+  assert.deepEqual(
+    selectPropertySocialImageCandidates(property).map((image) => image.imageUrl),
+    [
+      "/property-demo/terrace.svg",
+      "/property-demo/living-room.svg",
+      "/property-demo/exterior.svg",
+    ],
+  );
+});
+
+test("social image candidates keep a non-gallery cover as the final fallback", () => {
+  const property = cloneProperty();
+  property.coverImage = "/property-demo/cover-only.svg";
+  property.gallery[0].featuredForSharing = true;
+  property.gallery[0].primarySocialPreview = true;
+
+  const candidates = selectPropertySocialImageCandidates(property);
+  assert.equal(candidates[0].imageUrl, property.gallery[0].src);
+  assert.equal(candidates.at(-1)?.imageUrl, property.coverImage);
+});
+
+test("social-card branding defaults to PicchuSpot and supports agency and unbranded modes", () => {
+  const property = cloneProperty();
+  const defaultPreview = getPropertySocialPreview(property);
+  assert.equal(defaultPreview.brandingMode, "picchuspot");
+  assert.equal(defaultPreview.brandingName, "PicchuSpot");
+
+  property.socialPreview = { brandingMode: "agency" };
+  property.agent.logoUrl = "/property-demo/agency.svg";
+  const agencyPreview = getPropertySocialPreview(property);
+  assert.equal(agencyPreview.brandingName, "Demo Real Estate Agency");
+  assert.equal(agencyPreview.brandingLogoUrl, "/property-demo/agency.svg");
+  assert.equal(agencyPreview.brandingAttribution, "Powered by PicchuSpot");
+
+  property.socialPreview = { brandingMode: "unbranded" };
+  const unbrandedPreview = getPropertySocialPreview(property);
+  assert.equal(unbrandedPreview.brandingName, undefined);
+  assert.equal(unbrandedPreview.brandingLogoUrl, undefined);
+  assert.equal(unbrandedPreview.brandingAttribution, undefined);
 });

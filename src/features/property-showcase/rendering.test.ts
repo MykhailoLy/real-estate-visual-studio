@@ -9,6 +9,7 @@ import {
   hasExternalInteractiveFloorPlan,
   promoteLegacyInteractiveTour,
   shouldRenderInteractiveFloorPlan,
+  shouldRenderOrdinaryFloorPlans,
 } from "./rendering.ts";
 import type { PropertyShowcase } from "./types.ts";
 
@@ -192,6 +193,21 @@ test("explicit interactive disable suppresses every legacy fallback", () => {
     property.interactiveFloorPlanTour.externalUrl,
     "https://unbranded.visithome.ai/preserved-property-level",
   );
+});
+
+test("ordinary floor-plan visibility is backward compatible and independent", () => {
+  const property = cloneProperty();
+  assert.equal(property.floorPlansEnabled, undefined);
+  assert.equal(shouldRenderOrdinaryFloorPlans(property), true);
+  assert.equal(shouldRenderInteractiveFloorPlan(property), true);
+
+  property.floorPlansEnabled = false;
+  assert.equal(shouldRenderOrdinaryFloorPlans(property), false);
+  assert.equal(shouldRenderInteractiveFloorPlan(property), true);
+  assert.equal(property.floorPlans.length, 2);
+
+  property.floorPlansEnabled = true;
+  assert.equal(shouldRenderOrdinaryFloorPlans(property), true);
 });
 
 test("interactive tour returns after re-enabling without replacing URLs", () => {

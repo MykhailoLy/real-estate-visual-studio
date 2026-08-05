@@ -30,8 +30,16 @@ Copy `.env.example` to `.env.local` and fill in your project values. Variables r
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Order system                            | Public                                     |
 | `SUPABASE_SERVICE_ROLE_KEY`  | Order API routes, portfolio admin         | **Server only.** Never expose to clients   |
 | `RESEND_API_KEY`             | Order confirmation + admin emails         | Server only                                |
+| `PROPERTY_LEADS_FROM_EMAIL`  | Property viewing-request sender            | Server-only verified Resend address        |
+| `PROPERTY_LEADS_CC_EMAIL`    | Optional property-lead operations copy     | Server only                                |
 | `ADMIN_EMAIL`                | Where order notifications are sent        | Plain string                               |
 | `NEXT_PUBLIC_SITE_URL`       | Canonical metadata + email links          | No trailing slash                          |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Public form spam protection           | Public                                     |
+| `TURNSTILE_SECRET_KEY`       | Property-lead Turnstile verification      | Server only                                |
+| `UPSTASH_REDIS_REST_URL`     | Public endpoint rate limiting             | Server only                                |
+| `UPSTASH_REDIS_REST_TOKEN`   | Public endpoint rate limiting             | Server only                                |
+| `PROPERTY_LEADS_RATE_LIMIT_SECRET` | Property-lead client hashing        | Server only; at least 32 characters        |
+| `PROPERTY_SHOWCASE_TRUSTED_VIDEO_ORIGINS` | Custom property-video embeds | Server-only comma-separated exact HTTPS origins |
 | `ADMIN_PASSWORD`             | `/admin/login` + portfolio admin          | **Server only.** Rotating it logs everyone out |
 
 ## Database setup (Supabase)
@@ -41,7 +49,11 @@ Two SQL files under `supabase/` describe the schema. Run them in order in the Su
 1. `supabase/schema.sql` — orders + order_items + sequences + the private `order-files` storage bucket. **Already in production.**
 2. `supabase/portfolio.sql` — `portfolio_items` table + the public `portfolio` storage bucket. Required for `/admin/portfolio` and the homepage / pricing-page portfolio sections.
 
-Both files are idempotent (`IF NOT EXISTS`, `ON CONFLICT`) so you can re-run them safely.
+Property viewing requests additionally require the reviewed, manually applied
+`supabase/add-property-leads.sql` migration. It creates a private, service-role-only
+lead table; do not apply it automatically from application code or CI.
+
+All three files use idempotent guards so they can be reviewed and re-run safely.
 
 ## Portfolio media admin (`/admin/portfolio`)
 

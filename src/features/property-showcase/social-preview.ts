@@ -28,6 +28,10 @@ export interface PropertySocialPreview {
   bathrooms?: string;
   builtArea?: string;
   agencyName?: string;
+  brandingMode: "picchuspot" | "agency" | "unbranded";
+  brandingName?: string;
+  brandingLogoUrl?: string;
+  brandingAttribution?: string;
 }
 
 function sortedGallery(
@@ -90,6 +94,52 @@ export function selectPropertySocialImages(
   return selectPropertyHeroImages(property).slice(0, 3);
 }
 
+export function selectPropertySocialImageCandidates(
+  property: PropertyShowcase,
+): PropertySocialPreviewImage[] {
+  const primaryLanguage = getPrimaryLanguage(property);
+  const gallery = sortedGallery(property.gallery);
+  const primary = gallery.find(
+    (image) => image.primarySocialPreview === true,
+  );
+  const featured = gallery.filter(
+    (image) => image.featuredForSharing === true && image.id !== primary?.id,
+  );
+  const coverGalleryImage = gallery.find(
+    (image) => image.src === property.coverImage,
+  );
+  const candidates = [primary, ...featured, coverGalleryImage].filter(
+    (image): image is PropertyGalleryImage => Boolean(image),
+  );
+
+  const seenUrls = new Set<string>();
+  const result = candidates.flatMap((image) => {
+    const imageUrl = image.src.trim();
+    if (!imageUrl || seenUrls.has(imageUrl)) return [];
+    seenUrls.add(imageUrl);
+    return [
+      {
+        imageUrl,
+        imageAlt:
+          localizedText(image.alt, primaryLanguage, primaryLanguage) ||
+          localizedText(property.title, primaryLanguage, primaryLanguage),
+      },
+    ];
+  });
+  const coverImageUrl = property.coverImage.trim();
+  if (coverImageUrl && !seenUrls.has(coverImageUrl)) {
+    result.push({
+      imageUrl: coverImageUrl,
+      imageAlt: localizedText(
+        property.title,
+        primaryLanguage,
+        primaryLanguage,
+      ),
+    });
+  }
+  return result;
+}
+
 export function selectPropertySocialImage(
   property: PropertyShowcase,
 ): Pick<PropertySocialPreview, "imageUrl" | "imageAlt"> {
@@ -137,7 +187,7 @@ export function resolvePropertySocialImageUrl(
 export function resolvedPropertySocialImages(
   property: PropertyShowcase,
 ): PropertySocialPreviewImage[] {
-  return selectPropertySocialImages(property)
+  return selectPropertySocialImageCandidates(property)
     .map((image) => {
       const imageUrl = resolvePropertySocialImageUrl(property, image.imageUrl);
       return imageUrl ? { ...image, imageUrl } : null;
@@ -176,6 +226,7 @@ export function getPropertySocialPreview(
   const bedrooms = fact("bedrooms");
   const bathrooms = fact("bathrooms");
   const builtArea = fact("built-area");
+  const brandingMode = property.socialPreview?.brandingMode ?? "picchuspot";
   const factPhrase = (item: typeof bedrooms) =>
     item ? `${item.value} ${item.label.toLocaleLowerCase(primaryLanguage)}` : "";
 
@@ -200,6 +251,21 @@ export function getPropertySocialPreview(
     agencyName: property.agent.displayProfile === false
       ? undefined
       : property.agent.agencyName,
+    brandingMode,
+    brandingName:
+      brandingMode === "picchuspot"
+        ? "PicchuSpot"
+        : brandingMode === "agency"
+          ? property.agent.agencyName.trim() || undefined
+          : undefined,
+    brandingLogoUrl:
+      brandingMode === "agency" ? property.agent.logoUrl?.trim() : undefined,
+    brandingAttribution:
+      brandingMode === "picchuspot"
+        ? "Property Showcase by PicchuSpot"
+        : brandingMode === "agency"
+          ? "Powered by PicchuSpot"
+          : undefined,
   };
 }
 

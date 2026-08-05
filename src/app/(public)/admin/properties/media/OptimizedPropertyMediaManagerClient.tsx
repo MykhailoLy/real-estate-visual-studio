@@ -1263,9 +1263,37 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
               ) : null}
             </div>
             <div className="flex min-w-0 flex-col bg-[#0B1F3A] p-5 text-white sm:p-6">
-              <p className="text-sm font-bold">
-                Picchu<span className="text-[#B88A44]">Spot</span>
-              </p>
+              {socialPreview.brandingMode === "picchuspot" ? (
+                <div>
+                  <p className="text-sm font-bold">
+                    Picchu<span className="text-[#B88A44]">Spot</span>
+                  </p>
+                  <p className="mt-1 text-[10px] text-white/50">
+                    Property Showcase by PicchuSpot
+                  </p>
+                </div>
+              ) : socialPreview.brandingMode === "agency" ? (
+                <div className="flex items-center gap-3">
+                  {socialPreview.brandingLogoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={socialPreview.brandingLogoUrl}
+                      alt=""
+                      className="h-10 w-16 rounded bg-white/90 object-contain p-1"
+                    />
+                  ) : null}
+                  <div>
+                    <p className="text-sm font-bold">
+                      {socialPreview.brandingName ?? "Agency"}
+                    </p>
+                    <p className="mt-1 text-[10px] text-white/50">
+                      Powered by PicchuSpot
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-0.5 w-10 bg-[#B88A44]" />
+              )}
               {socialPreview.location ? (
                 <p className="mt-5 text-xs leading-5 text-white/65">
                   {socialPreview.location}
@@ -1282,11 +1310,6 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
               <p className="mt-4 border-t border-white/15 pt-4 text-xs leading-5 text-white/70">
                 {socialPreview.description}
               </p>
-              {socialPreview.agencyName ? (
-                <p className="mt-auto pt-4 text-xs text-white/55">
-                  Presented by {socialPreview.agencyName}
-                </p>
-              ) : null}
             </div>
           </div>
 

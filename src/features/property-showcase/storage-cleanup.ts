@@ -95,6 +95,7 @@ function collectMediaValues(property: PropertyShowcase): string[] {
     ...property.gallery.map((image) => image.src),
     property.virtualTour?.posterImage,
     property.interactiveFloorPlanTour?.posterImage,
+    ...(property.videos?.items.map((video) => video.posterUrl) ?? []),
     ...property.floorPlans.flatMap((plan) => [
       plan.imageUrl,
       plan.downloadUrl,

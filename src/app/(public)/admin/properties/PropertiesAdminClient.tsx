@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
   Images,
   Loader2,
@@ -52,9 +54,12 @@ import type {
   PropertyHighlight,
   PropertyLanguageCode,
   PropertyShowcase,
+  PropertySocialBrandingMode,
   PropertyStatus,
   PropertyTourProvider,
+  PropertyVideoProvider,
 } from "@/features/property-showcase/types";
+import { normalizePropertyVideoInput } from "@/features/property-showcase/video-urls";
 import PropertyMapCanvas from "@/app/(showcase)/property/PropertyMapCanvas";
 
 interface Props {
@@ -80,6 +85,17 @@ interface TranslationFormState {
 interface HighlightFormState {
   id: string;
   text: string;
+}
+
+interface VideoFormState {
+  id: string;
+  provider: PropertyVideoProvider;
+  input: string;
+  explicitEmbed: boolean;
+  title: string;
+  posterUrl: string;
+  enabled: boolean;
+  primary: boolean;
 }
 
 type SocialFormState = Record<PropertyAgentSocialProvider, string>;
@@ -130,6 +146,10 @@ interface FormState {
   interactiveProvider: PropertyTourProvider;
   interactiveExternalUrl: string;
   interactiveEmbedUrl: string;
+  floorPlansEnabled: boolean;
+  videosEnabled: boolean;
+  videos: VideoFormState[];
+  socialBrandingMode: PropertySocialBrandingMode;
   highlights: HighlightFormState[];
   translations: TranslationFormState[];
   agentDisplayProfile: boolean;
@@ -340,6 +360,30 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
     interactiveProvider: interactiveTour?.provider ?? "cubiCasa",
     interactiveExternalUrl: interactiveTour?.externalUrl ?? "",
     interactiveEmbedUrl: interactiveTour?.embedUrl ?? "",
+    floorPlansEnabled: property?.floorPlansEnabled !== false,
+    videosEnabled: property?.videos
+      ? property.videos.enabled !== false
+      : false,
+    videos:
+      property?.videos?.items
+        .slice()
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((video) => ({
+          id: video.id,
+          provider: video.provider,
+          input: video.embedUrl ?? video.externalUrl ?? video.playbackId ?? "",
+          explicitEmbed: Boolean(video.embedUrl),
+          title: localizedText(
+            video.title,
+            primaryLanguage,
+            primaryLanguage,
+          ),
+          posterUrl: video.posterUrl ?? "",
+          enabled: video.enabled !== false,
+          primary: video.primary === true,
+        })) ?? [],
+    socialBrandingMode:
+      property?.socialPreview?.brandingMode ?? "picchuspot",
     highlights: highlightTexts,
     translations,
     agentDisplayProfile: property?.agent.displayProfile ?? true,
@@ -568,6 +612,31 @@ function buildProperty(
     externalUrl: interactiveExternal,
     embedUrl: interactiveEmbed,
   });
+  const videos = state.videos.map((video, index) => {
+    const normalized = normalizePropertyVideoInput(video.provider, {
+      ...(video.explicitEmbed
+        ? { embedUrl: video.input }
+        : { value: video.input }),
+    });
+    return {
+      id: video.id,
+      provider: normalized?.provider ?? video.provider,
+      title: video.title.trim()
+        ? simpleLocalizedText(state.primaryLanguage, video.title)
+        : undefined,
+      externalUrl: optional(
+        normalized?.externalUrl ?? (!video.explicitEmbed ? video.input : ""),
+      ),
+      embedUrl: optional(
+        normalized?.embedUrl ?? (video.explicitEmbed ? video.input : ""),
+      ),
+      playbackId: normalized?.playbackId,
+      posterUrl: optional(video.posterUrl),
+      enabled: video.enabled,
+      primary: video.primary,
+      sortOrder: index + 1,
+    };
+  });
   const displayAddress =
     state.address.trim() || formatStructuredPropertyAddress(state);
 
@@ -598,6 +667,13 @@ function buildProperty(
     facts: buildFacts(state),
     highlights: buildHighlights(state),
     gallery,
+    videos:
+      videos.length > 0
+        ? {
+            enabled: state.videosEnabled,
+            items: videos,
+          }
+        : undefined,
     virtualTour: hasTour
       ? {
           enabled: state.tourEnabled,
@@ -619,7 +695,11 @@ function buildProperty(
             existing?.floorPlans[0]?.imageUrl,
         }
       : undefined,
+    floorPlansEnabled: state.floorPlansEnabled,
     floorPlans: existing?.floorPlans ?? [],
+    socialPreview: {
+      brandingMode: state.socialBrandingMode,
+    },
     location: {
       displayAddress: simpleLocalizedText(state.primaryLanguage, displayAddress),
       streetAddress: optional(state.streetAddress),
@@ -1230,6 +1310,67 @@ function PropertyEditor({
     }));
   }
 
+  function addVideo() {
+    setForm((current) => ({
+      ...current,
+      videosEnabled: true,
+      videos: [
+        ...current.videos,
+        {
+          id: `video-${crypto.randomUUID()}`,
+          provider: "youtube",
+          input: "",
+          explicitEmbed: false,
+          title: "",
+          posterUrl: "",
+          enabled: true,
+          primary: current.videos.length === 0,
+        },
+      ],
+    }));
+  }
+
+  function updateVideo<K extends keyof VideoFormState>(
+    id: string,
+    key: K,
+    value: VideoFormState[K],
+  ) {
+    setForm((current) => ({
+      ...current,
+      videos: current.videos.map((video) => {
+        if (video.id !== id) {
+          return key === "primary" && value === true
+            ? { ...video, primary: false }
+            : video;
+        }
+        return { ...video, [key]: value };
+      }),
+    }));
+  }
+
+  function removeVideo(id: string) {
+    setForm((current) => {
+      const videos = current.videos.filter((video) => video.id !== id);
+      if (videos.length > 0 && !videos.some((video) => video.primary)) {
+        videos[0] = { ...videos[0], primary: true };
+      }
+      return { ...current, videos };
+    });
+  }
+
+  function moveVideo(id: string, direction: -1 | 1) {
+    setForm((current) => {
+      const index = current.videos.findIndex((video) => video.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.videos.length) {
+        return current;
+      }
+      const videos = [...current.videos];
+      [videos[index], videos[nextIndex]] = [videos[nextIndex], videos[index]];
+      return { ...current, videos };
+    });
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
@@ -1662,8 +1803,186 @@ function PropertyEditor({
           </div>
         </Section>
 
-        <Section title="7. Interactive floor-plan tour">
+        <Section title="7. Property video">
           <div className="space-y-4">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
+              <input
+                type="checkbox"
+                checked={form.videosEnabled}
+                onChange={(event) => set("videosEnabled", event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Show property videos
+            </label>
+            <p className="text-sm leading-6 text-muted">
+              Videos stay with YouTube, Vimeo, Cloudflare Stream, Mux or a configured trusted provider. PicchuSpot stores only the provider metadata and URLs.
+            </p>
+            {form.videos.map((video, index) => {
+              const normalizedVideo = normalizePropertyVideoInput(
+                video.provider,
+                video.explicitEmbed
+                  ? { embedUrl: video.input }
+                  : { value: video.input },
+              );
+              return (
+                <article
+                  key={video.id}
+                  className="rounded-lg border border-border bg-surface p-4"
+                >
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-primary">
+                        Video {index + 1}
+                      </h3>
+                      <p className="mt-1 text-xs text-muted">
+                        {normalizedVideo?.canEmbed
+                          ? "Trusted embed ready"
+                          : video.input.trim()
+                            ? "External fallback only or invalid input"
+                            : "Add a public URL or iframe code"}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => moveVideo(video.id, -1)}
+                        disabled={index === 0}
+                        aria-label={`Move video ${index + 1} up`}
+                        className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-white text-primary disabled:opacity-40"
+                      >
+                        <ChevronUp className="h-4 w-4" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveVideo(video.id, 1)}
+                        disabled={index === form.videos.length - 1}
+                        aria-label={`Move video ${index + 1} down`}
+                        className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-white text-primary disabled:opacity-40"
+                      >
+                        <ChevronDown className="h-4 w-4" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeVideo(video.id)}
+                        aria-label={`Remove video ${index + 1}`}
+                        className="grid h-10 w-10 place-items-center rounded-lg border border-red-200 bg-white text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Provider">
+                      <select
+                        value={video.provider}
+                        onChange={(event) =>
+                          updateVideo(
+                            video.id,
+                            "provider",
+                            event.target.value as PropertyVideoProvider,
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        <option value="youtube">YouTube</option>
+                        <option value="vimeo">Vimeo</option>
+                        <option value="cloudflare-stream">Cloudflare Stream</option>
+                        <option value="mux">Mux</option>
+                        <option value="custom">Trusted custom provider</option>
+                      </select>
+                    </Field>
+                    <Field label="Optional title">
+                      <input
+                        value={video.title}
+                        onChange={(event) =>
+                          updateVideo(video.id, "title", event.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field
+                      label="Public video URL or embed code"
+                      hint="Paste a normal provider URL or complete iframe HTML. Arbitrary iframe origins are rejected by the server."
+                    >
+                      <textarea
+                        rows={3}
+                        value={video.input}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          updateVideo(video.id, "input", value);
+                          updateVideo(
+                            video.id,
+                            "explicitEmbed",
+                            value.trim().toLowerCase().startsWith("<iframe"),
+                          );
+                        }}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Optional poster URL">
+                      <input
+                        value={video.posterUrl}
+                        onChange={(event) =>
+                          updateVideo(video.id, "posterUrl", event.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-4">
+                    <label className="inline-flex items-center gap-2 text-sm font-bold text-primary">
+                      <input
+                        type="checkbox"
+                        checked={video.enabled}
+                        onChange={(event) =>
+                          updateVideo(video.id, "enabled", event.target.checked)
+                        }
+                        className="h-4 w-4 accent-primary"
+                      />
+                      Enabled
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-sm font-bold text-primary">
+                      <input
+                        type="radio"
+                        name="primary-video"
+                        checked={video.primary}
+                        onChange={() => updateVideo(video.id, "primary", true)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      Primary video
+                    </label>
+                  </div>
+                </article>
+              );
+            })}
+            <button
+              type="button"
+              onClick={addVideo}
+              disabled={form.videos.length >= 20}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-bold text-primary transition hover:border-primary/40 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add video
+            </button>
+          </div>
+        </Section>
+
+        <Section title="8. Floor plans and interactive tour">
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
+              <input
+                type="checkbox"
+                checked={form.floorPlansEnabled}
+                onChange={(event) =>
+                  set("floorPlansEnabled", event.target.checked)
+                }
+                className="h-4 w-4 accent-primary"
+              />
+              Show ordinary floor plans
+            </label>
+            <p className="text-sm leading-6 text-muted">
+              Turning this off hides the ordinary Floor Plans section without deleting uploaded plan images. The interactive plan remains independent.
+            </p>
             {legacyTourCandidates.length > 0 ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
                 <div className="flex items-start gap-3">
@@ -1778,7 +2097,7 @@ function PropertyEditor({
           </div>
         </Section>
 
-        <Section title="8. Location and map">
+        <Section title="9. Location and map">
           <div className="space-y-5">
             <p className="text-sm leading-6 text-muted">
               Exact maps use the property coordinates. Approximate maps publish only a separate fixed center and radius. Manual Google Maps URLs remain optional advanced overrides.
@@ -2086,7 +2405,7 @@ function PropertyEditor({
           </div>
         </Section>
 
-        <Section title="9. Realtor and agency">
+        <Section title="10. Realtor and agency">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
               <input
@@ -2169,7 +2488,65 @@ function PropertyEditor({
           </p>
         </Section>
 
-        <Section title="10. Translations">
+        <Section title="11. Social sharing brand">
+          <div className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr] lg:items-start">
+            <Field
+              label="Social-card branding"
+              hint="Controls the server-generated 1200 x 630 sharing card."
+            >
+              <select
+                value={form.socialBrandingMode}
+                onChange={(event) =>
+                  set(
+                    "socialBrandingMode",
+                    event.target.value as PropertySocialBrandingMode,
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="picchuspot">PicchuSpot</option>
+                <option value="agency">Agency</option>
+                <option value="unbranded">Unbranded</option>
+              </select>
+            </Field>
+            <div
+              data-testid="social-branding-admin-preview"
+              className="overflow-hidden rounded-lg border border-border bg-[#0B1F3A] p-5 text-white"
+            >
+              {form.socialBrandingMode === "picchuspot" ? (
+                <div>
+                  <p className="text-lg font-bold">
+                    Picchu<span className="text-[#B88A44]">Spot</span>
+                  </p>
+                  <p className="mt-1 text-xs text-white/60">
+                    Property Showcase by PicchuSpot
+                  </p>
+                </div>
+              ) : form.socialBrandingMode === "agency" ? (
+                <div>
+                  <p className="text-lg font-bold">
+                    {form.agencyName.trim() || "Agency name"}
+                  </p>
+                  <p className="mt-1 text-xs text-white/60">
+                    Powered by PicchuSpot
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
+                  Property details only
+                </p>
+              )}
+              <p className="mt-8 break-words text-2xl font-bold">
+                {form.title.trim() || "Property title"}
+              </p>
+              <p className="mt-2 text-xl font-bold text-[#d6b665]">
+                {form.price.trim() || "Price"}
+              </p>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="12. Translations">
           <div className="space-y-5">
             <div className="flex flex-wrap gap-2">
               {availableTranslationLanguages.map((language) => (
@@ -2286,7 +2663,7 @@ function PropertyEditor({
           </div>
         </Section>
 
-        <Section title="11. Publishing controls">
+        <Section title="13. Publishing controls">
           <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
             <input
               type="checkbox"

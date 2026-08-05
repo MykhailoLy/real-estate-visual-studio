@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowUpRight,
   Bath,
   BedDouble,
   CalendarDays,
@@ -37,7 +36,6 @@ import {
   getPrimaryLanguage,
   getPropertyLanguageOptions,
   localizedText,
-  PROPERTY_LANGUAGE_LABELS,
   PUBLIC_UI_LABELS,
 } from "@/features/property-showcase/localization";
 import { getPropertyAddressView } from "@/features/property-showcase/property-address";
@@ -47,6 +45,7 @@ import {
   getVisibleVirtualTour,
   hasExternalInteractiveFloorPlan,
   shouldRenderInteractiveFloorPlan,
+  shouldRenderOrdinaryFloorPlans,
   sortedPropertyFloorPlans,
 } from "@/features/property-showcase/rendering";
 import { selectPropertyHeroImages } from "@/features/property-showcase/social-preview";
@@ -55,12 +54,15 @@ import type {
   PropertyLanguageCode,
   PropertyShowcase,
 } from "@/features/property-showcase/types";
+import { sortedUsablePropertyVideos } from "@/features/property-showcase/video-urls";
 import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
 import PropertyHeroSlideshow from "./PropertyHeroSlideshow";
 import PropertyMapCanvas from "./PropertyMapCanvas";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
+import PropertyVideoSection from "./PropertyVideoSection";
+import PropertyViewingRequestDialog from "./PropertyViewingRequestDialog";
 import PropertyGallery from "./costa-blanca-demo/PropertyGallery";
 import PropertySectionNav from "./costa-blanca-demo/PropertySectionNav";
 import PropertySocialBrandIcon from "./PropertySocialBrandIcon";
@@ -68,6 +70,9 @@ import PropertySocialBrandIcon from "./PropertySocialBrandIcon";
 type PropertyShowcaseViewProps = {
   property: PropertyShowcase;
   locale?: PropertyLanguageCode;
+  canonicalUrl: string;
+  turnstileSiteKey?: string | null;
+  previewMode?: boolean;
 };
 
 const factIcons: Record<PropertyFactKey, LucideIcon> = {
@@ -103,6 +108,9 @@ function initials(value: string): string {
 export default function PropertyShowcaseView({
   property,
   locale,
+  canonicalUrl,
+  turnstileSiteKey,
+  previewMode = false,
 }: PropertyShowcaseViewProps) {
   const primaryLanguage = getPrimaryLanguage(property);
   const languages = getPropertyLanguageOptions(property);
@@ -111,6 +119,7 @@ export default function PropertyShowcaseView({
     : primaryLanguage;
   const [language, setLanguage] =
     useState<PropertyLanguageCode>(initialLanguage);
+  const [viewingDialogOpen, setViewingDialogOpen] = useState(false);
   const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
   const gallery = useMemo(
     () => [...property.gallery].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -119,6 +128,10 @@ export default function PropertyShowcaseView({
   const floorPlans = useMemo(
     () => sortedPropertyFloorPlans(property.floorPlans),
     [property.floorPlans],
+  );
+  const videos = useMemo(
+    () => sortedUsablePropertyVideos(property),
+    [property],
   );
   const primaryFloorPlan = floorPlans[0];
   const visibleVirtualTour = getVisibleVirtualTour(property);
@@ -129,6 +142,7 @@ export default function PropertyShowcaseView({
   const interactiveFloorPlan = legacyInteractiveFloorPlan ?? primaryFloorPlan;
   const hasExternalInteractivePlan = hasExternalInteractiveFloorPlan(property);
   const showInteractivePlan = shouldRenderInteractiveFloorPlan(property);
+  const showFloorPlans = shouldRenderOrdinaryFloorPlans(property);
   const title = localizedText(property.title, language, primaryLanguage);
   const summary = localizedText(property.summary, language, primaryLanguage);
   const address = getPropertyAddressView(
@@ -149,80 +163,27 @@ export default function PropertyShowcaseView({
   const agent = normalizeAgentProfile(property, language);
   const contactHref =
     agent?.whatsappHref ?? agent?.emailHref ?? agent?.website;
-  const contactIsExternal = contactHref?.startsWith("http") ?? false;
-  const showLanguageSwitcher = languages.length > 1;
   const showLocation = mapView.mode !== "hidden";
   const showContactSection = Boolean(contactHref || agent);
   const currentYear = new Date().getFullYear();
 
   return (
     <div className="min-h-screen bg-[#f2f0ea] text-slate-950">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0f2440]/95 text-white shadow-sm backdrop-blur">
-        <div
-          data-testid="property-brand-bar"
-          className="mx-auto flex h-16 max-w-[1480px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-10"
-        >
-          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="PicchuSpot home">
-            <span className="grid h-9 w-9 place-items-center rounded-full border border-white/20 bg-white/10 text-sm font-bold tracking-tight">
-              PS
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold leading-none">PicchuSpot</span>
-              <span className="mt-1 hidden text-[10px] font-medium uppercase tracking-[0.2em] text-white/55 min-[481px]:block">
-                Property showcase
-              </span>
-            </span>
-          </Link>
-
-          <div className="flex min-w-0 items-center gap-2">
-            {showLanguageSwitcher ? (
-              <div
-                aria-label={ui.language}
-                className="hidden rounded-full border border-white/15 bg-white/8 p-1 sm:flex"
-              >
-                {languages.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setLanguage(item)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                      item === language
-                        ? "bg-white text-[#0f2440]"
-                        : "text-white/70 hover:text-white"
-                    }`}
-                    aria-pressed={item === language}
-                  >
-                    {item.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {contactHref ? (
-              <a
-                href={contactHref}
-                target={contactIsExternal ? "_blank" : undefined}
-                rel={contactIsExternal ? "noreferrer" : undefined}
-                aria-label={ui.requestViewing}
-                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-3 py-2 text-[11px] font-bold text-[#0f2440] transition hover:bg-[#f2e8c7] min-[381px]:px-4 min-[381px]:text-xs sm:text-sm max-[380px]:h-10 max-[380px]:w-10 max-[380px]:justify-center max-[380px]:px-0"
-              >
-                <span className="max-[380px]:sr-only">{ui.requestViewing}</span>
-                <ArrowUpRight className="h-4 w-4" aria-hidden />
-              </a>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
       <PropertySectionNav
+        showVideo={videos.length > 0}
         showVirtualTour={Boolean(visibleVirtualTour)}
-        showFloorPlans={Boolean(primaryFloorPlan)}
+        showFloorPlans={showFloorPlans}
         showInteractivePlan={showInteractivePlan}
         showContact={showContactSection}
         showLocation={showLocation}
+        languages={languages}
+        language={language}
+        languageLabel={ui.language}
+        onLanguageChange={setLanguage}
       />
 
       <main>
-        <section id="home" className="relative isolate scroll-mt-36 overflow-hidden bg-[#0f2440]">
+        <section id="home" className="relative isolate scroll-mt-24 overflow-hidden bg-[#0f2440]">
           <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[780px]">
             <PropertyHeroSlideshow images={heroImages} />
             <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/50 via-[#071426]/15 to-[#071426]/95" />
@@ -251,43 +212,50 @@ export default function PropertyShowcaseView({
                     </p>
                   </div>
 
-                  <div className="flex min-w-0 shrink-0 items-end justify-between gap-5 border-t border-white/20 pt-5 lg:block lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-                    <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-white/55">
-                      {localizedText(property.priceLabel, language, primaryLanguage)}
-                    </span>
-                    <span className="mt-2 block whitespace-nowrap text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                      {formatPriceLabel(property.price)}
-                    </span>
+                  <div className="flex min-w-0 shrink-0 flex-col items-start gap-5 border-t border-white/20 pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                    <div>
+                      <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-white/55">
+                        {localizedText(property.priceLabel, language, primaryLanguage)}
+                      </span>
+                      <span className="mt-2 block whitespace-nowrap text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                        {formatPriceLabel(property.price)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewingDialogOpen(true)}
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] shadow-lg transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+                        data-testid="hero-request-viewing"
+                      >
+                        <CalendarDays className="h-4 w-4" aria-hidden />
+                        {ui.requestViewing}
+                      </button>
+                      {agent?.emailHref ? (
+                        <a
+                          href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
+                          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/35 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+                        >
+                          <MessageCircle className="h-4 w-4" aria-hidden />
+                          {ui.askQuestion}
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <PropertyShowcaseActions title={title} brochureUrl={property.brochureUrl} />
+            <PropertyShowcaseActions
+              title={title}
+              text={[summary, address.socialText, formatPriceLabel(property.price)]
+                .filter(Boolean)
+                .join(" | ")}
+              canonicalUrl={canonicalUrl}
+              brochureUrl={property.brochureUrl}
+            />
           </div>
         </section>
-
-        {showLanguageSwitcher ? (
-          <section className="border-b border-black/8 bg-white sm:hidden">
-            <div className="mx-auto flex max-w-[1480px] gap-2 overflow-x-auto px-4 py-3">
-              {languages.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setLanguage(item)}
-                  aria-pressed={item === language}
-                  className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${
-                    item === language
-                      ? "bg-[#0f2440] text-white"
-                      : "border border-[#0f2440]/15 text-[#0f2440]"
-                  }`}
-                >
-                  {PROPERTY_LANGUAGE_LABELS[item]}
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
 
         {facts.length > 0 || highlights.length > 0 ? (
           <section
@@ -410,6 +378,16 @@ export default function PropertyShowcaseView({
           />
         </div>
 
+        {videos.length > 0 ? (
+          <PropertyVideoSection
+            propertyTitle={title}
+            videos={videos}
+            posterFallback={property.coverImage}
+            locale={language}
+            primaryLanguage={primaryLanguage}
+          />
+        ) : null}
+
         {visibleVirtualTour ? (
           <ImmersivePropertyTour
             propertyTitle={title}
@@ -419,7 +397,7 @@ export default function PropertyShowcaseView({
           />
         ) : null}
 
-        {primaryFloorPlan ? (
+        {showFloorPlans && primaryFloorPlan ? (
           <section id="floor-plan" className="scroll-mt-36 border-y border-black/8 bg-white">
             <div className="mx-auto grid max-w-[1480px] gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-10 lg:py-24">
               <div>
@@ -477,28 +455,25 @@ export default function PropertyShowcaseView({
                   <h2 className="mt-3 max-w-2xl text-2xl font-semibold leading-tight text-[#0f2440] sm:text-3xl">
                     {title}
                   </h2>
-                  {contactHref ? (
-                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setViewingDialogOpen(true)}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
+                    >
+                      <CalendarDays className="h-4 w-4" aria-hidden />
+                      {ui.requestViewing}
+                    </button>
+                    {agent?.emailHref ? (
                       <a
-                        href={contactHref}
-                        target={contactIsExternal ? "_blank" : undefined}
-                        rel={contactIsExternal ? "noreferrer" : undefined}
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
+                        href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#0f2440]/20 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
                       >
-                        <CalendarDays className="h-4 w-4" aria-hidden />
-                        {ui.requestViewing}
+                        <MessageCircle className="h-4 w-4" aria-hidden />
+                        {ui.askQuestion}
                       </a>
-                      {agent?.emailHref ? (
-                        <a
-                          href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#0f2440]/20 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
-                        >
-                          <MessageCircle className="h-4 w-4" aria-hidden />
-                          {ui.askQuestion}
-                        </a>
-                      ) : null}
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
 
                 {agent ? (
@@ -716,6 +691,15 @@ export default function PropertyShowcaseView({
           </div>
         </div>
       </footer>
+      <PropertyViewingRequestDialog
+        open={viewingDialogOpen}
+        onOpenChange={setViewingDialogOpen}
+        propertySlug={property.slug}
+        propertyTitle={title}
+        locale={language}
+        turnstileSiteKey={turnstileSiteKey}
+        submissionEnabled={!previewMode}
+      />
     </div>
   );
 }

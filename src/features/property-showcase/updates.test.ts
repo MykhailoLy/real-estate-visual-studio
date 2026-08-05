@@ -674,3 +674,39 @@ test("details saves preserve a disabled custom map embed without rendering inten
   );
   assert.equal(result.property?.location.useCustomMapEmbed, false);
 });
+
+test("details and media saves preserve disabled video data and floor-plan visibility", () => {
+  const existing = withExternalMedia();
+  existing.videos = {
+    enabled: false,
+    items: [
+      {
+        id: "property-film",
+        provider: "youtube",
+        externalUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+        sortOrder: 1,
+      },
+    ],
+  };
+  existing.floorPlansEnabled = false;
+  const details = structuredClone(existing);
+  details.summary.en = "Updated metadata only";
+
+  const detailsResult = mergePropertyShowcaseUpdate(existing, details, "details");
+  assert.equal(detailsResult.ok, true);
+  assert.equal(detailsResult.property?.videos?.enabled, false);
+  assert.equal(detailsResult.property?.videos?.items.length, 1);
+  assert.equal(detailsResult.property?.floorPlansEnabled, false);
+  assert.deepEqual(detailsResult.property?.floorPlans, existing.floorPlans);
+
+  const media = structuredClone(detailsResult.property!);
+  media.gallery = [...media.gallery].reverse();
+  const mediaResult = mergePropertyShowcaseUpdate(
+    detailsResult.property!,
+    media,
+    "media",
+  );
+  assert.equal(mediaResult.ok, true);
+  assert.deepEqual(mediaResult.property?.videos, detailsResult.property?.videos);
+  assert.equal(mediaResult.property?.floorPlansEnabled, false);
+});

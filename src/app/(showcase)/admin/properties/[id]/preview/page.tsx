@@ -6,6 +6,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { getPropertyShowcaseForAdminById } from "@/features/property-showcase/server";
 import PropertyShowcaseView from "../../../../property/PropertyShowcaseView";
+import { absoluteUrl } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,7 +38,7 @@ export default async function AdminPropertyPreviewPage({
 
   return (
     <>
-      <div className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+      <div className="relative z-50 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-[1480px] flex-wrap items-center justify-between gap-3">
           <Link
             href="/admin/properties"
@@ -51,7 +52,11 @@ export default async function AdminPropertyPreviewPage({
           </p>
         </div>
       </div>
-      <PropertyShowcaseView property={serializePublicPropertyShowcase(record.property)} />
+      <PropertyShowcaseView
+        property={serializePublicPropertyShowcase(record.property)}
+        canonicalUrl={absoluteUrl(`/property/${record.property.slug}`)}
+        previewMode
+      />
     </>
   );
 }
