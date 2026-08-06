@@ -5,7 +5,6 @@ import {
   FileImage,
   FileText,
   Loader2,
-  Printer,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -18,14 +17,14 @@ interface PropertyMarketingDownloadsProps {
   language: PropertyLanguageCode;
 }
 
-type ActionId = "print" | "pdf" | "jpg" | "png";
+type ActionId = "pdf" | "jpg" | "png";
 type ActionState = "idle" | "preparing" | "ready" | "error";
 
 const COPY = {
   en: {
     button: "Download brochure",
     title: "Property brochure",
-    description: "Preview the finished brochure, then print or download your preferred format.",
+    description: "Preview the finished brochure, then download your preferred format.",
     close: "Close",
     preview: "Finished property brochure preview",
     preparingPreview: "Preparing brochure preview…",
@@ -33,12 +32,11 @@ const COPY = {
     preparing: "Preparing",
     ready: "Ready",
     retry: "Please retry.",
-    openPdf: "Open print-ready PDF",
   },
   es: {
     button: "Descargar folleto",
     title: "Folleto de la propiedad",
-    description: "Previsualiza el folleto terminado y elige imprimir o descargar.",
+    description: "Previsualiza el folleto terminado y elige el formato de descarga.",
     close: "Cerrar",
     preview: "Vista previa del folleto terminado",
     preparingPreview: "Preparando vista previa…",
@@ -46,7 +44,6 @@ const COPY = {
     preparing: "Preparando",
     ready: "Listo",
     retry: "Inténtalo de nuevo.",
-    openPdf: "Abrir PDF listo para imprimir",
   },
 } as const;
 
@@ -124,17 +121,15 @@ export default function PropertyMarketingDownloads({
     detail: string;
     icon: LucideIcon;
   }> = [
-    { id: "print", label: "Print", detail: "Open the print-ready brochure", icon: Printer },
-    { id: "pdf", label: "PDF", detail: "Print-ready document", icon: FileText },
-    { id: "jpg", label: "JPG", detail: "High-resolution image", icon: FileImage },
-    { id: "png", label: "PNG", detail: "Lossless high-resolution image", icon: FileImage },
+    { id: "pdf", label: "Download PDF", detail: "Print-ready document", icon: FileText },
+    { id: "jpg", label: "Download JPG", detail: "High-resolution image", icon: FileImage },
+    { id: "png", label: "Download PNG", detail: "Lossless high-resolution image", icon: FileImage },
   ];
 
   async function runAction(id: ActionId) {
     if (actionState === "preparing") return;
     const href = id === "jpg" ? links.jpg : id === "png" ? links.png : links.pdf;
     if (!href) return;
-    const printWindow = id === "print" ? window.open("about:blank", "_blank") : null;
     const controller = new AbortController();
     actionAbort.current?.abort();
     actionAbort.current = controller;
@@ -150,37 +145,19 @@ export default function PropertyMarketingDownloads({
       const blob = await response.blob();
       if (controller.signal.aborted) return;
       const objectUrl = URL.createObjectURL(blob);
-      if (id === "print") {
-        if (!printWindow) {
-          URL.revokeObjectURL(objectUrl);
-          throw new Error("The browser blocked the print window.");
-        }
-        printWindow.location.replace(objectUrl);
-        window.setTimeout(() => {
-          try {
-            printWindow.focus();
-            printWindow.print();
-          } catch {
-            // The visible PDF remains available for manual printing.
-          }
-          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-        }, 900);
-      } else {
-        const anchor = document.createElement("a");
-        anchor.href = objectUrl;
-        anchor.download = filenameFromResponse(
-          response,
-          `property-${links.orientation}-brochure.${id}`,
-        );
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-      }
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = filenameFromResponse(
+        response,
+        `property-${links.orientation}-brochure.${id}`,
+      );
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       setActionState("ready");
     } catch (error) {
       if (controller.signal.aborted) return;
-      printWindow?.close();
       setActionState("error");
       setActionError(
         error instanceof Error ? error.message : "Could not prepare the brochure.",
@@ -244,7 +221,7 @@ export default function PropertyMarketingDownloads({
 
             <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div
-                className={`relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-xl bg-[#0B1F3A] ${links.orientation === "portrait" ? "max-w-[560px] aspect-[620/877]" : "aspect-video"}`}
+                className={`relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${links.orientation === "portrait" ? "max-w-[560px] aspect-[620/877]" : "aspect-video"}`}
                 aria-label={copy.preview}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -256,7 +233,7 @@ export default function PropertyMarketingDownloads({
                   className={`h-full w-full object-contain transition-opacity ${previewState === "ready" ? "opacity-100" : "opacity-0"}`}
                 />
                 {previewState !== "ready" ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-white" role="status">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-[#0B1F3A]" role="status">
                     {previewState === "loading" ? <Loader2 className="h-7 w-7 animate-spin" aria-hidden /> : <FileImage className="h-7 w-7" aria-hidden />}
                     <span className="text-sm font-bold">{previewState === "loading" ? copy.preparingPreview : copy.previewError}</span>
                   </div>
@@ -283,7 +260,7 @@ export default function PropertyMarketingDownloads({
                           {preparing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Icon className="h-4 w-4" aria-hidden />}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-bold">{preparing ? `${copy.preparing} ${label}…` : label}</span>
+                          <span className="block text-sm font-bold">{preparing ? `${copy.preparing} ${id.toUpperCase()}…` : label}</span>
                           <span className="mt-0.5 block text-xs text-slate-500">{ready ? copy.ready : detail}</span>
                         </span>
                         <Download className="h-4 w-4 shrink-0" aria-hidden />
@@ -296,11 +273,6 @@ export default function PropertyMarketingDownloads({
                   {actionState === "ready" ? copy.ready : null}
                   {actionState === "error" ? `${actionError} ${copy.retry}` : null}
                 </div>
-                {actionState === "error" && activeAction === "print" ? (
-                  <a href={links.pdf} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-xs font-bold text-primary underline underline-offset-4">
-                    <FileText className="h-4 w-4" aria-hidden /> {copy.openPdf}
-                  </a>
-                ) : null}
               </aside>
             </div>
           </div>

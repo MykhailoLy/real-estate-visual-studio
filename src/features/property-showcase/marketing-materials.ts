@@ -342,7 +342,10 @@ function selectedImages(
   const requested = supportingMediaIds
     .map((id) => byId.get(id))
     .filter((image): image is PropertyGalleryImage => Boolean(image));
-  const candidates = [primary, ...requested, ...orderedGallery].filter(
+  // Brochure photo selection is authoritative. Only the primary fallback may
+  // be inferred from the cover/gallery; supporting slots must reflect the
+  // administrator's explicit ordered selection.
+  const candidates = [primary, ...requested].filter(
     (image): image is PropertyGalleryImage => Boolean(image),
   );
   const seen = new Set<string>();
@@ -371,7 +374,10 @@ export function effectiveLandscapeLayout(
 ): PropertyMarketingLandscapeLayout {
   if (imageCount <= 1 || requested === "single-hero") return "single-hero";
   if (requested === "hero-four-grid") {
-    return imageCount >= 5 ? "hero-four-grid" : "hero-two-square";
+    // Three supporting images still form a deliberate compact grid. Falling
+    // back at five images previously discarded the third valid supporting
+    // selection when four usable images were available.
+    return imageCount >= 4 ? "hero-four-grid" : "hero-two-square";
   }
   return "hero-two-square";
 }

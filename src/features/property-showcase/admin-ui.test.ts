@@ -511,25 +511,42 @@ test("brochure preparation handles selected photos once and preview uses reduced
   assert.equal(marketingAssetsSource.includes("new Map(selected.map"), true);
   assert.equal(marketingAssetsSource.includes("preview ? 1000 : 2200"), true);
   assert.equal(marketingMaterialRendererSource.includes("getPropertyMarketingRenderDimensions"), true);
+  assert.equal(marketingMaterialRendererSource.includes("calc("), false);
   assert.equal(marketingMaterialsSource.includes("{ width: 620, height: 877 }"), true);
   assert.equal(marketingMaterialsSource.includes("{ width: 960, height: 540 }"), true);
 });
 
 test("brochure compositions reflow sparse portrait content and never reserve failed media slots", () => {
-  assert.equal(marketingMaterialRendererSource.includes("const hasAgent = Boolean"), true);
-  assert.equal(marketingMaterialRendererSource.includes("hasAgent || model.disclaimer"), true);
+  assert.equal(marketingMaterialRendererSource.includes("const hasHeader = hasRealtor"), true);
+  assert.equal(marketingMaterialRendererSource.includes("model.qrCodeUrl || model.disclaimer"), true);
   assert.equal(marketingMaterialRendererSource.includes("model.highlights.length > 0"), true);
-  assert.equal(marketingMaterialRendererSource.includes("supporting.length > 0"), true);
+  assert.equal(marketingMaterialRendererSource.includes("supporting.length === 0"), true);
   assert.equal(marketingMaterialRendererSource.includes("images.slice(1"), true);
   assert.equal(marketingAssetsSource.includes("filter((image): image is PreparedMarketingImage"), true);
+  assert.equal(marketingMaterialRendererSource.includes('const WHITE = "#ffffff"'), true);
+  assert.equal(marketingMaterialRendererSource.includes('background: editorial ? "#f7f4ed"'), false);
+  assert.equal(marketingMaterialRendererSource.includes("Full Frame Media"), false);
+  assert.equal(marketingMaterialRendererSource.includes('fontSize: s(portrait ? 48 : 40)'), true);
+  assert.equal(marketingMaterialRendererSource.includes('fontSize: s(portrait ? 38 : 32)'), true);
+  assert.equal(marketingMaterialRendererSource.includes('width: s(portrait ? 390 : 270)'), true);
+  assert.equal(marketingMaterialRendererSource.includes('objectFit: "contain"'), true);
+  assert.equal(marketingMaterialRendererSource.includes("model.agentPhone ?"), true);
+  assert.equal(marketingMaterialRendererSource.includes('const useHighlights = view.config.marketingCopyMode === "highlights"'), true);
+  assert.equal(marketingMaterialRendererSource.includes("SocialLandscapeComposition"), true);
+  assert.equal(marketingMaterialRendererSource.includes("LandscapeBrochureComposition"), true);
 });
 
-test("public brochure dialog previews one orientation and offers only four controlled actions", () => {
+test("public brochure dialog previews one orientation and offers only three controlled downloads", () => {
   assert.equal(marketingDownloadsSource.includes("Finished property brochure preview"), true);
-  assert.equal(marketingDownloadsSource.includes('id: "print"'), true);
+  assert.equal(marketingDownloadsSource.includes('id: "print"'), false);
+  assert.equal(marketingDownloadsSource.includes("window.print"), false);
+  assert.equal(marketingDownloadsSource.includes("Printer"), false);
   assert.equal(marketingDownloadsSource.includes('id: "pdf"'), true);
   assert.equal(marketingDownloadsSource.includes('id: "jpg"'), true);
   assert.equal(marketingDownloadsSource.includes('id: "png"'), true);
+  assert.equal(marketingDownloadsSource.includes("Download PDF"), true);
+  assert.equal(marketingDownloadsSource.includes("Download JPG"), true);
+  assert.equal(marketingDownloadsSource.includes("Download PNG"), true);
   assert.equal(marketingDownloadsSource.includes("fetch(href"), true);
   assert.equal(marketingDownloadsSource.includes("Preparing brochure preview"), true);
   assert.equal(marketingDownloadsSource.includes("landscapePng"), false);

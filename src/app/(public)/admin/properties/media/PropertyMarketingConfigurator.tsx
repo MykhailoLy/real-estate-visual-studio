@@ -27,6 +27,7 @@ import {
 import { focalPointToObjectPosition } from "@/features/property-showcase/focal-point";
 import {
   PROPERTY_MARKETING_PREVIEW_DEBOUNCE_MS,
+  serializePropertyMarketingPreviewRequest,
   shouldApplyPropertyMarketingPreview,
 } from "@/features/property-showcase/marketing-preview-client";
 import {
@@ -201,7 +202,7 @@ export default function PropertyMarketingConfigurator({
     [gallery],
   );
   const previewBody = useMemo(
-    () => JSON.stringify({ marketingMaterials: canonical, focalPoints }),
+    () => serializePropertyMarketingPreviewRequest(canonical, focalPoints),
     [canonical, focalPoints],
   );
 
@@ -402,7 +403,7 @@ export default function PropertyMarketingConfigurator({
                     </span>
                     <span>
                       <span className="block font-bold text-primary">{orientation === "portrait" ? "Portrait / A4" : "Landscape"}</span>
-                      <span className="mt-1 block text-xs leading-5 text-muted">{orientation === "portrait" ? "Print-first one-page flyer" : "Wide digital and A4 landscape brochure"}</span>
+                      <span className="mt-1 block text-xs leading-5 text-muted">{orientation === "portrait" ? "Editorial one-page flyer" : "Wide digital and A4 landscape brochure"}</span>
                     </span>
                   </button>
                 );
@@ -447,7 +448,7 @@ export default function PropertyMarketingConfigurator({
               </span>
             </div>
             <div
-              className={`relative mt-4 flex max-h-[70vh] min-h-64 items-center justify-center overflow-hidden rounded-xl bg-[#0B1F3A] ${normalized.brochure.orientation === "portrait" ? "aspect-[620/877]" : "aspect-video"}`}
+              className={`relative mt-4 flex max-h-[70vh] min-h-64 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${normalized.brochure.orientation === "portrait" ? "aspect-[620/877]" : "aspect-video"}`}
             >
               {previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -457,7 +458,7 @@ export default function PropertyMarketingConfigurator({
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <div className="flex flex-col items-center gap-3 px-6 text-center text-white">
+                <div className="flex flex-col items-center gap-3 px-6 text-center text-primary">
                   <Loader2 className="h-7 w-7 animate-spin" aria-hidden />
                   <span className="text-sm font-bold">Preparing the first preview…</span>
                 </div>
@@ -474,7 +475,7 @@ export default function PropertyMarketingConfigurator({
                 : previewStatus === "ready"
                   ? "Preview reflects unsaved changes."
                   : previewStatus === "error"
-                    ? previewError
+                    ? `Preview failed — Retry. ${previewError ?? ""}`.trim()
                     : "Waiting to render preview…"}
             </div>
             {previewStatus === "error" ? (
@@ -523,7 +524,11 @@ export default function PropertyMarketingConfigurator({
                 <h3 className="text-sm font-bold text-primary">Photos</h3>
                 <p className="mt-1 text-xs leading-5 text-muted">Select existing gallery images. The focal point controls every crop.</p>
               </div>
-              <span className="rounded-full bg-surface px-3 py-1 text-xs font-bold text-muted">Up to {supportingLimit} supporting used by this template</span>
+              <span className="rounded-full bg-surface px-3 py-1 text-xs font-bold text-muted">
+                {supportingLimit === 0
+                  ? "Single Hero: 0 supporting images"
+                  : `Up to ${supportingLimit} supporting images`}
+              </span>
             </div>
 
             <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
@@ -581,7 +586,7 @@ export default function PropertyMarketingConfigurator({
                     ) : (
                       <div className="flex min-h-20 items-center gap-2 text-xs font-bold text-red-700"><AlertTriangle className="h-4 w-4" aria-hidden /> Selected photo is unavailable</div>
                     )}
-                    {index >= supportingLimit ? <p className="mt-2 text-[10px] font-bold text-amber-900">Saved for another template; not used in this composition.</p> : null}
+                    {index >= supportingLimit ? <p className="mt-2 text-[10px] font-bold text-amber-900">Not used by this template. The selection remains saved.</p> : null}
                   </div>
                 ))}
                 {Array.from({ length: Math.max(0, supportingLimit - Math.min(selectedSupporting.length, supportingLimit)) }).map((_, index) => (

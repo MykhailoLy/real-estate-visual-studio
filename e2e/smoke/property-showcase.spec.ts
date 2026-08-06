@@ -273,11 +273,12 @@ for (const viewport of propertyViewports) {
         name: "Finished property brochure preview",
       }),
     ).toBeVisible();
-    for (const action of ["Print", "PDF", "JPG", "PNG"]) {
+    for (const action of ["Download PDF", "Download JPG", "Download PNG"]) {
       await expect(
         marketingDialog.getByRole("button", { name: new RegExp(`^${action}`) }),
       ).toBeVisible();
     }
+    await expect(marketingDialog.getByRole("button", { name: /^Print/ })).toHaveCount(0);
     await expect(marketingDialog.getByText("Portrait / A4")).toBeVisible();
     await expect(marketingDialog.getByText("Landscape JPG")).toHaveCount(0);
     const dialogGeometry = await marketingDialog.evaluate((element) => {
@@ -780,7 +781,7 @@ test("public brochure download reports preparing, error and retry states", async
   await page.getByTestId("hero-download-brochure").click();
   const dialog = page.getByTestId("property-marketing-download-dialog");
   const liveStatus = dialog.locator('[aria-live="polite"]');
-  const pdf = dialog.getByRole("button", { name: /^PDF/ });
+  const pdf = dialog.getByRole("button", { name: /^Download PDF/ });
   await pdf.click();
   await expect(liveStatus).toHaveText("Preparing PDF…");
   await expect(liveStatus).toContainText("Please retry");

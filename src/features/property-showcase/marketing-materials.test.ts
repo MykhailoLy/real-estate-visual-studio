@@ -195,8 +195,35 @@ test("selected photo order and landscape fallbacks never reserve blank panels", 
   assert.equal(effectiveLandscapeLayout("hero-four-grid", 1), "single-hero");
   assert.equal(effectiveLandscapeLayout("hero-four-grid", 2), "hero-two-square");
   assert.equal(effectiveLandscapeLayout("hero-four-grid", 3), "hero-two-square");
-  assert.equal(effectiveLandscapeLayout("hero-four-grid", 4), "hero-two-square");
+  assert.equal(effectiveLandscapeLayout("hero-four-grid", 4), "hero-four-grid");
   assert.equal(effectiveLandscapeLayout("hero-four-grid", 5), "hero-four-grid");
+});
+
+test("landscape selection is authoritative and never auto-fills removed supporting slots", () => {
+  const property = cloneProperty();
+  property.marketingMaterials = {
+    enabled: true,
+    brochure: {
+      orientation: "landscape",
+      template: "hero-four-grid",
+      primaryMediaId: "terrace",
+      supportingMediaIds: ["living-room", "exterior", "principal-bedroom"],
+    },
+  };
+  const selected = createPropertyMarketingMaterialView(property, canonicalUrl);
+  assert.deepEqual(selected.brochureImages.map((image) => image.id), [
+    "terrace",
+    "living-room",
+    "exterior",
+    "principal-bedroom",
+  ]);
+
+  property.marketingMaterials.brochure!.supportingMediaIds = ["living-room"];
+  const removed = createPropertyMarketingMaterialView(property, canonicalUrl);
+  assert.deepEqual(removed.brochureImages.map((image) => image.id), [
+    "terrace",
+    "living-room",
+  ]);
 });
 
 test("visible orientation, order, focal points and copy deterministically version URLs", () => {
@@ -237,6 +264,47 @@ test("visible orientation, order, focal points and copy deterministically versio
   assert.match(links.pdf ?? "", /^\/property\/sea-view-residence\/materials\/brochure\.pdf\?v=[a-f0-9]{14}$/);
   assert.equal("landscapePng" in links, false);
   assert.equal("flyerPdf" in links, false);
+});
+
+test("landscape template, replacement and supporting order are authoritative version inputs", () => {
+  const property = cloneProperty();
+  property.marketingMaterials = {
+    enabled: true,
+    brochure: {
+      orientation: "landscape",
+      template: "hero-four-grid",
+      primaryMediaId: "terrace",
+      supportingMediaIds: ["living-room", "exterior", "principal-bedroom"],
+    },
+  };
+  const input = createPropertyMarketingMaterialVersionInput(property, canonicalUrl);
+  assert.equal(input.schemaVersion, "picchuspot-property-marketing-v2");
+  assert.deepEqual(input.images.map((image) => image.id), [
+    "terrace",
+    "living-room",
+    "exterior",
+    "principal-bedroom",
+  ]);
+  const original = computePropertyMarketingMaterialVersion(property, canonicalUrl);
+
+  const reordered = structuredClone(property);
+  reordered.marketingMaterials!.brochure!.supportingMediaIds = [
+    "principal-bedroom",
+    "living-room",
+    "exterior",
+  ];
+  assert.notEqual(computePropertyMarketingMaterialVersion(reordered, canonicalUrl), original);
+
+  const replaced = structuredClone(property);
+  replaced.marketingMaterials!.brochure!.supportingMediaIds = [
+    "living-room",
+    "exterior",
+  ];
+  assert.notEqual(computePropertyMarketingMaterialVersion(replaced, canonicalUrl), original);
+
+  const templateChanged = structuredClone(property);
+  templateChanged.marketingMaterials!.brochure!.template = "hero-two-square";
+  assert.notEqual(computePropertyMarketingMaterialVersion(templateChanged, canonicalUrl), original);
 });
 
 test("Approximate and Hidden versions exclude exact private location fields", () => {

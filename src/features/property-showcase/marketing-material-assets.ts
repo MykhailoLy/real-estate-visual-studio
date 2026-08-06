@@ -25,6 +25,7 @@ export interface PreparedPropertyMarketingAssets {
 
 interface PreparePropertyMarketingAssetsOptions {
   preview?: boolean;
+  loadSource?: typeof loadPropertySocialImageSource;
 }
 
 function dataUri(contentType: "image/jpeg" | "image/png", bytes: Buffer) {
@@ -35,8 +36,9 @@ async function preparePhoto(
   property: PropertyShowcase,
   image: PropertyMarketingSelectedImage,
   preview: boolean,
+  loadSource: typeof loadPropertySocialImageSource,
 ): Promise<PreparedMarketingImage | null> {
-  const source = await loadPropertySocialImageSource(
+  const source = await loadSource(
     property,
     image.imageUrl,
     "photo",
@@ -77,9 +79,10 @@ async function prepareSmallImage(
   imageUrl: string | undefined,
   kind: "photo" | "logo",
   preview: boolean,
+  loadSource: typeof loadPropertySocialImageSource,
 ): Promise<string | undefined> {
   if (!imageUrl) return undefined;
-  const source = await loadPropertySocialImageSource(property, imageUrl, kind, {
+  const source = await loadSource(property, imageUrl, kind, {
     timeoutMs: preview ? 3000 : 5000,
     maxSourceBytes: 8 * 1024 * 1024,
   });
@@ -108,10 +111,11 @@ async function prepareImages(
   property: PropertyShowcase,
   selected: readonly PropertyMarketingSelectedImage[],
   preview: boolean,
+  loadSource: typeof loadPropertySocialImageSource,
 ): Promise<PreparedMarketingImage[]> {
   const uniqueImages = [...new Map(selected.map((image) => [image.id, image])).values()];
   const prepared = await Promise.all(
-    uniqueImages.map((image) => preparePhoto(property, image, preview)),
+    uniqueImages.map((image) => preparePhoto(property, image, preview, loadSource)),
   );
   return prepared.filter((image): image is PreparedMarketingImage => Boolean(image));
 }
@@ -122,14 +126,17 @@ export async function preparePropertyMarketingAssets(
   options: PreparePropertyMarketingAssetsOptions = {},
 ): Promise<PreparedPropertyMarketingAssets> {
   const preview = options.preview === true;
+  const loadSource = options.loadSource ?? loadPropertySocialImageSource;
   const view = createPropertyMarketingMaterialView(property, canonicalUrl);
+  const usesAgencyLogo =
+    view.config.includeAgencyLogo && view.config.brandingMode !== "picchuspot";
   const [images, agencyLogoUrl, agentPortraitUrl, qrCodeUrl] = await Promise.all([
-    prepareImages(property, view.brochureImages, preview),
-    view.config.includeAgencyLogo
-      ? prepareSmallImage(property, view.agent?.logoUrl, "logo", preview)
+    prepareImages(property, view.brochureImages, preview, loadSource),
+    usesAgencyLogo
+      ? prepareSmallImage(property, view.agent?.logoUrl, "logo", preview, loadSource)
       : undefined,
     view.config.includeAgent
-      ? prepareSmallImage(property, view.agent?.portraitUrl, "photo", preview)
+      ? prepareSmallImage(property, view.agent?.portraitUrl, "photo", preview, loadSource)
       : undefined,
     view.config.includeQrCode
       ? QRCode.toDataURL(canonicalUrl, {
