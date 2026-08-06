@@ -68,15 +68,19 @@ function assetOrientation(
   return selected;
 }
 
-export async function createA4Pdf(
+export async function createPropertyMarketingPdf(
   png: Uint8Array,
   orientation: PropertyMarketingBrochureOrientation = "portrait",
 ): Promise<Uint8Array> {
   const document = await PDFDocument.create();
-  const page = document.addPage(
-    orientation === "portrait" ? [595.28, 841.89] : [841.89, 595.28],
-  );
   const image = await document.embedPng(png);
+  // Portrait brochures are print-ready A4. Landscape brochures are designed as
+  // 16:9 canvases, so their PDF page must retain the PNG's native aspect ratio.
+  const page = document.addPage(
+    orientation === "portrait"
+      ? [595.28, 841.89]
+      : [image.width / 2, image.height / 2],
+  );
   page.drawImage(image, {
     x: 0,
     y: 0,
@@ -105,7 +109,7 @@ export async function encodePropertyMarketingMaterialFormat(
   }
   if (asset.endsWith(".pdf")) {
     return {
-      bytes: await createA4Pdf(png, orientation),
+      bytes: await createPropertyMarketingPdf(png, orientation),
       contentType: "application/pdf",
     };
   }

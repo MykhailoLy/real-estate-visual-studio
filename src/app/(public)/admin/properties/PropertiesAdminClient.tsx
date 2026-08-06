@@ -1591,9 +1591,8 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Summary">
+            <Field label="Summary (optional)">
               <textarea
-                required
                 rows={3}
                 value={form.summary}
                 onChange={(event) => set("summary", event.target.value)}

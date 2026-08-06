@@ -531,7 +531,9 @@ test("brochure compositions reflow sparse portrait content and never reserve fai
   assert.equal(marketingMaterialRendererSource.includes('width: s(portrait ? 390 : 270)'), true);
   assert.equal(marketingMaterialRendererSource.includes('objectFit: "contain"'), true);
   assert.equal(marketingMaterialRendererSource.includes("model.agentPhone ?"), true);
-  assert.equal(marketingMaterialRendererSource.includes('const useHighlights = view.config.marketingCopyMode === "highlights"'), true);
+  assert.equal(marketingMaterialRendererSource.includes("const useHighlights = !view.copy && view.highlights.length > 0"), true);
+  assert.equal(marketingMaterialRendererSource.includes('justifyContent: hasFooter ? "space-between" : "flex-start"'), true);
+  assert.equal(marketingMaterialRendererSource.includes("model.highlights.slice(0, 4)"), true);
   assert.equal(marketingMaterialRendererSource.includes("SocialLandscapeComposition"), true);
   assert.equal(marketingMaterialRendererSource.includes("LandscapeBrochureComposition"), true);
 });

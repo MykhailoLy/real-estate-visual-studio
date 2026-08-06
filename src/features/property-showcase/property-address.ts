@@ -44,6 +44,35 @@ export function formatStructuredPropertyAddress(location: StructuredAddress): st
   ]).join(", ");
 }
 
+/**
+ * Resolves the single address line that may be printed on public brochures.
+ * This intentionally differs from the property-page address view: exact
+ * brochures retain the historical display address when it exists, while
+ * approximate and hidden records must never fall back to exact fields.
+ */
+export function resolvePublicBrochureAddress(
+  location: PropertyLocation,
+  language: PropertyLanguageCode,
+  primaryLanguage: PropertyLanguageCode,
+): string {
+  if (location.privacyMode === "hidden") return "";
+
+  if (location.privacyMode === "approximate") {
+    return localizedText(
+      location.approximateLabel,
+      language,
+      primaryLanguage,
+    ).trim();
+  }
+
+  const legacyDisplayAddress = localizedText(
+    location.displayAddress,
+    language,
+    primaryLanguage,
+  ).trim();
+  return legacyDisplayAddress || formatStructuredPropertyAddress(location);
+}
+
 export function getPropertyAddressView(
   location: PropertyLocation,
   language: PropertyLanguageCode,

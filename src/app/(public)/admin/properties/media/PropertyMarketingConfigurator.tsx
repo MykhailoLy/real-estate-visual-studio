@@ -34,6 +34,7 @@ import {
   brochureSupportingImageLimit,
   moveBrochureSupportingImage,
   normalizePropertyMarketingMaterialsConfig,
+  PROPERTY_MARKETING_MAX_HIGHLIGHTS,
   propertyHighlightId,
   resetPropertyMarketingMaterialsConfig,
   replaceBrochureSupportingImage,
@@ -658,7 +659,7 @@ export default function PropertyMarketingConfigurator({
                   {property.highlights.map((highlight, index) => {
                     const id = propertyHighlightId(highlight, index);
                     const label = highlight.text?.en ?? highlight.title?.en ?? `Highlight ${index + 1}`;
-                    return <label key={id} className="flex items-start gap-2 text-xs font-semibold text-primary"><input type="checkbox" checked={normalized.selectedHighlightIds.includes(id)} onChange={(event) => { const selected = event.target.checked ? [...normalized.selectedHighlightIds, id].slice(0, 3) : normalized.selectedHighlightIds.filter((item) => item !== id); update({ selectedHighlightIds: selected }); }} className="mt-0.5 h-4 w-4 accent-primary" /><span className="line-clamp-2">{label}</span></label>;
+                    return <label key={id} className="flex items-start gap-2 text-xs font-semibold text-primary"><input type="checkbox" checked={normalized.selectedHighlightIds.includes(id)} onChange={(event) => { const selected = event.target.checked ? [...normalized.selectedHighlightIds, id].slice(0, PROPERTY_MARKETING_MAX_HIGHLIGHTS) : normalized.selectedHighlightIds.filter((item) => item !== id); update({ selectedHighlightIds: selected }); }} className="mt-0.5 h-4 w-4 accent-primary" /><span className="line-clamp-2">{label}</span></label>;
                   })}
                 </div>
               </fieldset>

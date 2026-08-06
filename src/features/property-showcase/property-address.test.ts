@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getPropertyAddressView } from "./property-address.ts";
+import {
+  getPropertyAddressView,
+  resolvePublicBrochureAddress,
+} from "./property-address.ts";
 import type { PropertyLocation } from "./types.ts";
 
 function exactLocation(overrides: Partial<PropertyLocation> = {}): PropertyLocation {
@@ -52,6 +55,36 @@ test("legacy display addresses remain a backward-compatible exact fallback", () 
     secondaryLine: "",
     socialText: "Legacy address only",
   });
+});
+
+test("brochure addresses prefer an exact legacy display address before structured fields", () => {
+  assert.equal(
+    resolvePublicBrochureAddress(exactLocation({
+      displayAddress: { en: "Historic brochure address" },
+    }), "en", "en"),
+    "Historic brochure address",
+  );
+  assert.equal(
+    resolvePublicBrochureAddress(exactLocation({
+      displayAddress: { en: "   " },
+    }), "en", "en"),
+    "Calle San Pablo 46, Altea, Alicante, 03590, Spain",
+  );
+});
+
+test("brochure address resolver never falls back to exact fields for approximate or hidden records", () => {
+  const approximate = exactLocation({
+    privacyMode: "approximate",
+    approximateLabel: { en: "Altea Hills" },
+    displayAddress: { en: "Private villa address" },
+  });
+  assert.equal(resolvePublicBrochureAddress(approximate, "en", "en"), "Altea Hills");
+  approximate.approximateLabel = { en: " " };
+  assert.equal(resolvePublicBrochureAddress(approximate, "en", "en"), "");
+  assert.equal(
+    resolvePublicBrochureAddress(exactLocation({ privacyMode: "hidden" }), "en", "en"),
+    "",
+  );
 });
 
 test("approximate and hidden locations never expose structured exact address fields", () => {

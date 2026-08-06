@@ -386,21 +386,9 @@ test("360 tour stays poster-first and keeps controls outside the provider frame"
   expect(controlsBox).not.toBeNull();
   expect(controlsBox!.y).toBeGreaterThanOrEqual(iframeBox!.y + iframeBox!.height - 1);
 
-  const launcher = page.getByRole("button", {
+  await expect(page.getByRole("button", {
     name: "Open PicchuSpot AI assistant",
-  });
-  const [launcherBox, fullscreenBox] = await Promise.all([
-    launcher.boundingBox(),
-    fullscreen.boundingBox(),
-  ]);
-  expect(launcherBox).not.toBeNull();
-  expect(fullscreenBox).not.toBeNull();
-  const supportOverlapsFullscreen =
-    launcherBox!.x < fullscreenBox!.x + fullscreenBox!.width &&
-    launcherBox!.x + launcherBox!.width > fullscreenBox!.x &&
-    launcherBox!.y < fullscreenBox!.y + fullscreenBox!.height &&
-    launcherBox!.y + launcherBox!.height > fullscreenBox!.y;
-  expect(supportOverlapsFullscreen).toBe(false);
+  })).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -567,24 +555,9 @@ test("mobile section navigation uses an in-viewport More menu", async ({
   await expect(moreMenu.getByRole("menuitem", { name: "Contact" })).toBeVisible();
   await expect(moreMenu.getByRole("menuitem", { name: "Location" })).toBeVisible();
 
-  const launcher = page.getByRole("button", {
+  await expect(page.getByRole("button", {
     name: "Open PicchuSpot AI assistant",
-  });
-  if ((await launcher.count()) > 0) {
-    await expect(launcher).toBeVisible();
-    const [menuBox, launcherBox] = await Promise.all([
-      moreMenu.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(menuBox).not.toBeNull();
-    expect(launcherBox).not.toBeNull();
-    const overlaps =
-      menuBox!.x < launcherBox!.x + launcherBox!.width &&
-      menuBox!.x + menuBox!.width > launcherBox!.x &&
-      menuBox!.y < launcherBox!.y + launcherBox!.height &&
-      menuBox!.y + menuBox!.height > launcherBox!.y;
-    expect(overlaps).toBe(false);
-  }
+  })).toHaveCount(0);
 
   await moreMenu.getByRole("menuitem", { name: "Contact" }).click();
   await expect(page).toHaveURL(/#contact$/);
@@ -831,7 +804,7 @@ test("hidden realtor profile does not fall back to PicchuSpot contact", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
-test("compact contact actions do not overlap the support launcher on mobile", async ({
+test("compact property contact actions remain usable without the support launcher on mobile", async ({
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
@@ -845,59 +818,14 @@ test("compact contact actions do not overlap the support launcher on mobile", as
   const action = contact.getByRole("button", { name: "Request a viewing" });
   const socialLink = contact.getByRole("link", { name: "LinkedIn" });
   const highlights = page.getByTestId("property-highlights");
-  const launcher = page.getByRole("button", {
-    name: "Open PicchuSpot AI assistant",
-  });
   await expect(action).toBeVisible();
-  if ((await launcher.count()) > 0) {
-    await expect(launcher).toBeVisible();
-    const [actionBox, launcherBox] = await Promise.all([
-      action.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(actionBox).not.toBeNull();
-    expect(launcherBox).not.toBeNull();
-    const overlaps =
-      actionBox!.x < launcherBox!.x + launcherBox!.width &&
-      actionBox!.x + actionBox!.width > launcherBox!.x &&
-      actionBox!.y < launcherBox!.y + launcherBox!.height &&
-      actionBox!.y + actionBox!.height > launcherBox!.y;
-    expect(overlaps).toBe(false);
-
-    await socialLink.scrollIntoViewIfNeeded();
-    await expect(socialLink).toBeVisible();
-    const [socialBox, socialLauncherBox] = await Promise.all([
-      socialLink.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(socialBox).not.toBeNull();
-    expect(socialLauncherBox).not.toBeNull();
-    const socialOverlaps =
-      socialBox!.x < socialLauncherBox!.x + socialLauncherBox!.width &&
-      socialBox!.x + socialBox!.width > socialLauncherBox!.x &&
-      socialBox!.y < socialLauncherBox!.y + socialLauncherBox!.height &&
-      socialBox!.y + socialBox!.height > socialLauncherBox!.y;
-    expect(socialOverlaps).toBe(false);
-
-    await highlights.scrollIntoViewIfNeeded();
-    const highlightItems = highlights.locator("li");
-    const highlightCount = await highlightItems.count();
-    expect(highlightCount).toBeGreaterThan(0);
-    const finalHighlight = highlightItems.nth(highlightCount - 1);
-    await expect(finalHighlight).toBeVisible();
-    const [highlightBox, highlightLauncherBox] = await Promise.all([
-      finalHighlight.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(highlightBox).not.toBeNull();
-    expect(highlightLauncherBox).not.toBeNull();
-    const highlightOverlaps =
-      highlightBox!.x < highlightLauncherBox!.x + highlightLauncherBox!.width &&
-      highlightBox!.x + highlightBox!.width > highlightLauncherBox!.x &&
-      highlightBox!.y < highlightLauncherBox!.y + highlightLauncherBox!.height &&
-      highlightBox!.y + highlightBox!.height > highlightLauncherBox!.y;
-    expect(highlightOverlaps).toBe(false);
-  }
+  await expect(page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  })).toHaveCount(0);
+  await socialLink.scrollIntoViewIfNeeded();
+  await expect(socialLink).toBeVisible();
+  await highlights.scrollIntoViewIfNeeded();
+  await expect(highlights.locator("li")).not.toHaveCount(0);
   await action.click();
   const dialog = page.getByRole("dialog", { name: "Request a viewing" });
   await expect(dialog).toBeVisible();
@@ -943,7 +871,7 @@ test("property showcase overview omits empty highlights", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
-test("property showcase support launcher does not cover interactive actions", async ({
+test("property showcase omits the support launcher while preserving interactive actions", async ({
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
@@ -954,32 +882,13 @@ test("property showcase support launcher does not cover interactive actions", as
   expectNavigationResponseOk(response, "/property/sea-view-residence");
   await page.locator("#interactive-floor-plan").scrollIntoViewIfNeeded();
 
-  const launcher = page.getByRole("button", {
-    name: "Open PicchuSpot AI assistant",
-  });
   const action = page.locator("#interactive-floor-plan").getByRole("link", {
     name: "Open interactive floor plan",
   }).first();
-  await expect(launcher).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  })).toHaveCount(0);
   await expect(action).toBeVisible();
-
-  const boxes = await Promise.all([
-    launcher.boundingBox(),
-    action.boundingBox(),
-  ]);
-  expect(boxes[0]).not.toBeNull();
-  expect(boxes[1]).not.toBeNull();
-
-  const [launcherBox, actionBox] = boxes as [
-    NonNullable<(typeof boxes)[number]>,
-    NonNullable<(typeof boxes)[number]>,
-  ];
-  const overlaps =
-    launcherBox.x < actionBox.x + actionBox.width &&
-    launcherBox.x + launcherBox.width > actionBox.x &&
-    launcherBox.y < actionBox.y + actionBox.height &&
-    launcherBox.y + launcherBox.height > actionBox.y;
-  expect(overlaps).toBe(false);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 

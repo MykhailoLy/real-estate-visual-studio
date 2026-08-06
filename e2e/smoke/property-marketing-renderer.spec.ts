@@ -292,17 +292,50 @@ test("replacing one supporting image replaces its rendered pixels", async () => 
   expect(after.get("support-purple")).toBeGreaterThan(500);
 });
 
-test("preview and final output preserve the same normalized image positions", async () => {
-  const preview = await colorCentroids(await render("hero-four-grid", fixtureColors, true));
-  const final = await colorCentroids(await render("hero-four-grid", fixtureColors, false));
-  for (const { id } of fixtureColors) {
-    const previewPoint = preview.get(id);
-    const finalPoint = final.get(id);
-    expect(previewPoint, `${id} preview centroid`).not.toBeNull();
-    expect(finalPoint, `${id} final centroid`).not.toBeNull();
-    expect(Math.abs(previewPoint!.x - finalPoint!.x)).toBeLessThan(0.025);
-    expect(Math.abs(previewPoint!.y - finalPoint!.y)).toBeLessThan(0.025);
+test("portrait and landscape preview/final output preserve normalized image positions", async () => {
+  for (const template of ["hero-four-grid", "a4-editorial"] as const) {
+    const preview = await colorCentroids(await render(template, fixtureColors, true));
+    const final = await colorCentroids(await render(template, fixtureColors, false));
+    for (const { id } of fixtureColors) {
+      const previewPoint = preview.get(id);
+      const finalPoint = final.get(id);
+      expect(previewPoint, `${template} ${id} preview centroid`).not.toBeNull();
+      expect(finalPoint, `${template} ${id} final centroid`).not.toBeNull();
+      expect(Math.abs(previewPoint!.x - finalPoint!.x)).toBeLessThan(0.025);
+      expect(Math.abs(previewPoint!.y - finalPoint!.y)).toBeLessThan(0.025);
+    }
   }
+});
+
+test("portrait highlights fallback renders pixels and keeps the media-led A4 composition", async () => {
+  const fallbackAssets = await preparedAssets("a4-editorial");
+  fallbackAssets.view.copy = "";
+  fallbackAssets.view.highlights = [
+    "Open Mediterranean views",
+    "South-east orientation",
+    "Contemporary finishes",
+    "Ready for international buyers",
+  ];
+  const noCopyAssets = await preparedAssets("a4-editorial");
+  noCopyAssets.view.copy = "";
+  noCopyAssets.view.highlights = [];
+
+  const fallbackResponse = renderPropertyMarketingPng(fallbackAssets, { preview: true });
+  const noCopyResponse = renderPropertyMarketingPng(noCopyAssets, { preview: true });
+  expect(fallbackResponse.ok).toBe(true);
+  expect(noCopyResponse.ok).toBe(true);
+  const fallback = Buffer.from(await fallbackResponse.arrayBuffer());
+  const noCopy = Buffer.from(await noCopyResponse.arrayBuffer());
+  expect(createHash("sha256").update(fallback).digest("hex")).not.toBe(
+    createHash("sha256").update(noCopy).digest("hex"),
+  );
+
+  const metadata = await sharp(fallback).metadata();
+  expect(metadata.width).toBe(620);
+  expect(metadata.height).toBe(877);
+  const counts = await colorPixelCounts(fallback);
+  expect(counts.get("primary-red")).toBeGreaterThan(500);
+  expect(counts.get("support-green")).toBeGreaterThan(500);
 });
 
 test("portrait and landscape brochures use white editorial surfaces without brand-color panels", async () => {

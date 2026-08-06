@@ -162,6 +162,78 @@ test("marketing and preview schemas reject unsafe values and arbitrary URLs", ()
   }).success, false);
 });
 
+test("showcase schema accepts an omitted or empty optional summary", () => {
+  const omitted = cloneProperty() as Partial<PropertyShowcase>;
+  delete omitted.summary;
+  delete omitted.translations;
+  assert.equal(PropertyShowcaseSchema.safeParse(omitted).success, true);
+
+  const empty = cloneProperty();
+  empty.summary = { en: "" };
+  empty.translations = undefined;
+  assert.equal(PropertyShowcaseSchema.safeParse(empty).success, true);
+});
+
+test("empty configured summary and custom copy fall back to selected public highlights", () => {
+  const property = configuredProperty();
+  property.summary = { en: " " };
+  property.marketingMaterials = {
+    ...property.marketingMaterials,
+    marketingCopyMode: "summary",
+    selectedHighlightIds: ["highlight-1", "highlight-2", "highlight-3", "highlight-4"],
+  };
+  const summaryFallback = createPropertyMarketingMaterialView(property, canonicalUrl);
+  assert.equal(summaryFallback.copy, "");
+  assert.equal(summaryFallback.highlights.length, 4);
+
+  property.marketingMaterials.marketingCopyMode = "custom";
+  property.marketingMaterials.customMarketingCopy = { en: " " };
+  const customFallback = createPropertyMarketingMaterialView(property, canonicalUrl);
+  assert.equal(customFallback.copy, "");
+  assert.deepEqual(customFallback.highlights, summaryFallback.highlights);
+
+  property.marketingMaterials.marketingCopyMode = "none";
+  const noCopy = createPropertyMarketingMaterialView(property, canonicalUrl);
+  assert.equal(noCopy.copy, "");
+  assert.deepEqual(noCopy.highlights, []);
+});
+
+test("brochure view uses the privacy-safe brochure address resolver in versioned content", () => {
+  const exact = configuredProperty();
+  exact.location = {
+    privacyMode: "exact",
+    displayAddress: { en: "Legacy brochure address" },
+    streetAddress: "1 Private Street",
+    city: "Altea",
+    country: "Spain",
+  };
+  assert.equal(
+    createPropertyMarketingMaterialView(exact, canonicalUrl).location,
+    "Legacy brochure address",
+  );
+
+  const approximate = structuredClone(exact);
+  approximate.location.privacyMode = "approximate";
+  approximate.location.approximateLabel = { en: "Altea area" };
+  assert.equal(
+    createPropertyMarketingMaterialView(approximate, canonicalUrl).location,
+    "Altea area",
+  );
+
+  const hidden = structuredClone(exact);
+  hidden.location.privacyMode = "hidden";
+  assert.equal(createPropertyMarketingMaterialView(hidden, canonicalUrl).location, "");
+});
+
+test("brochure QR copy follows the selected public language", () => {
+  const property = configuredProperty();
+  property.primaryLanguage = "es";
+  assert.equal(
+    createPropertyMarketingMaterialView(property, canonicalUrl).qrLabel,
+    "Escanea para ver la propiedad completa",
+  );
+});
+
 test("photo selection prevents duplicates and keeps stable accessible ordering", () => {
   let brochure: NonNullable<PropertyMarketingMaterialsConfig["brochure"]> = {
     orientation: "portrait",
@@ -278,7 +350,7 @@ test("landscape template, replacement and supporting order are authoritative ver
     },
   };
   const input = createPropertyMarketingMaterialVersionInput(property, canonicalUrl);
-  assert.equal(input.schemaVersion, "picchuspot-property-marketing-v2");
+  assert.equal(input.schemaVersion, "picchuspot-property-marketing-v3");
   assert.deepEqual(input.images.map((image) => image.id), [
     "terrace",
     "living-room",
@@ -326,6 +398,21 @@ test("Approximate and Hidden versions exclude exact private location fields", ()
     JSON.stringify(createPropertyMarketingMaterialVersionInput(first, canonicalUrl)).includes("Private street"),
     false,
   );
+  first.location.approximateLabel = { en: "" };
+  const approximateInput = JSON.stringify(
+    createPropertyMarketingMaterialVersionInput(first, canonicalUrl),
+  );
+  assert.equal(approximateInput.includes("Different private street"), false);
+  assert.equal(approximateInput.includes("Private street"), false);
+
+  const hidden = structuredClone(first);
+  hidden.location.privacyMode = "hidden";
+  hidden.location.approximateLabel = { en: "Altea area" };
+  const hiddenInput = JSON.stringify(
+    createPropertyMarketingMaterialVersionInput(hidden, canonicalUrl),
+  );
+  assert.equal(hiddenInput.includes("Altea area"), false);
+  assert.equal(hiddenInput.includes("Private street"), false);
 });
 
 test("details and ordinary media saves preserve marketing configuration until explicitly updated", () => {

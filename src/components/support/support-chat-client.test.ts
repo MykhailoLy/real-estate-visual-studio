@@ -72,9 +72,19 @@ test("public marketing routes allow the widget", () => {
   assert.equal(isSupportChatRouteVisible("/es/services"), true);
 });
 
+test("property and property-material routes exclude the widget", () => {
+  assert.equal(isSupportChatRouteVisible("/property/sea-view-residence"), false);
+  assert.equal(
+    isSupportChatRouteVisible("/property/sea-view-residence/materials/brochure.pdf"),
+    false,
+  );
+  assert.equal(isSupportChatRouteVisible("/es/property/sea-view-residence"), false);
+});
+
 test("admin routes exclude the widget", () => {
   assert.equal(isSupportChatRouteVisible("/admin"), false);
   assert.equal(isSupportChatRouteVisible("/admin/orders"), false);
+  assert.equal(isSupportChatRouteVisible("/admin/properties/example/preview"), false);
 });
 
 test("dashboard routes allow the widget", () => {
@@ -182,6 +192,7 @@ test("public routes use the floating launcher mode", () => {
 test("excluded routes use no support launcher mode", () => {
   assert.equal(getSupportChatLauncherMode("/order"), "none");
   assert.equal(getSupportChatLauncherMode("/admin"), "none");
+  assert.equal(getSupportChatLauncherMode("/property/sea-view-residence"), "none");
   assert.equal(getSupportChatLauncherMode("/login"), "none");
   assert.equal(getSupportChatLauncherMode("/signup"), "none");
   assert.equal(getSupportChatLauncherMode("/forgot-password"), "none");

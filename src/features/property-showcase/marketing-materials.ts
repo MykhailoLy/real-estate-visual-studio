@@ -2,7 +2,7 @@ import { formatPriceLabel } from "./formatting.ts";
 import { normalizePropertyImageFocalPoint } from "./focal-point.ts";
 import { normalizeListingFacts } from "./listing-details.ts";
 import { getPrimaryLanguage, localizedText } from "./localization.ts";
-import { getPropertyAddressView } from "./property-address.ts";
+import { resolvePublicBrochureAddress } from "./property-address.ts";
 import { serializePublicPropertyShowcase } from "./public-serialization.ts";
 import { resolvePropertySocialImageUrl } from "./social-preview.ts";
 import type {
@@ -26,7 +26,18 @@ export const PROPERTY_MARKETING_DEFAULT_DISCLAIMER =
   "All information is provided for marketing purposes and should be independently verified.";
 export const PROPERTY_MARKETING_MAX_COPY_LENGTH = 200;
 export const PROPERTY_MARKETING_MAX_FACTS = 4;
-export const PROPERTY_MARKETING_MAX_HIGHLIGHTS = 3;
+export const PROPERTY_MARKETING_MAX_HIGHLIGHTS = 4;
+
+const PROPERTY_MARKETING_QR_LABELS: Record<PropertyLanguageCode, string> = {
+  en: "Scan to view the full property",
+  es: "Escanea para ver la propiedad completa",
+  de: "Scannen Sie, um die vollständige Immobilie anzusehen",
+  fr: "Scannez pour voir le bien dans son intégralité",
+  nl: "Scan om de volledige woning te bekijken",
+  pl: "Zeskanuj, aby zobaczyć pełną ofertę",
+  uk: "Скануйте, щоб переглянути об’єкт повністю",
+  ru: "Отсканируйте, чтобы посмотреть объект полностью",
+};
 
 export type PropertyMarketingAsset =
   | "brochure.png"
@@ -76,6 +87,7 @@ export interface PropertyMarketingMaterialView {
   facts: Array<{ key: PropertySocialCardFactKey; label: string; value: string }>;
   copy: string;
   highlights: string[];
+  qrLabel: string;
   disclaimer: string;
   brochureImages: PropertyMarketingSelectedImage[];
   agent: {
@@ -418,17 +430,17 @@ export function createPropertyMarketingMaterialView(
   const customCopy = config.customMarketingCopy
     ? localizedText(config.customMarketingCopy, language, language)
     : "";
-  const copy = config.marketingCopyMode === "summary"
+  const configuredCopy = config.marketingCopyMode === "summary"
     ? normalizeMarketingText(summary, PROPERTY_MARKETING_MAX_COPY_LENGTH)
-    : config.marketingCopyMode === "highlights"
-      ? normalizeMarketingText(highlights.join(" · "), PROPERTY_MARKETING_MAX_COPY_LENGTH)
-      : config.marketingCopyMode === "custom"
-        ? normalizeMarketingText(customCopy, PROPERTY_MARKETING_MAX_COPY_LENGTH)
-        : "";
+    : config.marketingCopyMode === "custom"
+      ? normalizeMarketingText(customCopy, PROPERTY_MARKETING_MAX_COPY_LENGTH)
+      : "";
+  const useHighlights = config.marketingCopyMode === "highlights" ||
+    (config.marketingCopyMode !== "none" && !configuredCopy);
   const disclaimerText = config.disclaimer
     ? localizedText(config.disclaimer, language, language)
     : PROPERTY_MARKETING_DEFAULT_DISCLAIMER;
-  const address = getPropertyAddressView(
+  const address = resolvePublicBrochureAddress(
     publicProperty.location,
     language,
     language,
@@ -444,13 +456,14 @@ export function createPropertyMarketingMaterialView(
     slug: publicProperty.slug,
     canonicalUrl,
     title: localizedText(publicProperty.title, language, language),
-    location: address.socialText,
+    location: address,
     price: publicProperty.price.trim()
       ? formatPriceLabel(publicProperty.price)
       : "",
     facts,
-    copy,
-    highlights,
+    copy: useHighlights ? "" : configuredCopy,
+    highlights: useHighlights ? highlights : [],
+    qrLabel: PROPERTY_MARKETING_QR_LABELS[language],
     disclaimer: config.includeDisclaimer ? disclaimerText : "",
     brochureImages: selectedImages(
       publicProperty,

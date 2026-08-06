@@ -277,7 +277,7 @@ export const PropertyMarketingMaterialsSchema = z
       })
       .optional(),
     selectedHighlightIds: uniqueStrings(
-      3,
+      4,
       "Marketing material highlights must be unique.",
     ).optional(),
     brochure: PropertyMarketingBrochureSchema.optional(),
@@ -403,7 +403,7 @@ export const PropertyShowcaseSchema: z.ZodType<PropertyShowcase> = z
     status: z.enum(["for-sale", "reserved", "sold", "off-market"]),
     primaryLanguage: PropertyLanguageCodeSchema.optional(),
     title: LocalizedTextSchema,
-    summary: LocalizedTextSchema,
+    summary: OptionalLocalizedTextSchema.default({ en: "" }),
     description: z.array(LocalizedTextSchema).max(20),
     priceLabel: LocalizedTextSchema,
     price: z.string().trim().min(1).max(100),

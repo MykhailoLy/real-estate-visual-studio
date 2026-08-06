@@ -30,6 +30,7 @@ interface SharedRenderModel {
   facts: Array<{ key: string; label: string; value: string }>;
   copy: string;
   highlights: string[];
+  qrLabel: string;
   disclaimer: string;
   brandingMode: "picchuspot" | "agency" | "unbranded";
   agencyName: string;
@@ -464,8 +465,14 @@ function PortraitBrochureComposition({
   const scale = width / 2480;
   const s = (value: number) => Math.max(1, Math.round(value * scale));
   const hasHeader = hasRealtor(model) || hasBrochureBrand(model);
-  const headerHeight = hasHeader ? Math.round(height * 0.105) : 0;
-  const mediaHeight = Math.round(height * (layout === "a4-editorial" ? (hasHeader ? 0.48 : 0.56) : (hasHeader ? 0.45 : 0.53)));
+  const hasCopy = Boolean(model.copy || model.highlights.length);
+  const hasFooter = Boolean(model.qrCodeUrl || model.disclaimer);
+  const headerHeight = hasHeader ? Math.round(height * 0.082) : 0;
+  const mediaHeight = Math.round(height * (
+    layout === "a4-editorial"
+      ? (hasHeader ? (hasCopy ? 0.52 : 0.58) : (hasCopy ? 0.56 : 0.6))
+      : (hasHeader ? (hasCopy ? 0.5 : 0.56) : (hasCopy ? 0.54 : 0.58))
+  ));
   return (
     <div style={{ width, height, display: "flex", flexDirection: "column", overflow: "hidden", background: WHITE, color: CHARCOAL, fontFamily: "Arial, Helvetica, sans-serif" }}>
       {hasHeader ? (
@@ -475,20 +482,22 @@ function PortraitBrochureComposition({
         </div>
       ) : null}
       <PortraitMedia images={model.images} width={width} height={mediaHeight} layout={layout} title={model.title} />
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: `${s(55)}px ${s(108)}px ${s(45)}px`, background: WHITE }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: hasFooter ? "space-between" : "flex-start", gap: s(30), padding: `${s(44)}px ${s(108)}px ${s(40)}px`, background: WHITE }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
         {model.location ? <span style={{ display: "flex", color: MUTED, fontSize: s(27), lineHeight: 1.2, textTransform: "uppercase", letterSpacing: s(1) }}>{truncate(model.location, 92)}</span> : null}
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: s(40), marginTop: model.location ? s(12) : 0 }}>
           <span style={{ display: "flex", maxWidth: model.price ? "72%" : "100%", color: CHARCOAL, fontSize: s(68), lineHeight: 1.03, fontWeight: 700 }}>{truncate(model.title, 96)}</span>
           {model.price ? <span style={{ display: "flex", flexShrink: 0, color: NAVY, fontSize: s(50), lineHeight: 1, fontWeight: 700 }}>{truncate(model.price, 34)}</span> : null}
         </div>
         <PortraitFacts model={model} scale={scale} />
-        {model.copy || model.highlights.length > 0 ? (
-          <div style={{ display: "flex", marginTop: s(34), gap: s(48) }}>
+        </div>
+        {hasCopy ? (
+          <div style={{ display: "flex", gap: s(48) }}>
             {model.copy ? <span style={{ display: "flex", width: "100%", color: "#475467", fontSize: s(28), lineHeight: 1.42 }}>{truncate(model.copy, 200)}</span> : null}
             {model.highlights.length > 0 ? (
               <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
-                {model.highlights.slice(0, 3).map((highlight) => (
-                  <div key={highlight} style={{ display: "flex", marginBottom: s(12), color: CHARCOAL, fontSize: s(27), lineHeight: 1.28, fontWeight: 600 }}>
+                {model.highlights.slice(0, 4).map((highlight) => (
+                  <div key={highlight} style={{ display: "flex", marginBottom: s(10), color: CHARCOAL, fontSize: s(27), lineHeight: 1.28, fontWeight: 600 }}>
                     <span style={{ display: "flex", marginRight: s(14), color: NAVY }}>•</span>
                     <span style={{ display: "flex" }}>{truncate(highlight, 92)}</span>
                   </div>
@@ -497,10 +506,13 @@ function PortraitBrochureComposition({
             ) : null}
           </div>
         ) : null}
-        {model.qrCodeUrl || model.disclaimer ? (
-          <div style={{ display: "flex", alignItems: "flex-end", marginTop: "auto", paddingTop: s(24), borderTop: `${s(2)}px solid ${BORDER}`, gap: s(28) }}>
+        {hasFooter ? (
+          <div style={{ display: "flex", minHeight: s(205), alignItems: "center", paddingTop: s(18), borderTop: `${s(2)}px solid ${BORDER}`, gap: s(28) }}>
             {model.qrCodeUrl ? <img src={model.qrCodeUrl} alt="" style={{ width: s(205), height: s(205), flexShrink: 0 }} /> : null}
-            {model.disclaimer ? <span style={{ display: "flex", color: MUTED, fontSize: s(16), lineHeight: 1.4 }}>{truncate(model.disclaimer, 180)}</span> : null}
+            <div style={{ display: "flex", flexDirection: "column", gap: s(10) }}>
+              {model.qrCodeUrl ? <span style={{ display: "flex", color: CHARCOAL, fontSize: s(22), lineHeight: 1.25, fontWeight: 700 }}>{model.qrLabel}</span> : null}
+              {model.disclaimer ? <span style={{ display: "flex", color: MUTED, fontSize: s(16), lineHeight: 1.4 }}>{truncate(model.disclaimer, 180)}</span> : null}
+            </div>
           </div>
         ) : null}
       </div>
@@ -585,7 +597,7 @@ function SocialLandscapeComposition({
 
 function modelFromAssets(assets: PreparedPropertyMarketingAssets): SharedRenderModel {
   const { view } = assets;
-  const useHighlights = view.config.marketingCopyMode === "highlights";
+  const useHighlights = !view.copy && view.highlights.length > 0;
   return {
     title: view.title,
     location: view.location,
@@ -593,6 +605,7 @@ function modelFromAssets(assets: PreparedPropertyMarketingAssets): SharedRenderM
     facts: view.facts,
     copy: useHighlights ? "" : view.copy,
     highlights: useHighlights ? view.highlights : [],
+    qrLabel: view.qrLabel,
     disclaimer: view.disclaimer,
     brandingMode: view.config.brandingMode,
     agencyName: view.agent?.agencyName ?? "",
@@ -635,6 +648,7 @@ export function renderPropertySocialCardPng(input: PropertySocialCardRenderInput
     facts: input.preview.facts,
     copy: "",
     highlights: [],
+    qrLabel: "",
     disclaimer: "",
     brandingMode: input.preview.brandingMode,
     agencyName: input.preview.brandingName ?? input.preview.agencyName ?? "",

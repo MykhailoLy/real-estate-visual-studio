@@ -7,7 +7,7 @@ import { stableSerializeSocialImageVersionInput } from "./social-image-version.t
 import type { PropertyShowcase } from "./types.ts";
 
 export const PROPERTY_MARKETING_VISUAL_SCHEMA_VERSION =
-  "picchuspot-property-marketing-v2";
+  "picchuspot-property-marketing-v3";
 
 export function createPropertyMarketingMaterialVersionInput(
   property: PropertyShowcase,
@@ -44,6 +44,7 @@ export function createPropertyMarketingMaterialVersionInput(
       facts: view.facts,
       copy: view.copy,
       highlights: view.highlights,
+      qrLabel: view.qrLabel,
       disclaimer: view.disclaimer,
     },
     images: view.brochureImages.slice(0, supportingLimit + 1),

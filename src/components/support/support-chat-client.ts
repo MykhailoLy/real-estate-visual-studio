@@ -61,6 +61,7 @@ interface SubmitSupportChatMessageOptions {
 
 const SUPPORT_CHAT_EXCLUDED_PREFIXES = [
   "/admin",
+  "/property",
   "/order",
   "/login",
   "/signup",

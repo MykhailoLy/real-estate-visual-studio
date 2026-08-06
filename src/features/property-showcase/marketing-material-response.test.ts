@@ -46,7 +46,7 @@ async function syntheticPng(width: number, height: number): Promise<Uint8Array> 
   return new Uint8Array(await response.arrayBuffer());
 }
 
-test("canonical landscape raster converts once to exact JPG and one-page landscape A4 PDF", async () => {
+test("canonical landscape raster converts once to exact JPG and one-page 16:9 PDF", async () => {
   const png = await syntheticPng(1920, 1080);
   const pngMetadata = await sharp(png).metadata();
   assert.deepEqual([pngMetadata.width, pngMetadata.height], [1920, 1080]);
@@ -66,8 +66,9 @@ test("canonical landscape raster converts once to exact JPG and one-page landsca
   const document = await PDFDocument.load(pdf.bytes);
   assert.equal(document.getPageCount(), 1);
   const page = document.getPage(0);
-  assert.ok(Math.abs(page.getWidth() - 841.89) < 0.01);
-  assert.ok(Math.abs(page.getHeight() - 595.28) < 0.01);
+  assert.ok(Math.abs(page.getWidth() - 960) < 0.01);
+  assert.ok(Math.abs(page.getHeight() - 540) < 0.01);
+  assert.ok(Math.abs(page.getWidth() / page.getHeight() - 16 / 9) < 0.0001);
 });
 
 test("canonical portrait PNG converts to exact A4 raster JPG and one-page A4 PDF", async () => {
