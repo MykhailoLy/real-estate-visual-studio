@@ -5,6 +5,12 @@ import {
 } from "./src/lib/security-headers.ts";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["sharp"],
+  outputFileTracingIncludes: {
+    "/property/*/opengraph-image": [
+      "./public/brand/property-social-emergency.png",
+    ],
+  },
   async headers() {
     return [
       {

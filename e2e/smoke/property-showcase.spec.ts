@@ -494,18 +494,33 @@ test("complete and minimal realtor profiles stay usable", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
-test("property social image is a public 1200 by 630 PNG", async ({
+test("stable property social endpoint returns a real public 1200 by 630 PNG", async ({
   request,
 }) => {
   const response = await request.get(
     "/property/sea-view-residence/opengraph-image",
   );
+  const body = await response.body();
+
+  expect(response.status()).not.toBe(500);
   expect(response.ok()).toBe(true);
   expect(response.headers()["content-type"]).toContain("image/png");
-  expect(pngDimensions(await response.body())).toEqual({
+  expect(response.headers()["content-type"]).not.toContain("text/html");
+  expect(body.byteLength).toBeGreaterThan(8);
+  expect(body.toString("utf8")).not.toContain("Internal Server Error");
+  expect(pngDimensions(body)).toEqual({
     width: 1200,
     height: 630,
   });
+
+  const head = await request.head(
+    "/property/sea-view-residence/opengraph-image",
+  );
+  expect(head.status()).toBe(200);
+  expect(head.headers()["content-type"]).toContain("image/png");
+  expect(["generated", "fallback"]).toContain(
+    head.headers()["x-picchuspot-social-image-status"],
+  );
 });
 
 test("explicitly hidden media does not render sections or navigation targets", async ({
