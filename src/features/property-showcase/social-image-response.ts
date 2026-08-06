@@ -10,7 +10,8 @@ import type { PropertyShowcase } from "./types.ts";
 import type { PropertySocialCardLayout } from "./types.ts";
 
 export const PROPERTY_SOCIAL_IMAGE_CACHE_CONTROL =
-  "public, max-age=0, s-maxage=300, stale-while-revalidate=86400";
+  "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800";
+export const PROPERTY_SOCIAL_IMAGE_ERROR_CACHE_CONTROL = "no-store";
 
 export type PropertySocialImageLevel =
   | "full"
@@ -76,7 +77,10 @@ function pngResponse(
   return new Response(body, {
     status: 200,
     headers: {
-      "Cache-Control": PROPERTY_SOCIAL_IMAGE_CACHE_CONTROL,
+      "Cache-Control":
+        level === "emergency"
+          ? PROPERTY_SOCIAL_IMAGE_ERROR_CACHE_CONTROL
+          : PROPERTY_SOCIAL_IMAGE_CACHE_CONTROL,
       "Content-Type": "image/png",
       "X-PicchuSpot-Social-Image-Status":
         level === "full" || level === "reduced" ? "generated" : "fallback",
@@ -132,7 +136,12 @@ export function createPropertySocialImageHandler(
       return emergencyResponse(slug, "lookup-failed");
     }
 
-    if (!property) return new Response("Property not found", { status: 404 });
+    if (!property) {
+      return new Response("Property not found", {
+        status: 404,
+        headers: { "Cache-Control": PROPERTY_SOCIAL_IMAGE_ERROR_CACHE_CONTROL },
+      });
+    }
 
     let assets: PreparedPropertySocialAssets;
     try {

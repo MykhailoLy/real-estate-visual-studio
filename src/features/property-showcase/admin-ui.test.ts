@@ -72,6 +72,10 @@ const propertyPageSource = readFileSync(
   ),
   "utf8",
 );
+const propertyMetadataSource = readFileSync(
+  new URL("./property-metadata.ts", import.meta.url),
+  "utf8",
+);
 const propertyOpenGraphImageSource = readFileSync(
   new URL(
     "../../app/(showcase)/property/[slug]/opengraph-image/route.tsx",
@@ -383,14 +387,21 @@ test("realtor social links use local recognizable brand marks", () => {
 });
 
 test("property metadata uses a production-domain 1200 by 630 PNG route", () => {
-  assert.equal(propertyPageSource.includes("absoluteUrl(canonicalPath)"), true);
+  assert.equal(propertyPageSource.includes("buildPropertyMetadata"), true);
   assert.equal(
-    propertyPageSource.includes("`${canonicalPath}/opengraph-image`"),
+    propertyPageSource.includes("getPropertySocialImageVersion(property)"),
     true,
   );
-  assert.equal(propertyPageSource.includes('width: 1200'), true);
-  assert.equal(propertyPageSource.includes('height: 630'), true);
-  assert.equal(propertyPageSource.includes('type: "image/png"'), true);
+  assert.equal(propertyMetadataSource.includes("absoluteUrl(canonicalPath)"), true);
+  assert.equal(
+    propertyMetadataSource.includes(
+      "opengraph-image?v=${encodeURIComponent(version)}",
+    ),
+    true,
+  );
+  assert.equal(propertyMetadataSource.includes('width: 1200'), true);
+  assert.equal(propertyMetadataSource.includes('height: 630'), true);
+  assert.equal(propertyMetadataSource.includes('type: "image/png"'), true);
   assert.equal(propertyOpenGraphImageSource.includes("ImageResponse"), true);
   assert.equal(propertyOpenGraphImageSource.includes("width: 1200"), true);
   assert.equal(propertyOpenGraphImageSource.includes("height: 630"), true);

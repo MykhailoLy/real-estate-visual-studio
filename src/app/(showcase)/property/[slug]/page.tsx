@@ -4,8 +4,9 @@ import { cache } from "react";
 import { getPropertyShowcase } from "@/features/property-showcase/registry";
 import { serializePublicPropertyShowcase } from "@/features/property-showcase/public-serialization";
 import { getPublishedPropertyShowcase } from "@/features/property-showcase/server";
-import { getPropertySocialPreview } from "@/features/property-showcase/social-preview";
-import { absoluteUrl, SITE_NAME } from "@/lib/seo";
+import { buildPropertyMetadata } from "@/features/property-showcase/property-metadata";
+import { getPropertySocialImageVersion } from "@/features/property-showcase/social-image-version.server";
+import { absoluteUrl } from "@/lib/seo";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
@@ -38,41 +39,10 @@ export async function generateMetadata({
     };
   }
 
-  const canonicalPath = `/property/${property.slug}`;
-  const canonicalUrl = absoluteUrl(canonicalPath);
-  const socialImageUrl = absoluteUrl(`${canonicalPath}/opengraph-image`);
-  const preview = getPropertySocialPreview(property);
-
-  return {
-    title: preview.title,
-    description: preview.description,
-    alternates: {
-      canonical: canonicalUrl,
-    },
-    openGraph: {
-      type: "website",
-      url: canonicalUrl,
-      siteName: SITE_NAME,
-      title: preview.title,
-      description: preview.description,
-      images: [
-        {
-          url: socialImageUrl,
-          secureUrl: socialImageUrl,
-          width: 1200,
-          height: 630,
-          type: "image/png",
-          alt: preview.imageAlt,
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: preview.title,
-      description: preview.description,
-      images: [socialImageUrl],
-    },
-  };
+  return buildPropertyMetadata(
+    property,
+    getPropertySocialImageVersion(property),
+  );
 }
 
 export default async function PropertyPage({ params }: PropertyPageProps) {
