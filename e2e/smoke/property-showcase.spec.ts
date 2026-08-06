@@ -363,7 +363,7 @@ test("property showcase facts and map privacy render as listing details", async 
   );
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
     "content",
-    /PS-001.*3 bedrooms.*2 bathrooms.*142\u00a0m\u00b2/,
+    /Altea, Alicante.*Bedrooms 3.*Bathrooms 2.*Built area 142\u00a0m\u00b2.*Parking Garage \+ driveway/,
   );
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
     "content",
@@ -521,6 +521,7 @@ test("stable property social endpoint returns a real public 1200 by 630 PNG", as
   expect(["generated", "fallback"]).toContain(
     head.headers()["x-picchuspot-social-image-status"],
   );
+  expect(head.headers()["x-picchuspot-social-card-layout"]).toBe("balanced");
 });
 
 test("explicitly hidden media does not render sections or navigation targets", async ({

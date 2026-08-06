@@ -7,6 +7,7 @@ import { getPublishedPropertyShowcase } from "@/features/property-showcase/serve
 import {
   preparePropertySocialAssets,
 } from "@/features/property-showcase/social-image-preparation";
+import { PROPERTY_SOCIAL_CARD_LAYOUTS } from "@/features/property-showcase/social-card";
 import {
   createPropertySocialImageHandler,
   type PropertySocialCardRenderInput,
@@ -27,10 +28,20 @@ function renderSocialCard({
   brandingLogo,
 }: PropertySocialCardRenderInput) {
   const primaryImage = propertyImages[0];
-  const supportingImages = propertyImages.slice(1, 3);
+  const layout = PROPERTY_SOCIAL_CARD_LAYOUTS[preview.layout];
+  const supportingImages = layout.showSupportingImages
+    ? propertyImages.slice(1, 3)
+    : [];
+  const supportHeight = preview.layout === "balanced" ? 200 : 190;
+  const primaryHeight = supportingImages.length > 0
+    ? size.height - supportHeight
+    : size.height;
+  const compactPanel = layout.panelWidth <= 320;
   const title =
     property.title[property.primaryLanguage ?? "en"] ?? property.title.en;
-  const titleSize = title.length > 56 ? 34 : 42;
+  const titleSize = title.length > 56
+    ? compactPanel ? 28 : 34
+    : compactPanel ? 34 : 42;
 
   return new ImageResponse(
     (
@@ -47,7 +58,7 @@ function renderSocialCard({
       >
         <div
           style={{
-            width: 760,
+            width: layout.imageWidth,
             height: 630,
             display: "flex",
             flexDirection: "column",
@@ -58,7 +69,7 @@ function renderSocialCard({
             <div
               style={{
                 width: "100%",
-                height: supportingImages.length > 0 ? 430 : 630,
+                height: primaryHeight,
                 display: "flex",
                 overflow: "hidden",
               }}
@@ -66,8 +77,8 @@ function renderSocialCard({
               <img
                 src={primaryImage.imageUrl}
                 alt=""
-                width={760}
-                height={supportingImages.length > 0 ? 430 : 630}
+                width={layout.imageWidth}
+                height={primaryHeight}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             </div>
@@ -115,7 +126,7 @@ function renderSocialCard({
             <div
               style={{
                 width: "100%",
-                height: 200,
+                height: supportHeight,
                 display: "flex",
                 gap: 4,
                 borderTop: "4px solid #ffffff",
@@ -134,8 +145,12 @@ function renderSocialCard({
                   <img
                     src={image.imageUrl}
                     alt=""
-                    width={supportingImages.length === 1 ? 760 : 378}
-                    height={200}
+                    width={
+                      supportingImages.length === 1
+                        ? layout.imageWidth
+                        : Math.floor((layout.imageWidth - 4) / 2)
+                    }
+                    height={supportHeight}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 </div>
@@ -146,11 +161,11 @@ function renderSocialCard({
 
         <div
           style={{
-            width: 440,
+            width: layout.panelWidth,
             height: 630,
             display: "flex",
             flexDirection: "column",
-            padding: "38px 40px 34px",
+            padding: compactPanel ? "30px 28px 28px" : "38px 40px 34px",
             background: "#0B1F3A",
           }}
         >
@@ -160,16 +175,18 @@ function renderSocialCard({
                 <span>Picchu</span>
                 <span style={{ color: "#B88A44" }}>Spot</span>
               </div>
-              <span
-                style={{
-                  display: "flex",
-                  marginTop: 5,
-                  color: "rgba(255,255,255,0.56)",
-                  fontSize: 11,
-                }}
-              >
-                Property Showcase by PicchuSpot
-              </span>
+              {preview.brandingAttribution ? (
+                <span
+                  style={{
+                    display: "flex",
+                    marginTop: 5,
+                    color: "rgba(255,255,255,0.56)",
+                    fontSize: 11,
+                  }}
+                >
+                  {preview.brandingAttribution}
+                </span>
+              ) : null}
             </div>
           ) : preview.brandingMode === "agency" ? (
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -186,16 +203,18 @@ function renderSocialCard({
                 <span style={{ display: "flex", fontSize: 20, fontWeight: 700 }}>
                   {preview.brandingName ?? "Agency"}
                 </span>
-                <span
-                  style={{
-                    display: "flex",
-                    marginTop: 5,
-                    color: "rgba(255,255,255,0.5)",
-                    fontSize: 11,
-                  }}
-                >
-                  Powered by PicchuSpot
-                </span>
+                {preview.brandingAttribution ? (
+                  <span
+                    style={{
+                      display: "flex",
+                      marginTop: 5,
+                      color: "rgba(255,255,255,0.5)",
+                      fontSize: 11,
+                    }}
+                  >
+                    {preview.brandingAttribution}
+                  </span>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -213,7 +232,7 @@ function renderSocialCard({
             style={{
               display: "flex",
               flexDirection: "column",
-              marginTop: 34,
+              marginTop: compactPanel ? 26 : 34,
             }}
           >
             {preview.location ? (
@@ -245,7 +264,7 @@ function renderSocialCard({
                   display: "flex",
                   marginTop: 18,
                   color: "#d6b665",
-                  fontSize: 38,
+                  fontSize: compactPanel ? 31 : 38,
                   fontWeight: 700,
                 }}
               >
@@ -258,26 +277,19 @@ function renderSocialCard({
             style={{
               display: "flex",
               flexWrap: "wrap",
-              marginTop: 28,
-              paddingTop: 22,
+              marginTop: compactPanel ? 22 : 28,
+              paddingTop: compactPanel ? 18 : 22,
               borderTop: "1px solid rgba(255,255,255,0.2)",
             }}
           >
-            {[
-              [preview.referenceLabel, preview.reference],
-              ["Bedrooms", preview.bedrooms],
-              ["Bathrooms", preview.bathrooms],
-              ["Built area", preview.builtArea],
-            ]
-              .filter((item) => item[1])
-              .map(([label, value]) => (
+            {preview.facts.map(({ key, label, value }) => (
                 <div
-                  key={label}
+                  key={key}
                   style={{
-                    width: "50%",
+                    width: compactPanel ? "100%" : "50%",
                     display: "flex",
                     flexDirection: "column",
-                    marginBottom: 18,
+                    marginBottom: compactPanel ? 12 : 18,
                     paddingRight: 12,
                   }}
                 >
@@ -292,7 +304,13 @@ function renderSocialCard({
                   >
                     {label}
                   </span>
-                  <span style={{ marginTop: 5, fontSize: 22, fontWeight: 700 }}>
+                  <span
+                    style={{
+                      marginTop: 5,
+                      fontSize: compactPanel ? 18 : 22,
+                      fontWeight: 700,
+                    }}
+                  >
                     {value}
                   </span>
                 </div>

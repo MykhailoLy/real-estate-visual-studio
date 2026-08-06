@@ -20,6 +20,33 @@ export type PropertySocialBrandingMode =
   | "agency"
   | "unbranded";
 
+export type PropertySocialCardMode = "automatic" | "custom";
+
+export type PropertySocialCardLayout =
+  | "image-focused"
+  | "balanced"
+  | "minimal";
+
+export type PropertySocialCardFactKey =
+  | "listing-reference"
+  | "bedrooms"
+  | "bathrooms"
+  | "parking"
+  | "built-area"
+  | "year-built"
+  | "plot-area";
+
+export interface PropertySocialCardConfig {
+  mode: PropertySocialCardMode;
+  layout: PropertySocialCardLayout;
+  visibleFacts: PropertySocialCardFactKey[];
+  factOrder: PropertySocialCardFactKey[];
+  showLocation: boolean;
+  showPrice: boolean;
+  showBranding: boolean;
+  showPoweredByPicchuSpot: boolean;
+}
+
 export type PropertyLanguageCode =
   | "en"
   | "es"
@@ -80,6 +107,7 @@ export interface PropertyGalleryImage {
   label: LocalizedText;
   featuredForSharing?: boolean;
   primarySocialPreview?: boolean;
+  socialPreviewOrder?: number;
   note?: LocalizedText;
   roomId?: string;
   hotspot?: PropertyHotspot;
@@ -220,6 +248,7 @@ export interface PropertyShowcase {
   floorPlansEnabled?: boolean;
   floorPlans: PropertyFloorPlan[];
   socialPreview?: PropertySocialPreviewConfig;
+  socialCard?: PropertySocialCardConfig;
   location: PropertyLocation;
   agent: PropertyAgent;
   publishedAt?: string;

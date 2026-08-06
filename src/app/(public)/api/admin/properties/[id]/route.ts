@@ -138,6 +138,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       removeInteractivePoster: parsed.data.removeInteractivePoster,
       removeFloorPlan: parsed.data.removeFloorPlan,
       replaceFloorPlans: parsed.data.replaceFloorPlans,
+      updateSocialCard: parsed.data.updateSocialCard,
     },
   );
 
