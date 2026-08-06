@@ -57,18 +57,26 @@ function sortedSocialGallery(
   );
 }
 
+export function selectPropertySocialGalleryImages(
+  property: Pick<PropertyShowcase, "gallery">,
+): PropertyGalleryImage[] {
+  const gallery = sortedSocialGallery(property.gallery);
+  const primary = gallery.find(
+    (image) => image.primarySocialPreview === true,
+  );
+  const featured = gallery.filter(
+    (image) => image.featuredForSharing === true && image.id !== primary?.id,
+  );
+
+  return primary ? [primary, ...featured] : featured;
+}
+
 export function selectPropertyHeroImages(
   property: PropertyShowcase,
 ): PropertySocialPreviewImage[] {
   const primaryLanguage = getPrimaryLanguage(property);
   const gallery = sortedSocialGallery(property.gallery);
-  const featured = gallery.filter((image) => image.featuredForSharing === true);
-  const primary = gallery.find(
-    (image) => image.primarySocialPreview === true,
-  );
-  const selected = primary
-    ? [primary, ...featured.filter((image) => image.id !== primary.id)]
-    : featured;
+  const selected = selectPropertySocialGalleryImages(property);
   const coverGalleryImage = gallery.find(
     (image) => image.src === property.coverImage,
   );
@@ -116,16 +124,11 @@ export function selectPropertySocialImageCandidates(
 ): PropertySocialPreviewImage[] {
   const primaryLanguage = getPrimaryLanguage(property);
   const gallery = sortedSocialGallery(property.gallery);
-  const primary = gallery.find(
-    (image) => image.primarySocialPreview === true,
-  );
-  const featured = gallery.filter(
-    (image) => image.featuredForSharing === true && image.id !== primary?.id,
-  );
+  const selected = selectPropertySocialGalleryImages(property);
   const coverGalleryImage = gallery.find(
     (image) => image.src === property.coverImage,
   );
-  const candidates = [primary, ...featured, coverGalleryImage].filter(
+  const candidates = [...selected, coverGalleryImage].filter(
     (image): image is PropertyGalleryImage => Boolean(image),
   );
 

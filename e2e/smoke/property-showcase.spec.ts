@@ -341,9 +341,14 @@ test("property showcase facts and map privacy render as listing details", async 
   await expect(page.locator("footer")).toContainText("PicchuSpot");
   await expect(page.locator("footer")).not.toContainText("Full Frame Media");
 
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+  const socialImageUrlPattern =
+    /^https:\/\/picchuspot\.com\/property\/sea-view-residence\/opengraph-image\?v=[0-9a-f]{14}$/;
+  const openGraphImage = page.locator('meta[property="og:image"]');
+  await expect(openGraphImage).toHaveAttribute("content", socialImageUrlPattern);
+  const socialImageUrl = await openGraphImage.getAttribute("content");
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
     "content",
-    "https://picchuspot.com/property/sea-view-residence/opengraph-image",
+    socialImageUrl!,
   );
   await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute(
     "content",

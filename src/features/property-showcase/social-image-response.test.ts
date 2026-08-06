@@ -11,6 +11,8 @@ import type {
 import {
   createPropertySocialImageHandler,
   hasPngSignature,
+  PROPERTY_SOCIAL_IMAGE_CACHE_CONTROL,
+  PROPERTY_SOCIAL_IMAGE_ERROR_CACHE_CONTROL,
   type PropertySocialCardRenderInput,
 } from "./social-image-response.ts";
 import { getPropertySocialPreview } from "./social-preview.ts";
@@ -78,11 +80,14 @@ async function emergencyPng() {
     .toBuffer();
 }
 
-function request(slug: string) {
-  return new Request(`https://picchuspot.com/property/${slug}/opengraph-image`);
+function request(slug: string, version?: string) {
+  const versionQuery = version ? `?v=${version}` : "";
+  return new Request(
+    `https://picchuspot.com/property/${slug}/opengraph-image${versionQuery}`,
+  );
 }
 
-test("route handler returns a real 1200 by 630 PNG for an existing fixture", async () => {
+test("route handler accepts a version query and returns a real 1200 by 630 PNG", async () => {
   const property = cloneProperty();
   const handler = createPropertySocialImageHandler({
     resolveProperty: async () => property,
@@ -91,7 +96,7 @@ test("route handler returns a real 1200 by 630 PNG for an existing fixture", asy
     loadEmergencyPng: emergencyPng,
   });
 
-  const response = await handler(request(property.slug), {
+  const response = await handler(request(property.slug, "84c9e15b326f"), {
     params: Promise.resolve({ slug: property.slug }),
   });
   const bytes = new Uint8Array(await response.arrayBuffer());
@@ -102,6 +107,10 @@ test("route handler returns a real 1200 by 630 PNG for an existing fixture", asy
   assert.equal(hasPngSignature(bytes), true);
   assert.equal(metadata.width, 1200);
   assert.equal(metadata.height, 630);
+  assert.equal(
+    response.headers.get("cache-control"),
+    PROPERTY_SOCIAL_IMAGE_CACHE_CONTROL,
+  );
   assert.equal(response.headers.get("x-picchuspot-social-image-level"), "text");
   assert.equal(
     response.headers.get("x-picchuspot-social-card-layout"),
@@ -196,6 +205,10 @@ test("all ImageResponse failures return the bundled emergency PNG", async () => 
     response.headers.get("x-picchuspot-social-card-layout"),
     "emergency",
   );
+  assert.equal(
+    response.headers.get("cache-control"),
+    PROPERTY_SOCIAL_IMAGE_ERROR_CACHE_CONTROL,
+  );
   assert.deepEqual(Buffer.from(bytes), fallback);
 });
 
@@ -217,4 +230,8 @@ test("a genuinely unknown property remains a 404", async () => {
 
   assert.equal(response.status, 404);
   assert.match(response.headers.get("content-type") ?? "", /^text\/plain/);
+  assert.equal(
+    response.headers.get("cache-control"),
+    PROPERTY_SOCIAL_IMAGE_ERROR_CACHE_CONTROL,
+  );
 });
