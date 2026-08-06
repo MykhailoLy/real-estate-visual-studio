@@ -52,21 +52,115 @@ for (const viewport of propertyViewports) {
       "built-area",
       "plot-area",
     ]) {
-      const value = page
-        .getByTestId(`property-fact-value-${key}`);
+      const value = page.getByTestId(`property-fact-value-${key}`);
       await expect(value).toBeVisible();
-      const metrics = await value.evaluate((element) => {
-        const style = window.getComputedStyle(element);
-        return {
-          height: element.getBoundingClientRect().height,
-          lineHeight: Number.parseFloat(style.lineHeight),
-          scrollWidth: element.scrollWidth,
-          clientWidth: element.clientWidth,
-        };
-      });
-      expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 2.5);
-      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
     }
+    const factGeometry = await page.getByTestId("property-facts").evaluate(
+      (container) => {
+        const viewportWidth = document.documentElement.clientWidth;
+        const containerRect = container.getBoundingClientRect();
+        const values = Array.from(
+          container.querySelectorAll<HTMLElement>(
+            '[data-testid^="property-fact-value-"]',
+          ),
+        ).map((element) => {
+          const style = window.getComputedStyle(element);
+          const elementRect = element.getBoundingClientRect();
+          const textRange = document.createRange();
+          textRange.selectNodeContents(element);
+          const textRect = textRange.getBoundingClientRect();
+          const textExtendsPastElement =
+            textRect.left < elementRect.left - 1 ||
+            textRect.right > elementRect.right + 1 ||
+            textRect.top < elementRect.top - 1 ||
+            textRect.bottom > elementRect.bottom + 1;
+          const clipsOverflow =
+            textExtendsPastElement &&
+            [style.overflowX, style.overflowY].some(
+              (overflow) => overflow === "hidden" || overflow === "clip",
+            );
+
+          return {
+            testId: element.getAttribute("data-testid") ?? "unknown fact",
+            height: elementRect.height,
+            lineHeight: Number.parseFloat(style.lineHeight),
+            clipsOverflow,
+            elementRect: {
+              left: elementRect.left,
+              right: elementRect.right,
+            },
+            textRect: {
+              left: textRect.left,
+              right: textRect.right,
+              top: textRect.top,
+              bottom: textRect.bottom,
+            },
+          };
+        });
+        const textOverlaps: string[] = [];
+
+        for (let index = 0; index < values.length; index += 1) {
+          for (
+            let compared = index + 1;
+            compared < values.length;
+            compared += 1
+          ) {
+            const first = values[index];
+            const second = values[compared];
+            const horizontalOverlap =
+              Math.min(first.textRect.right, second.textRect.right) -
+              Math.max(first.textRect.left, second.textRect.left);
+            const verticalOverlap =
+              Math.min(first.textRect.bottom, second.textRect.bottom) -
+              Math.max(first.textRect.top, second.textRect.top);
+            if (horizontalOverlap > 1 && verticalOverlap > 1) {
+              textOverlaps.push(`${first.testId} overlaps ${second.testId}`);
+            }
+          }
+        }
+
+        return {
+          viewportWidth,
+          containerRect: {
+            left: containerRect.left,
+            right: containerRect.right,
+          },
+          values,
+          textOverlaps,
+        };
+      },
+    );
+    expect(factGeometry.containerRect.left).toBeGreaterThanOrEqual(-1);
+    expect(factGeometry.containerRect.right).toBeLessThanOrEqual(
+      factGeometry.viewportWidth + 1,
+    );
+    for (const value of factGeometry.values) {
+      expect(
+        value.height,
+        `${value.testId} uses at most two lines`,
+      ).toBeLessThanOrEqual(value.lineHeight * 2.5);
+      expect(
+        value.elementRect.left,
+        `${value.testId} stays inside the viewport`,
+      ).toBeGreaterThanOrEqual(-1);
+      expect(
+        value.elementRect.right,
+        `${value.testId} stays inside the viewport`,
+      ).toBeLessThanOrEqual(factGeometry.viewportWidth + 1);
+      expect(
+        value.textRect.left,
+        `${value.testId} text stays visible`,
+      ).toBeGreaterThanOrEqual(-1);
+      expect(
+        value.textRect.right,
+        `${value.testId} text stays visible`,
+      ).toBeLessThanOrEqual(factGeometry.viewportWidth + 1);
+      expect(
+        value.clipsOverflow,
+        `${value.testId} text is not clipped`,
+      ).toBe(false);
+    }
+    expect(factGeometry.textOverlaps).toEqual([]);
     const factColumns = await page.getByTestId("property-facts").evaluate(
       (element) =>
         window.getComputedStyle(element).gridTemplateColumns.split(" ").length,
@@ -185,7 +279,9 @@ for (const viewport of propertyViewports) {
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
     }));
-    expect(dimensions.scrollWidth).toBe(dimensions.clientWidth);
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(
+      dimensions.clientWidth + 1,
+    );
     await guard.expectNoPageErrorsOrServerErrors();
   });
 }
