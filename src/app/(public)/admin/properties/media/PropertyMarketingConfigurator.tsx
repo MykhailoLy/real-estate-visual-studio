@@ -34,6 +34,7 @@ import {
   brochureSupportingImageLimit,
   moveBrochureSupportingImage,
   normalizePropertyMarketingMaterialsConfig,
+  PROPERTY_MARKETING_MAX_FACTS,
   PROPERTY_MARKETING_MAX_HIGHLIGHTS,
   propertyHighlightId,
   resetPropertyMarketingMaterialsConfig,
@@ -203,8 +204,16 @@ export default function PropertyMarketingConfigurator({
     [gallery],
   );
   const previewBody = useMemo(
-    () => serializePropertyMarketingPreviewRequest(canonical, focalPoints),
-    [canonical, focalPoints],
+    () => serializePropertyMarketingPreviewRequest(
+      canonical,
+      focalPoints,
+      {
+        ...property,
+        gallery,
+        marketingMaterials: canonical,
+      },
+    ),
+    [canonical, focalPoints, gallery, property],
   );
 
   useEffect(() => {
@@ -649,7 +658,7 @@ export default function PropertyMarketingConfigurator({
                 <legend className="text-xs font-bold text-primary">Listing facts</legend>
                 <div className="mt-2 space-y-2">
                   {PROPERTY_SOCIAL_CARD_FACT_KEYS.map((key) => (
-                    <label key={key} className="flex items-center gap-2 text-xs font-semibold text-primary"><input type="checkbox" checked={normalized.selectedFactKeys.includes(key)} onChange={(event) => { const selected: PropertySocialCardFactKey[] = event.target.checked ? [...normalized.selectedFactKeys, key].slice(0, 4) : normalized.selectedFactKeys.filter((item) => item !== key); update({ selectedFactKeys: selected }); }} className="h-4 w-4 accent-primary" />{PROPERTY_SOCIAL_CARD_FACT_LABELS[key]}</label>
+                    <label key={key} className="flex items-center gap-2 text-xs font-semibold text-primary"><input type="checkbox" checked={normalized.selectedFactKeys.includes(key)} onChange={(event) => { const selected: PropertySocialCardFactKey[] = event.target.checked ? [...normalized.selectedFactKeys, key].slice(0, PROPERTY_MARKETING_MAX_FACTS) : normalized.selectedFactKeys.filter((item) => item !== key); update({ selectedFactKeys: selected }); }} className="h-4 w-4 accent-primary" />{PROPERTY_SOCIAL_CARD_FACT_LABELS[key]}</label>
                   ))}
                 </div>
               </fieldset>

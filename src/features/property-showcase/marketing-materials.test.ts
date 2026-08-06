@@ -65,6 +65,29 @@ test("properties without brochure settings receive disabled portrait defaults", 
   assert.equal(config.legacyNormalized, false);
 });
 
+test("custom facts are ordered, individually visible, and not capped by brochure selection", () => {
+  const property = configuredProperty();
+  property.translations = undefined;
+  property.facts.push(
+    ...Array.from({ length: 18 }, (_, index) => ({
+      key: `custom-specification-${index + 1}` as const,
+      value: `Value ${index + 1}`,
+      label: { en: `Specification ${index + 1}` },
+      sortOrder: 1000 + index,
+      visible: index !== 6,
+    })),
+  );
+
+  assert.equal(PropertyShowcaseSchema.safeParse(property).success, true);
+  const view = createPropertyMarketingMaterialView(property, canonicalUrl);
+  assert.equal(view.customFacts.length, 17);
+  assert.deepEqual(
+    view.customFacts.slice(0, 3).map((fact) => fact.label),
+    ["Specification 1", "Specification 2", "Specification 3"],
+  );
+  assert.equal(view.customFacts.some((fact) => fact.label === "Specification 7"), false);
+});
+
 test("legacy portrait-only and landscape-only settings normalize without a migration", () => {
   const property = cloneProperty();
   const portraitOnly: PropertyMarketingMaterialsConfig = {

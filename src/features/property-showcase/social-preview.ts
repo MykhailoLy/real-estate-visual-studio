@@ -42,6 +42,12 @@ export interface PropertySocialPreview {
     label: string;
     value: string;
   }>;
+  customFacts: Array<{
+    key: string;
+    label: string;
+    value: string;
+  }>;
+  highlights: string[];
   layout: PropertySocialCardLayout;
   agencyName?: string;
   brandingMode: "picchuspot" | "agency" | "unbranded";
@@ -263,6 +269,19 @@ export function getPropertySocialPreview(
     ? configuredBrandingMode
     : "unbranded";
   const socialFacts = getPropertySocialCardFacts(property, primaryLanguage);
+  const customFacts = facts
+    .filter((fact) => fact.key.startsWith("custom-"))
+    .map((fact) => ({ key: fact.key, label: fact.label, value: fact.value }));
+  const highlights = property.highlights
+    .filter((highlight) => highlight.visible !== false)
+    .slice()
+    .sort((first, second) => (first.sortOrder ?? 0) - (second.sortOrder ?? 0))
+    .map((highlight) => localizedText(
+      highlight.text ?? highlight.title ?? highlight.description,
+      primaryLanguage,
+      primaryLanguage,
+    ))
+    .filter(Boolean);
 
   return {
     title: [listingTitle, socialCard.showPrice ? price : ""]
@@ -282,6 +301,8 @@ export function getPropertySocialPreview(
     bathrooms: bathrooms?.value,
     builtArea: builtArea?.value,
     facts: socialFacts,
+    customFacts,
+    highlights,
     layout: socialCard.layout,
     agencyName: property.agent.displayProfile === false
       ? undefined

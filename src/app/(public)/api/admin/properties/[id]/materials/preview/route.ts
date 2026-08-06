@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { absoluteUrl } from "@/lib/seo";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getPropertyShowcaseForAdminById } from "@/features/property-showcase/server";
-import { PropertyMarketingPreviewDraftSchema } from "@/features/property-showcase/schema";
+import {
+  PropertyMarketingPreviewDraftSchema,
+  PropertyShowcaseSchema,
+} from "@/features/property-showcase/schema";
 import {
   createPropertyMarketingPreviewResponse,
   PROPERTY_MARKETING_PREVIEW_CACHE_CONTROL,
@@ -26,7 +29,7 @@ export async function POST(request: Request, context: Context) {
   }
 
   const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > 64 * 1024) {
+  if (contentLength > 256 * 1024) {
     return NextResponse.json(
       { error: "Preview request is too large." },
       { status: 413, headers: errorHeaders },
@@ -42,7 +45,14 @@ export async function POST(request: Request, context: Context) {
       { status: 400, headers: errorHeaders },
     );
   }
-  const parsed = PropertyMarketingPreviewDraftSchema.safeParse(raw);
+  const previewRaw = raw && typeof raw === "object"
+    ? (() => {
+        const preview = { ...(raw as Record<string, unknown>) };
+        delete preview.property;
+        return preview;
+      })()
+    : raw;
+  const parsed = PropertyMarketingPreviewDraftSchema.safeParse(previewRaw);
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -61,7 +71,28 @@ export async function POST(request: Request, context: Context) {
     );
   }
 
-  const galleryIds = new Set(record.property.gallery.map((image) => image.id));
+  const propertyRaw = raw && typeof raw === "object"
+    ? (raw as { property?: unknown }).property
+    : undefined;
+  const propertyDraft = propertyRaw === undefined
+    ? null
+    : PropertyShowcaseSchema.safeParse(propertyRaw);
+  if (propertyDraft && !propertyDraft.success) {
+    return NextResponse.json(
+      { error: propertyDraft.error.issues[0]?.message ?? "Invalid property preview data." },
+      { status: 400, headers: errorHeaders },
+    );
+  }
+  if (propertyDraft?.success && propertyDraft.data.slug !== record.slug) {
+    return NextResponse.json(
+      { error: "Preview property does not match this record." },
+      { status: 400, headers: errorHeaders },
+    );
+  }
+  const sourceProperty = propertyDraft?.success
+    ? propertyDraft.data
+    : record.property;
+  const galleryIds = new Set(sourceProperty.gallery.map((image) => image.id));
   const unknownFocalPoint = parsed.data.focalPoints.find(
     (item) => !galleryIds.has(item.mediaId),
   );
@@ -86,9 +117,9 @@ export async function POST(request: Request, context: Context) {
     parsed.data.focalPoints.map((item) => [item.mediaId, item.focalPoint]),
   );
   const property = {
-    ...record.property,
+    ...sourceProperty,
     marketingMaterials: parsed.data.marketingMaterials,
-    gallery: record.property.gallery.map((image) => ({
+    gallery: sourceProperty.gallery.map((image) => ({
       ...image,
       focalPoint: focalPoints.get(image.id) ?? image.focalPoint,
     })),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PropertyShowcase } from "./types";
+import type { PropertyFactKey, PropertyShowcase } from "./types";
 
 const optionalTrimmed = (max: number) =>
   z.string().trim().max(max).optional();
@@ -48,16 +48,14 @@ const OptionalLocalizedTextSchema = z
 
 const PropertyFactSchema = z
   .object({
-    key: z.enum([
-      "price",
-      "listing-reference",
-      "bedrooms",
-      "bathrooms",
-      "built-area",
-      "plot-area",
-      "parking",
-      "year-built",
-    ]),
+    key: z
+      .string()
+      .trim()
+      .regex(
+        /^(price|listing-reference|bedrooms|bathrooms|built-area|plot-area|parking|year-built|custom-[a-z0-9]+(?:-[a-z0-9]+)*)$/,
+        "Fact keys must be a built-in key or a custom-* key.",
+      )
+      .transform((key): PropertyFactKey => key as PropertyFactKey),
     value: z.string().trim().min(1).max(100),
     label: LocalizedTextSchema,
     sortOrder: z.number().int().min(-9999).max(9999).optional(),
@@ -271,13 +269,13 @@ export const PropertyMarketingMaterialsSchema = z
     disclaimer: OptionalLocalizedTextSchema.optional(),
     selectedFactKeys: z
       .array(PropertySocialCardFactKeySchema)
-      .max(4)
+      .max(6)
       .refine((values) => new Set(values).size === values.length, {
         message: "Marketing material facts must be unique.",
       })
       .optional(),
     selectedHighlightIds: uniqueStrings(
-      4,
+      12,
       "Marketing material highlights must be unique.",
     ).optional(),
     brochure: PropertyMarketingBrochureSchema.optional(),
@@ -413,7 +411,7 @@ export const PropertyShowcaseSchema: z.ZodType<PropertyShowcase> = z
     translations: z
       .record(PropertyLanguageCodeSchema, PropertyTranslationContentSchema)
       .optional(),
-    facts: z.array(PropertyFactSchema).max(12),
+    facts: z.array(PropertyFactSchema),
     highlights: z.array(PropertyHighlightSchema).max(12),
     gallery: z.array(PropertyGalleryImageSchema).max(200),
     videos: PropertyVideosSchema.optional(),

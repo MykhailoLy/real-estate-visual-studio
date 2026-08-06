@@ -1,6 +1,7 @@
 import type {
   PropertyImageFocalPoint,
   PropertyMarketingMaterialsConfig,
+  PropertyShowcase,
 } from "./types.ts";
 
 export const PROPERTY_MARKETING_PREVIEW_DEBOUNCE_MS = 400;
@@ -11,8 +12,9 @@ export function serializePropertyMarketingPreviewRequest(
     mediaId: string;
     focalPoint: PropertyImageFocalPoint;
   }>,
+  property?: PropertyShowcase,
 ): string {
-  return JSON.stringify({ marketingMaterials, focalPoints });
+  return JSON.stringify({ marketingMaterials, focalPoints, property });
 }
 
 export function shouldApplyPropertyMarketingPreview(

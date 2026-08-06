@@ -25,8 +25,8 @@ import type {
 export const PROPERTY_MARKETING_DEFAULT_DISCLAIMER =
   "All information is provided for marketing purposes and should be independently verified.";
 export const PROPERTY_MARKETING_MAX_COPY_LENGTH = 200;
-export const PROPERTY_MARKETING_MAX_FACTS = 4;
-export const PROPERTY_MARKETING_MAX_HIGHLIGHTS = 4;
+export const PROPERTY_MARKETING_MAX_FACTS = 6;
+export const PROPERTY_MARKETING_MAX_HIGHLIGHTS = 12;
 
 const PROPERTY_MARKETING_QR_LABELS: Record<PropertyLanguageCode, string> = {
   en: "Scan to view the full property",
@@ -85,9 +85,11 @@ export interface PropertyMarketingMaterialView {
   location: string;
   price: string;
   facts: Array<{ key: PropertySocialCardFactKey; label: string; value: string }>;
+  customFacts: Array<{ key: string; label: string; value: string }>;
   copy: string;
   highlights: string[];
   qrLabel: string;
+  qrFeatures: string[];
   disclaimer: string;
   brochureImages: PropertyMarketingSelectedImage[];
   agent: {
@@ -131,7 +133,7 @@ export function brochureSupportingImageLimit(
   if (template === "single-hero") return 0;
   if (template === "hero-two-square") return 2;
   if (template === "hero-four-grid") return 4;
-  if (template === "a4-classic") return 3;
+  if (template === "a4-classic" || template === "a4-editorial") return 2;
   return 5;
 }
 
@@ -407,7 +409,7 @@ export function createPropertyMarketingMaterialView(
   const listingFacts = normalizeListingFacts(publicProperty, language);
   const selectedFactKeys = config.selectedFactKeys.length > 0
     ? config.selectedFactKeys
-    : (["bedrooms", "bathrooms", "built-area", "plot-area"] satisfies PropertySocialCardFactKey[]);
+    : (["bedrooms", "bathrooms", "parking", "built-area", "year-built", "plot-area"] satisfies PropertySocialCardFactKey[]);
   const facts = selectedFactKeys.flatMap((key) => {
     const fact = listingFacts.find((candidate) => candidate.key === key);
     return fact ? [{ key, label: fact.label, value: fact.value }] : [];
@@ -426,6 +428,9 @@ export function createPropertyMarketingMaterialView(
       })
     : visibleHighlights.map((highlight) => highlight.value);
   const highlights = selectedHighlights.slice(0, PROPERTY_MARKETING_MAX_HIGHLIGHTS);
+  const customFacts = listingFacts
+    .filter((fact) => fact.key.startsWith("custom-"))
+    .map((fact) => ({ key: fact.key, label: fact.label, value: fact.value }));
   const summary = localizedText(publicProperty.summary, language, language);
   const customCopy = config.customMarketingCopy
     ? localizedText(config.customMarketingCopy, language, language)
@@ -451,6 +456,30 @@ export function createPropertyMarketingMaterialView(
     profileVisible &&
     (config.brandingMode === "agency" || config.includeAgencyLogo);
 
+  const qrFeatures = [
+    publicProperty.gallery.length > 0 ? "Photos" : "",
+    publicProperty.virtualTour?.enabled !== false &&
+    Boolean(
+      publicProperty.virtualTour?.embedUrl?.trim() ||
+        publicProperty.virtualTour?.externalUrl?.trim(),
+    )
+      ? "360° Tour"
+      : "",
+    publicProperty.floorPlansEnabled !== false &&
+    (publicProperty.floorPlans.length > 0 ||
+      publicProperty.interactiveFloorPlanTour?.enabled === true)
+      ? "Floor Plans"
+      : "",
+    profileVisible &&
+    Boolean(
+      publicProperty.agent.phone?.trim() ||
+        publicProperty.agent.email?.trim() ||
+        publicProperty.agent.whatsapp?.trim(),
+    )
+      ? "Contact"
+      : "",
+  ].filter(Boolean);
+
   return {
     config,
     slug: publicProperty.slug,
@@ -461,9 +490,11 @@ export function createPropertyMarketingMaterialView(
       ? formatPriceLabel(publicProperty.price)
       : "",
     facts,
+    customFacts,
     copy: useHighlights ? "" : configuredCopy,
-    highlights: useHighlights ? highlights : [],
+    highlights: config.marketingCopyMode === "none" ? [] : highlights,
     qrLabel: PROPERTY_MARKETING_QR_LABELS[language],
+    qrFeatures,
     disclaimer: config.includeDisclaimer ? disclaimerText : "",
     brochureImages: selectedImages(
       publicProperty,

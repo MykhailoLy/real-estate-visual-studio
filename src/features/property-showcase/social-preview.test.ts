@@ -277,6 +277,35 @@ test("social-card branding defaults to PicchuSpot and supports agency and unbran
   assert.equal(hiddenBrandingPreview.brandingAttribution, undefined);
 });
 
+test("social preview keeps ordered visible highlights and custom facts for the shared renderer", () => {
+  const property = cloneProperty();
+  property.highlights = [
+    { text: { en: "First highlight" }, sortOrder: 20 },
+    { text: { en: "Priority highlight" }, sortOrder: 10 },
+  ];
+  property.facts.push(
+    {
+      key: "custom-heating",
+      value: "Central heating",
+      label: { en: "Heating" },
+      sortOrder: 1000,
+    },
+    {
+      key: "custom-hidden",
+      value: "Hidden",
+      label: { en: "Hidden detail" },
+      sortOrder: 1001,
+      visible: false,
+    },
+  );
+
+  const preview = getPropertySocialPreview(property);
+  assert.deepEqual(preview.highlights, ["Priority highlight", "First highlight"]);
+  assert.deepEqual(preview.customFacts, [
+    { key: "custom-heating", label: "Heating", value: "Central heating" },
+  ]);
+});
+
 test("social image selection enforces three photos and supports ordered photos", () => {
   const property = cloneProperty();
   let gallery = property.gallery.map((image, index) => ({

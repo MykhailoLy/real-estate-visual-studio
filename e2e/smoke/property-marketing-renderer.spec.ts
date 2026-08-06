@@ -5,8 +5,13 @@ import {
   preparePropertyMarketingAssets,
   type PreparedPropertyMarketingAssets,
 } from "../../src/features/property-showcase/marketing-material-assets";
-import { renderPropertyMarketingPng } from "../../src/features/property-showcase/marketing-material-renderer";
+import {
+  renderPropertyMarketingPng,
+  renderPropertySocialCardPng,
+} from "../../src/features/property-showcase/marketing-material-renderer";
 import { getPropertyShowcase } from "../../src/features/property-showcase/registry";
+import { getPropertySocialPreview } from "../../src/features/property-showcase/social-preview";
+import type { PropertySocialCardRenderInput } from "../../src/features/property-showcase/social-image-response";
 import type {
   PropertyMarketingBrochureTemplate,
   PropertyShowcase,
@@ -102,6 +107,49 @@ async function render(
     await preparedAssets(template, colorOrder, preview),
     { preview },
   );
+  expect(response.ok).toBe(true);
+  return Buffer.from(await response.arrayBuffer());
+}
+
+async function socialInput(
+  imageCount = 3,
+  branding: "picchuspot" | "agency" | "unbranded" = "picchuspot",
+): Promise<PropertySocialCardRenderInput> {
+  const registered = getPropertyShowcase("sea-view-residence");
+  expect(registered).not.toBeNull();
+  const property = structuredClone(registered) as PropertyShowcase;
+  property.socialPreview = { brandingMode: branding };
+  property.highlights = [
+    { text: { en: "Fireplace" }, sortOrder: 1 },
+    { text: { en: "Private terrace" }, sortOrder: 2 },
+    { text: { en: "Renovated kitchen" }, sortOrder: 3 },
+  ];
+  property.facts.push(
+    { key: "custom-heating", label: { en: "Heating" }, value: "Central", sortOrder: 1000 },
+    { key: "custom-orientation", label: { en: "Orientation" }, value: "South East", sortOrder: 1001 },
+  );
+  const images = await Promise.all(fixtureColors.slice(0, imageCount).map(async ({ id, rgb }) => {
+    const bytes = await fixturePng(rgb);
+    return {
+      imageId: id,
+      imageUrl: `data:image/png;base64,${bytes.toString("base64")}`,
+      imageAlt: id,
+      focalPoint: { x: 0.5, y: 0.5 },
+      byteLength: bytes.byteLength,
+      contentType: "image/png" as const,
+    };
+  }));
+  return {
+    property,
+    preview: getPropertySocialPreview(property),
+    propertyImages: images,
+    brandingLogo: null,
+    level: "full",
+  };
+}
+
+async function renderSocial(input: PropertySocialCardRenderInput): Promise<Buffer> {
+  const response = renderPropertySocialCardPng(input);
   expect(response.ok).toBe(true);
   return Buffer.from(await response.arrayBuffer());
 }
@@ -296,7 +344,10 @@ test("portrait and landscape preview/final output preserve normalized image posi
   for (const template of ["hero-four-grid", "a4-editorial"] as const) {
     const preview = await colorCentroids(await render(template, fixtureColors, true));
     const final = await colorCentroids(await render(template, fixtureColors, false));
-    for (const { id } of fixtureColors) {
+    const expectedImages = template === "a4-editorial"
+      ? fixtureColors.slice(0, 3)
+      : fixtureColors;
+    for (const { id } of expectedImages) {
       const previewPoint = preview.get(id);
       const finalPoint = final.get(id);
       expect(previewPoint, `${template} ${id} preview centroid`).not.toBeNull();
@@ -346,6 +397,75 @@ test("portrait and landscape brochures use white editorial surfaces without bran
     expect(palette.gold, `${template} gold is wordmark-only`).toBeLessThan(0.01);
     expect(palette.cream, `${template} has no cream panel`).toBeLessThan(0.01);
   }
+});
+
+test("portrait variants reflow full, sparse, privacy-safe, highlight-heavy, and custom-fact-heavy content", async () => {
+  const full = await preparedAssets("a4-editorial");
+  full.view.highlights = Array.from({ length: 10 }, (_, index) => `Highlight ${index + 1}`);
+  full.view.customFacts = Array.from({ length: 18 }, (_, index) => ({
+    key: `custom-${index + 1}`,
+    label: `Specification ${index + 1}`,
+    value: `Value ${index + 1}`,
+  }));
+  const sparse = await preparedAssets("a4-editorial");
+  sparse.view.copy = "";
+  sparse.view.highlights = [];
+  sparse.view.customFacts = [];
+  const approximate = await preparedAssets("a4-editorial");
+  approximate.view.location = "Altea Hills, Alicante";
+  const hidden = await preparedAssets("a4-editorial");
+  hidden.view.location = "";
+  hidden.view.agent = null;
+  hidden.agencyLogoUrl = undefined;
+  hidden.agentPortraitUrl = undefined;
+
+  const outputs = await Promise.all([full, sparse, approximate, hidden].map(async (assets) => {
+    const response = renderPropertyMarketingPng(assets, { preview: true });
+    expect(response.ok).toBe(true);
+    const output = Buffer.from(await response.arrayBuffer());
+    const metadata = await sharp(output).metadata();
+    expect(metadata.width).toBe(620);
+    expect(metadata.height).toBe(877);
+    return createHash("sha256").update(output).digest("hex");
+  }));
+  expect(new Set(outputs).size).toBe(4);
+});
+
+test("social card uses a 52/22/26 primary, supporting, and navy-panel composition", async () => {
+  const output = await renderSocial(await socialInput(3));
+  const metadata = await sharp(output).metadata();
+  expect(metadata.width).toBe(1200);
+  expect(metadata.height).toBe(630);
+  const centroids = await colorCentroids(output);
+  expect(centroids.get("primary-red")?.x ?? 1).toBeLessThan(0.52);
+  expect(centroids.get("support-green")?.x ?? 0).toBeGreaterThan(0.52);
+  expect(centroids.get("support-green")?.x ?? 1).toBeLessThan(0.75);
+  expect(centroids.get("support-green")?.y ?? 1).toBeLessThan(0.48);
+  expect(centroids.get("support-blue")?.y ?? 0).toBeGreaterThan(0.52);
+});
+
+test("social card expands a single hero when supporting photos are absent and stays byte-identical for preview/final rendering", async () => {
+  const oneSupport = await renderSocial(await socialInput(2));
+  const noSupportInput = await socialInput(1);
+  const noSupportPreview = await renderSocial(noSupportInput);
+  const noSupportFinal = await renderSocial(noSupportInput);
+  const oneSupportCounts = await colorPixelCounts(oneSupport);
+  const noSupportCounts = await colorPixelCounts(noSupportPreview);
+  expect(oneSupportCounts.get("support-green")).toBeGreaterThan(500);
+  expect(noSupportCounts.get("support-green")).toBe(0);
+  expect(noSupportCounts.get("primary-red")).toBeGreaterThan(
+    oneSupportCounts.get("primary-red") ?? 0,
+  );
+  expect(noSupportPreview.equals(noSupportFinal)).toBe(true);
+});
+
+test("social logo treatments and supplemental highlights/custom facts render deterministically", async () => {
+  const darkAgency = await renderSocial(await socialInput(3, "agency"));
+  const lightBrand = await renderSocial(await socialInput(3, "picchuspot"));
+  const unbranded = await renderSocial(await socialInput(3, "unbranded"));
+  const hash = (buffer: Buffer) => createHash("sha256").update(buffer).digest("hex");
+  expect(hash(darkAgency)).not.toBe(hash(lightBrand));
+  expect(hash(lightBrand)).not.toBe(hash(unbranded));
 });
 
 test("missing logo, portrait, phone, or complete realtor data reflows without breaking either orientation", async () => {

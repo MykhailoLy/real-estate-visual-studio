@@ -16,7 +16,7 @@ import type {
 } from "./types.ts";
 
 export const PROPERTY_SOCIAL_CARD_VISUAL_SCHEMA_VERSION =
-  "picchuspot-property-social-card-v1";
+  "picchuspot-property-social-card-v2";
 
 interface VersionedSocialPhoto {
   id: string;
@@ -59,6 +59,12 @@ export interface PropertySocialImageVersionInput {
       label: string;
       value: string;
     }>;
+    customFacts: Array<{
+      key: string;
+      label: string;
+      value: string;
+    }>;
+    highlights: string[];
     location: string;
     listingFacts: PublicSocialListingFacts;
     title: string;
@@ -141,6 +147,8 @@ export function createPropertySocialImageVersionInput(
     content: {
       displayedPrice: preview.price,
       facts,
+      customFacts: preview.customFacts,
+      highlights: preview.highlights,
       location: preview.location,
       listingFacts: {
         listingReference:

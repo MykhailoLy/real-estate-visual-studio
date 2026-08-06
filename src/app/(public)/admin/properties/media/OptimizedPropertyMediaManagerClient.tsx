@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PropertyMarketingConfigurator from "./PropertyMarketingConfigurator";
+import PropertySocialCardPreview from "./PropertySocialCardPreview";
 import {
   useEffect,
   useMemo,
@@ -50,7 +51,6 @@ import {
   PROPERTY_LANGUAGE_LABELS,
 } from "@/features/property-showcase/localization";
 import {
-  getPropertySocialPreview,
   resolvedPropertySocialImages,
   updateGallerySocialPreview,
 } from "@/features/property-showcase/social-preview";
@@ -439,19 +439,22 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     }),
     [agencyLogoUrl, coverImage, gallery, record.property, socialCard],
   );
-  const socialPreview = useMemo(
-    () => getPropertySocialPreview(socialPreviewProperty),
-    [socialPreviewProperty],
+  const marketingPreviewProperty = useMemo(
+    () => ({
+      ...socialPreviewProperty,
+      marketingMaterials,
+      agent: {
+        ...socialPreviewProperty.agent,
+        portraitUrl: agentPortraitUrl || undefined,
+      },
+    }),
+    [agentPortraitUrl, marketingMaterials, socialPreviewProperty],
   );
   const resolvedSocialImages = useMemo(
     () => resolvedPropertySocialImages(socialPreviewProperty),
     [socialPreviewProperty],
   );
   const generatedSocialImagePath = `/property/${encodeURIComponent(record.slug)}/opengraph-image`;
-  const socialPreviewGridClass =
-    socialPreview.layout === "balanced"
-      ? "md:grid-cols-[1.72fr_1fr]"
-      : "md:grid-cols-[2.75fr_1fr]";
   const socialCardChanged =
     socialCardConfigSignature(socialCard) !== savedSocialCardSignature;
   const marketingMaterialsChanged =
@@ -1734,7 +1737,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       <PropertyMarketingConfigurator
         propertyId={record.id}
         propertySlug={record.slug}
-        property={record.property}
+        property={marketingPreviewProperty}
         gallery={realGallery}
         value={marketingMaterials}
         changed={marketingMaterialsChanged}
@@ -1759,106 +1762,12 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           </p>
         </header>
         <div className="space-y-4 p-5">
-          <div
-            data-testid="social-card-admin-preview"
-            data-layout={socialPreview.layout}
-            className={`mx-auto grid min-h-72 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface md:aspect-[1200/630] md:min-h-0 ${socialPreviewGridClass}`}
-          >
-            <div className="flex min-h-52 flex-col overflow-hidden bg-slate-200">
-              {socialPreview.images[0] ? (
-                <div className="relative min-h-0 flex-1 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={socialPreview.images[0].imageUrl}
-                    alt={socialPreview.images[0].imageAlt}
-                    className="h-full w-full object-cover"
-                    style={{ objectPosition: focalPointToObjectPosition(socialPreview.images[0].focalPoint) }}
-                  />
-                </div>
-              ) : (
-                <div className="grid flex-1 place-items-center px-5 text-center text-sm text-muted">
-                  No public social image available
-                </div>
-              )}
-              {socialPreview.layout !== "minimal" && socialPreview.images.length > 1 ? (
-                <div className="grid h-20 shrink-0 grid-cols-2 gap-0.5 border-t-2 border-white sm:h-28">
-                  {socialPreview.images.slice(1, 3).map((image) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={image.imageUrl}
-                      src={image.imageUrl}
-                      alt={image.imageAlt}
-                      className="h-full w-full object-cover"
-                      style={{ objectPosition: focalPointToObjectPosition(image.focalPoint) }}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex min-w-0 flex-col bg-[#0B1F3A] p-5 text-white sm:p-6">
-              {socialPreview.brandingMode === "picchuspot" ? (
-                <div>
-                  <p className="text-sm font-bold">
-                    Picchu<span className="text-[#B88A44]">Spot</span>
-                  </p>
-                  {socialPreview.brandingAttribution ? (
-                    <p className="mt-1 text-[10px] text-white/50">
-                      {socialPreview.brandingAttribution}
-                    </p>
-                  ) : null}
-                </div>
-              ) : socialPreview.brandingMode === "agency" ? (
-                <div className="flex items-center gap-3">
-                  {socialPreview.brandingLogoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={socialPreview.brandingLogoUrl}
-                      alt=""
-                      className="h-10 w-16 rounded bg-white/90 object-contain p-1"
-                    />
-                  ) : null}
-                  <div>
-                    <p className="text-sm font-bold">
-                      {socialPreview.brandingName ?? "Agency"}
-                    </p>
-                    {socialPreview.brandingAttribution ? (
-                      <p className="mt-1 text-[10px] text-white/50">
-                        {socialPreview.brandingAttribution}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-0.5 w-10 bg-[#B88A44]" />
-              )}
-              {socialPreview.location ? (
-                <p className="mt-5 text-xs leading-5 text-white/65">
-                  {socialPreview.location}
-                </p>
-              ) : null}
-              <p className="mt-2 break-words text-xl font-bold leading-tight">
-                {record.property.title[primaryLanguage] ?? record.property.title.en}
-              </p>
-              {socialPreview.price ? (
-                <p className="mt-3 text-2xl font-bold text-[#d6b665]">
-                  {socialPreview.price}
-                </p>
-              ) : null}
-              {socialPreview.facts.length > 0 ? (
-                <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-white/15 pt-4 text-xs">
-                  {socialPreview.facts.map((fact) => (
-                    <div key={fact.key} className="min-w-0">
-                      <dt className="truncate text-[9px] font-bold uppercase tracking-wide text-white/50">
-                        {fact.label}
-                      </dt>
-                      <dd className="mt-0.5 truncate font-bold text-white/85">
-                        {fact.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
-            </div>
+          <div data-testid="social-card-admin-preview">
+            <PropertySocialCardPreview
+              propertyId={record.id}
+              property={socialPreviewProperty}
+              changed={socialCardChanged || marketingMaterialsChanged || JSON.stringify(gallery) !== JSON.stringify(initialGallery) || coverImage !== record.property.coverImage || agencyLogoUrl !== (record.property.agent.logoUrl ?? "")}
+            />
           </div>
 
           {resolvedSocialImages.length === 0 ? (

@@ -105,6 +105,24 @@ const marketingPreviewRouteSource = readFileSync(
   ),
   "utf8",
 );
+const socialPreviewRouteSource = readFileSync(
+  new URL(
+    "../../app/(public)/api/admin/properties/[id]/social-card/preview/route.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const socialPreviewComponentSource = readFileSync(
+  new URL(
+    "../../app/(public)/admin/properties/media/PropertySocialCardPreview.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const socialPreviewResponseSource = readFileSync(
+  new URL("./social-preview-response.ts", import.meta.url),
+  "utf8",
+);
 const marketingDownloadsSource = readFileSync(
   new URL(
     "../../app/(showcase)/property/PropertyMarketingDownloads.tsx",
@@ -360,8 +378,10 @@ test("social-card rendering validates image bytes and has a deliberate fallback"
   assert.equal(marketingMaterialRendererSource.includes("model.title"), true);
   assert.equal(propertyOpenGraphImageSource.includes("property-social-emergency.png"), true);
   assert.equal(propertyEditorSource.includes("Social-card branding"), true);
-  assert.equal(propertyEditorSource.includes("Property Showcase by PicchuSpot"), true);
-  assert.equal(propertyEditorSource.includes("Powered by PicchuSpot"), true);
+  assert.equal(propertyEditorSource.includes("PropertySocialCardPreview"), true);
+  assert.equal(mediaManagerSource.includes("PropertySocialCardPreview"), true);
+  assert.equal(socialPreviewResponseSource.includes("preparePropertySocialAssets"), true);
+  assert.equal(socialPreviewResponseSource.includes("renderPropertySocialCardPng"), true);
   assert.equal(propertyEditorSource.includes("FullFrame Media"), false);
 });
 
@@ -497,8 +517,9 @@ test("unsaved brochure preview is authenticated, bounded, no-store and read-only
   assert.equal(marketingPreviewRouteSource.includes("isAdminAuthenticated"), true);
   assert.equal(marketingPreviewRouteSource.indexOf("isAdminAuthenticated") < marketingPreviewRouteSource.indexOf("getPropertyShowcaseForAdminById"), true);
   assert.equal(marketingPreviewRouteSource.includes("PropertyMarketingPreviewDraftSchema"), true);
-  assert.equal(marketingPreviewRouteSource.includes("64 * 1024"), true);
+  assert.equal(marketingPreviewRouteSource.includes("256 * 1024"), true);
   assert.equal(marketingPreviewRouteSource.includes("existing property gallery"), true);
+  assert.equal(marketingPreviewRouteSource.includes("gallery: sourceProperty.gallery"), true);
   assert.equal(marketingPreviewRouteSource.includes(".update("), false);
   assert.equal(marketingPreviewRouteSource.includes(".insert("), false);
   assert.equal(marketingPreviewRouteSource.includes(".delete("), false);
@@ -520,6 +541,8 @@ test("brochure compositions reflow sparse portrait content and never reserve fai
   assert.equal(marketingMaterialRendererSource.includes("const hasHeader = hasRealtor"), true);
   assert.equal(marketingMaterialRendererSource.includes("model.qrCodeUrl || model.disclaimer"), true);
   assert.equal(marketingMaterialRendererSource.includes("model.highlights.length > 0"), true);
+  assert.equal(marketingMaterialRendererSource.includes("model.customFacts.length > 0"), true);
+  assert.equal(marketingMaterialRendererSource.includes("More property details available online"), true);
   assert.equal(marketingMaterialRendererSource.includes("supporting.length === 0"), true);
   assert.equal(marketingMaterialRendererSource.includes("images.slice(1"), true);
   assert.equal(marketingAssetsSource.includes("filter((image): image is PreparedMarketingImage"), true);
@@ -532,10 +555,23 @@ test("brochure compositions reflow sparse portrait content and never reserve fai
   assert.equal(marketingMaterialRendererSource.includes('objectFit: "contain"'), true);
   assert.equal(marketingMaterialRendererSource.includes("model.agentPhone ?"), true);
   assert.equal(marketingMaterialRendererSource.includes("const useHighlights = !view.copy && view.highlights.length > 0"), true);
-  assert.equal(marketingMaterialRendererSource.includes('justifyContent: hasFooter ? "space-between" : "flex-start"'), true);
-  assert.equal(marketingMaterialRendererSource.includes("model.highlights.slice(0, 4)"), true);
-  assert.equal(marketingMaterialRendererSource.includes("SocialLandscapeComposition"), true);
+  assert.equal(marketingMaterialRendererSource.includes("const hasSparseDetails"), true);
+  assert.equal(marketingMaterialRendererSource.includes("SocialCardComposition"), true);
   assert.equal(marketingMaterialRendererSource.includes("LandscapeBrochureComposition"), true);
+});
+
+test("social preview uses the final renderer with an authenticated no-store unsaved draft", () => {
+  assert.equal(socialPreviewComponentSource.includes("AbortController"), true);
+  assert.equal(socialPreviewComponentSource.includes("requestSequence !== sequence.current"), true);
+  assert.equal(socialPreviewComponentSource.includes("Updating preview"), true);
+  assert.equal(socialPreviewComponentSource.includes('previewStatus === "updating" && previewUrl'), true);
+  assert.equal(socialPreviewRouteSource.includes("isAdminAuthenticated"), true);
+  assert.equal(socialPreviewRouteSource.includes("PropertyShowcaseSchema"), true);
+  assert.equal(socialPreviewRouteSource.includes("256 * 1024"), true);
+  assert.equal(socialPreviewRouteSource.includes("createPropertySocialPreviewResponse"), true);
+  assert.equal(socialPreviewRouteSource.includes(".update("), false);
+  assert.equal(socialPreviewRouteSource.includes(".insert("), false);
+  assert.equal(socialPreviewRouteSource.includes(".delete("), false);
 });
 
 test("public brochure dialog previews one orientation and offers only three controlled downloads", () => {

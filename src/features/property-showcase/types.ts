@@ -57,7 +57,7 @@ export type PropertyLanguageCode =
   | "uk"
   | "ru";
 
-export type PropertyFactKey =
+export type PropertyBuiltInFactKey =
   | "price"
   | "listing-reference"
   | "bedrooms"
@@ -66,6 +66,13 @@ export type PropertyFactKey =
   | "plot-area"
   | "parking"
   | "year-built";
+
+/**
+ * Custom fact keys are deliberately data-driven. Their display label is stored
+ * on the fact itself, so an administrator can add an ordered specification
+ * without needing a release for every regional listing field.
+ */
+export type PropertyFactKey = PropertyBuiltInFactKey | `custom-${string}`;
 
 export interface LocalizedText {
   en: string;
