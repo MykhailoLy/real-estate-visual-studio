@@ -1,7 +1,15 @@
 "use client";
 
-import { Download, FileImage, FileText, X, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Download,
+  FileImage,
+  FileText,
+  Loader2,
+  Printer,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { PropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-materials";
 import type { PropertyLanguageCode } from "@/features/property-showcase/types";
 
@@ -10,47 +18,64 @@ interface PropertyMarketingDownloadsProps {
   language: PropertyLanguageCode;
 }
 
+type ActionId = "print" | "pdf" | "jpg" | "png";
+type ActionState = "idle" | "preparing" | "ready" | "error";
+
 const COPY = {
   en: {
     button: "Download brochure",
-    title: "Property marketing materials",
-    description: "Choose a print-ready flyer or a landscape image.",
+    title: "Property brochure",
+    description: "Preview the finished brochure, then print or download your preferred format.",
     close: "Close",
-    printReady: "Print ready",
-    highResolution: "High resolution",
+    preview: "Finished property brochure preview",
+    preparingPreview: "Preparing brochure preview…",
+    previewError: "The brochure preview could not be loaded.",
+    preparing: "Preparing",
+    ready: "Ready",
+    retry: "Please retry.",
+    openPdf: "Open print-ready PDF",
   },
   es: {
     button: "Descargar folleto",
-    title: "Materiales de la propiedad",
-    description: "Elige un folleto para imprimir o una imagen horizontal.",
+    title: "Folleto de la propiedad",
+    description: "Previsualiza el folleto terminado y elige imprimir o descargar.",
     close: "Cerrar",
-    printReady: "Listo para imprimir",
-    highResolution: "Alta resolución",
+    preview: "Vista previa del folleto terminado",
+    preparingPreview: "Preparando vista previa…",
+    previewError: "No se pudo cargar la vista previa.",
+    preparing: "Preparando",
+    ready: "Listo",
+    retry: "Inténtalo de nuevo.",
+    openPdf: "Abrir PDF listo para imprimir",
   },
 } as const;
+
+function filenameFromResponse(response: Response, fallback: string): string {
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/i);
+  return match?.[1] ?? fallback;
+}
 
 export default function PropertyMarketingDownloads({
   links,
   language,
 }: PropertyMarketingDownloadsProps) {
   const [open, setOpen] = useState(false);
+  const [previewState, setPreviewState] = useState<"loading" | "ready" | "error">("loading");
+  const [activeAction, setActiveAction] = useState<ActionId | null>(null);
+  const [actionState, setActionState] = useState<ActionState>("idle");
+  const [actionError, setActionError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const actionAbort = useRef<AbortController | null>(null);
   const copy = language === "es" ? COPY.es : COPY.en;
-  const options = useMemo(() => {
-    const items: Array<{
-      href: string;
-      label: string;
-      detail: string;
-      icon: LucideIcon;
-    }> = [];
-    if (links.flyerPdf) items.push({ href: links.flyerPdf, label: "A4 PDF", detail: copy.printReady, icon: FileText });
-    if (links.flyerJpg) items.push({ href: links.flyerJpg, label: "A4 JPG", detail: copy.highResolution, icon: FileImage });
-    if (links.flyerPng) items.push({ href: links.flyerPng, label: "A4 PNG", detail: copy.highResolution, icon: FileImage });
-    if (links.landscapeJpg) items.push({ href: links.landscapeJpg, label: "Landscape JPG", detail: copy.highResolution, icon: FileImage });
-    if (links.landscapePng) items.push({ href: links.landscapePng, label: "Landscape PNG", detail: copy.highResolution, icon: FileImage });
-    return items;
-  }, [copy.highResolution, copy.printReady, links]);
+
+  function closeDialog() {
+    actionAbort.current?.abort();
+    setOpen(false);
+    window.setTimeout(() => triggerRef.current?.focus(), 0);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +85,7 @@ export default function PropertyMarketingDownloads({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        setOpen(false);
+        closeDialog();
         return;
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
@@ -87,13 +112,93 @@ export default function PropertyMarketingDownloads({
     };
   }, [open]);
 
-  if (options.length === 0) return null;
+  useEffect(() => () => actionAbort.current?.abort(), []);
+
+  if (!links.preview || !links.pdf || !links.jpg || !links.png || !links.orientation) {
+    return null;
+  }
+
+  const actions: Array<{
+    id: ActionId;
+    label: string;
+    detail: string;
+    icon: LucideIcon;
+  }> = [
+    { id: "print", label: "Print", detail: "Open the print-ready brochure", icon: Printer },
+    { id: "pdf", label: "PDF", detail: "Print-ready document", icon: FileText },
+    { id: "jpg", label: "JPG", detail: "High-resolution image", icon: FileImage },
+    { id: "png", label: "PNG", detail: "Lossless high-resolution image", icon: FileImage },
+  ];
+
+  async function runAction(id: ActionId) {
+    if (actionState === "preparing") return;
+    const href = id === "jpg" ? links.jpg : id === "png" ? links.png : links.pdf;
+    if (!href) return;
+    const printWindow = id === "print" ? window.open("about:blank", "_blank") : null;
+    const controller = new AbortController();
+    actionAbort.current?.abort();
+    actionAbort.current = controller;
+    setActiveAction(id);
+    setActionState("preparing");
+    setActionError(null);
+    try {
+      const response = await fetch(href, {
+        credentials: "same-origin",
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Brochure generation failed (${response.status}).`);
+      const blob = await response.blob();
+      if (controller.signal.aborted) return;
+      const objectUrl = URL.createObjectURL(blob);
+      if (id === "print") {
+        if (!printWindow) {
+          URL.revokeObjectURL(objectUrl);
+          throw new Error("The browser blocked the print window.");
+        }
+        printWindow.location.replace(objectUrl);
+        window.setTimeout(() => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch {
+            // The visible PDF remains available for manual printing.
+          }
+          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+        }, 900);
+      } else {
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = filenameFromResponse(
+          response,
+          `property-${links.orientation}-brochure.${id}`,
+        );
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      }
+      setActionState("ready");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      printWindow?.close();
+      setActionState("error");
+      setActionError(
+        error instanceof Error ? error.message : "Could not prepare the brochure.",
+      );
+    }
+  }
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setPreviewState("loading");
+          setActionState("idle");
+          setActionError(null);
+          setOpen(true);
+        }}
         data-testid="hero-download-brochure"
         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/45 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
       >
@@ -103,9 +208,9 @@ export default function PropertyMarketingDownloads({
 
       {open ? (
         <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-[#071426]/70 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-[#071426]/70 p-2 backdrop-blur-sm sm:items-center sm:p-5"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setOpen(false);
+            if (event.target === event.currentTarget) closeDialog();
           }}
         >
           <div
@@ -115,45 +220,88 @@ export default function PropertyMarketingDownloads({
             aria-labelledby="property-materials-title"
             aria-describedby="property-materials-description"
             data-testid="property-marketing-download-dialog"
-            className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 text-[#0B1F3A] shadow-2xl sm:p-7"
+            className="max-h-[calc(100dvh-1rem)] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-4 text-[#0B1F3A] shadow-2xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 id="property-materials-title" className="text-xl font-bold sm:text-2xl">
                   {copy.title}
                 </h2>
-                <p id="property-materials-description" className="mt-2 text-sm leading-6 text-slate-600">
+                <p id="property-materials-description" className="mt-1 text-sm leading-6 text-slate-600">
                   {copy.description}
                 </p>
               </div>
               <button
                 ref={closeRef}
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeDialog}
                 aria-label={copy.close}
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-200 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B1F3A]"
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>
             </div>
-            <div className="mt-6 grid gap-2">
-              {options.map(({ href, label, detail, icon: Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  download
-                  className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 transition hover:border-[#0B1F3A]/40 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B1F3A]"
-                >
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0B1F3A] text-white">
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block break-words text-sm font-bold">{label}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500">{detail}</span>
-                  </span>
-                  <Download className="ml-auto h-4 w-4 shrink-0" aria-hidden />
-                </a>
-              ))}
+
+            <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div
+                className={`relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-xl bg-[#0B1F3A] ${links.orientation === "portrait" ? "max-w-[560px] aspect-[620/877]" : "aspect-video"}`}
+                aria-label={copy.preview}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={links.preview}
+                  alt={copy.preview}
+                  onLoad={() => setPreviewState("ready")}
+                  onError={() => setPreviewState("error")}
+                  className={`h-full w-full object-contain transition-opacity ${previewState === "ready" ? "opacity-100" : "opacity-0"}`}
+                />
+                {previewState !== "ready" ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-white" role="status">
+                    {previewState === "loading" ? <Loader2 className="h-7 w-7 animate-spin" aria-hidden /> : <FileImage className="h-7 w-7" aria-hidden />}
+                    <span className="text-sm font-bold">{previewState === "loading" ? copy.preparingPreview : copy.previewError}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              <aside className="min-w-0 rounded-xl border border-slate-200 p-3 sm:p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                  {links.orientation === "portrait" ? "Portrait / A4" : "Landscape"}
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {actions.map(({ id, label, detail, icon: Icon }) => {
+                    const preparing = activeAction === id && actionState === "preparing";
+                    const ready = activeAction === id && actionState === "ready";
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => runAction(id)}
+                        disabled={actionState === "preparing"}
+                        className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 px-3 py-3 text-left transition hover:border-[#0B1F3A]/40 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B1F3A] disabled:cursor-wait disabled:opacity-60"
+                      >
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0B1F3A] text-white">
+                          {preparing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Icon className="h-4 w-4" aria-hidden />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-bold">{preparing ? `${copy.preparing} ${label}…` : label}</span>
+                          <span className="mt-0.5 block text-xs text-slate-500">{ready ? copy.ready : detail}</span>
+                        </span>
+                        <Download className="h-4 w-4 shrink-0" aria-hidden />
+                      </button>
+                    );
+                  })}
+                </div>
+                <div aria-live="polite" className="mt-3 min-h-5 text-xs text-slate-600">
+                  {actionState === "preparing" && activeAction ? `${copy.preparing} ${activeAction.toUpperCase()}…` : null}
+                  {actionState === "ready" ? copy.ready : null}
+                  {actionState === "error" ? `${actionError} ${copy.retry}` : null}
+                </div>
+                {actionState === "error" && activeAction === "print" ? (
+                  <a href={links.pdf} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-xs font-bold text-primary underline underline-offset-4">
+                    <FileText className="h-4 w-4" aria-hidden /> {copy.openPdf}
+                  </a>
+                ) : null}
+              </aside>
             </div>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { costaBlancaDemo } from "./registry.ts";
 import {
   createPropertyMarketingMaterialResponse,
   encodePropertyMarketingMaterialFormat,
+  propertyMarketingPreviewHeaders,
 } from "./marketing-material-response.ts";
 import type { PropertyShowcase } from "./types.ts";
 
@@ -17,8 +18,7 @@ function property(): PropertyShowcase {
   const value = structuredClone(costaBlancaDemo);
   value.marketingMaterials = {
     enabled: true,
-    landscape: { enabled: true, layout: "hero-two-square" },
-    portrait: { enabled: true, layout: "a4-editorial" },
+    brochure: { orientation: "portrait", template: "a4-editorial" },
   };
   return value;
 }
@@ -46,14 +46,28 @@ async function syntheticPng(width: number, height: number): Promise<Uint8Array> 
   return new Uint8Array(await response.arrayBuffer());
 }
 
-test("canonical landscape PNG converts to an exact 1920 by 1080 quality JPG", async () => {
+test("canonical landscape raster converts once to exact JPG and one-page landscape A4 PDF", async () => {
   const png = await syntheticPng(1920, 1080);
   const pngMetadata = await sharp(png).metadata();
   assert.deepEqual([pngMetadata.width, pngMetadata.height], [1920, 1080]);
-  const jpg = await encodePropertyMarketingMaterialFormat(png, "landscape.jpg");
+  const jpg = await encodePropertyMarketingMaterialFormat(
+    png,
+    "brochure.jpg",
+    "landscape",
+  );
   assert.equal(jpg.contentType, "image/jpeg");
   const jpgMetadata = await sharp(jpg.bytes).metadata();
   assert.deepEqual([jpgMetadata.width, jpgMetadata.height], [1920, 1080]);
+  const pdf = await encodePropertyMarketingMaterialFormat(
+    png,
+    "brochure.pdf",
+    "landscape",
+  );
+  const document = await PDFDocument.load(pdf.bytes);
+  assert.equal(document.getPageCount(), 1);
+  const page = document.getPage(0);
+  assert.ok(Math.abs(page.getWidth() - 841.89) < 0.01);
+  assert.ok(Math.abs(page.getHeight() - 595.28) < 0.01);
 });
 
 test("canonical portrait PNG converts to exact A4 raster JPG and one-page A4 PDF", async () => {
@@ -61,12 +75,20 @@ test("canonical portrait PNG converts to exact A4 raster JPG and one-page A4 PDF
   const pngMetadata = await sharp(png).metadata();
   assert.deepEqual([pngMetadata.width, pngMetadata.height], [2480, 3508]);
 
-  const jpg = await encodePropertyMarketingMaterialFormat(png, "flyer.jpg");
+  const jpg = await encodePropertyMarketingMaterialFormat(
+    png,
+    "brochure.jpg",
+    "portrait",
+  );
   assert.equal(jpg.contentType, "image/jpeg");
   const jpgMetadata = await sharp(jpg.bytes).metadata();
   assert.deepEqual([jpgMetadata.width, jpgMetadata.height], [2480, 3508]);
 
-  const pdf = await encodePropertyMarketingMaterialFormat(png, "flyer.pdf");
+  const pdf = await encodePropertyMarketingMaterialFormat(
+    png,
+    "brochure.pdf",
+    "portrait",
+  );
   assert.equal(pdf.contentType, "application/pdf");
   const document = await PDFDocument.load(pdf.bytes);
   assert.equal(document.getPageCount(), 1);
@@ -81,8 +103,8 @@ test("disabled and stale public material requests fail with no-store before rend
   const unavailable = await createPropertyMarketingMaterialResponse({
     property: disabled,
     canonicalUrl,
-    asset: "flyer.pdf",
-    requestUrl: `${canonicalUrl}/materials/flyer.pdf?v=stale`,
+    asset: "brochure.pdf",
+    requestUrl: `${canonicalUrl}/materials/brochure.pdf?v=stale`,
   });
   assert.equal(unavailable.status, 404);
   assert.equal(unavailable.headers.get("cache-control"), "no-store");
@@ -90,9 +112,19 @@ test("disabled and stale public material requests fail with no-store before rend
   const stale = await createPropertyMarketingMaterialResponse({
     property: property(),
     canonicalUrl,
-    asset: "landscape.png",
-    requestUrl: `${canonicalUrl}/materials/landscape.png?v=stale`,
+    asset: "brochure.png",
+    requestUrl: `${canonicalUrl}/materials/brochure.png?v=stale`,
   });
   assert.equal(stale.status, 404);
   assert.equal(stale.headers.get("cache-control"), "no-store");
+});
+
+test("admin live preview headers use reduced dimensions and are never cacheable", () => {
+  const portrait = new Headers(propertyMarketingPreviewHeaders("portrait"));
+  assert.equal(portrait.get("cache-control"), "private, no-store");
+  assert.equal(portrait.get("x-picchuspot-preview-width"), "620");
+  assert.equal(portrait.get("x-picchuspot-preview-height"), "877");
+  const landscape = new Headers(propertyMarketingPreviewHeaders("landscape"));
+  assert.equal(landscape.get("x-picchuspot-preview-width"), "960");
+  assert.equal(landscape.get("x-picchuspot-preview-height"), "540");
 });

@@ -10,10 +10,13 @@ import type {
   PropertyGalleryImage,
   PropertyHighlight,
   PropertyImageFocalPoint,
+  PropertyLanguageCode,
+  PropertyMarketingBrochureOrientation,
+  PropertyMarketingBrochureConfig,
+  PropertyMarketingBrochureTemplate,
   PropertyMarketingLandscapeLayout,
   PropertyMarketingMaterialsConfig,
   PropertyMarketingPortraitLayout,
-  PropertyLanguageCode,
   PropertyShowcase,
   PropertySocialBrandingMode,
   PropertySocialCardFactKey,
@@ -26,6 +29,9 @@ export const PROPERTY_MARKETING_MAX_FACTS = 4;
 export const PROPERTY_MARKETING_MAX_HIGHLIGHTS = 3;
 
 export type PropertyMarketingAsset =
+  | "brochure.png"
+  | "brochure.jpg"
+  | "brochure.pdf"
   | "landscape.png"
   | "landscape.jpg"
   | "flyer.png"
@@ -44,18 +50,13 @@ export interface NormalizedPropertyMarketingMaterialsConfig {
   disclaimer?: LocalizedText;
   selectedFactKeys: PropertySocialCardFactKey[];
   selectedHighlightIds: string[];
-  landscape: {
-    enabled: boolean;
-    layout: PropertyMarketingLandscapeLayout;
+  brochure: {
+    orientation: PropertyMarketingBrochureOrientation;
+    template: PropertyMarketingBrochureTemplate;
     primaryMediaId?: string;
-    secondaryMediaIds: string[];
+    supportingMediaIds: string[];
   };
-  portrait: {
-    enabled: boolean;
-    layout: PropertyMarketingPortraitLayout;
-    primaryMediaId?: string;
-    secondaryMediaIds: string[];
-  };
+  legacyNormalized: boolean;
 }
 
 export interface PropertyMarketingSelectedImage {
@@ -76,8 +77,7 @@ export interface PropertyMarketingMaterialView {
   copy: string;
   highlights: string[];
   disclaimer: string;
-  landscapeImages: PropertyMarketingSelectedImage[];
-  portraitImages: PropertyMarketingSelectedImage[];
+  brochureImages: PropertyMarketingSelectedImage[];
   agent: {
     agencyName: string;
     name: string;
@@ -89,11 +89,11 @@ export interface PropertyMarketingMaterialView {
 }
 
 export interface PropertyMarketingMaterialLinks {
-  landscapePng?: string;
-  landscapeJpg?: string;
-  flyerPng?: string;
-  flyerJpg?: string;
-  flyerPdf?: string;
+  orientation?: PropertyMarketingBrochureOrientation;
+  preview?: string;
+  pdf?: string;
+  jpg?: string;
+  png?: string;
 }
 
 function unique(values: readonly string[] | undefined, max: number): string[] {
@@ -101,11 +101,156 @@ function unique(values: readonly string[] | undefined, max: number): string[] {
     .slice(0, max);
 }
 
+export function isPortraitBrochureTemplate(
+  template: PropertyMarketingBrochureTemplate,
+): template is PropertyMarketingPortraitLayout {
+  return template === "a4-classic" || template === "a4-editorial";
+}
+
+export function isLandscapeBrochureTemplate(
+  template: PropertyMarketingBrochureTemplate,
+): template is PropertyMarketingLandscapeLayout {
+  return !isPortraitBrochureTemplate(template);
+}
+
+export function brochureSupportingImageLimit(
+  template: PropertyMarketingBrochureTemplate,
+): number {
+  if (template === "single-hero") return 0;
+  if (template === "hero-two-square") return 2;
+  if (template === "hero-four-grid") return 4;
+  if (template === "a4-classic") return 3;
+  return 5;
+}
+
+export function getPropertyMarketingRenderDimensions(
+  orientation: PropertyMarketingBrochureOrientation,
+  preview = false,
+) {
+  if (orientation === "portrait") {
+    return preview ? { width: 620, height: 877 } : { width: 2480, height: 3508 };
+  }
+  return preview ? { width: 960, height: 540 } : { width: 1920, height: 1080 };
+}
+
+export function setBrochurePrimaryImage(
+  brochure: PropertyMarketingBrochureConfig,
+  mediaId: string,
+): PropertyMarketingBrochureConfig {
+  return {
+    ...brochure,
+    primaryMediaId: mediaId,
+    supportingMediaIds: unique(
+      brochure.supportingMediaIds?.filter((id) => id !== mediaId),
+      5,
+    ),
+  };
+}
+
+export function toggleBrochureSupportingImage(
+  brochure: PropertyMarketingBrochureConfig,
+  mediaId: string,
+): PropertyMarketingBrochureConfig {
+  if (mediaId === brochure.primaryMediaId) return brochure;
+  const current = unique(brochure.supportingMediaIds, 5);
+  return {
+    ...brochure,
+    supportingMediaIds: current.includes(mediaId)
+      ? current.filter((id) => id !== mediaId)
+      : [...current, mediaId].slice(0, 5),
+  };
+}
+
+export function moveBrochureSupportingImage(
+  brochure: PropertyMarketingBrochureConfig,
+  mediaId: string,
+  direction: -1 | 1,
+): PropertyMarketingBrochureConfig {
+  const supportingMediaIds = unique(brochure.supportingMediaIds, 5);
+  const index = supportingMediaIds.indexOf(mediaId);
+  const destination = index + direction;
+  if (index < 0 || destination < 0 || destination >= supportingMediaIds.length) {
+    return brochure;
+  }
+  [supportingMediaIds[index], supportingMediaIds[destination]] = [
+    supportingMediaIds[destination],
+    supportingMediaIds[index],
+  ];
+  return { ...brochure, supportingMediaIds };
+}
+
+export function replaceBrochureSupportingImage(
+  brochure: PropertyMarketingBrochureConfig,
+  index: number,
+  mediaId: string,
+): PropertyMarketingBrochureConfig {
+  if (mediaId === brochure.primaryMediaId || index < 0 || index >= 5) {
+    return brochure;
+  }
+  const supportingMediaIds = unique(brochure.supportingMediaIds, 5)
+    .filter((id) => id !== mediaId);
+  if (index >= supportingMediaIds.length) supportingMediaIds.push(mediaId);
+  else supportingMediaIds[index] = mediaId;
+  return { ...brochure, supportingMediaIds: unique(supportingMediaIds, 5) };
+}
+
+function legacyBrochure(
+  value: PropertyMarketingMaterialsConfig | undefined,
+): NormalizedPropertyMarketingMaterialsConfig["brochure"] {
+  const landscape = value?.landscape;
+  const portrait = value?.portrait;
+  const landscapeEnabled = Boolean(landscape) && landscape?.enabled !== false;
+  const portraitEnabled = Boolean(portrait) && portrait?.enabled !== false;
+  const landscapeHasPrimary = Boolean(landscape?.primaryMediaId?.trim());
+  const portraitHasPrimary = Boolean(portrait?.primaryMediaId?.trim());
+
+  let orientation: PropertyMarketingBrochureOrientation = "portrait";
+  if (landscapeEnabled && !portraitEnabled) orientation = "landscape";
+  else if (portraitEnabled && !landscapeEnabled) orientation = "portrait";
+  else if (landscapeEnabled && portraitEnabled) {
+    orientation = landscapeHasPrimary && !portraitHasPrimary ? "landscape" : "portrait";
+  }
+
+  if (orientation === "landscape") {
+    return {
+      orientation,
+      template: landscape?.layout ?? "hero-two-square",
+      primaryMediaId: landscape?.primaryMediaId?.trim() || undefined,
+      supportingMediaIds: unique(landscape?.secondaryMediaIds, 5),
+    };
+  }
+  return {
+    orientation,
+    template: portrait?.layout ?? "a4-editorial",
+    primaryMediaId: portrait?.primaryMediaId?.trim() || undefined,
+    supportingMediaIds: unique(portrait?.secondaryMediaIds, 5),
+  };
+}
+
 export function normalizePropertyMarketingMaterialsConfig(
   value: PropertyMarketingMaterialsConfig | undefined,
   property?: Pick<PropertyShowcase, "agent">,
 ): NormalizedPropertyMarketingMaterialsConfig {
   const visibleAgent = property?.agent.displayProfile !== false;
+  const canonical = value?.brochure;
+  const orientation = canonical?.orientation ?? "portrait";
+  const requestedTemplate = canonical?.template;
+  const brochure = canonical
+    ? {
+        orientation,
+        template:
+          requestedTemplate &&
+          ((orientation === "portrait" && isPortraitBrochureTemplate(requestedTemplate)) ||
+            (orientation === "landscape" && isLandscapeBrochureTemplate(requestedTemplate)))
+            ? requestedTemplate
+            : orientation === "portrait"
+              ? ("a4-editorial" as const)
+              : ("hero-two-square" as const),
+        primaryMediaId: canonical.primaryMediaId?.trim() || undefined,
+        supportingMediaIds: unique(canonical.supportingMediaIds, 5),
+      }
+    : legacyBrochure(value);
+
   return {
     enabled: value?.enabled === true,
     brandingMode: value?.brandingMode ?? "picchuspot",
@@ -125,17 +270,33 @@ export function normalizePropertyMarketingMaterialsConfig(
       value?.selectedHighlightIds,
       PROPERTY_MARKETING_MAX_HIGHLIGHTS,
     ),
-    landscape: {
-      enabled: value?.landscape?.enabled ?? true,
-      layout: value?.landscape?.layout ?? "hero-two-square",
-      primaryMediaId: value?.landscape?.primaryMediaId?.trim() || undefined,
-      secondaryMediaIds: unique(value?.landscape?.secondaryMediaIds, 4),
-    },
-    portrait: {
-      enabled: value?.portrait?.enabled ?? true,
-      layout: value?.portrait?.layout ?? "a4-editorial",
-      primaryMediaId: value?.portrait?.primaryMediaId?.trim() || undefined,
-      secondaryMediaIds: unique(value?.portrait?.secondaryMediaIds, 5),
+    brochure,
+    legacyNormalized: !canonical && Boolean(value?.landscape || value?.portrait),
+  };
+}
+
+export function toCanonicalPropertyMarketingMaterialsConfig(
+  value: PropertyMarketingMaterialsConfig | undefined,
+  property?: Pick<PropertyShowcase, "agent">,
+): PropertyMarketingMaterialsConfig {
+  const normalized = normalizePropertyMarketingMaterialsConfig(value, property);
+  return {
+    enabled: normalized.enabled,
+    brandingMode: normalized.brandingMode,
+    includeAgent: normalized.includeAgent,
+    includeAgencyLogo: normalized.includeAgencyLogo,
+    includeQrCode: normalized.includeQrCode,
+    includeDisclaimer: normalized.includeDisclaimer,
+    marketingCopyMode: normalized.marketingCopyMode,
+    customMarketingCopy: normalized.customMarketingCopy,
+    disclaimer: normalized.disclaimer,
+    selectedFactKeys: normalized.selectedFactKeys,
+    selectedHighlightIds: normalized.selectedHighlightIds,
+    brochure: {
+      orientation: normalized.brochure.orientation,
+      template: normalized.brochure.template,
+      primaryMediaId: normalized.brochure.primaryMediaId,
+      supportingMediaIds: normalized.brochure.supportingMediaIds,
     },
   };
 }
@@ -170,8 +331,7 @@ function localizedHighlight(
 function selectedImages(
   property: PropertyShowcase,
   primaryMediaId: string | undefined,
-  secondaryMediaIds: readonly string[],
-  maxImages: number,
+  supportingMediaIds: readonly string[],
 ): PropertyMarketingSelectedImage[] {
   const orderedGallery = [...property.gallery].sort(
     (first, second) => first.sortOrder - second.sortOrder,
@@ -179,14 +339,12 @@ function selectedImages(
   const byId = new Map(orderedGallery.map((image) => [image.id, image]));
   const cover = orderedGallery.find((image) => image.src === property.coverImage);
   const primary = (primaryMediaId && byId.get(primaryMediaId)) ?? cover ?? orderedGallery[0];
-  const requested = secondaryMediaIds
+  const requested = supportingMediaIds
     .map((id) => byId.get(id))
     .filter((image): image is PropertyGalleryImage => Boolean(image));
-  const candidates = [
-    primary,
-    ...requested,
-    ...orderedGallery,
-  ].filter((image): image is PropertyGalleryImage => Boolean(image));
+  const candidates = [primary, ...requested, ...orderedGallery].filter(
+    (image): image is PropertyGalleryImage => Boolean(image),
+  );
   const seen = new Set<string>();
 
   return candidates.flatMap((image) => {
@@ -204,21 +362,18 @@ function selectedImages(
       ),
       focalPoint: normalizePropertyImageFocalPoint(image.focalPoint),
     }];
-  }).slice(0, maxImages);
+  }).slice(0, 6);
 }
 
 export function effectiveLandscapeLayout(
   requested: PropertyMarketingLandscapeLayout,
   imageCount: number,
 ): PropertyMarketingLandscapeLayout {
-  if (imageCount <= 1) return "single-hero";
-  if (requested === "hero-four-grid" && imageCount < 4) {
-    return imageCount >= 3 ? "hero-two-square" : "single-hero";
+  if (imageCount <= 1 || requested === "single-hero") return "single-hero";
+  if (requested === "hero-four-grid") {
+    return imageCount >= 5 ? "hero-four-grid" : "hero-two-square";
   }
-  if (requested === "hero-two-square" && imageCount < 3) {
-    return imageCount === 2 ? "hero-two-square" : "single-hero";
-  }
-  return requested;
+  return "hero-two-square";
 }
 
 export function createPropertyMarketingMaterialView(
@@ -291,18 +446,11 @@ export function createPropertyMarketingMaterialView(
     copy,
     highlights,
     disclaimer: config.includeDisclaimer ? disclaimerText : "",
-    landscapeImages: selectedImages(
+    brochureImages: selectedImages(
       publicProperty,
-      config.landscape.primaryMediaId,
-      config.landscape.secondaryMediaIds,
-      5,
-    ),
-    portraitImages: selectedImages(
-      publicProperty,
-      config.portrait.primaryMediaId,
-      config.portrait.secondaryMediaIds,
-      6,
-    ),
+      config.brochure.primaryMediaId,
+      config.brochure.supportingMediaIds,
+    ).slice(0, brochureSupportingImageLimit(config.brochure.template) + 1),
     agent: showAgent || includeAgency
       ? {
           agencyName: publicProperty.agent.agencyName.trim(),
@@ -311,13 +459,12 @@ export function createPropertyMarketingMaterialView(
             ? localizedText(publicProperty.agent.role, language, language)
             : "",
           phone: showAgent ? publicProperty.agent.phone?.trim() ?? "" : "",
-          logoUrl:
-            config.includeAgencyLogo
-              ? resolvePropertySocialImageUrl(
-                  publicProperty,
-                  publicProperty.agent.logoUrl,
-                ) ?? undefined
-              : undefined,
+          logoUrl: config.includeAgencyLogo
+            ? resolvePropertySocialImageUrl(
+                publicProperty,
+                publicProperty.agent.logoUrl,
+              ) ?? undefined
+            : undefined,
           portraitUrl: showAgent
             ? resolvePropertySocialImageUrl(
                 publicProperty,
@@ -332,7 +479,7 @@ export function createPropertyMarketingMaterialView(
 export function propertyMarketingMaterialsSignature(
   value: PropertyMarketingMaterialsConfig | undefined,
 ): string {
-  return JSON.stringify(normalizePropertyMarketingMaterialsConfig(value));
+  return JSON.stringify(toCanonicalPropertyMarketingMaterialsConfig(value));
 }
 
 export function resetPropertyMarketingMaterialsConfig(): PropertyMarketingMaterialsConfig {
@@ -346,15 +493,23 @@ export function resetPropertyMarketingMaterialsConfig(): PropertyMarketingMateri
     marketingCopyMode: "summary",
     selectedFactKeys: [],
     selectedHighlightIds: [],
-    landscape: { enabled: true, layout: "hero-two-square", secondaryMediaIds: [] },
-    portrait: { enabled: true, layout: "a4-editorial", secondaryMediaIds: [] },
+    brochure: {
+      orientation: "portrait",
+      template: "a4-editorial",
+      supportingMediaIds: [],
+    },
   };
 }
 
 export function safePropertyMarketingFilename(
   slug: string,
   asset: PropertyMarketingAsset,
+  orientation: PropertyMarketingBrochureOrientation =
+    asset.startsWith("landscape") ? "landscape" : "portrait",
 ): string {
-  const safeSlug = slug.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "property";
-  return `${safeSlug}-${asset.startsWith("flyer") ? "flyer" : "landscape"}.${asset.split(".").at(-1)}`;
+  const safeSlug = slug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "property";
+  return `${safeSlug}-${orientation}-brochure.${asset.split(".").at(-1)}`;
 }

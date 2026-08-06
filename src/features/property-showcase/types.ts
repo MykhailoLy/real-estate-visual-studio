@@ -136,6 +136,19 @@ export type PropertyMarketingPortraitLayout =
   | "a4-classic"
   | "a4-editorial";
 
+export type PropertyMarketingBrochureOrientation = "portrait" | "landscape";
+
+export type PropertyMarketingBrochureTemplate =
+  | PropertyMarketingLandscapeLayout
+  | PropertyMarketingPortraitLayout;
+
+export interface PropertyMarketingBrochureConfig {
+  orientation?: PropertyMarketingBrochureOrientation;
+  template?: PropertyMarketingBrochureTemplate;
+  primaryMediaId?: string;
+  supportingMediaIds?: string[];
+}
+
 export interface PropertyMarketingLandscapeConfig {
   enabled?: boolean;
   layout?: PropertyMarketingLandscapeLayout;
@@ -162,7 +175,10 @@ export interface PropertyMarketingMaterialsConfig {
   disclaimer?: LocalizedText;
   selectedFactKeys?: PropertySocialCardFactKey[];
   selectedHighlightIds?: string[];
+  brochure?: PropertyMarketingBrochureConfig;
+  /** Legacy dual-orientation configuration, normalized in code on read. */
   landscape?: PropertyMarketingLandscapeConfig;
+  /** Legacy dual-orientation configuration, normalized in code on read. */
   portrait?: PropertyMarketingPortraitConfig;
 }
 

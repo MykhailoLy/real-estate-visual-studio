@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import sharp from "sharp";
 import {
   expectNavigationResponseOk,
   installSmokeNetworkGuards,
@@ -267,7 +268,18 @@ for (const viewport of propertyViewports) {
       "property-marketing-download-dialog",
     );
     await expect(marketingDialog).toBeVisible();
-    await expect(marketingDialog.getByRole("link", { name: /A4 PDF/ })).toBeVisible();
+    await expect(
+      marketingDialog.getByRole("img", {
+        name: "Finished property brochure preview",
+      }),
+    ).toBeVisible();
+    for (const action of ["Print", "PDF", "JPG", "PNG"]) {
+      await expect(
+        marketingDialog.getByRole("button", { name: new RegExp(`^${action}`) }),
+      ).toBeVisible();
+    }
+    await expect(marketingDialog.getByText("Portrait / A4")).toBeVisible();
+    await expect(marketingDialog.getByText("Landscape JPG")).toHaveCount(0);
     const dialogGeometry = await marketingDialog.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -662,18 +674,19 @@ test("stable property social endpoint returns a real public 1200 by 630 PNG", as
   expect(head.headers()["x-picchuspot-social-card-layout"]).toBe("balanced");
 });
 
-test("versioned property marketing route returns a real 1920 by 1080 download", async ({
+test("versioned property brochure route previews only the selected orientation", async ({
   page,
   request,
 }) => {
   await page.goto("/property/sea-view-residence");
   await page.getByTestId("hero-download-brochure").click();
-  const landscapeLink = page
-    .getByTestId("property-marketing-download-dialog")
-    .getByRole("link", { name: /Landscape PNG/ });
-  const href = await landscapeLink.getAttribute("href");
+  const dialog = page.getByTestId("property-marketing-download-dialog");
+  await expect(dialog.getByText("Portrait / A4")).toBeVisible();
+  const href = await dialog
+    .getByRole("img", { name: "Finished property brochure preview" })
+    .getAttribute("src");
   expect(href).toMatch(
-    /^\/property\/sea-view-residence\/materials\/landscape\.png\?v=[a-f0-9]{14}$/,
+    /^\/property\/sea-view-residence\/materials\/brochure\.png\?v=[a-f0-9]{14}&preview=1$/,
   );
 
   const response = await request.get(href!);
@@ -681,22 +694,98 @@ test("versioned property marketing route returns a real 1920 by 1080 download", 
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toContain("image/png");
   expect(response.headers()["content-disposition"]).toContain(
-    "sea-view-residence-landscape.png",
+    "sea-view-residence-portrait-brochure.png",
   );
+  expect(response.headers()["content-disposition"]).toContain("inline");
   expect(response.headers()["cache-control"]).toContain("immutable");
-  expect(pngDimensions(body)).toEqual({ width: 1920, height: 1080 });
+  expect(pngDimensions(body)).toEqual({ width: 620, height: 877 });
+
+  const finalHref = href!.replace("&preview=1", "");
+  const finalResponse = await request.get(finalHref);
+  const finalBody = await finalResponse.body();
+  expect(finalResponse.status()).toBe(200);
+  expect(finalResponse.headers()["content-disposition"]).toContain("attachment");
+  expect(finalResponse.headers()["cache-control"]).toContain("immutable");
+  expect(pngDimensions(finalBody)).toEqual({ width: 2480, height: 3508 });
+  const lowerPage = await sharp(finalBody)
+    .extract({ left: 0, top: 1900, width: 2480, height: 1608 })
+    .resize(64, 42)
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+  const lowerPageColors = new Set<string>();
+  for (let index = 0; index < lowerPage.length; index += 3) {
+    lowerPageColors.add(
+      `${Math.round(lowerPage[index] / 16)}-${Math.round(lowerPage[index + 1] / 16)}-${Math.round(lowerPage[index + 2] / 16)}`,
+    );
+  }
+  expect(lowerPageColors.size).toBeGreaterThan(8);
 
   const stale = await request.get(
-    "/property/sea-view-residence/materials/landscape.png?v=stale",
+    "/property/sea-view-residence/materials/brochure.png?v=stale",
   );
   expect(stale.status()).toBe(404);
   expect(stale.headers()["cache-control"]).toBe("no-store");
 
   const unauthenticatedDraft = await request.get(
-    "/admin/properties/00000000-0000-0000-0000-000000000000/materials/flyer.pdf",
+    "/admin/properties/00000000-0000-0000-0000-000000000000/materials/brochure.pdf",
   );
   expect(unauthenticatedDraft.status()).toBe(401);
   expect(unauthenticatedDraft.headers()["cache-control"]).toBe("no-store");
+
+  const unauthenticatedPreview = await request.post(
+    "/api/admin/properties/00000000-0000-0000-0000-000000000000/materials/preview",
+    {
+      data: {
+        marketingMaterials: {
+          enabled: true,
+          brochure: {
+            orientation: "portrait",
+            template: "a4-editorial",
+            supportingMediaIds: [],
+          },
+        },
+        focalPoints: [],
+      },
+    },
+  );
+  expect(unauthenticatedPreview.status()).toBe(401);
+  expect(unauthenticatedPreview.headers()["cache-control"]).toBe(
+    "private, no-store",
+  );
+});
+
+test("public brochure download reports preparing, error and retry states", async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route("**/materials/brochure.pdf?*", async (route) => {
+    attempts += 1;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    if (attempts === 1) {
+      await route.fulfill({ status: 503, body: "Unavailable" });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/pdf",
+      headers: {
+        "Content-Disposition":
+          'attachment; filename="sea-view-residence-portrait-brochure.pdf"',
+      },
+      body: "%PDF-1.4 test",
+    });
+  });
+  await page.goto("/property/sea-view-residence");
+  await page.getByTestId("hero-download-brochure").click();
+  const dialog = page.getByTestId("property-marketing-download-dialog");
+  const liveStatus = dialog.locator('[aria-live="polite"]');
+  const pdf = dialog.getByRole("button", { name: /^PDF/ });
+  await pdf.click();
+  await expect(liveStatus).toHaveText("Preparing PDF…");
+  await expect(liveStatus).toContainText("Please retry");
+  await pdf.click();
+  await expect(liveStatus).toHaveText("Ready");
 });
 
 test("explicitly hidden media does not render sections or navigation targets", async ({

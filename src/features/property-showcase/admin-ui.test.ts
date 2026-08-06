@@ -87,6 +87,35 @@ const marketingMaterialRendererSource = readFileSync(
   new URL("./marketing-material-renderer.tsx", import.meta.url),
   "utf8",
 );
+const marketingMaterialsSource = readFileSync(
+  new URL("./marketing-materials.ts", import.meta.url),
+  "utf8",
+);
+const marketingConfiguratorSource = readFileSync(
+  new URL(
+    "../../app/(public)/admin/properties/media/PropertyMarketingConfigurator.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const marketingPreviewRouteSource = readFileSync(
+  new URL(
+    "../../app/(public)/api/admin/properties/[id]/materials/preview/route.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const marketingDownloadsSource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/PropertyMarketingDownloads.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const marketingAssetsSource = readFileSync(
+  new URL("./marketing-material-assets.ts", import.meta.url),
+  "utf8",
+);
 const propertyVideoSource = readFileSync(
   new URL(
     "../../app/(showcase)/property/PropertyVideoSection.tsx",
@@ -439,6 +468,72 @@ test("media admin exposes configurable social card controls and local preview", 
   assert.equal(mediaManagerSource.includes("record.updatedAt"), true);
   assert.equal(mediaManagerSource.includes("PROPERTY_SOCIAL_CARD_MAX_FACTS"), true);
   assert.equal(mediaManagerSource.includes("Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} earlier"), true);
+});
+
+test("brochure admin uses one visual orientation and an unsaved server preview", () => {
+  for (const expected of [
+    "7. Property flyer",
+    "Brochure format",
+    "Portrait / A4",
+    "Landscape",
+    "Live brochure preview",
+    "Gallery image picker",
+    "Primary image",
+    "Supporting image order",
+    "Unsaved changes",
+    "Preview reflects unsaved changes",
+  ]) {
+    assert.equal(marketingConfiguratorSource.includes(expected), true, expected);
+  }
+  assert.equal(marketingConfiguratorSource.includes("AbortController"), true);
+  assert.equal(marketingConfiguratorSource.includes("shouldApplyPropertyMarketingPreview"), true);
+  assert.equal(marketingConfiguratorSource.includes("draggable"), true);
+  assert.equal(marketingConfiguratorSource.includes("Move ${image.label.en} left"), true);
+  assert.equal(marketingConfiguratorSource.includes("Landscape composition"), false);
+  assert.equal(marketingConfiguratorSource.includes("A4 portrait template"), false);
+});
+
+test("unsaved brochure preview is authenticated, bounded, no-store and read-only", () => {
+  assert.equal(marketingPreviewRouteSource.includes("isAdminAuthenticated"), true);
+  assert.equal(marketingPreviewRouteSource.indexOf("isAdminAuthenticated") < marketingPreviewRouteSource.indexOf("getPropertyShowcaseForAdminById"), true);
+  assert.equal(marketingPreviewRouteSource.includes("PropertyMarketingPreviewDraftSchema"), true);
+  assert.equal(marketingPreviewRouteSource.includes("64 * 1024"), true);
+  assert.equal(marketingPreviewRouteSource.includes("existing property gallery"), true);
+  assert.equal(marketingPreviewRouteSource.includes(".update("), false);
+  assert.equal(marketingPreviewRouteSource.includes(".insert("), false);
+  assert.equal(marketingPreviewRouteSource.includes(".delete("), false);
+  assert.equal(marketingPreviewRouteSource.includes("createPropertyMarketingPreviewResponse"), true);
+});
+
+test("brochure preparation handles selected photos once and preview uses reduced assets", () => {
+  assert.equal(marketingAssetsSource.includes("view.brochureImages"), true);
+  assert.equal(marketingAssetsSource.includes("Promise.all"), true);
+  assert.equal(marketingAssetsSource.includes("new Map(selected.map"), true);
+  assert.equal(marketingAssetsSource.includes("preview ? 1000 : 2200"), true);
+  assert.equal(marketingMaterialRendererSource.includes("getPropertyMarketingRenderDimensions"), true);
+  assert.equal(marketingMaterialsSource.includes("{ width: 620, height: 877 }"), true);
+  assert.equal(marketingMaterialsSource.includes("{ width: 960, height: 540 }"), true);
+});
+
+test("brochure compositions reflow sparse portrait content and never reserve failed media slots", () => {
+  assert.equal(marketingMaterialRendererSource.includes("const hasAgent = Boolean"), true);
+  assert.equal(marketingMaterialRendererSource.includes("hasAgent || model.disclaimer"), true);
+  assert.equal(marketingMaterialRendererSource.includes("model.highlights.length > 0"), true);
+  assert.equal(marketingMaterialRendererSource.includes("supporting.length > 0"), true);
+  assert.equal(marketingMaterialRendererSource.includes("images.slice(1"), true);
+  assert.equal(marketingAssetsSource.includes("filter((image): image is PreparedMarketingImage"), true);
+});
+
+test("public brochure dialog previews one orientation and offers only four controlled actions", () => {
+  assert.equal(marketingDownloadsSource.includes("Finished property brochure preview"), true);
+  assert.equal(marketingDownloadsSource.includes('id: "print"'), true);
+  assert.equal(marketingDownloadsSource.includes('id: "pdf"'), true);
+  assert.equal(marketingDownloadsSource.includes('id: "jpg"'), true);
+  assert.equal(marketingDownloadsSource.includes('id: "png"'), true);
+  assert.equal(marketingDownloadsSource.includes("fetch(href"), true);
+  assert.equal(marketingDownloadsSource.includes("Preparing brochure preview"), true);
+  assert.equal(marketingDownloadsSource.includes("landscapePng"), false);
+  assert.equal(marketingDownloadsSource.includes("flyerPdf"), false);
 });
 
 test("immersive provider views omit large marketing and status overlays", () => {

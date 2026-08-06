@@ -2,17 +2,25 @@ import { PDFDocument } from "pdf-lib";
 import sharp from "sharp";
 import { preparePropertyMarketingAssets } from "./marketing-material-assets.ts";
 import {
+  getPropertyMarketingRenderDimensions,
   normalizePropertyMarketingMaterialsConfig,
   safePropertyMarketingFilename,
   type PropertyMarketingAsset,
 } from "./marketing-materials.ts";
 import { computePropertyMarketingMaterialVersion } from "./marketing-material-version.ts";
-import type { PropertyShowcase } from "./types.ts";
+import type {
+  PropertyMarketingBrochureOrientation,
+  PropertyShowcase,
+} from "./types.ts";
 
 export const PROPERTY_MARKETING_CACHE_CONTROL =
   "public, max-age=31536000, s-maxage=31536000, immutable";
 export const PROPERTY_MARKETING_ERROR_CACHE_CONTROL = "no-store";
+export const PROPERTY_MARKETING_PREVIEW_CACHE_CONTROL = "private, no-store";
 export const PROPERTY_MARKETING_ASSETS = new Set<PropertyMarketingAsset>([
+  "brochure.png",
+  "brochure.jpg",
+  "brochure.pdf",
   "landscape.png",
   "landscape.jpg",
   "flyer.png",
@@ -28,6 +36,19 @@ export function parsePropertyMarketingAsset(
     : null;
 }
 
+export function propertyMarketingPreviewHeaders(
+  orientation: PropertyMarketingBrochureOrientation,
+): HeadersInit {
+  const dimensions = getPropertyMarketingRenderDimensions(orientation, true);
+  return {
+    "Cache-Control": PROPERTY_MARKETING_PREVIEW_CACHE_CONTROL,
+    "Content-Type": "image/png",
+    "X-Content-Type-Options": "nosniff",
+    "X-PicchuSpot-Preview-Width": String(dimensions.width),
+    "X-PicchuSpot-Preview-Height": String(dimensions.height),
+  };
+}
+
 function binaryResponse(
   bytes: Uint8Array,
   status: number,
@@ -38,9 +59,23 @@ function binaryResponse(
   return new Response(body, { status, headers });
 }
 
-export async function createA4Pdf(png: Uint8Array): Promise<Uint8Array> {
+function assetOrientation(
+  asset: PropertyMarketingAsset,
+  selected: PropertyMarketingBrochureOrientation,
+): PropertyMarketingBrochureOrientation {
+  if (asset.startsWith("landscape.")) return "landscape";
+  if (asset.startsWith("flyer.")) return "portrait";
+  return selected;
+}
+
+export async function createA4Pdf(
+  png: Uint8Array,
+  orientation: PropertyMarketingBrochureOrientation = "portrait",
+): Promise<Uint8Array> {
   const document = await PDFDocument.create();
-  const page = document.addPage([595.28, 841.89]);
+  const page = document.addPage(
+    orientation === "portrait" ? [595.28, 841.89] : [841.89, 595.28],
+  );
   const image = await document.embedPng(png);
   page.drawImage(image, {
     x: 0,
@@ -54,6 +89,7 @@ export async function createA4Pdf(png: Uint8Array): Promise<Uint8Array> {
 export async function encodePropertyMarketingMaterialFormat(
   png: Uint8Array,
   asset: PropertyMarketingAsset,
+  orientation: PropertyMarketingBrochureOrientation = "portrait",
 ): Promise<{ bytes: Uint8Array; contentType: string }> {
   if (asset.endsWith(".jpg")) {
     return {
@@ -68,9 +104,44 @@ export async function encodePropertyMarketingMaterialFormat(
     };
   }
   if (asset.endsWith(".pdf")) {
-    return { bytes: await createA4Pdf(png), contentType: "application/pdf" };
+    return {
+      bytes: await createA4Pdf(png, orientation),
+      contentType: "application/pdf",
+    };
   }
   return { bytes: png, contentType: "image/png" };
+}
+
+export async function createPropertyMarketingPreviewResponse(params: {
+  property: PropertyShowcase;
+  canonicalUrl: string;
+}): Promise<Response> {
+  try {
+    const assets = await preparePropertyMarketingAssets(
+      params.property,
+      params.canonicalUrl,
+      { preview: true },
+    );
+    const { renderPropertyMarketingPng } =
+      await import("./marketing-material-renderer.tsx");
+    const rendered = renderPropertyMarketingPng(assets, { preview: true });
+    if (!rendered.ok) throw new Error("MarketingMaterialPreviewResponseError");
+    const png = new Uint8Array(await rendered.arrayBuffer());
+    return binaryResponse(
+      png,
+      200,
+      propertyMarketingPreviewHeaders(assets.view.config.brochure.orientation),
+    );
+  } catch (error) {
+    console.error("property-marketing-material: preview generation failed", {
+      slug: params.property.slug,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return new Response("Could not generate brochure preview", {
+      status: 500,
+      headers: { "Cache-Control": PROPERTY_MARKETING_ERROR_CACHE_CONTROL },
+    });
+  }
 }
 
 export async function createPropertyMarketingMaterialResponse(params: {
@@ -85,11 +156,11 @@ export async function createPropertyMarketingMaterialResponse(params: {
     property.marketingMaterials,
     property,
   );
-  const portrait = asset.startsWith("flyer.");
+  const orientation = assetOrientation(asset, config.brochure.orientation);
+  const legacyAsset = !asset.startsWith("brochure.");
   if (
     (!adminPreview && !config.enabled) ||
-    (portrait && !config.portrait.enabled) ||
-    (!portrait && !config.landscape.enabled)
+    (legacyAsset && orientation !== config.brochure.orientation)
   ) {
     return new Response("Marketing material not available", {
       status: 404,
@@ -101,7 +172,8 @@ export async function createPropertyMarketingMaterialResponse(params: {
     property,
     canonicalUrl,
   );
-  const requestedVersion = new URL(params.requestUrl).searchParams.get("v");
+  const requestUrl = new URL(params.requestUrl);
+  const requestedVersion = requestUrl.searchParams.get("v");
   if (!adminPreview && requestedVersion !== expectedVersion) {
     return new Response("Invalid or stale marketing material version", {
       status: 404,
@@ -110,26 +182,41 @@ export async function createPropertyMarketingMaterialResponse(params: {
   }
 
   try {
-    const assets = await preparePropertyMarketingAssets(property, canonicalUrl);
+    const inlinePreview =
+      requestUrl.searchParams.get("preview") === "1" && asset.endsWith(".png");
+    const propertyForRender = legacyAsset
+      ? {
+          ...property,
+          marketingMaterials: {
+            ...property.marketingMaterials,
+            brochure: {
+              ...config.brochure,
+              orientation,
+            },
+          },
+        }
+      : property;
+    const assets = await preparePropertyMarketingAssets(
+      propertyForRender,
+      canonicalUrl,
+      { preview: inlinePreview },
+    );
     const { renderPropertyMarketingPng } = await import(
       "./marketing-material-renderer.tsx"
     );
-    const rendered = renderPropertyMarketingPng(
-      assets,
-      portrait ? "portrait" : "landscape",
-    );
+    const rendered = renderPropertyMarketingPng(assets, {
+      preview: inlinePreview,
+    });
     if (!rendered.ok) throw new Error("MarketingMaterialRenderResponseError");
     const png = new Uint8Array(await rendered.arrayBuffer());
     if (png.byteLength < 8) throw new Error("MarketingMaterialRenderEmpty");
-
     const { bytes, contentType } =
-      await encodePropertyMarketingMaterialFormat(png, asset);
-
+      await encodePropertyMarketingMaterialFormat(png, asset, orientation);
     return binaryResponse(bytes, 200, {
       "Cache-Control": adminPreview
-        ? "private, no-store"
+        ? PROPERTY_MARKETING_PREVIEW_CACHE_CONTROL
         : PROPERTY_MARKETING_CACHE_CONTROL,
-      "Content-Disposition": `attachment; filename="${safePropertyMarketingFilename(property.slug, asset)}"`,
+      "Content-Disposition": `${inlinePreview ? "inline" : "attachment"}; filename="${safePropertyMarketingFilename(property.slug, asset, orientation)}"`,
       "Content-Type": contentType,
       "X-PicchuSpot-Marketing-Version": expectedVersion,
       "X-Content-Type-Options": "nosniff",

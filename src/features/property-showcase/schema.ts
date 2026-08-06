@@ -79,6 +79,13 @@ const PropertyHighlightSchema = z
     message: "Highlight text is required.",
   });
 
+const PropertyImageFocalPointSchema = z
+  .object({
+    x: z.number().min(0).max(1),
+    y: z.number().min(0).max(1),
+  })
+  .strict();
+
 const PropertyGalleryImageSchema = z
   .object({
     id: z.string().trim().min(1).max(120),
@@ -97,13 +104,7 @@ const PropertyGalleryImageSchema = z
       })
       .strict()
       .optional(),
-    focalPoint: z
-      .object({
-        x: z.number().min(0).max(1),
-        y: z.number().min(0).max(1),
-      })
-      .strict()
-      .optional(),
+    focalPoint: PropertyImageFocalPointSchema.optional(),
     sortOrder: z.number().int().min(-9999).max(9999),
   })
   .strict();
@@ -223,7 +224,39 @@ const PropertyMarketingPortraitSelectionSchema = z
   })
   .strict();
 
-const PropertyMarketingMaterialsSchema = z
+const PropertyMarketingBrochureSchema = z
+  .object({
+    orientation: z.enum(["portrait", "landscape"]).optional(),
+    template: z
+      .enum([
+        "single-hero",
+        "hero-two-square",
+        "hero-four-grid",
+        "a4-classic",
+        "a4-editorial",
+      ])
+      .optional(),
+    primaryMediaId: optionalTrimmed(120),
+    supportingMediaIds: uniqueStrings(
+      5,
+      "Brochure supporting images must be unique.",
+    ).optional(),
+  })
+  .strict()
+  .superRefine((brochure, context) => {
+    if (
+      brochure.primaryMediaId &&
+      brochure.supportingMediaIds?.includes(brochure.primaryMediaId)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["supportingMediaIds"],
+        message: "The primary brochure image cannot also be supporting media.",
+      });
+    }
+  });
+
+export const PropertyMarketingMaterialsSchema = z
   .object({
     enabled: z.boolean().optional(),
     brandingMode: z.enum(["picchuspot", "agency", "unbranded"]).optional(),
@@ -247,8 +280,29 @@ const PropertyMarketingMaterialsSchema = z
       3,
       "Marketing material highlights must be unique.",
     ).optional(),
+    brochure: PropertyMarketingBrochureSchema.optional(),
     landscape: PropertyMarketingMediaSelectionSchema.optional(),
     portrait: PropertyMarketingPortraitSelectionSchema.optional(),
+  })
+  .strict();
+
+export const PropertyMarketingPreviewDraftSchema = z
+  .object({
+    marketingMaterials: PropertyMarketingMaterialsSchema,
+    focalPoints: z
+      .array(
+        z
+          .object({
+            mediaId: z.string().trim().min(1).max(120),
+            focalPoint: PropertyImageFocalPointSchema,
+          })
+          .strict(),
+      )
+      .max(200)
+      .refine(
+        (items) => new Set(items.map((item) => item.mediaId)).size === items.length,
+        { message: "Preview focal-point media IDs must be unique." },
+      ),
   })
   .strict();
 

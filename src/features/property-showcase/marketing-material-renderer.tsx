@@ -1,9 +1,20 @@
 /* eslint-disable @next/next/no-img-element -- ImageResponse requires native image elements. */
 import { ImageResponse } from "next/og";
 import { focalPointToObjectPosition } from "./focal-point.ts";
-import { effectiveLandscapeLayout } from "./marketing-materials.ts";
-import type { PreparedPropertyMarketingAssets, PreparedMarketingImage } from "./marketing-material-assets.ts";
+import {
+  effectiveLandscapeLayout,
+  getPropertyMarketingRenderDimensions,
+  isPortraitBrochureTemplate,
+} from "./marketing-materials.ts";
+import type {
+  PreparedMarketingImage,
+  PreparedPropertyMarketingAssets,
+} from "./marketing-material-assets.ts";
 import type { PropertySocialCardRenderInput } from "./social-image-response.ts";
+import type {
+  PropertyMarketingLandscapeLayout,
+  PropertyMarketingPortraitLayout,
+} from "./types.ts";
 
 const NAVY = "#0B1F3A";
 const GOLD = "#B88A44";
@@ -37,7 +48,7 @@ function ImageTile({
   height: number | string;
 }) {
   return (
-    <div style={{ width, height, display: "flex", overflow: "hidden", background: "#e7e1d3" }}>
+    <div style={{ width, height, display: "flex", overflow: "hidden" }}>
       <img
         src={image.imageUrl}
         alt=""
@@ -52,38 +63,91 @@ function ImageTile({
   );
 }
 
-function Brand({ model, large = false }: { model: SharedRenderModel; large?: boolean }) {
+function Brand({ model, scale }: { model: SharedRenderModel; scale: number }) {
+  const s = (value: number) => Math.max(1, Math.round(value * scale));
   if (model.brandingMode === "unbranded") {
-    return <div style={{ display: "flex", width: large ? 90 : 52, height: large ? 7 : 4, background: GOLD }} />;
+    return <div style={{ display: "flex", width: s(90), height: s(7), background: GOLD }} />;
   }
   if (model.brandingMode === "agency") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: large ? 24 : 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: s(20) }}>
         {model.agencyLogoUrl ? (
-          <img src={model.agencyLogoUrl} alt="" style={{ width: large ? 150 : 72, height: large ? 90 : 54, objectFit: "contain" }} />
+          <img
+            src={model.agencyLogoUrl}
+            alt=""
+            style={{ width: s(140), height: s(78), objectFit: "contain" }}
+          />
         ) : null}
-        <span style={{ display: "flex", fontSize: large ? 34 : 21, fontWeight: 700 }}>
+        <span style={{ display: "flex", fontSize: s(32), fontWeight: 700 }}>
           {model.agencyName || "Agency"}
         </span>
       </div>
     );
   }
   return (
-    <div style={{ display: "flex", fontSize: large ? 42 : 25, fontWeight: 700 }}>
+    <div style={{ display: "flex", fontSize: s(40), fontWeight: 700 }}>
       <span>Picchu</span><span style={{ color: GOLD }}>Spot</span>
     </div>
   );
 }
 
-function Facts({ model, large = false }: { model: SharedRenderModel; large?: boolean }) {
+function LandscapeFacts({ model, scale }: { model: SharedRenderModel; scale: number }) {
+  const s = (value: number) => Math.max(1, Math.round(value * scale));
+  if (model.facts.length === 0) return null;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", width: "100%", borderTop: "1px solid rgba(255,255,255,.2)", paddingTop: large ? 30 : 18, marginTop: large ? 34 : 24 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", width: "100%", borderTop: `${s(1)}px solid rgba(255,255,255,.2)`, paddingTop: s(25), marginTop: s(30) }}>
       {model.facts.slice(0, 4).map((fact) => (
-        <div key={fact.key} style={{ width: "50%", display: "flex", flexDirection: "column", paddingRight: 16, marginBottom: large ? 26 : 15 }}>
-          <span style={{ display: "flex", color: "rgba(255,255,255,.56)", fontSize: large ? 17 : 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>{fact.label}</span>
-          <span style={{ display: "flex", marginTop: 6, fontSize: large ? 31 : 21, fontWeight: 700 }}>{fact.value}</span>
+        <div key={fact.key} style={{ width: "50%", display: "flex", flexDirection: "column", paddingRight: s(12), marginBottom: s(22) }}>
+          <span style={{ display: "flex", color: "rgba(255,255,255,.56)", fontSize: s(15), fontWeight: 700, textTransform: "uppercase", letterSpacing: s(1) }}>{fact.label}</span>
+          <span style={{ display: "flex", marginTop: s(5), fontSize: s(28), fontWeight: 700 }}>{fact.value}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function LandscapeMedia({
+  images,
+  width,
+  height,
+  requestedLayout,
+  title,
+}: {
+  images: PreparedMarketingImage[];
+  width: number;
+  height: number;
+  requestedLayout: PropertyMarketingLandscapeLayout;
+  title: string;
+}) {
+  const layout = effectiveLandscapeLayout(requestedLayout, images.length);
+  const gap = Math.max(2, Math.round(width / 320));
+  const primary = images[0];
+  const supporting = images.slice(1, layout === "hero-four-grid" ? 5 : 3);
+  if (!primary) {
+    return (
+      <div style={{ width, height, display: "flex", alignItems: "center", justifyContent: "center", padding: Math.round(width * 0.08), background: NAVY, color: "white", textAlign: "center", fontSize: Math.round(width * 0.055), fontWeight: 700 }}>
+        {title}
+      </div>
+    );
+  }
+  if (layout === "single-hero" || supporting.length === 0) {
+    return <ImageTile image={primary} width={width} height={height} />;
+  }
+  const supportWidth = Math.round(width * (layout === "hero-four-grid" ? 0.39 : 0.33));
+  const mainWidth = width - supportWidth - gap;
+  return (
+    <div style={{ width, height, display: "flex", gap }}>
+      <ImageTile image={primary} width={mainWidth} height={height} />
+      <div style={{ width: supportWidth, height, display: "flex", flexWrap: "wrap", gap }}>
+        {supporting.map((image) => (
+          <ImageTile
+            key={image.id}
+            image={image}
+            width={layout === "hero-four-grid" ? `calc(50% - ${gap / 2}px)` : "100%"}
+            height={layout === "hero-four-grid" ? `calc(50% - ${gap / 2}px)` : `calc(${100 / supporting.length}% - ${gap / 2}px)`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -97,105 +161,138 @@ function LandscapeComposition({
   model: SharedRenderModel;
   width: number;
   height: number;
-  requestedLayout: "single-hero" | "hero-two-square" | "hero-four-grid";
+  requestedLayout: PropertyMarketingLandscapeLayout;
 }) {
-  const layout = effectiveLandscapeLayout(requestedLayout, model.images.length);
-  const panelWidth = Math.round(width * (layout === "single-hero" ? 0.38 : 0.34));
+  const scale = width / 1920;
+  const s = (value: number) => Math.max(1, Math.round(value * scale));
+  const panelWidth = Math.round(width * 0.35);
   const photoWidth = width - panelWidth;
-  const primary = model.images[0];
-  const supporting = model.images.slice(1, layout === "hero-four-grid" ? 5 : 3);
-  const compact = width <= 1200;
-  const gap = compact ? 4 : 8;
-  const supportWidth = supporting.length > 0
-    ? layout === "hero-four-grid" ? Math.round(photoWidth * 0.36) : Math.round(photoWidth * 0.31)
-    : 0;
-  const mainWidth = photoWidth - supportWidth - (supportWidth ? gap : 0);
-
   return (
-    <div style={{ width, height, display: "flex", overflow: "hidden", background: "#ebe7de", color: "white", fontFamily: "Arial, Helvetica, sans-serif" }}>
-      <div style={{ width: photoWidth, height, display: "flex", gap }}>
-        {primary ? <ImageTile image={primary} width={mainWidth} height={height} /> : (
-          <div style={{ width: mainWidth, height, display: "flex", alignItems: "center", justifyContent: "center", color: NAVY, fontSize: compact ? 34 : 58, padding: 60, textAlign: "center" }}>{model.title}</div>
-        )}
-        {supporting.length > 0 ? (
-          <div style={{ width: supportWidth, height, display: "flex", flexWrap: "wrap", gap }}>
-            {supporting.map((image) => (
-              <ImageTile
-                key={image.id}
-                image={image}
-                width={layout === "hero-four-grid" ? `calc(50% - ${gap / 2}px)` : "100%"}
-                height={layout === "hero-four-grid" ? `calc(50% - ${gap / 2}px)` : `calc(${100 / supporting.length}% - ${gap / 2}px)`}
-              />
-            ))}
-          </div>
-        ) : null}
-      </div>
-      <div style={{ width: panelWidth, height, display: "flex", flexDirection: "column", padding: compact ? "34px 30px" : "66px 58px 54px", background: NAVY }}>
-        <Brand model={model} large={!compact} />
-        <div style={{ display: "flex", flexDirection: "column", marginTop: compact ? 28 : 54 }}>
-          {model.location ? <span style={{ display: "flex", color: "rgba(255,255,255,.7)", fontSize: compact ? 17 : 27 }}>{model.location}</span> : null}
-          <span style={{ display: "flex", marginTop: model.location ? 14 : 0, fontSize: compact ? 35 : 54, lineHeight: 1.08, fontWeight: 700 }}>{model.title}</span>
-          {model.price ? <span style={{ display: "flex", marginTop: compact ? 18 : 28, color: "#dec373", fontSize: compact ? 33 : 50, fontWeight: 700 }}>{model.price}</span> : null}
-          {model.copy ? <span style={{ display: "flex", marginTop: compact ? 16 : 26, color: "rgba(255,255,255,.72)", fontSize: compact ? 14 : 22, lineHeight: 1.4 }}>{model.copy}</span> : null}
+    <div style={{ width, height, display: "flex", overflow: "hidden", background: NAVY, color: "white", fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <LandscapeMedia
+        images={model.images}
+        width={photoWidth}
+        height={height}
+        requestedLayout={requestedLayout}
+        title={model.title}
+      />
+      <div style={{ width: panelWidth, height, display: "flex", flexDirection: "column", padding: `${s(58)}px ${s(48)}px ${s(46)}px`, background: NAVY }}>
+        <Brand model={model} scale={scale} />
+        <div style={{ display: "flex", flexDirection: "column", marginTop: s(42) }}>
+          {model.location ? <span style={{ display: "flex", color: "rgba(255,255,255,.72)", fontSize: s(23) }}>{model.location}</span> : null}
+          <span style={{ display: "flex", marginTop: model.location ? s(12) : 0, fontSize: s(47), lineHeight: 1.08, fontWeight: 700 }}>{model.title}</span>
+          {model.price ? <span style={{ display: "flex", marginTop: s(22), color: "#dec373", fontSize: s(43), fontWeight: 700 }}>{model.price}</span> : null}
+          {model.copy ? <span style={{ display: "flex", marginTop: s(20), color: "rgba(255,255,255,.74)", fontSize: s(19), lineHeight: 1.4 }}>{model.copy}</span> : null}
         </div>
-        <Facts model={model} large={!compact} />
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: "auto" }}>
-          {model.agentName ? (
-            <div style={{ display: "flex", alignItems: "center", gap: compact ? 10 : 18 }}>
-              {model.agentPortraitUrl ? <img src={model.agentPortraitUrl} alt="" style={{ width: compact ? 48 : 76, height: compact ? 48 : 76, borderRadius: 999, objectFit: "cover" }} /> : null}
-              <div style={{ display: "flex", flexDirection: "column" }}><span style={{ display: "flex", fontSize: compact ? 13 : 20, fontWeight: 700 }}>{model.agentName}</span><span style={{ display: "flex", color: "rgba(255,255,255,.55)", fontSize: compact ? 10 : 15 }}>{model.agentRole}</span></div>
+        <LandscapeFacts model={model} scale={scale} />
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: "auto", gap: s(18) }}>
+          {model.agentName || model.agencyName ? (
+            <div style={{ display: "flex", alignItems: "center", minWidth: 0, gap: s(15) }}>
+              {model.agentPortraitUrl ? <img src={model.agentPortraitUrl} alt="" style={{ width: s(68), height: s(68), borderRadius: 999, objectFit: "cover" }} /> : null}
+              <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span style={{ display: "flex", fontSize: s(17), fontWeight: 700 }}>{model.agentName || model.agencyName}</span>
+                {model.agentRole ? <span style={{ display: "flex", color: "rgba(255,255,255,.58)", fontSize: s(13) }}>{model.agentRole}</span> : null}
+              </div>
             </div>
           ) : <div style={{ display: "flex" }} />}
-          {model.qrCodeUrl ? <img src={model.qrCodeUrl} alt="" style={{ width: compact ? 82 : 132, height: compact ? 82 : 132 }} /> : null}
+          {model.qrCodeUrl ? <img src={model.qrCodeUrl} alt="" style={{ width: s(118), height: s(118) }} /> : null}
         </div>
       </div>
     </div>
   );
 }
 
-function PortraitComposition({ model, layout }: { model: SharedRenderModel; layout: "a4-classic" | "a4-editorial" }) {
-  const width = 2480;
-  const height = 3508;
+function PortraitFacts({ model, scale }: { model: SharedRenderModel; scale: number }) {
+  const s = (value: number) => Math.max(1, Math.round(value * scale));
+  if (model.facts.length === 0) return null;
+  return (
+    <div style={{ display: "flex", width: "100%", marginTop: s(46), padding: `${s(30)}px ${s(34)}px`, borderRadius: s(18), background: "#eef1f4" }}>
+      {model.facts.slice(0, 4).map((fact) => (
+        <div key={fact.key} style={{ width: `${100 / Math.min(model.facts.length, 4)}%`, display: "flex", flexDirection: "column", paddingRight: s(18) }}>
+          <span style={{ display: "flex", color: "#64748b", fontSize: s(17), fontWeight: 700, textTransform: "uppercase" }}>{fact.label}</span>
+          <span style={{ display: "flex", marginTop: s(8), color: NAVY, fontSize: s(32), fontWeight: 700 }}>{fact.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PortraitComposition({
+  model,
+  width,
+  height,
+  layout,
+}: {
+  model: SharedRenderModel;
+  width: number;
+  height: number;
+  layout: PropertyMarketingPortraitLayout;
+}) {
+  const scale = width / 2480;
+  const s = (value: number) => Math.max(1, Math.round(value * scale));
   const editorial = layout === "a4-editorial";
   const primary = model.images[0];
   const supporting = model.images.slice(1, editorial ? 6 : 4);
-  const heroHeight = editorial ? 1580 : 1420;
-  const supportHeight = supporting.length > 0 ? 500 : 0;
+  const heroHeight = Math.round(height * (editorial ? 0.49 : 0.43));
+  const supportHeight = supporting.length > 0 ? Math.round(height * (editorial ? 0.125 : 0.15)) : 0;
+  const contentPadding = editorial ? `${s(64)}px ${s(118)}px ${s(58)}px` : `${s(58)}px ${s(108)}px ${s(52)}px`;
+  const hasAgent = Boolean(model.agentName || model.agencyName || model.agentPortraitUrl);
   return (
     <div style={{ width, height, display: "flex", flexDirection: "column", overflow: "hidden", background: editorial ? "#f7f4ed" : "white", color: NAVY, fontFamily: "Arial, Helvetica, sans-serif" }}>
-      <div style={{ width, height: heroHeight, display: "flex", position: "relative" }}>
-        {primary ? <ImageTile image={primary} width={width} height={heroHeight} /> : <div style={{ width, height: heroHeight, display: "flex", alignItems: "center", justifyContent: "center", background: "#ebe7de", fontSize: 84, fontWeight: 700 }}>{model.title}</div>}
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 540, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "100px 130px", background: "linear-gradient(0deg, rgba(11,31,58,.9), rgba(11,31,58,0))", color: "white" }}>
-          {model.location ? <span style={{ display: "flex", fontSize: 34, color: "rgba(255,255,255,.8)" }}>{model.location}</span> : null}
-          <span style={{ display: "flex", marginTop: 18, fontSize: 82, lineHeight: 1.05, fontWeight: 700 }}>{model.title}</span>
-          {model.price ? <span style={{ display: "flex", marginTop: 22, color: "#e2c779", fontSize: 62, fontWeight: 700 }}>{model.price}</span> : null}
+      <div style={{ width, height: heroHeight, display: "flex", position: "relative", background: NAVY }}>
+        {primary ? <ImageTile image={primary} width={width} height={heroHeight} /> : (
+          <div style={{ width, height: heroHeight, display: "flex", alignItems: "center", justifyContent: "center", padding: s(120), color: "white", textAlign: "center", fontSize: s(78), fontWeight: 700 }}>{model.title}</div>
+        )}
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, minHeight: s(510), display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: `${s(82)}px ${s(118)}px`, background: "linear-gradient(0deg, rgba(11,31,58,.94), rgba(11,31,58,0))", color: "white" }}>
+          {model.location ? <span style={{ display: "flex", fontSize: s(31), color: "rgba(255,255,255,.82)" }}>{model.location}</span> : null}
+          <span style={{ display: "flex", marginTop: model.location ? s(16) : 0, fontSize: s(76), lineHeight: 1.04, fontWeight: 700 }}>{model.title}</span>
+          {model.price ? <span style={{ display: "flex", marginTop: s(20), color: "#e2c779", fontSize: s(55), fontWeight: 700 }}>{model.price}</span> : null}
         </div>
       </div>
       {supporting.length > 0 ? (
-        <div style={{ width, height: supportHeight, display: "flex", gap: 10, padding: editorial ? "10px 80px 0" : "10px 0 0" }}>
-          {supporting.map((image) => <ImageTile key={image.id} image={image} width={`${100 / supporting.length}%`} height={supportHeight - 10} />)}
+        <div style={{ width, height: supportHeight, display: "flex", gap: s(8), padding: editorial ? `${s(10)}px ${s(72)}px 0` : `${s(10)}px 0 0` }}>
+          {supporting.map((image) => (
+            <ImageTile key={image.id} image={image} width={`${100 / supporting.length}%`} height={supportHeight - s(10)} />
+          ))}
         </div>
       ) : null}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: editorial ? "90px 130px 70px" : "80px 120px 64px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><Brand model={model} large />{model.qrCodeUrl ? <img src={model.qrCodeUrl} alt="" style={{ width: 250, height: 250 }} /> : null}</div>
-        <div style={{ display: "flex", marginTop: 55, gap: 70 }}>
-          <div style={{ width: "65%", display: "flex", flexDirection: "column" }}>
-            {model.copy ? <span style={{ display: "flex", fontSize: 38, lineHeight: 1.5, color: "#334155" }}>{model.copy}</span> : null}
-            {model.highlights.length > 0 ? <div style={{ display: "flex", flexDirection: "column", marginTop: 34 }}>{model.highlights.map((highlight) => <span key={highlight} style={{ display: "flex", marginTop: 14, fontSize: 31, fontWeight: 700 }}>• {highlight}</span>)}</div> : null}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: contentPadding }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: s(34) }}>
+          <Brand model={model} scale={scale} />
+          {model.qrCodeUrl ? <img src={model.qrCodeUrl} alt="" style={{ width: s(190), height: s(190) }} /> : null}
+        </div>
+        <PortraitFacts model={model} scale={scale} />
+        {model.copy || model.highlights.length > 0 ? (
+          <div style={{ display: "flex", marginTop: s(42), gap: s(54) }}>
+            {model.copy ? <span style={{ display: "flex", width: model.highlights.length > 0 ? "58%" : "100%", color: "#334155", fontSize: s(31), lineHeight: 1.45 }}>{model.copy}</span> : null}
+            {model.highlights.length > 0 ? (
+              <div style={{ width: model.copy ? "42%" : "100%", display: "flex", flexDirection: "column" }}>
+                {model.highlights.map((highlight) => <span key={highlight} style={{ display: "flex", marginBottom: s(13), fontSize: s(27), lineHeight: 1.3, fontWeight: 700 }}>• {highlight}</span>)}
+              </div>
+            ) : null}
           </div>
-          <div style={{ width: "35%", display: "flex", flexWrap: "wrap", alignContent: "flex-start" }}>{model.facts.map((fact) => <div key={fact.key} style={{ width: "50%", display: "flex", flexDirection: "column", marginBottom: 35 }}><span style={{ display: "flex", color: "#64748b", fontSize: 18, fontWeight: 700, textTransform: "uppercase" }}>{fact.label}</span><span style={{ display: "flex", marginTop: 8, fontSize: 34, fontWeight: 700 }}>{fact.value}</span></div>)}</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", marginTop: "auto", borderTop: "2px solid #d7dce2", paddingTop: 42 }}>
-          {model.agentPortraitUrl ? <img src={model.agentPortraitUrl} alt="" style={{ width: 150, height: 150, borderRadius: 999, objectFit: "cover" }} /> : null}
-          {model.agentName || model.agencyName ? <div style={{ display: "flex", flexDirection: "column", marginLeft: model.agentPortraitUrl ? 28 : 0 }}><span style={{ display: "flex", fontSize: 31, fontWeight: 700 }}>{model.agentName || model.agencyName}</span>{model.agentRole ? <span style={{ display: "flex", marginTop: 6, color: "#64748b", fontSize: 22 }}>{model.agentRole}</span> : null}{model.agentPhone ? <span style={{ display: "flex", marginTop: 8, fontSize: 23 }}>{model.agentPhone}</span> : null}</div> : null}
-          {model.disclaimer ? <span style={{ display: "flex", width: 900, marginLeft: "auto", textAlign: "right", color: "#64748b", fontSize: 18, lineHeight: 1.4 }}>{model.disclaimer}</span> : null}
-        </div>
+        ) : null}
+        {hasAgent || model.disclaimer ? (
+          <div style={{ display: "flex", alignItems: "center", marginTop: "auto", borderTop: `${s(2)}px solid #d7dce2`, paddingTop: s(32), gap: s(26) }}>
+            {hasAgent ? (
+              <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+                {model.agentPortraitUrl ? <img src={model.agentPortraitUrl} alt="" style={{ width: s(118), height: s(118), borderRadius: 999, objectFit: "cover" }} /> : null}
+                <div style={{ display: "flex", flexDirection: "column", marginLeft: model.agentPortraitUrl ? s(24) : 0 }}>
+                  <span style={{ display: "flex", fontSize: s(27), fontWeight: 700 }}>{model.agentName || model.agencyName}</span>
+                  {model.agentRole ? <span style={{ display: "flex", marginTop: s(5), color: "#64748b", fontSize: s(19) }}>{model.agentRole}</span> : null}
+                  {model.agentPhone ? <span style={{ display: "flex", marginTop: s(6), fontSize: s(20) }}>{model.agentPhone}</span> : null}
+                </div>
+              </div>
+            ) : null}
+            {model.disclaimer ? <span style={{ display: "flex", maxWidth: hasAgent ? "52%" : "100%", marginLeft: hasAgent ? "auto" : 0, textAlign: hasAgent ? "right" : "left", color: "#64748b", fontSize: s(16), lineHeight: 1.4 }}>{model.disclaimer}</span> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function modelFromAssets(assets: PreparedPropertyMarketingAssets, portrait: boolean): SharedRenderModel {
+function modelFromAssets(assets: PreparedPropertyMarketingAssets): SharedRenderModel {
   const { view } = assets;
   return {
     title: view.title,
@@ -210,7 +307,7 @@ function modelFromAssets(assets: PreparedPropertyMarketingAssets, portrait: bool
     agentName: view.agent?.name ?? "",
     agentRole: view.agent?.role ?? "",
     agentPhone: view.agent?.phone ?? "",
-    images: portrait ? assets.portraitImages : assets.landscapeImages,
+    images: assets.images,
     agencyLogoUrl: assets.agencyLogoUrl,
     agentPortraitUrl: assets.agentPortraitUrl,
     qrCodeUrl: assets.qrCodeUrl,
@@ -219,17 +316,35 @@ function modelFromAssets(assets: PreparedPropertyMarketingAssets, portrait: bool
 
 export function renderPropertyMarketingPng(
   assets: PreparedPropertyMarketingAssets,
-  kind: "landscape" | "portrait",
+  options: { preview?: boolean } = {},
 ) {
-  if (kind === "portrait") {
+  const orientation = assets.view.config.brochure.orientation;
+  const dimensions = getPropertyMarketingRenderDimensions(
+    orientation,
+    options.preview === true,
+  );
+  const template = assets.view.config.brochure.template;
+  if (orientation === "portrait") {
+    const layout = isPortraitBrochureTemplate(template) ? template : "a4-editorial";
     return new ImageResponse(
-      <PortraitComposition model={modelFromAssets(assets, true)} layout={assets.view.config.portrait.layout} />,
-      { width: 2480, height: 3508 },
+      <PortraitComposition
+        model={modelFromAssets(assets)}
+        width={dimensions.width}
+        height={dimensions.height}
+        layout={layout}
+      />,
+      dimensions,
     );
   }
+  const layout = isPortraitBrochureTemplate(template) ? "hero-two-square" : template;
   return new ImageResponse(
-    <LandscapeComposition model={modelFromAssets(assets, false)} width={1920} height={1080} requestedLayout={assets.view.config.landscape.layout} />,
-    { width: 1920, height: 1080 },
+    <LandscapeComposition
+      model={modelFromAssets(assets)}
+      width={dimensions.width}
+      height={dimensions.height}
+      requestedLayout={layout}
+    />,
+    dimensions,
   );
 }
 
@@ -257,7 +372,12 @@ export function renderPropertySocialCardPng(input: PropertySocialCardRenderInput
   };
   const layout = input.preview.layout === "minimal" ? "single-hero" : "hero-two-square";
   return new ImageResponse(
-    <LandscapeComposition model={model} width={1200} height={630} requestedLayout={layout} />,
+    <LandscapeComposition
+      model={model}
+      width={1200}
+      height={630}
+      requestedLayout={layout}
+    />,
     { width: 1200, height: 630 },
   );
 }

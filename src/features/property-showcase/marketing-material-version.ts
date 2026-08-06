@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import { createPropertyMarketingMaterialView } from "./marketing-materials.ts";
+import {
+  brochureSupportingImageLimit,
+  createPropertyMarketingMaterialView,
+} from "./marketing-materials.ts";
 import { stableSerializeSocialImageVersionInput } from "./social-image-version.ts";
 import type { PropertyShowcase } from "./types.ts";
 
@@ -11,6 +14,9 @@ export function createPropertyMarketingMaterialVersionInput(
   canonicalUrl: string,
 ) {
   const view = createPropertyMarketingMaterialView(property, canonicalUrl);
+  const supportingLimit = brochureSupportingImageLimit(
+    view.config.brochure.template,
+  );
   return {
     schemaVersion: PROPERTY_MARKETING_VISUAL_SCHEMA_VERSION,
     slug: view.slug,
@@ -25,8 +31,11 @@ export function createPropertyMarketingMaterialVersionInput(
       marketingCopyMode: view.config.marketingCopyMode,
       selectedFactKeys: view.config.selectedFactKeys,
       selectedHighlightIds: view.config.selectedHighlightIds,
-      landscape: view.config.landscape,
-      portrait: view.config.portrait,
+      brochure: {
+        ...view.config.brochure,
+        supportingMediaIds:
+          view.config.brochure.supportingMediaIds.slice(0, supportingLimit),
+      },
     },
     content: {
       title: view.title,
@@ -37,10 +46,7 @@ export function createPropertyMarketingMaterialVersionInput(
       highlights: view.highlights,
       disclaimer: view.disclaimer,
     },
-    images: {
-      landscape: view.landscapeImages,
-      portrait: view.portraitImages,
-    },
+    images: view.brochureImages.slice(0, supportingLimit + 1),
     agent: view.agent,
   };
 }
@@ -72,11 +78,10 @@ export function getPropertyMarketingMaterialLinks(
     : `/property/${encodeURIComponent(property.slug)}/materials`;
   const url = (asset: string) => `${base}/${asset}?v=${version}`;
   return {
-    ...(view.config.landscape.enabled
-      ? { landscapePng: url("landscape.png"), landscapeJpg: url("landscape.jpg") }
-      : {}),
-    ...(view.config.portrait.enabled
-      ? { flyerPng: url("flyer.png"), flyerJpg: url("flyer.jpg"), flyerPdf: url("flyer.pdf") }
-      : {}),
+    orientation: view.config.brochure.orientation,
+    preview: `${url("brochure.png")}&preview=1`,
+    pdf: url("brochure.pdf"),
+    jpg: url("brochure.jpg"),
+    png: url("brochure.png"),
   };
 }

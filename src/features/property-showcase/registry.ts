@@ -204,17 +204,11 @@ const costaBlancaDemo: PropertyShowcase = {
     marketingCopyMode: "summary",
     selectedFactKeys: ["bedrooms", "bathrooms", "built-area", "plot-area"],
     selectedHighlightIds: ["highlight-1", "highlight-2", "highlight-3"],
-    landscape: {
-      enabled: true,
-      layout: "hero-two-square",
+    brochure: {
+      orientation: "portrait",
+      template: "a4-editorial",
       primaryMediaId: "terrace",
-      secondaryMediaIds: ["living-room", "principal-bedroom"],
-    },
-    portrait: {
-      enabled: true,
-      layout: "a4-editorial",
-      primaryMediaId: "terrace",
-      secondaryMediaIds: ["living-room", "exterior", "principal-bedroom"],
+      supportingMediaIds: ["living-room", "exterior", "principal-bedroom"],
     },
   },
   virtualTour: {
