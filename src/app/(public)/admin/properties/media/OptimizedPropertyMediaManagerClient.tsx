@@ -17,6 +17,8 @@ import {
   ArrowRight,
   ArrowUp,
   Check,
+  Crosshair,
+  Download,
   ExternalLink,
   GripVertical,
   Image as ImageIcon,
@@ -26,8 +28,16 @@ import {
   Star,
   Trash2,
   Upload,
+  RotateCcw,
 } from "lucide-react";
 import type { PropertyShowcaseAdminRecord } from "@/features/property-showcase/admin-types";
+import {
+  normalizePropertyMarketingMaterialsConfig,
+  propertyHighlightId,
+  propertyMarketingMaterialsSignature,
+  resetPropertyMarketingMaterialsConfig,
+} from "@/features/property-showcase/marketing-materials";
+import { focalPointToObjectPosition } from "@/features/property-showcase/focal-point";
 import {
   propertyPreviewHref,
   resolvePropertySelection,
@@ -60,6 +70,7 @@ import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyShowcase,
+  PropertyMarketingMaterialsConfig,
   PropertySocialCardFactKey,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
@@ -384,6 +395,21 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     socialCardConfigSignature(record.property.socialCard),
   );
   const [socialCardError, setSocialCardError] = useState<string | null>(null);
+  const [marketingMaterials, setMarketingMaterials] =
+    useState<PropertyMarketingMaterialsConfig>(() => ({
+      ...normalizePropertyMarketingMaterialsConfig(
+        record.property.marketingMaterials,
+        record.property,
+      ),
+    }));
+  const [savedMarketingMaterialsSignature, setSavedMarketingMaterialsSignature] =
+    useState(() =>
+      propertyMarketingMaterialsSignature(record.property.marketingMaterials),
+    );
+  const [focalEditorId, setFocalEditorId] = useState<string | null>(null);
+  const [marketingPreviewTab, setMarketingPreviewTab] = useState<
+    "social" | "landscape" | "portrait"
+  >("social");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedFloorPlanId, setDraggedFloorPlanId] = useState<string | null>(
     null,
@@ -433,6 +459,14 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       : "md:grid-cols-[2.75fr_1fr]";
   const socialCardChanged =
     socialCardConfigSignature(socialCard) !== savedSocialCardSignature;
+  const marketingMaterialsChanged =
+    propertyMarketingMaterialsSignature(marketingMaterials) !==
+    savedMarketingMaterialsSignature;
+  const normalizedMarketingMaterials = normalizePropertyMarketingMaterialsConfig(
+    marketingMaterials,
+    record.property,
+  );
+  const adminMarketingMaterialPath = `/admin/properties/${encodeURIComponent(record.id)}/materials`;
   const orderedSocialImages = [...gallery]
     .filter(
       (image) =>
@@ -639,6 +673,72 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     const result = setPropertySocialCardFactVisible(socialCard, key, visible);
     setSocialCard(result.config);
     setSocialCardError(result.error ?? null);
+  }
+
+  function setGalleryFocalPoint(imageId: string, x: number, y: number) {
+    setGallery((current) =>
+      current.map((image) =>
+        image.id === imageId
+          ? {
+              ...image,
+              focalPoint: {
+                x: Math.min(1, Math.max(0, x)),
+                y: Math.min(1, Math.max(0, y)),
+              },
+            }
+          : image,
+      ),
+    );
+  }
+
+  function patchMarketingMaterials(
+    patch: Partial<PropertyMarketingMaterialsConfig>,
+  ) {
+    setMarketingMaterials((current) => ({
+      ...normalizePropertyMarketingMaterialsConfig(current, record.property),
+      ...patch,
+    }));
+  }
+
+  function patchMarketingMedia(
+    kind: "landscape" | "portrait",
+    patch: Record<string, unknown>,
+  ) {
+    setMarketingMaterials((current) => {
+      const normalized = normalizePropertyMarketingMaterialsConfig(
+        current,
+        record.property,
+      );
+      return {
+        ...normalized,
+        [kind]: { ...normalized[kind], ...patch },
+      };
+    });
+  }
+
+  function toggleMarketingSecondary(
+    kind: "landscape" | "portrait",
+    imageId: string,
+  ) {
+    const config = normalizedMarketingMaterials[kind];
+    const maximum = kind === "landscape" ? 4 : 5;
+    const selected = config.secondaryMediaIds.includes(imageId)
+      ? config.secondaryMediaIds.filter((id) => id !== imageId)
+      : [...config.secondaryMediaIds, imageId].slice(0, maximum);
+    patchMarketingMedia(kind, { secondaryMediaIds: selected });
+  }
+
+  function moveMarketingSecondary(
+    kind: "landscape" | "portrait",
+    imageId: string,
+    direction: -1 | 1,
+  ) {
+    const selected = [...normalizedMarketingMaterials[kind].secondaryMediaIds];
+    const index = selected.indexOf(imageId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= selected.length) return;
+    [selected[index], selected[target]] = [selected[target], selected[index]];
+    patchMarketingMedia(kind, { secondaryMediaIds: selected });
   }
 
   function removeFloorPlan(planId: string) {
@@ -1067,6 +1167,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       gallery: cleanedGallery,
       floorPlans: cleanedFloorPlans,
       socialCard,
+      marketingMaterials,
       virtualTour: record.property.virtualTour
         ? {
             ...record.property.virtualTour,
@@ -1119,6 +1220,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           removeInteractivePoster,
           replaceFloorPlans: true,
           updateSocialCard: socialCardChanged,
+          updateMarketingMaterials: marketingMaterialsChanged,
         }),
       });
       if (!response.ok) {
@@ -1136,7 +1238,10 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       setAgentPortraitUrl(property.agent.portraitUrl ?? "");
       setAgencyLogoUrl(property.agent.logoUrl ?? "");
       setSavedSocialCardSignature(socialCardConfigSignature(socialCard));
-      setNotice("Property media and social card settings saved successfully.");
+      setSavedMarketingMaterialsSignature(
+        propertyMarketingMaterialsSignature(marketingMaterials),
+      );
+      setNotice("Property media, focal points, and marketing settings saved successfully.");
       router.refresh();
     } catch {
       setError("Network error while saving property media.");
@@ -1241,7 +1346,37 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         src={image.src}
                         alt=""
                         className="h-full w-full object-cover"
+                        style={{
+                          objectPosition: focalPointToObjectPosition(
+                            image.focalPoint,
+                          ),
+                        }}
                       />
+                      {focalEditorId === image.id ? (
+                        <button
+                          type="button"
+                          className="absolute inset-0 z-20 cursor-crosshair bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+                          aria-label={`Set focal point for ${image.label.en}`}
+                          onClick={(event) => {
+                            const bounds = event.currentTarget.getBoundingClientRect();
+                            setGalleryFocalPoint(
+                              image.id,
+                              (event.clientX - bounds.left) / bounds.width,
+                              (event.clientY - bounds.top) / bounds.height,
+                            );
+                          }}
+                        >
+                          <span
+                            className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#B88A44]/80 shadow-lg"
+                            style={{
+                              left: `${(image.focalPoint?.x ?? 0.5) * 100}%`,
+                              top: `${(image.focalPoint?.y ?? 0.5) * 100}%`,
+                            }}
+                          >
+                            <Crosshair className="h-full w-full p-1 text-[#0B1F3A]" aria-hidden />
+                          </span>
+                        </button>
+                      ) : null}
                       <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
                         <span className="rounded-full bg-black/65 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
                           {index + 1}
@@ -1314,6 +1449,28 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         Featured / best for sharing
                       </label>
                       <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFocalEditorId((current) =>
+                              current === image.id ? null : image.id,
+                            )
+                          }
+                          disabled={demo}
+                          aria-pressed={focalEditorId === image.id}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                        >
+                          <Crosshair className="h-3.5 w-3.5" aria-hidden />
+                          {focalEditorId === image.id ? "Done" : "Set focal point"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGalleryFocalPoint(image.id, 0.5, 0.5)}
+                          disabled={demo}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Reset centre
+                        </button>
                         <button
                           type="button"
                           onClick={() => setCoverImage(image.src)}
@@ -1389,6 +1546,28 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                           <Trash2 className="h-3.5 w-3.5" aria-hidden />
                         </button>
                       </div>
+                      {focalEditorId === image.id ? (
+                        <div className="grid grid-cols-3 gap-2" aria-label="Live crop previews">
+                          {([
+                            ["Landscape", "aspect-video"],
+                            ["Square", "aspect-square"],
+                            ["Portrait", "aspect-[3/4]"],
+                          ] as const).map(([label, aspect]) => (
+                            <div key={label}>
+                              <div className={`overflow-hidden rounded-md bg-surface ${aspect}`}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={image.src}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  style={{ objectPosition: focalPointToObjectPosition(image.focalPoint) }}
+                                />
+                              </div>
+                              <span className="mt-1 block text-center text-[9px] font-bold text-muted">{label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   </article>
                 );
@@ -1599,6 +1778,258 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         </div>
       </section>
 
+      <section
+        data-testid="marketing-material-settings"
+        className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+      >
+        <header className="flex flex-col gap-3 border-b border-border p-5 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">Marketing materials</p>
+            <h2 className="mt-1 text-lg font-bold text-primary">7. Property flyers and downloads</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
+              Configure focal-point-aware landscape images and A4 flyers generated from the existing gallery. Nothing is stored as a duplicate file.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMarketingMaterials(resetPropertyMarketingMaterialsConfig())}
+            className="shrink-0 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary hover:border-primary/40"
+          >
+            Reset defaults
+          </button>
+        </header>
+
+        <div className="grid gap-6 p-5 lg:grid-cols-2">
+          <label className="flex items-start gap-3 rounded-xl border border-border p-4 text-sm lg:col-span-2">
+            <input
+              type="checkbox"
+              checked={normalizedMarketingMaterials.enabled}
+              onChange={(event) => patchMarketingMaterials({ enabled: event.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="block font-bold text-primary">Enable downloadable marketing materials</span>
+              <span className="mt-1 block text-xs leading-5 text-muted">Shows the public Download brochure action only after this configuration is saved.</span>
+            </span>
+          </label>
+
+          <label className="text-sm font-bold text-primary">
+            Branding mode
+            <select
+              value={normalizedMarketingMaterials.brandingMode}
+              onChange={(event) => patchMarketingMaterials({ brandingMode: event.target.value as "picchuspot" | "agency" | "unbranded" })}
+              className="mt-2 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm"
+            >
+              <option value="picchuspot">PicchuSpot</option>
+              <option value="agency">Agency</option>
+              <option value="unbranded">Unbranded</option>
+            </select>
+          </label>
+
+          <label className="text-sm font-bold text-primary">
+            Marketing copy
+            <select
+              value={normalizedMarketingMaterials.marketingCopyMode}
+              onChange={(event) => patchMarketingMaterials({ marketingCopyMode: event.target.value as "none" | "summary" | "highlights" | "custom" })}
+              className="mt-2 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm"
+            >
+              <option value="none">None</option>
+              <option value="summary">Short summary</option>
+              <option value="highlights">Selected highlights</option>
+              <option value="custom">Custom copy</option>
+            </select>
+          </label>
+
+          {normalizedMarketingMaterials.marketingCopyMode === "custom" ? (
+            <label className="text-sm font-bold text-primary lg:col-span-2">
+              Custom marketing copy
+              <textarea
+                value={normalizedMarketingMaterials.customMarketingCopy?.en ?? ""}
+                maxLength={220}
+                onChange={(event) => patchMarketingMaterials({ customMarketingCopy: { ...(normalizedMarketingMaterials.customMarketingCopy ?? { en: "" }), en: event.target.value } })}
+                className="mt-2 min-h-24 w-full rounded-xl border border-border px-3.5 py-3 text-sm"
+              />
+              <span className="mt-1 block text-xs font-normal text-muted">Whitespace is normalized and rendered copy is capped at 200 characters.</span>
+            </label>
+          ) : null}
+
+          <fieldset>
+            <legend className="text-sm font-bold text-primary">Landscape composition</legend>
+            <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary">
+              <input type="checkbox" checked={normalizedMarketingMaterials.landscape.enabled} onChange={(event) => patchMarketingMedia("landscape", { enabled: event.target.checked })} className="h-4 w-4 accent-primary" />
+              Enable landscape JPG and PNG
+            </label>
+            <select
+              value={normalizedMarketingMaterials.landscape.layout}
+              onChange={(event) => patchMarketingMedia("landscape", { layout: event.target.value })}
+              className="mt-3 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm"
+            >
+              <option value="single-hero">Single hero</option>
+              <option value="hero-two-square">Hero + two squares</option>
+              <option value="hero-four-grid">Hero + four grid</option>
+            </select>
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-sm font-bold text-primary">A4 portrait template</legend>
+            <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary">
+              <input type="checkbox" checked={normalizedMarketingMaterials.portrait.enabled} onChange={(event) => patchMarketingMedia("portrait", { enabled: event.target.checked })} className="h-4 w-4 accent-primary" />
+              Enable flyer PDF, JPG and PNG
+            </label>
+            <select
+              value={normalizedMarketingMaterials.portrait.layout}
+              onChange={(event) => patchMarketingMedia("portrait", { layout: event.target.value })}
+              className="mt-3 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm"
+            >
+              <option value="a4-classic">A4 Classic</option>
+              <option value="a4-editorial">A4 Editorial</option>
+            </select>
+          </fieldset>
+
+          {(["landscape", "portrait"] as const).map((kind) => {
+            const config = normalizedMarketingMaterials[kind];
+            return (
+              <fieldset key={kind} className="rounded-xl border border-border p-4">
+                <legend className="px-1 text-sm font-bold capitalize text-primary">{kind} photo selection</legend>
+                <label className="mt-2 block text-xs font-bold text-muted">
+                  Primary image
+                  <select
+                    value={config.primaryMediaId ?? ""}
+                    onChange={(event) => patchMarketingMedia(kind, { primaryMediaId: event.target.value || undefined })}
+                    className="mt-2 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-primary"
+                  >
+                    <option value="">Automatic cover fallback</option>
+                    {realGallery.map((image) => <option key={image.id} value={image.id}>{image.label.en}</option>)}
+                  </select>
+                </label>
+                <p className="mt-4 text-xs font-bold text-muted">Supporting image order</p>
+                <div className="mt-2 space-y-2">
+                  {realGallery.filter((image) => image.id !== config.primaryMediaId).map((image) => {
+                    const selectedIndex = config.secondaryMediaIds.indexOf(image.id);
+                    return (
+                      <div key={image.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-2">
+                        <input type="checkbox" checked={selectedIndex >= 0} onChange={() => toggleMarketingSecondary(kind, image.id)} className="h-4 w-4 accent-primary" />
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-primary">{image.label.en}</span>
+                        {selectedIndex >= 0 ? (
+                          <>
+                            <button type="button" onClick={() => moveMarketingSecondary(kind, image.id, -1)} disabled={selectedIndex === 0} className="grid h-7 w-7 place-items-center rounded border border-border disabled:opacity-30" aria-label={`Move ${image.label.en} earlier`}><ArrowUp className="h-3 w-3" aria-hidden /></button>
+                            <button type="button" onClick={() => moveMarketingSecondary(kind, image.id, 1)} disabled={selectedIndex === config.secondaryMediaIds.length - 1} className="grid h-7 w-7 place-items-center rounded border border-border disabled:opacity-30" aria-label={`Move ${image.label.en} later`}><ArrowDown className="h-3 w-3" aria-hidden /></button>
+                          </>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            );
+          })}
+
+          <fieldset>
+            <legend className="text-sm font-bold text-primary">Selected listing facts</legend>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {PROPERTY_SOCIAL_CARD_FACT_KEYS.map((key) => (
+                <label key={key} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary">
+                  <input
+                    type="checkbox"
+                    checked={normalizedMarketingMaterials.selectedFactKeys.includes(key)}
+                    onChange={(event) => {
+                      const selected = event.target.checked
+                        ? [...normalizedMarketingMaterials.selectedFactKeys, key].slice(0, 4)
+                        : normalizedMarketingMaterials.selectedFactKeys.filter((item) => item !== key);
+                      patchMarketingMaterials({ selectedFactKeys: selected });
+                    }}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  {PROPERTY_SOCIAL_CARD_FACT_LABELS[key]}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-sm font-bold text-primary">Selected highlights</legend>
+            <div className="mt-3 space-y-2">
+              {record.property.highlights.map((highlight, index) => {
+                const id = propertyHighlightId(highlight, index);
+                const label = highlight.text?.en ?? highlight.title?.en ?? `Highlight ${index + 1}`;
+                return (
+                  <label key={id} className="flex items-start gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary">
+                    <input
+                      type="checkbox"
+                      checked={normalizedMarketingMaterials.selectedHighlightIds.includes(id)}
+                      onChange={(event) => {
+                        const selected = event.target.checked
+                          ? [...normalizedMarketingMaterials.selectedHighlightIds, id].slice(0, 3)
+                          : normalizedMarketingMaterials.selectedHighlightIds.filter((item) => item !== id);
+                        patchMarketingMaterials({ selectedHighlightIds: selected });
+                      }}
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                    />
+                    <span className="line-clamp-2">{label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset className="lg:col-span-2">
+            <legend className="text-sm font-bold text-primary">Included details</legend>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {([
+                ["includeAgent", "Realtor details"],
+                ["includeAgencyLogo", "Agency logo"],
+                ["includeQrCode", "Canonical QR code"],
+                ["includeDisclaimer", "Legal disclaimer"],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary">
+                  <input type="checkbox" checked={normalizedMarketingMaterials[key]} onChange={(event) => patchMarketingMaterials({ [key]: event.target.checked })} className="h-4 w-4 accent-primary" />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {normalizedMarketingMaterials.includeDisclaimer ? (
+            <label className="text-sm font-bold text-primary lg:col-span-2">
+              Disclaimer
+              <textarea
+                value={normalizedMarketingMaterials.disclaimer?.en ?? ""}
+                maxLength={400}
+                placeholder="All information is provided for marketing purposes and should be independently verified."
+                onChange={(event) => patchMarketingMaterials({ disclaimer: { ...(normalizedMarketingMaterials.disclaimer ?? { en: "" }), en: event.target.value } })}
+                className="mt-2 min-h-20 w-full rounded-xl border border-border px-3.5 py-3 text-sm"
+              />
+            </label>
+          ) : null}
+
+          <div className="lg:col-span-2">
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Marketing material previews">
+              {(["social", "landscape", "portrait"] as const).map((tab) => (
+                <button key={tab} type="button" role="tab" aria-selected={marketingPreviewTab === tab} onClick={() => setMarketingPreviewTab(tab)} className={`rounded-full px-4 py-2 text-sm font-bold ${marketingPreviewTab === tab ? "bg-primary text-white" : "border border-border text-primary"}`}>{tab === "portrait" ? "A4 portrait" : tab === "social" ? "Social / Open Graph" : "Landscape"}</button>
+              ))}
+            </div>
+            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-surface p-3">
+              {marketingPreviewTab === "social" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={generatedSocialImagePath} alt="Generated Open Graph preview" className="mx-auto aspect-[1200/630] max-h-[520px] w-full object-contain" />
+              ) : marketingPreviewTab === "landscape" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`${adminMarketingMaterialPath}/landscape.png`} alt="Generated landscape preview" className="mx-auto aspect-video max-h-[520px] w-full object-contain" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`${adminMarketingMaterialPath}/flyer.png`} alt="Generated A4 flyer preview" className="mx-auto max-h-[720px] w-auto object-contain" />
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted">Save changes to refresh these final server-rendered previews.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(["landscape.png", "landscape.jpg", "flyer.png", "flyer.jpg", "flyer.pdf"] as const).map((asset) => (
+                <a key={asset} href={`${adminMarketingMaterialPath}/${asset}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary hover:border-primary/40"><Download className="h-4 w-4" aria-hidden /> Open {asset.split(".").at(-1)?.toUpperCase()}</a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
         <header className="border-b border-border p-5">
           <h2 className="text-lg font-bold text-primary">Social sharing preview</h2>
@@ -1620,6 +2051,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                     src={socialPreview.images[0].imageUrl}
                     alt={socialPreview.images[0].imageAlt}
                     className="h-full w-full object-cover"
+                    style={{ objectPosition: focalPointToObjectPosition(socialPreview.images[0].focalPoint) }}
                   />
                 </div>
               ) : (
@@ -1636,6 +2068,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                       src={image.imageUrl}
                       alt={image.imageAlt}
                       className="h-full w-full object-cover"
+                      style={{ objectPosition: focalPointToObjectPosition(image.focalPoint) }}
                     />
                   ))}
                 </div>

@@ -14,6 +14,7 @@ import {
   type PropertySocialPreview,
 } from "./social-preview.ts";
 import type { PropertyShowcase } from "./types.ts";
+import type { PropertyImageFocalPoint } from "./types.ts";
 
 export const PROPERTY_SOCIAL_IMAGE_MAX_PHOTOS = 3;
 export const PROPERTY_SOCIAL_IMAGE_MAX_LOGOS = 1;
@@ -66,8 +67,10 @@ export type PropertySocialImageLog = (
 ) => void;
 
 export interface PreparedPropertySocialImage {
+  imageId?: string;
   imageUrl: string;
   imageAlt: string;
+  focalPoint?: PropertyImageFocalPoint;
   byteLength: number;
   contentType: "image/jpeg";
 }
@@ -135,7 +138,7 @@ async function normalizePhoto(
     .resize({
       width: primary ? 760 : 380,
       height: primary ? 630 : 220,
-      fit: "cover",
+      fit: "inside",
       withoutEnlargement: true,
     })
     .jpeg({
@@ -259,8 +262,10 @@ export async function preparePropertySocialAssets(
     }
 
     propertyImages.push({
+      imageId: candidate.imageId,
       imageUrl: toDataUri("image/jpeg", normalized),
       imageAlt: candidate.imageAlt,
+      focalPoint: candidate.focalPoint ?? { x: 0.5, y: 0.5 },
       byteLength: normalized.length,
       contentType: "image/jpeg",
     });

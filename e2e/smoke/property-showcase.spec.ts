@@ -258,6 +258,43 @@ for (const viewport of propertyViewports) {
     await expect(hero).not.toContainText("For sale");
     await expect(hero).not.toContainText("PS-001");
     await expect(hero.getByTestId("property-hero-slideshow")).toBeVisible();
+    const requestViewing = page.getByTestId("hero-request-viewing");
+    const downloadBrochure = page.getByTestId("hero-download-brochure");
+    await expect(requestViewing).toBeVisible();
+    await expect(downloadBrochure).toBeVisible();
+    await downloadBrochure.click();
+    const marketingDialog = page.getByTestId(
+      "property-marketing-download-dialog",
+    );
+    await expect(marketingDialog).toBeVisible();
+    await expect(marketingDialog.getByRole("link", { name: /A4 PDF/ })).toBeVisible();
+    const dialogGeometry = await marketingDialog.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        viewportWidth: document.documentElement.clientWidth,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(dialogGeometry.left).toBeGreaterThanOrEqual(-1);
+    expect(dialogGeometry.right).toBeLessThanOrEqual(
+      dialogGeometry.viewportWidth + 1,
+    );
+    expect(dialogGeometry.top).toBeGreaterThanOrEqual(-1);
+    expect(dialogGeometry.bottom).toBeLessThanOrEqual(
+      dialogGeometry.viewportHeight + 1,
+    );
+    expect(dialogGeometry.scrollWidth).toBeLessThanOrEqual(
+      dialogGeometry.clientWidth + 1,
+    );
+    await page.keyboard.press("Escape");
+    await expect(marketingDialog).toHaveCount(0);
+    await expect(requestViewing).toBeVisible();
     if (viewport.width >= 768) {
       await expect(page.getByRole("button", { name: "Ground floor" })).toBeVisible();
       await expect(page.getByRole("button", { name: "First floor" })).toBeVisible();
@@ -623,6 +660,43 @@ test("stable property social endpoint returns a real public 1200 by 630 PNG", as
     head.headers()["x-picchuspot-social-image-status"],
   );
   expect(head.headers()["x-picchuspot-social-card-layout"]).toBe("balanced");
+});
+
+test("versioned property marketing route returns a real 1920 by 1080 download", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/property/sea-view-residence");
+  await page.getByTestId("hero-download-brochure").click();
+  const landscapeLink = page
+    .getByTestId("property-marketing-download-dialog")
+    .getByRole("link", { name: /Landscape PNG/ });
+  const href = await landscapeLink.getAttribute("href");
+  expect(href).toMatch(
+    /^\/property\/sea-view-residence\/materials\/landscape\.png\?v=[a-f0-9]{14}$/,
+  );
+
+  const response = await request.get(href!);
+  const body = await response.body();
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("image/png");
+  expect(response.headers()["content-disposition"]).toContain(
+    "sea-view-residence-landscape.png",
+  );
+  expect(response.headers()["cache-control"]).toContain("immutable");
+  expect(pngDimensions(body)).toEqual({ width: 1920, height: 1080 });
+
+  const stale = await request.get(
+    "/property/sea-view-residence/materials/landscape.png?v=stale",
+  );
+  expect(stale.status()).toBe(404);
+  expect(stale.headers()["cache-control"]).toBe("no-store");
+
+  const unauthenticatedDraft = await request.get(
+    "/admin/properties/00000000-0000-0000-0000-000000000000/materials/flyer.pdf",
+  );
+  expect(unauthenticatedDraft.status()).toBe(401);
+  expect(unauthenticatedDraft.headers()["cache-control"]).toBe("no-store");
 });
 
 test("explicitly hidden media does not render sections or navigation targets", async ({

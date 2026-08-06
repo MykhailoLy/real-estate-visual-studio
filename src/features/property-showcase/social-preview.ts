@@ -1,4 +1,5 @@
 import { formatPriceLabel } from "./formatting.ts";
+import { normalizePropertyImageFocalPoint } from "./focal-point.ts";
 import { normalizeListingFacts } from "./listing-details.ts";
 import { getPrimaryLanguage, localizedText } from "./localization.ts";
 import { getPropertyAddressView } from "./property-address.ts";
@@ -9,6 +10,7 @@ import {
 import { ownedPropertyShowcaseStoragePath } from "./storage-cleanup.ts";
 import type {
   PropertyGalleryImage,
+  PropertyImageFocalPoint,
   PropertyShowcase,
   PropertySocialCardFactKey,
   PropertySocialCardLayout,
@@ -16,8 +18,10 @@ import type {
 import { SITE_URL } from "../../lib/seo.ts";
 
 export interface PropertySocialPreviewImage {
+  imageId?: string;
   imageUrl: string;
   imageAlt: string;
+  focalPoint?: PropertyImageFocalPoint;
 }
 
 export interface PropertySocialPreview {
@@ -89,6 +93,7 @@ export function selectPropertyHeroImages(
   if (images.length === 0 && property.coverImage.trim()) {
     return [
       {
+        imageId: undefined,
         imageUrl: property.coverImage,
         imageAlt: localizedText(
           property.title,
@@ -105,10 +110,12 @@ export function selectPropertyHeroImages(
     if (!imageUrl || seenUrls.has(imageUrl)) return [];
     seenUrls.add(imageUrl);
     return [{
+      imageId: image.id,
       imageUrl,
       imageAlt:
         localizedText(image.alt, primaryLanguage, primaryLanguage) ||
         localizedText(property.title, primaryLanguage, primaryLanguage),
+      focalPoint: normalizePropertyImageFocalPoint(image.focalPoint),
     }];
   });
 }
@@ -133,22 +140,25 @@ export function selectPropertySocialImageCandidates(
   );
 
   const seenUrls = new Set<string>();
-  const result = candidates.flatMap((image) => {
+  const result: PropertySocialPreviewImage[] = candidates.flatMap((image) => {
     const imageUrl = image.src.trim();
     if (!imageUrl || seenUrls.has(imageUrl)) return [];
     seenUrls.add(imageUrl);
     return [
       {
+        imageId: image.id,
         imageUrl,
         imageAlt:
           localizedText(image.alt, primaryLanguage, primaryLanguage) ||
           localizedText(property.title, primaryLanguage, primaryLanguage),
+        focalPoint: normalizePropertyImageFocalPoint(image.focalPoint),
       },
     ];
   });
   const coverImageUrl = property.coverImage.trim();
   if (coverImageUrl && !seenUrls.has(coverImageUrl)) {
     result.push({
+      imageId: undefined,
       imageUrl: coverImageUrl,
       imageAlt: localizedText(
         property.title,

@@ -20,6 +20,7 @@ export interface PropertyShowcaseUpdateOptions {
   removeFloorPlan?: boolean;
   replaceFloorPlans?: boolean;
   updateSocialCard?: boolean;
+  updateMarketingMaterials?: boolean;
 }
 
 export interface PropertyShowcaseUpdateResult {
@@ -176,6 +177,7 @@ function mergeDetailsUpdate(
     brochureUrl: existing.brochureUrl ?? incoming.brochureUrl,
     gallery: existing.gallery.length > 0 ? existing.gallery : incoming.gallery,
     socialCard: existing.socialCard,
+    marketingMaterials: existing.marketingMaterials,
     virtualTour: options.removeVirtualTour
       ? undefined
       : incomingTour
@@ -232,6 +234,9 @@ function mergeMediaUpdate(
     socialCard: options.updateSocialCard
       ? incoming.socialCard
       : existing.socialCard,
+    marketingMaterials: options.updateMarketingMaterials
+      ? incoming.marketingMaterials
+      : existing.marketingMaterials,
     floorPlans: mergeMediaFloorPlans(
       existing.floorPlans,
       incoming.floorPlans,

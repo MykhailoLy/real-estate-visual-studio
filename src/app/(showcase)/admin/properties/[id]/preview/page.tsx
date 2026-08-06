@@ -7,6 +7,7 @@ import { serializePublicPropertyShowcase } from "@/features/property-showcase/pu
 import { getPropertyShowcaseForAdminById } from "@/features/property-showcase/server";
 import PropertyShowcaseView from "../../../../property/PropertyShowcaseView";
 import { absoluteUrl } from "@/lib/seo";
+import { getPropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-material-version";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -55,6 +56,11 @@ export default async function AdminPropertyPreviewPage({
       <PropertyShowcaseView
         property={serializePublicPropertyShowcase(record.property)}
         canonicalUrl={absoluteUrl(`/property/${record.property.slug}`)}
+        marketingMaterialLinks={getPropertyMarketingMaterialLinks(
+          record.property,
+          absoluteUrl(`/property/${record.property.slug}`),
+          { adminId: record.id },
+        )}
         previewMode
       />
     </>

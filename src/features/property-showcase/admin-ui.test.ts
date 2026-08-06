@@ -83,6 +83,10 @@ const propertyOpenGraphImageSource = readFileSync(
   ),
   "utf8",
 );
+const marketingMaterialRendererSource = readFileSync(
+  new URL("./marketing-material-renderer.tsx", import.meta.url),
+  "utf8",
+);
 const propertyVideoSource = readFileSync(
   new URL(
     "../../app/(showcase)/property/PropertyVideoSection.tsx",
@@ -323,7 +327,8 @@ test("sharing never derives a URL from the current admin or preview location", (
 test("social-card rendering validates image bytes and has a deliberate fallback", () => {
   assert.equal(propertyOpenGraphImageSource.includes("preparePropertySocialAssets"), true);
   assert.equal(propertyOpenGraphImageSource.includes("createPropertySocialImageHandler"), true);
-  assert.equal(propertyOpenGraphImageSource.includes("social-card-branded-fallback"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("renderPropertySocialCardPng"), true);
+  assert.equal(marketingMaterialRendererSource.includes("model.title"), true);
   assert.equal(propertyOpenGraphImageSource.includes("property-social-emergency.png"), true);
   assert.equal(propertyEditorSource.includes("Social-card branding"), true);
   assert.equal(propertyEditorSource.includes("Property Showcase by PicchuSpot"), true);
@@ -402,9 +407,9 @@ test("property metadata uses a production-domain 1200 by 630 PNG route", () => {
   assert.equal(propertyMetadataSource.includes('width: 1200'), true);
   assert.equal(propertyMetadataSource.includes('height: 630'), true);
   assert.equal(propertyMetadataSource.includes('type: "image/png"'), true);
-  assert.equal(propertyOpenGraphImageSource.includes("ImageResponse"), true);
-  assert.equal(propertyOpenGraphImageSource.includes("width: 1200"), true);
-  assert.equal(propertyOpenGraphImageSource.includes("height: 630"), true);
+  assert.equal(marketingMaterialRendererSource.includes("ImageResponse"), true);
+  assert.equal(marketingMaterialRendererSource.includes("width={1200}"), true);
+  assert.equal(marketingMaterialRendererSource.includes("height={630}"), true);
   assert.equal(propertyOpenGraphImageSource.includes("export async function GET"), true);
   assert.equal(
     propertyOpenGraphImageSource.includes("preparePropertySocialAssets"),

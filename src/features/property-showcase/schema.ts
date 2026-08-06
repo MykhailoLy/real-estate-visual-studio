@@ -67,6 +67,7 @@ const PropertyFactSchema = z
 
 const PropertyHighlightSchema = z
   .object({
+    id: optionalTrimmed(120),
     text: LocalizedTextSchema.optional(),
     title: LocalizedTextSchema.optional(),
     description: LocalizedTextSchema.optional(),
@@ -93,6 +94,13 @@ const PropertyGalleryImageSchema = z
       .object({
         xPercent: z.number().min(0).max(100),
         yPercent: z.number().min(0).max(100),
+      })
+      .strict()
+      .optional(),
+    focalPoint: z
+      .object({
+        x: z.number().min(0).max(1),
+        y: z.number().min(0).max(1),
       })
       .strict()
       .optional(),
@@ -180,6 +188,67 @@ const PropertySocialCardSchema = z
     showPrice: z.boolean(),
     showBranding: z.boolean(),
     showPoweredByPicchuSpot: z.boolean(),
+  })
+  .strict();
+
+const uniqueStrings = (max: number, message: string) =>
+  z
+    .array(z.string().trim().min(1).max(120))
+    .max(max)
+    .refine((values) => new Set(values).size === values.length, { message });
+
+const PropertyMarketingMediaSelectionSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    layout: z
+      .enum(["single-hero", "hero-two-square", "hero-four-grid"])
+      .optional(),
+    primaryMediaId: optionalTrimmed(120),
+    secondaryMediaIds: uniqueStrings(
+      4,
+      "Marketing material supporting images must be unique.",
+    ).optional(),
+  })
+  .strict();
+
+const PropertyMarketingPortraitSelectionSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    layout: z.enum(["a4-classic", "a4-editorial"]).optional(),
+    primaryMediaId: optionalTrimmed(120),
+    secondaryMediaIds: uniqueStrings(
+      5,
+      "Marketing flyer supporting images must be unique.",
+    ).optional(),
+  })
+  .strict();
+
+const PropertyMarketingMaterialsSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    brandingMode: z.enum(["picchuspot", "agency", "unbranded"]).optional(),
+    includeAgent: z.boolean().optional(),
+    includeAgencyLogo: z.boolean().optional(),
+    includeQrCode: z.boolean().optional(),
+    includeDisclaimer: z.boolean().optional(),
+    marketingCopyMode: z
+      .enum(["none", "summary", "highlights", "custom"])
+      .optional(),
+    customMarketingCopy: OptionalLocalizedTextSchema.optional(),
+    disclaimer: OptionalLocalizedTextSchema.optional(),
+    selectedFactKeys: z
+      .array(PropertySocialCardFactKeySchema)
+      .max(4)
+      .refine((values) => new Set(values).size === values.length, {
+        message: "Marketing material facts must be unique.",
+      })
+      .optional(),
+    selectedHighlightIds: uniqueStrings(
+      3,
+      "Marketing material highlights must be unique.",
+    ).optional(),
+    landscape: PropertyMarketingMediaSelectionSchema.optional(),
+    portrait: PropertyMarketingPortraitSelectionSchema.optional(),
   })
   .strict();
 
@@ -300,6 +369,7 @@ export const PropertyShowcaseSchema: z.ZodType<PropertyShowcase> = z
     floorPlans: z.array(PropertyFloorPlanSchema).max(20),
     socialPreview: PropertySocialPreviewSchema.optional(),
     socialCard: PropertySocialCardSchema.optional(),
+    marketingMaterials: PropertyMarketingMaterialsSchema.optional(),
     location: PropertyLocationSchema,
     agent: PropertyAgentSchema,
     publishedAt: z.string().datetime({ offset: true }).optional(),
@@ -317,6 +387,7 @@ export const PropertyShowcaseMutationSchema = z
     removeFloorPlan: z.boolean().optional(),
     replaceFloorPlans: z.boolean().optional(),
     updateSocialCard: z.boolean().optional(),
+    updateMarketingMaterials: z.boolean().optional(),
   })
   .strict();
 

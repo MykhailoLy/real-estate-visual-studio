@@ -21,6 +21,7 @@ export const PROPERTY_SOCIAL_CARD_VISUAL_SCHEMA_VERSION =
 interface VersionedSocialPhoto {
   id: string;
   url: string | null;
+  focalPoint: { x: number; y: number };
 }
 
 interface PublicSocialListingFacts {
@@ -79,6 +80,10 @@ function socialPhoto(
   return {
     id: image.id,
     url: resolvePropertySocialImageUrl(property, image.src),
+    focalPoint: {
+      x: image.focalPoint?.x ?? 0.5,
+      y: image.focalPoint?.y ?? 0.5,
+    },
   };
 }
 
