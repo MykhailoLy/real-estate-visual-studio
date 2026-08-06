@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -49,7 +50,6 @@ import type {
   PropertyShowcase,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
-import { absoluteUrl } from "@/lib/seo";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
@@ -63,6 +63,11 @@ type UploadKind =
   | "interactive-poster"
   | "agent-portrait"
   | "agency-logo";
+type GeneratedSocialImageStatus =
+  | "checking"
+  | "available"
+  | "fallback"
+  | "failed";
 
 const FLOOR_PLAN_PRESETS = [
   { en: "Ground floor", es: "Planta baja" },
@@ -369,6 +374,8 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSavings, setLastSavings] = useState<SavingsSummary | null>(null);
+  const [generatedSocialImageStatus, setGeneratedSocialImageStatus] =
+    useState<GeneratedSocialImageStatus>("checking");
   const isVercelPreview = useSyncExternalStore(
     subscribeToPreviewHost,
     () => window.location.hostname.endsWith(".vercel.app"),
@@ -390,6 +397,42 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     () => resolvedPropertySocialImages(socialPreviewProperty),
     [socialPreviewProperty],
   );
+  const generatedSocialImagePath = `/property/${encodeURIComponent(record.slug)}/opengraph-image`;
+
+  useEffect(() => {
+    if (!record.published) return;
+    const controller = new AbortController();
+
+    void fetch(generatedSocialImagePath, {
+      method: "HEAD",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!response.ok || !contentType.startsWith("image/png")) {
+          setGeneratedSocialImageStatus("failed");
+          return;
+        }
+        setGeneratedSocialImageStatus(
+          response.headers.get("x-picchuspot-social-image-status") ===
+            "fallback"
+            ? "fallback"
+            : "available",
+        );
+      })
+      .catch((requestError: unknown) => {
+        if (
+          requestError instanceof DOMException &&
+          requestError.name === "AbortError"
+        ) {
+          return;
+        }
+        setGeneratedSocialImageStatus("failed");
+      });
+
+    return () => controller.abort();
+  }, [generatedSocialImagePath, record.published, record.updatedAt]);
 
   function normalize(items: PropertyGalleryImage[]): PropertyGalleryImage[] {
     return items.map((item, index) => ({ ...item, sortOrder: index + 1 }));
@@ -1332,15 +1375,43 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
             </div>
           ) : null}
           {record.published ? (
-            <a
-              href={absoluteUrl(`/property/${record.slug}/opengraph-image`)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
-            >
-              <ExternalLink className="h-4 w-4" aria-hidden />
-              Open generated social PNG
-            </a>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <div
+                className="inline-flex items-center gap-2 text-sm font-semibold text-muted"
+                role="status"
+              >
+                {generatedSocialImageStatus === "checking" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : generatedSocialImageStatus === "available" ? (
+                  <Check className="h-4 w-4 text-emerald-700" aria-hidden />
+                ) : (
+                  <AlertTriangle
+                    className={`h-4 w-4 ${
+                      generatedSocialImageStatus === "fallback"
+                        ? "text-amber-700"
+                        : "text-red-700"
+                    }`}
+                    aria-hidden
+                  />
+                )}
+                {generatedSocialImageStatus === "checking"
+                  ? "Checking generated image"
+                  : generatedSocialImageStatus === "available"
+                    ? "Generated image available"
+                    : generatedSocialImageStatus === "fallback"
+                      ? "Generated image fallback"
+                      : "Generated image failed"}
+              </div>
+              <a
+                href={generatedSocialImagePath}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden />
+                Open generated social PNG
+              </a>
+            </div>
           ) : null}
         </div>
       </section>

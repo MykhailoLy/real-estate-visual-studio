@@ -317,14 +317,25 @@ test("sharing never derives a URL from the current admin or preview location", (
 });
 
 test("social-card rendering validates image bytes and has a deliberate fallback", () => {
-  assert.equal(propertyOpenGraphImageSource.includes("fetchPropertySocialImageDataUri"), true);
-  assert.equal(propertyOpenGraphImageSource.includes("loadUsableSocialImages"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("preparePropertySocialAssets"), true);
+  assert.equal(propertyOpenGraphImageSource.includes("createPropertySocialImageHandler"), true);
   assert.equal(propertyOpenGraphImageSource.includes("social-card-branded-fallback"), true);
-  assert.equal(propertyOpenGraphImageSource.includes("return imageUrl"), false);
+  assert.equal(propertyOpenGraphImageSource.includes("property-social-emergency.png"), true);
   assert.equal(propertyEditorSource.includes("Social-card branding"), true);
   assert.equal(propertyEditorSource.includes("Property Showcase by PicchuSpot"), true);
   assert.equal(propertyEditorSource.includes("Powered by PicchuSpot"), true);
   assert.equal(propertyEditorSource.includes("FullFrame Media"), false);
+});
+
+test("admin verifies the saved public generated endpoint without downloading its body", () => {
+  assert.equal(mediaManagerSource.includes('method: "HEAD"'), true);
+  assert.equal(mediaManagerSource.includes("generatedSocialImagePath"), true);
+  assert.equal(mediaManagerSource.includes("Generated image available"), true);
+  assert.equal(mediaManagerSource.includes("Generated image fallback"), true);
+  assert.equal(mediaManagerSource.includes("Generated image failed"), true);
+  assert.equal(mediaManagerSource.includes("href={generatedSocialImagePath}"), true);
+  assert.equal(mediaManagerSource.includes("/api/admin/"), true);
+  assert.equal(mediaManagerSource.includes("absoluteUrl(`/property/"), false);
 });
 
 test("approximate map links require an explicit text-only public-area option", () => {
@@ -385,7 +396,7 @@ test("property metadata uses a production-domain 1200 by 630 PNG route", () => {
   assert.equal(propertyOpenGraphImageSource.includes("height: 630"), true);
   assert.equal(propertyOpenGraphImageSource.includes("export async function GET"), true);
   assert.equal(
-    propertyOpenGraphImageSource.includes("resolvedPropertySocialImages"),
+    propertyOpenGraphImageSource.includes("preparePropertySocialAssets"),
     true,
   );
 });
