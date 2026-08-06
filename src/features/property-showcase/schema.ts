@@ -86,6 +86,7 @@ const PropertyGalleryImageSchema = z
     label: LocalizedTextSchema,
     featuredForSharing: z.boolean().optional(),
     primarySocialPreview: z.boolean().optional(),
+    socialPreviewOrder: z.number().int().min(1).max(200).optional(),
     note: OptionalLocalizedTextSchema.optional(),
     roomId: optionalTrimmed(120),
     hotspot: z
@@ -146,6 +147,39 @@ const PropertySocialPreviewSchema = z
     brandingMode: z
       .enum(["picchuspot", "agency", "unbranded"])
       .optional(),
+  })
+  .strict();
+
+const PropertySocialCardFactKeySchema = z.enum([
+  "listing-reference",
+  "bedrooms",
+  "bathrooms",
+  "parking",
+  "built-area",
+  "year-built",
+  "plot-area",
+]);
+
+const PropertySocialCardSchema = z
+  .object({
+    mode: z.enum(["automatic", "custom"]),
+    layout: z.enum(["image-focused", "balanced", "minimal"]),
+    visibleFacts: z
+      .array(PropertySocialCardFactKeySchema)
+      .max(4)
+      .refine((facts) => new Set(facts).size === facts.length, {
+        message: "Social card facts must be unique.",
+      }),
+    factOrder: z
+      .array(PropertySocialCardFactKeySchema)
+      .max(7)
+      .refine((facts) => new Set(facts).size === facts.length, {
+        message: "Social card fact order must be unique.",
+      }),
+    showLocation: z.boolean(),
+    showPrice: z.boolean(),
+    showBranding: z.boolean(),
+    showPoweredByPicchuSpot: z.boolean(),
   })
   .strict();
 
@@ -265,6 +299,7 @@ export const PropertyShowcaseSchema: z.ZodType<PropertyShowcase> = z
     floorPlansEnabled: z.boolean().optional(),
     floorPlans: z.array(PropertyFloorPlanSchema).max(20),
     socialPreview: PropertySocialPreviewSchema.optional(),
+    socialCard: PropertySocialCardSchema.optional(),
     location: PropertyLocationSchema,
     agent: PropertyAgentSchema,
     publishedAt: z.string().datetime({ offset: true }).optional(),
@@ -281,6 +316,7 @@ export const PropertyShowcaseMutationSchema = z
     removeInteractivePoster: z.boolean().optional(),
     removeFloorPlan: z.boolean().optional(),
     replaceFloorPlans: z.boolean().optional(),
+    updateSocialCard: z.boolean().optional(),
   })
   .strict();
 

@@ -710,3 +710,75 @@ test("details and media saves preserve disabled video data and floor-plan visibi
   assert.deepEqual(mediaResult.property?.videos, detailsResult.property?.videos);
   assert.equal(mediaResult.property?.floorPlansEnabled, false);
 });
+
+test("ordinary detail and media saves preserve social card settings", () => {
+  const existing = withExternalMedia();
+  existing.socialCard = {
+    mode: "custom",
+    layout: "image-focused",
+    visibleFacts: ["listing-reference", "bedrooms"],
+    factOrder: [
+      "listing-reference",
+      "bedrooms",
+      "bathrooms",
+      "built-area",
+      "parking",
+      "plot-area",
+      "year-built",
+    ],
+    showLocation: false,
+    showPrice: true,
+    showBranding: true,
+    showPoweredByPicchuSpot: false,
+  };
+  const details = cloneProperty();
+  details.socialCard = undefined;
+  details.price = "EUR 700,000";
+
+  const detailsResult = mergePropertyShowcaseUpdate(existing, details, "details");
+  assert.equal(detailsResult.ok, true);
+  assert.deepEqual(detailsResult.property?.socialCard, existing.socialCard);
+
+  const media = structuredClone(existing);
+  media.socialCard = { ...existing.socialCard, layout: "minimal" };
+  const mediaResult = mergePropertyShowcaseUpdate(existing, media, "media");
+  assert.equal(mediaResult.ok, true);
+  assert.deepEqual(mediaResult.property?.socialCard, existing.socialCard);
+});
+
+test("media editor can intentionally save social card settings without changing media", () => {
+  const existing = withExternalMedia();
+  existing.socialCard = {
+    mode: "automatic",
+    layout: "balanced",
+    visibleFacts: ["bedrooms", "bathrooms", "built-area", "parking"],
+    factOrder: [
+      "bedrooms",
+      "bathrooms",
+      "built-area",
+      "parking",
+      "plot-area",
+      "year-built",
+      "listing-reference",
+    ],
+    showLocation: true,
+    showPrice: true,
+    showBranding: true,
+    showPoweredByPicchuSpot: true,
+  };
+  const incoming = structuredClone(existing);
+  incoming.socialCard = {
+    ...existing.socialCard,
+    layout: "minimal",
+    showLocation: false,
+  };
+
+  const result = mergePropertyShowcaseUpdate(existing, incoming, "media", {
+    updateSocialCard: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.property?.socialCard, incoming.socialCard);
+  assert.deepEqual(result.property?.gallery, existing.gallery);
+  assert.deepEqual(result.property?.floorPlans, existing.floorPlans);
+});

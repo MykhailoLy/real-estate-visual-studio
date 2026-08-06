@@ -149,10 +149,18 @@ test("social listing text includes core facts and respects location privacy", ()
   assert.equal(approximate.title.includes("\u20ac695,000"), true);
   assert.equal(approximate.description.includes("Wasilla, Alaska"), true);
   assert.equal(approximate.description.includes("123 Private Parcel Road"), false);
-  assert.equal(approximate.description.includes("PS-001"), true);
-  assert.equal(approximate.description.includes("3 bedrooms"), true);
-  assert.equal(approximate.description.includes("2 bathrooms"), true);
-  assert.equal(approximate.description.includes("142\u00a0m\u00b2"), true);
+  assert.deepEqual(approximate.facts.map((fact) => fact.key), [
+    "bedrooms",
+    "bathrooms",
+    "built-area",
+    "parking",
+  ]);
+  assert.deepEqual(approximate.facts.map((fact) => fact.value), [
+    "3",
+    "2",
+    "142\u00a0m\u00b2",
+    "Garage + driveway",
+  ]);
 
   property.location.privacyMode = "exact";
   const exact = getPropertySocialPreview(property);
@@ -163,6 +171,23 @@ test("social listing text includes core facts and respects location privacy", ()
   const hidden = getPropertySocialPreview(property);
   assert.equal(hidden.description.includes("123 Private Parcel Road"), false);
   assert.equal(hidden.description.includes("Wasilla, Alaska"), false);
+
+  property.socialCard = {
+    mode: "automatic",
+    layout: "balanced",
+    visibleFacts: [],
+    factOrder: [],
+    showLocation: false,
+    showPrice: false,
+    showBranding: true,
+    showPoweredByPicchuSpot: true,
+  };
+  property.location.privacyMode = "exact";
+  const explicitlyHidden = getPropertySocialPreview(property);
+  assert.equal(explicitlyHidden.location, "");
+  assert.equal(explicitlyHidden.price, "");
+  assert.equal(explicitlyHidden.title.includes("€695,000"), false);
+  assert.equal(explicitlyHidden.description.includes("123 Private Parcel Road"), false);
 });
 
 test("social image resolution accepts public site paths and rejects external lookalikes", () => {
@@ -221,9 +246,64 @@ test("social-card branding defaults to PicchuSpot and supports agency and unbran
   assert.equal(agencyPreview.brandingLogoUrl, "/property-demo/agency.svg");
   assert.equal(agencyPreview.brandingAttribution, "Powered by PicchuSpot");
 
+  property.socialCard = {
+    mode: "automatic",
+    layout: "balanced",
+    visibleFacts: [],
+    factOrder: [],
+    showLocation: true,
+    showPrice: true,
+    showBranding: true,
+    showPoweredByPicchuSpot: false,
+  };
+  assert.equal(getPropertySocialPreview(property).brandingAttribution, undefined);
+
   property.socialPreview = { brandingMode: "unbranded" };
   const unbrandedPreview = getPropertySocialPreview(property);
   assert.equal(unbrandedPreview.brandingName, undefined);
   assert.equal(unbrandedPreview.brandingLogoUrl, undefined);
   assert.equal(unbrandedPreview.brandingAttribution, undefined);
+
+  property.socialPreview = { brandingMode: "agency" };
+  property.socialCard = {
+    ...property.socialCard!,
+    showBranding: false,
+    showPoweredByPicchuSpot: true,
+  };
+  const hiddenBrandingPreview = getPropertySocialPreview(property);
+  assert.equal(hiddenBrandingPreview.brandingMode, "unbranded");
+  assert.equal(hiddenBrandingPreview.brandingName, undefined);
+  assert.equal(hiddenBrandingPreview.brandingLogoUrl, undefined);
+  assert.equal(hiddenBrandingPreview.brandingAttribution, undefined);
+});
+
+test("social image selection enforces three photos and supports ordered photos", () => {
+  const property = cloneProperty();
+  let gallery = property.gallery.map((image, index) => ({
+    ...image,
+    featuredForSharing: index < 3,
+    primarySocialPreview: index === 0,
+    socialPreviewOrder: index + 1,
+  }));
+
+  gallery = updateGallerySocialPreview(
+    gallery,
+    property.gallery[3].id,
+    "toggle-featured",
+  );
+  assert.equal(
+    gallery.filter((image) => image.featuredForSharing).length,
+    3,
+  );
+
+  gallery = updateGallerySocialPreview(
+    gallery,
+    property.gallery[2].id,
+    "move-social-up",
+  );
+  property.gallery = gallery;
+  assert.deepEqual(
+    selectPropertySocialImages(property).map((image) => image.imageUrl),
+    [property.gallery[0].src, property.gallery[2].src, property.gallery[1].src],
+  );
 });

@@ -103,6 +103,10 @@ test("route handler returns a real 1200 by 630 PNG for an existing fixture", asy
   assert.equal(metadata.width, 1200);
   assert.equal(metadata.height, 630);
   assert.equal(response.headers.get("x-picchuspot-social-image-level"), "text");
+  assert.equal(
+    response.headers.get("x-picchuspot-social-card-layout"),
+    "balanced",
+  );
 });
 
 test("a full render failure retries a reduced primary-only card", async () => {
@@ -186,6 +190,10 @@ test("all ImageResponse failures return the bundled emergency PNG", async () => 
   assert.equal(hasPngSignature(bytes), true);
   assert.equal(
     response.headers.get("x-picchuspot-social-image-level"),
+    "emergency",
+  );
+  assert.equal(
+    response.headers.get("x-picchuspot-social-card-layout"),
     "emergency",
   );
   assert.deepEqual(Buffer.from(bytes), fallback);

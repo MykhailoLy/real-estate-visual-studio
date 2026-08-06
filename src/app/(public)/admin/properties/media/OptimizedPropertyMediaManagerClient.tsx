@@ -13,7 +13,9 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   Check,
   ExternalLink,
   GripVertical,
@@ -44,10 +46,21 @@ import {
   resolvedPropertySocialImages,
   updateGallerySocialPreview,
 } from "@/features/property-showcase/social-preview";
+import {
+  movePropertySocialCardFact,
+  normalizePropertySocialCardConfig,
+  PROPERTY_SOCIAL_CARD_FACT_KEYS,
+  PROPERTY_SOCIAL_CARD_FACT_LABELS,
+  PROPERTY_SOCIAL_CARD_MAX_FACTS,
+  resetPropertySocialCardConfig,
+  setPropertySocialCardFactVisible,
+  socialCardConfigSignature,
+} from "@/features/property-showcase/social-card";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyShowcase,
+  PropertySocialCardFactKey,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
 import { getSupabaseBrowser } from "@/lib/supabase";
@@ -364,6 +377,13 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const [agencyLogoUrl, setAgencyLogoUrl] = useState(
     record.property.agent.logoUrl ?? "",
   );
+  const [socialCard, setSocialCard] = useState(() =>
+    normalizePropertySocialCardConfig(record.property.socialCard),
+  );
+  const [savedSocialCardSignature, setSavedSocialCardSignature] = useState(() =>
+    socialCardConfigSignature(record.property.socialCard),
+  );
+  const [socialCardError, setSocialCardError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedFloorPlanId, setDraggedFloorPlanId] = useState<string | null>(
     null,
@@ -386,8 +406,17 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   const primaryLanguage = getPrimaryLanguage(record.property);
   const floorPlanLanguages = getPropertyLanguageOptions(record.property);
   const socialPreviewProperty = useMemo(
-    () => ({ ...record.property, coverImage, gallery }),
-    [coverImage, gallery, record.property],
+    () => ({
+      ...record.property,
+      coverImage,
+      gallery,
+      socialCard,
+      agent: {
+        ...record.property.agent,
+        logoUrl: agencyLogoUrl || undefined,
+      },
+    }),
+    [agencyLogoUrl, coverImage, gallery, record.property, socialCard],
   );
   const socialPreview = useMemo(
     () => getPropertySocialPreview(socialPreviewProperty),
@@ -398,6 +427,38 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     [socialPreviewProperty],
   );
   const generatedSocialImagePath = `/property/${encodeURIComponent(record.slug)}/opengraph-image`;
+  const socialPreviewGridClass =
+    socialPreview.layout === "balanced"
+      ? "md:grid-cols-[1.72fr_1fr]"
+      : "md:grid-cols-[2.75fr_1fr]";
+  const socialCardChanged =
+    socialCardConfigSignature(socialCard) !== savedSocialCardSignature;
+  const orderedSocialImages = [...gallery]
+    .filter(
+      (image) =>
+        image.featuredForSharing === true ||
+        image.primarySocialPreview === true,
+    )
+    .sort(
+      (a, b) =>
+        (a.socialPreviewOrder ?? a.sortOrder) -
+        (b.socialPreviewOrder ?? b.sortOrder),
+    );
+  const primarySocialImage = orderedSocialImages.find(
+    (image) => image.primarySocialPreview === true,
+  );
+  const selectedSocialImages = primarySocialImage
+    ? [
+        primarySocialImage,
+        ...orderedSocialImages.filter(
+          (image) => image.id !== primarySocialImage.id,
+        ),
+      ]
+    : orderedSocialImages;
+  const firstMovableSocialIndex = primarySocialImage ? 1 : 0;
+  const selectedSocialFacts = socialCard.factOrder.filter((key) =>
+    socialCard.visibleFacts.includes(key),
+  );
 
   useEffect(() => {
     if (!record.published) return;
@@ -532,15 +593,52 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
   }
 
   function toggleFeaturedForSharing(imageId: string) {
+    const target = gallery.find((image) => image.id === imageId);
+    if (
+      target?.featuredForSharing !== true &&
+      selectedSocialImages.length >= 3
+    ) {
+      setSocialCardError("Choose up to 3 social images: one primary and two supporting photos.");
+      return;
+    }
+    setSocialCardError(null);
     setGallery((current) =>
       updateGallerySocialPreview(current, imageId, "toggle-featured"),
     );
   }
 
   function setPrimarySocialPreview(imageId: string) {
+    const target = gallery.find((image) => image.id === imageId);
+    if (
+      target?.featuredForSharing !== true &&
+      selectedSocialImages.length >= 3
+    ) {
+      setSocialCardError("Choose up to 3 social images before setting a new primary photo.");
+      return;
+    }
+    setSocialCardError(null);
     setGallery((current) =>
       updateGallerySocialPreview(current, imageId, "set-primary"),
     );
+  }
+
+  function moveSocialPreviewImage(imageId: string, direction: -1 | 1) {
+    setGallery((current) =>
+      updateGallerySocialPreview(
+        current,
+        imageId,
+        direction === -1 ? "move-social-up" : "move-social-down",
+      ),
+    );
+  }
+
+  function toggleSocialCardFact(
+    key: PropertySocialCardFactKey,
+    visible: boolean,
+  ) {
+    const result = setPropertySocialCardFactVisible(socialCard, key, visible);
+    setSocialCard(result.config);
+    setSocialCardError(result.error ?? null);
   }
 
   function removeFloorPlan(planId: string) {
@@ -937,6 +1035,10 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
 
   async function save() {
     if (saving || uploading) return;
+    if (selectedSocialImages.length > 3) {
+      setError("Choose no more than 3 social images before saving.");
+      return;
+    }
     const cleanedGallery = normalize(
       gallery.filter((item) => !isDemoAsset(item.src)),
     );
@@ -964,6 +1066,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       coverImage: finalCover,
       gallery: cleanedGallery,
       floorPlans: cleanedFloorPlans,
+      socialCard,
       virtualTour: record.property.virtualTour
         ? {
             ...record.property.virtualTour,
@@ -1015,6 +1118,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           removeFloorPlan,
           removeInteractivePoster,
           replaceFloorPlans: true,
+          updateSocialCard: socialCardChanged,
         }),
       });
       if (!response.ok) {
@@ -1031,7 +1135,8 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       );
       setAgentPortraitUrl(property.agent.portraitUrl ?? "");
       setAgencyLogoUrl(property.agent.logoUrl ?? "");
-      setNotice("Property media saved successfully.");
+      setSavedSocialCardSignature(socialCardConfigSignature(socialCard));
+      setNotice("Property media and social card settings saved successfully.");
       router.refresh();
     } catch {
       setError("Network error while saving property media.");
@@ -1111,6 +1216,9 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
               {gallery.map((image, index) => {
                 const isCover = image.src === coverImage;
                 const demo = isDemoAsset(image.src);
+                const socialIndex = selectedSocialImages.findIndex(
+                  (selectedImage) => selectedImage.id === image.id,
+                );
                 return (
                   <article
                     key={image.id}
@@ -1151,6 +1259,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         {image.primarySocialPreview ? (
                           <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white">
                             Social primary
+                          </span>
+                        ) : null}
+                        {socialIndex >= 0 ? (
+                          <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold text-primary shadow-sm">
+                            Social {socialIndex + 1} of 3
                           </span>
                         ) : null}
                         {demo ? (
@@ -1209,6 +1322,34 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         >
                           <Star className="h-3.5 w-3.5" aria-hidden /> Set cover
                         </button>
+                        {socialIndex >= 0 ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => moveSocialPreviewImage(image.id, -1)}
+                              disabled={
+                                image.primarySocialPreview === true ||
+                                socialIndex <= firstMovableSocialIndex
+                              }
+                              className="grid h-8 w-8 place-items-center rounded-lg border border-sky-200 text-sky-800 disabled:opacity-30"
+                              aria-label={`Move ${image.label.en} earlier in social images`}
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveSocialPreviewImage(image.id, 1)}
+                              disabled={
+                                image.primarySocialPreview === true ||
+                                socialIndex === selectedSocialImages.length - 1
+                              }
+                              className="grid h-8 w-8 place-items-center rounded-lg border border-sky-200 text-sky-800 disabled:opacity-30"
+                              aria-label={`Move ${image.label.en} later in social images`}
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                            </button>
+                          </>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setPrimarySocialPreview(image.id)}
@@ -1261,6 +1402,200 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           <p className="mt-2 text-xs text-muted">
             Mark the strongest images as featured for sharing. The social primary is used first; otherwise the first featured image or cover is used. Images marked Best for sharing are also used for the automatic hero slideshow.
           </p>
+          <p className="mt-2 text-xs font-semibold text-primary">
+            {selectedSocialImages.length} of 3 social images selected. The primary is first; use the arrow controls to order up to two supporting photos.
+          </p>
+        </div>
+      </section>
+
+      <section
+        data-testid="social-card-settings"
+        className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+      >
+        <header className="flex flex-col gap-3 border-b border-border p-5 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-primary">Social card settings</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
+              Choose what the generated 1200 x 630 Open Graph image shows. Changes update the compact preview locally and are generated only when the PNG is opened.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSocialCard(resetPropertySocialCardConfig());
+              setSocialCardError(null);
+            }}
+            className="shrink-0 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary hover:border-primary/40"
+          >
+            Reset defaults
+          </button>
+        </header>
+        <div className="grid gap-6 p-5 lg:grid-cols-2">
+          <fieldset>
+            <legend className="text-sm font-bold text-primary">Content selection</legend>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {(["automatic", "custom"] as const).map((mode) => (
+                <label
+                  key={mode}
+                  className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="social-card-mode"
+                    value={mode}
+                    checked={socialCard.mode === mode}
+                    onChange={() => {
+                      setSocialCard((current) => ({ ...current, mode }));
+                      setSocialCardError(null);
+                    }}
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                  />
+                  <span>
+                    <span className="block font-bold capitalize text-primary">{mode}</span>
+                    <span className="mt-1 block text-xs leading-5 text-muted">
+                      {mode === "automatic"
+                        ? "Uses the strongest available facts in a consistent priority."
+                        : "Uses only the facts selected and ordered below."}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label className="block text-sm font-bold text-primary">
+            Card layout
+            <select
+              value={socialCard.layout}
+              onChange={(event) =>
+                setSocialCard((current) => ({
+                  ...current,
+                  layout: event.target.value as typeof current.layout,
+                }))
+              }
+              className="mt-3 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+            >
+              <option value="image-focused">Image focused (large photos)</option>
+              <option value="balanced">Balanced (photos and details)</option>
+              <option value="minimal">Minimal (one dominant photo)</option>
+            </select>
+            <span className="mt-2 block text-xs font-normal leading-5 text-muted">
+              Minimal never shows a supporting collage and limits the card to two facts.
+            </span>
+          </label>
+
+          <fieldset className="lg:col-span-2">
+            <legend className="text-sm font-bold text-primary">Visible content</legend>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {([
+                ["showLocation", "Show location"],
+                ["showPrice", "Show price"],
+                ["showBranding", "Show branding"],
+                ["showPoweredByPicchuSpot", "Show Powered by PicchuSpot"],
+              ] as const).map(([key, label]) => {
+                const poweredByControl = key === "showPoweredByPicchuSpot";
+                const disabled =
+                  poweredByControl &&
+                  (!socialCard.showBranding ||
+                    record.property.socialPreview?.brandingMode === "unbranded");
+                return (
+                  <label
+                    key={key}
+                    className="flex min-h-12 items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={socialCard[key]}
+                      disabled={disabled}
+                      onChange={(event) =>
+                        setSocialCard((current) => ({
+                          ...current,
+                          [key]: event.target.checked,
+                        }))
+                      }
+                      className="h-4 w-4 shrink-0 accent-primary disabled:opacity-40"
+                    />
+                    {label}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {socialCard.mode === "custom" ? (
+            <fieldset className="lg:col-span-2">
+              <legend className="text-sm font-bold text-primary">Custom facts</legend>
+              <p className="mt-1 text-xs font-bold text-muted">
+                {socialCard.visibleFacts.length} of {PROPERTY_SOCIAL_CARD_MAX_FACTS} selected
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                Empty or hidden listing facts are skipped. Use the up and down controls to set their display order.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {PROPERTY_SOCIAL_CARD_FACT_KEYS.map((key) => {
+                  const selectedIndex = selectedSocialFacts.indexOf(key);
+                  const selectedFact = selectedIndex >= 0;
+                  return (
+                    <div
+                      key={key}
+                      className="flex min-h-12 items-center gap-2 rounded-xl border border-border px-3 py-2"
+                    >
+                      <label className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-primary">
+                        <input
+                          type="checkbox"
+                          checked={selectedFact}
+                          onChange={(event) =>
+                            toggleSocialCardFact(key, event.target.checked)
+                          }
+                          className="h-4 w-4 shrink-0 accent-primary"
+                        />
+                        <span className="truncate">{PROPERTY_SOCIAL_CARD_FACT_LABELS[key]}</span>
+                      </label>
+                      {selectedFact ? (
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSocialCard((current) =>
+                                movePropertySocialCardFact(current, key, -1),
+                              )
+                            }
+                            disabled={selectedIndex === 0}
+                            className="grid h-8 w-8 place-items-center rounded-lg border border-border text-primary disabled:opacity-30"
+                            aria-label={`Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} earlier`}
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSocialCard((current) =>
+                                movePropertySocialCardFact(current, key, 1),
+                              )
+                            }
+                            disabled={selectedIndex === selectedSocialFacts.length - 1}
+                            className="grid h-8 w-8 place-items-center rounded-lg border border-border text-primary disabled:opacity-30"
+                            aria-label={`Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} later`}
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ) : null}
+
+          {socialCardError ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:col-span-2"
+            >
+              {socialCardError}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -1274,7 +1609,8 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         <div className="space-y-4 p-5">
           <div
             data-testid="social-card-admin-preview"
-            className="mx-auto grid min-h-72 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface md:aspect-[1200/630] md:min-h-0 md:grid-cols-[1.72fr_1fr]"
+            data-layout={socialPreview.layout}
+            className={`mx-auto grid min-h-72 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface md:aspect-[1200/630] md:min-h-0 ${socialPreviewGridClass}`}
           >
             <div className="flex min-h-52 flex-col overflow-hidden bg-slate-200">
               {socialPreview.images[0] ? (
@@ -1291,7 +1627,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                   No public social image available
                 </div>
               )}
-              {socialPreview.images.length > 1 ? (
+              {socialPreview.layout !== "minimal" && socialPreview.images.length > 1 ? (
                 <div className="grid h-20 shrink-0 grid-cols-2 gap-0.5 border-t-2 border-white sm:h-28">
                   {socialPreview.images.slice(1, 3).map((image) => (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1311,9 +1647,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                   <p className="text-sm font-bold">
                     Picchu<span className="text-[#B88A44]">Spot</span>
                   </p>
-                  <p className="mt-1 text-[10px] text-white/50">
-                    Property Showcase by PicchuSpot
-                  </p>
+                  {socialPreview.brandingAttribution ? (
+                    <p className="mt-1 text-[10px] text-white/50">
+                      {socialPreview.brandingAttribution}
+                    </p>
+                  ) : null}
                 </div>
               ) : socialPreview.brandingMode === "agency" ? (
                 <div className="flex items-center gap-3">
@@ -1329,9 +1667,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                     <p className="text-sm font-bold">
                       {socialPreview.brandingName ?? "Agency"}
                     </p>
-                    <p className="mt-1 text-[10px] text-white/50">
-                      Powered by PicchuSpot
-                    </p>
+                    {socialPreview.brandingAttribution ? (
+                      <p className="mt-1 text-[10px] text-white/50">
+                        {socialPreview.brandingAttribution}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -1350,9 +1690,20 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                   {socialPreview.price}
                 </p>
               ) : null}
-              <p className="mt-4 border-t border-white/15 pt-4 text-xs leading-5 text-white/70">
-                {socialPreview.description}
-              </p>
+              {socialPreview.facts.length > 0 ? (
+                <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-white/15 pt-4 text-xs">
+                  {socialPreview.facts.map((fact) => (
+                    <div key={fact.key} className="min-w-0">
+                      <dt className="truncate text-[9px] font-bold uppercase tracking-wide text-white/50">
+                        {fact.label}
+                      </dt>
+                      <dd className="mt-0.5 truncate font-bold text-white/85">
+                        {fact.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
             </div>
           </div>
 
@@ -1809,7 +2160,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           ) : (
             <Save className="h-4 w-4" aria-hidden />
           )}
-          {saving ? "Saving…" : "Save media changes"}
+          {saving ? "Saving…" : "Save media and social card"}
         </button>
       </div>
     </div>

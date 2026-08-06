@@ -2,10 +2,16 @@ import { formatPriceLabel } from "./formatting.ts";
 import { normalizeListingFacts } from "./listing-details.ts";
 import { getPrimaryLanguage, localizedText } from "./localization.ts";
 import { getPropertyAddressView } from "./property-address.ts";
+import {
+  getPropertySocialCardFacts,
+  normalizePropertySocialCardConfig,
+} from "./social-card.ts";
 import { ownedPropertyShowcaseStoragePath } from "./storage-cleanup.ts";
 import type {
   PropertyGalleryImage,
   PropertyShowcase,
+  PropertySocialCardFactKey,
+  PropertySocialCardLayout,
 } from "./types.ts";
 import { SITE_URL } from "../../lib/seo.ts";
 
@@ -27,6 +33,12 @@ export interface PropertySocialPreview {
   bedrooms?: string;
   bathrooms?: string;
   builtArea?: string;
+  facts: Array<{
+    key: PropertySocialCardFactKey;
+    label: string;
+    value: string;
+  }>;
+  layout: PropertySocialCardLayout;
   agencyName?: string;
   brandingMode: "picchuspot" | "agency" | "unbranded";
   brandingName?: string;
@@ -34,17 +46,22 @@ export interface PropertySocialPreview {
   brandingAttribution?: string;
 }
 
-function sortedGallery(
+function sortedSocialGallery(
   gallery: readonly PropertyGalleryImage[],
 ): PropertyGalleryImage[] {
-  return [...gallery].sort((a, b) => a.sortOrder - b.sortOrder);
+  return [...gallery].sort(
+    (a, b) =>
+      (a.socialPreviewOrder ?? a.sortOrder) -
+        (b.socialPreviewOrder ?? b.sortOrder) ||
+      a.sortOrder - b.sortOrder,
+  );
 }
 
 export function selectPropertyHeroImages(
   property: PropertyShowcase,
 ): PropertySocialPreviewImage[] {
   const primaryLanguage = getPrimaryLanguage(property);
-  const gallery = sortedGallery(property.gallery);
+  const gallery = sortedSocialGallery(property.gallery);
   const featured = gallery.filter((image) => image.featuredForSharing === true);
   const primary = gallery.find(
     (image) => image.primarySocialPreview === true,
@@ -98,7 +115,7 @@ export function selectPropertySocialImageCandidates(
   property: PropertyShowcase,
 ): PropertySocialPreviewImage[] {
   const primaryLanguage = getPrimaryLanguage(property);
-  const gallery = sortedGallery(property.gallery);
+  const gallery = sortedSocialGallery(property.gallery);
   const primary = gallery.find(
     (image) => image.primarySocialPreview === true,
   );
@@ -214,6 +231,7 @@ export function getPropertySocialPreview(
     primaryLanguage,
     primaryLanguage,
   ).socialText;
+  const socialCard = normalizePropertySocialCardConfig(property.socialCard);
   const price = property.price.trim()
     ? formatPriceLabel(property.price)
     : "";
@@ -226,28 +244,32 @@ export function getPropertySocialPreview(
   const bedrooms = fact("bedrooms");
   const bathrooms = fact("bathrooms");
   const builtArea = fact("built-area");
-  const brandingMode = property.socialPreview?.brandingMode ?? "picchuspot";
-  const factPhrase = (item: typeof bedrooms) =>
-    item ? `${item.value} ${item.label.toLocaleLowerCase(primaryLanguage)}` : "";
+  const configuredBrandingMode =
+    property.socialPreview?.brandingMode ?? "picchuspot";
+  const brandingMode = socialCard.showBranding
+    ? configuredBrandingMode
+    : "unbranded";
+  const socialFacts = getPropertySocialCardFacts(property, primaryLanguage);
 
   return {
-    title: [listingTitle, price].filter(Boolean).join(" | "),
+    title: [listingTitle, socialCard.showPrice ? price : ""]
+      .filter(Boolean)
+      .join(" | "),
     description: [
-      location,
-      reference ? `${reference.label} ${reference.value}` : "",
-      factPhrase(bedrooms),
-      factPhrase(bathrooms),
-      factPhrase(builtArea),
+      socialCard.showLocation ? location : "",
+      ...socialFacts.map((item) => `${item.label} ${item.value}`),
     ].filter(Boolean).join(" \u00b7 ") || summary,
     ...image,
     images,
-    location,
-    price,
+    location: socialCard.showLocation ? location : "",
+    price: socialCard.showPrice ? price : "",
     reference: reference?.value ?? property.reference,
     referenceLabel: reference?.label ?? "Reference",
     bedrooms: bedrooms?.value,
     bathrooms: bathrooms?.value,
     builtArea: builtArea?.value,
+    facts: socialFacts,
+    layout: socialCard.layout,
     agencyName: property.agent.displayProfile === false
       ? undefined
       : property.agent.agencyName,
@@ -261,20 +283,67 @@ export function getPropertySocialPreview(
     brandingLogoUrl:
       brandingMode === "agency" ? property.agent.logoUrl?.trim() : undefined,
     brandingAttribution:
-      brandingMode === "picchuspot"
-        ? "Property Showcase by PicchuSpot"
-        : brandingMode === "agency"
-          ? "Powered by PicchuSpot"
-          : undefined,
+      !socialCard.showPoweredByPicchuSpot
+        ? undefined
+        : brandingMode === "picchuspot"
+          ? "Property Showcase by PicchuSpot"
+          : brandingMode === "agency"
+            ? "Powered by PicchuSpot"
+            : undefined,
   };
 }
 
 export function updateGallerySocialPreview(
   gallery: readonly PropertyGalleryImage[],
   imageId: string,
-  action: "toggle-featured" | "set-primary",
+  action:
+    | "toggle-featured"
+    | "set-primary"
+    | "move-social-up"
+    | "move-social-down",
 ): PropertyGalleryImage[] {
-  return gallery.map((image) => {
+  const selectedCount = gallery.filter(
+    (image) =>
+      image.featuredForSharing === true || image.primarySocialPreview === true,
+  ).length;
+  const target = gallery.find((image) => image.id === imageId);
+  if (!target) return [...gallery];
+  if (
+    (action === "toggle-featured" || action === "set-primary") &&
+    target.featuredForSharing !== true &&
+    selectedCount >= 3
+  ) {
+    return [...gallery];
+  }
+
+  if (action === "move-social-up" || action === "move-social-down") {
+    const selected = sortedSocialGallery(gallery).filter(
+      (image) =>
+        image.featuredForSharing === true || image.primarySocialPreview === true,
+    );
+    const index = selected.findIndex((image) => image.id === imageId);
+    const boundary = selected[0]?.primarySocialPreview === true ? 1 : 0;
+    const nextIndex = index + (action === "move-social-up" ? -1 : 1);
+    if (
+      index < boundary ||
+      nextIndex < boundary ||
+      nextIndex >= selected.length
+    ) {
+      return [...gallery];
+    }
+    [selected[index], selected[nextIndex]] = [
+      selected[nextIndex],
+      selected[index],
+    ];
+    const orders = new Map(selected.map((image, index) => [image.id, index + 1]));
+    return gallery.map((image) =>
+      orders.has(image.id)
+        ? { ...image, socialPreviewOrder: orders.get(image.id) }
+        : image,
+    );
+  }
+
+  const updated = gallery.map((image) => {
     if (action === "set-primary") {
       return image.id === imageId
         ? {
@@ -295,4 +364,17 @@ export function updateGallerySocialPreview(
         : false,
     };
   });
+  const selected = sortedSocialGallery(updated).filter(
+    (image) =>
+      image.featuredForSharing === true || image.primarySocialPreview === true,
+  );
+  const primary = selected.find((image) => image.primarySocialPreview === true);
+  const ordered = primary
+    ? [primary, ...selected.filter((image) => image.id !== primary.id)]
+    : selected;
+  const orders = new Map(ordered.map((image, index) => [image.id, index + 1]));
+  return updated.map((image) => ({
+    ...image,
+    socialPreviewOrder: orders.get(image.id),
+  }));
 }

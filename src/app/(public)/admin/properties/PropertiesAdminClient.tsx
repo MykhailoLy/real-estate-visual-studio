@@ -700,6 +700,7 @@ function buildProperty(
     socialPreview: {
       brandingMode: state.socialBrandingMode,
     },
+    socialCard: existing?.socialCard,
     location: {
       displayAddress: simpleLocalizedText(state.primaryLanguage, displayAddress),
       streetAddress: optional(state.streetAddress),

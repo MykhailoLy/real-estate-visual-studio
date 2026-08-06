@@ -401,6 +401,30 @@ test("property metadata uses a production-domain 1200 by 630 PNG route", () => {
   );
 });
 
+test("media admin exposes configurable social card controls and local preview", () => {
+  for (const expectedText of [
+    "Social card settings",
+    "Content selection",
+    "Custom facts",
+    "Image focused (large photos)",
+    "Balanced (photos and details)",
+    "Minimal (one dominant photo)",
+    "Show location",
+    "Show price",
+    "Show branding",
+    "Show Powered by PicchuSpot",
+    "Reset defaults",
+    "Open generated social PNG",
+  ]) {
+    assert.equal(mediaManagerSource.includes(expectedText), true);
+  }
+  assert.equal(mediaManagerSource.includes("updateSocialCard: socialCardChanged"), true);
+  assert.equal(mediaManagerSource.includes('method: "HEAD"'), true);
+  assert.equal(mediaManagerSource.includes("record.updatedAt"), true);
+  assert.equal(mediaManagerSource.includes("PROPERTY_SOCIAL_CARD_MAX_FACTS"), true);
+  assert.equal(mediaManagerSource.includes("Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} earlier"), true);
+});
+
 test("immersive provider views omit large marketing and status overlays", () => {
   assert.equal(
     virtualTourSource.includes("Enter the property without leaving the page"),

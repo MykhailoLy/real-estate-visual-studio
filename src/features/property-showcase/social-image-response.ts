@@ -7,6 +7,7 @@ import {
 } from "./social-image-preparation.ts";
 import type { PropertySocialPreview } from "./social-preview.ts";
 import type { PropertyShowcase } from "./types.ts";
+import type { PropertySocialCardLayout } from "./types.ts";
 
 export const PROPERTY_SOCIAL_IMAGE_CACHE_CONTROL =
   "public, max-age=0, s-maxage=300, stale-while-revalidate=86400";
@@ -68,6 +69,7 @@ export function hasPngSignature(bytes: Uint8Array): boolean {
 function pngResponse(
   bytes: Uint8Array,
   level: PropertySocialImageLevel,
+  layout?: PropertySocialCardLayout,
 ): Response {
   const body = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(body).set(bytes);
@@ -79,6 +81,7 @@ function pngResponse(
       "X-PicchuSpot-Social-Image-Status":
         level === "full" || level === "reduced" ? "generated" : "fallback",
       "X-PicchuSpot-Social-Image-Level": level,
+      "X-PicchuSpot-Social-Card-Layout": layout ?? "emergency",
     },
   });
 }
@@ -86,13 +89,14 @@ function pngResponse(
 async function materializePngResponse(
   response: Response,
   level: Exclude<PropertySocialImageLevel, "emergency">,
+  layout: PropertySocialCardLayout,
 ): Promise<Response> {
   if (!response.ok) throw new Error("SocialImageRenderResponseError");
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (!hasPngSignature(bytes)) {
     throw new Error("SocialImageRenderOutputError");
   }
-  return pngResponse(bytes, level);
+  return pngResponse(bytes, level, layout);
 }
 
 export function createPropertySocialImageHandler(
@@ -182,6 +186,7 @@ export function createPropertySocialImageHandler(
         return await materializePngResponse(
           await dependencies.renderCard(attempt),
           attempt.level,
+          attempt.preview.layout,
         );
       } catch (error) {
         log(PROPERTY_SOCIAL_IMAGE_EVENTS.renderFailed, {
