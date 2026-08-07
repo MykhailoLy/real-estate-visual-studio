@@ -4,7 +4,7 @@ import { Redis } from "@upstash/redis";
 import { resolveTrustedSupportClientIdentity } from "../../lib/support-assistant/ip.ts";
 
 const RATE_LIMIT_TIMEOUT_MS = 1500;
-const TURNSTILE_TIMEOUT_MS = 4000;
+export const TURNSTILE_TIMEOUT_MS = 10_000;
 const TURNSTILE_VERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
@@ -16,6 +16,47 @@ export type PropertyLeadSecurityEnvironment = Record<
   string,
   string | undefined
 >;
+
+export type PropertyLeadTurnstileReason =
+  | "missing-site-key"
+  | "missing-secret"
+  | "invalid-site-url"
+  | "siteverify-timeout"
+  | "siteverify-network-error"
+  | "siteverify-http-error"
+  | "siteverify-invalid-json"
+  | "cloudflare-invalid"
+  | "hostname-mismatch"
+  | "action-mismatch"
+  | "internal-error"
+  | "invalid-input-response"
+  | "timeout-or-duplicate"
+  | "invalid-input-secret"
+  | "missing-input-secret"
+  | "bad-request";
+
+export type PropertyLeadTurnstileDiagnostic = {
+  reason: PropertyLeadTurnstileReason;
+  httpStatus?: number;
+  cloudflareErrorCodes?: string[];
+  expectedHostname?: string;
+  receivedHostname?: string;
+  receivedAction?: string;
+};
+
+export type PropertyLeadTurnstileVerification =
+  | { status: "valid" }
+  | {
+      status: "invalid" | "unavailable";
+      diagnostic: PropertyLeadTurnstileDiagnostic;
+    };
+
+type TurnstileSiteverifyResponse = {
+  success?: boolean;
+  action?: string;
+  hostname?: string;
+  "error-codes"?: unknown;
+};
 
 let cachedLimiters:
   | { burst: Ratelimit; hourly: Ratelimit }
@@ -102,22 +143,31 @@ export async function verifyPropertyLeadTurnstile(input: {
   token: string;
   fetchImpl?: typeof fetch;
   env?: PropertyLeadSecurityEnvironment;
-}): Promise<"valid" | "invalid" | "unavailable"> {
+  createTimeoutSignal?: (timeoutMs: number) => AbortSignal;
+}): Promise<PropertyLeadTurnstileVerification> {
   const env = input.env ?? process.env;
   const siteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
   const secret = env.TURNSTILE_SECRET_KEY?.trim();
   const production = env.NODE_ENV === "production";
-  if (!siteKey && !secret) return production ? "unavailable" : "valid";
-  if (!siteKey || !secret) return "unavailable";
-  if (!input.token.trim()) return "invalid";
+  if (!siteKey && !secret) {
+    return production
+      ? unavailable({ reason: "missing-site-key" })
+      : { status: "valid" };
+  }
+  if (!siteKey) return unavailable({ reason: "missing-site-key" });
+  if (!secret) return unavailable({ reason: "missing-secret" });
+  if (!input.token.trim()) return invalid({ reason: "cloudflare-invalid" });
 
   const expectedHostname = production
-    ? turnstileExpectedHostname(env)
+    ? turnstileExpectedHostname(env) ?? undefined
     : undefined;
-  if (production && !expectedHostname) return "unavailable";
+  if (production && !expectedHostname) {
+    return unavailable({ reason: "invalid-site-url" });
+  }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TURNSTILE_TIMEOUT_MS);
+  const signal = (input.createTimeoutSignal ?? AbortSignal.timeout)(
+    TURNSTILE_TIMEOUT_MS,
+  );
   try {
     const identity = resolveTrustedSupportClientIdentity(input.request, env);
     const body = new URLSearchParams({
@@ -130,26 +180,124 @@ export async function verifyPropertyLeadTurnstile(input: {
     const response = await (input.fetchImpl ?? fetch)(TURNSTILE_VERIFY_URL, {
       method: "POST",
       body,
-      signal: controller.signal,
+      signal,
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
-    if (!response.ok) return "unavailable";
-    const result = (await response.json()) as {
-      success?: boolean;
-      action?: string;
-      hostname?: string;
-    };
+    if (!response.ok) {
+      return unavailable({
+        reason: "siteverify-http-error",
+        httpStatus: response.status,
+        expectedHostname,
+      });
+    }
+
+    let result: TurnstileSiteverifyResponse;
+    try {
+      const parsed: unknown = await response.json();
+      if (!isTurnstileSiteverifyResponse(parsed)) {
+        return unavailable({ reason: "siteverify-invalid-json", expectedHostname });
+      }
+      result = parsed;
+    } catch {
+      return unavailable({ reason: "siteverify-invalid-json", expectedHostname });
+    }
+
     const receivedHostname = result.hostname?.trim().toLowerCase();
-    return result.success === true &&
-        result.action === "property_lead" &&
-        (!expectedHostname || receivedHostname === expectedHostname)
-      ? "valid"
-      : "invalid";
+    const receivedAction = result.action?.trim();
+    const diagnostic = {
+      expectedHostname,
+      receivedHostname,
+      receivedAction,
+      cloudflareErrorCodes: cloudflareErrorCodes(result["error-codes"]),
+    };
+
+    if (result.success !== true) {
+      return cloudflareFailure(diagnostic);
+    }
+    if (receivedAction !== "property_lead") {
+      return invalid({ ...diagnostic, reason: "action-mismatch" });
+    }
+    if (expectedHostname && receivedHostname !== expectedHostname) {
+      return invalid({ ...diagnostic, reason: "hostname-mismatch" });
+    }
+    return { status: "valid" };
   } catch {
-    return "unavailable";
-  } finally {
-    clearTimeout(timeout);
+    return unavailable({
+      reason: signal.aborted
+        ? "siteverify-timeout"
+        : "siteverify-network-error",
+      expectedHostname,
+    });
   }
+}
+
+function invalid(
+  diagnostic: PropertyLeadTurnstileDiagnostic,
+): PropertyLeadTurnstileVerification {
+  return { status: "invalid", diagnostic: compactDiagnostic(diagnostic) };
+}
+
+function unavailable(
+  diagnostic: PropertyLeadTurnstileDiagnostic,
+): PropertyLeadTurnstileVerification {
+  return { status: "unavailable", diagnostic: compactDiagnostic(diagnostic) };
+}
+
+function compactDiagnostic(
+  diagnostic: PropertyLeadTurnstileDiagnostic,
+): PropertyLeadTurnstileDiagnostic {
+  return {
+    reason: diagnostic.reason,
+    ...(diagnostic.httpStatus === undefined
+      ? {}
+      : { httpStatus: diagnostic.httpStatus }),
+    ...(diagnostic.cloudflareErrorCodes?.length
+      ? { cloudflareErrorCodes: diagnostic.cloudflareErrorCodes }
+      : {}),
+    ...(diagnostic.expectedHostname
+      ? { expectedHostname: diagnostic.expectedHostname }
+      : {}),
+    ...(diagnostic.receivedHostname
+      ? { receivedHostname: diagnostic.receivedHostname }
+      : {}),
+    ...(diagnostic.receivedAction
+      ? { receivedAction: diagnostic.receivedAction }
+      : {}),
+  };
+}
+
+function isTurnstileSiteverifyResponse(
+  value: unknown,
+): value is TurnstileSiteverifyResponse {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cloudflareErrorCodes(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (code): code is string =>
+        typeof code === "string" && /^[a-z0-9-]{1,80}$/.test(code),
+    )
+    .slice(0, 10);
+}
+
+function cloudflareFailure(input: Omit<PropertyLeadTurnstileDiagnostic, "reason">) {
+  const codes = input.cloudflareErrorCodes ?? [];
+  if (codes.includes("internal-error")) {
+    return unavailable({ ...input, reason: "internal-error" });
+  }
+  for (const code of [
+    "invalid-input-secret",
+    "missing-input-secret",
+    "bad-request",
+  ] as const) {
+    if (codes.includes(code)) return unavailable({ ...input, reason: code });
+  }
+  for (const code of ["invalid-input-response", "timeout-or-duplicate"] as const) {
+    if (codes.includes(code)) return invalid({ ...input, reason: code });
+  }
+  return invalid({ ...input, reason: "cloudflare-invalid" });
 }
 
 function turnstileExpectedHostname(

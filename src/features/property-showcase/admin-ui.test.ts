@@ -365,6 +365,34 @@ test("hero viewing CTA opens an accessible keyboard-native dialog", () => {
   assert.equal(viewingDialogSource.includes("Continue in WhatsApp"), true);
 });
 
+test("failed viewing requests retain form fields and reset the single-use Turnstile token", () => {
+  assert.equal(
+    (viewingDialogSource.match(/formRef\.current\?\.reset\(\)/g) ?? []).length,
+    1,
+  );
+  assert.match(
+    viewingDialogSource,
+    /function resetTurnstile\(\) \{[\s\S]*setTurnstileToken\(null\)[\s\S]*setTurnstileResetSignal/,
+  );
+  assert.match(
+    viewingDialogSource,
+    /if \(!response\.ok && response\.status !== 202\) \{[\s\S]*resetTurnstile\(\);[\s\S]*return;/,
+  );
+  assert.match(
+    viewingDialogSource,
+    /\} catch \{[\s\S]*resetTurnstile\(\);/,
+  );
+  assert.match(viewingDialogSource, /resetSignal=\{turnstileResetSignal\}/);
+});
+
+test("successful viewing requests retain their existing reset-and-success behavior", () => {
+  assert.match(
+    viewingDialogSource,
+    /formRef\.current\?\.reset\(\);[\s\S]*status: "success"/,
+  );
+  assert.match(viewingDialogSource, /notificationUnconfirmed: body\.notificationStatus !== "sent"/);
+});
+
 test("sharing never derives a URL from the current admin or preview location", () => {
   assert.equal(propertyActionsSource.includes("window.location.href"), false);
   assert.equal(propertyActionsSource.includes("url: canonicalUrl"), true);

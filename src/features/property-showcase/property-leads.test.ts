@@ -37,7 +37,7 @@ function dependencies(
 ): PropertyLeadDependencies {
   return {
     checkRateLimit: async () => ({ allowed: true }),
-    verifySpam: async () => "valid",
+    verifySpam: async () => ({ status: "valid" }),
     findPublishedProperty: async () => ({
       id: "00000000-0000-4000-8000-000000000001",
       property: structuredClone(costaBlancaDemo),
@@ -178,7 +178,10 @@ test("rate limiting and spam protection stop storage", async () => {
   const spam = await handlePropertyLeadRequest(
     request(validBody()),
     dependencies({
-      verifySpam: async () => "invalid",
+      verifySpam: async () => ({
+        status: "invalid",
+        diagnostic: { reason: "invalid-input-response" },
+      }),
       insertLead: async () => {
         inserted = true;
         return { id: "unexpected" };
@@ -204,6 +207,54 @@ test("rate limiting is scoped to the validated property slug", async () => {
   assert.equal(response.status, 201);
   assert.equal(rateLimitInput?.propertySlug, "quiet-townhouse");
   assert.ok(rateLimitInput?.request instanceof Request);
+});
+
+test("Turnstile tokens longer than 2048 characters are rejected before verification", async () => {
+  let verified = false;
+  const response = await handlePropertyLeadRequest(
+    request(validBody({ turnstileToken: "a".repeat(2049) })),
+    dependencies({
+      verifySpam: async () => {
+        verified = true;
+        return { status: "valid" };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(verified, false);
+});
+
+test("an unavailable Turnstile result is logged without exposing its public diagnostic", async () => {
+  const logs: Array<{ message: string; details: unknown }> = [];
+  const response = await handlePropertyLeadRequest(
+    request(validBody()),
+    dependencies({
+      verifySpam: async () => ({
+        status: "unavailable",
+        diagnostic: {
+          reason: "siteverify-http-error",
+          httpStatus: 503,
+          expectedHostname: "picchuspot.com",
+        },
+      }),
+      logError: (message, details) => logs.push({ message, details }),
+    }),
+  );
+  const body = (await response.json()) as { error: string };
+
+  assert.equal(response.status, 503);
+  assert.equal(body.error, "Security verification is temporarily unavailable.");
+  assert.deepEqual(logs, [
+    {
+      message: "property-leads: turnstile unavailable",
+      details: {
+        reason: "siteverify-http-error",
+        httpStatus: 503,
+        expectedHostname: "picchuspot.com",
+      },
+    },
+  ]);
 });
 
 test("skipped notification delivery remains an accepted, unconfirmed lead", async () => {

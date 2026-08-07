@@ -110,6 +110,11 @@ export default function PropertyViewingRequestDialog({
     onOpenChange(false);
   }
 
+  function resetTurnstile() {
+    setTurnstileToken(null);
+    setTurnstileResetSignal((value) => value + 1);
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!submissionEnabled || submission.status === "submitting") return;
@@ -147,8 +152,7 @@ export default function PropertyViewingRequestDialog({
       };
       if (!response.ok && response.status !== 202) {
         setSubmission({ status: "error", message: body.error ?? copy.error });
-        setTurnstileToken(null);
-        setTurnstileResetSignal((value) => value + 1);
+        resetTurnstile();
         return;
       }
 
@@ -160,8 +164,7 @@ export default function PropertyViewingRequestDialog({
       });
     } catch {
       setSubmission({ status: "error", message: copy.error });
-      setTurnstileToken(null);
-      setTurnstileResetSignal((value) => value + 1);
+      resetTurnstile();
     }
   }
 
