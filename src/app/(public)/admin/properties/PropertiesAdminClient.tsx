@@ -954,7 +954,13 @@ export default function PropertiesAdminClient({
         ) : (
           <ul className="grid gap-4 xl:grid-cols-2">
             {records.map((record) => {
-              const [viewAction, editAction, mediaAction, deleteAction] =
+              const [
+                viewAction,
+                editAction,
+                mediaAction,
+                analyticsAction,
+                deleteAction,
+              ] =
                 propertyCardActions(record);
               const title = localizedText(
                 record.property.title,
@@ -1036,7 +1042,7 @@ export default function PropertiesAdminClient({
                       </div>
                     </dl>
                   </div>
-                  <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                     <Link
                       href={viewAction.href}
                       target="_blank"
@@ -1060,6 +1066,12 @@ export default function PropertiesAdminClient({
                     >
                       <Images className="h-4 w-4" aria-hidden />
                       {mediaAction.label}
+                    </Link>
+                    <Link
+                      href={analyticsAction.href}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3.5 py-2 text-sm font-bold text-primary transition hover:border-primary/40"
+                    >
+                      {analyticsAction.label}
                     </Link>
                     <button
                       type="button"

@@ -22,7 +22,7 @@ import {
   Tag,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrandWordmark } from "@/components/brand";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 import { formatPriceLabel } from "@/features/property-showcase/formatting";
@@ -55,6 +55,11 @@ import type {
   PropertyShowcase,
 } from "@/features/property-showcase/types";
 import { sortedUsablePropertyVideos } from "@/features/property-showcase/video-urls";
+import { trackPropertyEvent } from "@/features/property-showcase/property-analytics-client";
+import {
+  shouldTrackPropertyAnalytics,
+  type PropertyAnalyticsEvent,
+} from "@/features/property-showcase/property-analytics";
 import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
@@ -170,6 +175,22 @@ export default function PropertyShowcaseView({
   const showLocation = mapView.mode !== "hidden";
   const showContactSection = Boolean(contactHref || agent);
   const currentYear = new Date().getFullYear();
+  const trackEvent = useCallback(
+    (event: PropertyAnalyticsEvent) => {
+      if (!shouldTrackPropertyAnalytics(previewMode)) return;
+      trackPropertyEvent({ propertySlug: property.slug, event });
+    },
+    [previewMode, property.slug],
+  );
+
+  useEffect(() => {
+    trackEvent("property_page_viewed");
+  }, [trackEvent]);
+
+  function openViewingDialog() {
+    trackEvent("request_viewing_opened");
+    setViewingDialogOpen(true);
+  }
 
   return (
     <div className="min-h-screen bg-[#f2f0ea] text-slate-950">
@@ -228,7 +249,7 @@ export default function PropertyShowcaseView({
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => setViewingDialogOpen(true)}
+                        onClick={openViewingDialog}
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] shadow-lg transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
                         data-testid="hero-request-viewing"
                       >
@@ -238,10 +259,14 @@ export default function PropertyShowcaseView({
                       <PropertyMarketingDownloads
                         links={marketingMaterialLinks}
                         language={language}
+                        onBrochureDownloaded={() =>
+                          trackEvent("brochure_downloaded")
+                        }
                       />
                       {agent?.emailHref ? (
                         <a
                           href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
+                          onClick={() => trackEvent("agent_email_clicked")}
                           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/35 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
                         >
                           <MessageCircle className="h-4 w-4" aria-hidden />
@@ -262,6 +287,8 @@ export default function PropertyShowcaseView({
               canonicalUrl={canonicalUrl}
               brochureUrl={property.brochureUrl}
               showShare={!previewMode}
+              onShare={() => trackEvent("property_shared")}
+              onBrochureDownload={() => trackEvent("brochure_downloaded")}
             />
           </div>
         </section>
@@ -384,6 +411,7 @@ export default function PropertyShowcaseView({
             eyebrow={ui.galleryEyebrow}
             title={title}
             description={ui.galleryImageCount(gallery.length)}
+            onGalleryOpen={() => trackEvent("gallery_opened")}
           />
         </div>
 
@@ -394,6 +422,7 @@ export default function PropertyShowcaseView({
             posterFallback={property.coverImage}
             locale={language}
             primaryLanguage={primaryLanguage}
+            onVideoStarted={() => trackEvent("video_started")}
           />
         ) : null}
 
@@ -403,6 +432,7 @@ export default function PropertyShowcaseView({
             tour={visibleVirtualTour}
             posterAlt={`360 virtual tour of ${title}`}
             locale={language}
+            onVirtualTourOpened={() => trackEvent("virtual_tour_opened")}
           />
         ) : null}
 
@@ -433,6 +463,7 @@ export default function PropertyShowcaseView({
                 plans={floorPlans}
                 propertyTitle={title}
                 locale={language}
+                onFloorPlanDownload={() => trackEvent("floor_plan_downloaded")}
               />
             </div>
           </section>
@@ -446,6 +477,9 @@ export default function PropertyShowcaseView({
             gallery={gallery}
             locale={language}
             primaryLanguage={primaryLanguage}
+            onInteractiveFloorPlanOpened={() =>
+              trackEvent("interactive_floor_plan_opened")
+            }
           />
         ) : null}
 
@@ -467,7 +501,7 @@ export default function PropertyShowcaseView({
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <button
                       type="button"
-                      onClick={() => setViewingDialogOpen(true)}
+                      onClick={openViewingDialog}
                       className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
                     >
                       <CalendarDays className="h-4 w-4" aria-hidden />
@@ -476,6 +510,7 @@ export default function PropertyShowcaseView({
                     {agent?.emailHref ? (
                       <a
                         href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
+                        onClick={() => trackEvent("agent_email_clicked")}
                         className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#0f2440]/20 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
                       >
                         <MessageCircle className="h-4 w-4" aria-hidden />
@@ -540,6 +575,7 @@ export default function PropertyShowcaseView({
                         {agent.phoneHref && agent.phone ? (
                           <a
                             href={agent.phoneHref}
+                            onClick={() => trackEvent("agent_phone_clicked")}
                             className="flex min-w-0 items-center gap-2 hover:text-[#0f2440]"
                           >
                             <Phone className="h-4 w-4 shrink-0" aria-hidden />
@@ -551,6 +587,7 @@ export default function PropertyShowcaseView({
                             href={agent.whatsappHref}
                             target="_blank"
                             rel="noreferrer"
+                            onClick={() => trackEvent("agent_whatsapp_clicked")}
                             className="flex items-center gap-2 hover:text-[#0f2440]"
                           >
                             <PropertySocialBrandIcon
@@ -563,6 +600,7 @@ export default function PropertyShowcaseView({
                         {agent.emailHref && agent.email ? (
                           <a
                             href={agent.emailHref}
+                            onClick={() => trackEvent("agent_email_clicked")}
                             className="flex min-w-0 items-center gap-2 hover:text-[#0f2440]"
                           >
                             <Mail className="h-4 w-4 shrink-0" aria-hidden />

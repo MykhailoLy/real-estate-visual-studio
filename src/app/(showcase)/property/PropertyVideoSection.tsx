@@ -16,6 +16,7 @@ type PropertyVideoSectionProps = {
   posterFallback: string;
   locale: PropertyLanguageCode;
   primaryLanguage: PropertyLanguageCode;
+  onVideoStarted?: () => void;
 };
 
 type PlayerStatus = "poster" | "opening" | "frame-visible" | "frame-unconfirmed";
@@ -26,6 +27,7 @@ export default function PropertyVideoSection({
   posterFallback,
   locale,
   primaryLanguage,
+  onVideoStarted,
 }: PropertyVideoSectionProps) {
   const [selectedId, setSelectedId] = useState(videos[0]?.id ?? "");
   const [playerState, setPlayerState] = useState<{
@@ -131,12 +133,13 @@ export default function PropertyVideoSection({
                   {canEmbed ? (
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        onVideoStarted?.();
                         setPlayerState({
                           videoId: selected.id,
                           status: "opening",
-                        })
-                      }
+                        });
+                      }}
                       className="inline-flex min-h-12 items-center gap-3 rounded-full bg-white px-6 py-3 text-sm font-bold text-[#0f2440] shadow-xl transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                       aria-label={`${labels.videoCta}: ${title}`}
                     >
@@ -148,6 +151,7 @@ export default function PropertyVideoSection({
                       href={externalUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={onVideoStarted}
                       className="inline-flex min-h-12 items-center gap-3 rounded-full bg-white px-6 py-3 text-sm font-bold text-[#0f2440] shadow-xl transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                     >
                       <ExternalLink className="h-5 w-5" aria-hidden />

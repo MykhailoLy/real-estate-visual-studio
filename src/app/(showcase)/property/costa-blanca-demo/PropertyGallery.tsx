@@ -15,6 +15,7 @@ type PropertyGalleryProps = {
   eyebrow?: string;
   title?: string;
   description?: string;
+  onGalleryOpen?: () => void;
 };
 
 export default function PropertyGallery({
@@ -22,6 +23,7 @@ export default function PropertyGallery({
   eyebrow = "Photo gallery",
   title = "Explore the residence.",
   description = "Select any image to open the full-screen gallery.",
+  onGalleryOpen,
 }: PropertyGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -124,6 +126,7 @@ export default function PropertyGallery({
                 type="button"
                 onClick={(event) => {
                   triggerRef.current = event.currentTarget;
+                  onGalleryOpen?.();
                   setActiveIndex(index);
                 }}
                 className={`group relative overflow-hidden rounded-2xl bg-white/5 text-left focus-visible:outline-white ${

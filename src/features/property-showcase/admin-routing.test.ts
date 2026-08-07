@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   propertyCardActions,
+  propertyAnalyticsHref,
   propertyMediaHref,
   propertyPreviewHref,
   resolvePropertySelection,
@@ -38,6 +39,13 @@ test("propertyPreviewHref points to the protected admin preview route", () => {
   );
 });
 
+test("propertyAnalyticsHref points to the protected per-property analytics route", () => {
+  assert.equal(
+    propertyAnalyticsHref("b6602f70-dacd-45b8-b1fb-6fc8967404af"),
+    "/admin/properties/b6602f70-dacd-45b8-b1fb-6fc8967404af/analytics",
+  );
+});
+
 test("property card actions always include the selected record media action", () => {
   const draft = record("first", "first-home");
   const published = { ...record("second", "second-home"), published: true };
@@ -47,11 +55,11 @@ test("property card actions always include the selected record media action", ()
 
   assert.deepEqual(
     draftActions.map((action) => action.label),
-    ["Preview", "Edit details", "Photos & floor plans", "Delete"],
+    ["Preview", "Edit details", "Photos & floor plans", "Analytics", "Delete"],
   );
   assert.deepEqual(
     publishedActions.map((action) => action.label),
-    ["Open", "Edit details", "Photos & floor plans", "Delete"],
+    ["Open", "Edit details", "Photos & floor plans", "Analytics", "Delete"],
   );
   assert.equal(
     draftActions[2].href,
@@ -61,6 +69,8 @@ test("property card actions always include the selected record media action", ()
     publishedActions[2].href,
     "/admin/properties/media?property=second",
   );
+  assert.equal(draftActions[3].href, "/admin/properties/first/analytics");
+  assert.equal(publishedActions[3].href, "/admin/properties/second/analytics");
 });
 
 test("resolvePropertySelection initializes from the route parameter", () => {
