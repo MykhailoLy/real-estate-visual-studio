@@ -279,8 +279,8 @@ for (const viewport of propertyViewports) {
       ).toBeVisible();
     }
     await expect(marketingDialog.getByRole("button", { name: /^Print/ })).toHaveCount(0);
-    await expect(marketingDialog.getByText("Portrait / A4")).toBeVisible();
-    await expect(marketingDialog.getByText("Landscape JPG")).toHaveCount(0);
+    await expect(marketingDialog.getByText("Property flyer", { exact: true })).toBeVisible();
+    await expect(marketingDialog.getByText("Portrait / A4")).toHaveCount(0);
     const dialogGeometry = await marketingDialog.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -648,14 +648,14 @@ test("stable property social endpoint returns a real public 1200 by 630 PNG", as
   expect(head.headers()["x-picchuspot-social-card-layout"]).toBe("balanced");
 });
 
-test("versioned property brochure route previews only the selected orientation", async ({
+test("versioned property brochure route renders the automatic landscape flyer only", async ({
   page,
   request,
 }) => {
   await page.goto("/property/sea-view-residence");
   await page.getByTestId("hero-download-brochure").click();
   const dialog = page.getByTestId("property-marketing-download-dialog");
-  await expect(dialog.getByText("Portrait / A4")).toBeVisible();
+  await expect(dialog.getByText("Property flyer", { exact: true })).toBeVisible();
   const href = await dialog
     .getByRole("img", { name: "Finished property brochure preview" })
     .getAttribute("src");
@@ -668,11 +668,11 @@ test("versioned property brochure route previews only the selected orientation",
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toContain("image/png");
   expect(response.headers()["content-disposition"]).toContain(
-    "sea-view-residence-portrait-brochure.png",
+    "sea-view-residence-landscape-brochure.png",
   );
   expect(response.headers()["content-disposition"]).toContain("inline");
   expect(response.headers()["cache-control"]).toContain("immutable");
-  expect(pngDimensions(body)).toEqual({ width: 620, height: 877 });
+  expect(pngDimensions(body)).toEqual({ width: 960, height: 540 });
 
   const finalHref = href!.replace("&preview=1", "");
   const finalResponse = await request.get(finalHref);
@@ -680,9 +680,9 @@ test("versioned property brochure route previews only the selected orientation",
   expect(finalResponse.status()).toBe(200);
   expect(finalResponse.headers()["content-disposition"]).toContain("attachment");
   expect(finalResponse.headers()["cache-control"]).toContain("immutable");
-  expect(pngDimensions(finalBody)).toEqual({ width: 2480, height: 3508 });
+  expect(pngDimensions(finalBody)).toEqual({ width: 1920, height: 1080 });
   const lowerPage = await sharp(finalBody)
-    .extract({ left: 0, top: 1900, width: 2480, height: 1608 })
+    .extract({ left: 0, top: 500, width: 1920, height: 580 })
     .resize(64, 42)
     .removeAlpha()
     .raw()
@@ -701,6 +701,11 @@ test("versioned property brochure route previews only the selected orientation",
   expect(stale.status()).toBe(404);
   expect(stale.headers()["cache-control"]).toBe("no-store");
 
+  const portraitAsset = await request.get(
+    finalHref.replace("brochure.png", "flyer.png"),
+  );
+  expect(portraitAsset.status()).toBe(404);
+
   const unauthenticatedDraft = await request.get(
     "/admin/properties/00000000-0000-0000-0000-000000000000/materials/brochure.pdf",
   );
@@ -712,10 +717,11 @@ test("versioned property brochure route previews only the selected orientation",
     {
       data: {
         marketingMaterials: {
+          flyerMode: "automatic-landscape",
           enabled: true,
           brochure: {
-            orientation: "portrait",
-            template: "a4-editorial",
+            orientation: "landscape",
+            template: "hero-two-square",
             supportingMediaIds: [],
           },
         },
@@ -729,37 +735,16 @@ test("versioned property brochure route previews only the selected orientation",
   );
 });
 
-test("public brochure download reports preparing, error and retry states", async ({
+test("public brochure download uses the existing automatic flyer response", async ({
   page,
 }) => {
-  let attempts = 0;
-  await page.route("**/materials/brochure.pdf?*", async (route) => {
-    attempts += 1;
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    if (attempts === 1) {
-      await route.fulfill({ status: 503, body: "Unavailable" });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/pdf",
-      headers: {
-        "Content-Disposition":
-          'attachment; filename="sea-view-residence-portrait-brochure.pdf"',
-      },
-      body: "%PDF-1.4 test",
-    });
-  });
   await page.goto("/property/sea-view-residence");
   await page.getByTestId("hero-download-brochure").click();
   const dialog = page.getByTestId("property-marketing-download-dialog");
-  const liveStatus = dialog.locator('[aria-live="polite"]');
   const pdf = dialog.getByRole("button", { name: /^Download PDF/ });
+  const download = page.waitForEvent("download");
   await pdf.click();
-  await expect(liveStatus).toHaveText("Preparing PDF…");
-  await expect(liveStatus).toContainText("Please retry");
-  await pdf.click();
-  await expect(liveStatus).toHaveText("Ready");
+  await expect(await download).toBeTruthy();
 });
 
 test("explicitly hidden media does not render sections or navigation targets", async ({

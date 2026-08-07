@@ -22,6 +22,7 @@ export function createPropertyMarketingMaterialVersionInput(
     slug: view.slug,
     canonicalUrl: view.canonicalUrl,
     config: {
+      flyerMode: view.config.flyerMode,
       enabled: view.config.enabled,
       brandingMode: view.config.brandingMode,
       includeAgent: view.config.includeAgent,
@@ -72,15 +73,29 @@ export function getPropertyMarketingMaterialLinks(
   options: { adminId?: string } = {},
 ) {
   const view = createPropertyMarketingMaterialView(property, canonicalUrl);
-  if (!options.adminId && !view.config.enabled) return {};
+  if (view.config.flyerMode === "none") return {};
+  if (view.config.flyerMode === "custom") {
+    const flyer = view.config.customFlyer;
+    const preview = flyer.jpg ?? flyer.png ?? flyer.pdf;
+    if (!preview) return {};
+    return {
+      mode: "custom" as const,
+      preview,
+      previewKind: flyer.jpg || flyer.png ? ("image" as const) : ("document" as const),
+      pdf: flyer.pdf,
+      jpg: flyer.jpg,
+      png: flyer.png,
+    };
+  }
   const version = computePropertyMarketingMaterialVersion(property, canonicalUrl);
   const base = options.adminId
     ? `/admin/properties/${encodeURIComponent(options.adminId)}/materials`
     : `/property/${encodeURIComponent(property.slug)}/materials`;
   const url = (asset: string) => `${base}/${asset}?v=${version}`;
   return {
-    orientation: view.config.brochure.orientation,
+    mode: "automatic-landscape" as const,
     preview: `${url("brochure.png")}&preview=1`,
+    previewKind: "image" as const,
     pdf: url("brochure.pdf"),
     jpg: url("brochure.jpg"),
     png: url("brochure.png"),

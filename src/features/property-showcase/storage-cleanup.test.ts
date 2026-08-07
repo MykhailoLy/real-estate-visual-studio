@@ -5,6 +5,7 @@ import {
   collectPropertyShowcaseMediaPaths,
   failedPropertyShowcaseUploadCleanupCandidates,
   isOwnedPropertyShowcaseStoragePath,
+  ownedPropertyCustomFlyerStoragePath,
   propertyShowcaseMediaDeletionCandidates,
   siteMediaObjectPathFromUrl,
 } from "./storage-cleanup.ts";
@@ -337,6 +338,64 @@ test("failed upload cleanup ignores external, shared, and retained paths", () =>
       retained: [storageUrl("property-showcases/altea/batch-3.webp")],
     }),
     ["property-showcases/altea/batch-1.webp"],
+  );
+});
+
+test("custom flyer paths are restricted to the current property flyer folder", () => {
+  const jpg = storageUrl("property-showcases/altea/flyer/170-custom.jpg");
+  assert.equal(
+    ownedPropertyCustomFlyerStoragePath(jpg, "altea"),
+    "property-showcases/altea/flyer/170-custom.jpg",
+  );
+  assert.equal(
+    ownedPropertyCustomFlyerStoragePath(
+      storageUrl("property-showcases/altea/gallery/170-custom.jpg"),
+      "altea",
+    ),
+    null,
+  );
+  assert.equal(
+    ownedPropertyCustomFlyerStoragePath(
+      storageUrl("property-showcases/moraira/flyer/170-custom.jpg"),
+      "altea",
+    ),
+    null,
+  );
+});
+
+test("replacing or removing one custom flyer format cleans up only that format", () => {
+  const existing = cloneProperty();
+  existing.slug = "altea";
+  existing.marketingMaterials = {
+    flyerMode: "custom",
+    customFlyer: {
+      pdf: storageUrl("property-showcases/altea/flyer/1-custom.pdf"),
+      jpg: storageUrl("property-showcases/altea/flyer/1-custom.jpg"),
+      png: storageUrl("property-showcases/altea/flyer/1-custom.png"),
+    },
+  };
+  const replacement = structuredClone(existing);
+  replacement.marketingMaterials!.customFlyer!.jpg = storageUrl(
+    "property-showcases/altea/flyer/2-custom.jpg",
+  );
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({ existing, next: replacement, slug: "altea" }),
+    ["property-showcases/altea/flyer/1-custom.jpg"],
+  );
+
+  const removed = structuredClone(existing);
+  delete removed.marketingMaterials!.customFlyer!.png;
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({ existing, next: removed, slug: "altea" }),
+    ["property-showcases/altea/flyer/1-custom.png"],
+  );
+  assert.deepEqual(
+    collectPropertyShowcaseMediaPaths(existing, "altea").filter((path) => path.includes("/flyer/")),
+    [
+      "property-showcases/altea/flyer/1-custom.jpg",
+      "property-showcases/altea/flyer/1-custom.pdf",
+      "property-showcases/altea/flyer/1-custom.png",
+    ],
   );
 });
 

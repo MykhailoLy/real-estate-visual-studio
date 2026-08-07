@@ -10,6 +10,7 @@ import {
   createPropertyMarketingPreviewResponse,
   PROPERTY_MARKETING_PREVIEW_CACHE_CONTROL,
 } from "@/features/property-showcase/marketing-material-response";
+import { normalizePropertyMarketingMaterialsConfig } from "@/features/property-showcase/marketing-materials";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -92,6 +93,17 @@ export async function POST(request: Request, context: Context) {
   const sourceProperty = propertyDraft?.success
     ? propertyDraft.data
     : record.property;
+  if (
+    normalizePropertyMarketingMaterialsConfig(
+      parsed.data.marketingMaterials,
+      sourceProperty,
+    ).flyerMode !== "automatic-landscape"
+  ) {
+    return NextResponse.json(
+      { error: "Live previews are available for Automatic landscape flyers only." },
+      { status: 400, headers: errorHeaders },
+    );
+  }
   const galleryIds = new Set(sourceProperty.gallery.map((image) => image.id));
   const unknownFocalPoint = parsed.data.focalPoints.find(
     (item) => !galleryIds.has(item.mediaId),

@@ -490,15 +490,15 @@ test("media admin exposes configurable social card controls and local preview", 
   assert.equal(mediaManagerSource.includes("Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} earlier"), true);
 });
 
-test("brochure admin uses one visual orientation and an unsaved server preview", () => {
+test("flyer admin exposes only the three approved modes and an unsaved landscape preview", () => {
   for (const expected of [
     "7. Property flyer",
-    "Brochure format",
-    "Portrait / A4",
-    "Landscape",
-    "Live brochure preview",
-    "Gallery image picker",
-    "Primary image",
+    "Choose flyer type",
+    "No flyer",
+    "Automatic landscape",
+    "Custom flyer",
+    "Custom property flyer",
+    "Live flyer preview",
     "Supporting image order",
     "Unsaved changes",
     "Preview reflects unsaved changes",
@@ -507,10 +507,10 @@ test("brochure admin uses one visual orientation and an unsaved server preview",
   }
   assert.equal(marketingConfiguratorSource.includes("AbortController"), true);
   assert.equal(marketingConfiguratorSource.includes("shouldApplyPropertyMarketingPreview"), true);
-  assert.equal(marketingConfiguratorSource.includes("draggable"), true);
-  assert.equal(marketingConfiguratorSource.includes("Move ${image.label.en} left"), true);
-  assert.equal(marketingConfiguratorSource.includes("Landscape composition"), false);
-  assert.equal(marketingConfiguratorSource.includes("A4 portrait template"), false);
+  assert.equal(marketingConfiguratorSource.includes("flyerMode !== \"automatic-landscape\""), true);
+  assert.equal(marketingConfiguratorSource.includes("Portrait / A4"), false);
+  assert.equal(marketingConfiguratorSource.includes("A4 Classic"), false);
+  assert.equal(marketingConfiguratorSource.includes("flyer/verify"), true);
 });
 
 test("unsaved brochure preview is authenticated, bounded, no-store and read-only", () => {
@@ -574,7 +574,7 @@ test("social preview uses the final renderer with an authenticated no-store unsa
   assert.equal(socialPreviewRouteSource.includes(".delete("), false);
 });
 
-test("public brochure dialog previews one orientation and offers only three controlled downloads", () => {
+test("public brochure dialog uses available files only and has no print action", () => {
   assert.equal(marketingDownloadsSource.includes("Finished property brochure preview"), true);
   assert.equal(marketingDownloadsSource.includes('id: "print"'), false);
   assert.equal(marketingDownloadsSource.includes("window.print"), false);
@@ -585,7 +585,9 @@ test("public brochure dialog previews one orientation and offers only three cont
   assert.equal(marketingDownloadsSource.includes("Download PDF"), true);
   assert.equal(marketingDownloadsSource.includes("Download JPG"), true);
   assert.equal(marketingDownloadsSource.includes("Download PNG"), true);
-  assert.equal(marketingDownloadsSource.includes("fetch(href"), true);
+  assert.equal(marketingDownloadsSource.includes("actions.find"), true);
+  assert.equal(marketingDownloadsSource.includes("PDF brochure ready to download"), true);
+  assert.equal(marketingDownloadsSource.includes("links.previewKind === \"document\""), true);
   assert.equal(marketingDownloadsSource.includes("Preparing brochure preview"), true);
   assert.equal(marketingDownloadsSource.includes("landscapePng"), false);
   assert.equal(marketingDownloadsSource.includes("flyerPdf"), false);

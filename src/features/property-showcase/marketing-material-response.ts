@@ -21,11 +21,6 @@ export const PROPERTY_MARKETING_ASSETS = new Set<PropertyMarketingAsset>([
   "brochure.png",
   "brochure.jpg",
   "brochure.pdf",
-  "landscape.png",
-  "landscape.jpg",
-  "flyer.png",
-  "flyer.jpg",
-  "flyer.pdf",
 ]);
 
 export function parsePropertyMarketingAsset(
@@ -57,15 +52,6 @@ function binaryResponse(
   const body = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(body).set(bytes);
   return new Response(body, { status, headers });
-}
-
-function assetOrientation(
-  asset: PropertyMarketingAsset,
-  selected: PropertyMarketingBrochureOrientation,
-): PropertyMarketingBrochureOrientation {
-  if (asset.startsWith("landscape.")) return "landscape";
-  if (asset.startsWith("flyer.")) return "portrait";
-  return selected;
 }
 
 export async function createPropertyMarketingPdf(
@@ -120,6 +106,16 @@ export async function createPropertyMarketingPreviewResponse(params: {
   property: PropertyShowcase;
   canonicalUrl: string;
 }): Promise<Response> {
+  const config = normalizePropertyMarketingMaterialsConfig(
+    params.property.marketingMaterials,
+    params.property,
+  );
+  if (config.flyerMode !== "automatic-landscape") {
+    return new Response("Automatic landscape preview is not enabled", {
+      status: 400,
+      headers: { "Cache-Control": PROPERTY_MARKETING_ERROR_CACHE_CONTROL },
+    });
+  }
   try {
     const assets = await preparePropertyMarketingAssets(
       params.property,
@@ -134,7 +130,7 @@ export async function createPropertyMarketingPreviewResponse(params: {
     return binaryResponse(
       png,
       200,
-      propertyMarketingPreviewHeaders(assets.view.config.brochure.orientation),
+      propertyMarketingPreviewHeaders("landscape"),
     );
   } catch (error) {
     console.error("property-marketing-material: preview generation failed", {
@@ -160,11 +156,9 @@ export async function createPropertyMarketingMaterialResponse(params: {
     property.marketingMaterials,
     property,
   );
-  const orientation = assetOrientation(asset, config.brochure.orientation);
-  const legacyAsset = !asset.startsWith("brochure.");
   if (
-    (!adminPreview && !config.enabled) ||
-    (legacyAsset && orientation !== config.brochure.orientation)
+    config.flyerMode !== "automatic-landscape" ||
+    config.brochure.orientation !== "landscape"
   ) {
     return new Response("Marketing material not available", {
       status: 404,
@@ -188,18 +182,7 @@ export async function createPropertyMarketingMaterialResponse(params: {
   try {
     const inlinePreview =
       requestUrl.searchParams.get("preview") === "1" && asset.endsWith(".png");
-    const propertyForRender = legacyAsset
-      ? {
-          ...property,
-          marketingMaterials: {
-            ...property.marketingMaterials,
-            brochure: {
-              ...config.brochure,
-              orientation,
-            },
-          },
-        }
-      : property;
+    const propertyForRender = property;
     const assets = await preparePropertyMarketingAssets(
       propertyForRender,
       canonicalUrl,
@@ -215,12 +198,12 @@ export async function createPropertyMarketingMaterialResponse(params: {
     const png = new Uint8Array(await rendered.arrayBuffer());
     if (png.byteLength < 8) throw new Error("MarketingMaterialRenderEmpty");
     const { bytes, contentType } =
-      await encodePropertyMarketingMaterialFormat(png, asset, orientation);
+      await encodePropertyMarketingMaterialFormat(png, asset, "landscape");
     return binaryResponse(bytes, 200, {
       "Cache-Control": adminPreview
         ? PROPERTY_MARKETING_PREVIEW_CACHE_CONTROL
         : PROPERTY_MARKETING_CACHE_CONTROL,
-      "Content-Disposition": `${inlinePreview ? "inline" : "attachment"}; filename="${safePropertyMarketingFilename(property.slug, asset, orientation)}"`,
+      "Content-Disposition": `${inlinePreview ? "inline" : "attachment"}; filename="${safePropertyMarketingFilename(property.slug, asset, "landscape")}"`,
       "Content-Type": contentType,
       "X-PicchuSpot-Marketing-Version": expectedVersion,
       "X-Content-Type-Options": "nosniff",

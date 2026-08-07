@@ -30,6 +30,7 @@ const cloneProperty = (): PropertyShowcase => structuredClone(costaBlancaDemo);
 function configuredProperty(): PropertyShowcase {
   const property = cloneProperty();
   property.marketingMaterials = {
+    flyerMode: "automatic-landscape",
     enabled: true,
     brandingMode: "agency",
     includeAgent: true,
@@ -41,8 +42,8 @@ function configuredProperty(): PropertyShowcase {
     selectedFactKeys: ["bedrooms", "bathrooms", "built-area"],
     selectedHighlightIds: ["highlight-1", "highlight-2"],
     brochure: {
-      orientation: "portrait",
-      template: "a4-editorial",
+      orientation: "landscape",
+      template: "hero-four-grid",
       primaryMediaId: property.gallery[1]?.id,
       supportingMediaIds: [property.gallery[0]?.id, property.gallery[2]?.id].filter(
         (id): id is string => Boolean(id),
@@ -53,11 +54,12 @@ function configuredProperty(): PropertyShowcase {
   return property;
 }
 
-test("properties without brochure settings receive disabled portrait defaults", () => {
+test("properties without flyer settings receive a disabled legacy-compatible default", () => {
   const property = cloneProperty();
   delete property.marketingMaterials;
   const config = normalizePropertyMarketingMaterialsConfig(undefined, property);
   assert.equal(config.enabled, false);
+  assert.equal(config.flyerMode, "none");
   assert.equal(config.brandingMode, "picchuspot");
   assert.equal(config.includeQrCode, true);
   assert.equal(config.brochure.orientation, "portrait");
@@ -102,6 +104,7 @@ test("legacy portrait-only and landscape-only settings normalize without a migra
   };
   const portrait = normalizePropertyMarketingMaterialsConfig(portraitOnly, property);
   assert.equal(portrait.brochure.orientation, "portrait");
+  assert.equal(portrait.flyerMode, "none");
   assert.equal(portrait.brochure.template, "a4-classic");
   assert.equal(portrait.legacyNormalized, true);
 
@@ -120,6 +123,7 @@ test("legacy portrait-only and landscape-only settings normalize without a migra
     property,
   );
   assert.equal(landscape.brochure.orientation, "landscape");
+  assert.equal(landscape.flyerMode, "automatic-landscape");
   assert.equal(landscape.brochure.template, "hero-four-grid");
   assert.deepEqual(landscape.brochure.supportingMediaIds, ["terrace", "living-room"]);
 });
@@ -157,6 +161,7 @@ test("canonical save removes legacy orientation fields and preserves unrelated s
     portrait: { enabled: false },
   }, cloneProperty());
   assert.equal(canonical.brochure?.orientation, "landscape");
+  assert.equal(canonical.flyerMode, "automatic-landscape");
   assert.equal(canonical.brandingMode, "unbranded");
   assert.equal(canonical.includeQrCode, false);
   assert.deepEqual(canonical.customMarketingCopy, { en: "Keep this copy" });
@@ -332,7 +337,7 @@ test("visible orientation, order, focal points and copy deterministically versio
 
   const templateChanged = structuredClone(property);
   if (templateChanged.marketingMaterials?.brochure) {
-    templateChanged.marketingMaterials.brochure.template = "a4-classic";
+    templateChanged.marketingMaterials.brochure.template = "single-hero";
   }
   assert.notEqual(computePropertyMarketingMaterialVersion(templateChanged, canonicalUrl), first);
 
@@ -355,10 +360,50 @@ test("visible orientation, order, focal points and copy deterministically versio
   assert.equal(computePropertyMarketingMaterialVersion(privateEmailChanged, canonicalUrl), first);
 
   const links = getPropertyMarketingMaterialLinks(property, canonicalUrl);
-  assert.equal(links.orientation, "portrait");
+  assert.equal(links.mode, "automatic-landscape");
   assert.match(links.pdf ?? "", /^\/property\/sea-view-residence\/materials\/brochure\.pdf\?v=[a-f0-9]{14}$/);
-  assert.equal("landscapePng" in links, false);
+  assert.equal(links.previewKind, "image");
   assert.equal("flyerPdf" in links, false);
+});
+
+test("flyer modes expose only the relevant public assets and preserve saved configuration", () => {
+  const property = configuredProperty();
+  const automatic = structuredClone(property.marketingMaterials!);
+  property.marketingMaterials = {
+    ...automatic,
+    flyerMode: "none",
+    customFlyer: {
+      pdf: "https://demo.supabase.co/storage/v1/object/public/site-media/property-showcases/sea-view-residence/flyer/1-custom.pdf",
+    },
+  };
+  assert.deepEqual(getPropertyMarketingMaterialLinks(property, canonicalUrl), {});
+  assert.equal(property.marketingMaterials.brochure?.template, "hero-four-grid");
+
+  property.marketingMaterials.flyerMode = "custom";
+  assert.deepEqual(getPropertyMarketingMaterialLinks(property, canonicalUrl), {
+    mode: "custom",
+    preview: property.marketingMaterials.customFlyer?.pdf,
+    previewKind: "document",
+    pdf: property.marketingMaterials.customFlyer?.pdf,
+    jpg: undefined,
+    png: undefined,
+  });
+
+  property.marketingMaterials.customFlyer = {
+    jpg: "https://demo.supabase.co/storage/v1/object/public/site-media/property-showcases/sea-view-residence/flyer/2-custom.jpg",
+    png: "https://demo.supabase.co/storage/v1/object/public/site-media/property-showcases/sea-view-residence/flyer/3-custom.png",
+  };
+  const imageLinks = getPropertyMarketingMaterialLinks(property, canonicalUrl);
+  assert.equal(imageLinks.preview, property.marketingMaterials.customFlyer.jpg);
+  assert.equal(imageLinks.previewKind, "image");
+  assert.equal(imageLinks.pdf, undefined);
+  assert.equal(imageLinks.jpg, property.marketingMaterials.customFlyer.jpg);
+  assert.equal(imageLinks.png, property.marketingMaterials.customFlyer.png);
+
+  property.marketingMaterials.flyerMode = "automatic-landscape";
+  assert.equal(property.marketingMaterials.brochure?.template, "hero-four-grid");
+  assert.equal(property.marketingMaterials.customFlyer?.jpg?.includes("2-custom.jpg"), true);
+  assert.equal(getPropertyMarketingMaterialLinks(property, canonicalUrl).mode, "automatic-landscape");
 });
 
 test("landscape template, replacement and supporting order are authoritative version inputs", () => {

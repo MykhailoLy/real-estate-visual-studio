@@ -195,6 +195,7 @@ const costaBlancaDemo: PropertyShowcase = {
     },
   ],
   marketingMaterials: {
+    flyerMode: "automatic-landscape",
     enabled: true,
     brandingMode: "picchuspot",
     includeAgent: true,
@@ -205,8 +206,8 @@ const costaBlancaDemo: PropertyShowcase = {
     selectedFactKeys: ["bedrooms", "bathrooms", "built-area", "plot-area"],
     selectedHighlightIds: ["highlight-1", "highlight-2", "highlight-3"],
     brochure: {
-      orientation: "portrait",
-      template: "a4-editorial",
+      orientation: "landscape",
+      template: "hero-four-grid",
       primaryMediaId: "terrace",
       supportingMediaIds: ["living-room", "exterior", "principal-bedroom"],
     },

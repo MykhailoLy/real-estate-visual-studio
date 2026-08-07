@@ -145,6 +145,15 @@ export type PropertyMarketingPortraitLayout =
 
 export type PropertyMarketingBrochureOrientation = "portrait" | "landscape";
 
+/** The public property-flyer workflow. Portrait rendering remains legacy-only. */
+export type PropertyFlyerMode = "none" | "automatic-landscape" | "custom";
+
+export interface PropertyCustomFlyerFiles {
+  pdf?: string;
+  jpg?: string;
+  png?: string;
+}
+
 export type PropertyMarketingBrochureTemplate =
   | PropertyMarketingLandscapeLayout
   | PropertyMarketingPortraitLayout;
@@ -171,6 +180,7 @@ export interface PropertyMarketingPortraitConfig {
 }
 
 export interface PropertyMarketingMaterialsConfig {
+  flyerMode?: PropertyFlyerMode;
   enabled?: boolean;
   brandingMode?: PropertySocialBrandingMode;
   includeAgent?: boolean;
@@ -183,6 +193,7 @@ export interface PropertyMarketingMaterialsConfig {
   selectedFactKeys?: PropertySocialCardFactKey[];
   selectedHighlightIds?: string[];
   brochure?: PropertyMarketingBrochureConfig;
+  customFlyer?: PropertyCustomFlyerFiles;
   /** Legacy dual-orientation configuration, normalized in code on read. */
   landscape?: PropertyMarketingLandscapeConfig;
   /** Legacy dual-orientation configuration, normalized in code on read. */

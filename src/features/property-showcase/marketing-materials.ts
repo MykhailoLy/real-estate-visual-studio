@@ -14,6 +14,8 @@ import type {
   PropertyMarketingBrochureOrientation,
   PropertyMarketingBrochureConfig,
   PropertyMarketingBrochureTemplate,
+  PropertyFlyerMode,
+  PropertyCustomFlyerFiles,
   PropertyMarketingLandscapeLayout,
   PropertyMarketingMaterialsConfig,
   PropertyMarketingPortraitLayout,
@@ -50,6 +52,7 @@ export type PropertyMarketingAsset =
   | "flyer.pdf";
 
 export interface NormalizedPropertyMarketingMaterialsConfig {
+  flyerMode: PropertyFlyerMode;
   enabled: boolean;
   brandingMode: PropertySocialBrandingMode;
   includeAgent: boolean;
@@ -67,6 +70,7 @@ export interface NormalizedPropertyMarketingMaterialsConfig {
     primaryMediaId?: string;
     supportingMediaIds: string[];
   };
+  customFlyer: PropertyCustomFlyerFiles;
   legacyNormalized: boolean;
 }
 
@@ -103,8 +107,9 @@ export interface PropertyMarketingMaterialView {
 }
 
 export interface PropertyMarketingMaterialLinks {
-  orientation?: PropertyMarketingBrochureOrientation;
+  mode?: Exclude<PropertyFlyerMode, "none">;
   preview?: string;
+  previewKind?: "image" | "document";
   pdf?: string;
   jpg?: string;
   png?: string;
@@ -241,15 +246,78 @@ function legacyBrochure(
   };
 }
 
+function legacyHasLandscapeFlyer(
+  value: PropertyMarketingMaterialsConfig | undefined,
+): boolean {
+  return Boolean(value?.landscape) && value?.landscape?.enabled !== false;
+}
+
+function inferredFlyerMode(
+  value: PropertyMarketingMaterialsConfig | undefined,
+): PropertyFlyerMode {
+  if (value?.flyerMode) return value.flyerMode;
+  if (value?.enabled !== true) return "none";
+  if (value?.brochure?.orientation === "landscape") return "automatic-landscape";
+  return legacyHasLandscapeFlyer(value) ? "automatic-landscape" : "none";
+}
+
+function normalizedCustomFlyer(
+  value: PropertyMarketingMaterialsConfig | undefined,
+): PropertyCustomFlyerFiles {
+  return {
+    ...(value?.customFlyer?.pdf?.trim()
+      ? { pdf: value.customFlyer.pdf.trim() }
+      : {}),
+    ...(value?.customFlyer?.jpg?.trim()
+      ? { jpg: value.customFlyer.jpg.trim() }
+      : {}),
+    ...(value?.customFlyer?.png?.trim()
+      ? { png: value.customFlyer.png.trim() }
+      : {}),
+  };
+}
+
+/** Normalizes an automatic flyer without surfacing legacy portrait choices. */
+export function automaticLandscapeBrochure(
+  value: PropertyMarketingMaterialsConfig | undefined,
+): NormalizedPropertyMarketingMaterialsConfig["brochure"] {
+  const canonical = value?.brochure;
+  if (canonical?.orientation === "landscape") {
+    return {
+      orientation: "landscape",
+      template: isLandscapeBrochureTemplate(canonical.template ?? "hero-two-square")
+        ? canonical.template ?? "hero-two-square"
+        : "hero-two-square",
+      primaryMediaId: canonical.primaryMediaId?.trim() || undefined,
+      supportingMediaIds: unique(canonical.supportingMediaIds, 5),
+    };
+  }
+  if (value?.landscape) {
+    return {
+      orientation: "landscape",
+      template: value.landscape.layout ?? "hero-two-square",
+      primaryMediaId: value.landscape.primaryMediaId?.trim() || undefined,
+      supportingMediaIds: unique(value.landscape.secondaryMediaIds, 5),
+    };
+  }
+  return {
+    orientation: "landscape",
+    template: "hero-two-square",
+    primaryMediaId: canonical?.primaryMediaId?.trim() || undefined,
+    supportingMediaIds: unique(canonical?.supportingMediaIds, 5),
+  };
+}
+
 export function normalizePropertyMarketingMaterialsConfig(
   value: PropertyMarketingMaterialsConfig | undefined,
   property?: Pick<PropertyShowcase, "agent">,
 ): NormalizedPropertyMarketingMaterialsConfig {
   const visibleAgent = property?.agent.displayProfile !== false;
   const canonical = value?.brochure;
+  const flyerMode = inferredFlyerMode(value);
   const orientation = canonical?.orientation ?? "portrait";
   const requestedTemplate = canonical?.template;
-  const brochure = canonical
+  const normalizedBrochure = canonical
     ? {
         orientation,
         template:
@@ -264,9 +332,13 @@ export function normalizePropertyMarketingMaterialsConfig(
         supportingMediaIds: unique(canonical.supportingMediaIds, 5),
       }
     : legacyBrochure(value);
+  const brochure = flyerMode === "automatic-landscape"
+    ? automaticLandscapeBrochure(value)
+    : normalizedBrochure;
 
   return {
-    enabled: value?.enabled === true,
+    flyerMode,
+    enabled: flyerMode === "automatic-landscape",
     brandingMode: value?.brandingMode ?? "picchuspot",
     includeAgent: value?.includeAgent ?? visibleAgent,
     includeAgencyLogo:
@@ -285,6 +357,7 @@ export function normalizePropertyMarketingMaterialsConfig(
       PROPERTY_MARKETING_MAX_HIGHLIGHTS,
     ),
     brochure,
+    customFlyer: normalizedCustomFlyer(value),
     legacyNormalized: !canonical && Boolean(value?.landscape || value?.portrait),
   };
 }
@@ -295,6 +368,7 @@ export function toCanonicalPropertyMarketingMaterialsConfig(
 ): PropertyMarketingMaterialsConfig {
   const normalized = normalizePropertyMarketingMaterialsConfig(value, property);
   return {
+    flyerMode: normalized.flyerMode,
     enabled: normalized.enabled,
     brandingMode: normalized.brandingMode,
     includeAgent: normalized.includeAgent,
@@ -312,6 +386,7 @@ export function toCanonicalPropertyMarketingMaterialsConfig(
       primaryMediaId: normalized.brochure.primaryMediaId,
       supportingMediaIds: normalized.brochure.supportingMediaIds,
     },
+    customFlyer: normalized.customFlyer,
   };
 }
 
@@ -534,6 +609,7 @@ export function propertyMarketingMaterialsSignature(
 
 export function resetPropertyMarketingMaterialsConfig(): PropertyMarketingMaterialsConfig {
   return {
+    flyerMode: "none",
     enabled: false,
     brandingMode: "picchuspot",
     includeAgent: true,
@@ -544,8 +620,8 @@ export function resetPropertyMarketingMaterialsConfig(): PropertyMarketingMateri
     selectedFactKeys: [],
     selectedHighlightIds: [],
     brochure: {
-      orientation: "portrait",
-      template: "a4-editorial",
+      orientation: "landscape",
+      template: "hero-two-square",
       supportingMediaIds: [],
     },
   };

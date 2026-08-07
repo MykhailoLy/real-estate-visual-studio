@@ -256,6 +256,7 @@ const PropertyMarketingBrochureSchema = z
 
 export const PropertyMarketingMaterialsSchema = z
   .object({
+    flyerMode: z.enum(["none", "automatic-landscape", "custom"]).optional(),
     enabled: z.boolean().optional(),
     brandingMode: z.enum(["picchuspot", "agency", "unbranded"]).optional(),
     includeAgent: z.boolean().optional(),
@@ -279,6 +280,14 @@ export const PropertyMarketingMaterialsSchema = z
       "Marketing material highlights must be unique.",
     ).optional(),
     brochure: PropertyMarketingBrochureSchema.optional(),
+    customFlyer: z
+      .object({
+        pdf: optionalTrimmed(2048),
+        jpg: optionalTrimmed(2048),
+        png: optionalTrimmed(2048),
+      })
+      .strict()
+      .optional(),
     landscape: PropertyMarketingMediaSelectionSchema.optional(),
     portrait: PropertyMarketingPortraitSelectionSchema.optional(),
   })
