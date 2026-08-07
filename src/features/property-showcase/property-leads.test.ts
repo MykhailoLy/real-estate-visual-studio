@@ -189,6 +189,50 @@ test("rate limiting and spam protection stop storage", async () => {
   assert.equal(inserted, false);
 });
 
+test("rate limiting is scoped to the validated property slug", async () => {
+  let rateLimitInput: { request: Request; propertySlug: string } | undefined;
+  const response = await handlePropertyLeadRequest(
+    request(validBody({ propertySlug: "quiet-townhouse" })),
+    dependencies({
+      checkRateLimit: async (input) => {
+        rateLimitInput = input;
+        return { allowed: true };
+      },
+    }),
+  );
+
+  assert.equal(response.status, 201);
+  assert.equal(rateLimitInput?.propertySlug, "quiet-townhouse");
+  assert.ok(rateLimitInput?.request instanceof Request);
+});
+
+test("skipped notification delivery remains an accepted, unconfirmed lead", async () => {
+  const logs: Array<{ message: string; details: unknown }> = [];
+  const response = await handlePropertyLeadRequest(
+    request(validBody()),
+    dependencies({
+      sendNotification: async () => ({
+        status: "skipped",
+        error: "No realtor email is configured.",
+      }),
+      logError: (message, details) => logs.push({ message, details }),
+    }),
+  );
+  const body = (await response.json()) as { notificationStatus?: string };
+
+  assert.equal(response.status, 202);
+  assert.equal(body.notificationStatus, "skipped");
+  assert.deepEqual(logs, [
+    {
+      message: "property-leads: notification was not confirmed",
+      details: {
+        leadId: "00000000-0000-4000-8000-000000000002",
+        status: "skipped",
+      },
+    },
+  ]);
+});
+
 test("WhatsApp handoff is localized, manual and absent without a configured number", async () => {
   assert.equal(
     propertyLeadWhatsAppUrl({

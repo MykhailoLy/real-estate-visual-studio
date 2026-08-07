@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { resolveTrustedSupportClientIdentity } from "@/lib/support-assistant/ip";
+import { resolveTrustedSupportClientIdentity } from "../../lib/support-assistant/ip.ts";
 
 const RATE_LIMIT_TIMEOUT_MS = 1500;
 const TURNSTILE_TIMEOUT_MS = 4000;
@@ -11,6 +11,11 @@ const TURNSTILE_VERIFY_URL =
 type RateLimitDecision =
   | { allowed: true }
   | { allowed: false; retryAfterSeconds: number };
+
+export type PropertyLeadSecurityEnvironment = Record<
+  string,
+  string | undefined
+>;
 
 let cachedLimiters:
   | { burst: Ratelimit; hourly: Ratelimit }
@@ -41,7 +46,7 @@ function propertyLeadLimiters() {
   return cachedLimiters;
 }
 
-function rateLimitIdentifier(request: Request): string {
+function rateLimitIdentifier(request: Request, propertySlug: string): string {
   const identity = resolveTrustedSupportClientIdentity(request);
   if (!identity.ok) throw new Error("Trusted client identity is unavailable.");
   const secret = (
@@ -51,7 +56,9 @@ function rateLimitIdentifier(request: Request): string {
   if (!secret || secret.length < 32) {
     throw new Error("Property lead rate limit secret is not configured.");
   }
-  return createHmac("sha256", secret).update(identity.identity).digest("hex");
+  return createHmac("sha256", secret)
+    .update(`${propertySlug}\u0000${identity.identity}`)
+    .digest("hex");
 }
 
 function retryAfterSeconds(reset: number): number {
@@ -70,8 +77,9 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 
 export async function checkPropertyLeadRateLimit(
   request: Request,
+  propertySlug: string,
 ): Promise<RateLimitDecision> {
-  const identifier = rateLimitIdentifier(request);
+  const identifier = rateLimitIdentifier(request, propertySlug);
   const limiters = propertyLeadLimiters();
   const burst = await withTimeout(
     limiters.burst.limit(identifier),
@@ -93,17 +101,25 @@ export async function verifyPropertyLeadTurnstile(input: {
   request: Request;
   token: string;
   fetchImpl?: typeof fetch;
+  env?: PropertyLeadSecurityEnvironment;
 }): Promise<"valid" | "invalid" | "unavailable"> {
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
-  if (!siteKey && !secret) return "valid";
+  const env = input.env ?? process.env;
+  const siteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
+  const secret = env.TURNSTILE_SECRET_KEY?.trim();
+  const production = env.NODE_ENV === "production";
+  if (!siteKey && !secret) return production ? "unavailable" : "valid";
   if (!siteKey || !secret) return "unavailable";
   if (!input.token.trim()) return "invalid";
+
+  const expectedHostname = production
+    ? turnstileExpectedHostname(env)
+    : undefined;
+  if (production && !expectedHostname) return "unavailable";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TURNSTILE_TIMEOUT_MS);
   try {
-    const identity = resolveTrustedSupportClientIdentity(input.request);
+    const identity = resolveTrustedSupportClientIdentity(input.request, env);
     const body = new URLSearchParams({
       secret,
       response: input.token.trim(),
@@ -121,13 +137,37 @@ export async function verifyPropertyLeadTurnstile(input: {
     const result = (await response.json()) as {
       success?: boolean;
       action?: string;
+      hostname?: string;
     };
-    return result.success === true && result.action === "property_lead"
+    const receivedHostname = result.hostname?.trim().toLowerCase();
+    return result.success === true &&
+        result.action === "property_lead" &&
+        (!expectedHostname || receivedHostname === expectedHostname)
       ? "valid"
       : "invalid";
   } catch {
     return "unavailable";
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function turnstileExpectedHostname(
+  env: PropertyLeadSecurityEnvironment,
+): string | null {
+  const siteUrl = env.NEXT_PUBLIC_SITE_URL?.trim() || "https://picchuspot.com";
+  try {
+    const url = new URL(siteUrl);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.port
+    ) {
+      return null;
+    }
+    return url.hostname.toLowerCase();
+  } catch {
+    return null;
   }
 }

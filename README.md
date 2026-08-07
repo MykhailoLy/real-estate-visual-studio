@@ -42,6 +42,11 @@ Copy `.env.example` to `.env.local` and fill in your project values. Variables r
 | `PROPERTY_SHOWCASE_TRUSTED_VIDEO_ORIGINS` | Custom property-video embeds | Server-only comma-separated exact HTTPS origins |
 | `ADMIN_PASSWORD`             | `/admin/login` + portfolio admin          | **Server only.** Rotating it logs everyone out |
 
+Property lead delivery is per listing: every published property that accepts
+viewing requests needs a valid `agent.email` in its saved showcase document.
+That realtor email is the primary recipient. `PROPERTY_LEADS_CC_EMAIL` adds an
+operations copy only; the application does not use a silent fallback recipient.
+
 ## Database setup (Supabase)
 
 Two SQL files under `supabase/` describe the schema. Run them in order in the Supabase SQL editor:
@@ -53,7 +58,14 @@ Property viewing requests additionally require the reviewed, manually applied
 `supabase/add-property-leads.sql` migration. It creates a private, service-role-only
 lead table; do not apply it automatically from application code or CI.
 
-All three files use idempotent guards so they can be reviewed and re-run safely.
+Property Showcase pages also depend on `supabase/add-property-showcase-foundation.sql`
+for listings and `supabase/site-media.sql` for the public `site-media` bucket used by
+property media and custom flyers. There is no repository evidence that any of these
+three Property Showcase migrations has been applied to production; verify them in the
+Supabase dashboard before publishing real listings. Do not run them from the app or CI.
+
+The database migration files referenced above use idempotent guards so they can
+be reviewed and re-run safely.
 
 ## Portfolio media admin (`/admin/portfolio`)
 
