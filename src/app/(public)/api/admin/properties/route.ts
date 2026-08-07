@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
+import { verifyStoredPropertyCustomFlyerFiles } from "@/features/property-showcase/custom-flyer-storage";
 import { PropertyShowcaseMutationSchema } from "@/features/property-showcase/schema";
 import { mergePropertyShowcaseUpdate } from "@/features/property-showcase/updates";
 
@@ -56,7 +57,35 @@ export async function POST(request: Request) {
     );
   }
 
-  const property = normalized.property;
+  let property = normalized.property;
+
+  let verifiedCustomFlyer;
+  try {
+    verifiedCustomFlyer = await verifyStoredPropertyCustomFlyerFiles({
+      slug: property.slug,
+      files: property.marketingMaterials?.customFlyer,
+    });
+  } catch (error) {
+    console.error("property-showcase: custom flyer verification failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { error: "Could not verify property flyer files." },
+      { status: 500 },
+    );
+  }
+  if (!verifiedCustomFlyer.ok) {
+    return NextResponse.json({ error: verifiedCustomFlyer.error }, { status: 400 });
+  }
+  if (property.marketingMaterials?.customFlyer) {
+    property = {
+      ...property,
+      marketingMaterials: {
+        ...property.marketingMaterials,
+        customFlyer: verifiedCustomFlyer.files,
+      },
+    };
+  }
 
   let supabase;
   try {

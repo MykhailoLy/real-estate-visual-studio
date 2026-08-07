@@ -81,7 +81,10 @@ export interface PropertyLeadNotificationInput {
 }
 
 export interface PropertyLeadDependencies {
-  checkRateLimit(request: Request): Promise<
+  checkRateLimit(input: {
+    request: Request;
+    propertySlug: string;
+  }): Promise<
     | { allowed: true }
     | { allowed: false; retryAfterSeconds: number }
   >;
@@ -169,7 +172,10 @@ export async function handlePropertyLeadRequest(
 
   let rateLimit;
   try {
-    rateLimit = await dependencies.checkRateLimit(request);
+    rateLimit = await dependencies.checkRateLimit({
+      request,
+      propertySlug: input.propertySlug,
+    });
   } catch (error) {
     dependencies.logError?.("property-leads: rate limit unavailable", error);
     return jsonError("Viewing requests are temporarily unavailable.", 503);
@@ -252,6 +258,13 @@ export async function handlePropertyLeadRequest(
     };
   }
 
+  if (notification.status !== "sent") {
+    dependencies.logError?.("property-leads: notification was not confirmed", {
+      leadId: lead.id,
+      status: notification.status,
+    });
+  }
+
   try {
     await dependencies.updateNotification({
       leadId: lead.id,
@@ -281,6 +294,6 @@ export async function handlePropertyLeadRequest(
       notificationStatus: notification.status,
       ...(whatsappUrl ? { whatsappUrl } : {}),
     },
-    { status: notification.status === "failed" ? 202 : 201 },
+    { status: notification.status === "sent" ? 201 : 202 },
   );
 }

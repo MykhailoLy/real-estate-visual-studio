@@ -152,10 +152,21 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   let property = merged.property;
-  const verifiedCustomFlyer = await verifyStoredPropertyCustomFlyerFiles({
-    slug: property.slug,
-    files: property.marketingMaterials?.customFlyer,
-  });
+  let verifiedCustomFlyer;
+  try {
+    verifiedCustomFlyer = await verifyStoredPropertyCustomFlyerFiles({
+      slug: property.slug,
+      files: property.marketingMaterials?.customFlyer,
+    });
+  } catch (error) {
+    console.error("property-showcase: custom flyer verification failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { error: "Could not verify property flyer files." },
+      { status: 500 },
+    );
+  }
   if (!verifiedCustomFlyer.ok) {
     return NextResponse.json({ error: verifiedCustomFlyer.error }, { status: 400 });
   }

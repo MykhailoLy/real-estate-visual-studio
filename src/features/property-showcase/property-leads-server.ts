@@ -79,7 +79,8 @@ async function updateNotification(
 
 export function createPropertyLeadDependencies(): PropertyLeadDependencies {
   return {
-    checkRateLimit: checkPropertyLeadRateLimit,
+    checkRateLimit: ({ request, propertySlug }) =>
+      checkPropertyLeadRateLimit(request, propertySlug),
     verifySpam: ({ request, token }) =>
       verifyPropertyLeadTurnstile({ request, token }),
     findPublishedProperty,
