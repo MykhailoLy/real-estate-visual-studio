@@ -384,7 +384,7 @@ test("flyer modes expose only the relevant public assets and preserve saved conf
     mode: "custom",
     preview: property.marketingMaterials.customFlyer?.pdf,
     previewKind: "document",
-    pdf: property.marketingMaterials.customFlyer?.pdf,
+    pdf: "/property/sea-view-residence/flyer/pdf",
     jpg: undefined,
     png: undefined,
   });
@@ -397,8 +397,8 @@ test("flyer modes expose only the relevant public assets and preserve saved conf
   assert.equal(imageLinks.preview, property.marketingMaterials.customFlyer.jpg);
   assert.equal(imageLinks.previewKind, "image");
   assert.equal(imageLinks.pdf, undefined);
-  assert.equal(imageLinks.jpg, property.marketingMaterials.customFlyer.jpg);
-  assert.equal(imageLinks.png, property.marketingMaterials.customFlyer.png);
+  assert.equal(imageLinks.jpg, "/property/sea-view-residence/flyer/jpg");
+  assert.equal(imageLinks.png, "/property/sea-view-residence/flyer/png");
 
   property.marketingMaterials.flyerMode = "automatic-landscape";
   assert.equal(property.marketingMaterials.brochure?.template, "hero-four-grid");

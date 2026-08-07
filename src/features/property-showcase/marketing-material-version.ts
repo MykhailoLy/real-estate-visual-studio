@@ -78,13 +78,14 @@ export function getPropertyMarketingMaterialLinks(
     const flyer = view.config.customFlyer;
     const preview = flyer.jpg ?? flyer.png ?? flyer.pdf;
     if (!preview) return {};
+    const downloadBase = `/property/${encodeURIComponent(property.slug)}/flyer`;
     return {
       mode: "custom" as const,
       preview,
       previewKind: flyer.jpg || flyer.png ? ("image" as const) : ("document" as const),
-      pdf: flyer.pdf,
-      jpg: flyer.jpg,
-      png: flyer.png,
+      pdf: flyer.pdf ? `${downloadBase}/pdf` : undefined,
+      jpg: flyer.jpg ? `${downloadBase}/jpg` : undefined,
+      png: flyer.png ? `${downloadBase}/png` : undefined,
     };
   }
   const version = computePropertyMarketingMaterialVersion(property, canonicalUrl);

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PROPERTY_CUSTOM_FLYER_FORMATS,
   customFlyerFormatFromUploadKind,
+  safePropertyCustomFlyerFilename,
   validatePropertyCustomFlyerBinary,
 } from "./custom-flyer.ts";
 
@@ -15,6 +16,10 @@ test("custom flyer formats have strict independent MIME types and limits", () =>
   assert.equal(PROPERTY_CUSTOM_FLYER_FORMATS.png.maxBytes, 20 * 1024 * 1024);
   assert.equal(customFlyerFormatFromUploadKind("flyer-jpg"), "jpg");
   assert.equal(customFlyerFormatFromUploadKind("gallery"), null);
+  assert.equal(
+    safePropertyCustomFlyerFilename("Costa Blanca Estate", "png"),
+    "costa-blanca-estate-brochure.png",
+  );
 });
 
 test("custom flyer magic-byte validation rejects mismatched or oversized payloads", () => {

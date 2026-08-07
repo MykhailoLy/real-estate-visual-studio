@@ -588,6 +588,8 @@ test("public brochure dialog uses available files only and has no print action",
   assert.equal(marketingDownloadsSource.includes("actions.find"), true);
   assert.equal(marketingDownloadsSource.includes("PDF brochure ready to download"), true);
   assert.equal(marketingDownloadsSource.includes("links.previewKind === \"document\""), true);
+  assert.equal(marketingDownloadsSource.includes("src={links.preview}"), true);
+  assert.equal(marketingDownloadsSource.includes("object-contain"), true);
   assert.equal(marketingDownloadsSource.includes("Preparing brochure preview"), true);
   assert.equal(marketingDownloadsSource.includes("landscapePng"), false);
   assert.equal(marketingDownloadsSource.includes("flyerPdf"), false);

@@ -23,6 +23,18 @@ export type PropertyCustomFlyerFormat = keyof typeof PROPERTY_CUSTOM_FLYER_FORMA
 export type PropertyCustomFlyerUploadKind =
   (typeof PROPERTY_CUSTOM_FLYER_FORMATS)[PropertyCustomFlyerFormat]["uploadKind"];
 
+export function safePropertyCustomFlyerFilename(
+  slug: string,
+  format: PropertyCustomFlyerFormat,
+): string {
+  const safeSlug =
+    slug
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "property";
+  return `${safeSlug}-brochure.${PROPERTY_CUSTOM_FLYER_FORMATS[format].extension}`;
+}
+
 export function customFlyerFormatFromUploadKind(
   kind: string,
 ): PropertyCustomFlyerFormat | null {
