@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { canonicalPropertyUrl } from "./sharing.ts";
+import type { PropertyLeadTurnstileVerification } from "./property-lead-security.ts";
 import type { PropertyLanguageCode, PropertyShowcase } from "./types.ts";
 
 const OptionalText = (max: number) =>
@@ -44,7 +45,7 @@ export const PropertyLeadInputSchema = z
     ),
     message: OptionalText(2000),
     website: OptionalText(200),
-    turnstileToken: OptionalText(4096),
+    turnstileToken: OptionalText(2048),
   })
   .strict();
 
@@ -91,7 +92,7 @@ export interface PropertyLeadDependencies {
   verifySpam(input: {
     request: Request;
     token: string;
-  }): Promise<"valid" | "invalid" | "unavailable">;
+  }): Promise<PropertyLeadTurnstileVerification>;
   findPublishedProperty(
     slug: string,
   ): Promise<PublishedPropertyLeadContext | null>;
@@ -186,20 +187,26 @@ export async function handlePropertyLeadRequest(
     });
   }
 
-  let spamResult: "valid" | "invalid" | "unavailable";
+  let spamResult: PropertyLeadTurnstileVerification;
   try {
     spamResult = await dependencies.verifySpam({
       request,
       token: input.turnstileToken,
     });
-  } catch (error) {
-    dependencies.logError?.("property-leads: spam verification failed", error);
-    spamResult = "unavailable";
+  } catch {
+    spamResult = {
+      status: "unavailable",
+      diagnostic: { reason: "internal-error" },
+    };
   }
-  if (spamResult === "invalid") {
+  if (spamResult.status === "invalid") {
     return jsonError("Security check failed. Please try again.", 400);
   }
-  if (spamResult === "unavailable") {
+  if (spamResult.status === "unavailable") {
+    dependencies.logError?.(
+      "property-leads: turnstile unavailable",
+      spamResult.diagnostic,
+    );
     return jsonError("Security verification is temporarily unavailable.", 503);
   }
 

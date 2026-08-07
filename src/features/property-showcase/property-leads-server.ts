@@ -87,6 +87,17 @@ export function createPropertyLeadDependencies(): PropertyLeadDependencies {
     insertLead,
     updateNotification,
     sendNotification: sendPropertyLeadEmail,
-    logError: (message, error) => console.error(message, error),
+    logError: (message, details) => {
+      if (
+        message === "property-leads: turnstile unavailable" &&
+        details &&
+        typeof details === "object" &&
+        !Array.isArray(details)
+      ) {
+        console.error({ event: message, ...details });
+        return;
+      }
+      console.error(message, details);
+    },
   };
 }
