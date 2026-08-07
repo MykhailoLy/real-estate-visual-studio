@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PropertyMarketingConfigurator from "./PropertyMarketingConfigurator";
+import PropertySocialCardPreview from "./PropertySocialCardPreview";
 import {
   useEffect,
   useMemo,
@@ -17,6 +19,7 @@ import {
   ArrowRight,
   ArrowUp,
   Check,
+  Crosshair,
   ExternalLink,
   GripVertical,
   Image as ImageIcon,
@@ -26,8 +29,14 @@ import {
   Star,
   Trash2,
   Upload,
+  RotateCcw,
 } from "lucide-react";
 import type { PropertyShowcaseAdminRecord } from "@/features/property-showcase/admin-types";
+import {
+  propertyMarketingMaterialsSignature,
+  toCanonicalPropertyMarketingMaterialsConfig,
+} from "@/features/property-showcase/marketing-materials";
+import { focalPointToObjectPosition } from "@/features/property-showcase/focal-point";
 import {
   propertyPreviewHref,
   resolvePropertySelection,
@@ -42,7 +51,6 @@ import {
   PROPERTY_LANGUAGE_LABELS,
 } from "@/features/property-showcase/localization";
 import {
-  getPropertySocialPreview,
   resolvedPropertySocialImages,
   updateGallerySocialPreview,
 } from "@/features/property-showcase/social-preview";
@@ -60,6 +68,7 @@ import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
   PropertyShowcase,
+  PropertyMarketingMaterialsConfig,
   PropertySocialCardFactKey,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
@@ -384,6 +393,18 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     socialCardConfigSignature(record.property.socialCard),
   );
   const [socialCardError, setSocialCardError] = useState<string | null>(null);
+  const [marketingMaterials, setMarketingMaterials] =
+    useState<PropertyMarketingMaterialsConfig>(() =>
+      toCanonicalPropertyMarketingMaterialsConfig(
+        record.property.marketingMaterials,
+        record.property,
+      ),
+    );
+  const [savedMarketingMaterialsSignature, setSavedMarketingMaterialsSignature] =
+    useState(() =>
+      propertyMarketingMaterialsSignature(record.property.marketingMaterials),
+    );
+  const [focalEditorId, setFocalEditorId] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedFloorPlanId, setDraggedFloorPlanId] = useState<string | null>(
     null,
@@ -418,21 +439,27 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     }),
     [agencyLogoUrl, coverImage, gallery, record.property, socialCard],
   );
-  const socialPreview = useMemo(
-    () => getPropertySocialPreview(socialPreviewProperty),
-    [socialPreviewProperty],
+  const marketingPreviewProperty = useMemo(
+    () => ({
+      ...socialPreviewProperty,
+      marketingMaterials,
+      agent: {
+        ...socialPreviewProperty.agent,
+        portraitUrl: agentPortraitUrl || undefined,
+      },
+    }),
+    [agentPortraitUrl, marketingMaterials, socialPreviewProperty],
   );
   const resolvedSocialImages = useMemo(
     () => resolvedPropertySocialImages(socialPreviewProperty),
     [socialPreviewProperty],
   );
   const generatedSocialImagePath = `/property/${encodeURIComponent(record.slug)}/opengraph-image`;
-  const socialPreviewGridClass =
-    socialPreview.layout === "balanced"
-      ? "md:grid-cols-[1.72fr_1fr]"
-      : "md:grid-cols-[2.75fr_1fr]";
   const socialCardChanged =
     socialCardConfigSignature(socialCard) !== savedSocialCardSignature;
+  const marketingMaterialsChanged =
+    propertyMarketingMaterialsSignature(marketingMaterials) !==
+    savedMarketingMaterialsSignature;
   const orderedSocialImages = [...gallery]
     .filter(
       (image) =>
@@ -639,6 +666,22 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     const result = setPropertySocialCardFactVisible(socialCard, key, visible);
     setSocialCard(result.config);
     setSocialCardError(result.error ?? null);
+  }
+
+  function setGalleryFocalPoint(imageId: string, x: number, y: number) {
+    setGallery((current) =>
+      current.map((image) =>
+        image.id === imageId
+          ? {
+              ...image,
+              focalPoint: {
+                x: Math.min(1, Math.max(0, x)),
+                y: Math.min(1, Math.max(0, y)),
+              },
+            }
+          : image,
+      ),
+    );
   }
 
   function removeFloorPlan(planId: string) {
@@ -1060,6 +1103,11 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     const removeInteractivePoster =
       Boolean(record.property.interactiveFloorPlanTour?.posterImage) &&
       !interactivePosterUrl.trim();
+    const canonicalMarketingMaterials =
+      toCanonicalPropertyMarketingMaterialsConfig(
+        marketingMaterials,
+        record.property,
+      );
 
     const property: PropertyShowcase = {
       ...record.property,
@@ -1067,6 +1115,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       gallery: cleanedGallery,
       floorPlans: cleanedFloorPlans,
       socialCard,
+      marketingMaterials: canonicalMarketingMaterials,
       virtualTour: record.property.virtualTour
         ? {
             ...record.property.virtualTour,
@@ -1119,6 +1168,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           removeInteractivePoster,
           replaceFloorPlans: true,
           updateSocialCard: socialCardChanged,
+          updateMarketingMaterials: marketingMaterialsChanged,
         }),
       });
       if (!response.ok) {
@@ -1135,8 +1185,18 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
       );
       setAgentPortraitUrl(property.agent.portraitUrl ?? "");
       setAgencyLogoUrl(property.agent.logoUrl ?? "");
+      setMarketingMaterials(canonicalMarketingMaterials);
       setSavedSocialCardSignature(socialCardConfigSignature(socialCard));
-      setNotice("Property media and social card settings saved successfully.");
+      setSavedMarketingMaterialsSignature(
+        propertyMarketingMaterialsSignature(canonicalMarketingMaterials),
+      );
+      setNotice("Property media, focal points, and marketing settings saved successfully.");
+      if (canonicalMarketingMaterials.enabled) {
+        void fetch(
+          `/admin/properties/${encodeURIComponent(record.id)}/materials/brochure.pdf`,
+          { credentials: "same-origin" },
+        ).catch(() => undefined);
+      }
       router.refresh();
     } catch {
       setError("Network error while saving property media.");
@@ -1222,6 +1282,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                 return (
                   <article
                     key={image.id}
+                    id={`property-gallery-image-${image.id}`}
                     draggable={!demo}
                     onDragStart={() => setDraggedId(image.id)}
                     onDragEnd={() => setDraggedId(null)}
@@ -1241,7 +1302,37 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         src={image.src}
                         alt=""
                         className="h-full w-full object-cover"
+                        style={{
+                          objectPosition: focalPointToObjectPosition(
+                            image.focalPoint,
+                          ),
+                        }}
                       />
+                      {focalEditorId === image.id ? (
+                        <button
+                          type="button"
+                          className="absolute inset-0 z-20 cursor-crosshair bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+                          aria-label={`Set focal point for ${image.label.en}`}
+                          onClick={(event) => {
+                            const bounds = event.currentTarget.getBoundingClientRect();
+                            setGalleryFocalPoint(
+                              image.id,
+                              (event.clientX - bounds.left) / bounds.width,
+                              (event.clientY - bounds.top) / bounds.height,
+                            );
+                          }}
+                        >
+                          <span
+                            className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#B88A44]/80 shadow-lg"
+                            style={{
+                              left: `${(image.focalPoint?.x ?? 0.5) * 100}%`,
+                              top: `${(image.focalPoint?.y ?? 0.5) * 100}%`,
+                            }}
+                          >
+                            <Crosshair className="h-full w-full p-1 text-[#0B1F3A]" aria-hidden />
+                          </span>
+                        </button>
+                      ) : null}
                       <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
                         <span className="rounded-full bg-black/65 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
                           {index + 1}
@@ -1314,6 +1405,28 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                         Featured / best for sharing
                       </label>
                       <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFocalEditorId((current) =>
+                              current === image.id ? null : image.id,
+                            )
+                          }
+                          disabled={demo}
+                          aria-pressed={focalEditorId === image.id}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                        >
+                          <Crosshair className="h-3.5 w-3.5" aria-hidden />
+                          {focalEditorId === image.id ? "Done" : "Set focal point"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGalleryFocalPoint(image.id, 0.5, 0.5)}
+                          disabled={demo}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-primary disabled:opacity-40"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Reset centre
+                        </button>
                         <button
                           type="button"
                           onClick={() => setCoverImage(image.src)}
@@ -1389,6 +1502,28 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                           <Trash2 className="h-3.5 w-3.5" aria-hidden />
                         </button>
                       </div>
+                      {focalEditorId === image.id ? (
+                        <div className="grid grid-cols-3 gap-2" aria-label="Live crop previews">
+                          {([
+                            ["Landscape", "aspect-video"],
+                            ["Square", "aspect-square"],
+                            ["Portrait", "aspect-[3/4]"],
+                          ] as const).map(([label, aspect]) => (
+                            <div key={label}>
+                              <div className={`overflow-hidden rounded-md bg-surface ${aspect}`}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={image.src}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  style={{ objectPosition: focalPointToObjectPosition(image.focalPoint) }}
+                                />
+                              </div>
+                              <span className="mt-1 block text-center text-[9px] font-bold text-muted">{label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   </article>
                 );
@@ -1599,6 +1734,26 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         </div>
       </section>
 
+      <PropertyMarketingConfigurator
+        propertyId={record.id}
+        propertySlug={record.slug}
+        property={marketingPreviewProperty}
+        gallery={realGallery}
+        value={marketingMaterials}
+        changed={marketingMaterialsChanged}
+        saving={saving}
+        onChange={setMarketingMaterials}
+        onEditFocalPoint={(mediaId) => {
+          setFocalEditorId(mediaId);
+          window.setTimeout(() => {
+            document
+              .getElementById(`property-gallery-image-${mediaId}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 0);
+        }}
+        onSave={save}
+      />
+
       <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
         <header className="border-b border-border p-5">
           <h2 className="text-lg font-bold text-primary">Social sharing preview</h2>
@@ -1607,104 +1762,12 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
           </p>
         </header>
         <div className="space-y-4 p-5">
-          <div
-            data-testid="social-card-admin-preview"
-            data-layout={socialPreview.layout}
-            className={`mx-auto grid min-h-72 max-w-4xl overflow-hidden rounded-lg border border-border bg-surface md:aspect-[1200/630] md:min-h-0 ${socialPreviewGridClass}`}
-          >
-            <div className="flex min-h-52 flex-col overflow-hidden bg-slate-200">
-              {socialPreview.images[0] ? (
-                <div className="relative min-h-0 flex-1 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={socialPreview.images[0].imageUrl}
-                    alt={socialPreview.images[0].imageAlt}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="grid flex-1 place-items-center px-5 text-center text-sm text-muted">
-                  No public social image available
-                </div>
-              )}
-              {socialPreview.layout !== "minimal" && socialPreview.images.length > 1 ? (
-                <div className="grid h-20 shrink-0 grid-cols-2 gap-0.5 border-t-2 border-white sm:h-28">
-                  {socialPreview.images.slice(1, 3).map((image) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={image.imageUrl}
-                      src={image.imageUrl}
-                      alt={image.imageAlt}
-                      className="h-full w-full object-cover"
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex min-w-0 flex-col bg-[#0B1F3A] p-5 text-white sm:p-6">
-              {socialPreview.brandingMode === "picchuspot" ? (
-                <div>
-                  <p className="text-sm font-bold">
-                    Picchu<span className="text-[#B88A44]">Spot</span>
-                  </p>
-                  {socialPreview.brandingAttribution ? (
-                    <p className="mt-1 text-[10px] text-white/50">
-                      {socialPreview.brandingAttribution}
-                    </p>
-                  ) : null}
-                </div>
-              ) : socialPreview.brandingMode === "agency" ? (
-                <div className="flex items-center gap-3">
-                  {socialPreview.brandingLogoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={socialPreview.brandingLogoUrl}
-                      alt=""
-                      className="h-10 w-16 rounded bg-white/90 object-contain p-1"
-                    />
-                  ) : null}
-                  <div>
-                    <p className="text-sm font-bold">
-                      {socialPreview.brandingName ?? "Agency"}
-                    </p>
-                    {socialPreview.brandingAttribution ? (
-                      <p className="mt-1 text-[10px] text-white/50">
-                        {socialPreview.brandingAttribution}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-0.5 w-10 bg-[#B88A44]" />
-              )}
-              {socialPreview.location ? (
-                <p className="mt-5 text-xs leading-5 text-white/65">
-                  {socialPreview.location}
-                </p>
-              ) : null}
-              <p className="mt-2 break-words text-xl font-bold leading-tight">
-                {record.property.title[primaryLanguage] ?? record.property.title.en}
-              </p>
-              {socialPreview.price ? (
-                <p className="mt-3 text-2xl font-bold text-[#d6b665]">
-                  {socialPreview.price}
-                </p>
-              ) : null}
-              {socialPreview.facts.length > 0 ? (
-                <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-white/15 pt-4 text-xs">
-                  {socialPreview.facts.map((fact) => (
-                    <div key={fact.key} className="min-w-0">
-                      <dt className="truncate text-[9px] font-bold uppercase tracking-wide text-white/50">
-                        {fact.label}
-                      </dt>
-                      <dd className="mt-0.5 truncate font-bold text-white/85">
-                        {fact.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
-            </div>
+          <div data-testid="social-card-admin-preview">
+            <PropertySocialCardPreview
+              propertyId={record.id}
+              property={socialPreviewProperty}
+              changed={socialCardChanged || marketingMaterialsChanged || JSON.stringify(gallery) !== JSON.stringify(initialGallery) || coverImage !== record.property.coverImage || agencyLogoUrl !== (record.property.agent.logoUrl ?? "")}
+            />
           </div>
 
           {resolvedSocialImages.length === 0 ? (

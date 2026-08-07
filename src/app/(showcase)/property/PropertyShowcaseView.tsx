@@ -59,6 +59,8 @@ import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
 import PropertyHeroSlideshow from "./PropertyHeroSlideshow";
+import PropertyMarketingDownloads from "./PropertyMarketingDownloads";
+import type { PropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-materials";
 import PropertyMapCanvas from "./PropertyMapCanvas";
 import PropertyShowcaseActions from "./PropertyShowcaseActions";
 import PropertyVideoSection from "./PropertyVideoSection";
@@ -73,6 +75,7 @@ type PropertyShowcaseViewProps = {
   canonicalUrl: string;
   turnstileSiteKey?: string | null;
   previewMode?: boolean;
+  marketingMaterialLinks?: PropertyMarketingMaterialLinks;
 };
 
 const factIcons: Record<PropertyFactKey, LucideIcon> = {
@@ -111,6 +114,7 @@ export default function PropertyShowcaseView({
   canonicalUrl,
   turnstileSiteKey,
   previewMode = false,
+  marketingMaterialLinks = {},
 }: PropertyShowcaseViewProps) {
   const primaryLanguage = getPrimaryLanguage(property);
   const languages = getPropertyLanguageOptions(property);
@@ -231,6 +235,10 @@ export default function PropertyShowcaseView({
                         <CalendarDays className="h-4 w-4" aria-hidden />
                         {ui.requestViewing}
                       </button>
+                      <PropertyMarketingDownloads
+                        links={marketingMaterialLinks}
+                        language={language}
+                      />
                       {agent?.emailHref ? (
                         <a
                           href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}

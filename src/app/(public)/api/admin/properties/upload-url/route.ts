@@ -2,6 +2,10 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { failedPropertyShowcaseUploadCleanupCandidates } from "@/features/property-showcase/storage-cleanup";
+import {
+  PROPERTY_CUSTOM_FLYER_FORMATS,
+  customFlyerFormatFromUploadKind,
+} from "@/features/property-showcase/custom-flyer";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   createSiteMediaSignedUploadUrl,
@@ -30,12 +34,34 @@ const Body = z
       "interactive-poster",
       "agent-portrait",
       "agency-logo",
+      "flyer-pdf",
+      "flyer-jpg",
+      "flyer-png",
     ]),
     filename: z.string().trim().min(1).max(255),
-    content_type: z.enum(SITE_MEDIA_ALLOWED_MIMES),
+    content_type: z.enum([...SITE_MEDIA_ALLOWED_MIMES, "application/pdf"]),
     file_size: z.number().int().min(1).max(MAX_PROPERTY_MEDIA_BYTES),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const format = customFlyerFormatFromUploadKind(value.kind);
+    if (!format) return;
+    const rule = PROPERTY_CUSTOM_FLYER_FORMATS[format];
+    if (value.content_type !== rule.mime) {
+      context.addIssue({
+        code: "custom",
+        path: ["content_type"],
+        message: `Custom ${format.toUpperCase()} flyers must use ${rule.mime}.`,
+      });
+    }
+    if (value.file_size > rule.maxBytes) {
+      context.addIssue({
+        code: "custom",
+        path: ["file_size"],
+        message: `Custom ${format.toUpperCase()} flyers must be no larger than ${rule.maxBytes / (1024 * 1024)} MB.`,
+      });
+    }
+  });
 
 const CleanupBody = z
   .object({
@@ -71,9 +97,9 @@ export async function POST(request: Request) {
         .find((item): item is string => Boolean(item)) ?? "Invalid request.";
 
     if ((flat.fieldErrors.file_size ?? []).length > 0) {
-      message = `File is too large. Max ${MAX_PROPERTY_MEDIA_MB} MB.`;
+      message = (flat.fieldErrors.file_size ?? [])[0] ?? `File is too large. Max ${MAX_PROPERTY_MEDIA_MB} MB.`;
     } else if ((flat.fieldErrors.content_type ?? []).length > 0) {
-      message = "Unsupported file type. Use JPG, PNG, or WebP.";
+      message = (flat.fieldErrors.content_type ?? [])[0] ?? "Unsupported file type. Use JPG, PNG, or WebP.";
     }
 
     return NextResponse.json({ error: message, details: flat }, { status: 400 });
@@ -81,7 +107,10 @@ export async function POST(request: Request) {
 
   const { slug, kind, filename, content_type } = parsed.data;
   const nonce = randomBytes(5).toString("hex");
-  const path = `property-showcases/${slug}/${Date.now()}-${nonce}-${kind}-${safeFilename(filename)}`;
+  const customFormat = customFlyerFormatFromUploadKind(kind);
+  const path = customFormat
+    ? `property-showcases/${slug}/flyer/${Date.now()}-${nonce}-custom.${PROPERTY_CUSTOM_FLYER_FORMATS[customFormat].extension}`
+    : `property-showcases/${slug}/${Date.now()}-${nonce}-${kind}-${safeFilename(filename)}`;
 
   try {
     const signed = await createSiteMediaSignedUploadUrl(path);

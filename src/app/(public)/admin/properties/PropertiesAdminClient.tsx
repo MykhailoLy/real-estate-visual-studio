@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import PropertySocialCardPreview from "./media/PropertySocialCardPreview";
 import {
   AlertTriangle,
   ChevronDown,
@@ -87,6 +88,14 @@ interface HighlightFormState {
   text: string;
 }
 
+interface CustomFactFormState {
+  id: string;
+  key: PropertyFact["key"];
+  label: string;
+  value: string;
+  visible: boolean;
+}
+
 interface VideoFormState {
   id: string;
   provider: PropertyVideoProvider;
@@ -119,6 +128,7 @@ interface FormState {
   builtArea: string;
   yearBuilt: string;
   plotArea: string;
+  customFacts: CustomFactFormState[];
   address: string;
   streetAddress: string;
   city: string;
@@ -299,6 +309,18 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
     builtArea: factValue(property, "built-area"),
     yearBuilt: factValue(property, "year-built"),
     plotArea: factValue(property, "plot-area"),
+    customFacts:
+      property?.facts
+        .filter((fact) => fact.key.startsWith("custom-"))
+        .slice()
+        .sort((first, second) => (first.sortOrder ?? 0) - (second.sortOrder ?? 0))
+        .map((fact) => ({
+          id: fact.key,
+          key: fact.key,
+          label: localizedText(fact.label, primaryLanguage, primaryLanguage),
+          value: fact.value,
+          visible: fact.visible !== false,
+        })) ?? [],
     address: property
       ? localizedText(property.location.displayAddress, primaryLanguage, primaryLanguage)
       : "",
@@ -479,6 +501,18 @@ function buildFacts(state: FormState): PropertyFact[] {
     50,
   );
   push("plot-area", state.plotArea, { en: "Lot size", es: "Parcela" }, 60);
+  state.customFacts.forEach((fact, index) => {
+    const label = fact.label.trim();
+    const value = fact.value.trim();
+    if (!label || !value) return;
+    facts.push({
+      key: fact.key,
+      value,
+      label: simpleLocalizedText(state.primaryLanguage, label),
+      sortOrder: 1000 + index,
+      visible: fact.visible,
+    });
+  });
   return facts;
 }
 
@@ -1135,6 +1169,10 @@ function PropertyEditor({
   const pageUrlPreview = `/property/${
     form.slug.trim() || generatePropertyPageSlug(form.title, form.reference)
   }`;
+  const socialPreviewDraft = useMemo(
+    () => (record ? buildProperty(form, record.property) : null),
+    [form, record],
+  );
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1241,6 +1279,55 @@ function PropertyEditor({
             nextIndex,
           ),
         })),
+      };
+    });
+  }
+
+  function addCustomFact() {
+    setForm((current) => ({
+      ...current,
+      customFacts: [
+        ...current.customFacts,
+        {
+          id: crypto.randomUUID(),
+          key: `custom-${crypto.randomUUID().toLowerCase()}`,
+          label: "",
+          value: "",
+          visible: true,
+        },
+      ],
+    }));
+  }
+
+  function updateCustomFact(
+    id: string,
+    patch: Partial<Pick<CustomFactFormState, "label" | "value" | "visible">>,
+  ) {
+    setForm((current) => ({
+      ...current,
+      customFacts: current.customFacts.map((fact) =>
+        fact.id === id ? { ...fact, ...patch } : fact,
+      ),
+    }));
+  }
+
+  function removeCustomFact(id: string) {
+    setForm((current) => ({
+      ...current,
+      customFacts: current.customFacts.filter((fact) => fact.id !== id),
+    }));
+  }
+
+  function moveCustomFact(id: string, direction: -1 | 1) {
+    setForm((current) => {
+      const index = current.customFacts.findIndex((fact) => fact.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.customFacts.length) {
+        return current;
+      }
+      return {
+        ...current,
+        customFacts: moveHighlightItem(current.customFacts, index, nextIndex),
       };
     });
   }
@@ -1543,6 +1630,65 @@ function PropertyEditor({
               />
             </Field>
           </div>
+          <div className="mt-6 border-t border-border pt-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-primary">Custom facts</h4>
+                <p className="mt-1 text-xs leading-5 text-muted">
+                  Add property specifications in priority order. Disabled facts stay saved but are excluded from the property page, brochure, and social card.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addCustomFact}
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-3.5 py-2 text-sm font-bold text-primary hover:border-primary/40"
+              >
+                <Plus className="h-4 w-4" aria-hidden /> Add custom fact
+              </button>
+            </div>
+            {form.customFacts.length === 0 ? (
+              <p className="mt-4 rounded-xl border border-dashed border-border bg-surface px-4 py-4 text-sm text-muted">
+                No custom facts yet.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {form.customFacts.map((fact, index) => (
+                  <div key={fact.id} className="grid gap-3 rounded-xl border border-border bg-white p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+                    <Field label={`Custom fact ${index + 1} label`}>
+                      <input
+                        value={fact.label}
+                        onChange={(event) => updateCustomFact(fact.id, { label: event.target.value })}
+                        className={inputClass}
+                        placeholder="Energy efficiency"
+                      />
+                    </Field>
+                    <Field label="Value">
+                      <input
+                        value={fact.value}
+                        onChange={(event) => updateCustomFact(fact.id, { value: event.target.value })}
+                        className={inputClass}
+                        placeholder="B"
+                      />
+                    </Field>
+                    <div className="flex flex-wrap items-center gap-2 md:pb-0.5">
+                      <label className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-xs font-bold text-primary">
+                        <input
+                          type="checkbox"
+                          checked={fact.visible}
+                          onChange={(event) => updateCustomFact(fact.id, { visible: event.target.checked })}
+                          className="h-4 w-4 accent-primary"
+                        />
+                        Enabled
+                      </label>
+                      <button type="button" onClick={() => moveCustomFact(fact.id, -1)} disabled={index === 0} className="rounded-xl border border-border px-3 py-2 text-xs font-bold text-primary disabled:opacity-40">Move earlier</button>
+                      <button type="button" onClick={() => moveCustomFact(fact.id, 1)} disabled={index === form.customFacts.length - 1} className="rounded-xl border border-border px-3 py-2 text-xs font-bold text-primary disabled:opacity-40">Move later</button>
+                      <button type="button" onClick={() => removeCustomFact(fact.id)} className="grid h-10 w-10 place-items-center rounded-xl border border-red-200 text-red-700 hover:bg-red-50" aria-label={`Remove custom fact ${index + 1}`}><Trash2 className="h-4 w-4" aria-hidden /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </Section>
 
         <Section title="2. Primary language">
@@ -1591,9 +1737,8 @@ function PropertyEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Summary">
+            <Field label="Summary (optional)">
               <textarea
-                required
                 rows={3}
                 value={form.summary}
                 onChange={(event) => set("summary", event.target.value)}
@@ -2510,39 +2655,18 @@ function PropertyEditor({
                 <option value="unbranded">Unbranded</option>
               </select>
             </Field>
-            <div
-              data-testid="social-branding-admin-preview"
-              className="overflow-hidden rounded-lg border border-border bg-[#0B1F3A] p-5 text-white"
-            >
-              {form.socialBrandingMode === "picchuspot" ? (
-                <div>
-                  <p className="text-lg font-bold">
-                    Picchu<span className="text-[#B88A44]">Spot</span>
-                  </p>
-                  <p className="mt-1 text-xs text-white/60">
-                    Property Showcase by PicchuSpot
-                  </p>
-                </div>
-              ) : form.socialBrandingMode === "agency" ? (
-                <div>
-                  <p className="text-lg font-bold">
-                    {form.agencyName.trim() || "Agency name"}
-                  </p>
-                  <p className="mt-1 text-xs text-white/60">
-                    Powered by PicchuSpot
-                  </p>
-                </div>
+            <div data-testid="social-branding-admin-preview">
+              {record && socialPreviewDraft ? (
+                <PropertySocialCardPreview
+                  propertyId={record.id}
+                  property={socialPreviewDraft}
+                  changed={true}
+                />
               ) : (
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
-                  Property details only
-                </p>
+                <div className="rounded-lg border border-border bg-surface p-5 text-sm leading-6 text-muted">
+                  Save this new property once to activate its generated social preview. Existing properties preview unsaved title, price, address, agent, and branding changes here.
+                </div>
               )}
-              <p className="mt-8 break-words text-2xl font-bold">
-                {form.title.trim() || "Property title"}
-              </p>
-              <p className="mt-2 text-xl font-bold text-[#d6b665]">
-                {form.price.trim() || "Price"}
-              </p>
             </div>
           </div>
         </Section>

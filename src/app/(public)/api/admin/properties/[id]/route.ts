@@ -9,6 +9,7 @@ import {
   collectPropertyShowcaseMediaPaths,
   propertyShowcaseMediaDeletionCandidates,
 } from "@/features/property-showcase/storage-cleanup";
+import { verifyStoredPropertyCustomFlyerFiles } from "@/features/property-showcase/custom-flyer-storage";
 import {
   immutablePropertyPrimaryLanguageError,
   immutablePropertySlugError,
@@ -139,6 +140,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       removeFloorPlan: parsed.data.removeFloorPlan,
       replaceFloorPlans: parsed.data.replaceFloorPlans,
       updateSocialCard: parsed.data.updateSocialCard,
+      updateMarketingMaterials: parsed.data.updateMarketingMaterials,
     },
   );
 
@@ -149,7 +151,23 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const property = merged.property;
+  let property = merged.property;
+  const verifiedCustomFlyer = await verifyStoredPropertyCustomFlyerFiles({
+    slug: property.slug,
+    files: property.marketingMaterials?.customFlyer,
+  });
+  if (!verifiedCustomFlyer.ok) {
+    return NextResponse.json({ error: verifiedCustomFlyer.error }, { status: 400 });
+  }
+  if (property.marketingMaterials?.customFlyer) {
+    property = {
+      ...property,
+      marketingMaterials: {
+        ...property.marketingMaterials,
+        customFlyer: verifiedCustomFlyer.files,
+      },
+    };
+  }
 
   const supabase = createServerClient();
   const { data, error } = await supabase

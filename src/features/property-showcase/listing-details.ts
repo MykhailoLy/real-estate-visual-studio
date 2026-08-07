@@ -12,6 +12,7 @@ import type {
   LocalizedText,
   PropertyAgent,
   PropertyAgentSocialLink,
+  PropertyBuiltInFactKey,
   PropertyFact,
   PropertyFactKey,
   PropertyLanguageCode,
@@ -112,7 +113,7 @@ export const TRUSTED_GOOGLE_MAP_FRAME_ORIGINS = [
   "https://maps.google.com",
 ] as const;
 
-const FACT_ORDER: readonly PropertyFactKey[] = [
+const FACT_ORDER: readonly PropertyBuiltInFactKey[] = [
   "price",
   "listing-reference",
   "bedrooms",
@@ -123,7 +124,10 @@ const FACT_ORDER: readonly PropertyFactKey[] = [
   "plot-area",
 ];
 
-const DEFAULT_FACT_LABELS: Record<PropertyFactKey, Record<PropertyLanguageCode, string>> = {
+const DEFAULT_FACT_LABELS: Record<
+  PropertyBuiltInFactKey,
+  Record<PropertyLanguageCode, string>
+> = {
   price: {
     en: "Price",
     es: "Precio",
@@ -221,7 +225,9 @@ function defaultFactLabel(
   key: PropertyFactKey,
   language: PropertyLanguageCode,
 ): string {
-  return DEFAULT_FACT_LABELS[key][language] ?? DEFAULT_FACT_LABELS[key].en;
+  if (!(key in DEFAULT_FACT_LABELS)) return "";
+  const labels = DEFAULT_FACT_LABELS[key as PropertyBuiltInFactKey];
+  return labels[language] ?? labels.en;
 }
 
 function listingReferenceFact(
@@ -256,7 +262,9 @@ export function getListingReferenceLabel(
 }
 
 function factSortOrder(fact: PropertyFact, fallbackIndex: number): number {
-  return fact.sortOrder ?? FACT_ORDER.indexOf(fact.key) * 10 + fallbackIndex;
+  const builtInOrder = FACT_ORDER.indexOf(fact.key as PropertyBuiltInFactKey);
+  return fact.sortOrder ??
+    (builtInOrder >= 0 ? builtInOrder * 10 : 1000 + fallbackIndex);
 }
 
 function factLabel(

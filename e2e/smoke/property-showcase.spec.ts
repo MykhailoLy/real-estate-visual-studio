@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import sharp from "sharp";
 import {
   expectNavigationResponseOk,
   installSmokeNetworkGuards,
@@ -258,6 +259,55 @@ for (const viewport of propertyViewports) {
     await expect(hero).not.toContainText("For sale");
     await expect(hero).not.toContainText("PS-001");
     await expect(hero.getByTestId("property-hero-slideshow")).toBeVisible();
+    const requestViewing = page.getByTestId("hero-request-viewing");
+    const downloadBrochure = page.getByTestId("hero-download-brochure");
+    await expect(requestViewing).toBeVisible();
+    await expect(downloadBrochure).toBeVisible();
+    await downloadBrochure.click();
+    const marketingDialog = page.getByTestId(
+      "property-marketing-download-dialog",
+    );
+    await expect(marketingDialog).toBeVisible();
+    await expect(
+      marketingDialog.getByRole("img", {
+        name: "Finished property brochure preview",
+      }),
+    ).toBeVisible();
+    for (const action of ["Download PDF", "Download JPG", "Download PNG"]) {
+      await expect(
+        marketingDialog.getByRole("button", { name: new RegExp(`^${action}`) }),
+      ).toBeVisible();
+    }
+    await expect(marketingDialog.getByRole("button", { name: /^Print/ })).toHaveCount(0);
+    await expect(marketingDialog.getByText("Property flyer", { exact: true })).toBeVisible();
+    await expect(marketingDialog.getByText("Portrait / A4")).toHaveCount(0);
+    const dialogGeometry = await marketingDialog.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        viewportWidth: document.documentElement.clientWidth,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(dialogGeometry.left).toBeGreaterThanOrEqual(-1);
+    expect(dialogGeometry.right).toBeLessThanOrEqual(
+      dialogGeometry.viewportWidth + 1,
+    );
+    expect(dialogGeometry.top).toBeGreaterThanOrEqual(-1);
+    expect(dialogGeometry.bottom).toBeLessThanOrEqual(
+      dialogGeometry.viewportHeight + 1,
+    );
+    expect(dialogGeometry.scrollWidth).toBeLessThanOrEqual(
+      dialogGeometry.clientWidth + 1,
+    );
+    await page.keyboard.press("Escape");
+    await expect(marketingDialog).toHaveCount(0);
+    await expect(requestViewing).toBeVisible();
     if (viewport.width >= 768) {
       await expect(page.getByRole("button", { name: "Ground floor" })).toBeVisible();
       await expect(page.getByRole("button", { name: "First floor" })).toBeVisible();
@@ -336,21 +386,9 @@ test("360 tour stays poster-first and keeps controls outside the provider frame"
   expect(controlsBox).not.toBeNull();
   expect(controlsBox!.y).toBeGreaterThanOrEqual(iframeBox!.y + iframeBox!.height - 1);
 
-  const launcher = page.getByRole("button", {
+  await expect(page.getByRole("button", {
     name: "Open PicchuSpot AI assistant",
-  });
-  const [launcherBox, fullscreenBox] = await Promise.all([
-    launcher.boundingBox(),
-    fullscreen.boundingBox(),
-  ]);
-  expect(launcherBox).not.toBeNull();
-  expect(fullscreenBox).not.toBeNull();
-  const supportOverlapsFullscreen =
-    launcherBox!.x < fullscreenBox!.x + fullscreenBox!.width &&
-    launcherBox!.x + launcherBox!.width > fullscreenBox!.x &&
-    launcherBox!.y < fullscreenBox!.y + fullscreenBox!.height &&
-    launcherBox!.y + launcherBox!.height > fullscreenBox!.y;
-  expect(supportOverlapsFullscreen).toBe(false);
+  })).toHaveCount(0);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
@@ -517,24 +555,9 @@ test("mobile section navigation uses an in-viewport More menu", async ({
   await expect(moreMenu.getByRole("menuitem", { name: "Contact" })).toBeVisible();
   await expect(moreMenu.getByRole("menuitem", { name: "Location" })).toBeVisible();
 
-  const launcher = page.getByRole("button", {
+  await expect(page.getByRole("button", {
     name: "Open PicchuSpot AI assistant",
-  });
-  if ((await launcher.count()) > 0) {
-    await expect(launcher).toBeVisible();
-    const [menuBox, launcherBox] = await Promise.all([
-      moreMenu.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(menuBox).not.toBeNull();
-    expect(launcherBox).not.toBeNull();
-    const overlaps =
-      menuBox!.x < launcherBox!.x + launcherBox!.width &&
-      menuBox!.x + menuBox!.width > launcherBox!.x &&
-      menuBox!.y < launcherBox!.y + launcherBox!.height &&
-      menuBox!.y + menuBox!.height > launcherBox!.y;
-    expect(overlaps).toBe(false);
-  }
+  })).toHaveCount(0);
 
   await moreMenu.getByRole("menuitem", { name: "Contact" }).click();
   await expect(page).toHaveURL(/#contact$/);
@@ -625,6 +648,105 @@ test("stable property social endpoint returns a real public 1200 by 630 PNG", as
   expect(head.headers()["x-picchuspot-social-card-layout"]).toBe("balanced");
 });
 
+test("versioned property brochure route renders the automatic landscape flyer only", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/property/sea-view-residence");
+  await page.getByTestId("hero-download-brochure").click();
+  const dialog = page.getByTestId("property-marketing-download-dialog");
+  await expect(dialog.getByText("Property flyer", { exact: true })).toBeVisible();
+  const href = await dialog
+    .getByRole("img", { name: "Finished property brochure preview" })
+    .getAttribute("src");
+  expect(href).toMatch(
+    /^\/property\/sea-view-residence\/materials\/brochure\.png\?v=[a-f0-9]{14}&preview=1$/,
+  );
+
+  const response = await request.get(href!);
+  const body = await response.body();
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("image/png");
+  expect(response.headers()["content-disposition"]).toContain(
+    "sea-view-residence-landscape-brochure.png",
+  );
+  expect(response.headers()["content-disposition"]).toContain("inline");
+  expect(response.headers()["cache-control"]).toContain("immutable");
+  expect(pngDimensions(body)).toEqual({ width: 960, height: 540 });
+
+  const finalHref = href!.replace("&preview=1", "");
+  const finalResponse = await request.get(finalHref);
+  const finalBody = await finalResponse.body();
+  expect(finalResponse.status()).toBe(200);
+  expect(finalResponse.headers()["content-disposition"]).toContain("attachment");
+  expect(finalResponse.headers()["cache-control"]).toContain("immutable");
+  expect(pngDimensions(finalBody)).toEqual({ width: 1920, height: 1080 });
+  const lowerPage = await sharp(finalBody)
+    .extract({ left: 0, top: 500, width: 1920, height: 580 })
+    .resize(64, 42)
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+  const lowerPageColors = new Set<string>();
+  for (let index = 0; index < lowerPage.length; index += 3) {
+    lowerPageColors.add(
+      `${Math.round(lowerPage[index] / 16)}-${Math.round(lowerPage[index + 1] / 16)}-${Math.round(lowerPage[index + 2] / 16)}`,
+    );
+  }
+  expect(lowerPageColors.size).toBeGreaterThan(8);
+
+  const stale = await request.get(
+    "/property/sea-view-residence/materials/brochure.png?v=stale",
+  );
+  expect(stale.status()).toBe(404);
+  expect(stale.headers()["cache-control"]).toBe("no-store");
+
+  const portraitAsset = await request.get(
+    finalHref.replace("brochure.png", "flyer.png"),
+  );
+  expect(portraitAsset.status()).toBe(404);
+
+  const unauthenticatedDraft = await request.get(
+    "/admin/properties/00000000-0000-0000-0000-000000000000/materials/brochure.pdf",
+  );
+  expect(unauthenticatedDraft.status()).toBe(401);
+  expect(unauthenticatedDraft.headers()["cache-control"]).toBe("no-store");
+
+  const unauthenticatedPreview = await request.post(
+    "/api/admin/properties/00000000-0000-0000-0000-000000000000/materials/preview",
+    {
+      data: {
+        marketingMaterials: {
+          flyerMode: "automatic-landscape",
+          enabled: true,
+          brochure: {
+            orientation: "landscape",
+            template: "hero-two-square",
+            supportingMediaIds: [],
+          },
+        },
+        focalPoints: [],
+      },
+    },
+  );
+  expect(unauthenticatedPreview.status()).toBe(401);
+  expect(unauthenticatedPreview.headers()["cache-control"]).toBe(
+    "private, no-store",
+  );
+});
+
+test("public brochure download uses the existing automatic flyer response", async ({
+  page,
+}) => {
+  await page.goto("/property/sea-view-residence");
+  await page.getByTestId("hero-download-brochure").click();
+  const dialog = page.getByTestId("property-marketing-download-dialog");
+  const pdf = dialog.getByRole("button", { name: /^Download PDF/ });
+  const download = page.waitForEvent("download");
+  await pdf.click();
+  await expect(await download).toBeTruthy();
+});
+
 test("explicitly hidden media does not render sections or navigation targets", async ({
   page,
 }, testInfo) => {
@@ -667,7 +789,7 @@ test("hidden realtor profile does not fall back to PicchuSpot contact", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
-test("compact contact actions do not overlap the support launcher on mobile", async ({
+test("compact property contact actions remain usable without the support launcher on mobile", async ({
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
@@ -681,59 +803,14 @@ test("compact contact actions do not overlap the support launcher on mobile", as
   const action = contact.getByRole("button", { name: "Request a viewing" });
   const socialLink = contact.getByRole("link", { name: "LinkedIn" });
   const highlights = page.getByTestId("property-highlights");
-  const launcher = page.getByRole("button", {
-    name: "Open PicchuSpot AI assistant",
-  });
   await expect(action).toBeVisible();
-  if ((await launcher.count()) > 0) {
-    await expect(launcher).toBeVisible();
-    const [actionBox, launcherBox] = await Promise.all([
-      action.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(actionBox).not.toBeNull();
-    expect(launcherBox).not.toBeNull();
-    const overlaps =
-      actionBox!.x < launcherBox!.x + launcherBox!.width &&
-      actionBox!.x + actionBox!.width > launcherBox!.x &&
-      actionBox!.y < launcherBox!.y + launcherBox!.height &&
-      actionBox!.y + actionBox!.height > launcherBox!.y;
-    expect(overlaps).toBe(false);
-
-    await socialLink.scrollIntoViewIfNeeded();
-    await expect(socialLink).toBeVisible();
-    const [socialBox, socialLauncherBox] = await Promise.all([
-      socialLink.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(socialBox).not.toBeNull();
-    expect(socialLauncherBox).not.toBeNull();
-    const socialOverlaps =
-      socialBox!.x < socialLauncherBox!.x + socialLauncherBox!.width &&
-      socialBox!.x + socialBox!.width > socialLauncherBox!.x &&
-      socialBox!.y < socialLauncherBox!.y + socialLauncherBox!.height &&
-      socialBox!.y + socialBox!.height > socialLauncherBox!.y;
-    expect(socialOverlaps).toBe(false);
-
-    await highlights.scrollIntoViewIfNeeded();
-    const highlightItems = highlights.locator("li");
-    const highlightCount = await highlightItems.count();
-    expect(highlightCount).toBeGreaterThan(0);
-    const finalHighlight = highlightItems.nth(highlightCount - 1);
-    await expect(finalHighlight).toBeVisible();
-    const [highlightBox, highlightLauncherBox] = await Promise.all([
-      finalHighlight.boundingBox(),
-      launcher.boundingBox(),
-    ]);
-    expect(highlightBox).not.toBeNull();
-    expect(highlightLauncherBox).not.toBeNull();
-    const highlightOverlaps =
-      highlightBox!.x < highlightLauncherBox!.x + highlightLauncherBox!.width &&
-      highlightBox!.x + highlightBox!.width > highlightLauncherBox!.x &&
-      highlightBox!.y < highlightLauncherBox!.y + highlightLauncherBox!.height &&
-      highlightBox!.y + highlightBox!.height > highlightLauncherBox!.y;
-    expect(highlightOverlaps).toBe(false);
-  }
+  await expect(page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  })).toHaveCount(0);
+  await socialLink.scrollIntoViewIfNeeded();
+  await expect(socialLink).toBeVisible();
+  await highlights.scrollIntoViewIfNeeded();
+  await expect(highlights.locator("li")).not.toHaveCount(0);
   await action.click();
   const dialog = page.getByRole("dialog", { name: "Request a viewing" });
   await expect(dialog).toBeVisible();
@@ -779,7 +856,7 @@ test("property showcase overview omits empty highlights", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
-test("property showcase support launcher does not cover interactive actions", async ({
+test("property showcase omits the support launcher while preserving interactive actions", async ({
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
@@ -790,32 +867,13 @@ test("property showcase support launcher does not cover interactive actions", as
   expectNavigationResponseOk(response, "/property/sea-view-residence");
   await page.locator("#interactive-floor-plan").scrollIntoViewIfNeeded();
 
-  const launcher = page.getByRole("button", {
-    name: "Open PicchuSpot AI assistant",
-  });
   const action = page.locator("#interactive-floor-plan").getByRole("link", {
     name: "Open interactive floor plan",
   }).first();
-  await expect(launcher).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: "Open PicchuSpot AI assistant",
+  })).toHaveCount(0);
   await expect(action).toBeVisible();
-
-  const boxes = await Promise.all([
-    launcher.boundingBox(),
-    action.boundingBox(),
-  ]);
-  expect(boxes[0]).not.toBeNull();
-  expect(boxes[1]).not.toBeNull();
-
-  const [launcherBox, actionBox] = boxes as [
-    NonNullable<(typeof boxes)[number]>,
-    NonNullable<(typeof boxes)[number]>,
-  ];
-  const overlaps =
-    launcherBox.x < actionBox.x + actionBox.width &&
-    launcherBox.x + launcherBox.width > actionBox.x &&
-    launcherBox.y < actionBox.y + actionBox.height &&
-    launcherBox.y + launcherBox.height > actionBox.y;
-  expect(overlaps).toBe(false);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 

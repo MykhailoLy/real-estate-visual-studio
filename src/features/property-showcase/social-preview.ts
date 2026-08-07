@@ -1,4 +1,5 @@
 import { formatPriceLabel } from "./formatting.ts";
+import { normalizePropertyImageFocalPoint } from "./focal-point.ts";
 import { normalizeListingFacts } from "./listing-details.ts";
 import { getPrimaryLanguage, localizedText } from "./localization.ts";
 import { getPropertyAddressView } from "./property-address.ts";
@@ -9,6 +10,7 @@ import {
 import { ownedPropertyShowcaseStoragePath } from "./storage-cleanup.ts";
 import type {
   PropertyGalleryImage,
+  PropertyImageFocalPoint,
   PropertyShowcase,
   PropertySocialCardFactKey,
   PropertySocialCardLayout,
@@ -16,8 +18,10 @@ import type {
 import { SITE_URL } from "../../lib/seo.ts";
 
 export interface PropertySocialPreviewImage {
+  imageId?: string;
   imageUrl: string;
   imageAlt: string;
+  focalPoint?: PropertyImageFocalPoint;
 }
 
 export interface PropertySocialPreview {
@@ -38,6 +42,12 @@ export interface PropertySocialPreview {
     label: string;
     value: string;
   }>;
+  customFacts: Array<{
+    key: string;
+    label: string;
+    value: string;
+  }>;
+  highlights: string[];
   layout: PropertySocialCardLayout;
   agencyName?: string;
   brandingMode: "picchuspot" | "agency" | "unbranded";
@@ -89,6 +99,7 @@ export function selectPropertyHeroImages(
   if (images.length === 0 && property.coverImage.trim()) {
     return [
       {
+        imageId: undefined,
         imageUrl: property.coverImage,
         imageAlt: localizedText(
           property.title,
@@ -105,10 +116,12 @@ export function selectPropertyHeroImages(
     if (!imageUrl || seenUrls.has(imageUrl)) return [];
     seenUrls.add(imageUrl);
     return [{
+      imageId: image.id,
       imageUrl,
       imageAlt:
         localizedText(image.alt, primaryLanguage, primaryLanguage) ||
         localizedText(property.title, primaryLanguage, primaryLanguage),
+      focalPoint: normalizePropertyImageFocalPoint(image.focalPoint),
     }];
   });
 }
@@ -133,22 +146,25 @@ export function selectPropertySocialImageCandidates(
   );
 
   const seenUrls = new Set<string>();
-  const result = candidates.flatMap((image) => {
+  const result: PropertySocialPreviewImage[] = candidates.flatMap((image) => {
     const imageUrl = image.src.trim();
     if (!imageUrl || seenUrls.has(imageUrl)) return [];
     seenUrls.add(imageUrl);
     return [
       {
+        imageId: image.id,
         imageUrl,
         imageAlt:
           localizedText(image.alt, primaryLanguage, primaryLanguage) ||
           localizedText(property.title, primaryLanguage, primaryLanguage),
+        focalPoint: normalizePropertyImageFocalPoint(image.focalPoint),
       },
     ];
   });
   const coverImageUrl = property.coverImage.trim();
   if (coverImageUrl && !seenUrls.has(coverImageUrl)) {
     result.push({
+      imageId: undefined,
       imageUrl: coverImageUrl,
       imageAlt: localizedText(
         property.title,
@@ -253,6 +269,19 @@ export function getPropertySocialPreview(
     ? configuredBrandingMode
     : "unbranded";
   const socialFacts = getPropertySocialCardFacts(property, primaryLanguage);
+  const customFacts = facts
+    .filter((fact) => fact.key.startsWith("custom-"))
+    .map((fact) => ({ key: fact.key, label: fact.label, value: fact.value }));
+  const highlights = property.highlights
+    .filter((highlight) => highlight.visible !== false)
+    .slice()
+    .sort((first, second) => (first.sortOrder ?? 0) - (second.sortOrder ?? 0))
+    .map((highlight) => localizedText(
+      highlight.text ?? highlight.title ?? highlight.description,
+      primaryLanguage,
+      primaryLanguage,
+    ))
+    .filter(Boolean);
 
   return {
     title: [listingTitle, socialCard.showPrice ? price : ""]
@@ -272,6 +301,8 @@ export function getPropertySocialPreview(
     bathrooms: bathrooms?.value,
     builtArea: builtArea?.value,
     facts: socialFacts,
+    customFacts,
+    highlights,
     layout: socialCard.layout,
     agencyName: property.agent.displayProfile === false
       ? undefined

@@ -57,7 +57,7 @@ export type PropertyLanguageCode =
   | "uk"
   | "ru";
 
-export type PropertyFactKey =
+export type PropertyBuiltInFactKey =
   | "price"
   | "listing-reference"
   | "bedrooms"
@@ -66,6 +66,13 @@ export type PropertyFactKey =
   | "plot-area"
   | "parking"
   | "year-built";
+
+/**
+ * Custom fact keys are deliberately data-driven. Their display label is stored
+ * on the fact itself, so an administrator can add an ordered specification
+ * without needing a release for every regional listing field.
+ */
+export type PropertyFactKey = PropertyBuiltInFactKey | `custom-${string}`;
 
 export interface LocalizedText {
   en: string;
@@ -88,6 +95,7 @@ export type ListingReferenceLabelMode =
   | "custom";
 
 export interface PropertyHighlight {
+  id?: string;
   text?: LocalizedText;
   title?: LocalizedText;
   description?: LocalizedText;
@@ -98,6 +106,11 @@ export interface PropertyHighlight {
 export interface PropertyHotspot {
   xPercent: number;
   yPercent: number;
+}
+
+export interface PropertyImageFocalPoint {
+  x: number;
+  y: number;
 }
 
 export interface PropertyGalleryImage {
@@ -111,7 +124,80 @@ export interface PropertyGalleryImage {
   note?: LocalizedText;
   roomId?: string;
   hotspot?: PropertyHotspot;
+  focalPoint?: PropertyImageFocalPoint;
   sortOrder: number;
+}
+
+export type PropertyMarketingCopyMode =
+  | "none"
+  | "summary"
+  | "highlights"
+  | "custom";
+
+export type PropertyMarketingLandscapeLayout =
+  | "single-hero"
+  | "hero-two-square"
+  | "hero-four-grid";
+
+export type PropertyMarketingPortraitLayout =
+  | "a4-classic"
+  | "a4-editorial";
+
+export type PropertyMarketingBrochureOrientation = "portrait" | "landscape";
+
+/** The public property-flyer workflow. Portrait rendering remains legacy-only. */
+export type PropertyFlyerMode = "none" | "automatic-landscape" | "custom";
+
+export interface PropertyCustomFlyerFiles {
+  pdf?: string;
+  jpg?: string;
+  png?: string;
+}
+
+export type PropertyMarketingBrochureTemplate =
+  | PropertyMarketingLandscapeLayout
+  | PropertyMarketingPortraitLayout;
+
+export interface PropertyMarketingBrochureConfig {
+  orientation?: PropertyMarketingBrochureOrientation;
+  template?: PropertyMarketingBrochureTemplate;
+  primaryMediaId?: string;
+  supportingMediaIds?: string[];
+}
+
+export interface PropertyMarketingLandscapeConfig {
+  enabled?: boolean;
+  layout?: PropertyMarketingLandscapeLayout;
+  primaryMediaId?: string;
+  secondaryMediaIds?: string[];
+}
+
+export interface PropertyMarketingPortraitConfig {
+  enabled?: boolean;
+  layout?: PropertyMarketingPortraitLayout;
+  primaryMediaId?: string;
+  secondaryMediaIds?: string[];
+}
+
+export interface PropertyMarketingMaterialsConfig {
+  flyerMode?: PropertyFlyerMode;
+  enabled?: boolean;
+  brandingMode?: PropertySocialBrandingMode;
+  includeAgent?: boolean;
+  includeAgencyLogo?: boolean;
+  includeQrCode?: boolean;
+  includeDisclaimer?: boolean;
+  marketingCopyMode?: PropertyMarketingCopyMode;
+  customMarketingCopy?: LocalizedText;
+  disclaimer?: LocalizedText;
+  selectedFactKeys?: PropertySocialCardFactKey[];
+  selectedHighlightIds?: string[];
+  brochure?: PropertyMarketingBrochureConfig;
+  customFlyer?: PropertyCustomFlyerFiles;
+  /** Legacy dual-orientation configuration, normalized in code on read. */
+  landscape?: PropertyMarketingLandscapeConfig;
+  /** Legacy dual-orientation configuration, normalized in code on read. */
+  portrait?: PropertyMarketingPortraitConfig;
 }
 
 export interface PropertyVirtualTour {
@@ -249,6 +335,7 @@ export interface PropertyShowcase {
   floorPlans: PropertyFloorPlan[];
   socialPreview?: PropertySocialPreviewConfig;
   socialCard?: PropertySocialCardConfig;
+  marketingMaterials?: PropertyMarketingMaterialsConfig;
   location: PropertyLocation;
   agent: PropertyAgent;
   publishedAt?: string;

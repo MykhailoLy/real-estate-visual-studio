@@ -2,10 +2,13 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { focalPointToObjectPosition } from "@/features/property-showcase/focal-point";
+import type { PropertyImageFocalPoint } from "@/features/property-showcase/types";
 
 export interface PropertyHeroSlide {
   imageUrl: string;
   imageAlt: string;
+  focalPoint?: PropertyImageFocalPoint;
 }
 
 interface PropertyHeroSlideshowProps {
@@ -92,6 +95,7 @@ export default function PropertyHeroSlideshow({
           alt=""
           fill
           sizes="100vw"
+          style={{ objectPosition: focalPointToObjectPosition(previousSlide.focalPoint) }}
           className={`object-cover transition-opacity duration-[1500ms] ease-in-out ${
             isFading ? "opacity-0" : "opacity-100"
           }`}
@@ -103,6 +107,7 @@ export default function PropertyHeroSlideshow({
         fill
         preload={activeIndex === 0}
         sizes="100vw"
+        style={{ objectPosition: focalPointToObjectPosition(activeSlide.focalPoint) }}
         className={`object-cover transition-opacity duration-[1500ms] ease-in-out ${
           previousSlide && !isFading ? "opacity-0" : "opacity-100"
         }`}

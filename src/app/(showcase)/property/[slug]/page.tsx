@@ -7,6 +7,7 @@ import { getPublishedPropertyShowcase } from "@/features/property-showcase/serve
 import { buildPropertyMetadata } from "@/features/property-showcase/property-metadata";
 import { getPropertySocialImageVersion } from "@/features/property-showcase/social-image-version.server";
 import { absoluteUrl } from "@/lib/seo";
+import { getPropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-material-version";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
@@ -57,6 +58,10 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     <PropertyShowcaseView
       property={serializePublicPropertyShowcase(property)}
       canonicalUrl={absoluteUrl(`/property/${property.slug}`)}
+      marketingMaterialLinks={getPropertyMarketingMaterialLinks(
+        property,
+        absoluteUrl(`/property/${property.slug}`),
+      )}
       turnstileSiteKey={getTurnstileSiteKeyFromEnv()}
     />
   );

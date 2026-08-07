@@ -11,6 +11,10 @@ export function propertyShowcaseStorageFolder(slug: string): string {
   return `${PROPERTY_SHOWCASE_STORAGE_ROOT}/${slug}/`;
 }
 
+export function propertyCustomFlyerStorageFolder(slug: string): string {
+  return `${propertyShowcaseStorageFolder(slug)}flyer/`;
+}
+
 function configuredSupabaseOrigin(): string | null {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!raw) return null;
@@ -89,6 +93,18 @@ export function isOwnedPropertyShowcaseStoragePath(
   return Boolean(ownedPropertyShowcaseStoragePath(value, slug));
 }
 
+export function ownedPropertyCustomFlyerStoragePath(
+  value: string | undefined,
+  slug: string,
+  options: StoragePathParseOptions = {},
+): string | null {
+  const path = ownedPropertyShowcaseStoragePath(value, slug, options);
+  const folder = propertyCustomFlyerStorageFolder(slug);
+  return path && path.startsWith(folder) && path.length > folder.length
+    ? path
+    : null;
+}
+
 function collectMediaValues(property: PropertyShowcase): string[] {
   return [
     property.coverImage,
@@ -102,6 +118,9 @@ function collectMediaValues(property: PropertyShowcase): string[] {
     ]),
     property.agent.logoUrl,
     property.agent.portraitUrl,
+    property.marketingMaterials?.customFlyer?.pdf,
+    property.marketingMaterials?.customFlyer?.jpg,
+    property.marketingMaterials?.customFlyer?.png,
   ].filter((value): value is string => Boolean(value));
 }
 
