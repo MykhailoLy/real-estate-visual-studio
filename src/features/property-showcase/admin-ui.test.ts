@@ -311,7 +311,7 @@ test("media visibility controls and navigation are driven by rendered sections",
   assert.equal(propertySectionNavSource.includes("showContact"), true);
   assert.equal(propertySectionNavSource.includes("showLocation"), true);
   assert.equal(propertySectionNavSource.includes("property-mobile-section-nav"), true);
-  assert.equal(propertySectionNavSource.includes("More sections"), true);
+  assert.equal(propertySectionNavSource.includes("PROPERTY_SECTION_NAV_COPY"), true);
   assert.equal(propertySectionNavSource.includes("overflow-x-auto"), false);
   assert.equal(
     propertyEditorSource.indexOf('<Section title="4. Listing facts">') <

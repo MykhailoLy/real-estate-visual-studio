@@ -352,6 +352,36 @@ test("property showcase floor plan tabs switch plans on desktop", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
+test("property gallery modal keeps keyboard focus contained", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1024, height: 768 });
+
+  const response = await page.goto("/property/sea-view-residence");
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+
+  const trigger = page
+    .getByRole("button", { name: "Open gallery image: Exterior and pool" });
+  await trigger.click();
+
+  const dialog = page.getByRole("dialog", {
+    name: "Property gallery: Exterior and pool",
+  });
+  const close = dialog.getByRole("button", { name: "Close gallery" });
+  const next = dialog.getByRole("button", { name: "Next gallery image" });
+
+  await expect(close).toBeFocused();
+  await close.press("Shift+Tab");
+  await expect(next).toBeFocused();
+  await next.press("Tab");
+  await expect(close).toBeFocused();
+  await close.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
 test("360 tour stays poster-first and keeps controls outside the provider frame", async ({
   page,
 }, testInfo) => {
@@ -407,6 +437,8 @@ test("property showcase language switcher falls back cleanly", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Residencia con vistas al mar" }),
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Inicio", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Resumen", exact: true })).toBeVisible();
   await languageSelect.selectOption("de");
   await expect(
     page.getByRole("heading", { level: 1, name: "Residenz mit Meerblick" }),
@@ -548,20 +580,29 @@ test("mobile section navigation uses an in-viewport More menu", async ({
   await expect(mobileNav.getByRole("link", { name: "Gallery" })).toBeVisible();
   await expect(mobileNav.getByRole("link", { name: "360 tour" })).toBeVisible();
 
-  await mobileNav.getByRole("button", { name: "More sections" }).click();
-  const moreMenu = page.getByRole("menu", { name: "More property sections" });
-  await expect(moreMenu.getByRole("menuitem", { name: "Floor plans" })).toBeVisible();
-  await expect(moreMenu.getByRole("menuitem", { name: "Interactive plan" })).toBeVisible();
-  await expect(moreMenu.getByRole("menuitem", { name: "Contact" })).toBeVisible();
-  await expect(moreMenu.getByRole("menuitem", { name: "Location" })).toBeVisible();
+  const moreButton = mobileNav.getByRole("button", {
+    name: "More property sections",
+  });
+  await moreButton.click();
+  const morePanel = page.getByTestId("property-mobile-more-panel");
+  const floorPlans = morePanel.getByRole("link", { name: "Floor plans" });
+  await expect(floorPlans).toBeVisible();
+  await expect(floorPlans).toBeFocused();
+  await expect(morePanel.getByRole("link", { name: "Interactive plan" })).toBeVisible();
+  await expect(morePanel.getByRole("link", { name: "Contact" })).toBeVisible();
+  await expect(morePanel.getByRole("link", { name: "Location" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(morePanel).toHaveCount(0);
+  await expect(moreButton).toBeFocused();
+  await moreButton.click();
 
   await expect(page.getByRole("button", {
     name: "Open PicchuSpot AI assistant",
   })).toHaveCount(0);
 
-  await moreMenu.getByRole("menuitem", { name: "Contact" }).click();
+  await morePanel.getByRole("link", { name: "Contact" }).click();
   await expect(page).toHaveURL(/#contact$/);
-  await expect(moreMenu).toHaveCount(0);
+  await expect(morePanel).toHaveCount(0);
   await expect(page.locator("#contact")).toBeInViewport();
   await guard.expectNoPageErrorsOrServerErrors();
 });

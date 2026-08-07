@@ -19,6 +19,7 @@ type DialogCopy = {
   success: string;
   successDetail: string;
   delayed: string;
+  securityCheck: string;
   whatsapp: string;
   close: string;
   preview: string;
@@ -39,6 +40,7 @@ const EN_COPY: DialogCopy = {
   success: "Your viewing request is saved",
   successDetail: "The property team has received your enquiry details.",
   delayed: "Your request is saved, but email delivery was not confirmed. The team may take a little longer to respond.",
+  securityCheck: "Please complete the security check.",
   whatsapp: "Continue in WhatsApp",
   close: "Close",
   preview: "Submissions are disabled in the admin preview.",
@@ -59,6 +61,7 @@ const ES_COPY: DialogCopy = {
   success: "Su solicitud de visita se ha guardado",
   successDetail: "El equipo de la propiedad ha recibido los datos de su consulta.",
   delayed: "Su solicitud está guardada, pero no se ha confirmado la entrega del correo. La respuesta puede tardar un poco más.",
+  securityCheck: "Complete la comprobaci\u00f3n de seguridad.",
   whatsapp: "Continuar en WhatsApp",
   close: "Cerrar",
   preview: "Los envíos están desactivados en la vista previa de administración.",
@@ -110,6 +113,12 @@ export default function PropertyViewingRequestDialog({
     onOpenChange(false);
   }
 
+  function resetFormState() {
+    setSubmission({ status: "idle" });
+    setTurnstileToken(null);
+    setTurnstileResetSignal((value) => value + 1);
+  }
+
   function resetTurnstile() {
     setTurnstileToken(null);
     setTurnstileResetSignal((value) => value + 1);
@@ -119,7 +128,7 @@ export default function PropertyViewingRequestDialog({
     event.preventDefault();
     if (!submissionEnabled || submission.status === "submitting") return;
     if (turnstileEnabled && !turnstileToken) {
-      setSubmission({ status: "error", message: "Please complete the security check." });
+      setSubmission({ status: "error", message: copy.securityCheck });
       return;
     }
 
@@ -172,7 +181,10 @@ export default function PropertyViewingRequestDialog({
     <dialog
       ref={dialogRef}
       aria-labelledby="viewing-request-title"
-      onClose={() => onOpenChange(false)}
+      onClose={() => {
+        resetFormState();
+        onOpenChange(false);
+      }}
       onCancel={(event) => {
         event.preventDefault();
         closeDialog();
