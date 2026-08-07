@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronDown,
   ImagePlus,
+  Inbox,
   LayoutDashboard,
   Menu,
   PictureInPicture2,
@@ -35,6 +36,12 @@ const adminNav = [
     href: "/admin/properties",
     icon: Building2,
     description: "Property showcase pages",
+  },
+  {
+    label: "Leads",
+    href: "/admin/leads",
+    icon: Inbox,
+    description: "Property enquiries",
   },
   {
     label: "Portfolio",
