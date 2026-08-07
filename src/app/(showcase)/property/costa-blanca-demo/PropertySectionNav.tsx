@@ -13,7 +13,7 @@ import {
   ScanLine,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PROPERTY_LANGUAGE_LABELS } from "@/features/property-showcase/localization";
 import type { PropertyLanguageCode } from "@/features/property-showcase/types";
 
@@ -37,15 +37,83 @@ interface PropertySection {
   visible: boolean;
 }
 
+type PropertySectionNavCopy = {
+  home: string;
+  overview: string;
+  gallery: string;
+  video: string;
+  virtualTour: string;
+  floorPlans: string;
+  interactivePlan: string;
+  contact: string;
+  location: string;
+  more: string;
+  moreSections: string;
+  navigation: string;
+};
+
+const EN_SECTION_NAV_COPY: PropertySectionNavCopy = {
+  home: "Home",
+  overview: "Overview",
+  gallery: "Gallery",
+  video: "Video",
+  virtualTour: "360 tour",
+  floorPlans: "Floor plans",
+  interactivePlan: "Interactive plan",
+  contact: "Contact",
+  location: "Location",
+  more: "More",
+  moreSections: "More property sections",
+  navigation: "Property page sections",
+};
+
+const PROPERTY_SECTION_NAV_COPY: Record<
+  PropertyLanguageCode,
+  PropertySectionNavCopy
+> = {
+  en: EN_SECTION_NAV_COPY,
+  es: {
+    home: "Inicio",
+    overview: "Resumen",
+    gallery: "Galer\u00eda",
+    video: "Video",
+    virtualTour: "Tour 360",
+    floorPlans: "Planos",
+    interactivePlan: "Plano interactivo",
+    contact: "Contacto",
+    location: "Ubicaci\u00f3n",
+    more: "M\u00e1s",
+    moreSections: "M\u00e1s secciones de la propiedad",
+    navigation: "Secciones de la p\u00e1gina de la propiedad",
+  },
+  de: {
+    home: "Startseite",
+    overview: "\u00dcbersicht",
+    gallery: "Galerie",
+    video: "Video",
+    virtualTour: "360\u00b0-Tour",
+    floorPlans: "Grundrisse",
+    interactivePlan: "Interaktiver Plan",
+    contact: "Kontakt",
+    location: "Lage",
+    more: "Mehr",
+    moreSections: "Weitere Immobilienabschnitte",
+    navigation: "Abschnitte der Immobilienseite",
+  },
+  fr: EN_SECTION_NAV_COPY,
+  nl: EN_SECTION_NAV_COPY,
+  pl: EN_SECTION_NAV_COPY,
+  uk: EN_SECTION_NAV_COPY,
+  ru: EN_SECTION_NAV_COPY,
+};
+
 function SectionLink({
   section,
   mobile = false,
-  menuItem = false,
   onNavigate,
 }: {
   section: PropertySection;
   mobile?: boolean;
-  menuItem?: boolean;
   onNavigate?: () => void;
 }) {
   const Icon = section.icon;
@@ -53,7 +121,6 @@ function SectionLink({
     <a
       href={section.href}
       onClick={onNavigate}
-      role={menuItem ? "menuitem" : undefined}
       className={
         mobile
           ? "flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-[9px] font-semibold leading-3 text-slate-600 transition hover:bg-[#f7f4ec] hover:text-[#0f2440] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0f2440]"
@@ -80,15 +147,19 @@ function MobileSectionNav({
   languages,
   language,
   languageLabel,
+  copy,
   onLanguageChange,
 }: {
   sections: PropertySection[];
   languages: PropertyLanguageCode[];
   language: PropertyLanguageCode;
   languageLabel: string;
+  copy: PropertySectionNavCopy;
   onLanguageChange: (language: PropertyLanguageCode) => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const morePanelRef = useRef<HTMLDivElement>(null);
   const directFourth =
     sections.find((section) => section.href === "#video") ??
     sections.find((section) => section.href === "#virtual-tour") ??
@@ -108,12 +179,29 @@ function MobileSectionNav({
   const showMore = moreSections.length > 0 || languages.length > 1;
   const mobileColumnCount = directSections.length + (showMore ? 1 : 0);
 
+  useEffect(() => {
+    if (!moreOpen) return;
+    morePanelRef.current
+      ?.querySelector<HTMLElement>("a, select")
+      ?.focus();
+  }, [moreOpen]);
+
+  function closeMoreMenu(restoreFocus = false) {
+    setMoreOpen(false);
+    if (restoreFocus) {
+      window.setTimeout(() => moreButtonRef.current?.focus(), 0);
+    }
+  }
+
   return (
     <div
       data-testid="property-mobile-section-nav"
       className="relative min-[600px]:hidden"
       onKeyDown={(event) => {
-        if (event.key === "Escape") setMoreOpen(false);
+        if (event.key === "Escape" && moreOpen) {
+          event.preventDefault();
+          closeMoreMenu(true);
+        }
       }}
     >
       <div
@@ -131,25 +219,27 @@ function MobileSectionNav({
         ))}
         {showMore ? (
           <button
+            ref={moreButtonRef}
             type="button"
-            aria-label="More sections"
-            aria-haspopup="menu"
+            aria-label={copy.moreSections}
             aria-controls="property-section-nav-more"
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}
             className="flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-[9px] font-semibold leading-3 text-slate-600 transition hover:bg-[#f7f4ec] hover:text-[#0f2440] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0f2440]"
           >
             <Ellipsis className="h-5 w-5 text-[#1a365d]" aria-hidden />
-            <span>More</span>
+            <span>{copy.more}</span>
           </button>
         ) : null}
       </div>
 
       {moreOpen ? (
         <div
+          ref={morePanelRef}
           id="property-section-nav-more"
-          role="menu"
-          aria-label="More property sections"
+          role="group"
+          aria-label={copy.moreSections}
+          data-testid="property-mobile-more-panel"
           className="absolute inset-x-2 top-full z-50 mt-1 grid grid-cols-2 overflow-hidden rounded-lg border border-black/10 bg-white shadow-[0_14px_35px_rgba(15,36,64,0.18)]"
         >
           {moreSections.map((section) => (
@@ -157,8 +247,7 @@ function MobileSectionNav({
               key={section.href}
               section={section}
               mobile
-              menuItem
-              onNavigate={() => setMoreOpen(false)}
+              onNavigate={() => closeMoreMenu()}
             />
           ))}
           {languages.length > 1 ? (
@@ -168,7 +257,7 @@ function MobileSectionNav({
                 value={language}
                 onChange={(event) => {
                   onLanguageChange(event.target.value as PropertyLanguageCode);
-                  setMoreOpen(false);
+                  closeMoreMenu();
                 }}
                 className="mt-1.5 w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm"
               >
@@ -198,38 +287,39 @@ export default function PropertySectionNav({
   languageLabel,
   onLanguageChange,
 }: PropertySectionNavProps) {
+  const copy = PROPERTY_SECTION_NAV_COPY[language] ?? EN_SECTION_NAV_COPY;
   const sections: PropertySection[] = [
-    { href: "#home", label: "Home", icon: House, visible: true },
-    { href: "#overview", label: "Overview", icon: BookOpenText, visible: true },
-    { href: "#gallery", label: "Gallery", icon: Images, visible: true },
+    { href: "#home", label: copy.home, icon: House, visible: true },
+    { href: "#overview", label: copy.overview, icon: BookOpenText, visible: true },
+    { href: "#gallery", label: copy.gallery, icon: Images, visible: true },
     {
       href: "#video",
-      label: "Video",
+      label: copy.video,
       icon: Clapperboard,
       visible: showVideo,
     },
     {
       href: "#virtual-tour",
-      label: "360 tour",
+      label: copy.virtualTour,
       icon: ScanLine,
       visible: showVirtualTour,
     },
     {
       href: "#floor-plan",
-      label: "Floor plans",
+      label: copy.floorPlans,
       icon: PanelsTopLeft,
       visible: showFloorPlans,
     },
     {
       href: "#interactive-floor-plan",
-      label: "Interactive plan",
+      label: copy.interactivePlan,
       icon: MousePointer2,
       visible: showInteractivePlan,
     },
-    { href: "#contact", label: "Contact", icon: Mail, visible: showContact },
+    { href: "#contact", label: copy.contact, icon: Mail, visible: showContact },
     {
       href: "#location",
-      label: "Location",
+      label: copy.location,
       icon: MapPinned,
       visible: showLocation,
     },
@@ -237,7 +327,7 @@ export default function PropertySectionNav({
 
   return (
     <nav
-      aria-label="Property page sections"
+      aria-label={copy.navigation}
       className="sticky top-0 z-40 border-b border-black/8 bg-white/94 shadow-[0_10px_35px_rgba(15,36,64,0.06)] backdrop-blur"
     >
       <MobileSectionNav
@@ -245,6 +335,7 @@ export default function PropertySectionNav({
         languages={languages}
         language={language}
         languageLabel={languageLabel}
+        copy={copy}
         onLanguageChange={onLanguageChange}
       />
       <div className="mx-auto hidden max-w-[1480px] min-[600px]:flex min-[600px]:items-stretch sm:px-6 lg:px-10">

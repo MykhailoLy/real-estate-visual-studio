@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface PropertyGalleryImage {
   src: string;
@@ -24,12 +24,24 @@ export default function PropertyGallery({
   description = "Select any image to open the full-screen gallery.",
 }: PropertyGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const closeGallery = useCallback(() => {
+    setActiveIndex(null);
+    window.setTimeout(() => triggerRef.current?.focus(), 0);
+  }, []);
 
   useEffect(() => {
     if (activeIndex === null) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setActiveIndex(null);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeGallery();
+        return;
+      }
       if (event.key === "ArrowLeft") {
         setActiveIndex((current) =>
           current === null ? null : (current - 1 + images.length) % images.length,
@@ -40,17 +52,35 @@ export default function PropertyGallery({
           current === null ? null : (current + 1) % images.length,
         );
       }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]),a[href]:not([aria-disabled="true"])',
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable.at(-1) ?? first;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [activeIndex, images.length]);
+  }, [activeIndex, closeGallery, images.length]);
 
   if (images.length === 0) return null;
 
@@ -92,7 +122,10 @@ export default function PropertyGallery({
               <button
                 key={`${image.src}-${index}`}
                 type="button"
-                onClick={() => setActiveIndex(index)}
+                onClick={(event) => {
+                  triggerRef.current = event.currentTarget;
+                  setActiveIndex(index);
+                }}
                 className={`group relative overflow-hidden rounded-2xl bg-white/5 text-left focus-visible:outline-white ${
                   featured ? "sm:col-span-2 sm:row-span-2 lg:col-span-2" : ""
                 }`}
@@ -120,17 +153,19 @@ export default function PropertyGallery({
 
       {activeImage ? (
         <div
+          ref={dialogRef}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-[#06101f]/96 p-3 sm:p-8"
           role="dialog"
           aria-modal="true"
           aria-label={`Property gallery: ${activeImage.label}`}
-          onClick={() => setActiveIndex(null)}
+          onClick={closeGallery}
         >
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              setActiveIndex(null);
+              closeGallery();
             }}
             className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 sm:right-7 sm:top-7"
             aria-label="Close gallery"

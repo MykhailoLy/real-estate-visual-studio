@@ -261,6 +261,7 @@ export default function PropertyShowcaseView({
                 .join(" | ")}
               canonicalUrl={canonicalUrl}
               brochureUrl={property.brochureUrl}
+              showShare={!previewMode}
             />
           </div>
         </section>

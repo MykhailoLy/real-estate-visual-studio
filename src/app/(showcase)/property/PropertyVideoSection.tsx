@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ExternalLink, Loader2, Maximize2, Play } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { localizedText } from "@/features/property-showcase/localization";
 import { PROPERTY_MEDIA_LABELS } from "@/features/property-showcase/media-labels";
 import type {
@@ -18,7 +18,7 @@ type PropertyVideoSectionProps = {
   primaryLanguage: PropertyLanguageCode;
 };
 
-type PlayerStatus = "poster" | "opening" | "frame-visible";
+type PlayerStatus = "poster" | "opening" | "frame-visible" | "frame-unconfirmed";
 
 export default function PropertyVideoSection({
   propertyTitle,
@@ -36,10 +36,26 @@ export default function PropertyVideoSection({
   const labels = PROPERTY_MEDIA_LABELS[locale] ?? PROPERTY_MEDIA_LABELS.en;
   const selected =
     videos.find((video) => video.id === selectedId) ?? videos[0];
+  const status =
+    selected && playerState.videoId === selected.id
+      ? playerState.status
+      : "poster";
+
+  useEffect(() => {
+    if (!selected || status !== "opening") return undefined;
+
+    const timeout = window.setTimeout(() => {
+      setPlayerState((current) =>
+        current.videoId === selected.id && current.status === "opening"
+          ? { ...current, status: "frame-unconfirmed" }
+          : current,
+      );
+    }, 8000);
+
+    return () => window.clearTimeout(timeout);
+  }, [selected, status]);
 
   if (!selected) return null;
-  const status =
-    playerState.videoId === selected.id ? playerState.status : "poster";
 
   const title =
     localizedText(selected.title, locale, primaryLanguage) ||
@@ -47,6 +63,8 @@ export default function PropertyVideoSection({
   const poster = selected.posterUrl?.trim() || posterFallback;
   const canEmbed = Boolean(selected.embedUrl?.trim());
   const externalUrl = selected.externalUrl?.trim() || selected.embedUrl?.trim();
+  const frameIsVisible =
+    status === "frame-visible" || status === "frame-unconfirmed";
 
   async function openFullscreen() {
     if (!playerRef.current || !document.fullscreenEnabled) return;
@@ -79,7 +97,7 @@ export default function PropertyVideoSection({
                   src={selected.embedUrl}
                   title={title}
                   className={`absolute inset-0 h-full w-full border-0 bg-black transition-opacity duration-300 ${
-                    status === "frame-visible" ? "opacity-100" : "opacity-0"
+                    frameIsVisible ? "opacity-100" : "opacity-0"
                   }`}
                   allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
@@ -95,7 +113,7 @@ export default function PropertyVideoSection({
                 />
               ) : null}
 
-              {status !== "frame-visible" ? (
+              {!frameIsVisible ? (
                 <>
                   <Image
                     src={poster}
