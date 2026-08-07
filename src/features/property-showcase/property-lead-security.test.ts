@@ -61,6 +61,35 @@ test("production accepts only a successful property-lead token for the canonical
   assert.deepEqual(result, { status: "valid" });
 });
 
+test("Siteverify sends JSON with a trusted visitor IP and requests JSON errors", async () => {
+  let sentBody: unknown;
+  let sentHeaders: Headers | undefined;
+  const result = await verifyPropertyLeadTurnstile({
+    request: new Request("https://picchuspot.com/api/property-leads", {
+      headers: { "x-vercel-forwarded-for": "203.0.113.9" },
+    }),
+    token: "verified-token",
+    env: {
+      ...configuredProductionEnvironment(),
+      VERCEL: "1",
+    },
+    fetchImpl: async (_url, init) => {
+      sentBody = JSON.parse(String(init?.body));
+      sentHeaders = new Headers(init?.headers);
+      return successfulSiteverifyResponse();
+    },
+  });
+
+  assert.deepEqual(result, { status: "valid" });
+  assert.equal(sentHeaders?.get("content-type"), "application/json");
+  assert.equal(sentHeaders?.get("accept"), "application/json");
+  assert.deepEqual(sentBody, {
+    secret: "configured-server-secret",
+    response: "verified-token",
+    remoteip: "203.0.113.9",
+  });
+});
+
 test("production rejects a successful token issued for a different hostname", async () => {
   const result = await verifyPropertyLeadTurnstile({
     request: request(),
@@ -146,7 +175,7 @@ test("a Siteverify network exception is temporarily unavailable", async () => {
   });
 });
 
-test("a non-2xx Siteverify response is temporarily unavailable with its status", async () => {
+test("a non-2xx Siteverify response without JSON is temporarily unavailable with its status", async () => {
   const result = await verifyPropertyLeadTurnstile({
     request: request(),
     token: "verified-token",
@@ -160,6 +189,29 @@ test("a non-2xx Siteverify response is temporarily unavailable with its status",
       reason: "siteverify-http-error",
       httpStatus: 502,
       expectedHostname: "picchuspot.com",
+    },
+  });
+});
+
+test("a non-2xx Siteverify JSON response preserves safe Cloudflare error codes", async () => {
+  const result = await verifyPropertyLeadTurnstile({
+    request: request(),
+    token: "verified-token",
+    env: configuredProductionEnvironment(),
+    fetchImpl: async () =>
+      Response.json(
+        { success: false, "error-codes": ["bad-request"] },
+        { status: 400 },
+      ),
+  });
+
+  assert.deepEqual(result, {
+    status: "unavailable",
+    diagnostic: {
+      reason: "bad-request",
+      httpStatus: 400,
+      expectedHostname: "picchuspot.com",
+      cloudflareErrorCodes: ["bad-request"],
     },
   });
 });

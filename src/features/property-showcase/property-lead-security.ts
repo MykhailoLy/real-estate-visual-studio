@@ -30,6 +30,7 @@ export type PropertyLeadTurnstileReason =
   | "action-mismatch"
   | "internal-error"
   | "invalid-input-response"
+  | "missing-input-response"
   | "timeout-or-duplicate"
   | "invalid-input-secret"
   | "missing-input-secret"
@@ -170,35 +171,27 @@ export async function verifyPropertyLeadTurnstile(input: {
   );
   try {
     const identity = resolveTrustedSupportClientIdentity(input.request, env);
-    const body = new URLSearchParams({
+    const body: Record<string, string> = {
       secret,
       response: input.token.trim(),
-    });
+    };
     if (identity.ok && identity.identity !== "local-development") {
-      body.set("remoteip", identity.identity);
+      body.remoteip = identity.identity;
     }
     const response = await (input.fetchImpl ?? fetch)(TURNSTILE_VERIFY_URL, {
       method: "POST",
-      body,
+      body: JSON.stringify(body),
       signal,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
     });
+    const result = await readTurnstileSiteverifyResponse(response);
     if (!response.ok) {
-      return unavailable({
-        reason: "siteverify-http-error",
-        httpStatus: response.status,
-        expectedHostname,
-      });
+      return siteverifyHttpFailure(result, response.status, expectedHostname);
     }
-
-    let result: TurnstileSiteverifyResponse;
-    try {
-      const parsed: unknown = await response.json();
-      if (!isTurnstileSiteverifyResponse(parsed)) {
-        return unavailable({ reason: "siteverify-invalid-json", expectedHostname });
-      }
-      result = parsed;
-    } catch {
+    if (!result) {
       return unavailable({ reason: "siteverify-invalid-json", expectedHostname });
     }
 
@@ -266,6 +259,17 @@ function compactDiagnostic(
   };
 }
 
+async function readTurnstileSiteverifyResponse(
+  response: Response,
+): Promise<TurnstileSiteverifyResponse | null> {
+  try {
+    const parsed: unknown = await response.json();
+    return isTurnstileSiteverifyResponse(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function isTurnstileSiteverifyResponse(
   value: unknown,
 ): value is TurnstileSiteverifyResponse {
@@ -282,6 +286,31 @@ function cloudflareErrorCodes(value: unknown): string[] {
     .slice(0, 10);
 }
 
+function siteverifyHttpFailure(
+  result: TurnstileSiteverifyResponse | null,
+  httpStatus: number,
+  expectedHostname?: string,
+): PropertyLeadTurnstileVerification {
+  const codes = cloudflareErrorCodes(result?.["error-codes"]);
+  const diagnostic = {
+    httpStatus,
+    expectedHostname,
+    cloudflareErrorCodes: codes,
+  };
+  for (const code of [
+    "internal-error",
+    "invalid-input-secret",
+    "missing-input-secret",
+    "missing-input-response",
+    "bad-request",
+    "invalid-input-response",
+    "timeout-or-duplicate",
+  ] as const) {
+    if (codes.includes(code)) return unavailable({ ...diagnostic, reason: code });
+  }
+  return unavailable({ ...diagnostic, reason: "siteverify-http-error" });
+}
+
 function cloudflareFailure(input: Omit<PropertyLeadTurnstileDiagnostic, "reason">) {
   const codes = input.cloudflareErrorCodes ?? [];
   if (codes.includes("internal-error")) {
@@ -290,6 +319,7 @@ function cloudflareFailure(input: Omit<PropertyLeadTurnstileDiagnostic, "reason"
   for (const code of [
     "invalid-input-secret",
     "missing-input-secret",
+    "missing-input-response",
     "bad-request",
   ] as const) {
     if (codes.includes(code)) return unavailable({ ...input, reason: code });
