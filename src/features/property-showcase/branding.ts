@@ -14,6 +14,18 @@ export interface ActivePropertyBranding {
   showPicchuSpotCredit: boolean;
 }
 
+export interface PropertyBrandPalette {
+  primary: string;
+  accent: string;
+  accentTextColor: string;
+  primaryForeground: "#0B1020" | "#FFFFFF";
+}
+
+export const PROPERTY_BRAND_DEFAULTS = {
+  primary: "#0B1F3A",
+  accent: "#B88A44",
+} as const;
+
 function hasEncodedPathControl(value: string): boolean {
   const lower = value.toLowerCase();
   return lower.includes("%2e") || lower.includes("%2f") || lower.includes("%5c");
@@ -21,6 +33,60 @@ function hasEncodedPathControl(value: string): boolean {
 
 export function isValidPropertyBrandColor(value: string | undefined): boolean {
   return Boolean(value && HEX_COLOR.test(value));
+}
+
+function channel(value: string, offset: number): number {
+  return Number.parseInt(value.slice(offset, offset + 2), 16) / 255;
+}
+
+function linearize(channelValue: number): number {
+  return channelValue <= 0.03928
+    ? channelValue / 12.92
+    : ((channelValue + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(color: string): number {
+  return (
+    0.2126 * linearize(channel(color, 1)) +
+    0.7152 * linearize(channel(color, 3)) +
+    0.0722 * linearize(channel(color, 5))
+  );
+}
+
+function contrastRatio(first: string, second: string): number {
+  const [lighter, darker] = [relativeLuminance(first), relativeLuminance(second)]
+    .sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** A deterministic foreground choice for validated customer brand surfaces. */
+export function propertyBrandForeground(color: string): "#0B1020" | "#FFFFFF" {
+  if (!isValidPropertyBrandColor(color)) return "#FFFFFF";
+  const luminance = relativeLuminance(color);
+  // White and near-black have equal contrast at roughly 0.18 relative
+  // luminance; selecting the stronger side guarantees at least ~4.6:1.
+  return luminance > 0.18 ? "#0B1020" : "#FFFFFF";
+}
+
+export function getPropertyBrandPalette(
+  branding?: Pick<PropertyBranding, "primaryColor" | "accentColor"> | null,
+): PropertyBrandPalette {
+  const primaryCandidate = branding?.primaryColor;
+  const accentCandidate = branding?.accentColor;
+  const primary = isValidPropertyBrandColor(primaryCandidate)
+    ? primaryCandidate ?? PROPERTY_BRAND_DEFAULTS.primary
+    : PROPERTY_BRAND_DEFAULTS.primary;
+  const accent = isValidPropertyBrandColor(accentCandidate)
+    ? accentCandidate ?? PROPERTY_BRAND_DEFAULTS.accent
+    : PROPERTY_BRAND_DEFAULTS.accent;
+
+  return {
+    primary,
+    accent,
+    accentTextColor:
+      contrastRatio(primary, accent) >= 4.5 ? accent : propertyBrandForeground(primary),
+    primaryForeground: propertyBrandForeground(primary),
+  };
 }
 
 export function normalizePropertyBrandWebsiteUrl(
@@ -68,9 +134,12 @@ export function isValidPropertyBrandLogoUrl(
     if (url.origin === siteOrigin) return true;
     if (!url.hostname.endsWith(".supabase.co")) return false;
 
-    const mediaPrefix = `/storage/v1/object/public/${PROPERTY_MEDIA_BUCKET}/properties/`;
+    const mediaPrefix =
+      `/storage/v1/object/public/${PROPERTY_MEDIA_BUCKET}/property-showcases/`;
     if (!url.pathname.startsWith(mediaPrefix)) return false;
-    return slug ? url.pathname.startsWith(`${mediaPrefix}${slug}/`) : true;
+    return slug
+      ? url.pathname.startsWith(`${mediaPrefix}${slug}/`)
+      : true;
   } catch {
     return false;
   }

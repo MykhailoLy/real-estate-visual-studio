@@ -121,6 +121,34 @@ test("changing social-card layout or branding mode changes the version", () => {
   );
 });
 
+test("changing resolved branded card colors or social copy changes the version", () => {
+  const property = cloneProperty();
+  property.branding = {
+    enabled: true,
+    brandName: "Alegria Real Estate",
+    primaryColor: "#3B0000",
+    accentColor: "#FF8A00",
+  };
+  property.socialPreview = {
+    brandingMode: "agency",
+    titleMode: "custom",
+    customTitle: { en: "Luxury Home in Altea Hills" },
+    descriptionMode: "custom",
+    customDescription: { en: "Exclusive home with panoramic surroundings." },
+  };
+  const changedColor = structuredClone(property);
+  if (changedColor.branding) changedColor.branding.primaryColor = "#0B1F3A";
+  const changedCopy = structuredClone(property);
+  changedCopy.socialPreview = {
+    ...changedCopy.socialPreview,
+    customDescription: { en: "A different custom description." },
+  };
+
+  const version = computePropertySocialImageVersion(property);
+  assert.notEqual(version, computePropertySocialImageVersion(changedColor));
+  assert.notEqual(version, computePropertySocialImageVersion(changedCopy));
+});
+
 test("changing visible fact selection or order changes the version", () => {
   const property = customFactProperty();
   const reordered = structuredClone(property);

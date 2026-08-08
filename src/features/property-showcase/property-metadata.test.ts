@@ -45,3 +45,24 @@ test("custom property branding updates Open Graph site name but not the canonica
     `https://picchuspot.com/property/${property.slug}`,
   );
 });
+
+test("social preview identity controls Open Graph site name while canonical stays stable", () => {
+  const property: PropertyShowcase = structuredClone(costaBlancaDemo);
+  property.socialPreview = { brandingMode: "picchuspot", titleMode: "automatic" };
+  const picchuMetadata = buildPropertyMetadata(
+    property,
+    computePropertySocialImageVersion(property),
+  );
+  assert.equal(picchuMetadata.openGraph?.siteName, "PicchuSpot");
+
+  property.socialPreview = { brandingMode: "unbranded", titleMode: "automatic" };
+  const unbrandedMetadata = buildPropertyMetadata(
+    property,
+    computePropertySocialImageVersion(property),
+  );
+  assert.equal(unbrandedMetadata.openGraph?.siteName, undefined);
+  assert.equal(
+    unbrandedMetadata.alternates?.canonical,
+    `https://picchuspot.com/property/${property.slug}`,
+  );
+});

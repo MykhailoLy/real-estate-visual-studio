@@ -176,7 +176,9 @@ function mergeDetailsUpdate(
     coverImage: existing.coverImage || incoming.coverImage,
     brochureUrl: existing.brochureUrl ?? incoming.brochureUrl,
     gallery: existing.gallery.length > 0 ? existing.gallery : incoming.gallery,
-    socialCard: existing.socialCard,
+    socialCard: options.updateSocialCard
+      ? incoming.socialCard
+      : existing.socialCard,
     marketingMaterials: existing.marketingMaterials,
     virtualTour: options.removeVirtualTour
       ? undefined

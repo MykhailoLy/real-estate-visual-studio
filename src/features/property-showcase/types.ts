@@ -22,6 +22,13 @@ export type PropertySocialBrandingMode =
 
 export type PropertySocialCardMode = "automatic" | "custom";
 
+export type PropertySocialTitleMode = "automatic" | "custom";
+
+export type PropertySocialDescriptionMode =
+  | "automatic"
+  | "intro-and-facts"
+  | "custom";
+
 export type PropertySocialCardLayout =
   | "image-focused"
   | "balanced"
@@ -236,6 +243,14 @@ export interface PropertyVideos {
 
 export interface PropertySocialPreviewConfig {
   brandingMode?: PropertySocialBrandingMode;
+  shareMessage?: LocalizedText;
+  titleMode?: PropertySocialTitleMode;
+  includeTitle?: boolean;
+  includePrice?: boolean;
+  customTitle?: LocalizedText;
+  descriptionMode?: PropertySocialDescriptionMode;
+  descriptionIntro?: LocalizedText;
+  customDescription?: LocalizedText;
 }
 
 export interface PropertyFloorPlan {

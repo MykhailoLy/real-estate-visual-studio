@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { absoluteUrl, SITE_NAME } from "../../lib/seo.ts";
+import { absoluteUrl } from "../../lib/seo.ts";
 import { getPropertySocialPreview } from "./social-preview.ts";
-import { getActivePropertyBranding } from "./branding.ts";
 import type { PropertyShowcase } from "./types.ts";
 
 export function propertySocialImageUrl(
@@ -21,7 +20,6 @@ export function buildPropertyMetadata(
   const canonicalUrl = absoluteUrl(canonicalPath);
   const socialImageUrl = propertySocialImageUrl(property, socialImageVersion);
   const preview = getPropertySocialPreview(property);
-  const branding = getActivePropertyBranding(property);
 
   return {
     title: preview.title,
@@ -32,7 +30,7 @@ export function buildPropertyMetadata(
     openGraph: {
       type: "website",
       url: canonicalUrl,
-      siteName: branding?.brandName ?? SITE_NAME,
+      siteName: preview.siteName,
       title: preview.title,
       description: preview.description,
       images: [

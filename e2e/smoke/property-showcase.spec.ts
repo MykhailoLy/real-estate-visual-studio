@@ -7,6 +7,7 @@ import {
 
 const propertyViewports = [
   { width: 320, height: 568 },
+  { width: 360, height: 800 },
   { width: 375, height: 812 },
   { width: 390, height: 844 },
   { width: 430, height: 932 },

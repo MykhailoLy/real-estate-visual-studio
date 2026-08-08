@@ -16,7 +16,7 @@ import type {
   PropertyMarketingPortraitLayout,
 } from "./types.ts";
 
-const WHITE = "#ffffff";
+const WHITE = "#FFFFFF";
 const NAVY = "#0B1F3A";
 const GOLD = "#B88A44";
 const CHARCOAL = "#182230";
@@ -43,6 +43,11 @@ interface SharedRenderModel {
   agencyLogoUrl?: string;
   agentPortraitUrl?: string;
   qrCodeUrl?: string;
+  primaryColor: string;
+  accentColor: string;
+  accentTextColor: string;
+  primaryForeground: "#0B1020" | "#FFFFFF";
+  brandingAttribution?: string;
 }
 
 function truncate(value: string, maximum: number): string {
@@ -590,19 +595,24 @@ function PortraitBrochureComposition({
 function SocialBrand({ model, scale }: { model: SharedRenderModel; scale: number }) {
   const s = (value: number) => Math.max(1, Math.round(value * scale));
   if (model.brandingMode === "unbranded") {
-    return <div style={{ display: "flex", width: s(48), height: s(4), background: GOLD }} />;
+    return <div style={{ display: "flex", width: s(48), height: s(4), background: model.accentColor }} />;
   }
   const agency = model.brandingMode === "agency";
   return (
-    <div style={{ display: "flex", alignItems: "center", minWidth: 0, gap: s(12) }}>
-      <div style={{ width: s(98), height: s(48), display: "flex", flexShrink: 0, alignItems: "center", justifyContent: "center", padding: s(7), borderRadius: s(6), background: "#f8f8f6" }}>
+    <div style={{ display: "flex", flexDirection: "column", minWidth: 0, gap: s(5) }}>
+      <div style={{ display: "flex", alignItems: "center", minWidth: 0, gap: s(12) }}>
         {agency && model.agencyLogoUrl ? (
-          <img src={model.agencyLogoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-        ) : (
+          <div style={{ width: s(98), height: s(48), display: "flex", flexShrink: 0, alignItems: "center", justifyContent: "center", padding: s(7), borderRadius: s(6), background: "#f8f8f6" }}>
+            <img src={model.agencyLogoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </div>
+        ) : !agency ? (
+          <div style={{ width: s(98), height: s(48), display: "flex", flexShrink: 0, alignItems: "center", justifyContent: "center", padding: s(7), borderRadius: s(6), background: "#f8f8f6" }}>
           <span style={{ display: "flex", color: NAVY, fontSize: s(18), fontWeight: 700, letterSpacing: s(-0.5) }}><span>Picchu</span><span style={{ color: GOLD }}>Spot</span></span>
-        )}
+          </div>
+        ) : null}
+        {agency || model.agencyName ? <span style={{ display: "flex", minWidth: 0, color: model.primaryForeground, fontSize: s(16), lineHeight: 1.1, fontWeight: 700 }}>{truncate(model.agencyName || "Agency", 26)}</span> : null}
       </div>
-      {agency || model.agencyName ? <span style={{ display: "flex", minWidth: 0, color: WHITE, fontSize: s(16), lineHeight: 1.1, fontWeight: 700 }}>{truncate(model.agencyName || "Agency", 26)}</span> : null}
+      {model.brandingAttribution ? <span style={{ display: "flex", color: model.primaryForeground === WHITE ? "rgba(255,255,255,.56)" : "rgba(11,16,32,.56)", fontSize: s(9), lineHeight: 1.1, letterSpacing: s(0.35), textTransform: "uppercase" }}>{model.brandingAttribution}</span> : null}
     </div>
   );
 }
@@ -611,11 +621,11 @@ function SocialFacts({ model, scale }: { model: SharedRenderModel; scale: number
   const s = (value: number) => Math.max(1, Math.round(value * scale));
   if (model.facts.length === 0) return null;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", width: "100%", borderTop: `${s(1)}px solid rgba(255,255,255,.2)`, paddingTop: s(14), marginTop: s(16) }}>
+    <div style={{ display: "flex", flexWrap: "wrap", width: "100%", borderTop: `${s(1)}px solid ${model.primaryForeground === WHITE ? "rgba(255,255,255,.2)" : "rgba(11,16,32,.2)"}`, paddingTop: s(14), marginTop: s(16) }}>
       {model.facts.slice(0, 4).map((fact) => (
         <div key={fact.key} style={{ width: "50%", display: "flex", flexDirection: "column", paddingRight: s(8), marginBottom: s(12) }}>
-          <span style={{ display: "flex", color: "rgba(255,255,255,.56)", fontSize: s(10), fontWeight: 700, textTransform: "uppercase", letterSpacing: s(0.7) }}>{truncate(fact.label, 16)}</span>
-          <span style={{ display: "flex", marginTop: s(3), color: WHITE, fontSize: s(18), lineHeight: 1, fontWeight: 700 }}>{truncate(fact.value, 14)}</span>
+          <span style={{ display: "flex", color: model.accentTextColor, fontSize: s(10), fontWeight: 700, textTransform: "uppercase", letterSpacing: s(0.7) }}>{truncate(fact.label, 16)}</span>
+          <span style={{ display: "flex", marginTop: s(3), color: model.primaryForeground, fontSize: s(18), lineHeight: 1, fontWeight: 700 }}>{truncate(fact.value, 14)}</span>
         </div>
       ))}
     </div>
@@ -666,14 +676,14 @@ function SocialSupplementalDetails({ model, scale }: { model: SharedRenderModel;
     <div style={{ display: "flex", flexDirection: "column", marginTop: s(2), gap: s(7) }}>
       {visibleHighlights.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: s(4) }}>
-          <span style={{ display: "flex", color: GOLD, fontSize: s(10), fontWeight: 700, letterSpacing: s(0.8), textTransform: "uppercase" }}>Highlights</span>
-          {visibleHighlights.map((highlight, index) => <div key={`${highlight}-${index}`} style={{ display: "flex", color: "rgba(255,255,255,.9)", fontSize: s(12), lineHeight: 1.15 }}><span style={{ width: s(7), height: s(7), display: "flex", flexShrink: 0, marginTop: s(4), marginRight: s(6), borderRadius: s(7), background: GOLD }} /><span style={{ display: "flex" }}>{truncate(highlight, 38)}</span></div>)}
+          <span style={{ display: "flex", color: model.accentTextColor, fontSize: s(10), fontWeight: 700, letterSpacing: s(0.8), textTransform: "uppercase" }}>Highlights</span>
+          {visibleHighlights.map((highlight, index) => <div key={`${highlight}-${index}`} style={{ display: "flex", color: model.primaryForeground, fontSize: s(12), lineHeight: 1.15 }}><span style={{ width: s(7), height: s(7), display: "flex", flexShrink: 0, marginTop: s(4), marginRight: s(6), borderRadius: s(7), background: model.accentColor }} /><span style={{ display: "flex" }}>{truncate(highlight, 38)}</span></div>)}
         </div>
       ) : null}
       {visibleCustomFacts.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", marginTop: visibleHighlights.length > 0 ? s(3) : 0, gap: s(4) }}>
-          <span style={{ display: "flex", color: GOLD, fontSize: s(10), fontWeight: 700, letterSpacing: s(0.8), textTransform: "uppercase" }}>Details</span>
-          {visibleCustomFacts.map((fact) => <div key={fact.key} style={{ display: "flex", justifyContent: "space-between", gap: s(8), color: "rgba(255,255,255,.82)", fontSize: s(11), lineHeight: 1.1 }}><span style={{ display: "flex", minWidth: 0 }}>{truncate(fact.label, 16)}</span><span style={{ display: "flex", color: WHITE, fontWeight: 700, textAlign: "right" }}>{truncate(fact.value, 14)}</span></div>)}
+          <span style={{ display: "flex", color: model.accentTextColor, fontSize: s(10), fontWeight: 700, letterSpacing: s(0.8), textTransform: "uppercase" }}>Details</span>
+          {visibleCustomFacts.map((fact) => <div key={fact.key} style={{ display: "flex", justifyContent: "space-between", gap: s(8), color: model.primaryForeground, fontSize: s(11), lineHeight: 1.1 }}><span style={{ display: "flex", minWidth: 0 }}>{truncate(fact.label, 16)}</span><span style={{ display: "flex", color: model.primaryForeground, fontWeight: 700, textAlign: "right" }}>{truncate(fact.value, 14)}</span></div>)}
         </div>
       ) : null}
     </div>
@@ -696,14 +706,14 @@ function SocialCardComposition({
   const panelWidth = 312;
   const photoWidth = width - panelWidth;
   return (
-    <div style={{ width, height, display: "flex", overflow: "hidden", background: NAVY, color: WHITE, fontFamily: "Arial, Helvetica, sans-serif" }}>
+    <div style={{ width, height, display: "flex", overflow: "hidden", background: model.primaryColor, color: model.primaryForeground, fontFamily: "Arial, Helvetica, sans-serif" }}>
       <SocialMedia images={model.images} width={photoWidth} height={height} title={model.title} showSupporting={showSupporting} />
-      <div style={{ width: panelWidth, height, display: "flex", flexDirection: "column", padding: `${s(24)}px ${s(20)}px ${s(18)}px`, background: NAVY }}>
+      <div style={{ width: panelWidth, height, display: "flex", flexDirection: "column", padding: `${s(24)}px ${s(20)}px ${s(18)}px`, background: model.primaryColor }}>
         <SocialBrand model={model} scale={scale} />
         <div style={{ display: "flex", flexDirection: "column", marginTop: s(17) }}>
-          {model.location ? <span style={{ display: "flex", color: "rgba(255,255,255,.68)", fontSize: s(11), lineHeight: 1.2, textTransform: "uppercase", letterSpacing: s(0.6) }}>{truncate(model.location, 54)}</span> : null}
-          <span style={{ display: "flex", marginTop: model.location ? s(7) : 0, color: WHITE, fontSize: s(26), lineHeight: 1.04, fontWeight: 700 }}>{truncate(model.title, 48)}</span>
-          {model.price ? <span style={{ display: "flex", marginTop: s(10), color: "#dec373", fontSize: s(22), lineHeight: 1, fontWeight: 700 }}>{truncate(model.price, 22)}</span> : null}
+          {model.location ? <span style={{ display: "flex", color: model.primaryForeground === WHITE ? "rgba(255,255,255,.68)" : "rgba(11,16,32,.68)", fontSize: s(11), lineHeight: 1.2, textTransform: "uppercase", letterSpacing: s(0.6) }}>{truncate(model.location, 54)}</span> : null}
+          <span style={{ display: "flex", marginTop: model.location ? s(7) : 0, color: model.primaryForeground, fontSize: s(26), lineHeight: 1.04, fontWeight: 700 }}>{truncate(model.title, 48)}</span>
+          {model.price ? <span style={{ display: "flex", marginTop: s(10), color: model.accentTextColor, fontSize: s(22), lineHeight: 1, fontWeight: 700 }}>{truncate(model.price, 22)}</span> : null}
         </div>
         <SocialFacts model={model} scale={scale} />
         <SocialSupplementalDetails model={model} scale={scale} />
@@ -738,6 +748,10 @@ function modelFromAssets(
     agencyLogoUrl: assets.agencyLogoUrl,
     agentPortraitUrl: assets.agentPortraitUrl,
     qrCodeUrl: assets.qrCodeUrl,
+    primaryColor: NAVY,
+    accentColor: GOLD,
+    accentTextColor: GOLD,
+    primaryForeground: WHITE,
   };
 }
 
@@ -786,6 +800,11 @@ export function renderPropertySocialCardPng(input: PropertySocialCardRenderInput
       focalPoint: image.focalPoint ?? { x: 0.5, y: 0.5 },
     })),
     agencyLogoUrl: input.brandingLogo?.imageUrl,
+    primaryColor: input.preview.primaryColor,
+    accentColor: input.preview.accentColor,
+    accentTextColor: input.preview.accentTextColor,
+    primaryForeground: input.preview.primaryForeground,
+    brandingAttribution: input.preview.brandingAttribution,
   };
   return new ImageResponse(
     <SocialCardComposition

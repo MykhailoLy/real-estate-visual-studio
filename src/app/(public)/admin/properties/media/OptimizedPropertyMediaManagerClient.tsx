@@ -1625,14 +1625,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
               {([
                 ["showLocation", "Show location"],
                 ["showPrice", "Show price"],
-                ["showBranding", "Show branding"],
-                ["showPoweredByPicchuSpot", "Show Powered by PicchuSpot"],
               ] as const).map(([key, label]) => {
-                const poweredByControl = key === "showPoweredByPicchuSpot";
-                const disabled =
-                  poweredByControl &&
-                  (!socialCard.showBranding ||
-                    record.property.socialPreview?.brandingMode === "unbranded");
                 return (
                   <label
                     key={key}
@@ -1641,20 +1634,23 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
                     <input
                       type="checkbox"
                       checked={socialCard[key]}
-                      disabled={disabled}
                       onChange={(event) =>
                         setSocialCard((current) => ({
                           ...current,
                           [key]: event.target.checked,
                         }))
                       }
-                      className="h-4 w-4 shrink-0 accent-primary disabled:opacity-40"
+                      className="h-4 w-4 shrink-0 accent-primary"
                     />
                     {label}
                   </label>
                 );
               })}
             </div>
+            <p className="mt-3 text-xs leading-5 text-muted">
+              Preview identity and PicchuSpot attribution are configured in
+              Social sharing &amp; link preview, so they are not duplicated here.
+            </p>
           </fieldset>
 
           {socialCard.mode === "custom" ? (

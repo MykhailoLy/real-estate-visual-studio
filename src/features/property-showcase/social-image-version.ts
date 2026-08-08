@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { normalizeListingFacts } from "./listing-details.ts";
-import { getPrimaryLanguage, localizedText } from "./localization.ts";
+import { getPrimaryLanguage } from "./localization.ts";
 import { serializePublicPropertyShowcase } from "./public-serialization.ts";
 import { normalizePropertySocialCardConfig } from "./social-card.ts";
 import {
@@ -16,7 +16,7 @@ import type {
 } from "./types.ts";
 
 export const PROPERTY_SOCIAL_CARD_VISUAL_SCHEMA_VERSION =
-  "picchuspot-property-social-card-v2";
+  "picchuspot-property-social-card-v3";
 
 interface VersionedSocialPhoto {
   id: string;
@@ -38,7 +38,10 @@ export interface PropertySocialImageVersionInput {
       logoUrl: string | null;
       name: string | null;
     } | null;
+    accentColor: string;
+    attribution: string | null;
     mode: "picchuspot" | "agency" | "unbranded";
+    primaryColor: string;
   };
   card: {
     configuredFactKeys: PropertySocialCardFactKey[];
@@ -64,6 +67,7 @@ export interface PropertySocialImageVersionInput {
       label: string;
       value: string;
     }>;
+    description: string;
     highlights: string[];
     location: string;
     listingFacts: PublicSocialListingFacts;
@@ -128,7 +132,10 @@ export function createPropertySocialImageVersionInput(
   return {
     branding: {
       agency,
+      accentColor: preview.accentColor,
+      attribution: preview.brandingAttribution ?? null,
       mode: preview.brandingMode,
+      primaryColor: preview.primaryColor,
     },
     card: {
       configuredFactKeys: socialCard.factOrder.filter((key) =>
@@ -145,6 +152,7 @@ export function createPropertySocialImageVersionInput(
       },
     },
     content: {
+      description: preview.description,
       displayedPrice: preview.price,
       facts,
       customFacts: preview.customFacts,
@@ -158,11 +166,7 @@ export function createPropertySocialImageVersionInput(
         builtArea: publicListingFactValue("built-area"),
         yearBuilt: publicListingFactValue("year-built"),
       },
-      title: localizedText(
-        publicProperty.title,
-        primaryLanguage,
-        primaryLanguage,
-      ),
+      title: preview.title,
     },
     images: {
       coverFallbackUrl: resolvePropertySocialImageUrl(

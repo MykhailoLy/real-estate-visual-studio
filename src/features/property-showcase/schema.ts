@@ -159,8 +159,31 @@ const PropertySocialPreviewSchema = z
     brandingMode: z
       .enum(["picchuspot", "agency", "unbranded"])
       .optional(),
+    shareMessage: OptionalLocalizedTextSchema.optional(),
+    titleMode: z.enum(["automatic", "custom"]).optional(),
+    includeTitle: z.boolean().optional(),
+    includePrice: z.boolean().optional(),
+    customTitle: OptionalLocalizedTextSchema.optional(),
+    descriptionMode: z.enum(["automatic", "intro-and-facts", "custom"]).optional(),
+    descriptionIntro: OptionalLocalizedTextSchema.optional(),
+    customDescription: OptionalLocalizedTextSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((preview, context) => {
+    const textFields: Array<[keyof typeof preview, number, string]> = [
+      ["shareMessage", 600, "Share message must be 600 characters or fewer."],
+      ["customTitle", 180, "Custom social title must be 180 characters or fewer."],
+      ["descriptionIntro", 360, "Social introduction must be 360 characters or fewer."],
+      ["customDescription", 500, "Custom social description must be 500 characters or fewer."],
+    ];
+    for (const [key, maximum, message] of textFields) {
+      const value = preview[key];
+      if (!value || typeof value !== "object") continue;
+      if (Object.values(value).some((text) => text && text.length > maximum)) {
+        context.addIssue({ code: "custom", path: [key], message });
+      }
+    }
+  });
 
 const PropertySocialCardFactKeySchema = z.enum([
   "listing-reference",

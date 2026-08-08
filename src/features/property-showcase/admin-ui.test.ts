@@ -298,14 +298,25 @@ test("property editor exposes a focused, per-property branding section", () => {
     "Brand logo URL",
     "Primary color",
     "Accent color",
-    "Show “Powered by PicchuSpot”",
+    "Show PicchuSpot attribution",
     "property-branding-admin-preview",
   ]) {
     assert.equal(propertyEditorSource.includes(expectedText), true, expectedText);
   }
   assert.equal(propertyShowcaseSource.includes("property-branding"), true);
-  assert.equal(propertyShowcaseSource.includes("failedBrandLogoUrl"), true);
+  assert.equal(propertyShowcaseSource.includes("PropertyBrandLogo"), true);
+  assert.equal(propertyShowcaseSource.includes("failedBrandLogoUrl"), false);
   assert.equal(propertyShowcaseSource.includes("showPicchuSpotCredit"), true);
+});
+
+test("branded public showcase uses the shared safe palette and viewport-aware hero composition", () => {
+  assert.equal(propertyShowcaseSource.includes("property-hero-composition"), true);
+  assert.equal(propertyShowcaseSource.includes("100dvh"), true);
+  assert.equal(propertyShowcaseSource.includes("--property-brand-primary"), true);
+  assert.equal(propertyShowcaseSource.includes("getPropertyShareMessage"), true);
+  assert.equal(propertyEditorSource.includes("Social sharing & link preview"), true);
+  assert.equal(propertyEditorSource.includes("Link-preview text"), true);
+  assert.equal(propertyEditorSource.includes("single source for the description builder"), true);
 });
 
 test("realtor section is compact and never prints a raw website URL", () => {
@@ -414,7 +425,7 @@ test("successful viewing requests retain their existing reset-and-success behavi
 test("sharing never derives a URL from the current admin or preview location", () => {
   assert.equal(propertyActionsSource.includes("window.location.href"), false);
   assert.equal(propertyActionsSource.includes("url: canonicalUrl"), true);
-  assert.equal(propertyActionsSource.includes("writeText(canonicalUrl)"), true);
+  assert.equal(propertyActionsSource.includes('[text, canonicalUrl].filter(Boolean).join("\\n")'), true);
 });
 
 test("social-card rendering validates image bytes and has a deliberate fallback", () => {
@@ -423,7 +434,7 @@ test("social-card rendering validates image bytes and has a deliberate fallback"
   assert.equal(propertyOpenGraphImageSource.includes("renderPropertySocialCardPng"), true);
   assert.equal(marketingMaterialRendererSource.includes("model.title"), true);
   assert.equal(propertyOpenGraphImageSource.includes("property-social-emergency.png"), true);
-  assert.equal(propertyEditorSource.includes("Social-card branding"), true);
+  assert.equal(propertyEditorSource.includes("Social sharing & link preview"), true);
   assert.equal(propertyEditorSource.includes("PropertySocialCardPreview"), true);
   assert.equal(mediaManagerSource.includes("PropertySocialCardPreview"), true);
   assert.equal(socialPreviewResponseSource.includes("preparePropertySocialAssets"), true);
@@ -522,8 +533,6 @@ test("media admin exposes configurable social card controls and local preview", 
     "Minimal (one dominant photo)",
     "Show location",
     "Show price",
-    "Show branding",
-    "Show Powered by PicchuSpot",
     "Reset defaults",
     "Open generated social PNG",
   ]) {
@@ -534,6 +543,7 @@ test("media admin exposes configurable social card controls and local preview", 
   assert.equal(mediaManagerSource.includes("record.updatedAt"), true);
   assert.equal(mediaManagerSource.includes("PROPERTY_SOCIAL_CARD_MAX_FACTS"), true);
   assert.equal(mediaManagerSource.includes("Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} earlier"), true);
+  assert.equal(mediaManagerSource.includes("not duplicated here"), true);
 });
 
 test("flyer admin exposes only the three approved modes and an unsaved landscape preview", () => {
@@ -592,7 +602,7 @@ test("brochure compositions reflow sparse portrait content and never reserve fai
   assert.equal(marketingMaterialRendererSource.includes("supporting.length === 0"), true);
   assert.equal(marketingMaterialRendererSource.includes("images.slice(1"), true);
   assert.equal(marketingAssetsSource.includes("filter((image): image is PreparedMarketingImage"), true);
-  assert.equal(marketingMaterialRendererSource.includes('const WHITE = "#ffffff"'), true);
+  assert.equal(marketingMaterialRendererSource.includes('const WHITE = "#FFFFFF"'), true);
   assert.equal(marketingMaterialRendererSource.includes('background: editorial ? "#f7f4ed"'), false);
   assert.equal(marketingMaterialRendererSource.includes("Full Frame Media"), false);
   assert.equal(marketingMaterialRendererSource.includes('fontSize: s(portrait ? 48 : 40)'), true);

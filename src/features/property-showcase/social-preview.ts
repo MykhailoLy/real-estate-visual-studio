@@ -3,7 +3,10 @@ import { normalizePropertyImageFocalPoint } from "./focal-point.ts";
 import { normalizeListingFacts } from "./listing-details.ts";
 import { getPrimaryLanguage, localizedText } from "./localization.ts";
 import { getPropertyAddressView } from "./property-address.ts";
-import { getActivePropertyBranding } from "./branding.ts";
+import {
+  getActivePropertyBranding,
+  getPropertyBrandPalette,
+} from "./branding.ts";
 import {
   getPropertySocialCardFacts,
   normalizePropertySocialCardConfig,
@@ -12,6 +15,7 @@ import { ownedPropertyShowcaseStoragePath } from "./storage-cleanup.ts";
 import type {
   PropertyGalleryImage,
   PropertyImageFocalPoint,
+  PropertyLanguageCode,
   PropertyShowcase,
   PropertySocialCardFactKey,
   PropertySocialCardLayout,
@@ -26,6 +30,7 @@ export interface PropertySocialPreviewImage {
 }
 
 export interface PropertySocialPreview {
+  siteName?: string;
   title: string;
   description: string;
   imageUrl: string;
@@ -55,6 +60,10 @@ export interface PropertySocialPreview {
   brandingName?: string;
   brandingLogoUrl?: string;
   brandingAttribution?: string;
+  primaryColor: string;
+  accentColor: string;
+  accentTextColor: string;
+  primaryForeground: "#0B1020" | "#FFFFFF";
 }
 
 function sortedSocialGallery(
@@ -234,21 +243,22 @@ export function resolvedPropertySocialImages(
 
 export function getPropertySocialPreview(
   property: PropertyShowcase,
+  language: PropertyLanguageCode = getPrimaryLanguage(property),
 ): PropertySocialPreview {
   const primaryLanguage = getPrimaryLanguage(property);
   const listingTitle = localizedText(
     property.title,
-    primaryLanguage,
+    language,
     primaryLanguage,
   );
   const summary = localizedText(
     property.summary,
-    primaryLanguage,
+    language,
     primaryLanguage,
   );
   const location = getPropertyAddressView(
     property.location,
-    primaryLanguage,
+    language,
     primaryLanguage,
   ).socialText;
   const socialCard = normalizePropertySocialCardConfig(property.socialCard);
@@ -257,7 +267,7 @@ export function getPropertySocialPreview(
     : "";
   const image = selectPropertySocialImage(property);
   const images = selectPropertySocialImages(property);
-  const facts = normalizeListingFacts(property, primaryLanguage);
+  const facts = normalizeListingFacts(property, language);
   const fact = (key: "listing-reference" | "bedrooms" | "bathrooms" | "built-area") =>
     facts.find((item) => item.key === key);
   const reference = fact("listing-reference");
@@ -265,14 +275,21 @@ export function getPropertySocialPreview(
   const bathrooms = fact("bathrooms");
   const builtArea = fact("built-area");
   const activeBranding = getActivePropertyBranding(property);
+  const hasModernSocialIdentityControl = Boolean(
+    property.socialPreview &&
+      ("titleMode" in property.socialPreview ||
+        "descriptionMode" in property.socialPreview ||
+        "shareMessage" in property.socialPreview),
+  );
   const configuredBrandingMode =
-    activeBranding
+    activeBranding && !hasModernSocialIdentityControl
       ? "agency"
-      : (property.socialPreview?.brandingMode ?? "picchuspot");
+      : (property.socialPreview?.brandingMode ??
+        (activeBranding ? "agency" : "picchuspot"));
   const brandingMode = socialCard.showBranding
     ? configuredBrandingMode
     : "unbranded";
-  const socialFacts = getPropertySocialCardFacts(property, primaryLanguage);
+  const socialFacts = getPropertySocialCardFacts(property, language);
   const customFacts = facts
     .filter((fact) => fact.key.startsWith("custom-"))
     .map((fact) => ({ key: fact.key, label: fact.label, value: fact.value }));
@@ -282,19 +299,59 @@ export function getPropertySocialPreview(
     .sort((first, second) => (first.sortOrder ?? 0) - (second.sortOrder ?? 0))
     .map((highlight) => localizedText(
       highlight.text ?? highlight.title ?? highlight.description,
-      primaryLanguage,
+      language,
       primaryLanguage,
     ))
     .filter(Boolean);
 
+  const socialSettings = property.socialPreview;
+  const automaticTitle = [
+    socialSettings?.includeTitle === false ? "" : listingTitle,
+    socialSettings?.includePrice === false || !socialCard.showPrice ? "" : price,
+  ].filter(Boolean).join(" | ") || listingTitle;
+  const customTitle = localizedText(
+    socialSettings?.customTitle,
+    language,
+    primaryLanguage,
+  );
+  const selectedFactDescription = [
+    socialCard.showLocation ? location : "",
+    ...socialFacts.map((item) => `${item.label} ${item.value}`),
+  ].filter(Boolean).join(" \u00b7 ");
+  const customIntro = localizedText(
+    socialSettings?.descriptionIntro,
+    language,
+    primaryLanguage,
+  );
+  const customDescription = localizedText(
+    socialSettings?.customDescription,
+    language,
+    primaryLanguage,
+  );
+  const description = socialSettings?.descriptionMode === "custom"
+    ? customDescription || selectedFactDescription || summary
+    : socialSettings?.descriptionMode === "intro-and-facts"
+      ? [customIntro, selectedFactDescription].filter(Boolean).join(". ") || summary
+      : selectedFactDescription || summary;
+  const palette = getPropertyBrandPalette(
+    brandingMode === "agency" ? activeBranding : null,
+  );
+  const showPicchuSpotAttribution = activeBranding
+    ? activeBranding.showPicchuSpotCredit
+    : socialCard.showPoweredByPicchuSpot;
+
   return {
-    title: [listingTitle, socialCard.showPrice ? price : ""]
-      .filter(Boolean)
-      .join(" | "),
-    description: [
-      socialCard.showLocation ? location : "",
-      ...socialFacts.map((item) => `${item.label} ${item.value}`),
-    ].filter(Boolean).join(" \u00b7 ") || summary,
+    siteName:
+      brandingMode === "picchuspot"
+        ? "PicchuSpot"
+        : brandingMode === "agency"
+          ? activeBranding?.brandName || property.agent.agencyName.trim() || undefined
+          : undefined,
+    title:
+      socialSettings?.titleMode === "custom"
+        ? customTitle || listingTitle
+        : automaticTitle,
+    description,
     ...image,
     images,
     location: socialCard.showLocation ? location : "",
@@ -323,14 +380,34 @@ export function getPropertySocialPreview(
         ? activeBranding?.logoUrl ?? property.agent.logoUrl?.trim()
         : undefined,
     brandingAttribution:
-      !socialCard.showPoweredByPicchuSpot || activeBranding?.showPicchuSpotCredit === false
+      !showPicchuSpotAttribution
         ? undefined
         : brandingMode === "picchuspot"
           ? "Property Showcase by PicchuSpot"
           : brandingMode === "agency"
             ? "Powered by PicchuSpot"
             : undefined,
+    primaryColor: palette.primary,
+    accentColor: palette.accent,
+    accentTextColor: palette.accentTextColor,
+    primaryForeground: palette.primaryForeground,
   };
+}
+
+export function getPropertyShareMessage(
+  property: PropertyShowcase,
+  language: PropertyLanguageCode = getPrimaryLanguage(property),
+): string {
+  const primaryLanguage = getPrimaryLanguage(property);
+  const configured = localizedText(
+    property.socialPreview?.shareMessage,
+    language,
+    primaryLanguage,
+  );
+  if (configured) return configured;
+
+  const preview = getPropertySocialPreview(property, language);
+  return [preview.title, preview.description].filter(Boolean).join(" — ");
 }
 
 export function updateGallerySocialPreview(
