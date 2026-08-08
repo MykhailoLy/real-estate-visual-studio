@@ -7,7 +7,7 @@ export interface PropertySelectionResult {
 }
 
 type PropertyCardLinkAction = {
-  kind: "open" | "preview" | "media";
+  kind: "open" | "preview" | "media" | "analytics";
   label: string;
   href: string;
 };
@@ -21,6 +21,7 @@ export type PropertyCardActions = readonly [
   PropertyCardLinkAction,
   PropertyCardButtonAction,
   PropertyCardLinkAction,
+  PropertyCardLinkAction,
   PropertyCardButtonAction,
 ];
 
@@ -30,6 +31,10 @@ export function propertyMediaHref(id: string): string {
 
 export function propertyPreviewHref(id: string): string {
   return `/admin/properties/${encodeURIComponent(id)}/preview`;
+}
+
+export function propertyAnalyticsHref(id: string): string {
+  return `/admin/properties/${encodeURIComponent(id)}/analytics`;
 }
 
 export function propertyCardActions(
@@ -55,6 +60,11 @@ export function propertyCardActions(
       kind: "media",
       label: "Photos & floor plans",
       href: propertyMediaHref(record.id),
+    },
+    {
+      kind: "analytics",
+      label: "Analytics",
+      href: propertyAnalyticsHref(record.id),
     },
     {
       kind: "delete",

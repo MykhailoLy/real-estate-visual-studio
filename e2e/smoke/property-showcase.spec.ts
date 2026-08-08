@@ -352,6 +352,37 @@ test("property showcase floor plan tabs switch plans on desktop", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
+test("public property tracking is first-party, per-property, and interaction-based", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const response = await page.goto("/property/sea-view-residence");
+  expectNavigationResponseOk(response, "/property/sea-view-residence");
+
+  await expect.poll(() => guard.propertyAnalyticsEvents()).toContainEqual({
+    propertySlug: "sea-view-residence",
+    event: "property_page_viewed",
+  });
+  await expect
+    .poll(
+      () =>
+        guard.propertyAnalyticsEvents().filter((event) =>
+          event.event === "property_page_viewed" &&
+          event.propertySlug === "sea-view-residence",
+        ).length,
+    )
+    .toBe(1);
+
+  await page
+    .getByRole("button", { name: "Open gallery image: Exterior and pool" })
+    .click();
+  await expect.poll(() => guard.propertyAnalyticsEvents()).toContainEqual({
+    propertySlug: "sea-view-residence",
+    event: "gallery_opened",
+  });
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
 test("property gallery modal keeps keyboard focus contained", async ({
   page,
 }, testInfo) => {
@@ -926,5 +957,6 @@ test("draft preview is protected for unauthenticated visitors", async ({
   await page.goto("/admin/properties/00000000-0000-0000-0000-000000000000/preview");
 
   await expect(page).toHaveURL(/\/admin\/login/);
+  expect(guard.propertyAnalyticsEvents()).toEqual([]);
   await guard.expectNoPageErrorsOrServerErrors();
 });

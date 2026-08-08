@@ -35,6 +35,7 @@ type InteractivePropertyFloorPlanProps = {
   gallery: PropertyGalleryImage[];
   locale?: PropertyLanguageCode;
   primaryLanguage?: PropertyLanguageCode;
+  onInteractiveFloorPlanOpened?: () => void;
 };
 
 const fallbackPositions = [
@@ -86,6 +87,7 @@ function ExternalInteractiveFloorPlan({
   gallery,
   locale,
   primaryLanguage,
+  onInteractiveFloorPlanOpened,
   externalPlan,
 }: InteractivePropertyFloorPlanProps & {
   externalPlan: NormalizedInteractiveFloorPlanUrl;
@@ -127,10 +129,10 @@ function ExternalInteractiveFloorPlan({
   }, [status]);
 
   function activate() {
+    if (status !== "poster") return;
+    onInteractiveFloorPlanOpened?.();
     if (canEmbed) {
-      setStatus((current) =>
-        current === "poster" ? "opening" : current,
-      );
+      setStatus("opening");
     }
   }
 
@@ -216,6 +218,7 @@ function ExternalInteractiveFloorPlan({
                 href={openPlanUrl}
                 target="_blank"
                 rel="noreferrer"
+                onClick={onInteractiveFloorPlanOpened}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-[#0f2440] shadow-xl transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
               >
                 <ExternalLink className="h-5 w-5" aria-hidden />
@@ -272,6 +275,7 @@ function NativeInteractiveFloorPlan({
   gallery,
   locale,
   primaryLanguage,
+  onInteractiveFloorPlanOpened,
 }: InteractivePropertyFloorPlanProps & { floorPlan: PropertyFloorPlan }) {
   const language = locale ?? primaryLanguage ?? "en";
   const fallbackLanguage = primaryLanguage ?? language;
@@ -301,6 +305,7 @@ function NativeInteractiveFloorPlan({
   const openFullscreen = async () => {
     const element = stageRef.current;
     if (!element || !document.fullscreenEnabled) return;
+    onInteractiveFloorPlanOpened?.();
     try {
       await element.requestFullscreen();
     } catch {

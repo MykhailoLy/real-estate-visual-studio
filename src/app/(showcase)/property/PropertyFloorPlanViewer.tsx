@@ -13,6 +13,7 @@ interface PropertyFloorPlanViewerProps {
   plans: PropertyFloorPlan[];
   propertyTitle: string;
   locale: PropertyLanguageCode;
+  onFloorPlanDownload?: () => void;
 }
 
 function text(value: LocalizedText | undefined, locale: PropertyLanguageCode): string {
@@ -24,6 +25,7 @@ export default function PropertyFloorPlanViewer({
   plans,
   propertyTitle,
   locale,
+  onFloorPlanDownload,
 }: PropertyFloorPlanViewerProps) {
   const sortedPlans = useMemo(
     () => [...plans].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -101,6 +103,7 @@ export default function PropertyFloorPlanViewer({
             href={selectedPlan.downloadUrl}
             target="_blank"
             rel="noreferrer"
+            onClick={onFloorPlanDownload}
             className="inline-flex items-center gap-2 rounded-full border border-[#0f2440]/15 px-5 py-3 text-sm font-bold text-[#0f2440] transition hover:border-[#0f2440]"
           >
             <Download className="h-4 w-4" aria-hidden />

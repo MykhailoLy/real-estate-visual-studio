@@ -15,6 +15,7 @@ import type { PropertyLanguageCode } from "@/features/property-showcase/types";
 interface PropertyMarketingDownloadsProps {
   links: PropertyMarketingMaterialLinks;
   language: PropertyLanguageCode;
+  onBrochureDownloaded?: () => void;
 }
 
 type ActionId = "pdf" | "jpg" | "png";
@@ -50,6 +51,7 @@ const COPY = {
 export default function PropertyMarketingDownloads({
   links,
   language,
+  onBrochureDownloaded,
 }: PropertyMarketingDownloadsProps) {
   const [open, setOpen] = useState(false);
   const [previewState, setPreviewState] = useState<"loading" | "ready" | "error">("loading");
@@ -131,6 +133,7 @@ export default function PropertyMarketingDownloads({
       anchor.href = url.toString();
       anchor.download = `property-flyer.${id}`;
       document.body.appendChild(anchor);
+      onBrochureDownloaded?.();
       anchor.click();
       anchor.remove();
       setActionState("ready");

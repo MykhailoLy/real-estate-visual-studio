@@ -27,6 +27,10 @@ export interface SmokeNetworkGuard {
   expectNoPageErrorsOrServerErrors(): Promise<void>;
   expectNoForbiddenApiCalls(): Promise<void>;
   expectNoCrispRequests(): Promise<void>;
+  propertyAnalyticsEvents(): Array<{
+    propertySlug?: string;
+    event?: string;
+  }>;
 }
 
 interface GuardState {
@@ -35,6 +39,10 @@ interface GuardState {
   sameOriginServerErrors: string[];
   forbiddenApiCalls: string[];
   crispRequests: string[];
+  propertyAnalyticsEvents: Array<{
+    propertySlug?: string;
+    event?: string;
+  }>;
 }
 
 export async function installSmokeNetworkGuards(
@@ -47,6 +55,7 @@ export async function installSmokeNetworkGuards(
     sameOriginServerErrors: [],
     forbiddenApiCalls: [],
     crispRequests: [],
+    propertyAnalyticsEvents: [],
   };
   const baseOrigin = new URL(
     process.env.PLAYWRIGHT_BASE_URL?.trim() || DEFAULT_BASE_URL,
@@ -75,6 +84,34 @@ export async function installSmokeNetworkGuards(
     ) {
       state.forbiddenApiCalls.push(`${request.method()} ${parsedUrl.pathname}`);
       await route.abort("blockedbyclient");
+      return;
+    }
+
+    if (
+      parsedUrl &&
+      parsedUrl.origin === baseOrigin &&
+      parsedUrl.pathname === "/api/property-analytics"
+    ) {
+      try {
+        const payload = JSON.parse(request.postData() ?? "{}") as {
+          propertySlug?: unknown;
+          event?: unknown;
+        };
+        state.propertyAnalyticsEvents.push({
+          propertySlug:
+            typeof payload.propertySlug === "string"
+              ? payload.propertySlug
+              : undefined,
+          event: typeof payload.event === "string" ? payload.event : undefined,
+        });
+      } catch {
+        state.propertyAnalyticsEvents.push({});
+      }
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
       return;
     }
 
@@ -131,6 +168,9 @@ export async function installSmokeNetworkGuards(
     async expectNoCrispRequests() {
       await attachDiagnostics(testInfo, state);
       expect(state.crispRequests, "Crisp network requests").toEqual([]);
+    },
+    propertyAnalyticsEvents() {
+      return [...state.propertyAnalyticsEvents];
     },
   };
 }
