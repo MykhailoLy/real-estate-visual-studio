@@ -93,6 +93,14 @@ function repairStoredProperty(property: PropertyShowcase): PropertyShowcase {
         repairPropertyMediaUrl(property.agent.portraitUrl) ??
         property.agent.portraitUrl,
     },
+    branding: property.branding
+      ? {
+          ...property.branding,
+          logoUrl:
+            repairPropertyMediaUrl(property.branding.logoUrl) ??
+            property.branding.logoUrl,
+        }
+      : undefined,
   };
 }
 

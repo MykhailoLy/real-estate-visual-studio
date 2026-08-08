@@ -35,6 +35,11 @@ import {
   translationCompletion,
 } from "@/features/property-showcase/localization";
 import {
+  isValidPropertyBrandColor,
+  isValidPropertyBrandLogoUrl,
+  normalizePropertyBrandWebsiteUrl,
+} from "@/features/property-showcase/branding";
+import {
   labelForListingReferenceMode,
   LISTING_REFERENCE_LABEL_PRESETS,
   getPropertyLocationMapView,
@@ -171,6 +176,13 @@ interface FormState {
   email: string;
   website: string;
   socials: SocialFormState;
+  brandingEnabled: boolean;
+  brandName: string;
+  brandLogoUrl: string;
+  brandWebsiteUrl: string;
+  brandPrimaryColor: string;
+  brandAccentColor: string;
+  showPicchuSpotCredit: boolean;
   published: boolean;
 }
 
@@ -417,6 +429,14 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
     email: property?.agent.email ?? "",
     website: property?.agent.website ?? "",
     socials: socialState(property),
+    brandingEnabled: property?.branding?.enabled ?? false,
+    brandName: property?.branding?.brandName ?? "",
+    brandLogoUrl: property?.branding?.logoUrl ?? "",
+    brandWebsiteUrl: property?.branding?.websiteUrl ?? "",
+    brandPrimaryColor: property?.branding?.primaryColor ?? "",
+    brandAccentColor: property?.branding?.accentColor ?? "",
+    showPicchuSpotCredit:
+      property?.branding?.showPicchuSpotCredit !== false,
     published: record?.published ?? false,
   };
 }
@@ -780,8 +800,54 @@ function buildProperty(
       website: optional(state.website),
       socialLinks: buildSocialLinks(state),
     },
+    branding: state.brandingEnabled
+      ? {
+          enabled: true,
+          brandName: optional(state.brandName),
+          logoUrl: optional(state.brandLogoUrl),
+          websiteUrl: optional(state.brandWebsiteUrl),
+          primaryColor: optional(state.brandPrimaryColor),
+          accentColor: optional(state.brandAccentColor),
+          showPicchuSpotCredit: state.showPicchuSpotCredit,
+        }
+      : { enabled: false },
     publishedAt: existing?.publishedAt,
   };
+}
+
+function brandingValidationMessage(
+  state: FormState,
+  slug: string,
+): string | null {
+  if (!state.brandingEnabled) return null;
+  if (!state.brandName.trim()) {
+    return "Enter a brand or agency name when custom branding is enabled.";
+  }
+  if (
+    state.brandPrimaryColor.trim() &&
+    !isValidPropertyBrandColor(state.brandPrimaryColor.trim())
+  ) {
+    return "Primary brand color must use #RRGGBB.";
+  }
+  if (
+    state.brandAccentColor.trim() &&
+    !isValidPropertyBrandColor(state.brandAccentColor.trim())
+  ) {
+    return "Accent brand color must use #RRGGBB.";
+  }
+  if (
+    state.brandWebsiteUrl.trim() &&
+    !normalizePropertyBrandWebsiteUrl(state.brandWebsiteUrl)
+  ) {
+    return "Brand website URL must use http or https.";
+  }
+  if (
+    state.brandLogoUrl.trim() &&
+    !isValidPropertyBrandLogoUrl(state.brandLogoUrl, slug)
+  ) {
+    return "Brand logo must use this property's public media URL or a safe site path.";
+  }
+  return null;
 }
 
 async function responseError(response: Response): Promise<string> {
@@ -1474,10 +1540,16 @@ function PropertyEditor({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
-    setSaving(true);
     onError(null);
 
     const property = buildProperty(form, record?.property ?? null);
+    const brandingError = brandingValidationMessage(form, property.slug);
+    if (brandingError) {
+      onError(brandingError);
+      return;
+    }
+
+    setSaving(true);
     const existingProperty = record?.property ?? null;
     const removeVirtualTour =
       mode === "edit" &&
@@ -2646,7 +2718,138 @@ function PropertyEditor({
           </p>
         </Section>
 
-        <Section title="11. Social sharing brand">
+        <Section title="11. Branding">
+          <div className="space-y-5">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
+              <input
+                type="checkbox"
+                checked={form.brandingEnabled}
+                onChange={(event) => set("brandingEnabled", event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Enable custom realtor / agency branding for this property
+            </label>
+
+            {form.brandingEnabled ? (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <Field label="Brand or agency name" hint="Shown as authored; it is separate from the individual agent name.">
+                    <input
+                      required={form.brandingEnabled}
+                      value={form.brandName}
+                      onChange={(event) => set("brandName", event.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field
+                    label="Brand website URL"
+                    hint="Optional. Only http and https links are accepted."
+                  >
+                    <input
+                      inputMode="url"
+                      placeholder="https://example.com"
+                      value={form.brandWebsiteUrl}
+                      onChange={(event) => set("brandWebsiteUrl", event.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field
+                    label="Brand logo URL"
+                    hint={
+                      record
+                        ? "Optional. Use a safe public image from this property's existing media. The Agency logo in Manage media is used automatically when this is blank."
+                        : "Optional. Save the draft, then use its existing Agency logo in Manage media."
+                    }
+                  >
+                    <input
+                      inputMode="url"
+                      placeholder="https://…/storage/v1/object/public/site-media/properties/..."
+                      value={form.brandLogoUrl}
+                      onChange={(event) => set("brandLogoUrl", event.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Primary color" hint="Optional. Use #RRGGBB only.">
+                    <input
+                      inputMode="text"
+                      maxLength={7}
+                      placeholder="#0B1F3A"
+                      value={form.brandPrimaryColor}
+                      onChange={(event) => set("brandPrimaryColor", event.target.value)}
+                      aria-invalid={
+                        Boolean(form.brandPrimaryColor.trim()) &&
+                        !isValidPropertyBrandColor(form.brandPrimaryColor.trim())
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Accent color" hint="Optional. Use #RRGGBB only.">
+                    <input
+                      inputMode="text"
+                      maxLength={7}
+                      placeholder="#B88A44"
+                      value={form.brandAccentColor}
+                      onChange={(event) => set("brandAccentColor", event.target.value)}
+                      aria-invalid={
+                        Boolean(form.brandAccentColor.trim()) &&
+                        !isValidPropertyBrandColor(form.brandAccentColor.trim())
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                  <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary md:self-end">
+                    <input
+                      type="checkbox"
+                      checked={form.showPicchuSpotCredit}
+                      onChange={(event) =>
+                        set("showPicchuSpotCredit", event.target.checked)
+                      }
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Show “Powered by PicchuSpot”
+                  </label>
+                </div>
+                <div
+                  data-testid="property-branding-admin-preview"
+                  className="flex min-h-18 items-center gap-3 rounded-xl border border-border border-l-4 bg-[#0f2440] px-4 py-3 text-white"
+                  style={{
+                    borderLeftColor: isValidPropertyBrandColor(
+                      form.brandPrimaryColor.trim(),
+                    )
+                      ? form.brandPrimaryColor.trim()
+                      : "#B88A44",
+                  }}
+                >
+                  <span className="min-w-0 truncate text-sm font-bold">
+                    {form.brandName.trim() || "Your agency brand"}
+                  </span>
+                  {isValidPropertyBrandColor(form.brandAccentColor.trim()) ? (
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: form.brandAccentColor.trim() }}
+                      aria-label="Brand accent preview"
+                    />
+                  ) : null}
+                </div>
+                {record ? (
+                  <Link
+                    href={`/admin/properties/media?property=${encodeURIComponent(record.id)}`}
+                    className="inline-flex items-center gap-2 text-sm font-bold text-primary underline underline-offset-4 hover:text-primary-light"
+                  >
+                    <Images className="h-4 w-4" aria-hidden />
+                    Manage existing property media
+                  </Link>
+                ) : null}
+              </>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border bg-surface px-4 py-4 text-sm leading-6 text-muted">
+                The public showcase will keep its existing PicchuSpot presentation. Branding values are ignored until enabled.
+              </p>
+            )}
+          </div>
+        </Section>
+
+        <Section title="12. Social sharing brand">
           <div className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr] lg:items-start">
             <Field
               label="Social-card branding"
@@ -2683,7 +2886,7 @@ function PropertyEditor({
           </div>
         </Section>
 
-        <Section title="12. Translations">
+        <Section title="13. Translations">
           <div className="space-y-5">
             <div className="flex flex-wrap gap-2">
               {availableTranslationLanguages.map((language) => (
@@ -2800,7 +3003,7 @@ function PropertyEditor({
           </div>
         </Section>
 
-        <Section title="13. Publishing controls">
+        <Section title="14. Publishing controls">
           <label className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary">
             <input
               type="checkbox"

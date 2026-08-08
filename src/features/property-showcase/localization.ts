@@ -58,6 +58,25 @@ export type PublicUiLabels = {
   whatsapp: string;
 };
 
+export type PropertyBrandingUiLabels = {
+  poweredBy: string;
+  website: string;
+};
+
+export const PROPERTY_BRANDING_UI_LABELS: Record<
+  PropertyLanguageCode,
+  PropertyBrandingUiLabels
+> = {
+  en: { poweredBy: "Powered by", website: "Website" },
+  es: { poweredBy: "Desarrollado por", website: "Sitio web" },
+  de: { poweredBy: "Bereitgestellt von", website: "Website" },
+  fr: { poweredBy: "Propulsé par", website: "Site web" },
+  nl: { poweredBy: "Mogelijk gemaakt door", website: "Website" },
+  pl: { poweredBy: "Obsługiwane przez", website: "Strona internetowa" },
+  uk: { poweredBy: "Працює на", website: "Вебсайт" },
+  ru: { poweredBy: "Работает на", website: "Веб-сайт" },
+};
+
 const EN_UI_LABELS: PublicUiLabels = {
   aboutHeading: "About this property",
   askQuestion: "Ask a question",

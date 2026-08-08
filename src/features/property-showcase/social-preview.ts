@@ -3,6 +3,7 @@ import { normalizePropertyImageFocalPoint } from "./focal-point.ts";
 import { normalizeListingFacts } from "./listing-details.ts";
 import { getPrimaryLanguage, localizedText } from "./localization.ts";
 import { getPropertyAddressView } from "./property-address.ts";
+import { getActivePropertyBranding } from "./branding.ts";
 import {
   getPropertySocialCardFacts,
   normalizePropertySocialCardConfig,
@@ -263,8 +264,11 @@ export function getPropertySocialPreview(
   const bedrooms = fact("bedrooms");
   const bathrooms = fact("bathrooms");
   const builtArea = fact("built-area");
+  const activeBranding = getActivePropertyBranding(property);
   const configuredBrandingMode =
-    property.socialPreview?.brandingMode ?? "picchuspot";
+    activeBranding
+      ? "agency"
+      : (property.socialPreview?.brandingMode ?? "picchuspot");
   const brandingMode = socialCard.showBranding
     ? configuredBrandingMode
     : "unbranded";
@@ -312,12 +316,14 @@ export function getPropertySocialPreview(
       brandingMode === "picchuspot"
         ? "PicchuSpot"
         : brandingMode === "agency"
-          ? property.agent.agencyName.trim() || undefined
+          ? activeBranding?.brandName || property.agent.agencyName.trim() || undefined
           : undefined,
     brandingLogoUrl:
-      brandingMode === "agency" ? property.agent.logoUrl?.trim() : undefined,
+      brandingMode === "agency"
+        ? activeBranding?.logoUrl ?? property.agent.logoUrl?.trim()
+        : undefined,
     brandingAttribution:
-      !socialCard.showPoweredByPicchuSpot
+      !socialCard.showPoweredByPicchuSpot || activeBranding?.showPicchuSpotCredit === false
         ? undefined
         : brandingMode === "picchuspot"
           ? "Property Showcase by PicchuSpot"

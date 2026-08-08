@@ -36,8 +36,10 @@ import {
   getPrimaryLanguage,
   getPropertyLanguageOptions,
   localizedText,
+  PROPERTY_BRANDING_UI_LABELS,
   PUBLIC_UI_LABELS,
 } from "@/features/property-showcase/localization";
+import { getActivePropertyBranding } from "@/features/property-showcase/branding";
 import { getPropertyAddressView } from "@/features/property-showcase/property-address";
 import {
   getExternalInteractiveFloorPlan,
@@ -129,7 +131,13 @@ export default function PropertyShowcaseView({
   const [language, setLanguage] =
     useState<PropertyLanguageCode>(initialLanguage);
   const [viewingDialogOpen, setViewingDialogOpen] = useState(false);
+  const [failedBrandLogoUrl, setFailedBrandLogoUrl] = useState<string | null>(
+    null,
+  );
   const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
+  const brandingUi =
+    PROPERTY_BRANDING_UI_LABELS[language] ?? PROPERTY_BRANDING_UI_LABELS.en;
+  const branding = getActivePropertyBranding(property);
   const gallery = useMemo(
     () => [...property.gallery].sort((a, b) => a.sortOrder - b.sortOrder),
     [property.gallery],
@@ -173,7 +181,14 @@ export default function PropertyShowcaseView({
   const contactHref =
     agent?.whatsappHref ?? agent?.emailHref ?? agent?.website;
   const showLocation = mapView.mode !== "hidden";
-  const showContactSection = Boolean(contactHref || agent);
+  const showContactSection = Boolean(contactHref || agent || branding?.websiteUrl);
+  const showBrandingContactIdentity = Boolean(
+    branding &&
+      (!agent ||
+        branding.brandName !== agent.agencyName ||
+        branding.logoUrl !== agent.logoUrl ||
+        branding.websiteUrl !== agent.website),
+  );
   const currentYear = new Date().getFullYear();
   const trackEvent = useCallback(
     (event: PropertyAnalyticsEvent) => {
@@ -212,6 +227,46 @@ export default function PropertyShowcaseView({
           <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[780px]">
             <PropertyHeroSlideshow images={heroImages} />
             <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/50 via-[#071426]/15 to-[#071426]/95" />
+            {branding ? (
+              <div
+                data-testid="property-branding"
+                className="absolute left-4 top-4 z-10 max-w-[calc(100%-5.75rem)] sm:left-6 sm:top-6 lg:left-10"
+              >
+                <div
+                  className="flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-white/25 border-l-4 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur"
+                  style={{ borderLeftColor: branding.primaryColor ?? "#B88A44" }}
+                >
+                  {branding.logoUrl && failedBrandLogoUrl !== branding.logoUrl ? (
+                    <div className="relative h-8 w-20 shrink-0 overflow-hidden rounded bg-white/95 p-1">
+                      <Image
+                        src={branding.logoUrl}
+                        alt={`${branding.brandName} logo`}
+                        fill
+                        sizes="80px"
+                        className="object-contain"
+                        onError={() => setFailedBrandLogoUrl(branding.logoUrl ?? null)}
+                      />
+                    </div>
+                  ) : null}
+                  <div className="min-w-0">
+                    {branding.websiteUrl ? (
+                      <a
+                        href={branding.websiteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate text-sm font-bold text-white underline decoration-white/35 underline-offset-4 hover:decoration-white"
+                      >
+                        {branding.brandName}
+                      </a>
+                    ) : (
+                      <span className="block truncate text-sm font-bold text-white">
+                        {branding.brandName}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="absolute inset-x-0 bottom-0">
               <div className="mx-auto max-w-[1480px] px-4 pb-8 sm:px-6 sm:pb-12 lg:px-10 lg:pb-16">
                 <div className="flex max-w-5xl flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -280,8 +335,8 @@ export default function PropertyShowcaseView({
             </div>
 
             <PropertyShowcaseActions
-              title={title}
-              text={[summary, address.socialText, formatPriceLabel(property.price)]
+              title={branding ? `${title} — ${branding.brandName}` : title}
+              text={[summary, address.socialText, formatPriceLabel(property.price), branding?.brandName]
                 .filter(Boolean)
                 .join(" | ")}
               canonicalUrl={canonicalUrl}
@@ -520,11 +575,51 @@ export default function PropertyShowcaseView({
                   </div>
                 </div>
 
-                {agent ? (
+                {agent || branding ? (
                   <aside
                     data-testid="property-agent-profile"
                     className="border-t border-black/8 bg-white/55 p-6 sm:p-8 lg:border-l lg:border-t-0"
                   >
+                    {showBrandingContactIdentity && branding ? (
+                      <div
+                        data-testid="property-branding-contact"
+                        className="mb-5 flex min-w-0 items-center gap-3 border-b border-l-3 border-black/8 pb-5 pl-3"
+                        style={{ borderLeftColor: branding.accentColor ?? branding.primaryColor }}
+                      >
+                        {branding.logoUrl && failedBrandLogoUrl !== branding.logoUrl ? (
+                          <div className="relative h-10 w-24 shrink-0 overflow-hidden rounded border border-black/10 bg-white p-1">
+                            <Image
+                              src={branding.logoUrl}
+                              alt={`${branding.brandName} logo`}
+                              fill
+                              sizes="96px"
+                              className="object-contain"
+                              onError={() =>
+                                setFailedBrandLogoUrl(branding.logoUrl ?? null)
+                              }
+                            />
+                          </div>
+                        ) : null}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-[#0f2440]">
+                            {branding.brandName}
+                          </p>
+                          {branding.websiteUrl ? (
+                            <a
+                              href={branding.websiteUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-[#0f2440] underline underline-offset-4 hover:text-slate-600"
+                            >
+                              <Globe2 className="h-4 w-4" aria-hidden />
+                              {brandingUi.website}
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                    {agent ? (
+                      <>
                     <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                       {ui.presentedBy}
                     </span>
@@ -643,6 +738,8 @@ export default function PropertyShowcaseView({
                         })}
                       </div>
                     ) : null}
+                      </>
+                    ) : null}
                   </aside>
                 ) : null}
               </div>
@@ -718,14 +815,35 @@ export default function PropertyShowcaseView({
             Equal Housing Opportunity
           </p>
           <div className="mx-auto my-5 h-px max-w-xl bg-white/12" />
-          <div className="space-y-2 text-sm leading-6 text-white/65">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
-              Property showcase by
-            </p>
-            <BrandWordmark theme="dark" className="text-xl" />
-            <p>All information deemed reliable but not guaranteed.</p>
-            <p>&copy; {currentYear} PicchuSpot - All rights reserved.</p>
-          </div>
+          {branding ? (
+            <div className="space-y-2 text-sm leading-6 text-white/65">
+              {branding.showPicchuSpotCredit ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+                    {brandingUi.poweredBy}
+                  </p>
+                  <BrandWordmark theme="dark" className="text-xl" />
+                </>
+              ) : (
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+                  {branding.brandName}
+                </p>
+              )}
+              <p>All information deemed reliable but not guaranteed.</p>
+              <p>
+                &copy; {currentYear} {branding.showPicchuSpotCredit ? "PicchuSpot" : branding.brandName} - All rights reserved.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 text-sm leading-6 text-white/65">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+                Property showcase by
+              </p>
+              <BrandWordmark theme="dark" className="text-xl" />
+              <p>All information deemed reliable but not guaranteed.</p>
+              <p>&copy; {currentYear} PicchuSpot - All rights reserved.</p>
+            </div>
+          )}
           <div className="mt-5 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-5 text-sm text-white/60 sm:flex-row sm:gap-6">
             <span>
               Use of this website is subject to our{" "}

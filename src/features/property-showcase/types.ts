@@ -281,6 +281,21 @@ export interface PropertyAgent {
   socialLinks?: PropertyAgentSocialLink[];
 }
 
+/**
+ * Optional, per-property presentation identity. This deliberately remains
+ * separate from the agent contact record: one property can be presented by a
+ * particular brand while retaining the existing individual contact details.
+ */
+export interface PropertyBranding {
+  enabled: boolean;
+  brandName?: string;
+  logoUrl?: string;
+  websiteUrl?: string;
+  primaryColor?: string;
+  accentColor?: string;
+  showPicchuSpotCredit?: boolean;
+}
+
 export interface PropertyLocation {
   displayAddress: LocalizedText;
   streetAddress?: string;
@@ -338,5 +353,6 @@ export interface PropertyShowcase {
   marketingMaterials?: PropertyMarketingMaterialsConfig;
   location: PropertyLocation;
   agent: PropertyAgent;
+  branding?: PropertyBranding;
   publishedAt?: string;
 }

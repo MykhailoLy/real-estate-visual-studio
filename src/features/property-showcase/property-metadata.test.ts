@@ -26,3 +26,22 @@ test("Open Graph and Twitter metadata use one versioned social-image URL", () =>
   );
   assert.equal(String(metadata.alternates?.canonical).includes("?v="), false);
 });
+
+test("custom property branding updates Open Graph site name but not the canonical URL", () => {
+  const property: PropertyShowcase = structuredClone(costaBlancaDemo);
+  property.branding = {
+    enabled: true,
+    brandName: "Costa Blanca Luxury Homes",
+  };
+
+  const metadata = buildPropertyMetadata(
+    property,
+    computePropertySocialImageVersion(property),
+  );
+
+  assert.equal(metadata.openGraph?.siteName, "Costa Blanca Luxury Homes");
+  assert.equal(
+    metadata.alternates?.canonical,
+    `https://picchuspot.com/property/${property.slug}`,
+  );
+});
