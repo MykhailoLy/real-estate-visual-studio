@@ -59,6 +59,7 @@ export type PublicUiLabels = {
 };
 
 export type PropertyBrandingUiLabels = {
+  agency: string;
   poweredBy: string;
   website: string;
 };
@@ -67,14 +68,46 @@ export const PROPERTY_BRANDING_UI_LABELS: Record<
   PropertyLanguageCode,
   PropertyBrandingUiLabels
 > = {
-  en: { poweredBy: "Powered by", website: "Website" },
-  es: { poweredBy: "Desarrollado por", website: "Sitio web" },
-  de: { poweredBy: "Bereitgestellt von", website: "Website" },
-  fr: { poweredBy: "Propulsé par", website: "Site web" },
-  nl: { poweredBy: "Mogelijk gemaakt door", website: "Website" },
-  pl: { poweredBy: "Obsługiwane przez", website: "Strona internetowa" },
-  uk: { poweredBy: "Працює на", website: "Вебсайт" },
-  ru: { poweredBy: "Работает на", website: "Веб-сайт" },
+  en: {
+    agency: "Agency",
+    poweredBy: "Powered by",
+    website: "Visit agency website",
+  },
+  es: {
+    agency: "Agencia",
+    poweredBy: "Desarrollado por",
+    website: "Visitar el sitio web de la agencia",
+  },
+  de: {
+    agency: "Agentur",
+    poweredBy: "Bereitgestellt von",
+    website: "Website der Agentur besuchen",
+  },
+  fr: {
+    agency: "Agence",
+    poweredBy: "Propulsé par",
+    website: "Visiter le site web de l’agence",
+  },
+  nl: {
+    agency: "Makelaar",
+    poweredBy: "Mogelijk gemaakt door",
+    website: "Website van het makelaarskantoor bezoeken",
+  },
+  pl: {
+    agency: "Agencja",
+    poweredBy: "Obsługiwane przez",
+    website: "Odwiedź stronę agencji",
+  },
+  uk: {
+    agency: "Агенція",
+    poweredBy: "Працює на",
+    website: "Відвідати сайт агенції",
+  },
+  ru: {
+    agency: "Агентство",
+    poweredBy: "Работает на",
+    website: "Посетить сайт агентства",
+  },
 };
 
 const EN_UI_LABELS: PublicUiLabels = {

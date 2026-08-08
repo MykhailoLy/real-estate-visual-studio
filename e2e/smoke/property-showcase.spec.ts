@@ -394,9 +394,34 @@ test("branded property showcase keeps contact actions, canonical analytics, and 
 
   const branding = page.getByTestId("property-branding");
   await expect(branding).toContainText("Costa Blanca Luxury Homes");
-  await expect(branding.getByRole("img", { name: "Costa Blanca Luxury Homes logo" })).toBeVisible();
-  await expect(page.getByTestId("property-agent-profile")).toContainText("Maria Garcia");
-  await expect(page.getByTestId("property-agent-profile")).toContainText("+34 600 000 000");
+  await expect(branding.getByTestId("property-branding-logo")).toBeVisible();
+  await expect(branding.getByTestId("property-branding-logo").locator("img")).toHaveCSS(
+    "object-fit",
+    "contain",
+  );
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Costa Blanca Luxury Villa" }),
+  ).toBeVisible();
+  const contact = page.getByTestId("property-agent-profile");
+  await contact.scrollIntoViewIfNeeded();
+  await expect(contact.getByTestId("property-branding-contact")).toBeVisible();
+  await expect(contact.getByTestId("property-branding-contact-name")).toHaveText(
+    "Costa Blanca Luxury Homes",
+  );
+  await expect(contact.getByTestId("property-branding-contact-logo")).toBeVisible();
+  await expect(contact.getByTestId("property-agent-agency-logo")).toHaveCount(0);
+  await expect(
+    contact.getByRole("link", {
+      name: "Visit agency website: Costa Blanca Luxury Homes",
+    }),
+  ).toBeVisible();
+  await expect(contact).toContainText("Maria Garcia");
+  await expect(contact).toContainText("Property Consultant");
+  await expect(contact).toContainText("+34 600 000 000");
+  await expect(contact.getByRole("link", { name: "WhatsApp" })).toBeVisible();
+  await expect(
+    contact.getByRole("link", { name: "Website", exact: true }),
+  ).toBeVisible();
   await expect(page.getByTestId("hero-request-viewing")).toBeVisible();
   await expect(page.locator("footer")).toContainText("Powered by");
 
@@ -413,6 +438,40 @@ test("branded property showcase keeps contact actions, canonical analytics, and 
     propertySlug: "costa-blanca-luxury-homes",
     event: "property_page_viewed",
   });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.reload();
+  await expect(branding).toContainText("Costa Blanca Luxury Homes");
+  await expect(page.getByTestId("property-agent-profile")).toContainText("Maria Garcia");
+  const desktopDimensions = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(desktopDimensions.scrollWidth).toBeLessThanOrEqual(
+    desktopDimensions.clientWidth + 1,
+  );
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
+test("branded property hero safely falls back to its name when the logo fails", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/property-demo/exterior.svg*", (route) => route.abort());
+
+  const response = await page.goto("/property/costa-blanca-luxury-villa");
+  expectNavigationResponseOk(response, "/property/costa-blanca-luxury-villa");
+
+  const branding = page.getByTestId("property-branding");
+  await expect(branding.getByTestId("property-branding-logo")).toHaveCount(0);
+  await expect(branding).toContainText("Costa Blanca Luxury Homes");
+
+  const dimensions = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
