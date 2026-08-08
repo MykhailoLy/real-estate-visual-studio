@@ -388,11 +388,38 @@ const hiddenMediaDemo: PropertyShowcase = {
   },
 };
 
+const brandedShowcaseDemo: PropertyShowcase = {
+  ...costaBlancaDemo,
+  slug: "costa-blanca-luxury-villa",
+  reference: "PS-005",
+  title: {
+    en: "Costa Blanca Luxury Villa",
+    es: "Villa de lujo en la Costa Blanca",
+  },
+  agent: {
+    ...costaBlancaDemo.agent,
+    agencyName: "Costa Blanca Luxury Homes",
+    agentName: "Maria Garcia",
+    role: { en: "Property Consultant", es: "Asesora inmobiliaria" },
+    logoUrl: "/property-demo/exterior.svg",
+  },
+  branding: {
+    enabled: true,
+    brandName: "Costa Blanca Luxury Homes",
+    logoUrl: "/property-demo/exterior.svg",
+    websiteUrl: "https://picchuspot.com",
+    primaryColor: "#123B54",
+    accentColor: "#B88A44",
+    showPicchuSpotCredit: true,
+  },
+};
+
 const propertyShowcases: Record<string, PropertyShowcase> = {
   [costaBlancaDemo.slug]: costaBlancaDemo,
   [noHighlightsDemo.slug]: noHighlightsDemo,
   [hiddenProfileDemo.slug]: hiddenProfileDemo,
   [hiddenMediaDemo.slug]: hiddenMediaDemo,
+  [brandedShowcaseDemo.slug]: brandedShowcaseDemo,
 };
 
 export function getPropertyShowcase(slug: string): PropertyShowcase | null {
@@ -405,6 +432,7 @@ export function getPropertyShowcaseSlugs(): string[] {
 
 export {
   costaBlancaDemo,
+  brandedShowcaseDemo,
   hiddenMediaDemo,
   hiddenProfileDemo,
   noHighlightsDemo,

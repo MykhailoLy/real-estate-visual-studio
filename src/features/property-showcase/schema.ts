@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  isValidPropertyBrandColor,
+  isValidPropertyBrandLogoUrl,
+  normalizePropertyBrandWebsiteUrl,
+} from "./branding.ts";
 import type { PropertyFactKey, PropertyShowcase } from "./types";
 
 const optionalTrimmed = (max: number) =>
@@ -386,6 +391,36 @@ const PropertyAgentSchema = z
   })
   .strict();
 
+const PropertyBrandingSchema = z
+  .object({
+    enabled: z.boolean(),
+    brandName: optionalTrimmed(200),
+    logoUrl: optionalTrimmed(2048),
+    websiteUrl: optionalTrimmed(2048).refine(
+      (value) => !value || Boolean(normalizePropertyBrandWebsiteUrl(value)),
+      "Website URL must use http or https.",
+    ),
+    primaryColor: optionalTrimmed(7).refine(
+      (value) => !value || isValidPropertyBrandColor(value),
+      "Primary color must use #RRGGBB.",
+    ),
+    accentColor: optionalTrimmed(7).refine(
+      (value) => !value || isValidPropertyBrandColor(value),
+      "Accent color must use #RRGGBB.",
+    ),
+    showPicchuSpotCredit: z.boolean().optional(),
+  })
+  .strict()
+  .superRefine((branding, context) => {
+    if (branding.enabled && !branding.brandName?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["brandName"],
+        message: "Brand name is required when custom branding is enabled.",
+      });
+    }
+  });
+
 const PropertyTranslationContentSchema = z
   .object({
     title: optionalTrimmed(4000),
@@ -433,9 +468,23 @@ export const PropertyShowcaseSchema: z.ZodType<PropertyShowcase> = z
     marketingMaterials: PropertyMarketingMaterialsSchema.optional(),
     location: PropertyLocationSchema,
     agent: PropertyAgentSchema,
+    branding: PropertyBrandingSchema.optional(),
     publishedAt: z.string().datetime({ offset: true }).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((property, context) => {
+    if (
+      property.branding?.logoUrl &&
+      !isValidPropertyBrandLogoUrl(property.branding.logoUrl, property.slug)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["branding", "logoUrl"],
+        message:
+          "Brand logo must use this property's public media URL or a safe site path.",
+      });
+    }
+  });
 
 export const PropertyShowcaseMutationSchema = z
   .object({

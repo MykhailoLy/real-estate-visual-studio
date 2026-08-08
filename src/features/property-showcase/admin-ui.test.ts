@@ -290,6 +290,24 @@ test("property footer is PicchuSpot-only and calculates the current year", () =>
   assert.equal(propertyShowcaseSource.includes('href="/terms"'), true);
 });
 
+test("property editor exposes a focused, per-property branding section", () => {
+  for (const expectedText of [
+    "11. Branding",
+    "Enable custom realtor / agency branding for this property",
+    "Brand or agency name",
+    "Brand logo URL",
+    "Primary color",
+    "Accent color",
+    "Show “Powered by PicchuSpot”",
+    "property-branding-admin-preview",
+  ]) {
+    assert.equal(propertyEditorSource.includes(expectedText), true, expectedText);
+  }
+  assert.equal(propertyShowcaseSource.includes("property-branding"), true);
+  assert.equal(propertyShowcaseSource.includes("failedBrandLogoUrl"), true);
+  assert.equal(propertyShowcaseSource.includes("showPicchuSpotCredit"), true);
+});
+
 test("realtor section is compact and never prints a raw website URL", () => {
   assert.equal(propertyShowcaseSource.includes("property-contact-section"), true);
   assert.equal(propertyShowcaseSource.includes("lg:py-10"), true);

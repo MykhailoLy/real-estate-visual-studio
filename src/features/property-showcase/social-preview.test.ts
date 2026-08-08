@@ -277,6 +277,25 @@ test("social-card branding defaults to PicchuSpot and supports agency and unbran
   assert.equal(hiddenBrandingPreview.brandingAttribution, undefined);
 });
 
+test("per-property showcase branding drives social identity without replacing agent contacts", () => {
+  const property = cloneProperty();
+  property.branding = {
+    enabled: true,
+    brandName: "Costa Blanca Luxury Homes",
+    logoUrl: "/property-demo/terrace.svg",
+    showPicchuSpotCredit: false,
+  };
+  property.socialPreview = { brandingMode: "picchuspot" };
+
+  const preview = getPropertySocialPreview(property);
+  assert.equal(preview.brandingMode, "agency");
+  assert.equal(preview.brandingName, "Costa Blanca Luxury Homes");
+  assert.equal(preview.brandingLogoUrl, "/property-demo/terrace.svg");
+  assert.equal(preview.brandingAttribution, undefined);
+  assert.equal(property.agent.agentName, "Costa Blanca Property Team");
+  assert.equal(property.agent.phone, "+34 600 000 000");
+});
+
 test("social preview keeps ordered visible highlights and custom facts for the shared renderer", () => {
   const property = cloneProperty();
   property.highlights = [

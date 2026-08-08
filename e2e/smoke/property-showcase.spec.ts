@@ -383,6 +383,39 @@ test("public property tracking is first-party, per-property, and interaction-bas
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
+test("branded property showcase keeps contact actions, canonical analytics, and a compact mobile header", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const response = await page.goto("/property/costa-blanca-luxury-villa");
+  expectNavigationResponseOk(response, "/property/costa-blanca-luxury-villa");
+
+  const branding = page.getByTestId("property-branding");
+  await expect(branding).toContainText("Costa Blanca Luxury Homes");
+  await expect(branding.getByRole("img", { name: "Costa Blanca Luxury Homes logo" })).toBeVisible();
+  await expect(page.getByTestId("property-agent-profile")).toContainText("Maria Garcia");
+  await expect(page.getByTestId("property-agent-profile")).toContainText("+34 600 000 000");
+  await expect(page.getByTestId("hero-request-viewing")).toBeVisible();
+  await expect(page.locator("footer")).toContainText("Powered by");
+
+  const dimensions = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  await expect.poll(() => guard.propertyAnalyticsEvents()).toContainEqual({
+    propertySlug: "costa-blanca-luxury-villa",
+    event: "property_page_viewed",
+  });
+  await expect.poll(() => guard.propertyAnalyticsEvents()).not.toContainEqual({
+    propertySlug: "costa-blanca-luxury-homes",
+    event: "property_page_viewed",
+  });
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
 test("property gallery modal keeps keyboard focus contained", async ({
   page,
 }, testInfo) => {

@@ -118,6 +118,7 @@ function collectMediaValues(property: PropertyShowcase): string[] {
     ]),
     property.agent.logoUrl,
     property.agent.portraitUrl,
+    property.branding?.logoUrl,
     property.marketingMaterials?.customFlyer?.pdf,
     property.marketingMaterials?.customFlyer?.jpg,
     property.marketingMaterials?.customFlyer?.png,
