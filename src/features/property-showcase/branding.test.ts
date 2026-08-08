@@ -100,3 +100,21 @@ test("custom branding uses the existing agency logo when no branding-specific lo
     true,
   );
 });
+
+test("custom branding remains name-first when no safe agency logo is available", () => {
+  const property = cloneProperty();
+  property.agent.logoUrl = "https://untrusted.example/agency-logo.png";
+  property.branding = {
+    enabled: true,
+    brandName: "Alicante Prime Realty",
+    websiteUrl: "https://example.com",
+  };
+
+  const branding = getActivePropertyBranding(property);
+  assert.equal(branding?.brandName, "Alicante Prime Realty");
+  assert.equal(branding?.logoUrl, undefined);
+  assert.equal(branding?.websiteUrl, "https://example.com/");
+  assert.equal(branding?.showPicchuSpotCredit, true);
+  assert.equal(property.agent.agentName, "Costa Blanca Property Team");
+  assert.equal(property.agent.phone, "+34 600 000 000");
+});

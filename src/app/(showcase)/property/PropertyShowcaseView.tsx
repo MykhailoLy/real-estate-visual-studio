@@ -182,13 +182,6 @@ export default function PropertyShowcaseView({
     agent?.whatsappHref ?? agent?.emailHref ?? agent?.website;
   const showLocation = mapView.mode !== "hidden";
   const showContactSection = Boolean(contactHref || agent || branding?.websiteUrl);
-  const showBrandingContactIdentity = Boolean(
-    branding &&
-      (!agent ||
-        branding.brandName !== agent.agencyName ||
-        branding.logoUrl !== agent.logoUrl ||
-        branding.websiteUrl !== agent.website),
-  );
   const currentYear = new Date().getFullYear();
   const trackEvent = useCallback(
     (event: PropertyAnalyticsEvent) => {
@@ -233,33 +226,36 @@ export default function PropertyShowcaseView({
                 className="absolute left-4 top-4 z-10 max-w-[calc(100%-5.75rem)] sm:left-6 sm:top-6 lg:left-10"
               >
                 <div
-                  className="flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-white/25 border-l-4 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur"
+                  className="flex min-h-12 w-fit max-w-full min-w-0 items-center gap-2.5 rounded-xl border border-white/25 border-l-4 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur"
                   style={{ borderLeftColor: branding.primaryColor ?? "#B88A44" }}
                 >
                   {branding.logoUrl && failedBrandLogoUrl !== branding.logoUrl ? (
-                    <div className="relative h-8 w-20 shrink-0 overflow-hidden rounded bg-white/95 p-1">
+                    <div
+                      data-testid="property-branding-logo"
+                      className="relative h-9 w-24 shrink-0 rounded-lg bg-white/95 p-1.5 shadow-sm sm:h-10 sm:w-28"
+                    >
                       <Image
                         src={branding.logoUrl}
-                        alt={`${branding.brandName} logo`}
+                        alt=""
                         fill
-                        sizes="80px"
+                        sizes="(max-width: 640px) 96px, 112px"
                         className="object-contain"
                         onError={() => setFailedBrandLogoUrl(branding.logoUrl ?? null)}
                       />
                     </div>
                   ) : null}
-                  <div className="min-w-0">
+                  <div className="min-w-0 max-w-[15rem] sm:max-w-[22rem]">
                     {branding.websiteUrl ? (
                       <a
                         href={branding.websiteUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="block truncate text-sm font-bold text-white underline decoration-white/35 underline-offset-4 hover:decoration-white"
+                        className="block break-words text-sm font-bold leading-5 text-white underline decoration-white/35 underline-offset-4 hover:decoration-white"
                       >
                         {branding.brandName}
                       </a>
                     ) : (
-                      <span className="block truncate text-sm font-bold text-white">
+                      <span className="block break-words text-sm font-bold leading-5 text-white">
                         {branding.brandName}
                       </span>
                     )}
@@ -580,41 +576,53 @@ export default function PropertyShowcaseView({
                     data-testid="property-agent-profile"
                     className="border-t border-black/8 bg-white/55 p-6 sm:p-8 lg:border-l lg:border-t-0"
                   >
-                    {showBrandingContactIdentity && branding ? (
+                    {branding ? (
                       <div
                         data-testid="property-branding-contact"
-                        className="mb-5 flex min-w-0 items-center gap-3 border-b border-l-3 border-black/8 pb-5 pl-3"
+                        className="mb-5 border-b border-l-3 border-black/8 pb-5 pl-3"
                         style={{ borderLeftColor: branding.accentColor ?? branding.primaryColor }}
                       >
-                        {branding.logoUrl && failedBrandLogoUrl !== branding.logoUrl ? (
-                          <div className="relative h-10 w-24 shrink-0 overflow-hidden rounded border border-black/10 bg-white p-1">
-                            <Image
-                              src={branding.logoUrl}
-                              alt={`${branding.brandName} logo`}
-                              fill
-                              sizes="96px"
-                              className="object-contain"
-                              onError={() =>
-                                setFailedBrandLogoUrl(branding.logoUrl ?? null)
-                              }
-                            />
-                          </div>
-                        ) : null}
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-[#0f2440]">
-                            {branding.brandName}
-                          </p>
-                          {branding.websiteUrl ? (
-                            <a
-                              href={branding.websiteUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-[#0f2440] underline underline-offset-4 hover:text-slate-600"
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                          {brandingUi.agency}
+                        </p>
+                        <div className="mt-2 flex min-w-0 items-center gap-3">
+                          {branding.logoUrl && failedBrandLogoUrl !== branding.logoUrl ? (
+                            <div
+                              data-testid="property-branding-contact-logo"
+                              className="relative h-11 w-28 shrink-0 rounded-lg border border-black/10 bg-white p-1.5"
                             >
-                              <Globe2 className="h-4 w-4" aria-hidden />
-                              {brandingUi.website}
-                            </a>
+                              <Image
+                                src={branding.logoUrl}
+                                alt=""
+                                fill
+                                sizes="112px"
+                                className="object-contain"
+                                onError={() =>
+                                  setFailedBrandLogoUrl(branding.logoUrl ?? null)
+                                }
+                              />
+                            </div>
                           ) : null}
+                          <div className="min-w-0">
+                            <p
+                              data-testid="property-branding-contact-name"
+                              className="break-words text-base font-bold leading-5 text-[#0f2440]"
+                            >
+                              {branding.brandName}
+                            </p>
+                            {branding.websiteUrl ? (
+                              <a
+                                href={branding.websiteUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={`${brandingUi.website}: ${branding.brandName}`}
+                                className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-[#0f2440] underline underline-offset-4 hover:text-slate-600"
+                              >
+                                <Globe2 className="h-4 w-4" aria-hidden />
+                                {brandingUi.website}
+                              </a>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     ) : null}
@@ -624,10 +632,13 @@ export default function PropertyShowcaseView({
                       {ui.presentedBy}
                     </span>
                     <div className="mt-4 flex items-center gap-4">
-                      {agent.portraitUrl || agent.logoUrl ? (
-                        <div className="relative h-22 w-22 shrink-0 overflow-hidden rounded-full border border-black/8 bg-white">
+                      {agent.portraitUrl ? (
+                        <div
+                          data-testid="property-agent-portrait"
+                          className="relative h-22 w-22 shrink-0 overflow-hidden rounded-full border border-black/8 bg-white"
+                        >
                           <Image
-                            src={agent.portraitUrl ?? agent.logoUrl ?? ""}
+                            src={agent.portraitUrl}
                             alt={agent.displayName}
                             fill
                             sizes="88px"
@@ -635,7 +646,10 @@ export default function PropertyShowcaseView({
                           />
                         </div>
                       ) : (
-                        <div className="grid h-22 w-22 shrink-0 place-items-center rounded-full bg-[#0f2440] text-lg font-bold text-white">
+                        <div
+                          data-testid="property-agent-initials"
+                          className="grid h-22 w-22 shrink-0 place-items-center rounded-full bg-[#0f2440] text-lg font-bold text-white"
+                        >
                           {initials(agent.displayName)}
                         </div>
                       )}
@@ -646,14 +660,17 @@ export default function PropertyShowcaseView({
                         {agent.role ? (
                           <p className="mt-1 text-sm text-slate-500">{agent.role}</p>
                         ) : null}
-                        {agent.displayName !== agent.agencyName ? (
+                        {!branding && agent.displayName !== agent.agencyName ? (
                           <p className="mt-1 text-sm font-medium text-slate-600">
                             {agent.agencyName}
                           </p>
                         ) : null}
                       </div>
-                      {agent.logoUrl && agent.logoUrl !== agent.portraitUrl ? (
-                        <div className="relative hidden h-10 w-28 shrink-0 sm:block">
+                      {!branding && agent.logoUrl && agent.logoUrl !== agent.portraitUrl ? (
+                        <div
+                          data-testid="property-agent-agency-logo"
+                          className="relative hidden h-10 w-28 shrink-0 sm:block"
+                        >
                           <Image
                             src={agent.logoUrl}
                             alt={agent.agencyName}
