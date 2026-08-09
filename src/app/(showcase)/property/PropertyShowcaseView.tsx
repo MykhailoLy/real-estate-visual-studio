@@ -383,7 +383,13 @@ export default function PropertyShowcaseView({
                             compactValue
                               ? "text-[11px] min-[360px]:text-[9px] sm:text-base"
                               : "text-[15px] min-[360px]:text-[15px] sm:text-xl"
-                          } ${keepTogether || compactValue ? "whitespace-nowrap" : "break-words"}`}
+                          } ${
+                            keepTogether
+                              ? "whitespace-nowrap"
+                              : compactValue
+                                ? "whitespace-nowrap min-[360px]:whitespace-normal sm:whitespace-nowrap"
+                                : "break-words"
+                          }`}
                           title={fact.value}
                         >
                           {fact.value}
