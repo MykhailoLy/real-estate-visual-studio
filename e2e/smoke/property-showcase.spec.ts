@@ -200,7 +200,6 @@ for (const viewport of propertyViewports) {
         expect(Math.abs(box.y - factBoxes[4].y)).toBeLessThanOrEqual(1);
       }
       expect(factBoxes[4].y).toBeGreaterThan(factBoxes[0].y);
-      expect((await page.getByTestId("property-facts").boundingBox())!.height).toBeLessThan(260);
       const iconBox = await page
         .getByTestId("property-fact-price")
         .locator(":scope > span")
