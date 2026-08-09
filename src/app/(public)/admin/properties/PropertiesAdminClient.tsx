@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
@@ -35,10 +36,21 @@ import {
   translationCompletion,
 } from "@/features/property-showcase/localization";
 import {
+  getPropertyBrandPalette,
   isValidPropertyBrandColor,
   isValidPropertyBrandLogoUrl,
   normalizePropertyBrandWebsiteUrl,
 } from "@/features/property-showcase/branding";
+import {
+  getPropertySocialPreview,
+} from "@/features/property-showcase/social-preview";
+import {
+  movePropertySocialCardFact,
+  normalizePropertySocialCardConfig,
+  PROPERTY_SOCIAL_CARD_FACT_KEYS,
+  PROPERTY_SOCIAL_CARD_FACT_LABELS,
+  setPropertySocialCardFactVisible,
+} from "@/features/property-showcase/social-card";
 import {
   labelForListingReferenceMode,
   LISTING_REFERENCE_LABEL_PRESETS,
@@ -61,6 +73,8 @@ import type {
   PropertyLanguageCode,
   PropertyShowcase,
   PropertySocialBrandingMode,
+  PropertySocialCardConfig,
+  PropertySocialCardFactKey,
   PropertyStatus,
   PropertyTourProvider,
   PropertyVideoProvider,
@@ -165,6 +179,15 @@ interface FormState {
   videosEnabled: boolean;
   videos: VideoFormState[];
   socialBrandingMode: PropertySocialBrandingMode;
+  socialShareMessage: string;
+  socialTitleMode: "automatic" | "custom";
+  socialIncludeTitle: boolean;
+  socialIncludePrice: boolean;
+  socialCustomTitle: string;
+  socialDescriptionMode: "automatic" | "intro-and-facts" | "custom";
+  socialDescriptionIntro: string;
+  socialCustomDescription: string;
+  socialCard: PropertySocialCardConfig;
   highlights: HighlightFormState[];
   translations: TranslationFormState[];
   agentDisplayProfile: boolean;
@@ -417,7 +440,42 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
           primary: video.primary === true,
         })) ?? [],
     socialBrandingMode:
-      property?.socialPreview?.brandingMode ?? "picchuspot",
+      property?.socialPreview?.brandingMode ??
+      (property?.branding?.enabled ? "agency" : "picchuspot"),
+    socialShareMessage: property
+      ? localizedText(
+          property.socialPreview?.shareMessage,
+          primaryLanguage,
+          primaryLanguage,
+        )
+      : "",
+    socialTitleMode: property?.socialPreview?.titleMode ?? "automatic",
+    socialIncludeTitle: property?.socialPreview?.includeTitle !== false,
+    socialIncludePrice: property?.socialPreview?.includePrice !== false,
+    socialCustomTitle: property
+      ? localizedText(
+          property.socialPreview?.customTitle,
+          primaryLanguage,
+          primaryLanguage,
+        )
+      : "",
+    socialDescriptionMode:
+      property?.socialPreview?.descriptionMode ?? "automatic",
+    socialDescriptionIntro: property
+      ? localizedText(
+          property.socialPreview?.descriptionIntro,
+          primaryLanguage,
+          primaryLanguage,
+        )
+      : "",
+    socialCustomDescription: property
+      ? localizedText(
+          property.socialPreview?.customDescription,
+          primaryLanguage,
+          primaryLanguage,
+        )
+      : "",
+    socialCard: normalizePropertySocialCardConfig(property?.socialCard),
     highlights: highlightTexts,
     translations,
     agentDisplayProfile: property?.agent.displayProfile ?? true,
@@ -753,8 +811,24 @@ function buildProperty(
     floorPlans: existing?.floorPlans ?? [],
     socialPreview: {
       brandingMode: state.socialBrandingMode,
+      shareMessage: state.socialShareMessage.trim()
+        ? simpleLocalizedText(state.primaryLanguage, state.socialShareMessage)
+        : undefined,
+      titleMode: state.socialTitleMode,
+      includeTitle: state.socialIncludeTitle,
+      includePrice: state.socialIncludePrice,
+      customTitle: state.socialCustomTitle.trim()
+        ? simpleLocalizedText(state.primaryLanguage, state.socialCustomTitle)
+        : undefined,
+      descriptionMode: state.socialDescriptionMode,
+      descriptionIntro: state.socialDescriptionIntro.trim()
+        ? simpleLocalizedText(state.primaryLanguage, state.socialDescriptionIntro)
+        : undefined,
+      customDescription: state.socialCustomDescription.trim()
+        ? simpleLocalizedText(state.primaryLanguage, state.socialCustomDescription)
+        : undefined,
     },
-    socialCard: existing?.socialCard,
+    socialCard: state.socialCard,
     location: {
       displayAddress: simpleLocalizedText(state.primaryLanguage, displayAddress),
       streetAddress: optional(state.streetAddress),
@@ -1251,9 +1325,39 @@ function PropertyEditor({
     () => (record ? buildProperty(form, record.property) : null),
     [form, record],
   );
+  const socialPreviewText = useMemo(
+    () => socialPreviewDraft ? getPropertySocialPreview(socialPreviewDraft) : null,
+    [socialPreviewDraft],
+  );
+  const brandingPreviewPalette = getPropertyBrandPalette({
+    primaryColor: form.brandPrimaryColor,
+    accentColor: form.brandAccentColor,
+  });
+  const brandingPreviewLogo =
+    form.brandLogoUrl.trim() || record?.property.agent.logoUrl?.trim();
+  const orderedSocialFactKeys = form.socialCard.factOrder.filter((key) =>
+    PROPERTY_SOCIAL_CARD_FACT_KEYS.includes(key),
+  );
+  const socialSelectedCount = form.socialCard.visibleFacts.length;
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateSocialCard(
+    update: (current: PropertySocialCardConfig) => PropertySocialCardConfig,
+  ) {
+    setForm((current) => ({
+      ...current,
+      socialCard: update(current.socialCard),
+    }));
+  }
+
+  function setSocialFactVisible(key: PropertySocialCardFactKey, visible: boolean) {
+    updateSocialCard((current) => {
+      const result = setPropertySocialCardFactVisible(current, key, visible);
+      return { ...result.config, mode: "custom" };
+    });
   }
 
   function setTitle(value: string) {
@@ -1576,6 +1680,7 @@ function PropertyEditor({
           property,
           published: form.published,
           updateMode: mode === "create" ? "replace" : "details",
+          updateSocialCard: true,
           removeVirtualTour,
           removeInteractiveFloorPlan,
         }),
@@ -2763,7 +2868,7 @@ function PropertyEditor({
                   >
                     <input
                       inputMode="url"
-                      placeholder="https://…/storage/v1/object/public/site-media/properties/..."
+                      placeholder="https://…/storage/v1/object/public/site-media/property-showcases/..."
                       value={form.brandLogoUrl}
                       onChange={(event) => set("brandLogoUrl", event.target.value)}
                       className={inputClass}
@@ -2806,30 +2911,59 @@ function PropertyEditor({
                       }
                       className="h-4 w-4 accent-primary"
                     />
-                    Show “Powered by PicchuSpot”
+                    Show PicchuSpot attribution
                   </label>
                 </div>
                 <div
                   data-testid="property-branding-admin-preview"
-                  className="flex min-h-18 items-center gap-3 rounded-xl border border-border border-l-4 bg-[#0f2440] px-4 py-3 text-white"
-                  style={{
-                    borderLeftColor: isValidPropertyBrandColor(
-                      form.brandPrimaryColor.trim(),
-                    )
-                      ? form.brandPrimaryColor.trim()
-                      : "#B88A44",
-                  }}
+                  className="overflow-hidden rounded-xl border border-border"
                 >
-                  <span className="min-w-0 truncate text-sm font-bold">
-                    {form.brandName.trim() || "Your agency brand"}
-                  </span>
-                  {isValidPropertyBrandColor(form.brandAccentColor.trim()) ? (
+                  <div
+                    className="flex min-h-24 items-center gap-3 px-4 py-4"
+                    style={{
+                      backgroundColor: brandingPreviewPalette.primary,
+                      color: brandingPreviewPalette.primaryForeground,
+                    }}
+                  >
+                    {brandingPreviewLogo &&
+                    isValidPropertyBrandLogoUrl(
+                      brandingPreviewLogo,
+                      form.slug.trim() || undefined,
+                    ) ? (
+                      <div className="relative h-12 w-28 shrink-0 rounded-lg bg-white p-2">
+                        <Image
+                          src={brandingPreviewLogo}
+                          alt="Brand logo preview"
+                          fill
+                          sizes="112px"
+                          className="object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <span
+                        className="grid h-12 w-12 shrink-0 place-items-center rounded-lg text-xs font-black"
+                        style={{ backgroundColor: brandingPreviewPalette.accent }}
+                      >
+                        {form.brandName.trim().slice(0, 1).toUpperCase() || "A"}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] opacity-70">
+                        Property showcase
+                      </p>
+                      <p className="mt-1 truncate text-base font-bold">
+                        {form.brandName.trim() || "Your agency brand"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 bg-white px-4 py-2.5 text-xs font-bold text-primary">
+                    <span>Primary surface</span>
                     <span
-                      className="h-3 w-3 shrink-0 rounded-full"
-                      style={{ backgroundColor: form.brandAccentColor.trim() }}
+                      className="h-3 w-12 rounded-full"
+                      style={{ backgroundColor: brandingPreviewPalette.accent }}
                       aria-label="Brand accent preview"
                     />
-                  ) : null}
+                  </div>
                 </div>
                 {record ? (
                   <Link
@@ -2849,39 +2983,142 @@ function PropertyEditor({
           </div>
         </Section>
 
-        <Section title="12. Social sharing brand">
-          <div className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr] lg:items-start">
-            <Field
-              label="Social-card branding"
-              hint="Controls the server-generated 1200 x 630 sharing card."
-            >
-              <select
-                value={form.socialBrandingMode}
-                onChange={(event) =>
-                  set(
-                    "socialBrandingMode",
-                    event.target.value as PropertySocialBrandingMode,
-                  )
-                }
-                className={inputClass}
-              >
-                <option value="picchuspot">PicchuSpot</option>
-                <option value="agency">Agency</option>
-                <option value="unbranded">Unbranded</option>
-              </select>
-            </Field>
-            <div data-testid="social-branding-admin-preview">
-              {record && socialPreviewDraft ? (
-                <PropertySocialCardPreview
-                  propertyId={record.id}
-                  property={socialPreviewDraft}
-                  changed={true}
+        <Section title="12. Social sharing & link preview">
+          <div className="space-y-6">
+            <p className="max-w-3xl text-sm leading-6 text-muted">
+              Control the message sent by this site&apos;s Share button and the server-rendered text and image that link previews can use. Social networks can still show the picchuspot.com domain and may cache an older preview.
+            </p>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Field label="Preview site / brand name" hint="Third-party apps may still display the domain.">
+                <select
+                  value={form.socialBrandingMode}
+                  onChange={(event) =>
+                    set(
+                      "socialBrandingMode",
+                      event.target.value as PropertySocialBrandingMode,
+                    )
+                  }
+                  className={inputClass}
+                >
+                  <option value="agency">Agency</option>
+                  <option value="picchuspot">PicchuSpot</option>
+                  <option value="unbranded">None / unbranded</option>
+                </select>
+              </Field>
+              <Field label="Share message" hint="Used by this site&apos;s Share button; it is not forced above every manually pasted URL preview.">
+                <textarea
+                  value={form.socialShareMessage}
+                  maxLength={600}
+                  rows={3}
+                  onChange={(event) => set("socialShareMessage", event.target.value)}
+                  className={inputClass}
                 />
-              ) : (
-                <div className="rounded-lg border border-border bg-surface p-5 text-sm leading-6 text-muted">
-                  Save this new property once to activate its generated social preview. Existing properties preview unsaved title, price, address, agent, and branding changes here.
+              </Field>
+              <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm leading-6 text-muted">
+                <p className="font-bold text-primary">Generated card content</p>
+                <p className="mt-1">The selected location, price, facts, and their order below are shared by the metadata builder and the 1200 x 630 card.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <Field label="Social title mode">
+                  <select
+                    value={form.socialTitleMode}
+                    onChange={(event) =>
+                      set("socialTitleMode", event.target.value as FormState["socialTitleMode"])
+                    }
+                    className={inputClass}
+                  >
+                    <option value="automatic">Automatic</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </Field>
+                {form.socialTitleMode === "automatic" ? (
+                  <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold text-primary">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={form.socialIncludeTitle} onChange={(event) => set("socialIncludeTitle", event.target.checked)} className="h-4 w-4 accent-primary" /> Include property title
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={form.socialIncludePrice} onChange={(event) => set("socialIncludePrice", event.target.checked)} className="h-4 w-4 accent-primary" /> Include price
+                    </label>
+                  </div>
+                ) : (
+                  <Field label="Custom social title" hint="Plain text only; a property-title fallback prevents an empty preview.">
+                    <input value={form.socialCustomTitle} maxLength={180} onChange={(event) => set("socialCustomTitle", event.target.value)} className={inputClass} />
+                  </Field>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <Field label="Social description mode">
+                  <select
+                    value={form.socialDescriptionMode}
+                    onChange={(event) => set("socialDescriptionMode", event.target.value as FormState["socialDescriptionMode"])}
+                    className={inputClass}
+                  >
+                    <option value="automatic">Automatic</option>
+                    <option value="intro-and-facts">Custom intro + selected facts</option>
+                    <option value="custom">Fully custom</option>
+                  </select>
+                </Field>
+                {form.socialDescriptionMode === "intro-and-facts" ? (
+                  <Field label="Custom introduction" hint="Plain text only; selected facts are appended in the chosen order.">
+                    <textarea value={form.socialDescriptionIntro} maxLength={360} rows={3} onChange={(event) => set("socialDescriptionIntro", event.target.value)} className={inputClass} />
+                  </Field>
+                ) : null}
+                {form.socialDescriptionMode === "custom" ? (
+                  <Field label="Custom description" hint="Plain text only; selected facts remain on the generated card.">
+                    <textarea value={form.socialCustomDescription} maxLength={500} rows={3} onChange={(event) => set("socialCustomDescription", event.target.value)} className={inputClass} />
+                  </Field>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-primary">Displayed facts and order</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted">Choose up to four facts. This is the single source for the description builder and generated social card.</p>
                 </div>
-              )}
+                <div className="flex gap-3 text-sm font-semibold text-primary">
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={form.socialCard.showLocation} onChange={(event) => updateSocialCard((current) => ({ ...current, showLocation: event.target.checked }))} className="h-4 w-4 accent-primary" /> Location</label>
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={form.socialCard.showPrice} onChange={(event) => updateSocialCard((current) => ({ ...current, showPrice: event.target.checked }))} className="h-4 w-4 accent-primary" /> Price</label>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {orderedSocialFactKeys.map((key, index) => {
+                  const visible = form.socialCard.visibleFacts.includes(key);
+                  return (
+                    <div key={key} className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-primary">
+                      <label className="flex min-w-0 flex-1 items-center gap-2 font-semibold">
+                        <input type="checkbox" checked={visible} disabled={!visible && socialSelectedCount >= 4} onChange={(event) => setSocialFactVisible(key, event.target.checked)} className="h-4 w-4 accent-primary" />
+                        <span className="truncate">{PROPERTY_SOCIAL_CARD_FACT_LABELS[key]}</span>
+                      </label>
+                      {visible ? <span className="flex shrink-0 gap-1"><button type="button" aria-label={`Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} up`} disabled={index === 0} onClick={() => updateSocialCard((current) => ({ ...movePropertySocialCardFact(current, key, -1), mode: "custom" }))} className="rounded border border-border p-1 disabled:opacity-35"><ChevronUp className="h-3.5 w-3.5" aria-hidden /></button><button type="button" aria-label={`Move ${PROPERTY_SOCIAL_CARD_FACT_LABELS[key]} down`} disabled={index === orderedSocialFactKeys.length - 1} onClick={() => updateSocialCard((current) => ({ ...movePropertySocialCardFact(current, key, 1), mode: "custom" }))} className="rounded border border-border p-1 disabled:opacity-35"><ChevronDown className="h-3.5 w-3.5" aria-hidden /></button></span> : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-xs text-muted">{socialSelectedCount}/4 facts selected.</p>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+              <div className="space-y-3 rounded-xl border border-border bg-surface p-4 text-sm">
+                <p className="font-bold text-primary">Link-preview text</p>
+                <dl className="space-y-3 text-muted">
+                  <div><dt className="text-xs font-bold uppercase tracking-wide text-primary">Site name</dt><dd className="mt-1 break-words">{socialPreviewText?.siteName ?? "Not explicitly set"}</dd></div>
+                  <div><dt className="text-xs font-bold uppercase tracking-wide text-primary">Title</dt><dd className="mt-1 break-words">{socialPreviewText?.title ?? "Save the property to preview."}</dd></div>
+                  <div><dt className="text-xs font-bold uppercase tracking-wide text-primary">Description</dt><dd className="mt-1 break-words">{socialPreviewText?.description ?? ""}</dd></div>
+                </dl>
+              </div>
+              <div data-testid="social-branding-admin-preview">
+                {record && socialPreviewDraft ? (
+                  <PropertySocialCardPreview propertyId={record.id} property={socialPreviewDraft} changed />
+                ) : (
+                  <div className="rounded-lg border border-border bg-surface p-5 text-sm leading-6 text-muted">Save this new property once to activate its generated social preview. Existing properties preview unsaved sharing changes here.</div>
+                )}
+              </div>
             </div>
           </div>
         </Section>

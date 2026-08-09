@@ -22,7 +22,7 @@ import {
   Tag,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { BrandWordmark } from "@/components/brand";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 import { formatPriceLabel } from "@/features/property-showcase/formatting";
@@ -39,7 +39,10 @@ import {
   PROPERTY_BRANDING_UI_LABELS,
   PUBLIC_UI_LABELS,
 } from "@/features/property-showcase/localization";
-import { getActivePropertyBranding } from "@/features/property-showcase/branding";
+import {
+  getActivePropertyBranding,
+  getPropertyBrandPalette,
+} from "@/features/property-showcase/branding";
 import { getPropertyAddressView } from "@/features/property-showcase/property-address";
 import {
   getExternalInteractiveFloorPlan,
@@ -50,7 +53,10 @@ import {
   shouldRenderOrdinaryFloorPlans,
   sortedPropertyFloorPlans,
 } from "@/features/property-showcase/rendering";
-import { selectPropertyHeroImages } from "@/features/property-showcase/social-preview";
+import {
+  getPropertyShareMessage,
+  selectPropertyHeroImages,
+} from "@/features/property-showcase/social-preview";
 import type {
   PropertyFactKey,
   PropertyLanguageCode,
@@ -66,6 +72,7 @@ import ImmersivePropertyTour from "./ImmersivePropertyTour";
 import InteractivePropertyFloorPlan from "./InteractivePropertyFloorPlan";
 import PropertyFloorPlanViewer from "./PropertyFloorPlanViewer";
 import PropertyHeroSlideshow from "./PropertyHeroSlideshow";
+import PropertyBrandLogo from "./PropertyBrandLogo";
 import PropertyMarketingDownloads from "./PropertyMarketingDownloads";
 import type { PropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-materials";
 import PropertyMapCanvas from "./PropertyMapCanvas";
@@ -131,13 +138,16 @@ export default function PropertyShowcaseView({
   const [language, setLanguage] =
     useState<PropertyLanguageCode>(initialLanguage);
   const [viewingDialogOpen, setViewingDialogOpen] = useState(false);
-  const [failedBrandLogoUrl, setFailedBrandLogoUrl] = useState<string | null>(
-    null,
-  );
   const ui = PUBLIC_UI_LABELS[language] ?? PUBLIC_UI_LABELS.en;
   const brandingUi =
     PROPERTY_BRANDING_UI_LABELS[language] ?? PROPERTY_BRANDING_UI_LABELS.en;
   const branding = getActivePropertyBranding(property);
+  const brandPalette = getPropertyBrandPalette(branding);
+  const brandThemeStyle = {
+    "--property-brand-primary": brandPalette.primary,
+    "--property-brand-accent": brandPalette.accent,
+    "--property-brand-primary-foreground": brandPalette.primaryForeground,
+  } as CSSProperties;
   const gallery = useMemo(
     () => [...property.gallery].sort((a, b) => a.sortOrder - b.sortOrder),
     [property.gallery],
@@ -201,7 +211,7 @@ export default function PropertyShowcaseView({
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f0ea] text-slate-950">
+    <div className="min-h-screen bg-[#f2f0ea] text-slate-950" style={brandThemeStyle}>
       <PropertySectionNav
         showVideo={videos.length > 0}
         showVirtualTour={Boolean(visibleVirtualTour)}
@@ -217,7 +227,10 @@ export default function PropertyShowcaseView({
 
       <main>
         <section id="home" className="relative isolate scroll-mt-24 overflow-hidden bg-[#0f2440]">
-          <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[780px]">
+          <div
+            data-testid="property-hero-composition"
+            className="relative min-h-[max(620px,calc(100svh-4.5rem))] sm:min-h-[max(700px,calc(100svh-5rem))] lg:min-h-[max(780px,calc(100dvh-5rem))]"
+          >
             <PropertyHeroSlideshow images={heroImages} />
             <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/50 via-[#071426]/15 to-[#071426]/95" />
             {branding ? (
@@ -227,23 +240,15 @@ export default function PropertyShowcaseView({
               >
                 <div
                   className="flex min-h-12 w-fit max-w-full min-w-0 items-center gap-2.5 rounded-xl border border-white/25 border-l-4 bg-black/35 px-3 py-2 text-white shadow-lg backdrop-blur"
-                  style={{ borderLeftColor: branding.primaryColor ?? "#B88A44" }}
+                  style={{ borderLeftColor: brandPalette.accent }}
                 >
-                  {branding.logoUrl && failedBrandLogoUrl !== branding.logoUrl ? (
-                    <div
-                      data-testid="property-branding-logo"
-                      className="relative h-9 w-24 shrink-0 rounded-lg bg-white/95 p-1.5 shadow-sm sm:h-10 sm:w-28"
-                    >
-                      <Image
-                        src={branding.logoUrl}
-                        alt=""
-                        fill
-                        sizes="(max-width: 640px) 96px, 112px"
-                        className="object-contain"
-                        onError={() => setFailedBrandLogoUrl(branding.logoUrl ?? null)}
-                      />
-                    </div>
-                  ) : null}
+                  <PropertyBrandLogo
+                    url={branding.logoUrl}
+                    brandName={branding.brandName}
+                    testId="property-branding-logo"
+                    sizes="(max-width: 640px) 96px, 112px"
+                    className="relative h-9 w-24 shrink-0 rounded-lg bg-white/95 p-1.5 shadow-sm sm:h-10 sm:w-28"
+                  />
                   <div className="min-w-0 max-w-[15rem] sm:max-w-[22rem]">
                     {branding.websiteUrl ? (
                       <a
@@ -301,7 +306,7 @@ export default function PropertyShowcaseView({
                       <button
                         type="button"
                         onClick={openViewingDialog}
-                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0f2440] shadow-lg transition hover:bg-[#f2e8c7] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--property-brand-primary)] px-5 py-3 text-sm font-bold text-[var(--property-brand-primary-foreground)] shadow-lg transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
                         data-testid="hero-request-viewing"
                       >
                         <CalendarDays className="h-4 w-4" aria-hidden />
@@ -331,10 +336,8 @@ export default function PropertyShowcaseView({
             </div>
 
             <PropertyShowcaseActions
-              title={branding ? `${title} — ${branding.brandName}` : title}
-              text={[summary, address.socialText, formatPriceLabel(property.price), branding?.brandName]
-                .filter(Boolean)
-                .join(" | ")}
+              title={title}
+              text={getPropertyShareMessage(property, language)}
               canonicalUrl={canonicalUrl}
               brochureUrl={property.brochureUrl}
               showShare={!previewMode}
@@ -380,7 +383,13 @@ export default function PropertyShowcaseView({
                             compactValue
                               ? "text-[11px] min-[360px]:text-[9px] sm:text-base"
                               : "text-[15px] min-[360px]:text-[15px] sm:text-xl"
-                          } ${keepTogether || compactValue ? "whitespace-nowrap" : "break-words"}`}
+                          } ${
+                            keepTogether
+                              ? "whitespace-nowrap"
+                              : compactValue
+                                ? "whitespace-nowrap min-[360px]:whitespace-normal sm:whitespace-nowrap"
+                                : "break-words"
+                          }`}
                           title={fact.value}
                         >
                           {fact.value}
@@ -553,7 +562,7 @@ export default function PropertyShowcaseView({
                     <button
                       type="button"
                       onClick={openViewingDialog}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0f2440] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1a365d]"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--property-brand-primary)] px-5 py-3 text-sm font-bold text-[var(--property-brand-primary-foreground)] transition hover:brightness-110"
                     >
                       <CalendarDays className="h-4 w-4" aria-hidden />
                       {ui.requestViewing}
@@ -580,29 +589,19 @@ export default function PropertyShowcaseView({
                       <div
                         data-testid="property-branding-contact"
                         className="mb-5 border-b border-l-3 border-black/8 pb-5 pl-3"
-                        style={{ borderLeftColor: branding.accentColor ?? branding.primaryColor }}
+                        style={{ borderLeftColor: brandPalette.accent }}
                       >
                         <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                           {brandingUi.agency}
                         </p>
                         <div className="mt-2 flex min-w-0 items-center gap-3">
-                          {branding.logoUrl && failedBrandLogoUrl !== branding.logoUrl ? (
-                            <div
-                              data-testid="property-branding-contact-logo"
-                              className="relative h-11 w-28 shrink-0 rounded-lg border border-black/10 bg-white p-1.5"
-                            >
-                              <Image
-                                src={branding.logoUrl}
-                                alt=""
-                                fill
-                                sizes="112px"
-                                className="object-contain"
-                                onError={() =>
-                                  setFailedBrandLogoUrl(branding.logoUrl ?? null)
-                                }
-                              />
-                            </div>
-                          ) : null}
+                          <PropertyBrandLogo
+                            url={branding.logoUrl}
+                            brandName={branding.brandName}
+                            testId="property-branding-contact-logo"
+                            sizes="112px"
+                            className="relative h-11 w-28 shrink-0 rounded-lg border border-black/10 bg-white p-1.5"
+                          />
                           <div className="min-w-0">
                             <p
                               data-testid="property-branding-contact-name"
@@ -826,23 +825,23 @@ export default function PropertyShowcaseView({
         ) : null}
       </main>
 
-      <footer className="border-t border-white/10 bg-[#0f2440] text-white">
+      <footer className="border-t border-white/10 bg-[var(--property-brand-primary)] text-[var(--property-brand-primary-foreground)]">
         <div className="mx-auto max-w-[1480px] px-4 py-8 text-center sm:px-6 sm:py-10 lg:px-10">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-white/90">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] opacity-90">
             Equal Housing Opportunity
           </p>
           <div className="mx-auto my-5 h-px max-w-xl bg-white/12" />
           {branding ? (
-            <div className="space-y-2 text-sm leading-6 text-white/65">
+            <div className="space-y-2 text-sm leading-6 opacity-65">
               {branding.showPicchuSpotCredit ? (
                 <>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-80">
                     {brandingUi.poweredBy}
                   </p>
-                  <BrandWordmark theme="dark" className="text-xl" />
+                  <BrandWordmark theme={brandPalette.primaryForeground === "#FFFFFF" ? "dark" : "light"} className="text-xl" />
                 </>
               ) : (
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-80">
                   {branding.brandName}
                 </p>
               )}
@@ -852,19 +851,19 @@ export default function PropertyShowcaseView({
               </p>
             </div>
           ) : (
-            <div className="space-y-2 text-sm leading-6 text-white/65">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
+            <div className="space-y-2 text-sm leading-6 opacity-65">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-80">
                 Property showcase by
               </p>
-              <BrandWordmark theme="dark" className="text-xl" />
+              <BrandWordmark theme={brandPalette.primaryForeground === "#FFFFFF" ? "dark" : "light"} className="text-xl" />
               <p>All information deemed reliable but not guaranteed.</p>
               <p>&copy; {currentYear} PicchuSpot - All rights reserved.</p>
             </div>
           )}
-          <div className="mt-5 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-5 text-sm text-white/60 sm:flex-row sm:gap-6">
+          <div className="mt-5 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-5 text-sm opacity-60 sm:flex-row sm:gap-6">
             <span>
               Use of this website is subject to our{" "}
-              <Link href="/terms" className="underline decoration-white/30 underline-offset-4 hover:text-white">
+              <Link href="/terms" className="underline decoration-current/30 underline-offset-4 hover:opacity-100">
                 terms of use
               </Link>
               .

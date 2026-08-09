@@ -41,10 +41,13 @@ test("property share payload always uses the canonical public property URL", () 
   );
 });
 
-test("native sharing and clipboard fallback use the explicit canonical URL", () => {
+test("native sharing uses the canonical URL and fallback copies the useful share payload", () => {
   assert.equal(actionsSource.includes("window.location.href"), false);
   assert.equal(actionsSource.includes("url: canonicalUrl"), true);
-  assert.equal(actionsSource.includes("writeText(canonicalUrl)"), true);
+  assert.equal(
+    actionsSource.includes('[text, canonicalUrl].filter(Boolean).join("\\n")'),
+    true,
+  );
 });
 
 test("public and admin preview routes pass the same canonical property URL", () => {

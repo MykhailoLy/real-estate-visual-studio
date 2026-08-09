@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getActivePropertyBranding } from "./branding.ts";
+import {
+  getActivePropertyBranding,
+  getPropertyBrandPalette,
+  propertyBrandForeground,
+} from "./branding.ts";
 import { costaBlancaDemo } from "./registry.ts";
 import { PropertyShowcaseSchema } from "./schema.ts";
 import type { PropertyShowcase } from "./types.ts";
@@ -117,4 +121,32 @@ test("custom branding remains name-first when no safe agency logo is available",
   assert.equal(branding?.showPicchuSpotCredit, true);
   assert.equal(property.agent.agentName, "Costa Blanca Property Team");
   assert.equal(property.agent.phone, "+34 600 000 000");
+});
+
+test("the automatic agency-logo fallback accepts the real public property-media URL shape", () => {
+  const property = cloneProperty();
+  property.agent.logoUrl =
+    `https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/${property.slug}/agency-logo/alegria-logo.webp`;
+  property.branding = {
+    enabled: true,
+    brandName: "Alegria Real Estate",
+  };
+
+  assert.equal(
+    getActivePropertyBranding(property)?.logoUrl,
+    property.agent.logoUrl,
+  );
+});
+
+test("brand palette chooses a contrast-safe primary foreground and only uses safe accent text", () => {
+  assert.equal(propertyBrandForeground("#3B0000"), "#FFFFFF");
+  assert.equal(propertyBrandForeground("#F7D05A"), "#0B1020");
+
+  const palette = getPropertyBrandPalette({
+    primaryColor: "#3B0000",
+    accentColor: "#FF8A00",
+  });
+  assert.equal(palette.primary, "#3B0000");
+  assert.equal(palette.accent, "#FF8A00");
+  assert.equal(palette.primaryForeground, "#FFFFFF");
 });

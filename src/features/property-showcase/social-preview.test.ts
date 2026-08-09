@@ -3,6 +3,7 @@ import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
 import {
   getPropertySocialPreview,
+  getPropertyShareMessage,
   resolvePropertySocialImageUrl,
   resolvedPropertySocialImages,
   selectPropertyHeroImages,
@@ -294,6 +295,71 @@ test("per-property showcase branding drives social identity without replacing ag
   assert.equal(preview.brandingAttribution, undefined);
   assert.equal(property.agent.agentName, "Costa Blanca Property Team");
   assert.equal(property.agent.phone, "+34 600 000 000");
+});
+
+test("social sharing controls keep metadata, card facts, agency identity, and share message aligned", () => {
+  const property = cloneProperty();
+  property.branding = {
+    enabled: true,
+    brandName: "Alegria Real Estate",
+    primaryColor: "#3B0000",
+    accentColor: "#FF8A00",
+    showPicchuSpotCredit: false,
+  };
+  property.agent.logoUrl =
+    `https://grvltquwenaorucsvooc.supabase.co/storage/v1/object/public/site-media/property-showcases/${property.slug}/agency-logo/alegria-logo.webp`;
+  property.socialPreview = {
+    brandingMode: "agency",
+    shareMessage: { en: "For sale: an exceptional home for living or investment." },
+    titleMode: "custom",
+    customTitle: { en: "Luxury Home in Altea Hills" },
+    descriptionMode: "intro-and-facts",
+    descriptionIntro: { en: "Exclusive property in Altea Hills" },
+  };
+  property.socialCard = {
+    mode: "custom",
+    layout: "balanced",
+    visibleFacts: ["built-area", "bedrooms", "year-built"],
+    factOrder: ["built-area", "bedrooms", "year-built", "bathrooms", "parking", "plot-area", "listing-reference"],
+    showLocation: false,
+    showPrice: true,
+    showBranding: true,
+    showPoweredByPicchuSpot: true,
+  };
+
+  const preview = getPropertySocialPreview(property);
+  assert.equal(preview.siteName, "Alegria Real Estate");
+  assert.equal(preview.title, "Luxury Home in Altea Hills");
+  assert.equal(preview.brandingLogoUrl, property.agent.logoUrl);
+  assert.equal(preview.brandingAttribution, undefined);
+  assert.match(preview.description, /^Exclusive property in Altea Hills\./);
+  assert.deepEqual(preview.facts.map((fact) => fact.key), [
+    "built-area",
+    "bedrooms",
+    "year-built",
+  ]);
+  assert.equal(
+    getPropertyShareMessage(property),
+    "For sale: an exceptional home for living or investment.",
+  );
+  assert.equal(preview.primaryColor, "#3B0000");
+  assert.equal(preview.accentColor, "#FF8A00");
+});
+
+test("social identity supports PicchuSpot and an omitted site name without changing the property URL", () => {
+  const property = cloneProperty();
+  property.socialPreview = {
+    brandingMode: "picchuspot",
+    titleMode: "automatic",
+  };
+  assert.equal(getPropertySocialPreview(property).siteName, "PicchuSpot");
+
+  property.socialPreview = {
+    brandingMode: "unbranded",
+    titleMode: "automatic",
+  };
+  assert.equal(getPropertySocialPreview(property).siteName, undefined);
+  assert.equal(property.slug, costaBlancaDemo.slug);
 });
 
 test("social preview keeps ordered visible highlights and custom facts for the shared renderer", () => {

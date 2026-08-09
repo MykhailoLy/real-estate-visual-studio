@@ -28,7 +28,9 @@ export default function PropertyShowcaseActions({
         await navigator.share({ title, text, url: canonicalUrl });
         return;
       }
-      await navigator.clipboard.writeText(canonicalUrl);
+      await navigator.clipboard.writeText(
+        [text, canonicalUrl].filter(Boolean).join("\n"),
+      );
     } catch {
       // Closing the native share sheet or denying clipboard access needs no error UI.
     }
