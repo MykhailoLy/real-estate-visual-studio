@@ -448,6 +448,21 @@ export function googleMapsEmbedUrlFromCoordinates(
     url.searchParams.set("z", String(Math.min(requestedZoom, 14)));
   }
   url.searchParams.set("output", "embed");
+  // `t=k` is Google Maps' satellite map type. It affects presentation only;
+  // the coordinates and privacy-mode-specific marker behaviour stay unchanged.
+  url.searchParams.set("t", "k");
+  return url.toString();
+}
+
+function googleMapsEmbedUrlWithSatelliteDefault(
+  embedUrl: string | undefined,
+): string | undefined {
+  if (!embedUrl) return undefined;
+
+  const url = new URL(embedUrl);
+  // Legacy custom embeds are normalized from trusted Google Maps origins above.
+  // Keep their configured map and controls, while making Satellite the initial view.
+  url.searchParams.set("t", "k");
   return url.toString();
 }
 
@@ -520,7 +535,9 @@ export function getPropertyLocationMapView(
     : undefined;
   const useCustomEmbed = location.useCustomMapEmbed === true;
   const useGeneratedExactMap = Boolean(generatedEmbedUrl);
-  const customEmbedUrl = useCustomEmbed ? embedOverride?.embedUrl : undefined;
+  const customEmbedUrl = useCustomEmbed
+    ? googleMapsEmbedUrlWithSatelliteDefault(embedOverride?.embedUrl)
+    : undefined;
   const embedUrl = customEmbedUrl ?? generatedEmbedUrl;
   const externalUrl =
     generatedExternalUrl ??

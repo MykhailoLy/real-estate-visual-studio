@@ -137,6 +137,7 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
   );
   assert.equal(exact.embedUrl?.includes("q=38.603912%2C-0.045316"), true);
   assert.equal(exact.embedUrl?.includes("z=16"), true);
+  assert.equal(exact.embedUrl?.includes("t=k"), true);
 
   property.location = {
     displayAddress: { en: "" },
@@ -158,6 +159,7 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
   assert.equal(approximate.embedUrl?.includes("ll=38.7%2C-0.1"), true);
   assert.equal(approximate.embedUrl?.includes("q="), false);
   assert.equal(approximate.embedUrl?.includes("z=13"), true);
+  assert.equal(approximate.embedUrl?.includes("t=k"), true);
   assert.equal(approximate.externalUrl, undefined);
   assert.equal(approximate.approximateRadiusMeters, 2400);
   assert.equal(approximate.centerLatitude, 38.7);
@@ -202,6 +204,9 @@ test("approximate map links always search only the safe public text label", () =
   assert.equal(enabled.externalUrl?.includes("-0.045316"), false);
   assert.equal(enabled.externalUrl?.includes("38.7"), false);
   assert.equal(enabled.externalUrl?.includes("Private"), false);
+  assert.equal(enabled.embedUrl?.includes("t=k"), true);
+  assert.equal(enabled.embedUrl?.includes("38.603912"), false);
+  assert.equal(enabled.embedUrl?.includes("-0.045316"), false);
 
   property.location.approximateLabel = undefined;
   assert.equal(
@@ -240,7 +245,7 @@ test("exact maps generate the coordinate marker by default despite a saved embed
   property.location.useCustomMapEmbed = true;
   const custom = getPropertyMapView(property, "en");
   assert.equal(custom.source, "custom-embed");
-  assert.equal(custom.embedUrl, legacyEmbed);
+  assert.equal(custom.embedUrl, `${legacyEmbed}&t=k`);
   assert.equal(custom.markerMode, undefined);
   assert.equal(
     custom.externalUrl,
@@ -259,9 +264,11 @@ test("coordinate map embeds use a marker only for exact mode", () => {
 
   assert.equal(exact.includes("q=38.6%2C-0.04"), true);
   assert.equal(exact.includes("z=17"), true);
+  assert.equal(exact.includes("t=k"), true);
   assert.equal(approximate.includes("ll=38.6%2C-0.04"), true);
   assert.equal(approximate.includes("q="), false);
   assert.equal(approximate.includes("z=14"), true);
+  assert.equal(approximate.includes("t=k"), true);
 });
 
 test("exact map embeds accept the higher property-detail zoom range", () => {
