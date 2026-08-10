@@ -608,6 +608,48 @@ test("details saves preserve exact and approximate privacy selections", () => {
   assert.equal(exactResult.property?.location.privacyMode, "exact");
 });
 
+test("approximate saves persist one generated center and require a public label", () => {
+  const incoming = cloneProperty();
+  incoming.location = {
+    displayAddress: { en: "Private source address" },
+    approximateLabel: { en: "Arroyo Vista, Arizona" },
+    privacyMode: "approximate",
+    showMap: true,
+    latitude: 31.4982437,
+    longitude: -110.1957096,
+    approximateRadiusMeters: 1500,
+  };
+
+  const first = mergePropertyShowcaseUpdate(null, incoming, "replace");
+  assert.equal(first.ok, true);
+  assert.notEqual(first.property?.location.approximateLatitude, undefined);
+  assert.notEqual(first.property?.location.approximateLongitude, undefined);
+  assert.notEqual(first.property?.location.approximateLatitude, incoming.location.latitude);
+
+  const second = mergePropertyShowcaseUpdate(
+    first.property!,
+    first.property!,
+    "replace",
+  );
+  assert.equal(second.ok, true);
+  assert.equal(
+    second.property?.location.approximateLatitude,
+    first.property?.location.approximateLatitude,
+  );
+  assert.equal(
+    second.property?.location.approximateLongitude,
+    first.property?.location.approximateLongitude,
+  );
+
+  incoming.location.approximateLabel = { en: "" };
+  const missingLabel = mergePropertyShowcaseUpdate(null, incoming, "replace");
+  assert.equal(missingLabel.ok, false);
+  assert.equal(
+    missingLabel.errors.includes("Approximate maps need a public area label."),
+    true,
+  );
+});
+
 test("details saves preserve sharing media while updating a structured address", () => {
   const existing = withExternalMedia();
   existing.gallery[0].featuredForSharing = true;

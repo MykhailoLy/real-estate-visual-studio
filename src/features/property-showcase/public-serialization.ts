@@ -7,32 +7,19 @@ import type {
 import { resolvePropertySocialImageUrl } from "./social-preview.ts";
 import { normalizePropertyVideoUrls } from "./video-urls.ts";
 
-function roundPublicCoordinate(value: number | undefined): number | undefined {
-  if (typeof value !== "number") return undefined;
-  const rounded = Math.round(value * 10) / 10;
-  return Object.is(rounded, -0) ? 0 : rounded;
-}
-
-function approximateCoordinate(
-  explicit: number | undefined,
-  fallback: number | undefined,
-): number | undefined {
-  return typeof explicit === "number"
-    ? explicit
-    : roundPublicCoordinate(fallback);
-}
-
 function blankLocalizedText(value: LocalizedText): LocalizedText {
   const entries = Object.keys(value).map((language) => [language, ""] as const);
   return { en: "", ...Object.fromEntries(entries) };
 }
 
 function sanitizedExactLocation(location: PropertyLocation): PropertyLocation {
+  const googleMapsLink = normalizeGoogleMapsInput(location.googleMapsLink);
   const external = normalizeGoogleMapsInput(location.mapExternalUrl);
   const embed = normalizeGoogleMapsInput(location.mapEmbedUrl);
 
   return {
     ...location,
+    googleMapsLink: googleMapsLink?.externalUrl ?? googleMapsLink?.embedUrl,
     mapExternalUrl: external?.externalUrl ?? external?.embedUrl,
     mapEmbedUrl: embed?.embedUrl,
   };
@@ -52,16 +39,13 @@ function sanitizedApproximateLocation(
     country: undefined,
     latitude: undefined,
     longitude: undefined,
-    approximateLatitude: approximateCoordinate(
-      location.approximateLatitude,
-      location.latitude,
-    ),
-    approximateLongitude: approximateCoordinate(
-      location.approximateLongitude,
-      location.longitude,
-    ),
+    // Never derive a public center at render time from the exact point. The
+    // admin flow persists an intentionally offset center before publication.
+    approximateLatitude: location.approximateLatitude,
+    approximateLongitude: location.approximateLongitude,
     approximateRadiusMeters: location.approximateRadiusMeters ?? 1500,
     allowApproximateAreaLink: location.allowApproximateAreaLink === true,
+    googleMapsLink: undefined,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };
@@ -84,6 +68,7 @@ function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {
     approximateRadiusMeters: undefined,
     allowApproximateAreaLink: undefined,
     showMap: false,
+    googleMapsLink: undefined,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };
@@ -99,6 +84,7 @@ function sanitizedNoMapLocation(location: PropertyLocation): PropertyLocation {
     approximateRadiusMeters: undefined,
     allowApproximateAreaLink: undefined,
     showMap: false,
+    googleMapsLink: undefined,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };

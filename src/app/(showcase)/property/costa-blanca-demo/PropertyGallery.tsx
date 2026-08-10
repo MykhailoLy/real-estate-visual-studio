@@ -3,11 +3,16 @@
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  hasCollapsedMobileGalleryImages,
+  shouldShowMobileGalleryImage,
+} from "@/features/property-showcase/mobile-gallery";
 
 export interface PropertyGalleryImage {
   src: string;
   alt: string;
   label: string;
+  objectPosition?: string;
 }
 
 type PropertyGalleryProps = {
@@ -15,6 +20,8 @@ type PropertyGalleryProps = {
   eyebrow?: string;
   title?: string;
   description?: string;
+  showAllLabel?: (count: number) => string;
+  showFewerLabel?: string;
   onGalleryOpen?: () => void;
 };
 
@@ -23,9 +30,12 @@ export default function PropertyGallery({
   eyebrow = "Photo gallery",
   title = "Explore the residence.",
   description = "Select any image to open the full-screen gallery.",
+  showAllLabel = (count) => `Show all ${count} photos`,
+  showFewerLabel = "Show fewer photos",
   onGalleryOpen,
 }: PropertyGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [showAllMobile, setShowAllMobile] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -117,9 +127,11 @@ export default function PropertyGallery({
           </p>
         </div>
 
-        <div className="grid auto-rows-[190px] gap-3 sm:auto-rows-[250px] sm:grid-cols-2 lg:auto-rows-[285px] lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:auto-rows-[250px] sm:grid-cols-2 lg:auto-rows-[285px] lg:grid-cols-4">
           {images.map((image, index) => {
             const featured = index === 0;
+            const mobileWide = index >= 2;
+            const hiddenOnMobile = !shouldShowMobileGalleryImage(index, showAllMobile);
             return (
               <button
                 key={`${image.src}-${index}`}
@@ -130,6 +142,10 @@ export default function PropertyGallery({
                   setActiveIndex(index);
                 }}
                 className={`group relative overflow-hidden rounded-2xl bg-white/5 text-left focus-visible:outline-white ${
+                  hiddenOnMobile ? "hidden sm:block" : ""
+                } ${
+                  mobileWide ? "col-span-2 aspect-[16/10] sm:aspect-auto" : "aspect-[4/3] sm:aspect-auto"
+                } ${
                   featured ? "sm:col-span-2 sm:row-span-2 lg:col-span-2" : ""
                 }`}
                 aria-label={`Open gallery image: ${image.label}`}
@@ -138,8 +154,9 @@ export default function PropertyGallery({
                   src={image.src}
                   alt={image.alt}
                   fill
-                  sizes={featured ? "(min-width: 1024px) 50vw, 100vw" : "(min-width: 1024px) 25vw, 50vw"}
+                  sizes={featured ? "(min-width: 1024px) 50vw, (max-width: 639px) 50vw, 100vw" : mobileWide ? "(min-width: 1024px) 25vw, (max-width: 639px) 100vw, 50vw" : "(min-width: 1024px) 25vw, 50vw"}
                   className="object-cover transition duration-500 group-hover:scale-[1.025]"
+                  style={{ objectPosition: image.objectPosition }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
                 <span className="absolute bottom-4 left-4 text-sm font-semibold text-white sm:bottom-5 sm:left-5">
@@ -152,6 +169,19 @@ export default function PropertyGallery({
             );
           })}
         </div>
+        {hasCollapsedMobileGalleryImages(images.length) ? (
+          <button
+            type="button"
+            onClick={() => setShowAllMobile((current) => !current)}
+            className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/35 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white sm:hidden"
+            data-testid="property-gallery-toggle"
+            aria-expanded={showAllMobile}
+          >
+            {showAllMobile
+              ? showFewerLabel
+              : showAllLabel(images.length)}
+          </button>
+        ) : null}
       </div>
 
       {activeImage ? (

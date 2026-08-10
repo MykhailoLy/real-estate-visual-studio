@@ -26,6 +26,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import { BrandWordmark } from "@/components/brand";
 import CookieSettingsButton from "@/components/privacy/CookieSettingsButton";
 import { formatPriceLabel } from "@/features/property-showcase/formatting";
+import { focalPointToObjectPosition } from "@/features/property-showcase/focal-point";
 import {
   getPropertyMapView,
   normalizeAgentProfile,
@@ -229,7 +230,7 @@ export default function PropertyShowcaseView({
         <section id="home" className="relative isolate scroll-mt-24 overflow-hidden bg-[#0f2440]">
           <div
             data-testid="property-hero-composition"
-            className="relative min-h-[max(620px,calc(100svh-4.5rem))] sm:min-h-[max(700px,calc(100svh-5rem))] lg:min-h-[max(780px,calc(100dvh-5rem))]"
+            className="relative min-h-[max(540px,calc(100svh-4.5rem))] sm:min-h-[max(700px,calc(100svh-5rem))] lg:min-h-[max(780px,calc(100dvh-5rem))]"
           >
             <PropertyHeroSlideshow images={heroImages} />
             <div className="absolute inset-0 bg-gradient-to-b from-[#071426]/50 via-[#071426]/15 to-[#071426]/95" />
@@ -270,11 +271,11 @@ export default function PropertyShowcaseView({
             ) : null}
             <div className="absolute inset-x-0 bottom-0">
               <div className="mx-auto max-w-[1480px] px-4 pb-8 sm:px-6 sm:pb-12 lg:px-10 lg:pb-16">
-                <div className="flex max-w-5xl flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="flex max-w-5xl flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
                   <div className="min-w-0">
                     {address.primaryLine ? (
                       <div data-testid="property-hero-address" className="mb-4 max-w-2xl">
-                        <p className="flex items-center gap-2 text-lg font-medium leading-tight text-white/90 sm:text-xl">
+                        <p className="flex items-center gap-2 text-base font-medium leading-tight text-white/90 sm:text-xl">
                           <MapPin className="h-4 w-4" aria-hidden />
                           {address.primaryLine}
                         </p>
@@ -285,16 +286,16 @@ export default function PropertyShowcaseView({
                         ) : null}
                       </div>
                     ) : null}
-                    <h1 className="max-w-4xl text-4xl font-semibold leading-[0.98] text-white sm:text-6xl lg:text-7xl">
+                    <h1 className="max-w-4xl text-3xl font-semibold leading-[0.98] text-white min-[390px]:text-4xl sm:text-6xl lg:text-7xl">
                       {title}
                     </h1>
-                    <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
+                    <p className="mt-5 hidden max-w-2xl text-base leading-7 text-white/72 sm:block sm:text-lg">
                       {summary}
                     </p>
                   </div>
 
-                  <div className="flex min-w-0 shrink-0 flex-col items-start gap-5 border-t border-white/20 pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-                    <div>
+                  <div className="flex min-w-0 shrink-0 flex-col items-start gap-3 border-t border-white/20 pt-4 sm:gap-5 sm:pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                    <div className="hidden sm:block">
                       <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-white/55">
                         {localizedText(property.priceLabel, language, primaryLanguage)}
                       </span>
@@ -302,11 +303,11 @@ export default function PropertyShowcaseView({
                         {formatPriceLabel(property.price)}
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                       <button
                         type="button"
                         onClick={openViewingDialog}
-                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--property-brand-primary)] px-5 py-3 text-sm font-bold text-[var(--property-brand-primary-foreground)] shadow-lg transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+                        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--property-brand-primary)] px-5 py-3 text-sm font-bold text-[var(--property-brand-primary-foreground)] shadow-lg transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white sm:w-auto"
                         data-testid="hero-request-viewing"
                       >
                         <CalendarDays className="h-4 w-4" aria-hidden />
@@ -319,16 +320,6 @@ export default function PropertyShowcaseView({
                           trackEvent("brochure_downloaded")
                         }
                       />
-                      {agent?.emailHref ? (
-                        <a
-                          href={`${agent.emailHref}?subject=${encodeURIComponent(`Question about ${title}`)}`}
-                          onClick={() => trackEvent("agent_email_clicked")}
-                          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/35 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
-                        >
-                          <MessageCircle className="h-4 w-4" aria-hidden />
-                          {ui.askQuestion}
-                        </a>
-                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -361,7 +352,7 @@ export default function PropertyShowcaseView({
                   {facts.map((fact, index) => {
                     const Icon = factIcons[fact.key] ?? Home;
                     const keepTogether = keepFactValueTogether(fact.key);
-                    const compactValue = fact.key === "parking" || fact.value.length > 18;
+                    const compactValue = fact.value.length > 18;
                     return (
                       <div
                         key={`${fact.key}-${index}`}
@@ -374,12 +365,24 @@ export default function PropertyShowcaseView({
                             aria-hidden
                           />
                         </span>
-                        <span className="mt-2 block max-w-full text-[8px] font-bold uppercase leading-3 tracking-normal text-slate-500 min-[360px]:text-[9px] sm:mt-4 sm:text-[11px] sm:leading-4">
-                          {fact.label}
+                        <span
+                          data-testid={`property-fact-label-${fact.key}`}
+                          className="mt-2 block max-w-full text-[8px] font-bold uppercase leading-3 tracking-normal text-slate-500 min-[360px]:text-[9px] sm:mt-4 sm:text-[11px] sm:leading-4"
+                          title={fact.label}
+                          aria-label={fact.label}
+                        >
+                          {fact.key === "listing-reference" ? (
+                            <>
+                              <span className="sm:hidden">Ref.</span>
+                              <span className="hidden sm:inline">{fact.label}</span>
+                            </>
+                          ) : (
+                            fact.label
+                          )}
                         </span>
                         <span
                           data-testid={`property-fact-value-${fact.key}`}
-                          className={`mt-1 block max-w-full font-semibold leading-5 tabular-nums text-[#0f2440] sm:mt-1.5 sm:leading-6 ${
+                          className={`mt-1 block max-w-full font-semibold leading-5 tabular-nums lining-nums text-[#0f2440] sm:mt-1.5 sm:leading-6 ${
                             compactValue
                               ? "text-[11px] min-[360px]:text-[9px] sm:text-base"
                               : "text-[15px] min-[360px]:text-[15px] sm:text-xl"
@@ -467,10 +470,13 @@ export default function PropertyShowcaseView({
               src: image.src,
               alt: localizedText(image.alt, language, primaryLanguage),
               label: localizedText(image.label, language, primaryLanguage),
+              objectPosition: focalPointToObjectPosition(image.focalPoint),
             }))}
             eyebrow={ui.galleryEyebrow}
             title={title}
             description={ui.galleryImageCount(gallery.length)}
+            showAllLabel={ui.galleryShowAll}
+            showFewerLabel={ui.galleryShowFewer}
             onGalleryOpen={() => trackEvent("gallery_opened")}
           />
         </div>

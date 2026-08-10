@@ -39,6 +39,8 @@ export type PublicUiLabels = {
   floorPlansHeading: string;
   galleryEyebrow: string;
   galleryImageCount: (count: number) => string;
+  galleryShowAll: (count: number) => string;
+  galleryShowFewer: string;
   highlightsEyebrow: string;
   interactiveFloorPlan: string;
   interactiveFloorPlanCta: string;
@@ -122,6 +124,8 @@ const EN_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "See how the spaces connect.",
   galleryEyebrow: "Photo gallery",
   galleryImageCount: (count) => `${count} images`,
+  galleryShowAll: (count) => `Show all ${count} photos`,
+  galleryShowFewer: "Show fewer photos",
   highlightsEyebrow: "Highlights",
   interactiveFloorPlan: "Interactive floor plan",
   interactiveFloorPlanCta: "Open interactive floor plan",
@@ -159,6 +163,8 @@ const ES_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "Vea cómo se conectan los espacios.",
   galleryEyebrow: "Galería de fotos",
   galleryImageCount: (count) => `${count} imágenes`,
+  galleryShowAll: (count) => `Ver las ${count} fotos`,
+  galleryShowFewer: "Mostrar menos fotos",
   highlightsEyebrow: "Destacados",
   interactiveFloorPlan: "Plano interactivo",
   interactiveFloorPlanCta: "Abrir plano interactivo",
@@ -196,6 +202,8 @@ const DE_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "Sehen Sie, wie die Räume verbunden sind.",
   galleryEyebrow: "Fotogalerie",
   galleryImageCount: (count) => `${count} Bilder`,
+  galleryShowAll: (count) => `Alle ${count} Fotos anzeigen`,
+  galleryShowFewer: "Weniger Fotos anzeigen",
   highlightsEyebrow: "Highlights",
   interactiveFloorPlan: "Interaktiver Grundriss",
   interactiveFloorPlanCta: "Interaktiven Grundriss öffnen",
@@ -233,6 +241,8 @@ const FR_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "Découvrez comment les espaces communiquent.",
   galleryEyebrow: "Galerie photo",
   galleryImageCount: (count) => `${count} images`,
+  galleryShowAll: (count) => `Voir les ${count} photos`,
+  galleryShowFewer: "Afficher moins de photos",
   highlightsEyebrow: "Points forts",
   interactiveFloorPlan: "Plan interactif",
   interactiveFloorPlanCta: "Ouvrir le plan interactif",
@@ -270,6 +280,8 @@ const NL_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "Bekijk hoe de ruimtes met elkaar verbonden zijn.",
   galleryEyebrow: "Fotogalerij",
   galleryImageCount: (count) => `${count} beelden`,
+  galleryShowAll: (count) => `Alle ${count} foto's tonen`,
+  galleryShowFewer: "Minder foto's tonen",
   highlightsEyebrow: "Pluspunten",
   interactiveFloorPlan: "Interactieve plattegrond",
   interactiveFloorPlanCta: "Interactieve plattegrond openen",
@@ -307,6 +319,8 @@ const PL_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "Zobacz, jak łączą się przestrzenie.",
   galleryEyebrow: "Galeria zdjęć",
   galleryImageCount: (count) => `${count} zdjęć`,
+  galleryShowAll: (count) => `Pokaż wszystkie ${count} zdjęć`,
+  galleryShowFewer: "Pokaż mniej zdjęć",
   highlightsEyebrow: "Atuty",
   interactiveFloorPlan: "Interaktywny plan",
   interactiveFloorPlanCta: "Otwórz interaktywny plan",
@@ -344,6 +358,8 @@ const UK_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "Подивіться, як поєднані простори.",
   galleryEyebrow: "Фотогалерея",
   galleryImageCount: (count) => `${count} зображень`,
+  galleryShowAll: (count) => `Показати всі ${count} фото`,
+  galleryShowFewer: "Показати менше фото",
   highlightsEyebrow: "Переваги",
   interactiveFloorPlan: "Інтерактивний план",
   interactiveFloorPlanCta: "Відкрити інтерактивний план",
@@ -381,6 +397,8 @@ const RU_UI_LABELS: PublicUiLabels = {
   floorPlansHeading: "Посмотрите, как связаны пространства.",
   galleryEyebrow: "Фотогалерея",
   galleryImageCount: (count) => `${count} изображений`,
+  galleryShowAll: (count) => `Показать все ${count} фото`,
+  galleryShowFewer: "Показать меньше фото",
   highlightsEyebrow: "Преимущества",
   interactiveFloorPlan: "Интерактивный план",
   interactiveFloorPlanCta: "Открыть интерактивный план",

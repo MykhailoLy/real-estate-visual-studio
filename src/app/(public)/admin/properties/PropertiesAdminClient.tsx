@@ -52,6 +52,11 @@ import {
   setPropertySocialCardFactVisible,
 } from "@/features/property-showcase/social-card";
 import {
+  createApproximateMapCenter,
+  distanceBetweenCoordinatesMeters,
+  type PropertyMapCoordinates,
+} from "@/features/property-showcase/map-location";
+import {
   labelForListingReferenceMode,
   LISTING_REFERENCE_LABEL_PRESETS,
   getPropertyLocationMapView,
@@ -163,7 +168,8 @@ interface FormState {
   approximateRadiusMeters: string;
   approximateLabel: string;
   allowApproximateAreaLink: boolean;
-  mapExternalUrl: string;
+  googleMapsLink: string;
+  legacyMapExternalUrl: string;
   mapEmbedUrl: string;
   useCustomMapEmbed: boolean;
   mapZoom: string;
@@ -395,7 +401,8 @@ function initialState(record: PropertyShowcaseAdminRecord | null): FormState {
       : "",
     allowApproximateAreaLink:
       property?.location.allowApproximateAreaLink ?? false,
-    mapExternalUrl: property?.location.mapExternalUrl ?? "",
+    googleMapsLink: property?.location.googleMapsLink ?? "",
+    legacyMapExternalUrl: property?.location.mapExternalUrl ?? "",
     mapEmbedUrl: property?.location.mapEmbedUrl ?? "",
     useCustomMapEmbed: property?.location.useCustomMapEmbed ?? false,
     mapZoom:
@@ -855,7 +862,8 @@ function buildProperty(
       allowApproximateAreaLink: state.allowApproximateAreaLink,
       privacyMode: state.privacyMode,
       showMap: state.showMap,
-      mapExternalUrl: optional(state.mapExternalUrl),
+      googleMapsLink: optional(state.googleMapsLink),
+      mapExternalUrl: optional(state.legacyMapExternalUrl),
       mapEmbedUrl: optional(state.mapEmbedUrl),
       useCustomMapEmbed: state.useCustomMapEmbed,
       mapZoom: integerValue(state.mapZoom, 1, 23),
@@ -1253,6 +1261,9 @@ function PropertyEditor({
   const [form, setForm] = useState<FormState>(() => initialState(record));
   const [pageUrlTouched, setPageUrlTouched] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
+  const [resolvingGoogleMapsLink, setResolvingGoogleMapsLink] = useState(false);
+  const [googleMapsLinkError, setGoogleMapsLinkError] = useState<string | null>(null);
+  const [googleMapsLinkNotice, setGoogleMapsLinkNotice] = useState<string | null>(null);
   const [legacyTourCandidateId, setLegacyTourCandidateId] = useState(
     legacyTourCandidates.length === 1 ? legacyTourCandidates[0].id : "",
   );
@@ -1264,7 +1275,6 @@ function PropertyEditor({
     externalUrl: form.interactiveExternalUrl,
     embedUrl: form.interactiveEmbedUrl,
   });
-  const normalizedMapExternal = normalizeGoogleMapsInput(form.mapExternalUrl);
   const normalizedMapEmbed = normalizeGoogleMapsInput(form.mapEmbedUrl);
   const exactAddress =
     form.address.trim() || formatStructuredPropertyAddress(form);
@@ -1297,7 +1307,8 @@ function PropertyEditor({
     allowApproximateAreaLink: form.allowApproximateAreaLink,
     privacyMode: form.privacyMode,
     showMap: form.showMap,
-    mapExternalUrl: optional(form.mapExternalUrl),
+    googleMapsLink: optional(form.googleMapsLink),
+    mapExternalUrl: optional(form.legacyMapExternalUrl),
     mapEmbedUrl: optional(form.mapEmbedUrl),
     useCustomMapEmbed: form.useCustomMapEmbed,
     mapZoom: integerValue(form.mapZoom, 1, 23),
@@ -1342,6 +1353,163 @@ function PropertyEditor({
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function exactCoordinatesFromForm(state: FormState): PropertyMapCoordinates | null {
+    const latitude = numberValue(state.latitude, -90, 90);
+    const longitude = numberValue(state.longitude, -180, 180);
+    return typeof latitude === "number" && typeof longitude === "number"
+      ? { latitude, longitude }
+      : null;
+  }
+
+  function approximateCoordinatesFromForm(
+    state: FormState,
+  ): PropertyMapCoordinates | null {
+    const latitude = numberValue(state.approximateLatitude, -90, 90);
+    const longitude = numberValue(state.approximateLongitude, -180, 180);
+    return typeof latitude === "number" && typeof longitude === "number"
+      ? { latitude, longitude }
+      : null;
+  }
+
+  function setApproximateRadius(value: string) {
+    setForm((current) => {
+      const exact = exactCoordinatesFromForm(current);
+      const radius = integerValue(value, 100, 50000);
+      if (!exact || !radius) {
+        return { ...current, approximateRadiusMeters: value };
+      }
+      const existingCenter = approximateCoordinatesFromForm(current);
+      if (
+        existingCenter &&
+        distanceBetweenCoordinatesMeters(exact, existingCenter) <= radius
+      ) {
+        return { ...current, approximateRadiusMeters: value };
+      }
+      const center = createApproximateMapCenter(exact, radius);
+      return {
+        ...current,
+        approximateRadiusMeters: value,
+        approximateLatitude: String(center.latitude),
+        approximateLongitude: String(center.longitude),
+      };
+    });
+  }
+
+  function regenerateApproximateLocation() {
+    setForm((current) => {
+      const exact = exactCoordinatesFromForm(current);
+      if (!exact) return current;
+      const radius = integerValue(current.approximateRadiusMeters, 100, 50000) ?? 1500;
+      const center = createApproximateMapCenter(exact, radius);
+      return {
+        ...current,
+        approximateLatitude: String(center.latitude),
+        approximateLongitude: String(center.longitude),
+      };
+    });
+    if (!exactCoordinatesFromForm(form)) {
+      setGoogleMapsLinkError(
+        "Paste a Google Maps link first, or add legacy exact coordinates in Advanced / legacy settings.",
+      );
+      return;
+    }
+    setGoogleMapsLinkError(null);
+    setGoogleMapsLinkNotice("Generated a new stable approximate public location.");
+  }
+
+  async function resolveGoogleMapsLinkInput(link: string): Promise<
+    | { ok: true; resolvedUrl: string; coordinates: PropertyMapCoordinates }
+    | { ok: false; error: string }
+  > {
+    try {
+      const response = await fetch("/api/admin/properties/resolve-google-maps-link", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ link }),
+      });
+      const body = await response.json().catch(() => null) as {
+        error?: string;
+        resolvedUrl?: string;
+        coordinates?: PropertyMapCoordinates;
+      } | null;
+      const coordinates = body?.coordinates;
+      if (
+        !response.ok ||
+        !body?.resolvedUrl ||
+        !coordinates ||
+        typeof coordinates.latitude !== "number" ||
+        typeof coordinates.longitude !== "number"
+      ) {
+        return {
+          ok: false,
+          error: body?.error ?? "The Google Maps link could not be resolved.",
+        };
+      }
+      return {
+        ok: true,
+        resolvedUrl: body.resolvedUrl,
+        coordinates,
+      };
+    } catch {
+      return {
+        ok: false,
+        error:
+          "The Google Maps link could not be resolved. Paste an expanded Google Maps link or use Advanced / legacy settings.",
+      };
+    }
+  }
+
+  async function detectGoogleMapsLink() {
+    const link = form.googleMapsLink.trim();
+    if (!link || resolvingGoogleMapsLink) return;
+
+    setResolvingGoogleMapsLink(true);
+    setGoogleMapsLinkError(null);
+    setGoogleMapsLinkNotice(null);
+    try {
+      const resolution = await resolveGoogleMapsLinkInput(link);
+      if (!resolution.ok) {
+        setGoogleMapsLinkError(resolution.error);
+        return;
+      }
+      const { coordinates } = resolution;
+
+      setForm((current) => {
+        const radius = integerValue(current.approximateRadiusMeters, 100, 50000) ?? 1500;
+        const previousExact = exactCoordinatesFromForm(current);
+        const sourcePointChanged =
+          !previousExact ||
+          previousExact.latitude !== coordinates.latitude ||
+          previousExact.longitude !== coordinates.longitude;
+        const approximateCenter =
+          current.privacyMode === "approximate" &&
+          (!approximateCoordinatesFromForm(current) || sourcePointChanged)
+          ? createApproximateMapCenter(coordinates, radius)
+          : null;
+        return {
+          ...current,
+          googleMapsLink: resolution.resolvedUrl,
+          latitude: String(coordinates.latitude),
+          longitude: String(coordinates.longitude),
+          approximateLatitude: approximateCenter
+            ? String(approximateCenter.latitude)
+            : current.approximateLatitude,
+          approximateLongitude: approximateCenter
+            ? String(approximateCenter.longitude)
+            : current.approximateLongitude,
+        };
+      });
+      setGoogleMapsLinkNotice(
+        form.privacyMode === "approximate"
+          ? "Recognized the source point and generated a stable approximate public location."
+          : `Recognized exact point: ${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}.`,
+      );
+    } finally {
+      setResolvingGoogleMapsLink(false);
+    }
   }
 
   function updateSocialCard(
@@ -1646,10 +1814,52 @@ function PropertyEditor({
     if (saving) return;
     onError(null);
 
-    const property = buildProperty(form, record?.property ?? null);
-    const brandingError = brandingValidationMessage(form, property.slug);
+    let formForSave = form;
+    const googleMapsLink = form.googleMapsLink.trim();
+    if (googleMapsLink) {
+      setSaving(true);
+      const resolution = await resolveGoogleMapsLinkInput(googleMapsLink);
+      if (!resolution.ok) {
+        setGoogleMapsLinkError(resolution.error);
+        onError(
+          "The Google Maps link could not be resolved. Use an expanded link or clear it and enter Advanced / legacy coordinates.",
+        );
+        setSaving(false);
+        return;
+      }
+
+      const radius = integerValue(form.approximateRadiusMeters, 100, 50000) ?? 1500;
+      const previousExact = exactCoordinatesFromForm(form);
+      const sourcePointChanged =
+        !previousExact ||
+        previousExact.latitude !== resolution.coordinates.latitude ||
+        previousExact.longitude !== resolution.coordinates.longitude;
+      const approximateCenter =
+        form.privacyMode === "approximate" &&
+        (!approximateCoordinatesFromForm(form) || sourcePointChanged)
+        ? createApproximateMapCenter(resolution.coordinates, radius)
+        : null;
+      formForSave = {
+        ...form,
+        googleMapsLink: resolution.resolvedUrl,
+        latitude: String(resolution.coordinates.latitude),
+        longitude: String(resolution.coordinates.longitude),
+        approximateLatitude: approximateCenter
+          ? String(approximateCenter.latitude)
+          : form.approximateLatitude,
+        approximateLongitude: approximateCenter
+          ? String(approximateCenter.longitude)
+          : form.approximateLongitude,
+      };
+      setForm(formForSave);
+      setGoogleMapsLinkError(null);
+    }
+
+    const property = buildProperty(formForSave, record?.property ?? null);
+    const brandingError = brandingValidationMessage(formForSave, property.slug);
     if (brandingError) {
       onError(brandingError);
+      setSaving(false);
       return;
     }
 
@@ -1658,14 +1868,14 @@ function PropertyEditor({
     const removeVirtualTour =
       mode === "edit" &&
       Boolean(existingProperty?.virtualTour) &&
-      !form.tourInput.trim() &&
-      !form.tourExternalUrl.trim();
+      !formForSave.tourInput.trim() &&
+      !formForSave.tourExternalUrl.trim();
     const removeInteractiveFloorPlan =
       mode === "edit" &&
       Boolean(existingProperty?.interactiveFloorPlanTour) &&
-      !form.interactiveEnabled &&
-      !form.interactiveExternalUrl.trim() &&
-      !form.interactiveEmbedUrl.trim();
+      !formForSave.interactiveEnabled &&
+      !formForSave.interactiveExternalUrl.trim() &&
+      !formForSave.interactiveEmbedUrl.trim();
     const endpoint =
       mode === "create"
         ? "/api/admin/properties"
@@ -1678,7 +1888,7 @@ function PropertyEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           property,
-          published: form.published,
+          published: formForSave.published,
           updateMode: mode === "create" ? "replace" : "details",
           updateSocialCard: true,
           removeVirtualTour,
@@ -2503,20 +2713,36 @@ function PropertyEditor({
               </details>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Field label="Exact latitude">
-                <input
-                  value={form.latitude}
-                  onChange={(event) => set("latitude", event.target.value)}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Exact longitude">
-                <input
-                  value={form.longitude}
-                  onChange={(event) => set("longitude", event.target.value)}
-                  className={inputClass}
-                />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.42fr)_minmax(9rem,0.3fr)]">
+              <Field
+                label="Google Maps link"
+                hint="Paste a Google Maps Share / Copy link. Normal Google Maps URLs and maps.app.goo.gl links are supported; the point is detected automatically."
+              >
+                <div className="flex gap-2">
+                  <input
+                    value={form.googleMapsLink}
+                    onChange={(event) => {
+                      set("googleMapsLink", event.target.value);
+                      setGoogleMapsLinkError(null);
+                      setGoogleMapsLinkNotice(null);
+                    }}
+                    onBlur={() => void detectGoogleMapsLink()}
+                    className={inputClass}
+                    placeholder="https://maps.app.goo.gl/..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void detectGoogleMapsLink()}
+                    disabled={!form.googleMapsLink.trim() || resolvingGoogleMapsLink}
+                    className="mt-1.5 inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-white px-3 text-sm font-bold text-primary transition hover:border-primary disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {resolvingGoogleMapsLink ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-label="Resolving map link" />
+                    ) : (
+                      "Detect"
+                    )}
+                  </button>
+                </div>
               </Field>
               <Field label="Privacy">
                 <select
@@ -2540,33 +2766,33 @@ function PropertyEditor({
                 />
                 Show map
               </label>
-              <Field label="Map zoom">
-                <input
-                  type="number"
-                  min="1"
-                  max="23"
-                  step="1"
-                  value={form.mapZoom}
-                  onChange={(event) => set("mapZoom", event.target.value)}
-                  className={inputClass}
-                />
-              </Field>
             </div>
+
+            {googleMapsLinkError ? (
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+                {googleMapsLinkError}
+              </p>
+            ) : null}
+            {googleMapsLinkNotice ? (
+              <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
+                {googleMapsLinkNotice}
+              </p>
+            ) : null}
 
             {form.privacyMode === "approximate" ? (
               <div className="rounded-lg border border-border bg-surface p-4">
                 <div className="mb-4">
                   <h3 className="text-sm font-bold text-primary">
-                    Fixed approximate zone
+                    Approximate public location
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-muted">
-                    Save a public-safe center that is separate from the exact property coordinates. The radius is shown in meters and remains anchored to this center.
+                    Publish only a safe area label and privacy radius. After a Google Maps link is detected, PicchuSpot saves one offset public center inside this radius and never recalculates it during rendering.
                   </p>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.42fr)_auto] md:items-end">
                   <Field
                     label="Approximate public location label"
-                    hint="Use only a city, district, or other location label that is safe to publish. Leave blank to omit location text."
+                    hint="Use only a city, district, or other location label that is safe to publish. This is what public Google Maps links search for."
                   >
                     <input
                       value={form.approximateLabel}
@@ -2574,34 +2800,8 @@ function PropertyEditor({
                         set("approximateLabel", event.target.value)
                       }
                       className={inputClass}
-                      placeholder="Altea, Alicante"
-                    />
-                  </Field>
-                  <Field label="Approximate center latitude">
-                    <input
-                      type="number"
-                      min="-90"
-                      max="90"
-                      step="0.000001"
-                      value={form.approximateLatitude}
-                      onChange={(event) =>
-                        set("approximateLatitude", event.target.value)
-                      }
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Approximate center longitude">
-                    <input
-                      type="number"
-                      min="-180"
-                      max="180"
-                      step="0.000001"
-                      value={form.approximateLongitude}
-                      onChange={(event) =>
-                        set("approximateLongitude", event.target.value)
-                      }
-                      className={inputClass}
-                    />
+                    placeholder="Arroyo Vista, Arizona"
+                  />
                   </Field>
                   <Field label="Approximate radius (meters)">
                     <input
@@ -2610,31 +2810,18 @@ function PropertyEditor({
                       max="50000"
                       step="100"
                       value={form.approximateRadiusMeters}
-                      onChange={(event) =>
-                        set("approximateRadiusMeters", event.target.value)
-                      }
+                      onChange={(event) => setApproximateRadius(event.target.value)}
                       className={inputClass}
                     />
                   </Field>
+                  <button
+                    type="button"
+                    onClick={regenerateApproximateLocation}
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-primary/20 bg-white px-4 py-3 text-sm font-bold text-primary transition hover:border-primary"
+                  >
+                    Regenerate approximate location
+                  </button>
                 </div>
-                <label className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-white px-4 py-3 text-sm font-bold text-primary">
-                  <input
-                    type="checkbox"
-                    checked={form.allowApproximateAreaLink}
-                    onChange={(event) =>
-                      set("allowApproximateAreaLink", event.target.checked)
-                    }
-                    className="mt-0.5 h-4 w-4 accent-primary"
-                  />
-                  <span>
-                    <span className="block">
-                      Allow opening approximate area in Google Maps
-                    </span>
-                    <span className="mt-1 block text-xs font-normal leading-5 text-muted">
-                      The link uses only the public area name. Exact and approximate numeric coordinates are never placed in the external URL.
-                    </span>
-                  </span>
-                </label>
                 {mapPreview.externalUrl ? (
                   <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
                     <span className="font-bold">Public area-link preview</span>
@@ -2666,10 +2853,10 @@ function PropertyEditor({
                   ? "The public map uses the saved coordinates, marker, and zoom."
                   : mapStatus === "Generated approximate map"
                     ? "The preview uses the saved public-safe center and fixed radius. Exact coordinates and saved map URLs are not serialized."
-                    : mapStatus === "Custom Google Maps embed"
-                      ? "The saved, validated Google Maps iframe is active for this exact map."
-                      : mapStatus === "Invalid coordinates"
-                        ? "Enter latitude from -90 to 90 and longitude from -180 to 180."
+                      : mapStatus === "Custom Google Maps embed"
+                        ? "The saved, validated Google Maps iframe is active for this exact map."
+                        : mapStatus === "Invalid coordinates"
+                        ? "Paste a Google Maps link, or use Advanced / legacy settings when the link cannot be resolved."
                         : "No public map section will be rendered."}
               </p>
             </div>
@@ -2690,22 +2877,73 @@ function PropertyEditor({
 
             <details className="rounded-lg border border-border bg-surface p-4">
               <summary className="cursor-pointer text-sm font-bold text-primary">
-                Advanced Google Maps settings
+                Advanced / legacy map settings
               </summary>
+              <p className="mt-3 text-xs leading-5 text-muted">
+                Use these fallbacks only when a Google Maps link cannot be resolved or an
+                existing property needs its custom embed preserved. In Approximate mode,
+                public output still uses only the saved approximate center and public label.
+              </p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <Field
-                  label="Google Maps external link"
-                  hint={
-                    form.privacyMode === "approximate"
-                      ? "Ignored publicly in Approximate mode. Use the public area-link setting above for a text-only Google Maps search."
-                      : normalizedMapExternal || !form.mapExternalUrl
-                      ? "Optional fallback when exact coordinates are unavailable. Normal share links, including maps.app.goo.gl, open only in a new tab."
-                      : "Only exact Google Maps origins are accepted."
-                  }
+                  label="Exact latitude (legacy fallback)"
+                  hint="Used only if the Google Maps link cannot provide the exact point."
                 >
                   <input
-                    value={form.mapExternalUrl}
-                    onChange={(event) => set("mapExternalUrl", event.target.value)}
+                    type="number"
+                    step="any"
+                    value={form.latitude}
+                    onChange={(event) => set("latitude", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Exact longitude (legacy fallback)">
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.longitude}
+                    onChange={(event) => set("longitude", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field
+                  label="Approximate center latitude (legacy fallback)"
+                  hint="Stored public-safe center for older approximate records."
+                >
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.approximateLatitude}
+                    onChange={(event) => set("approximateLatitude", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Approximate center longitude (legacy fallback)">
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.approximateLongitude}
+                    onChange={(event) => set("approximateLongitude", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Map zoom (legacy fallback)">
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={form.mapZoom}
+                    onChange={(event) => set("mapZoom", event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field
+                  label="Legacy Google Maps external link"
+                  hint="Preserved for exact existing records. Approximate mode never publishes this URL."
+                >
+                  <input
+                    value={form.legacyMapExternalUrl}
+                    onChange={(event) => set("legacyMapExternalUrl", event.target.value)}
                     className={inputClass}
                   />
                 </Field>

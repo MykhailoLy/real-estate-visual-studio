@@ -175,7 +175,7 @@ test("map view respects hidden, approximate, and exact privacy modes", () => {
   assert.equal(getPropertyMapView(property, "en").source, "hidden");
 });
 
-test("approximate map links require an enabled public text label", () => {
+test("approximate map links always search only the safe public text label", () => {
   const property = cloneProperty();
   property.location = {
     displayAddress: { en: "12 Private Cliff Road" },
@@ -203,13 +203,6 @@ test("approximate map links require an enabled public text label", () => {
   assert.equal(enabled.externalUrl?.includes("38.7"), false);
   assert.equal(enabled.externalUrl?.includes("Private"), false);
 
-  property.location.allowApproximateAreaLink = false;
-  assert.equal(
-    getPropertyMapView(serializePublicPropertyShowcase(property), "en").externalUrl,
-    undefined,
-  );
-
-  property.location.allowApproximateAreaLink = true;
   property.location.approximateLabel = undefined;
   assert.equal(
     getPropertyMapView(serializePublicPropertyShowcase(property), "en").externalUrl,

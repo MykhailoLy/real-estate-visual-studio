@@ -51,6 +51,13 @@ const propertyHeroSlideshowSource = readFileSync(
   ),
   "utf8",
 );
+const propertyGallerySource = readFileSync(
+  new URL(
+    "../../app/(showcase)/property/costa-blanca-demo/PropertyGallery.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const propertySectionNavSource = readFileSync(
   new URL(
     "../../app/(showcase)/property/costa-blanca-demo/PropertySectionNav.tsx",
@@ -200,18 +207,20 @@ test("public exact maps do not add a marker status overlay", () => {
   assert.equal(propertyMapCanvasSource.includes("Exact map with marker"), false);
 });
 
-test("map admin exposes a fixed approximate center and radius preview", () => {
-  assert.equal(propertyEditorSource.includes("Fixed approximate zone"), true);
+test("map admin leads with a Google Maps link and keeps raw settings advanced", () => {
+  assert.equal(propertyEditorSource.includes("Google Maps link"), true);
+  assert.equal(propertyEditorSource.includes("Regenerate approximate location"), true);
+  assert.equal(propertyEditorSource.includes("Advanced / legacy map settings"), true);
   assert.equal(
-    propertyEditorSource.includes("Approximate center latitude"),
-    true,
-  );
-  assert.equal(
-    propertyEditorSource.includes("Approximate center longitude"),
+    propertyEditorSource.includes("Approximate public location label"),
     true,
   );
   assert.equal(
     propertyEditorSource.includes("Approximate radius (meters)"),
+    true,
+  );
+  assert.equal(
+    propertyEditorSource.includes("resolve-google-maps-link"),
     true,
   );
   assert.equal(propertyMapCanvasSource.includes("pointer-events-none"), true);
@@ -453,26 +462,33 @@ test("admin verifies the saved public generated endpoint without downloading its
   assert.equal(mediaManagerSource.includes("absoluteUrl(`/property/"), false);
 });
 
-test("approximate map links require an explicit text-only public-area option", () => {
+test("approximate map links always use the safe public label", () => {
   assert.equal(
     propertyEditorSource.includes(
-      "Allow opening approximate area in Google Maps",
+      "Public area-link preview",
     ),
     true,
   );
   assert.equal(
     propertyEditorSource.includes(
-      "Exact and approximate numeric coordinates are never placed in the external URL.",
+      "This is what public Google Maps links search for.",
     ),
     true,
   );
   assert.equal(
-    /form\.privacyMode === "exact"\s*\?\s*exactAddress\s*:\s*form\.approximateLabel\.trim\(\)/.test(
-      propertyEditorSource,
-    ),
-    true,
+    propertyEditorSource.includes("Allow opening approximate area in Google Maps"),
+    false,
   );
   assert.equal(propertyMapCanvasSource.includes("property-map-external-link"), true);
+});
+
+test("mobile facts and gallery use the compact disclosure pattern", () => {
+  assert.equal(propertyShowcaseSource.includes("<span className=\"sm:hidden\">Ref.</span>"), true);
+  assert.equal(propertyShowcaseSource.includes("tabular-nums lining-nums"), true);
+  assert.equal(propertyShowcaseSource.includes('className="hidden sm:block"'), true);
+  assert.equal(propertyGallerySource.includes("property-gallery-toggle"), true);
+  assert.equal(propertyGallerySource.includes("Show fewer photos"), true);
+  assert.equal(propertyGallerySource.includes("col-span-2 aspect-[16/10]"), true);
 });
 
 test("realtor social links use local recognizable brand marks", () => {

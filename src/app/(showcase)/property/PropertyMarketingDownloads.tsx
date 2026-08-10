@@ -157,7 +157,7 @@ export default function PropertyMarketingDownloads({
           setOpen(true);
         }}
         data-testid="hero-download-brochure"
-        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/45 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/45 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white sm:w-auto"
       >
         <Download className="h-4 w-4" aria-hidden />
         {copy.button}
