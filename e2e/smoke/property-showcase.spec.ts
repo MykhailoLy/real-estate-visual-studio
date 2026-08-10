@@ -286,12 +286,13 @@ for (const viewport of propertyViewports) {
         };
         return {
           bedrooms: styleFor("bedrooms"),
-          parking: styleFor("parking"),
           bathrooms: styleFor("bathrooms"),
+          yearBuilt: styleFor("year-built"),
+          parking: styleFor("parking"),
         };
       });
-      expect(numericFactStyles.parking).toEqual(numericFactStyles.bedrooms);
       expect(numericFactStyles.bathrooms).toEqual(numericFactStyles.bedrooms);
+      expect(numericFactStyles.yearBuilt).toEqual(numericFactStyles.bedrooms);
       expect(numericFactStyles.parking.fontVariantNumeric).toContain("tabular-nums");
       await expect(hero.getByText("€695,000", { exact: true })).toBeHidden();
       await expect(hero.getByText("Ask a question", { exact: true })).toHaveCount(0);

@@ -113,6 +113,18 @@ function keepFactValueTogether(key: PropertyFactKey): boolean {
   );
 }
 
+function shouldUseCompactMobileFactValue(
+  key: PropertyFactKey,
+  value: string,
+): boolean {
+  if (value.length > 18) return true;
+
+  // Parking is often descriptive rather than numeric (for example, "Garage +
+  // driveway"). Keep a numeric parking value aligned with the other numbers,
+  // while allowing descriptive parking text to stay readable in two lines.
+  return key === "parking" && value.length > 12 && !/^\s*\d/.test(value);
+}
+
 function initials(value: string): string {
   return value
     .split(/\s+/)
@@ -352,7 +364,10 @@ export default function PropertyShowcaseView({
                   {facts.map((fact, index) => {
                     const Icon = factIcons[fact.key] ?? Home;
                     const keepTogether = keepFactValueTogether(fact.key);
-                    const compactValue = fact.value.length > 18;
+                    const compactValue = shouldUseCompactMobileFactValue(
+                      fact.key,
+                      fact.value,
+                    );
                     return (
                       <div
                         key={`${fact.key}-${index}`}
@@ -382,10 +397,10 @@ export default function PropertyShowcaseView({
                         </span>
                         <span
                           data-testid={`property-fact-value-${fact.key}`}
-                          className={`mt-1 block max-w-full font-semibold leading-5 tabular-nums lining-nums text-[#0f2440] sm:mt-1.5 sm:leading-6 ${
+                          className={`mt-1 block max-w-full font-semibold tabular-nums lining-nums text-[#0f2440] sm:mt-1.5 ${
                             compactValue
-                              ? "text-[11px] min-[360px]:text-[9px] sm:text-base"
-                              : "text-[15px] min-[360px]:text-[15px] sm:text-xl"
+                              ? "text-[12px] leading-4 min-[360px]:text-[11px] sm:text-xl sm:leading-6"
+                              : "text-[15px] leading-5 min-[360px]:text-[15px] sm:text-xl sm:leading-6"
                           } ${
                             keepTogether
                               ? "whitespace-nowrap"

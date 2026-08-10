@@ -1,4 +1,8 @@
 import { normalizeGoogleMapsInput } from "./listing-details.ts";
+import {
+  extractGoogleMapsCoordinates,
+  isSafeApproximateMapCenter,
+} from "./map-location.ts";
 import type {
   LocalizedText,
   PropertyLocation,
@@ -10,6 +14,24 @@ import { normalizePropertyVideoUrls } from "./video-urls.ts";
 function blankLocalizedText(value: LocalizedText): LocalizedText {
   const entries = Object.keys(value).map((language) => [language, ""] as const);
   return { en: "", ...Object.fromEntries(entries) };
+}
+
+function hasValidCoordinatePair(
+  location: {
+    latitude?: number;
+    longitude?: number;
+  },
+): location is { latitude: number; longitude: number } {
+  return (
+    typeof location.latitude === "number" &&
+    Number.isFinite(location.latitude) &&
+    location.latitude >= -90 &&
+    location.latitude <= 90 &&
+    typeof location.longitude === "number" &&
+    Number.isFinite(location.longitude) &&
+    location.longitude >= -180 &&
+    location.longitude <= 180
+  );
 }
 
 function sanitizedExactLocation(location: PropertyLocation): PropertyLocation {
@@ -28,6 +50,31 @@ function sanitizedExactLocation(location: PropertyLocation): PropertyLocation {
 function sanitizedApproximateLocation(
   location: PropertyLocation,
 ): PropertyLocation {
+  const exactCoordinates = exactMapCoordinates(location);
+  const approximateCoordinates = {
+    latitude: location.approximateLatitude,
+    longitude: location.approximateLongitude,
+  };
+  const hasApproximateCoordinates = hasValidCoordinatePair(
+    approximateCoordinates,
+  );
+  const hasUnverifiedStoredMapSource =
+    !exactCoordinates &&
+    [
+      location.googleMapsLink,
+      location.mapExternalUrl,
+      location.mapEmbedUrl,
+    ].some((value) => Boolean(value?.trim()));
+  const approximateCenterIsSafe =
+    hasApproximateCoordinates &&
+    !hasUnverifiedStoredMapSource &&
+    (!exactCoordinates ||
+      isSafeApproximateMapCenter(
+        exactCoordinates,
+        approximateCoordinates,
+        location.approximateRadiusMeters ?? 1500,
+      ));
+
   return {
     ...location,
     displayAddress:
@@ -41,14 +88,39 @@ function sanitizedApproximateLocation(
     longitude: undefined,
     // Never derive a public center at render time from the exact point. The
     // admin flow persists an intentionally offset center before publication.
-    approximateLatitude: location.approximateLatitude,
-    approximateLongitude: location.approximateLongitude,
+    approximateLatitude: approximateCenterIsSafe
+      ? location.approximateLatitude
+      : undefined,
+    approximateLongitude: approximateCenterIsSafe
+      ? location.approximateLongitude
+      : undefined,
     approximateRadiusMeters: location.approximateRadiusMeters ?? 1500,
     allowApproximateAreaLink: location.allowApproximateAreaLink === true,
     googleMapsLink: undefined,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };
+}
+
+function exactMapCoordinates(
+  location: PropertyLocation,
+): { latitude: number; longitude: number } | null {
+  const directCoordinates = {
+    latitude: location.latitude,
+    longitude: location.longitude,
+  };
+  if (hasValidCoordinatePair(directCoordinates)) return directCoordinates;
+
+  for (const value of [
+    location.googleMapsLink,
+    location.mapExternalUrl,
+    location.mapEmbedUrl,
+  ]) {
+    const coordinates = value ? extractGoogleMapsCoordinates(value) : null;
+    if (coordinates) return coordinates;
+  }
+
+  return null;
 }
 
 function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {

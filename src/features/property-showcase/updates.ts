@@ -6,12 +6,17 @@ import {
   hasValidPropertyCoordinates,
   normalizeGoogleMapsInput,
 } from "./listing-details.ts";
-import { createApproximateMapCenter } from "./map-location.ts";
+import {
+  createApproximateMapCenter,
+  extractGoogleMapsCoordinates,
+  isSafeApproximateMapCenter,
+} from "./map-location.ts";
 import { getPrimaryLanguage } from "./localization.ts";
 import { normalizePropertyVideoUrls } from "./video-urls.ts";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
+  PropertyLocation,
   PropertyShowcase,
 } from "./types";
 
@@ -369,14 +374,25 @@ function normalizePropertyMapUrls(
       latitude: location.approximateLatitude,
       longitude: location.approximateLongitude,
     };
-    if (!hasValidPropertyCoordinates(approximateCenter)) {
-      if (!hasValidPropertyCoordinates(location)) {
+    const sourceCoordinates = exactMapCoordinates(location);
+    const hasExactCoordinates = sourceCoordinates !== null;
+    const hasSafeApproximateCenter =
+      hasExactCoordinates &&
+      hasValidPropertyCoordinates(approximateCenter) &&
+      isSafeApproximateMapCenter(
+        sourceCoordinates,
+        approximateCenter,
+        location.approximateRadiusMeters ?? 1500,
+      );
+
+    if (!hasSafeApproximateCenter) {
+      if (!hasExactCoordinates && !hasValidPropertyCoordinates(approximateCenter)) {
         errors.push(
           "Approximate maps need a Google Maps link or Advanced / legacy exact coordinates.",
         );
-      } else {
+      } else if (hasExactCoordinates) {
         const generated = createApproximateMapCenter(
-          location,
+          sourceCoordinates,
           location.approximateRadiusMeters ?? 1500,
         );
         location.approximateLatitude = generated.latitude;
@@ -397,6 +413,25 @@ function normalizePropertyMapUrls(
     },
     errors: [],
   };
+}
+
+function exactMapCoordinates(
+  location: PropertyLocation,
+): { latitude: number; longitude: number } | null {
+  if (hasValidPropertyCoordinates(location)) {
+    return { latitude: location.latitude, longitude: location.longitude };
+  }
+
+  for (const value of [
+    location.googleMapsLink,
+    location.mapExternalUrl,
+    location.mapEmbedUrl,
+  ]) {
+    const coordinates = value ? extractGoogleMapsCoordinates(value) : null;
+    if (coordinates) return coordinates;
+  }
+
+  return null;
 }
 
 export function mergePropertyShowcaseUpdate(

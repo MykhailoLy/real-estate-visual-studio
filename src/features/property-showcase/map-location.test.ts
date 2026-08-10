@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  APPROXIMATE_CENTER_MAX_DISTANCE_MULTIPLIER,
+  APPROXIMATE_CENTER_MIN_DISTANCE_MULTIPLIER,
   createApproximateMapCenter,
   distanceBetweenCoordinatesMeters,
   extractGoogleMapsCoordinates,
+  isSafeApproximateMapCenter,
   resolveGoogleMapsLink,
 } from "./map-location.ts";
 
@@ -74,11 +77,75 @@ test("resolves only trusted Google Maps redirects", async () => {
   });
 });
 
-test("generated approximate centers remain inside the requested privacy radius", () => {
+test("generated and regenerated approximate centers stay beyond the privacy radius", () => {
   const exact = { latitude: 31.4982437, longitude: -110.1957096 };
-  const center = createApproximateMapCenter(exact, 1_500, () => 0.5);
-  const distance = distanceBetweenCoordinatesMeters(exact, center);
+  const privacyRadiusMeters = 1_500;
+  const generated = createApproximateMapCenter(
+    exact,
+    privacyRadiusMeters,
+    () => 0,
+  );
+  const regenerated = createApproximateMapCenter(
+    exact,
+    privacyRadiusMeters,
+    () => 0.75,
+  );
+  const generatedDistance = distanceBetweenCoordinatesMeters(exact, generated);
+  const regeneratedDistance = distanceBetweenCoordinatesMeters(
+    exact,
+    regenerated,
+  );
 
-  assert.ok(distance >= 899);
-  assert.ok(distance <= 1_501);
+  for (const distance of [generatedDistance, regeneratedDistance]) {
+    assert.ok(distance >= privacyRadiusMeters);
+    assert.ok(
+      distance <=
+        privacyRadiusMeters * APPROXIMATE_CENTER_MAX_DISTANCE_MULTIPLIER + 1,
+    );
+  }
+  assert.ok(
+    generatedDistance >=
+      privacyRadiusMeters * APPROXIMATE_CENTER_MIN_DISTANCE_MULTIPLIER - 1,
+  );
+  assert.equal(
+    isSafeApproximateMapCenter(exact, generated, privacyRadiusMeters),
+    true,
+  );
+  assert.equal(
+    isSafeApproximateMapCenter(exact, regenerated, privacyRadiusMeters),
+    true,
+  );
+});
+
+test("privacy radius increases regenerate only centers that become too close", () => {
+  const exact = { latitude: 31.4982437, longitude: -110.1957096 };
+  const existing = createApproximateMapCenter(exact, 1_500, () => 0);
+
+  assert.equal(isSafeApproximateMapCenter(exact, existing, 1_500), true);
+  assert.equal(isSafeApproximateMapCenter(exact, existing, 1_800), false);
+  assert.equal(isSafeApproximateMapCenter(exact, existing, 900), true);
+
+  const regeneratedForIncrease = createApproximateMapCenter(
+    exact,
+    1_800,
+    () => 0,
+  );
+  assert.equal(
+    isSafeApproximateMapCenter(exact, regeneratedForIncrease, 1_800),
+    true,
+  );
+});
+
+test("exact and floating-point-near centers are never privacy-safe", () => {
+  const exact = { latitude: 31.4982437, longitude: -110.1957096 };
+
+  assert.equal(isSafeApproximateMapCenter(exact, exact, 1_500), false);
+  assert.equal(
+    isSafeApproximateMapCenter(
+      exact,
+      { latitude: exact.latitude + 0.000000001, longitude: exact.longitude },
+      1_500,
+    ),
+    false,
+  );
 });

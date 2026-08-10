@@ -53,7 +53,7 @@ import {
 } from "@/features/property-showcase/social-card";
 import {
   createApproximateMapCenter,
-  distanceBetweenCoordinatesMeters,
+  isSafeApproximateMapCenter,
   type PropertyMapCoordinates,
 } from "@/features/property-showcase/map-location";
 import {
@@ -1383,7 +1383,7 @@ function PropertyEditor({
       const existingCenter = approximateCoordinatesFromForm(current);
       if (
         existingCenter &&
-        distanceBetweenCoordinatesMeters(exact, existingCenter) <= radius
+        isSafeApproximateMapCenter(exact, existingCenter, radius)
       ) {
         return { ...current, approximateRadiusMeters: value };
       }
@@ -2786,7 +2786,7 @@ function PropertyEditor({
                     Approximate public location
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-muted">
-                    Publish only a safe area label and privacy radius. After a Google Maps link is detected, PicchuSpot saves one offset public center inside this radius and never recalculates it during rendering.
+                    The privacy radius is the minimum distance between the exact property and the public map center.
                   </p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.42fr)_auto] md:items-end">

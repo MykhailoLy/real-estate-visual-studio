@@ -27,6 +27,17 @@ const GOOGLE_MAPS_HOSTS = new Set([
 ]);
 const MAX_REDIRECTS = 3;
 const MAP_LINK_TIMEOUT_MS = 5_000;
+const EARTH_RADIUS_METERS = 6_371_000;
+
+/**
+ * A privacy radius is the minimum Haversine distance between the source
+ * property point and the public approximate map center.
+ *
+ * Generated centers deliberately include a buffer so six-decimal persistence
+ * rounding cannot move one inside that boundary.
+ */
+export const APPROXIMATE_CENTER_MIN_DISTANCE_MULTIPLIER = 1.1;
+export const APPROXIMATE_CENTER_MAX_DISTANCE_MULTIPLIER = 1.4;
 
 function isFiniteCoordinate(
   latitude: number,
@@ -221,17 +232,36 @@ export function createApproximateMapCenter(
 ): PropertyMapCoordinates {
   const radius = Math.min(50_000, Math.max(100, Math.round(radiusMeters)));
   const angle = random() * Math.PI * 2;
-  // Use an annulus rather than a point close to the property for a meaningful
-  // privacy offset while still remaining inside the admin-selected radius.
-  const distance = radius * (0.6 + random() * 0.3);
+  const distance = radius * (
+    APPROXIMATE_CENTER_MIN_DISTANCE_MULTIPLIER +
+    random() * (
+      APPROXIMATE_CENTER_MAX_DISTANCE_MULTIPLIER -
+      APPROXIMATE_CENTER_MIN_DISTANCE_MULTIPLIER
+    )
+  );
   const latitudeRadians = (exact.latitude * Math.PI) / 180;
-  const latitudeOffset = (distance * Math.cos(angle)) / 111_320;
-  const longitudeDenominator = Math.max(1, 111_320 * Math.cos(latitudeRadians));
-  const longitudeOffset = (distance * Math.sin(angle)) / longitudeDenominator;
+  const angularDistance = distance / EARTH_RADIUS_METERS;
+
+  // A geodesic destination calculation remains valid near the poles and
+  // across the antimeridian. Haversine below remains the single source of
+  // truth for the privacy invariant.
+  const destinationLatitude = Math.asin(
+    Math.sin(latitudeRadians) * Math.cos(angularDistance) +
+      Math.cos(latitudeRadians) * Math.sin(angularDistance) * Math.cos(angle),
+  );
+  const destinationLongitude =
+    (exact.longitude * Math.PI) / 180 +
+    Math.atan2(
+      Math.sin(angle) * Math.sin(angularDistance) * Math.cos(latitudeRadians),
+      Math.cos(angularDistance) -
+        Math.sin(latitudeRadians) * Math.sin(destinationLatitude),
+    );
+  const normalizedLongitude =
+    ((destinationLongitude * 180) / Math.PI + 540) % 360 - 180;
 
   return {
-    latitude: Number((exact.latitude + latitudeOffset).toFixed(6)),
-    longitude: Number((exact.longitude + longitudeOffset).toFixed(6)),
+    latitude: Number(((destinationLatitude * 180) / Math.PI).toFixed(6)),
+    longitude: Number(normalizedLongitude.toFixed(6)),
   };
 }
 
@@ -244,10 +274,27 @@ export function distanceBetweenCoordinatesMeters(
   const longitudeDelta = toRadians(second.longitude - first.longitude);
   const firstLatitude = toRadians(first.latitude);
   const secondLatitude = toRadians(second.latitude);
-  const a =
+  const a = Math.min(1, Math.max(0,
     Math.sin(latitudeDelta / 2) ** 2 +
     Math.cos(firstLatitude) *
       Math.cos(secondLatitude) *
-      Math.sin(longitudeDelta / 2) ** 2;
-  return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      Math.sin(longitudeDelta / 2) ** 2,
+  ));
+  return EARTH_RADIUS_METERS * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function isSafeApproximateMapCenter(
+  exact: PropertyMapCoordinates,
+  approximate: PropertyMapCoordinates,
+  privacyRadiusMeters: number,
+): boolean {
+  if (
+    !isFiniteCoordinate(exact.latitude, exact.longitude) ||
+    !isFiniteCoordinate(approximate.latitude, approximate.longitude)
+  ) {
+    return false;
+  }
+
+  const radius = Math.min(50_000, Math.max(100, Math.round(privacyRadiusMeters)));
+  return distanceBetweenCoordinatesMeters(exact, approximate) >= radius;
 }

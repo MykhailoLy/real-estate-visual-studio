@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getPropertyMapView } from "./listing-details.ts";
 import { costaBlancaDemo } from "./registry.ts";
 import { serializePublicPropertyShowcase } from "./public-serialization.ts";
 import type { PropertyShowcase } from "./types.ts";
@@ -119,6 +120,98 @@ test("public serialization preserves an explicit approximate center and radius o
   assert.equal(payload.includes("private-exact-parcel"), false);
   assert.equal(payload.includes("Private exact parcel"), false);
   assert.equal(payload.includes("Public district"), true);
+});
+
+test("unsafe legacy approximate coordinates fail closed in public props and map output", () => {
+  const property = cloneProperty();
+  const exactLatitude = 31.4982437;
+  const exactLongitude = -110.1957096;
+  property.location = {
+    displayAddress: { en: "2418 Copper Mesa Drive" },
+    approximateLabel: { en: "Arroyo Vista, Arizona" },
+    privacyMode: "approximate",
+    showMap: true,
+    latitude: exactLatitude,
+    longitude: exactLongitude,
+    approximateLatitude: exactLatitude,
+    approximateLongitude: exactLongitude,
+    approximateRadiusMeters: 1500,
+    googleMapsLink:
+      "https://www.google.com/maps/search/?api=1&query=31.4982437%2C-110.1957096",
+    mapExternalUrl:
+      "https://www.google.com/maps/search/?api=1&query=31.4982437%2C-110.1957096",
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=private-exact-parcel",
+    useCustomMapEmbed: true,
+  };
+
+  const serialized = serializePublicPropertyShowcase(property);
+  const mapView = getPropertyMapView(serialized, "en");
+  const publicPayload = JSON.stringify({ property: serialized, mapView });
+
+  assert.equal(serialized.location.approximateLatitude, undefined);
+  assert.equal(serialized.location.approximateLongitude, undefined);
+  assert.equal(mapView.mode, "fallback");
+  assert.equal(mapView.embedUrl, undefined);
+  assert.equal(mapView.externalUrl, undefined);
+  assert.equal(publicPayload.includes("31.4982437"), false);
+  assert.equal(publicPayload.includes("-110.1957096"), false);
+  assert.equal(publicPayload.includes("private-exact-parcel"), false);
+  assert.equal(publicPayload.includes("google.com/maps/search"), false);
+  assert.equal(publicPayload.includes("2418 Copper Mesa Drive"), false);
+  assert.equal(publicPayload.includes("Arroyo Vista, Arizona"), true);
+});
+
+test("a raw Google Maps source link cannot validate an unsafe public center", () => {
+  const property = cloneProperty();
+  property.location = {
+    displayAddress: { en: "2418 Copper Mesa Drive" },
+    approximateLabel: { en: "Arroyo Vista, Arizona" },
+    privacyMode: "approximate",
+    showMap: true,
+    approximateLatitude: 31.4982437,
+    approximateLongitude: -110.1957096,
+    approximateRadiusMeters: 1500,
+    googleMapsLink:
+      "https://www.google.com/maps/search/?api=1&query=31.4982437%2C-110.1957096",
+  };
+
+  const serialized = serializePublicPropertyShowcase(property);
+  const mapView = getPropertyMapView(serialized, "en");
+  const publicPayload = JSON.stringify({ property: serialized, mapView });
+
+  assert.equal(serialized.location.approximateLatitude, undefined);
+  assert.equal(serialized.location.approximateLongitude, undefined);
+  assert.equal(mapView.embedUrl, undefined);
+  assert.equal(mapView.externalUrl, undefined);
+  assert.equal(publicPayload.includes("31.4982437"), false);
+  assert.equal(publicPayload.includes("-110.1957096"), false);
+  assert.equal(publicPayload.includes("google.com/maps/search"), false);
+});
+
+test("an unverified legacy custom map source fails closed in approximate mode", () => {
+  const property = cloneProperty();
+  property.location = {
+    displayAddress: { en: "2418 Copper Mesa Drive" },
+    approximateLabel: { en: "Arroyo Vista, Arizona" },
+    privacyMode: "approximate",
+    showMap: true,
+    approximateLatitude: 31.4982437,
+    approximateLongitude: -110.1957096,
+    approximateRadiusMeters: 1500,
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=unverified-legacy-map",
+    useCustomMapEmbed: true,
+  };
+
+  const serialized = serializePublicPropertyShowcase(property);
+  const mapView = getPropertyMapView(serialized, "en");
+  const publicPayload = JSON.stringify({ property: serialized, mapView });
+
+  assert.equal(serialized.location.approximateLatitude, undefined);
+  assert.equal(serialized.location.approximateLongitude, undefined);
+  assert.equal(mapView.embedUrl, undefined);
+  assert.equal(mapView.externalUrl, undefined);
+  assert.equal(publicPayload.includes("unverified-legacy-map"), false);
+  assert.equal(publicPayload.includes("31.4982437"), false);
 });
 
 test("approximate privacy remains safe when the map is disabled", () => {
