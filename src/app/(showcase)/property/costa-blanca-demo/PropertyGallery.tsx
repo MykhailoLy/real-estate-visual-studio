@@ -75,6 +75,10 @@ export default function PropertyGallery({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const showAllButtonRef = useRef<HTMLButtonElement>(null);
+  const collapseAnchorRef = useRef<HTMLDivElement>(null);
+  const collapseAnchorTopRef = useRef<number | null>(null);
+  const shouldRestoreToggleFocusRef = useRef(false);
+  const rootScrollBehaviorRef = useRef("");
 
   const closeGallery = useCallback(() => {
     setActiveIndex(null);
@@ -130,6 +134,48 @@ export default function PropertyGallery({
     };
   }, [activeIndex, closeGallery, images.length]);
 
+  useEffect(() => {
+    if (!shouldRestoreToggleFocusRef.current || showAllImages) return;
+
+    const anchorTopBeforeCollapse = collapseAnchorTopRef.current;
+
+    const compensateScrollPosition = () => {
+      const anchorTopAfterCollapse =
+        collapseAnchorRef.current?.getBoundingClientRect().top;
+
+      if (
+        anchorTopBeforeCollapse === null ||
+        anchorTopAfterCollapse === undefined
+      ) {
+        return;
+      }
+
+      // React has committed the compact layout. Correct the actual measured
+      // browser scroll-anchor delta against the visible last compact tile.
+      window.scrollBy({
+        top: anchorTopAfterCollapse - anchorTopBeforeCollapse,
+        behavior: "instant",
+      });
+    };
+
+    compensateScrollPosition();
+    showAllButtonRef.current?.focus({ preventScroll: true });
+
+    const timeout = window.setTimeout(() => {
+      // Focus can trigger a delayed browser adjustment even with
+      // preventScroll, so correct the same measured delta once more.
+      compensateScrollPosition();
+      collapseAnchorTopRef.current = null;
+      shouldRestoreToggleFocusRef.current = false;
+      document.documentElement.style.scrollBehavior = rootScrollBehaviorRef.current;
+    }, 32);
+
+    return () => {
+      window.clearTimeout(timeout);
+      document.documentElement.style.scrollBehavior = rootScrollBehaviorRef.current;
+    };
+  }, [showAllImages]);
+
   if (images.length === 0) return null;
 
   const activeImage = activeIndex === null ? null : images[activeIndex];
@@ -141,13 +187,19 @@ export default function PropertyGallery({
   const primaryImages = images.slice(0, Math.min(images.length, 5));
   const additionalImages = showAllImages ? images.slice(5) : [];
 
+  const captureCollapseAnchor = () => {
+    collapseAnchorTopRef.current =
+      collapseAnchorRef.current?.getBoundingClientRect().top ?? null;
+  };
+
   const collapseGallery = () => {
+    if (collapseAnchorTopRef.current === null) {
+      captureCollapseAnchor();
+    }
+    shouldRestoreToggleFocusRef.current = true;
+    rootScrollBehaviorRef.current = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
     setShowAllImages(false);
-    // The compact grid stays in place, so returning keyboard focus does not
-    // force a scroll jump after the trailing images are removed.
-    window.requestAnimationFrame(() => {
-      showAllButtonRef.current?.focus({ preventScroll: true });
-    });
   };
 
   const showPrevious = () => {
@@ -190,6 +242,9 @@ export default function PropertyGallery({
             return (
               <div
                 key={`${image.src}-${index}`}
+                ref={
+                  index === primaryImages.length - 1 ? collapseAnchorRef : undefined
+                }
                 data-testid={`property-gallery-image-${index}`}
                 className={`relative overflow-hidden rounded-2xl bg-white/5 ${primaryImageClass(
                   primaryImages.length,
@@ -285,6 +340,12 @@ export default function PropertyGallery({
           <button
             type="button"
             onClick={collapseGallery}
+            onPointerDown={captureCollapseAnchor}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                captureCollapseAnchor();
+              }
+            }}
             className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/35 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
             data-testid="property-gallery-collapse"
             aria-controls="property-gallery-additional-images"

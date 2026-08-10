@@ -630,6 +630,9 @@ test("property gallery keeps compact layouts and disclosure behavior across imag
 
   for (const viewport of [
     { width: 360, height: 800 },
+    { width: 390, height: 844 },
+    { width: 430, height: 932 },
+    { width: 768, height: 900 },
     { width: 1440, height: 900 },
   ]) {
     await page.setViewportSize(viewport);
@@ -667,10 +670,79 @@ test("property gallery keeps compact layouts and disclosure behavior across imag
     const showFewer = page.getByTestId("property-gallery-collapse");
     await expect(showFewer).toHaveText("Show fewer photos");
     await expect(showFewer).toHaveAttribute("aria-expanded", "true");
-    await showFewer.click();
+    await page.waitForTimeout(100);
+
+    await page.evaluate(() => {
+      const collapseButton = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-collapse"]',
+      );
+
+      if (!collapseButton) {
+        throw new Error("Expected gallery collapse control is unavailable");
+      }
+
+      const buttonBox = collapseButton.getBoundingClientRect();
+      window.scrollBy({
+        top: buttonBox.top - window.innerHeight * 0.55,
+        behavior: "instant",
+      });
+    });
+    await page.waitForTimeout(50);
+
+    const collapsePositionBefore = await page.evaluate(() => {
+      const collapseButton = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-collapse"]',
+      );
+      const fifthImage = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-image-4"]',
+      );
+
+      if (!collapseButton || !fifthImage) {
+        throw new Error("Expected gallery collapse controls are unavailable");
+      }
+
+      return {
+        scrollY: window.scrollY,
+        collapseButtonTop: collapseButton.getBoundingClientRect().top,
+        fifthImageTop: fifthImage.getBoundingClientRect().top,
+      };
+    });
+    expect(collapsePositionBefore.collapseButtonTop).toBeGreaterThan(0);
+    expect(collapsePositionBefore.collapseButtonTop).toBeLessThan(
+      viewport.height - 48,
+    );
+
+    await showFewer.evaluate((button) => {
+      button.focus({ preventScroll: true });
+    });
+    await page.keyboard.press("Enter");
     await expect(galleryImages).toHaveCount(5);
     await expect(page.getByTestId("property-gallery-additional-images")).toHaveCount(0);
     await expect(showAll).toBeFocused();
+    await page.waitForTimeout(50);
+    const collapsePositionAfter = await page.evaluate(() => {
+      const fifthImage = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-image-4"]',
+      );
+
+      if (!fifthImage) {
+        throw new Error("Expected compact gallery image is unavailable");
+      }
+
+      return {
+        scrollY: window.scrollY,
+        fifthImageTop: fifthImage.getBoundingClientRect().top,
+      };
+    });
+    expect(
+      Math.abs(collapsePositionAfter.scrollY - collapsePositionBefore.scrollY),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(
+        collapsePositionAfter.fifthImageTop -
+          collapsePositionBefore.fifthImageTop,
+      ),
+    ).toBeLessThanOrEqual(2);
     await expectNoOverflow();
   }
 
