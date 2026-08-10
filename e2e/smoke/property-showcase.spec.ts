@@ -565,6 +565,205 @@ test("property gallery modal keeps keyboard focus contained", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
+test("property gallery keeps compact layouts and disclosure behavior across image counts", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const fixtureUrl = (count: number) =>
+    `/property/sea-view-residence?galleryFixture=${count}`;
+  const galleryImages = page.locator('[data-testid^="property-gallery-image-"]');
+
+  const expectNoOverflow = async () => {
+    const dimensions = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  };
+
+  await page.setViewportSize({ width: 360, height: 800 });
+  for (const count of [1, 2, 5]) {
+    const response = await page.goto(fixtureUrl(count));
+    expectNavigationResponseOk(response, fixtureUrl(count));
+    await expect(galleryImages).toHaveCount(count);
+    await expect(page.getByTestId("property-gallery-toggle")).toHaveCount(0);
+    await expectNoOverflow();
+  }
+
+  const singleGrid = page.getByTestId("property-gallery-grid");
+  await page.goto(fixtureUrl(1));
+  const [singleImageBox, singleGridBox] = await Promise.all([
+    page.getByTestId("property-gallery-image-0").boundingBox(),
+    singleGrid.boundingBox(),
+  ]);
+  expect(singleImageBox).not.toBeNull();
+  expect(singleGridBox).not.toBeNull();
+  expect(singleImageBox!.width).toBeGreaterThan(singleGridBox!.width - 2);
+
+  await page.goto(fixtureUrl(2));
+  const [firstPairBox, secondPairBox] = await Promise.all([
+    page.getByTestId("property-gallery-image-0").boundingBox(),
+    page.getByTestId("property-gallery-image-1").boundingBox(),
+  ]);
+  expect(firstPairBox).not.toBeNull();
+  expect(secondPairBox).not.toBeNull();
+  expect(Math.abs(firstPairBox!.y - secondPairBox!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(firstPairBox!.width - secondPairBox!.width)).toBeLessThanOrEqual(1);
+
+  await page.goto(fixtureUrl(5));
+  const mobileMosaicBoxes = await Promise.all(
+    Array.from({ length: 5 }, (_, index) =>
+      page.getByTestId(`property-gallery-image-${index}`).boundingBox(),
+    ),
+  );
+  expect(mobileMosaicBoxes.every(Boolean)).toBe(true);
+  const [mobileFirst, mobileSecond, mobileThird, mobileFourth, mobileFifth] =
+    mobileMosaicBoxes as NonNullable<(typeof mobileMosaicBoxes)[number]>[];
+  expect(Math.abs(mobileFirst.y - mobileSecond.y)).toBeLessThanOrEqual(1);
+  expect(mobileThird.y).toBeGreaterThan(mobileFirst.y);
+  expect(mobileFourth.y).toBeGreaterThan(mobileThird.y);
+  expect(mobileFifth.y).toBeGreaterThan(mobileFourth.y);
+  expect(mobileThird.width).toBeGreaterThan(mobileFirst.width * 1.8);
+  expect(mobileFourth.width).toBeGreaterThan(mobileFirst.width * 1.8);
+  expect(mobileFifth.width).toBeGreaterThan(mobileFirst.width * 1.8);
+  await expectNoOverflow();
+
+  for (const viewport of [
+    { width: 360, height: 800 },
+    { width: 390, height: 844 },
+    { width: 430, height: 932 },
+    { width: 768, height: 900 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const response = await page.goto(fixtureUrl(6));
+    expectNavigationResponseOk(response, fixtureUrl(6));
+    await expect(galleryImages).toHaveCount(5);
+
+    const firstVisibleImage = page.getByRole("button", {
+      name: "Open gallery image: Gallery image 1",
+    });
+    await firstVisibleImage.click();
+    const firstDialog = page.getByRole("dialog", {
+      name: "Property gallery: Gallery image 1",
+    });
+    await expect(firstDialog).toBeVisible();
+    await firstDialog.getByRole("button", { name: "Close gallery" }).click();
+
+    const showAll = page.getByTestId("property-gallery-toggle");
+    await expect(showAll).toHaveText("Show all 6 photos");
+    await expect(showAll).toHaveAttribute("aria-expanded", "false");
+    await showAll.click();
+    await expect(galleryImages).toHaveCount(6);
+    await expect(page.getByTestId("property-gallery-additional-images")).toBeVisible();
+
+    const additionalImage = page.getByRole("button", {
+      name: "Open gallery image: Gallery image 6",
+    });
+    await additionalImage.click();
+    const additionalDialog = page.getByRole("dialog", {
+      name: "Property gallery: Gallery image 6",
+    });
+    await expect(additionalDialog).toBeVisible();
+    await additionalDialog.getByRole("button", { name: "Close gallery" }).click();
+
+    const showFewer = page.getByTestId("property-gallery-collapse");
+    await expect(showFewer).toHaveText("Show fewer photos");
+    await expect(showFewer).toHaveAttribute("aria-expanded", "true");
+    await page.waitForTimeout(100);
+
+    await page.evaluate(() => {
+      const collapseButton = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-collapse"]',
+      );
+
+      if (!collapseButton) {
+        throw new Error("Expected gallery collapse control is unavailable");
+      }
+
+      const buttonBox = collapseButton.getBoundingClientRect();
+      window.scrollBy({
+        top: buttonBox.top - window.innerHeight * 0.55,
+        behavior: "instant",
+      });
+    });
+    await page.waitForTimeout(50);
+
+    const collapsePositionBefore = await page.evaluate(() => {
+      const collapseButton = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-collapse"]',
+      );
+      const fifthImage = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-image-4"]',
+      );
+
+      if (!collapseButton || !fifthImage) {
+        throw new Error("Expected gallery collapse controls are unavailable");
+      }
+
+      return {
+        scrollY: window.scrollY,
+        collapseButtonTop: collapseButton.getBoundingClientRect().top,
+        fifthImageTop: fifthImage.getBoundingClientRect().top,
+      };
+    });
+    expect(collapsePositionBefore.collapseButtonTop).toBeGreaterThan(0);
+    expect(collapsePositionBefore.collapseButtonTop).toBeLessThan(
+      viewport.height - 48,
+    );
+
+    await showFewer.evaluate((button) => {
+      button.focus({ preventScroll: true });
+    });
+    await page.keyboard.press("Enter");
+    await expect(galleryImages).toHaveCount(5);
+    await expect(page.getByTestId("property-gallery-additional-images")).toHaveCount(0);
+    await expect(showAll).toBeFocused();
+    await page.waitForTimeout(50);
+    const collapsePositionAfter = await page.evaluate(() => {
+      const fifthImage = document.querySelector<HTMLElement>(
+        '[data-testid="property-gallery-image-4"]',
+      );
+
+      if (!fifthImage) {
+        throw new Error("Expected compact gallery image is unavailable");
+      }
+
+      return {
+        scrollY: window.scrollY,
+        fifthImageTop: fifthImage.getBoundingClientRect().top,
+      };
+    });
+    expect(
+      Math.abs(collapsePositionAfter.scrollY - collapsePositionBefore.scrollY),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(
+        collapsePositionAfter.fifthImageTop -
+          collapsePositionBefore.fifthImageTop,
+      ),
+    ).toBeLessThanOrEqual(2);
+    await expectNoOverflow();
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(fixtureUrl(5));
+  const desktopMosaicBoxes = await Promise.all(
+    Array.from({ length: 5 }, (_, index) =>
+      page.getByTestId(`property-gallery-image-${index}`).boundingBox(),
+    ),
+  );
+  expect(desktopMosaicBoxes.every(Boolean)).toBe(true);
+  const [desktopFirst, desktopSecond, desktopThird, desktopFourth, desktopFifth] =
+    desktopMosaicBoxes as NonNullable<(typeof desktopMosaicBoxes)[number]>[];
+  expect(desktopFirst.width).toBeGreaterThan(desktopSecond.width * 1.8);
+  expect(desktopFirst.height).toBeGreaterThan(desktopThird.height * 1.8);
+  expect(Math.abs(desktopSecond.y - desktopThird.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(desktopFourth.y - desktopFifth.y)).toBeLessThanOrEqual(1);
+  await expectNoOverflow();
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
 test("360 tour stays poster-first and keeps controls outside the provider frame", async ({
   page,
 }, testInfo) => {

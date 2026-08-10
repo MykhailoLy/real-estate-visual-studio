@@ -9,6 +9,7 @@ import { getPropertySocialImageVersion } from "@/features/property-showcase/soci
 import { absoluteUrl } from "@/lib/seo";
 import { getPropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-material-version";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
+import type { PropertyShowcase } from "@/features/property-showcase/types";
 import PropertyShowcaseView from "../PropertyShowcaseView";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,44 @@ type PropertyPageProps = {
   params: Promise<{
     slug: string;
   }>;
+  searchParams: Promise<{
+    galleryFixture?: string | string[];
+  }>;
 };
+
+const E2E_GALLERY_FIXTURE_COUNTS = new Set([1, 2, 5, 6]);
+
+function galleryFixtureCount(value: string | string[] | undefined): number | null {
+  if (process.env.PLAYWRIGHT_PROPERTY_GALLERY_FIXTURES !== "1") return null;
+  if (typeof value !== "string") return null;
+
+  const count = Number(value);
+  return E2E_GALLERY_FIXTURE_COUNTS.has(count) ? count : null;
+}
+
+function propertyWithGalleryFixture(
+  property: PropertyShowcase,
+  imageCount: number,
+): PropertyShowcase {
+  if (property.gallery.length === 0) return property;
+
+  return {
+    ...property,
+    gallery: Array.from({ length: imageCount }, (_, index) => {
+      const source = property.gallery[index % property.gallery.length];
+      const position = index + 1;
+      return {
+        ...source,
+        id: `${source.id}-e2e-${position}`,
+        sortOrder: position,
+        label: {
+          en: `Gallery image ${position}`,
+          es: `Imagen de galeria ${position}`,
+        },
+      };
+    }),
+  };
+}
 
 const resolveProperty = cache(async (slug: string) => {
   return (await getPublishedPropertyShowcase(slug)) ?? getPropertyShowcase(slug);
@@ -46,7 +84,10 @@ export async function generateMetadata({
   );
 }
 
-export default async function PropertyPage({ params }: PropertyPageProps) {
+export default async function PropertyPage({
+  params,
+  searchParams,
+}: PropertyPageProps) {
   const { slug } = await params;
   const property = await resolveProperty(slug);
 
@@ -54,9 +95,14 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     notFound();
   }
 
+  const fixtureImageCount = galleryFixtureCount((await searchParams).galleryFixture);
+  const displayedProperty = fixtureImageCount
+    ? propertyWithGalleryFixture(property, fixtureImageCount)
+    : property;
+
   return (
     <PropertyShowcaseView
-      property={serializePublicPropertyShowcase(property)}
+      property={serializePublicPropertyShowcase(displayedProperty)}
       canonicalUrl={absoluteUrl(`/property/${property.slug}`)}
       marketingMaterialLinks={getPropertyMarketingMaterialLinks(
         property,
