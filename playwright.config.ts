@@ -44,6 +44,9 @@ export default defineConfig({
         command: "node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3100",
         url: DEFAULT_BASE_URL,
         timeout: 180000,
+        env: {
+          PLAYWRIGHT_PROPERTY_GALLERY_FIXTURES: "1",
+        },
         reuseExistingServer: false,
         stdout: "pipe",
         stderr: "pipe",

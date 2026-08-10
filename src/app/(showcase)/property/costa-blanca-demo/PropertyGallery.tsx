@@ -4,8 +4,9 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  hasCollapsedMobileGalleryImages,
-  shouldShowMobileGalleryImage,
+  hasCollapsedPropertyGalleryImages,
+  propertyGalleryCompactLayout,
+  visiblePropertyGalleryImageCount,
 } from "@/features/property-showcase/mobile-gallery";
 
 export interface PropertyGalleryImage {
@@ -25,6 +26,40 @@ type PropertyGalleryProps = {
   onGalleryOpen?: () => void;
 };
 
+function primaryGridClass(imageCount: number): string {
+  const layout = propertyGalleryCompactLayout(imageCount);
+  if (layout === "single") {
+    return "grid grid-cols-1 gap-3 sm:auto-rows-[420px]";
+  }
+
+  if (layout === "pair") {
+    return "grid grid-cols-2 gap-3 sm:auto-rows-[280px] lg:auto-rows-[440px]";
+  }
+
+  return "grid grid-cols-2 gap-3 sm:auto-rows-[250px] sm:grid-cols-2 lg:auto-rows-[285px] lg:grid-cols-4";
+}
+
+function primaryImageClass(imageCount: number, index: number): string {
+  const layout = propertyGalleryCompactLayout(imageCount);
+  if (layout === "single") {
+    return "col-span-full aspect-[16/10] sm:col-span-1 sm:aspect-auto";
+  }
+
+  if (layout === "pair") {
+    return "aspect-[4/3] sm:aspect-auto";
+  }
+
+  const mobileWide = index >= 2;
+  const featured = index === 0;
+  const desktopWide =
+    (imageCount === 3 && index > 0) ||
+    (imageCount === 4 && index === 1);
+
+  return `${mobileWide ? "col-span-2 aspect-[16/10] sm:col-span-1 sm:aspect-auto" : "aspect-[4/3] sm:aspect-auto"} ${
+    featured ? "sm:col-span-2 sm:row-span-2 lg:col-span-2" : ""
+  } ${desktopWide ? "lg:col-span-2" : ""}`;
+}
+
 export default function PropertyGallery({
   images,
   eyebrow = "Photo gallery",
@@ -35,10 +70,11 @@ export default function PropertyGallery({
   onGalleryOpen,
 }: PropertyGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [showAllMobile, setShowAllMobile] = useState(false);
+  const [showAllImages, setShowAllImages] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const showAllButtonRef = useRef<HTMLButtonElement>(null);
 
   const closeGallery = useCallback(() => {
     setActiveIndex(null);
@@ -97,6 +133,22 @@ export default function PropertyGallery({
   if (images.length === 0) return null;
 
   const activeImage = activeIndex === null ? null : images[activeIndex];
+  const hasCollapsedImages = hasCollapsedPropertyGalleryImages(images.length);
+  const visibleImageCount = visiblePropertyGalleryImageCount(
+    images.length,
+    showAllImages,
+  );
+  const primaryImages = images.slice(0, Math.min(images.length, 5));
+  const additionalImages = showAllImages ? images.slice(5) : [];
+
+  const collapseGallery = () => {
+    setShowAllImages(false);
+    // The compact grid stays in place, so returning keyboard focus does not
+    // force a scroll jump after the trailing images are removed.
+    window.requestAnimationFrame(() => {
+      showAllButtonRef.current?.focus({ preventScroll: true });
+    });
+  };
 
   const showPrevious = () => {
     setActiveIndex((current) =>
@@ -127,59 +179,118 @@ export default function PropertyGallery({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:auto-rows-[250px] sm:grid-cols-2 lg:auto-rows-[285px] lg:grid-cols-4">
-          {images.map((image, index) => {
-            const featured = index === 0;
-            const mobileWide = index >= 2;
-            const hiddenOnMobile = !shouldShowMobileGalleryImage(index, showAllMobile);
+        <div
+          id="property-gallery-grid"
+          data-testid="property-gallery-grid"
+          className={primaryGridClass(primaryImages.length)}
+        >
+          {primaryImages.map((image, index) => {
+            const showDisclosure =
+              hasCollapsedImages && !showAllImages && index === visibleImageCount - 1;
             return (
-              <button
+              <div
                 key={`${image.src}-${index}`}
-                type="button"
-                onClick={(event) => {
-                  triggerRef.current = event.currentTarget;
-                  onGalleryOpen?.();
-                  setActiveIndex(index);
-                }}
-                className={`group relative overflow-hidden rounded-2xl bg-white/5 text-left focus-visible:outline-white ${
-                  hiddenOnMobile ? "hidden sm:block" : ""
-                } ${
-                  mobileWide ? "col-span-2 aspect-[16/10] sm:aspect-auto" : "aspect-[4/3] sm:aspect-auto"
-                } ${
-                  featured ? "sm:col-span-2 sm:row-span-2 lg:col-span-2" : ""
-                }`}
-                aria-label={`Open gallery image: ${image.label}`}
+                data-testid={`property-gallery-image-${index}`}
+                className={`relative overflow-hidden rounded-2xl bg-white/5 ${primaryImageClass(
+                  primaryImages.length,
+                  index,
+                )}`}
               >
-                <Image
-                  src={image.src}
-                  alt={image.alt}
-                  fill
-                  sizes={featured ? "(min-width: 1024px) 50vw, (max-width: 639px) 50vw, 100vw" : mobileWide ? "(min-width: 1024px) 25vw, (max-width: 639px) 100vw, 50vw" : "(min-width: 1024px) 25vw, 50vw"}
-                  className="object-cover transition duration-500 group-hover:scale-[1.025]"
-                  style={{ objectPosition: image.objectPosition }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
-                <span className="absolute bottom-4 left-4 text-sm font-semibold text-white sm:bottom-5 sm:left-5">
-                  {image.label}
-                </span>
-                <span className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-black/15 text-white opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                  <Expand className="h-4 w-4" aria-hidden />
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    triggerRef.current = event.currentTarget;
+                    onGalleryOpen?.();
+                    setActiveIndex(index);
+                  }}
+                  className="group absolute inset-0 text-left focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+                  aria-label={`Open gallery image: ${image.label}`}
+                >
+                  <Image
+                    src={image.src}
+                    alt={image.alt}
+                    fill
+                    sizes={primaryImages.length === 1 ? "100vw" : index === 0 ? "(min-width: 1024px) 50vw, (max-width: 639px) 50vw, 100vw" : index >= 2 ? "(min-width: 1024px) 25vw, (max-width: 639px) 100vw, 50vw" : "(min-width: 1024px) 25vw, 50vw"}
+                    className="object-cover transition duration-500 group-hover:scale-[1.025]"
+                    style={{ objectPosition: image.objectPosition }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+                  <span className="absolute bottom-4 left-4 text-sm font-semibold text-white sm:bottom-5 sm:left-5">
+                    {image.label}
+                  </span>
+                  <span className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-black/15 text-white opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                    <Expand className="h-4 w-4" aria-hidden />
+                  </span>
+                </button>
+                {showDisclosure ? (
+                  <button
+                    ref={showAllButtonRef}
+                    type="button"
+                    onClick={() => setShowAllImages(true)}
+                    className="absolute inset-x-3 bottom-3 z-10 inline-flex min-h-11 items-center justify-center rounded-full border border-white/35 bg-[#0f2440]/85 px-4 py-2 text-sm font-bold text-white backdrop-blur transition hover:bg-[#0f2440] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:inset-x-4 sm:bottom-4"
+                    data-testid="property-gallery-toggle"
+                    aria-controls="property-gallery-additional-images"
+                    aria-expanded={false}
+                    aria-label={showAllLabel(images.length)}
+                  >
+                    {showAllLabel(images.length)}
+                  </button>
+                ) : null}
+              </div>
             );
           })}
         </div>
-        {hasCollapsedMobileGalleryImages(images.length) ? (
+        {additionalImages.length > 0 ? (
+          <div
+            id="property-gallery-additional-images"
+            data-testid="property-gallery-additional-images"
+            className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {additionalImages.map((image, additionalIndex) => {
+              const index = additionalIndex + 5;
+              return (
+                <button
+                  key={`${image.src}-${index}`}
+                  type="button"
+                  data-testid={`property-gallery-image-${index}`}
+                  onClick={(event) => {
+                    triggerRef.current = event.currentTarget;
+                    onGalleryOpen?.();
+                    setActiveIndex(index);
+                  }}
+                  className="group relative aspect-[16/10] overflow-hidden rounded-2xl bg-white/5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  aria-label={`Open gallery image: ${image.label}`}
+                >
+                  <Image
+                    src={image.src}
+                    alt={image.alt}
+                    fill
+                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                    className="object-cover transition duration-500 group-hover:scale-[1.025]"
+                    style={{ objectPosition: image.objectPosition }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+                  <span className="absolute bottom-4 left-4 text-sm font-semibold text-white sm:bottom-5 sm:left-5">
+                    {image.label}
+                  </span>
+                  <span className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-black/15 text-white opacity-0 backdrop-blur transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                    <Expand className="h-4 w-4" aria-hidden />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        {hasCollapsedImages && showAllImages ? (
           <button
             type="button"
-            onClick={() => setShowAllMobile((current) => !current)}
-            className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/35 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white sm:hidden"
-            data-testid="property-gallery-toggle"
-            aria-expanded={showAllMobile}
+            onClick={collapseGallery}
+            className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/35 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+            data-testid="property-gallery-collapse"
+            aria-controls="property-gallery-additional-images"
+            aria-expanded
           >
-            {showAllMobile
-              ? showFewerLabel
-              : showAllLabel(images.length)}
+            {showFewerLabel}
           </button>
         ) : null}
       </div>
