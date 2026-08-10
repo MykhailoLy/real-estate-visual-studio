@@ -405,7 +405,7 @@ export default function PropertyShowcaseView({
                             keepTogether
                               ? "whitespace-nowrap"
                               : compactValue
-                                ? "whitespace-nowrap min-[360px]:whitespace-normal sm:whitespace-nowrap"
+                                ? "whitespace-nowrap min-[360px]:whitespace-normal"
                                 : "break-words"
                           }`}
                           title={fact.value}
