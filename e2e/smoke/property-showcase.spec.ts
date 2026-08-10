@@ -671,6 +671,7 @@ test("property showcase facts and map privacy render as listing details", async 
   );
   const mapSrc = await page.getByTestId("property-map-iframe").getAttribute("src");
   expect(mapSrc).toContain("ll=38.6%2C0");
+  expect(mapSrc).toContain("t=k");
   expect(mapSrc).not.toContain("38.603912");
   expect(mapSrc).not.toContain("-0.045316");
   const approximateMapLink = page.getByTestId("property-map-external-link");

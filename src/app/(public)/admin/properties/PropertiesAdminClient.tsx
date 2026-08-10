@@ -3,7 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import PropertySocialCardPreview from "./media/PropertySocialCardPreview";
 import {
   AlertTriangle,
@@ -56,6 +63,7 @@ import {
   isSafeApproximateMapCenter,
   type PropertyMapCoordinates,
 } from "@/features/property-showcase/map-location";
+import { GoogleMapsLinkDetectionCoordinator } from "@/features/property-showcase/google-maps-detection";
 import {
   labelForListingReferenceMode,
   LISTING_REFERENCE_LABEL_PRESETS,
@@ -1264,6 +1272,10 @@ function PropertyEditor({
   const [resolvingGoogleMapsLink, setResolvingGoogleMapsLink] = useState(false);
   const [googleMapsLinkError, setGoogleMapsLinkError] = useState<string | null>(null);
   const [googleMapsLinkNotice, setGoogleMapsLinkNotice] = useState<string | null>(null);
+  const googleMapsLinkInputRef = useRef(form.googleMapsLink);
+  const [googleMapsLinkDetection] = useState(
+    () => new GoogleMapsLinkDetectionCoordinator(),
+  );
   const [legacyTourCandidateId, setLegacyTourCandidateId] = useState(
     legacyTourCandidates.length === 1 ? legacyTourCandidates[0].id : "",
   );
@@ -1351,8 +1363,22 @@ function PropertyEditor({
   );
   const socialSelectedCount = form.socialCard.visibleFacts.length;
 
+  useEffect(() => {
+    return () => googleMapsLinkDetection.dispose();
+  }, [googleMapsLinkDetection]);
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function setGoogleMapsLink(value: string) {
+    googleMapsLinkInputRef.current = value;
+    const invalidated =
+      googleMapsLinkDetection.invalidateForInputChange(value);
+    set("googleMapsLink", value);
+    setGoogleMapsLinkError(null);
+    setGoogleMapsLinkNotice(null);
+    if (invalidated) setResolvingGoogleMapsLink(false);
   }
 
   function exactCoordinatesFromForm(state: FormState): PropertyMapCoordinates | null {
@@ -1419,7 +1445,10 @@ function PropertyEditor({
     setGoogleMapsLinkNotice("Generated a new stable approximate public location.");
   }
 
-  async function resolveGoogleMapsLinkInput(link: string): Promise<
+  async function resolveGoogleMapsLinkInput(
+    link: string,
+    signal?: AbortSignal,
+  ): Promise<
     | { ok: true; resolvedUrl: string; coordinates: PropertyMapCoordinates }
     | { ok: false; error: string }
   > {
@@ -1429,6 +1458,7 @@ function PropertyEditor({
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ link }),
+        signal,
       });
       const body = await response.json().catch(() => null) as {
         error?: string;
@@ -1464,18 +1494,28 @@ function PropertyEditor({
 
   async function detectGoogleMapsLink() {
     const link = form.googleMapsLink.trim();
-    if (!link || resolvingGoogleMapsLink) return;
+    if (!link) return;
+
+    const request = googleMapsLinkDetection.begin(link);
+    let detectedLink: string | null = null;
 
     setResolvingGoogleMapsLink(true);
     setGoogleMapsLinkError(null);
     setGoogleMapsLinkNotice(null);
     try {
-      const resolution = await resolveGoogleMapsLinkInput(link);
+      const resolution = await resolveGoogleMapsLinkInput(
+        link,
+        request.controller.signal,
+      );
+      if (!googleMapsLinkDetection.isCurrent(request, googleMapsLinkInputRef.current)) {
+        return;
+      }
       if (!resolution.ok) {
         setGoogleMapsLinkError(resolution.error);
         return;
       }
       const { coordinates } = resolution;
+      detectedLink = resolution.resolvedUrl;
 
       setForm((current) => {
         const radius = integerValue(current.approximateRadiusMeters, 100, 50000) ?? 1500;
@@ -1508,7 +1548,10 @@ function PropertyEditor({
           : `Recognized exact point: ${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}.`,
       );
     } finally {
-      setResolvingGoogleMapsLink(false);
+      if (googleMapsLinkDetection.finish(request, googleMapsLinkInputRef.current)) {
+        setResolvingGoogleMapsLink(false);
+        if (detectedLink) googleMapsLinkInputRef.current = detectedLink;
+      }
     }
   }
 
@@ -2721,11 +2764,7 @@ function PropertyEditor({
                 <div className="flex gap-2">
                   <input
                     value={form.googleMapsLink}
-                    onChange={(event) => {
-                      set("googleMapsLink", event.target.value);
-                      setGoogleMapsLinkError(null);
-                      setGoogleMapsLinkNotice(null);
-                    }}
+                    onChange={(event) => setGoogleMapsLink(event.target.value)}
                     onBlur={() => void detectGoogleMapsLink()}
                     className={inputClass}
                     placeholder="https://maps.app.goo.gl/..."
@@ -2733,7 +2772,7 @@ function PropertyEditor({
                   <button
                     type="button"
                     onClick={() => void detectGoogleMapsLink()}
-                    disabled={!form.googleMapsLink.trim() || resolvingGoogleMapsLink}
+                    disabled={!form.googleMapsLink.trim()}
                     className="mt-1.5 inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-white px-3 text-sm font-bold text-primary transition hover:border-primary disabled:cursor-wait disabled:opacity-60"
                   >
                     {resolvingGoogleMapsLink ? (

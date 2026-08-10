@@ -69,7 +69,7 @@ export default function PropertyMapCanvas({
             aria-hidden="true"
           >
             <div
-              className="rounded-full border-2 border-[#0f2440]/75 bg-[#d4bc6a]/25 shadow-[0_0_0_10px_rgba(255,255,255,0.28)]"
+              className="rounded-full border-2 border-white/90 bg-[#d4bc6a]/25 shadow-[0_0_0_2px_rgba(11,31,58,0.85),0_0_0_10px_rgba(255,255,255,0.28)]"
               style={{
                 width: `min(${approximateDiameter}px, ${compact ? "72%" : "78vw"})`,
                 aspectRatio: "1",
