@@ -373,6 +373,7 @@ const PropertyLocationSchema = z
     privacyMode: z.enum(["exact", "approximate", "hidden"]),
     airportTravelTime: OptionalLocalizedTextSchema.optional(),
     showMap: z.boolean().optional(),
+    googleMapsLink: optionalTrimmed(2048),
     mapExternalUrl: optionalTrimmed(2048),
     mapEmbedUrl: optionalTrimmed(4096),
     useCustomMapEmbed: z.boolean().optional(),

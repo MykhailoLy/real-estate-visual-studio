@@ -263,6 +263,66 @@ for (const viewport of propertyViewports) {
     const downloadBrochure = page.getByTestId("hero-download-brochure");
     await expect(requestViewing).toBeVisible();
     await expect(downloadBrochure).toBeVisible();
+    if (viewport.width <= 430) {
+      const referenceLabel = page.getByTestId(
+        "property-fact-label-listing-reference",
+      );
+      await expect(referenceLabel.locator("span").first()).toHaveText("Ref.");
+      await expect(referenceLabel).toHaveAttribute("title", "Reference");
+      const numericFactStyles = await page.evaluate(() => {
+        const styleFor = (key: string) => {
+          const element = document.querySelector<HTMLElement>(
+            `[data-testid="property-fact-value-${key}"]`,
+          );
+          if (!element) throw new Error(`Missing fact: ${key}`);
+          const style = window.getComputedStyle(element);
+          return {
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            lineHeight: style.lineHeight,
+            fontVariantNumeric: style.fontVariantNumeric,
+          };
+        };
+        return {
+          bedrooms: styleFor("bedrooms"),
+          bathrooms: styleFor("bathrooms"),
+          yearBuilt: styleFor("year-built"),
+          parking: styleFor("parking"),
+        };
+      });
+      expect(numericFactStyles.bathrooms).toEqual(numericFactStyles.bedrooms);
+      expect(numericFactStyles.yearBuilt).toEqual(numericFactStyles.bedrooms);
+      expect(numericFactStyles.parking.fontVariantNumeric).toContain("tabular-nums");
+      await expect(hero.getByText("€695,000", { exact: true })).toBeHidden();
+      await expect(hero.getByText("Ask a question", { exact: true })).toHaveCount(0);
+
+      const galleryBoxes = await Promise.all(
+        [
+          "Exterior and pool",
+          "Living room",
+          "Sea-view terrace",
+          "Principal bedroom",
+        ].map((label) =>
+          page
+            .getByRole("button", { name: `Open gallery image: ${label}` })
+            .boundingBox(),
+        ),
+      );
+      expect(galleryBoxes.every(Boolean)).toBe(true);
+      const [first, second, third, fourth] = galleryBoxes as [
+        NonNullable<(typeof galleryBoxes)[number]>,
+        NonNullable<(typeof galleryBoxes)[number]>,
+        NonNullable<(typeof galleryBoxes)[number]>,
+        NonNullable<(typeof galleryBoxes)[number]>,
+      ];
+      expect(Math.abs(first.y - second.y)).toBeLessThanOrEqual(1);
+      expect(Math.abs(first.width - second.width)).toBeLessThanOrEqual(1);
+      expect(third.y).toBeGreaterThan(first.y);
+      expect(fourth.y).toBeGreaterThan(third.y);
+      expect(third.width).toBeGreaterThan(first.width * 1.8);
+      expect(fourth.width).toBeGreaterThan(first.width * 1.8);
+    }
     await downloadBrochure.click();
     const marketingDialog = page.getByTestId(
       "property-marketing-download-dialog",
@@ -613,9 +673,16 @@ test("property showcase facts and map privacy render as listing details", async 
   expect(mapSrc).toContain("ll=38.6%2C0");
   expect(mapSrc).not.toContain("38.603912");
   expect(mapSrc).not.toContain("-0.045316");
-  await expect(
-    page.getByTestId("property-map-external-link"),
-  ).toHaveCount(0);
+  const approximateMapLink = page.getByTestId("property-map-external-link");
+  await expect(approximateMapLink).toBeVisible();
+  await expect(approximateMapLink).toHaveAttribute(
+    "href",
+    /query=Altea%2C%20Alicante/,
+  );
+  const approximateMapHref = await approximateMapLink.getAttribute("href");
+  expect(approximateMapHref).not.toContain("38.603912");
+  expect(approximateMapHref).not.toContain("-0.045316");
+  expect(approximateMapHref).not.toContain("38.6%2C0");
   await expect(page.getByText("Approximate location", { exact: true })).toHaveCount(1);
   const approximateAreaBefore = await page
     .getByTestId("approximate-map-area")

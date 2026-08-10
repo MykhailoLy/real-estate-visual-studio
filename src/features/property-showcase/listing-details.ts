@@ -410,13 +410,7 @@ function approximateMapCenter(location: PropertyLocation): {
     latitude: location.approximateLatitude,
     longitude: location.approximateLongitude,
   };
-  if (hasValidPropertyCoordinates(explicit)) return explicit;
-
-  if (!hasValidPropertyCoordinates(location)) return null;
-  return {
-    latitude: Math.round(location.latitude * 10) / 10,
-    longitude: Math.round(location.longitude * 10) / 10,
-  };
+  return hasValidPropertyCoordinates(explicit) ? explicit : null;
 }
 
 export function googleMapsExternalUrlFromCoordinates(
@@ -473,6 +467,7 @@ export function getPropertyLocationMapView(
 
   const coordinatesAreValid = hasValidPropertyCoordinates(location);
   const embedOverride = normalizeGoogleMapsInput(location.mapEmbedUrl);
+  const googleMapsLink = normalizeGoogleMapsInput(location.googleMapsLink);
   const externalOverride = normalizeGoogleMapsInput(location.mapExternalUrl);
 
   if (location.privacyMode === "approximate") {
@@ -493,10 +488,9 @@ export function getPropertyLocationMapView(
       privacyMode: location.privacyMode,
       address: "",
       label: "Approximate location",
-      externalUrl:
-        location.allowApproximateAreaLink === true
-          ? googleMapsExternalUrlFromText(address)
-          : undefined,
+      // Approximate maps may link only to the public label. Stored exact
+      // coordinates and Google Maps links are deliberately ignored here.
+      externalUrl: googleMapsExternalUrlFromText(address),
       embedUrl: googleMapsEmbedUrlFromCoordinates(
         center.latitude,
         center.longitude,
@@ -530,6 +524,7 @@ export function getPropertyLocationMapView(
   const embedUrl = customEmbedUrl ?? generatedEmbedUrl;
   const externalUrl =
     generatedExternalUrl ??
+    googleMapsLink?.externalUrl ??
     externalOverride?.externalUrl ??
     customEmbedUrl;
 

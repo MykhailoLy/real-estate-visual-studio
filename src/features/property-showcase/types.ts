@@ -328,6 +328,9 @@ export interface PropertyLocation {
   privacyMode: "exact" | "approximate" | "hidden";
   airportTravelTime?: LocalizedText;
   showMap?: boolean;
+  /** Primary admin input: a Google Maps share/copy link. */
+  googleMapsLink?: string;
+  /** Legacy fallback retained for existing properties and custom integrations. */
   mapExternalUrl?: string;
   mapEmbedUrl?: string;
   useCustomMapEmbed?: boolean;

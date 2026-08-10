@@ -6,6 +6,7 @@ import {
   immutablePropertySlugError,
   mergePropertyShowcaseUpdate,
 } from "./updates.ts";
+import { isSafeApproximateMapCenter } from "./map-location.ts";
 import type { PropertyShowcase } from "./types.ts";
 
 function cloneProperty(): PropertyShowcase {
@@ -606,6 +607,156 @@ test("details saves preserve exact and approximate privacy selections", () => {
     "details",
   );
   assert.equal(exactResult.property?.location.privacyMode, "exact");
+});
+
+test("approximate saves persist one generated center and require a public label", () => {
+  const incoming = cloneProperty();
+  incoming.location = {
+    displayAddress: { en: "Private source address" },
+    approximateLabel: { en: "Arroyo Vista, Arizona" },
+    privacyMode: "approximate",
+    showMap: true,
+    latitude: 31.4982437,
+    longitude: -110.1957096,
+    approximateRadiusMeters: 1500,
+  };
+
+  const first = mergePropertyShowcaseUpdate(null, incoming, "replace");
+  assert.equal(first.ok, true);
+  assert.notEqual(first.property?.location.approximateLatitude, undefined);
+  assert.notEqual(first.property?.location.approximateLongitude, undefined);
+  assert.notEqual(first.property?.location.approximateLatitude, incoming.location.latitude);
+
+  const second = mergePropertyShowcaseUpdate(
+    first.property!,
+    first.property!,
+    "replace",
+  );
+  assert.equal(second.ok, true);
+  assert.equal(
+    second.property?.location.approximateLatitude,
+    first.property?.location.approximateLatitude,
+  );
+  assert.equal(
+    second.property?.location.approximateLongitude,
+    first.property?.location.approximateLongitude,
+  );
+
+  incoming.location.approximateLabel = { en: "" };
+  const missingLabel = mergePropertyShowcaseUpdate(null, incoming, "replace");
+  assert.equal(missingLabel.ok, false);
+  assert.equal(
+    missingLabel.errors.includes("Approximate maps need a public area label."),
+    true,
+  );
+});
+
+test("server regenerates unsafe legacy approximate centers and preserves safe centers", () => {
+  const incoming = cloneProperty();
+  incoming.location = {
+    displayAddress: { en: "2418 Copper Mesa Drive" },
+    approximateLabel: { en: "Arroyo Vista, Arizona" },
+    privacyMode: "approximate",
+    showMap: true,
+    latitude: 31.4982437,
+    longitude: -110.1957096,
+    approximateLatitude: 31.4982437,
+    approximateLongitude: -110.1957096,
+    approximateRadiusMeters: 1500,
+    googleMapsLink:
+      "https://www.google.com/maps/search/?api=1&query=31.4982437%2C-110.1957096",
+    mapEmbedUrl: "https://www.google.com/maps/embed?pb=private-exact-parcel",
+    useCustomMapEmbed: true,
+  };
+
+  const corrected = mergePropertyShowcaseUpdate(null, incoming, "replace");
+  assert.equal(corrected.ok, true);
+  assert.ok(corrected.property);
+  const correctedLocation = corrected.property.location;
+  assert.notEqual(correctedLocation.approximateLatitude, incoming.location.latitude);
+  assert.notEqual(correctedLocation.approximateLongitude, incoming.location.longitude);
+  assert.equal(
+    isSafeApproximateMapCenter(
+      { latitude: incoming.location.latitude!, longitude: incoming.location.longitude! },
+      {
+        latitude: correctedLocation.approximateLatitude!,
+        longitude: correctedLocation.approximateLongitude!,
+      },
+      incoming.location.approximateRadiusMeters!,
+    ),
+    true,
+  );
+
+  const increasedRadius = structuredClone(corrected.property!);
+  increasedRadius.location.approximateRadiusMeters = 50_000;
+  const regenerated = mergePropertyShowcaseUpdate(
+    corrected.property!,
+    increasedRadius,
+    "replace",
+  );
+  assert.equal(regenerated.ok, true);
+  assert.ok(regenerated.property);
+  assert.equal(
+    isSafeApproximateMapCenter(
+      {
+        latitude: incoming.location.latitude!,
+        longitude: incoming.location.longitude!,
+      },
+      {
+        latitude: regenerated.property.location.approximateLatitude!,
+        longitude: regenerated.property.location.approximateLongitude!,
+      },
+      increasedRadius.location.approximateRadiusMeters!,
+    ),
+    true,
+  );
+
+  const decreasedRadius = structuredClone(corrected.property!);
+  decreasedRadius.location.approximateRadiusMeters = 1000;
+  const preserved = mergePropertyShowcaseUpdate(
+    corrected.property!,
+    decreasedRadius,
+    "replace",
+  );
+  assert.equal(preserved.ok, true);
+  assert.equal(
+    preserved.property?.location.approximateLatitude,
+    correctedLocation.approximateLatitude,
+  );
+  assert.equal(
+    preserved.property?.location.approximateLongitude,
+    correctedLocation.approximateLongitude,
+  );
+});
+
+test("server derives an exact source from a raw Google Maps link before saving", () => {
+  const incoming = cloneProperty();
+  incoming.location = {
+    displayAddress: { en: "2418 Copper Mesa Drive" },
+    approximateLabel: { en: "Arroyo Vista, Arizona" },
+    privacyMode: "approximate",
+    showMap: true,
+    approximateLatitude: 31.4982437,
+    approximateLongitude: -110.1957096,
+    approximateRadiusMeters: 1500,
+    googleMapsLink:
+      "https://www.google.com/maps/search/?api=1&query=31.4982437%2C-110.1957096",
+  };
+
+  const result = mergePropertyShowcaseUpdate(null, incoming, "replace");
+  assert.equal(result.ok, true);
+  assert.ok(result.property);
+  assert.equal(
+    isSafeApproximateMapCenter(
+      { latitude: 31.4982437, longitude: -110.1957096 },
+      {
+        latitude: result.property.location.approximateLatitude!,
+        longitude: result.property.location.approximateLongitude!,
+      },
+      1500,
+    ),
+    true,
+  );
 });
 
 test("details saves preserve sharing media while updating a structured address", () => {

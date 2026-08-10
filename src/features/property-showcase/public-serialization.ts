@@ -1,4 +1,8 @@
 import { normalizeGoogleMapsInput } from "./listing-details.ts";
+import {
+  extractGoogleMapsCoordinates,
+  isSafeApproximateMapCenter,
+} from "./map-location.ts";
 import type {
   LocalizedText,
   PropertyLocation,
@@ -7,32 +11,37 @@ import type {
 import { resolvePropertySocialImageUrl } from "./social-preview.ts";
 import { normalizePropertyVideoUrls } from "./video-urls.ts";
 
-function roundPublicCoordinate(value: number | undefined): number | undefined {
-  if (typeof value !== "number") return undefined;
-  const rounded = Math.round(value * 10) / 10;
-  return Object.is(rounded, -0) ? 0 : rounded;
-}
-
-function approximateCoordinate(
-  explicit: number | undefined,
-  fallback: number | undefined,
-): number | undefined {
-  return typeof explicit === "number"
-    ? explicit
-    : roundPublicCoordinate(fallback);
-}
-
 function blankLocalizedText(value: LocalizedText): LocalizedText {
   const entries = Object.keys(value).map((language) => [language, ""] as const);
   return { en: "", ...Object.fromEntries(entries) };
 }
 
+function hasValidCoordinatePair(
+  location: {
+    latitude?: number;
+    longitude?: number;
+  },
+): location is { latitude: number; longitude: number } {
+  return (
+    typeof location.latitude === "number" &&
+    Number.isFinite(location.latitude) &&
+    location.latitude >= -90 &&
+    location.latitude <= 90 &&
+    typeof location.longitude === "number" &&
+    Number.isFinite(location.longitude) &&
+    location.longitude >= -180 &&
+    location.longitude <= 180
+  );
+}
+
 function sanitizedExactLocation(location: PropertyLocation): PropertyLocation {
+  const googleMapsLink = normalizeGoogleMapsInput(location.googleMapsLink);
   const external = normalizeGoogleMapsInput(location.mapExternalUrl);
   const embed = normalizeGoogleMapsInput(location.mapEmbedUrl);
 
   return {
     ...location,
+    googleMapsLink: googleMapsLink?.externalUrl ?? googleMapsLink?.embedUrl,
     mapExternalUrl: external?.externalUrl ?? external?.embedUrl,
     mapEmbedUrl: embed?.embedUrl,
   };
@@ -41,6 +50,31 @@ function sanitizedExactLocation(location: PropertyLocation): PropertyLocation {
 function sanitizedApproximateLocation(
   location: PropertyLocation,
 ): PropertyLocation {
+  const exactCoordinates = exactMapCoordinates(location);
+  const approximateCoordinates = {
+    latitude: location.approximateLatitude,
+    longitude: location.approximateLongitude,
+  };
+  const hasApproximateCoordinates = hasValidCoordinatePair(
+    approximateCoordinates,
+  );
+  const hasUnverifiedStoredMapSource =
+    !exactCoordinates &&
+    [
+      location.googleMapsLink,
+      location.mapExternalUrl,
+      location.mapEmbedUrl,
+    ].some((value) => Boolean(value?.trim()));
+  const approximateCenterIsSafe =
+    hasApproximateCoordinates &&
+    !hasUnverifiedStoredMapSource &&
+    (!exactCoordinates ||
+      isSafeApproximateMapCenter(
+        exactCoordinates,
+        approximateCoordinates,
+        location.approximateRadiusMeters ?? 1500,
+      ));
+
   return {
     ...location,
     displayAddress:
@@ -52,19 +86,41 @@ function sanitizedApproximateLocation(
     country: undefined,
     latitude: undefined,
     longitude: undefined,
-    approximateLatitude: approximateCoordinate(
-      location.approximateLatitude,
-      location.latitude,
-    ),
-    approximateLongitude: approximateCoordinate(
-      location.approximateLongitude,
-      location.longitude,
-    ),
+    // Never derive a public center at render time from the exact point. The
+    // admin flow persists an intentionally offset center before publication.
+    approximateLatitude: approximateCenterIsSafe
+      ? location.approximateLatitude
+      : undefined,
+    approximateLongitude: approximateCenterIsSafe
+      ? location.approximateLongitude
+      : undefined,
     approximateRadiusMeters: location.approximateRadiusMeters ?? 1500,
     allowApproximateAreaLink: location.allowApproximateAreaLink === true,
+    googleMapsLink: undefined,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };
+}
+
+function exactMapCoordinates(
+  location: PropertyLocation,
+): { latitude: number; longitude: number } | null {
+  const directCoordinates = {
+    latitude: location.latitude,
+    longitude: location.longitude,
+  };
+  if (hasValidCoordinatePair(directCoordinates)) return directCoordinates;
+
+  for (const value of [
+    location.googleMapsLink,
+    location.mapExternalUrl,
+    location.mapEmbedUrl,
+  ]) {
+    const coordinates = value ? extractGoogleMapsCoordinates(value) : null;
+    if (coordinates) return coordinates;
+  }
+
+  return null;
 }
 
 function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {
@@ -84,6 +140,7 @@ function sanitizedHiddenLocation(location: PropertyLocation): PropertyLocation {
     approximateRadiusMeters: undefined,
     allowApproximateAreaLink: undefined,
     showMap: false,
+    googleMapsLink: undefined,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };
@@ -99,6 +156,7 @@ function sanitizedNoMapLocation(location: PropertyLocation): PropertyLocation {
     approximateRadiusMeters: undefined,
     allowApproximateAreaLink: undefined,
     showMap: false,
+    googleMapsLink: undefined,
     mapExternalUrl: undefined,
     mapEmbedUrl: undefined,
   };

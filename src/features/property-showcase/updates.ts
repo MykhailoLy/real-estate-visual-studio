@@ -2,12 +2,21 @@ import {
   normalizePropertyProviderUrls,
   type ProviderUrlValidationResult,
 } from "./provider-urls.ts";
-import { normalizeGoogleMapsInput } from "./listing-details.ts";
+import {
+  hasValidPropertyCoordinates,
+  normalizeGoogleMapsInput,
+} from "./listing-details.ts";
+import {
+  createApproximateMapCenter,
+  extractGoogleMapsCoordinates,
+  isSafeApproximateMapCenter,
+} from "./map-location.ts";
 import { getPrimaryLanguage } from "./localization.ts";
 import { normalizePropertyVideoUrls } from "./video-urls.ts";
 import type {
   PropertyFloorPlan,
   PropertyGalleryImage,
+  PropertyLocation,
   PropertyShowcase,
 } from "./types";
 
@@ -310,12 +319,19 @@ function finish(
 function normalizePropertyMapUrls(
   property: PropertyShowcase,
 ): PropertyShowcaseUpdateResult {
+  const googleMapsLinkInput = property.location.googleMapsLink?.trim();
   const externalInput = property.location.mapExternalUrl?.trim();
   const embedInput = property.location.mapEmbedUrl?.trim();
   const errors: string[] = [];
+  const googleMapsLink = googleMapsLinkInput
+    ? normalizeGoogleMapsInput(googleMapsLinkInput)
+    : null;
   const external = externalInput ? normalizeGoogleMapsInput(externalInput) : null;
   const embed = embedInput ? normalizeGoogleMapsInput(embedInput) : null;
 
+  if (googleMapsLinkInput && !googleMapsLink) {
+    errors.push("Unsupported or unsafe Google Maps link.");
+  }
   if (externalInput && !external) {
     errors.push("Unsupported or unsafe Google Maps link.");
   }
@@ -331,12 +347,62 @@ function normalizePropertyMapUrls(
     ...property.location,
   };
 
+  if (googleMapsLinkInput) {
+    location.googleMapsLink =
+      googleMapsLink?.externalUrl ??
+      googleMapsLink?.embedUrl ??
+      property.location.googleMapsLink;
+  }
   if (externalInput) {
     location.mapExternalUrl =
       external?.externalUrl ?? external?.embedUrl ?? property.location.mapExternalUrl;
   }
   if (embedInput) {
     location.mapEmbedUrl = embed?.embedUrl ?? property.location.mapEmbedUrl;
+  }
+
+  if (location.privacyMode === "approximate" && location.showMap !== false) {
+    if (
+      !Object.values(location.approximateLabel ?? {}).some(
+        (value) => typeof value === "string" && value.trim().length > 0,
+      )
+    ) {
+      errors.push("Approximate maps need a public area label.");
+    }
+
+    const approximateCenter = {
+      latitude: location.approximateLatitude,
+      longitude: location.approximateLongitude,
+    };
+    const sourceCoordinates = exactMapCoordinates(location);
+    const hasExactCoordinates = sourceCoordinates !== null;
+    const hasSafeApproximateCenter =
+      hasExactCoordinates &&
+      hasValidPropertyCoordinates(approximateCenter) &&
+      isSafeApproximateMapCenter(
+        sourceCoordinates,
+        approximateCenter,
+        location.approximateRadiusMeters ?? 1500,
+      );
+
+    if (!hasSafeApproximateCenter) {
+      if (!hasExactCoordinates && !hasValidPropertyCoordinates(approximateCenter)) {
+        errors.push(
+          "Approximate maps need a Google Maps link or Advanced / legacy exact coordinates.",
+        );
+      } else if (hasExactCoordinates) {
+        const generated = createApproximateMapCenter(
+          sourceCoordinates,
+          location.approximateRadiusMeters ?? 1500,
+        );
+        location.approximateLatitude = generated.latitude;
+        location.approximateLongitude = generated.longitude;
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
   }
 
   return {
@@ -347,6 +413,25 @@ function normalizePropertyMapUrls(
     },
     errors: [],
   };
+}
+
+function exactMapCoordinates(
+  location: PropertyLocation,
+): { latitude: number; longitude: number } | null {
+  if (hasValidPropertyCoordinates(location)) {
+    return { latitude: location.latitude, longitude: location.longitude };
+  }
+
+  for (const value of [
+    location.googleMapsLink,
+    location.mapExternalUrl,
+    location.mapEmbedUrl,
+  ]) {
+    const coordinates = value ? extractGoogleMapsCoordinates(value) : null;
+    if (coordinates) return coordinates;
+  }
+
+  return null;
 }
 
 export function mergePropertyShowcaseUpdate(
