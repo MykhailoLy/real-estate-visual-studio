@@ -24,7 +24,12 @@ type PropertyPageProps = {
   }>;
 };
 
-const E2E_GALLERY_FIXTURE_COUNTS = new Set([1, 2, 5, 6]);
+const E2E_GALLERY_FIXTURE_COUNTS = new Set([1, 2, 5, 6, 48]);
+const E2E_RASTER_GALLERY_SOURCES = [
+  "/brand/property-social-emergency.png",
+  "/brand/picchuspot-mark-1200.png",
+  "/brand/picchuspot-logo-800.png",
+] as const;
 
 function galleryFixtureCount(value: string | string[] | undefined): number | null {
   if (process.env.PLAYWRIGHT_PROPERTY_GALLERY_FIXTURES !== "1") return null;
@@ -48,6 +53,11 @@ function propertyWithGalleryFixture(
       return {
         ...source,
         id: `${source.id}-e2e-${position}`,
+        // The 48-image fixture intentionally uses rasters so the browser test
+        // exercises Next's optimizer rather than the demo listing's SVGs.
+        src: imageCount === 48
+          ? E2E_RASTER_GALLERY_SOURCES[index % E2E_RASTER_GALLERY_SOURCES.length]
+          : source.src,
         sortOrder: position,
         label: {
           en: `Gallery image ${position}`,
