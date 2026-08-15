@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 export interface LightboxImage {
   src: string;
@@ -27,9 +28,9 @@ interface ImageLightboxProps {
  * means initial state seeds naturally from props on each open and we
  * don't need any setState-in-effect resets.
  *
- * Plain <img> with onError fallback to a clean named placeholder so a
- * missing file does not show a broken-image icon. Failed sources are
- * tracked in a Set keyed by src — no extra effects needed.
+ * The visible raster frame goes through the shared Next.js optimizer. Failed
+ * sources still fall back to a clean named placeholder and are tracked in a
+ * Set keyed by src — no extra effects needed.
  */
 export default function ImageLightbox({
   images,
@@ -172,16 +173,15 @@ export default function ImageLightbox({
               </span>
             </div>
           ) : (
-            // Plain <img>: preview images live in /public, may not exist
-            // yet, and we want a synchronous onError fallback. next/image
-            // would log a 404 and is overkill for a placeholder lightbox.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <OptimizedImage
               key={current.src}
               src={current.src}
               alt={current.alt}
+              context="content-lightbox"
+              fill
+              loading="eager"
               onError={markCurrentFailed}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="object-cover"
             />
           )}
         </div>

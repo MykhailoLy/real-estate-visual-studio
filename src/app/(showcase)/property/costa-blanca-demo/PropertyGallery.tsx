@@ -1,8 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  OptimizedImage,
+  OptimizedImagePreloader,
+} from "@/components/media/OptimizedImage";
+import { getPropertyGalleryImageContext } from "@/components/media/image-delivery";
 import {
   hasCollapsedPropertyGalleryImages,
   propertyGalleryCompactLayout,
@@ -71,6 +75,7 @@ export default function PropertyGallery({
 }: PropertyGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [showAllImages, setShowAllImages] = useState(false);
+  const [activeImageReady, setActiveImageReady] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -82,6 +87,7 @@ export default function PropertyGallery({
 
   const closeGallery = useCallback(() => {
     setActiveIndex(null);
+    setActiveImageReady(false);
     window.setTimeout(() => triggerRef.current?.focus(), 0);
   }, []);
 
@@ -95,11 +101,13 @@ export default function PropertyGallery({
         return;
       }
       if (event.key === "ArrowLeft") {
+        setActiveImageReady(false);
         setActiveIndex((current) =>
           current === null ? null : (current - 1 + images.length) % images.length,
         );
       }
       if (event.key === "ArrowRight") {
+        setActiveImageReady(false);
         setActiveIndex((current) =>
           current === null ? null : (current + 1) % images.length,
         );
@@ -203,12 +211,14 @@ export default function PropertyGallery({
   };
 
   const showPrevious = () => {
+    setActiveImageReady(false);
     setActiveIndex((current) =>
       current === null ? 0 : (current - 1 + images.length) % images.length,
     );
   };
 
   const showNext = () => {
+    setActiveImageReady(false);
     setActiveIndex((current) =>
       current === null ? 0 : (current + 1) % images.length,
     );
@@ -256,16 +266,20 @@ export default function PropertyGallery({
                   onClick={(event) => {
                     triggerRef.current = event.currentTarget;
                     onGalleryOpen?.();
+                    setActiveImageReady(false);
                     setActiveIndex(index);
                   }}
                   className="group absolute inset-0 text-left focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
                   aria-label={`Open gallery image: ${image.label}`}
                 >
-                  <Image
+                  <OptimizedImage
                     src={image.src}
                     alt={image.alt}
+                    context={getPropertyGalleryImageContext(
+                      primaryImages.length,
+                      index,
+                    )}
                     fill
-                    sizes={primaryImages.length === 1 ? "100vw" : index === 0 ? "(min-width: 1024px) 50vw, (max-width: 639px) 50vw, 100vw" : index >= 2 ? "(min-width: 1024px) 25vw, (max-width: 639px) 100vw, 50vw" : "(min-width: 1024px) 25vw, 50vw"}
                     className="object-cover transition duration-500 group-hover:scale-[1.025]"
                     style={{ objectPosition: image.objectPosition }}
                   />
@@ -311,16 +325,17 @@ export default function PropertyGallery({
                   onClick={(event) => {
                     triggerRef.current = event.currentTarget;
                     onGalleryOpen?.();
+                    setActiveImageReady(false);
                     setActiveIndex(index);
                   }}
                   className="group relative aspect-[16/10] overflow-hidden rounded-2xl bg-white/5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   aria-label={`Open gallery image: ${image.label}`}
                 >
-                  <Image
+                  <OptimizedImage
                     src={image.src}
                     alt={image.alt}
+                    context="property-gallery-additional"
                     fill
-                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                     className="object-cover transition duration-500 group-hover:scale-[1.025]"
                     style={{ objectPosition: image.objectPosition }}
                   />
@@ -394,14 +409,22 @@ export default function PropertyGallery({
             className="relative h-[76vh] w-full max-w-7xl overflow-hidden rounded-2xl bg-black/20"
             onClick={(event) => event.stopPropagation()}
           >
-            <Image
+            <OptimizedImage
               src={activeImage.src}
               alt={activeImage.alt}
+              context="property-lightbox"
               fill
-              sizes="100vw"
+              loading="eager"
+              onLoad={() => setActiveImageReady(true)}
+              data-testid="property-gallery-lightbox-image"
               className="object-contain"
-              priority
             />
+            {activeImageReady && images.length > 1 ? (
+              <OptimizedImagePreloader
+                src={images[((activeIndex ?? 0) + 1) % images.length].src}
+                context="property-lightbox"
+              />
+            ) : null}
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-6 pb-6 pt-16 sm:px-8 sm:pb-8">
               <p className="text-base font-semibold text-white sm:text-lg">{activeImage.label}</p>
               <p className="mt-1 text-xs text-white/55">

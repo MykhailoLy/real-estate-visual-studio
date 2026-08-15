@@ -286,7 +286,13 @@ test("hero uses the sharing image selection without visible status or reference 
     true,
   );
   assert.equal(propertyHeroSlideshowSource.includes("document.hidden"), true);
-  assert.equal(propertyHeroSlideshowSource.includes("preload={activeIndex === 0}"), true);
+  assert.equal(
+    propertyHeroSlideshowSource.includes(
+      "preload={activeIndex === 0 && !hasRotated}",
+    ),
+    true,
+  );
+  assert.equal(propertyHeroSlideshowSource.includes("OptimizedImagePreloader"), true);
   assert.equal(propertyHeroSlideshowSource.includes("property-hero-slideshow"), true);
 });
 

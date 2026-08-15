@@ -565,6 +565,78 @@ test("property gallery modal keeps keyboard focus contained", async ({
   await guard.expectNoPageErrorsOrServerErrors();
 });
 
+test("property gallery and lightbox use the optimizer without loading a full 48-image set", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const directSupabaseStorageRequests: string[] = [];
+  const rasterOptimizerRequests: string[] = [];
+
+  page.on("request", (request) => {
+    const requestUrl = new URL(request.url());
+    const source = requestUrl.searchParams.get("url") ?? "";
+    const isPublicSupabaseStorage =
+      requestUrl.hostname.endsWith(".supabase.co") &&
+      requestUrl.pathname.includes("/storage/");
+
+    if (isPublicSupabaseStorage) {
+      directSupabaseStorageRequests.push(request.url());
+    }
+
+    if (
+      requestUrl.pathname === "/_next/image" &&
+      source.includes("/brand/")
+    ) {
+      rasterOptimizerRequests.push(request.url());
+    }
+  });
+
+  await page.setViewportSize({ width: 820, height: 900 });
+  const response = await page.goto(
+    "/property/sea-view-residence?galleryFixture=48",
+  );
+  expectNavigationResponseOk(response, "/property/sea-view-residence?galleryFixture=48");
+
+  const gallery = page.getByTestId("property-gallery-grid");
+  await gallery.scrollIntoViewIfNeeded();
+  await expect(page.locator('[data-testid^="property-gallery-image-"]')).toHaveCount(5);
+  await expect(page.getByTestId("property-gallery-toggle")).toHaveText(
+    "Show all 48 photos",
+  );
+  await expect(
+    page.getByTestId("property-gallery-image-0").locator("img"),
+  ).toHaveAttribute("src", /^\/_next\/image\?/);
+  await page.waitForTimeout(250);
+
+  const initialOptimizerRequests = [...new Set(rasterOptimizerRequests)];
+  expect(initialOptimizerRequests.length).toBeGreaterThan(0);
+  // Five compact tiles are the only gallery photos in the DOM. The assertion
+  // leaves room for distinct responsive candidates, but guards against a
+  // future eager loop through all 48 items.
+  expect(initialOptimizerRequests.length).toBeLessThanOrEqual(5);
+  expect(directSupabaseStorageRequests).toEqual([]);
+
+  const requestsBeforeLightbox = rasterOptimizerRequests.length;
+  await page
+    .getByRole("button", { name: "Open gallery image: Gallery image 1" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Property gallery: Gallery image 1",
+  });
+  const lightboxImage = dialog.getByTestId("property-gallery-lightbox-image");
+  await expect(lightboxImage).toBeVisible();
+  await expect(lightboxImage).toHaveAttribute("src", /^\/_next\/image\?/);
+  await page.waitForTimeout(250);
+
+  const lightboxOptimizerRequests = [
+    ...new Set(rasterOptimizerRequests.slice(requestsBeforeLightbox)),
+  ];
+  // The active image plus, at most, the next image may be requested.
+  expect(lightboxOptimizerRequests.length).toBeLessThanOrEqual(2);
+  expect(directSupabaseStorageRequests).toEqual([]);
+  await guard.expectNoPageErrorsOrServerErrors();
+});
+
 test("property gallery keeps compact layouts and disclosure behavior across image counts", async ({
   page,
 }, testInfo) => {

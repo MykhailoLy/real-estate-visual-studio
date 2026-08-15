@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 import type {
   LocalizedText,
   PropertyFloorPlan,
@@ -82,11 +82,11 @@ export default function PropertyFloorPlanViewer({
       ) : null}
 
       <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-black/8 bg-[#f6f4ef] p-3 shadow-sm sm:p-6">
-        <Image
+        <OptimizedImage
           src={selectedPlan.imageUrl}
           alt={`${selectedTitle} for ${propertyTitle}`}
+          context="property-floor-plan"
           fill
-          sizes="(min-width: 1024px) 58vw, 100vw"
           className="object-contain p-5 sm:p-8"
         />
       </div>

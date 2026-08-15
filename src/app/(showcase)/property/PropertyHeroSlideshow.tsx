@@ -1,7 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
+import {
+  OptimizedImage,
+  OptimizedImagePreloader,
+} from "@/components/media/OptimizedImage";
 import { focalPointToObjectPosition } from "@/features/property-showcase/focal-point";
 import type { PropertyImageFocalPoint } from "@/features/property-showcase/types";
 
@@ -25,6 +28,8 @@ export default function PropertyHeroSlideshow({
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [isFading, setIsFading] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(true);
+  const [activeImageReady, setActiveImageReady] = useState(false);
+  const [hasRotated, setHasRotated] = useState(false);
   const canRotate = images.length > 1 && !reducedMotion;
   const activeSlide = images[activeIndex] ?? images[0];
   const previousSlide = previousIndex === null ? undefined : images[previousIndex];
@@ -38,17 +43,13 @@ export default function PropertyHeroSlideshow({
   }, []);
 
   useEffect(() => {
-    if (images.length < 2) return;
-    const nextImage = new window.Image();
-    nextImage.src = images[(activeIndex + 1) % images.length].imageUrl;
-  }, [activeIndex, images]);
-
-  useEffect(() => {
     if (!canRotate || previousIndex !== null) return;
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const rotate = () => {
       setIsFading(false);
+      setHasRotated(true);
+      setActiveImageReady(false);
       setActiveIndex((currentIndex) => {
         setPreviousIndex(currentIndex);
         return (currentIndex + 1) % images.length;
@@ -90,28 +91,35 @@ export default function PropertyHeroSlideshow({
   return (
     <div data-testid="property-hero-slideshow" className="absolute inset-0" aria-hidden>
       {previousSlide ? (
-        <Image
+        <OptimizedImage
           src={previousSlide.imageUrl}
           alt=""
+          context="property-hero"
           fill
-          sizes="100vw"
           style={{ objectPosition: focalPointToObjectPosition(previousSlide.focalPoint) }}
           className={`object-cover transition-opacity duration-[1500ms] ease-in-out ${
             isFading ? "opacity-0" : "opacity-100"
           }`}
         />
       ) : null}
-      <Image
+      <OptimizedImage
         src={activeSlide.imageUrl}
         alt=""
+        context="property-hero"
         fill
-        preload={activeIndex === 0}
-        sizes="100vw"
+        preload={activeIndex === 0 && !hasRotated}
+        onLoad={() => setActiveImageReady(true)}
         style={{ objectPosition: focalPointToObjectPosition(activeSlide.focalPoint) }}
         className={`object-cover transition-opacity duration-[1500ms] ease-in-out ${
           previousSlide && !isFading ? "opacity-0" : "opacity-100"
         }`}
       />
+      {activeImageReady && images.length > 1 ? (
+        <OptimizedImagePreloader
+          src={images[(activeIndex + 1) % images.length].imageUrl}
+          context="property-hero"
+        />
+      ) : null}
     </div>
   );
 }

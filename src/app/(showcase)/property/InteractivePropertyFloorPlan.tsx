@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,6 +10,7 @@ import {
   Play,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 import {
   getInteractiveFloorPlanOpenAction,
   normalizeInteractiveFloorPlanInput,
@@ -179,11 +179,11 @@ function ExternalInteractiveFloorPlan({
           {showPoster ? (
             <>
               {posterImage ? (
-                <Image
+                <OptimizedImage
                   src={posterImage}
                   alt={`${posterTitle} for ${propertyTitle}`}
+                  context="property-interactive-plan"
                   fill
-                  sizes="100vw"
                   className="object-contain bg-[#ece9e2] p-5 sm:p-10"
                 />
               ) : null}
@@ -346,15 +346,15 @@ function NativeInteractiveFloorPlan({
 
           <div className="grid flex-1 lg:grid-cols-[0.46fr_0.54fr]">
             <div className="relative min-h-[430px] bg-[#ece9e2] p-3 sm:min-h-[560px] sm:p-6 lg:min-h-0">
-              <Image
+              <OptimizedImage
                 src={floorPlan.imageUrl}
                 alt={`${localizedText(
                   floorPlan.title,
                   language,
                   fallbackLanguage,
                 )} for ${propertyTitle}`}
+                context="property-interactive-plan"
                 fill
-                sizes="(min-width: 1024px) 46vw, 100vw"
                 className="object-contain p-6 sm:p-10"
               />
 
@@ -391,15 +391,15 @@ function NativeInteractiveFloorPlan({
 
             <div className="flex min-h-[520px] flex-col bg-black lg:min-h-0">
               <div className="relative flex-1 overflow-hidden">
-                <Image
+                <OptimizedImage
                   src={selectedRoom.src}
                   alt={localizedText(
                     selectedRoom.alt,
                     language,
                     fallbackLanguage,
                   )}
+                  context="property-room"
                   fill
-                  sizes="(min-width: 1024px) 54vw, 100vw"
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/65" />
@@ -453,11 +453,11 @@ function NativeInteractiveFloorPlan({
                       fallbackLanguage,
                     )}`}
                   >
-                    <Image
+                    <OptimizedImage
                       src={room.src}
                       alt=""
+                      context="property-room-thumbnail"
                       fill
-                      sizes="144px"
                       className="object-cover"
                     />
                     <span className="absolute inset-x-0 bottom-0 bg-black/65 px-2 py-1.5 text-left text-[10px] font-semibold text-white sm:text-xs">
