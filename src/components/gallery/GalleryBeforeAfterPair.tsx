@@ -32,7 +32,7 @@
 // so nothing is cropped or distorted.
 // ============================================================
 
-import Image from "next/image";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 // Intrinsic-ratio hint for the optimizer / CLS reservation only.
 // Real-estate photography is most commonly ~3:2; `h-auto` overrides
@@ -80,30 +80,28 @@ export default function GalleryBeforeAfterPair({
     <article className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 items-start">
       {/* Before */}
       <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
-        <Image
+        <OptimizedImage
           src={beforeUrl}
           alt={beforeAlt}
+          context="portfolio-comparison"
           width={RATIO_HINT_WIDTH}
           height={RATIO_HINT_HEIGHT}
-          // One example per row; each image is 50% of the wide
-          // container on sm+, full content width on mobile.
-          sizes="(min-width: 1720px) 814px, (min-width: 1024px) calc(50vw - 46px), (min-width: 640px) calc(50vw - 30px), calc(100vw - 32px)"
           className="block w-full h-auto"
-          priority={loading === "eager"}
+          loading={loading}
         />
         <LabelBar>{beforeLabel}</LabelBar>
       </figure>
 
       {/* After / result */}
       <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
-        <Image
+        <OptimizedImage
           src={afterUrl}
           alt={afterAlt}
+          context="portfolio-comparison"
           width={RATIO_HINT_WIDTH}
           height={RATIO_HINT_HEIGHT}
-          sizes="(min-width: 1720px) 814px, (min-width: 1024px) calc(50vw - 46px), (min-width: 640px) calc(50vw - 30px), calc(100vw - 32px)"
           className="block w-full h-auto"
-          priority={loading === "eager"}
+          loading={loading}
         />
         <LabelBar>{afterLabel}</LabelBar>
       </figure>

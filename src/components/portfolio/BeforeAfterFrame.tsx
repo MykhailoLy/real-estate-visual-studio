@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "@/components/home/ServicePlaceholder";
@@ -44,7 +44,7 @@ export interface BeforeAfterFrameProps {
     ariaLabel?: string;
   };
   className?: string;
-  /** Pass-through to <img loading=...>. Defaults to "lazy". */
+  /** Requests first-frame delivery only when the enclosing page needs it. */
   loading?: "lazy" | "eager";
 }
 
@@ -85,15 +85,13 @@ export default function BeforeAfterFrame({
     >
       {/* LEFT half — before */}
       <div className="relative w-1/2 overflow-hidden bg-stone-100">
-        <Image
+        <OptimizedImage
           src={beforeUrl ?? ""}
           alt={beforeAlt}
+          context="portfolio-frame"
           fill
-          // Frame is one grid card; each half is 50% of the card.
-          // Cards are ~2-up on desktop → half ≈ 25vw, full-width on mobile.
-          sizes="(min-width: 1500px) 341px, (min-width: 1024px) calc(25vw - 34px), calc(50vw - 16px)"
           className="object-cover"
-          priority={loading === "eager"}
+          loading={loading}
         />
         {showLabels && (
           <span className="absolute bottom-3 left-3 inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-stone-700 shadow-sm">
@@ -104,13 +102,13 @@ export default function BeforeAfterFrame({
 
       {/* RIGHT half — after */}
       <div className="relative w-1/2 overflow-hidden bg-stone-100">
-        <Image
+        <OptimizedImage
           src={afterUrl ?? ""}
           alt={afterAlt}
+          context="portfolio-frame"
           fill
-          sizes="(min-width: 1500px) 341px, (min-width: 1024px) calc(25vw - 34px), calc(50vw - 16px)"
           className="object-cover"
-          priority={loading === "eager"}
+          loading={loading}
         />
         {showLabels && (
           <span className="absolute bottom-3 right-3 inline-flex items-center px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold tracking-[0.18em] uppercase text-primary shadow-sm">

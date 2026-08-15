@@ -11,7 +11,7 @@
 // ============================================================
 
 import Link from "next/link";
-import Image from "next/image";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 interface GalleryCategoryCardProps {
   /** Target gallery detail URL, e.g. /gallery/virtual-staging */
@@ -41,12 +41,11 @@ export default function GalleryCategoryCard({
       {/* ── Image / placeholder ──────────────────────────── */}
       <div className="aspect-[4/3] relative bg-stone-200 overflow-hidden">
         {imageUrl ? (
-          <Image
+          <OptimizedImage
             src={imageUrl}
             alt={imageAlt}
+            context="portfolio-card"
             fill
-            // Cards: 3-up desktop, 2-up tablet, 1-up mobile.
-            sizes="(min-width: 1500px) 452px, (min-width: 1024px) calc(33.333vw - 48px), (min-width: 768px) calc(50vw - 34px), calc(100vw - 32px)"
             className="object-cover transition-transform duration-500 will-change-transform group-hover:scale-[1.04]"
           />
         ) : (
