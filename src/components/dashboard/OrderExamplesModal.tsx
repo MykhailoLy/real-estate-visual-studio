@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import GalleryBeforeAfterPair from "@/components/gallery/GalleryBeforeAfterPair";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 import { getGalleryPairLabels } from "@/lib/gallery";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
 import type { OrderExamplePair } from "@/lib/order-card-examples";
@@ -47,6 +48,7 @@ export default function OrderExamplesModal({
 }: OrderExamplesModalProps) {
   const headingId = useId();
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  useViewerScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
@@ -58,15 +60,11 @@ export default function OrderExamplesModal({
     };
     document.addEventListener("keydown", onKeyDown);
 
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     // Move focus into the dialog.
     closeBtnRef.current?.focus();
 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = prevOverflow;
       // Restore focus to the trigger where practical.
       previouslyFocused?.focus?.();
     };

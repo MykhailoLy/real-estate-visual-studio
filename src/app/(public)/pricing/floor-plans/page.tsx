@@ -314,6 +314,24 @@ async function buildSliderSlides(): Promise<ServicePageSlide[]> {
   return [{ kind: "placeholder", id: "fp-fallback", variant: "floor-plans" }];
 }
 
+function e2eStaticImageViewerCards(): PortfolioExampleCard[] | null {
+  if (process.env.PLAYWRIGHT_STATIC_IMAGE_VIEWER_FIXTURES !== "1") {
+    return null;
+  }
+
+  return [
+    {
+      id: "e2e-static-image-viewer",
+      title: "Static image fit fixture",
+      description: "Raster aspect-ratio coverage for the expanded viewer.",
+      beforeUrl: "/brand/property-social-emergency.png",
+      afterUrl: "/brand/picchuspot-logo-800.png",
+      beforeAlt: "Landscape static image fit fixture",
+      afterAlt: "Extra-wide transparent static image fit fixture",
+    },
+  ];
+}
+
 // ── Page ─────────────────────────────────────────────────────
 
 export default async function FloorPlansPage() {
@@ -324,15 +342,17 @@ export default async function FloorPlansPage() {
   ]);
 
   // ── Resolve portfolio example cards ────────────────────────
-  const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => ({
-    id: item.id,
-    title: item.title,
-    description: item.description,
-    beforeUrl: getPortfolioPublicUrl(item.before_image_path),
-    afterUrl: getPortfolioPublicUrl(item.after_image_path),
-    beforeAlt: item.before_alt ?? `${item.title} — before`,
-    afterAlt: item.after_alt ?? `${item.title} — after`,
-  }));
+  const portfolioCards: PortfolioExampleCard[] =
+    e2eStaticImageViewerCards() ??
+    allItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      beforeUrl: getPortfolioPublicUrl(item.before_image_path),
+      afterUrl: getPortfolioPublicUrl(item.after_image_path),
+      beforeAlt: item.before_alt ?? `${item.title} — before`,
+      afterAlt: item.after_alt ?? `${item.title} — after`,
+    }));
 
   // ── Resolve style option cards ──────────────────────────────
   // If admin has uploaded service-options items, use them fully

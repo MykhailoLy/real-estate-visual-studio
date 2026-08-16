@@ -46,6 +46,7 @@ export default defineConfig({
         timeout: 180000,
         env: {
           PLAYWRIGHT_PROPERTY_GALLERY_FIXTURES: "1",
+          PLAYWRIGHT_STATIC_IMAGE_VIEWER_FIXTURES: "1",
         },
         reuseExistingServer: false,
         stdout: "pipe",

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Upload, X, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 
 // Extensions that are safe to preview as a thumbnail in the browser even when
 // the File object lacks a recognizable image/* MIME type (some browsers / OSes
@@ -504,6 +505,7 @@ function PersistedFilePreviewContent({
   const [broken, setBroken] = useState(false);
   const [open, setOpen] = useState(false);
   const canOpen = previewUrl !== null && !broken;
+  useViewerScrollLock(open);
 
   return (
     <div className="w-28 shrink-0 self-start sm:w-32">
@@ -552,27 +554,34 @@ function PersistedFilePreviewContent({
           role="dialog"
           aria-modal="true"
           aria-label={`${label} preview`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-black/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6"
           onClick={() => setOpen(false)}
         >
           <div
-            className="relative max-h-[88vh] w-full max-w-4xl rounded-lg bg-white p-3 shadow-xl"
+            className="grid h-full w-full max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg bg-white p-3 shadow-xl sm:h-[min(92dvh,900px)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="absolute right-3 top-3 rounded-full bg-white/90 p-1.5 text-foreground shadow-sm hover:bg-white"
-              aria-label="Close preview"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt={`${label}: ${filename}`}
-              className="max-h-[82vh] w-full rounded-md object-contain"
-            />
+            <div className="flex min-w-0 items-center justify-between gap-3 pb-3">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {label}: {filename}
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-foreground shadow-sm transition hover:bg-stone-100"
+                aria-label="Close preview"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="min-h-0 overflow-hidden rounded-md bg-slate-950/95">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt={`${label}: ${filename}`}
+                className="h-full w-full object-contain object-center"
+              />
+            </div>
           </div>
         </div>
       )}

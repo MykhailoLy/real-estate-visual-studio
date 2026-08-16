@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 import type { PropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-materials";
 import type { PropertyLanguageCode } from "@/features/property-showcase/types";
 
@@ -62,6 +63,7 @@ export default function PropertyMarketingDownloads({
   const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const copy = language === "es" ? COPY.es : COPY.en;
+  useViewerScrollLock(open);
 
   function closeDialog() {
     setOpen(false);
@@ -70,8 +72,6 @@ export default function PropertyMarketingDownloads({
 
   useEffect(() => {
     if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -98,7 +98,6 @@ export default function PropertyMarketingDownloads({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);

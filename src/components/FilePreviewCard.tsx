@@ -7,6 +7,7 @@ import {
   getFileTypeLabel,
   type FilePreviewKind,
 } from "@/lib/file-preview";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 
 interface Props {
   filename: string;
@@ -44,6 +45,7 @@ export default function FilePreviewCard({
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useViewerScrollLock(modalOpen);
 
   useEffect(() => {
     if (previewKind !== "image" || previewUrl || previewLoading) return;
@@ -197,14 +199,14 @@ export default function FilePreviewCard({
 
       {modalOpen && previewUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 px-4 py-5 sm:py-8 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-black/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Preview ${filename}`}
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-xl shadow-2xl overflow-hidden"
+            className="grid h-full w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl bg-white shadow-2xl sm:h-[min(92dvh,900px)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-surface/70">
@@ -221,13 +223,13 @@ export default function FilePreviewCard({
                 <X className="w-4 h-4" aria-hidden />
               </button>
             </div>
-            <div className="bg-slate-950/95 h-[72vh] max-h-[760px] flex items-center justify-center">
+            <div className="flex min-h-0 items-center justify-center overflow-hidden bg-slate-950/95">
               {previewKind === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={previewUrl}
                   alt={filename}
-                  className="max-w-full max-h-full object-contain"
+                  className="h-full w-full object-contain object-center"
                 />
               ) : (
                 <iframe

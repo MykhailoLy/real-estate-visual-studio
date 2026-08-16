@@ -28,7 +28,7 @@ export const OPTIMIZED_IMAGE_CONTEXTS = {
     quality: 70,
   },
   "property-lightbox": {
-    sizes: "(min-width: 1536px) 1280px, (min-width: 1024px) calc(100vw - 4rem), calc(100vw - 1.5rem)",
+    sizes: "(min-width: 1728px) 1600px, (min-width: 640px) calc(100vw - 10rem), calc(100vw - 1.5rem)",
     quality: 70,
   },
   "property-floor-plan": {
@@ -60,7 +60,7 @@ export const OPTIMIZED_IMAGE_CONTEXTS = {
     quality: 70,
   },
   "content-lightbox": {
-    sizes: "(min-width: 1280px) 1200px, 92vw",
+    sizes: "(min-width: 1728px) 1600px, (min-width: 640px) calc(100vw - 10rem), calc(100vw - 1.5rem)",
     quality: 70,
   },
 } as const;
