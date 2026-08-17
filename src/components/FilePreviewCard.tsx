@@ -210,10 +210,11 @@ export default function FilePreviewCard({
           onClick={() => setModalOpen(false)}
         >
           <div
-            className={`static-image-viewer-panel grid h-full w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl shadow-2xl sm:h-[min(92dvh,900px)] ${previewKind === "image" ? "bg-slate-950/95" : "bg-white"}`}
+            data-static-image-viewer-panel={previewKind === "image" ? viewerVariant : "document"}
+            className={`static-image-viewer-panel grid h-full w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl sm:h-[min(92dvh,900px)] ${previewKind === "image" ? "bg-transparent" : "bg-white shadow-2xl"}`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className={`static-image-viewer-panel-header flex items-center justify-between gap-3 border-b px-4 py-3 ${previewKind === "image" ? "border-white/10 bg-slate-950 text-white" : "border-border bg-surface/70"}`}>
+            <div className={`static-image-viewer-panel-header flex items-center justify-between gap-3 border-b px-4 py-3 ${previewKind === "image" ? "border-transparent bg-transparent text-white" : "border-border bg-surface/70"}`}>
               <div className="min-w-0">
                 <p className={`truncate text-[13px] font-bold ${previewKind === "image" ? "text-white" : "text-foreground"}`}>{filename}</p>
                 <p className={`text-[11px] ${previewKind === "image" ? "text-white/60" : "text-muted"}`}>{typeLabel} preview</p>

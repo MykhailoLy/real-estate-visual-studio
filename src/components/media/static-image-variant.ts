@@ -30,7 +30,6 @@ export function getContainedSurfaceGeometry(
   const scale = Math.min(
     availableWidth / natural.width,
     availableHeight / natural.height,
-    1,
   );
   const imageWidth = natural.width * scale;
   const imageHeight = natural.height * scale;

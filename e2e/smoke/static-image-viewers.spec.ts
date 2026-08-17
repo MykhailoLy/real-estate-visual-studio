@@ -41,11 +41,16 @@ async function expectContainedImage(
 
     const imageStyle = getComputedStyle(imageElement);
     const stageRect = stage.getBoundingClientRect();
+    const stageStyle = getComputedStyle(stage);
     const imageRect = imageElement.getBoundingClientRect();
     const surface = imageElement.closest<HTMLElement>("[data-static-image-surface]");
     if (!surface) throw new Error("Static image surface was not found.");
     const surfaceRect = surface.getBoundingClientRect();
     const surfaceStyle = getComputedStyle(surface);
+    const frame = stage.closest<HTMLElement>("[data-static-image-viewer-frame]");
+    if (!frame) throw new Error("Static image viewer frame was not found.");
+    const overlay = stage.closest<HTMLElement>('[role="dialog"]');
+    if (!overlay) throw new Error("Static image viewer overlay was not found.");
 
     return {
       variant: stage.dataset.staticImageVariant,
@@ -58,6 +63,7 @@ async function expectContainedImage(
         bottom: stageRect.bottom,
         width: stageRect.width,
         height: stageRect.height,
+        backgroundColor: stageStyle.backgroundColor,
       },
       naturalWidth: imageElement.naturalWidth,
       naturalHeight: imageElement.naturalHeight,
@@ -76,6 +82,8 @@ async function expectContainedImage(
         paddingLeft: Number.parseFloat(surfaceStyle.paddingLeft),
         paddingTop: Number.parseFloat(surfaceStyle.paddingTop),
       },
+      frameBackgroundColor: getComputedStyle(frame).backgroundColor,
+      overlayBackgroundColor: getComputedStyle(overlay).backgroundColor,
     };
   });
 
@@ -86,8 +94,6 @@ async function expectContainedImage(
   expect(metrics.naturalHeight).toBeGreaterThan(0);
   expect(metrics.image.width).toBeLessThanOrEqual(metrics.stage.width + 0.5);
   expect(metrics.image.height).toBeLessThanOrEqual(metrics.stage.height + 0.5);
-  expect(metrics.image.width).toBeLessThanOrEqual(metrics.naturalWidth + 0.5);
-  expect(metrics.image.height).toBeLessThanOrEqual(metrics.naturalHeight + 0.5);
   expect(metrics.image.left).toBeGreaterThanOrEqual(metrics.stage.left - 0.5);
   expect(metrics.image.top).toBeGreaterThanOrEqual(metrics.stage.top - 0.5);
   expect(metrics.image.right).toBeLessThanOrEqual(metrics.stage.right + 0.5);
@@ -98,6 +104,21 @@ async function expectContainedImage(
         metrics.naturalWidth / metrics.naturalHeight,
     ),
   ).toBeLessThan(0.002);
+  expect(metrics.stage.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(metrics.frameBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(metrics.overlayBackgroundColor).not.toBe("rgb(255, 255, 255)");
+
+  const outerGap = variant === "plan" ? 4 : 0;
+  const availableWidth =
+    metrics.stage.width - 2 * (metrics.surface.paddingLeft + outerGap);
+  const availableHeight =
+    metrics.stage.height - 2 * (metrics.surface.paddingTop + outerGap);
+  expect(
+    Math.min(
+      Math.abs(metrics.image.width - availableWidth),
+      Math.abs(metrics.image.height - availableHeight),
+    ),
+  ).toBeLessThanOrEqual(1.5);
 
   if (variant === "photo") {
     expect(metrics.surface.backgroundColor).toBe("rgba(0, 0, 0, 0)");
@@ -119,6 +140,10 @@ async function expectContainedImage(
       metrics.surface.width < metrics.stage.width - 0.5 ||
         metrics.surface.height < metrics.stage.height - 0.5,
     ).toBe(true);
+    if (viewport.height > viewport.width && viewport.width < 560) {
+      expect(metrics.surface.width).toBeGreaterThanOrEqual(metrics.stage.width - 8.5);
+      expect(metrics.image.width).toBeGreaterThanOrEqual(metrics.stage.width * 0.85);
+    }
   }
   expect(metrics.stage.left).toBeGreaterThanOrEqual(0);
   expect(metrics.stage.top).toBeGreaterThanOrEqual(0);

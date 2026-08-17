@@ -159,6 +159,7 @@ export default function ImageLightbox({
 
         <div className="static-image-viewer-layout mx-auto grid min-h-0 w-full grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
           <div
+            data-static-image-viewer-frame
             className="relative col-span-3 row-start-1 min-h-0 overflow-hidden rounded-xl sm:col-span-1 sm:col-start-2 sm:rounded-2xl"
             onClick={(event) => event.stopPropagation()}
           >

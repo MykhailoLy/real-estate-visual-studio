@@ -52,6 +52,8 @@ test("shared expanded static-image stage owns centered contain behavior", () => 
   assert.match(staticStageSource, /data-static-image-surface/);
   assert.match(staticStageSource, /data-static-image-variant/);
   assert.match(staticStageSource, /ResizeObserver/);
+  assert.match(staticStageSource, /bg-transparent/);
+  assert.doesNotMatch(staticStageSource, /bg-slate-950\/95/);
   assert.match(staticStageSource, /variant === "plan" && "bg-white/);
 });
 
@@ -92,6 +94,7 @@ test("expanded viewers lock both document scrolling elements", () => {
 test("pricing and property lightboxes use the viewport-aware shared stage", () => {
   assert.match(pricingLightboxSource, /StaticImageStage/);
   assert.match(pricingLightboxSource, /h-\[100dvh\]/);
+  assert.match(pricingLightboxSource, /data-static-image-viewer-frame/);
   assert.doesNotMatch(pricingLightboxSource, /object-cover/);
   assert.doesNotMatch(pricingLightboxSource, /aspect-\[/);
 
@@ -100,6 +103,8 @@ test("pricing and property lightboxes use the viewport-aware shared stage", () =
   );
   assert.match(propertyDialogSource, /StaticImageStage/);
   assert.match(propertyDialogSource, /h-\[100dvh\]/);
+  assert.match(propertyDialogSource, /data-static-image-viewer-frame/);
+  assert.match(propertyDialogSource, /bg-transparent/);
   assert.doesNotMatch(propertyDialogSource, /object-cover/);
   assert.doesNotMatch(propertyDialogSource, /h-\[76vh\]/);
   assert.match(propertyShowcaseSource, /<PropertyGallery/);
@@ -119,6 +124,9 @@ test("authenticated and generated preview dialogs retain uncropped image stages"
     assert.match(source, /h-\[100dvh\]/);
     assert.match(source, /NativeStaticImageStage/);
     assert.match(source, /variant=\{viewerVariant\}/);
+    assert.match(source, /data-static-image-viewer-panel/);
+    assert.match(source, /bg-transparent/);
+    assert.doesNotMatch(source, /bg-slate-950\/95/);
     assert.doesNotMatch(source, /object-cover/);
   }
 
@@ -170,6 +178,8 @@ test("every English and Spanish pricing service route uses an audited viewer pat
 });
 
 const sourceFormats = [
+  { name: "small 16:9 photograph", width: 320, height: 180 },
+  { name: "small 4:3 photograph", width: 400, height: 300 },
   { name: "1920x1080 JPEG", width: 1920, height: 1080 },
   { name: "1600x1200 JPEG", width: 1600, height: 1200 },
   { name: "portrait photograph", width: 1200, height: 1600 },
@@ -179,6 +189,7 @@ const sourceFormats = [
   { name: "extra-wide site plan", width: 2400, height: 800 },
   { name: "before/after pair", width: 1600, height: 1067 },
   { name: "transparent PNG floor plan", width: 1400, height: 1800 },
+  { name: "small transparent floor plan", width: 360, height: 240 },
   { name: "WebP photograph", width: 1920, height: 1080 },
 ] as const;
 
@@ -238,8 +249,17 @@ test("photo and plan surfaces preserve ratios and use variant-specific staging",
           ) < 1e-10,
           `${source.name} ${variant}`,
         );
-        assert.ok(geometry.imageWidth <= source.width, `${source.name} ${variant}`);
-        assert.ok(geometry.imageHeight <= source.height, `${source.name} ${variant}`);
+
+        const outerGap = variant === "plan" ? 4 : 0;
+        const availableWidth = stage.width - 2 * (geometry.padding + outerGap);
+        const availableHeight = stage.height - 2 * (geometry.padding + outerGap);
+        assert.ok(geometry.imageWidth <= availableWidth + 1e-9, `${source.name} ${variant}`);
+        assert.ok(geometry.imageHeight <= availableHeight + 1e-9, `${source.name} ${variant}`);
+        assert.ok(
+          Math.abs(geometry.imageWidth - availableWidth) < 1e-9 ||
+            Math.abs(geometry.imageHeight - availableHeight) < 1e-9,
+          `${source.name} ${variant} must reach one containment limit`,
+        );
 
         if (variant === "photo") {
           assert.equal(geometry.padding, 0);
@@ -256,6 +276,17 @@ test("photo and plan surfaces preserve ratios and use variant-specific staging",
         }
       }
     }
+  }
+});
+
+test("small photos and plans expand to the available contained size", () => {
+  const stage = { width: 1200, height: 800 };
+  const natural = { width: 320, height: 180 };
+
+  for (const variant of ["photo", "plan"] as const) {
+    const geometry = getContainedSurfaceGeometry(stage, natural, variant);
+    assert.ok(geometry.imageWidth > natural.width);
+    assert.ok(geometry.imageHeight > natural.height);
   }
 });
 

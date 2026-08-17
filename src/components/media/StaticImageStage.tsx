@@ -113,7 +113,7 @@ function StaticImageFrame({
       data-static-image-stage
       data-static-image-variant={variant}
       className={cn(
-        "relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-slate-950/95",
+        "relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-transparent",
         stageClassName,
       )}
     >

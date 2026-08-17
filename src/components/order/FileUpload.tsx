@@ -568,7 +568,8 @@ function PersistedFilePreviewContent({
           onClick={() => setOpen(false)}
         >
           <div
-            className="static-image-viewer-panel grid h-full w-full max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg bg-slate-950/95 p-3 shadow-xl sm:h-[min(92dvh,900px)]"
+            data-static-image-viewer-panel={viewerVariant}
+            className="static-image-viewer-panel grid h-full w-full max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg bg-transparent sm:h-[min(92dvh,900px)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="static-image-viewer-panel-header flex min-w-0 items-center justify-between gap-3 pb-3">
@@ -588,7 +589,7 @@ function PersistedFilePreviewContent({
               variant={viewerVariant}
               src={previewUrl}
               alt={`${label}: ${filename}`}
-              stageClassName="min-h-0 rounded-md"
+              stageClassName="min-h-0"
             />
           </div>
         </div>
