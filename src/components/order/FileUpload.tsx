@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Upload, X, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
+import { NativeStaticImageStage } from "@/components/media/StaticImageStage";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 // Extensions that are safe to preview as a thumbnail in the browser even when
 // the File object lacks a recognizable image/* MIME type (some browsers / OSes
@@ -32,6 +35,7 @@ export interface PersistedFileDisplay {
 }
 
 interface FileUploadProps {
+  viewerVariant: StaticImageViewerVariant;
   label: string;
   file: File | null;
   onFileChange: (file: File | null) => void;
@@ -104,6 +108,7 @@ function fileMatchesAccept(file: File, accept: FileUploadAccept): boolean {
  * PhotoEditItemCard) keep working without any changes.
  */
 export default function FileUpload({
+  viewerVariant,
   label,
   file,
   onFileChange,
@@ -340,6 +345,7 @@ export default function FileUpload({
       ) : persistedFile ? (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-stretch">
           <PersistedFilePreview
+            viewerVariant={viewerVariant}
             label={label}
             filename={persistedFile.filename}
             previewUrl={persistedFile.previewUrl ?? null}
@@ -473,10 +479,12 @@ export default function FileUpload({
 }
 
 function PersistedFilePreview({
+  viewerVariant,
   label,
   filename,
   previewUrl,
 }: {
+  viewerVariant: StaticImageViewerVariant;
   label: string;
   filename: string;
   previewUrl: string | null;
@@ -484,6 +492,7 @@ function PersistedFilePreview({
   return (
     <PersistedFilePreviewContent
       key={previewUrl ?? "empty"}
+      viewerVariant={viewerVariant}
       label={label}
       filename={filename}
       previewUrl={previewUrl}
@@ -492,10 +501,12 @@ function PersistedFilePreview({
 }
 
 function PersistedFilePreviewContent({
+  viewerVariant,
   label,
   filename,
   previewUrl,
 }: {
+  viewerVariant: StaticImageViewerVariant;
   label: string;
   filename: string;
   previewUrl: string | null;
@@ -504,6 +515,7 @@ function PersistedFilePreviewContent({
   const [broken, setBroken] = useState(false);
   const [open, setOpen] = useState(false);
   const canOpen = previewUrl !== null && !broken;
+  useViewerScrollLock(open);
 
   return (
     <div className="w-28 shrink-0 self-start sm:w-32">
@@ -552,26 +564,32 @@ function PersistedFilePreviewContent({
           role="dialog"
           aria-modal="true"
           aria-label={`${label} preview`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="static-image-viewer-overlay fixed inset-0 z-50 flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-black/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6"
           onClick={() => setOpen(false)}
         >
           <div
-            className="relative max-h-[88vh] w-full max-w-4xl rounded-lg bg-white p-3 shadow-xl"
+            data-static-image-viewer-panel={viewerVariant}
+            className="static-image-viewer-panel grid h-full w-full max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg bg-transparent sm:h-[min(92dvh,900px)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="absolute right-3 top-3 rounded-full bg-white/90 p-1.5 text-foreground shadow-sm hover:bg-white"
-              aria-label="Close preview"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <div className="static-image-viewer-panel-header flex min-w-0 items-center justify-between gap-3 pb-3">
+              <p className="truncate text-sm font-semibold text-white">
+                {label}: {filename}
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10 text-white shadow-sm transition hover:bg-white/20"
+                aria-label="Close preview"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <NativeStaticImageStage
+              variant={viewerVariant}
               src={previewUrl}
               alt={`${label}: ${filename}`}
-              className="max-h-[82vh] w-full rounded-md object-contain"
+              stageClassName="min-h-0"
             />
           </div>
         </div>

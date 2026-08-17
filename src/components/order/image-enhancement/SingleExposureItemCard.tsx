@@ -106,6 +106,7 @@ export default function SingleExposureItemCard({
       <div className="space-y-5">
         {/* 1. Upload Original Photo */}
         <FileUpload
+          viewerVariant="photo"
           label="Upload Original Photo"
           file={data.file}
           onFileChange={(file) => onChange({ ...data, file })}

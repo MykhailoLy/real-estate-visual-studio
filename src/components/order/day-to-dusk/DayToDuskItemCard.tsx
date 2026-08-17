@@ -114,6 +114,7 @@ export default function DayToDuskItemCard({
       <div className="space-y-5">
         {/* 1. Upload Daytime Exterior Photo (always editable) */}
         <FileUpload
+          viewerVariant="photo"
           label="Upload Daytime Exterior Photo"
           file={data.file}
           onFileChange={(file) => onChange({ ...data, file })}

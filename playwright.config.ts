@@ -41,11 +41,13 @@ export default defineConfig({
   webServer: configuredBaseURL
     ? undefined
     : {
-        command: "node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3100",
+        command:
+          "npm run build && node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3100",
         url: DEFAULT_BASE_URL,
         timeout: 180000,
         env: {
           PLAYWRIGHT_PROPERTY_GALLERY_FIXTURES: "1",
+          PLAYWRIGHT_STATIC_IMAGE_VIEWER_FIXTURES: "1",
         },
         reuseExistingServer: false,
         stdout: "pipe",

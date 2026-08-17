@@ -42,6 +42,7 @@ export default function SpanishPhotoEditingPricingPage() {
       />
       <ServicePage
       serviceSlug="item-removal-virtual-cleaning"
+      portfolioViewerVariant="photo"
       placeholderVariant="item-removal"
       eyebrow="Eliminación de objetos y limpieza virtual"
       title="Precios de Eliminación de objetos y limpieza virtual"

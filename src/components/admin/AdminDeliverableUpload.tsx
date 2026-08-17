@@ -46,6 +46,7 @@ import {
   formatDateTime as formatDate,
   itemLabel as sharedItemLabel,
 } from "@/lib/display/file-format";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ export interface DeliverableRow {
 }
 
 interface Props {
+  viewerVariant: StaticImageViewerVariant;
   orderId: string;
   orderNumber: string;
   /** Total number of source images in the order. Drives the assignment dropdown. */
@@ -106,6 +108,7 @@ const ORDER_LEVEL_VALUE = "__order_level__";
 // ── Component ──────────────────────────────────────────────────
 
 export default function AdminDeliverableUpload({
+  viewerVariant,
   orderId,
   orderNumber,
   itemCount,
@@ -483,6 +486,7 @@ export default function AdminDeliverableUpload({
                 className="px-5 py-3.5 hover:bg-surface/40 transition-colors"
               >
                 <FilePreviewCard
+                  viewerVariant={viewerVariant}
                   filename={d.filename}
                   mimeType={d.mime_type}
                   fileSizeLabel={formatBytes(d.file_size)}

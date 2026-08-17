@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { OptimizedImage } from "@/components/media/OptimizedImage";
+import StaticImageStage from "@/components/media/StaticImageStage";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 
 export interface LightboxImage {
   src: string;
@@ -11,6 +13,7 @@ export interface LightboxImage {
 
 interface ImageLightboxProps {
   images: LightboxImage[];
+  variant: StaticImageViewerVariant;
   initialIndex?: number;
   onClose: () => void;
   /** Optional title shown above the image (e.g. style name). */
@@ -34,6 +37,7 @@ interface ImageLightboxProps {
  */
 export default function ImageLightbox({
   images,
+  variant,
   initialIndex = 0,
   onClose,
   title,
@@ -44,6 +48,8 @@ export default function ImageLightbox({
   const [index, setIndex] = useState(safeInitial);
   const [failedSrcs, setFailedSrcs] = useState<Set<string>>(() => new Set());
   const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  useViewerScrollLock(true);
 
   const hasMultiple = total > 1;
   const current = images[index];
@@ -69,10 +75,10 @@ export default function ImageLightbox({
     });
   };
 
-  // Keyboard nav + body scroll lock. This effect only attaches listeners
-  // and toggles document state — no setState calls inside, so it does
-  // not violate the "no setState in effect" guideline.
+  // Keyboard navigation, focus trapping, and trigger-focus restoration.
   useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -83,19 +89,32 @@ export default function ImageLightbox({
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         goNext();
+      } else if (e.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]),a[href]:not([aria-disabled="true"])',
+          ),
+        ).filter((element) => element.getClientRects().length > 0);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable.at(-1) ?? first;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
     document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
-    // Move focus to the dialog so keyboard nav works immediately.
-    dialogRef.current?.focus();
+    closeButtonRef.current?.focus();
 
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
+      previouslyFocused?.focus?.();
     };
   }, [onClose, goPrev, goNext]);
 
@@ -108,109 +127,117 @@ export default function ImageLightbox({
       aria-label={title ? `${title} — image gallery` : "Image gallery"}
       ref={dialogRef}
       tabIndex={-1}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-sm focus:outline-none"
+      className="static-image-viewer-overlay fixed inset-0 z-[100] h-[100dvh] w-screen overflow-hidden bg-black/85 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm focus:outline-none sm:p-6"
       onClick={onClose}
     >
-      {/* Close */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        aria-label="Close gallery"
-        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-      >
-        <X className="w-5 h-5" />
-      </button>
-
-      {/* Previous */}
-      {hasMultiple && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            goPrev();
-          }}
-          aria-label="Previous image"
-          className="absolute left-2 sm:left-6 top-1/2 z-20 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+      <div className="static-image-viewer-root mx-auto grid h-full w-full max-w-[1728px] grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
+        <div
+          className="static-image-viewer-header mx-auto grid w-full max-w-[1600px] grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2"
+          onClick={(event) => event.stopPropagation()}
         >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-      )}
-
-      {/* Next */}
-      {hasMultiple && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            goNext();
-          }}
-          aria-label="Next image"
-          className="absolute right-2 sm:right-6 top-1/2 z-20 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </button>
-      )}
-
-      {/* Stage */}
-      <div
-        className="relative max-w-[1200px] w-[92vw] max-h-[88vh] flex flex-col items-center justify-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {title && (
-          <p className="text-[10px] sm:text-xs font-semibold tracking-[0.2em] uppercase text-white/70 mb-3 sm:mb-4">
-            {title}
-          </p>
-        )}
-
-        <div className="relative w-full aspect-[16/10] max-h-[72vh] rounded-2xl overflow-hidden bg-stone-900 shadow-2xl">
-          {imgFailed ? (
-            <div className="absolute inset-0 bg-gradient-to-br from-stone-700 via-stone-600 to-stone-800 flex items-center justify-center">
-              <span className="text-xs sm:text-sm font-semibold tracking-[0.18em] uppercase text-white/80 px-4 text-center">
-                {title ?? "Preview"} — Image {index + 1}
-              </span>
-            </div>
+          <span aria-hidden />
+          {title ? (
+            <p className="truncate text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70 sm:text-xs">
+              {title}
+            </p>
           ) : (
-            <OptimizedImage
+            <span aria-hidden />
+          )}
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+            }}
+            aria-label="Close gallery"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+
+        <div className="static-image-viewer-layout mx-auto grid min-h-0 w-full grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
+          <div
+            data-static-image-viewer-frame
+            className="relative col-span-3 row-start-1 min-h-0 overflow-hidden rounded-xl sm:col-span-1 sm:col-start-2 sm:rounded-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <StaticImageStage
               key={current.src}
+              variant={variant}
               src={current.src}
               alt={current.alt}
               context="content-lightbox"
-              fill
               loading="eager"
               onError={markCurrentFailed}
-              className="object-cover"
-            />
-          )}
-        </div>
-
-        {hasMultiple && (
-          <div className="mt-4 flex items-center gap-3 text-white/80 text-xs sm:text-sm">
-            <span className="font-medium tabular-nums">
-              {index + 1} / {total}
-            </span>
-            <div className="flex items-center gap-1.5">
-              {images.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`Go to image ${i + 1}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIndex(i);
-                  }}
-                  className={
-                    i === index
-                      ? "w-6 h-1.5 rounded-full bg-white transition-all"
-                      : "w-1.5 h-1.5 rounded-full bg-white/40 hover:bg-white/70 transition-all"
-                  }
-                />
-              ))}
-            </div>
+              showImage={!imgFailed}
+              stageClassName="h-full w-full"
+            >
+              {imgFailed ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-700 via-stone-600 to-stone-800">
+                  <span className="px-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-white/80 sm:text-sm">
+                    {title ?? "Preview"} — Image {index + 1}
+                  </span>
+                </div>
+              ) : null}
+            </StaticImageStage>
           </div>
-        )}
+
+          {hasMultiple ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                goPrev();
+              }}
+              aria-label="Previous image"
+              className="static-image-viewer-control col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+            >
+              <ChevronLeft className="h-6 w-6" aria-hidden />
+            </button>
+          ) : null}
+
+          {hasMultiple ? (
+            <div
+              className="col-start-2 row-start-2 flex min-w-0 items-center justify-center gap-3 text-xs text-white/80 sm:text-sm"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <span className="shrink-0 font-medium tabular-nums">
+                {index + 1} / {total}
+              </span>
+              <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto py-1">
+                {images.map((_, imageIndex) => (
+                  <button
+                    key={imageIndex}
+                    type="button"
+                    aria-label={`Go to image ${imageIndex + 1}`}
+                    onClick={() => setIndex(imageIndex)}
+                    className={
+                      imageIndex === index
+                        ? "h-1.5 w-6 shrink-0 rounded-full bg-white transition-all"
+                        : "h-1.5 w-1.5 shrink-0 rounded-full bg-white/40 transition-all hover:bg-white/70"
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {hasMultiple ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                goNext();
+              }}
+              aria-label="Next image"
+              className="static-image-viewer-control col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+            >
+              <ChevronRight className="h-6 w-6" aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

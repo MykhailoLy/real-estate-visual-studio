@@ -42,6 +42,7 @@ export default function DayToDuskPricingPage() {
       />
       <ServicePage
       serviceSlug="day-to-dusk"
+      portfolioViewerVariant="photo"
       placeholderVariant="day-to-dusk"
       eyebrow="Day to Dusk"
       title="Day to Dusk Pricing"

@@ -196,6 +196,7 @@ export default function StagingItemCard({
       <div className="space-y-4">
         {/* File Upload */}
         <FileUpload
+          viewerVariant="photo"
           label="Upload Original Photo"
           file={data.file}
           onFileChange={(file) => {
@@ -399,6 +400,7 @@ export default function StagingItemCard({
 
         {/* Reference Image */}
         <FileUpload
+          viewerVariant="photo"
           label="Reference Image (optional)"
           file={data.referenceFile}
           onFileChange={(file) => {

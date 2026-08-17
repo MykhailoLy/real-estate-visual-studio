@@ -9,6 +9,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
+import { NativeStaticImageStage } from "@/components/media/StaticImageStage";
 import type { PropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-materials";
 import type { PropertyLanguageCode } from "@/features/property-showcase/types";
 
@@ -62,6 +64,7 @@ export default function PropertyMarketingDownloads({
   const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const copy = language === "es" ? COPY.es : COPY.en;
+  useViewerScrollLock(open);
 
   function closeDialog() {
     setOpen(false);
@@ -70,8 +73,6 @@ export default function PropertyMarketingDownloads({
 
   useEffect(() => {
     if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -98,7 +99,6 @@ export default function PropertyMarketingDownloads({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
@@ -210,13 +210,14 @@ export default function PropertyMarketingDownloads({
                     <span className="text-sm font-bold">PDF brochure ready to download</span>
                   </div>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <NativeStaticImageStage
+                    variant="plan"
                     src={links.preview}
                     alt={copy.preview}
                     onLoad={() => setPreviewState("ready")}
                     onError={() => setPreviewState("error")}
-                    className={`h-full w-full object-contain transition-opacity ${previewState === "ready" ? "opacity-100" : "opacity-0"}`}
+                    stageClassName="absolute inset-0"
+                    imageClassName={`transition-opacity ${previewState === "ready" ? "opacity-100" : "opacity-0"}`}
                   />
                 )}
                 {links.previewKind !== "document" && previewState !== "ready" ? (

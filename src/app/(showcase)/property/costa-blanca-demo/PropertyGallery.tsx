@@ -6,6 +6,8 @@ import {
   OptimizedImage,
   OptimizedImagePreloader,
 } from "@/components/media/OptimizedImage";
+import StaticImageStage from "@/components/media/StaticImageStage";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 import { getPropertyGalleryImageContext } from "@/components/media/image-delivery";
 import {
   hasCollapsedPropertyGalleryImages,
@@ -84,6 +86,7 @@ export default function PropertyGallery({
   const collapseAnchorTopRef = useRef<number | null>(null);
   const shouldRestoreToggleFocusRef = useRef(false);
   const rootScrollBehaviorRef = useRef("");
+  useViewerScrollLock(activeIndex !== null);
 
   const closeGallery = useCallback(() => {
     setActiveIndex(null);
@@ -131,13 +134,10 @@ export default function PropertyGallery({
       }
     };
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [activeIndex, closeGallery, images.length]);
@@ -374,76 +374,95 @@ export default function PropertyGallery({
       {activeImage ? (
         <div
           ref={dialogRef}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#06101f]/96 p-3 sm:p-8"
+          className="static-image-viewer-overlay static-image-viewer-root fixed inset-0 z-[100] grid h-[100dvh] w-screen grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden bg-[#06101f]/96 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:gap-4 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Property gallery: ${activeImage.label}`}
           onClick={closeGallery}
         >
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              closeGallery();
-            }}
-            className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 sm:right-7 sm:top-7"
-            aria-label="Close gallery"
-          >
-            <X className="h-5 w-5" aria-hidden />
-          </button>
-
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              showPrevious();
-            }}
-            className="absolute left-3 z-10 grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 sm:left-7"
-            aria-label="Previous gallery image"
-          >
-            <ChevronLeft className="h-6 w-6" aria-hidden />
-          </button>
-
           <div
-            className="relative h-[76vh] w-full max-w-7xl overflow-hidden rounded-2xl bg-black/20"
+            className="static-image-viewer-header mx-auto grid w-full max-w-[1600px] grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2"
             onClick={(event) => event.stopPropagation()}
           >
-            <OptimizedImage
-              src={activeImage.src}
-              alt={activeImage.alt}
-              context="property-lightbox"
-              fill
-              loading="eager"
-              onLoad={() => setActiveImageReady(true)}
-              data-testid="property-gallery-lightbox-image"
-              className="object-contain"
-            />
-            {activeImageReady && images.length > 1 ? (
-              <OptimizedImagePreloader
-                src={images[((activeIndex ?? 0) + 1) % images.length].src}
+            <span aria-hidden />
+            <p className="truncate text-center text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 sm:text-xs">
+              Photo gallery
+            </p>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                closeGallery();
+              }}
+              className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              aria-label="Close gallery"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
+
+          <div className="static-image-viewer-layout mx-auto grid min-h-0 w-full max-w-[1728px] grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
+            <div
+              data-static-image-viewer-frame
+              className="relative col-span-3 row-start-1 min-h-0 overflow-hidden rounded-xl bg-transparent sm:col-span-1 sm:col-start-2 sm:rounded-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <StaticImageStage
+                key={activeImage.src}
+                variant="photo"
+                src={activeImage.src}
+                alt={activeImage.alt}
                 context="property-lightbox"
+                loading="eager"
+                onLoad={() => setActiveImageReady(true)}
+                data-testid="property-gallery-lightbox-image"
+                stageClassName="h-full w-full"
               />
-            ) : null}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-6 pb-6 pt-16 sm:px-8 sm:pb-8">
-              <p className="text-base font-semibold text-white sm:text-lg">{activeImage.label}</p>
-              <p className="mt-1 text-xs text-white/55">
+              {activeImageReady && images.length > 1 ? (
+                <OptimizedImagePreloader
+                  src={images[((activeIndex ?? 0) + 1) % images.length].src}
+                  context="property-lightbox"
+                />
+              ) : null}
+            </div>
+
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                showPrevious();
+              }}
+              className="static-image-viewer-control col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+              aria-label="Previous gallery image"
+            >
+              <ChevronLeft className="h-6 w-6" aria-hidden />
+            </button>
+
+            <div
+              className="col-start-2 row-start-2 min-w-0 text-center"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p className="truncate text-sm font-semibold text-white sm:text-base">
+                {activeImage.label}
+              </p>
+              <p className="mt-0.5 text-xs text-white/55">
                 {(activeIndex ?? 0) + 1} of {images.length}
               </p>
             </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              showNext();
-            }}
-            className="absolute right-3 z-10 grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 sm:right-7"
-            aria-label="Next gallery image"
-          >
-            <ChevronRight className="h-6 w-6" aria-hidden />
-          </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                showNext();
+              }}
+              className="static-image-viewer-control col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+              aria-label="Next gallery image"
+            >
+              <ChevronRight className="h-6 w-6" aria-hidden />
+            </button>
+          </div>
         </div>
       ) : null}
     </section>

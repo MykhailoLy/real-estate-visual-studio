@@ -7,8 +7,12 @@ import {
   getFileTypeLabel,
   type FilePreviewKind,
 } from "@/lib/file-preview";
+import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
+import { NativeStaticImageStage } from "@/components/media/StaticImageStage";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 interface Props {
+  viewerVariant: StaticImageViewerVariant;
   filename: string;
   mimeType?: string | null;
   fileSizeLabel?: string | null;
@@ -26,6 +30,7 @@ type SignedUrlResponse = {
 };
 
 export default function FilePreviewCard({
+  viewerVariant,
   filename,
   mimeType = null,
   fileSizeLabel = null,
@@ -44,6 +49,7 @@ export default function FilePreviewCard({
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useViewerScrollLock(modalOpen);
 
   useEffect(() => {
     if (previewKind !== "image" || previewUrl || previewLoading) return;
@@ -197,37 +203,38 @@ export default function FilePreviewCard({
 
       {modalOpen && previewUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 px-4 py-5 sm:py-8 flex items-center justify-center"
+          className="static-image-viewer-overlay fixed inset-0 z-50 flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-black/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Preview ${filename}`}
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-xl shadow-2xl overflow-hidden"
+            data-static-image-viewer-panel={previewKind === "image" ? viewerVariant : "document"}
+            className={`static-image-viewer-panel grid h-full w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl sm:h-[min(92dvh,900px)] ${previewKind === "image" ? "bg-transparent" : "bg-white shadow-2xl"}`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-surface/70">
+            <div className={`static-image-viewer-panel-header flex items-center justify-between gap-3 border-b px-4 py-3 ${previewKind === "image" ? "border-transparent bg-transparent text-white" : "border-border bg-surface/70"}`}>
               <div className="min-w-0">
-                <p className="text-[13px] font-bold text-foreground truncate">{filename}</p>
-                <p className="text-[11px] text-muted">{typeLabel} preview</p>
+                <p className={`truncate text-[13px] font-bold ${previewKind === "image" ? "text-white" : "text-foreground"}`}>{filename}</p>
+                <p className={`text-[11px] ${previewKind === "image" ? "text-white/60" : "text-muted"}`}>{typeLabel} preview</p>
               </div>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-white transition-colors"
+                className={`rounded-lg p-2 transition-colors ${previewKind === "image" ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-muted hover:bg-white hover:text-foreground"}`}
                 aria-label="Close preview"
               >
                 <X className="w-4 h-4" aria-hidden />
               </button>
             </div>
-            <div className="bg-slate-950/95 h-[72vh] max-h-[760px] flex items-center justify-center">
+            <div className="min-h-0 overflow-hidden">
               {previewKind === "image" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <NativeStaticImageStage
+                  variant={viewerVariant}
                   src={previewUrl}
                   alt={filename}
-                  className="max-w-full max-h-full object-contain"
+                  stageClassName="h-full w-full"
                 />
               ) : (
                 <iframe

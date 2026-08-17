@@ -45,6 +45,7 @@ export default function PhotoEditingPricingPage() {
       />
       <ServicePage
       serviceSlug="item-removal-virtual-cleaning"
+      portfolioViewerVariant="photo"
       placeholderVariant="item-removal"
       eyebrow="Item Removal & Virtual Cleaning"
       title="Item Removal & Virtual Cleaning Pricing"

@@ -29,6 +29,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import ImageLightbox from "@/components/pricing/ImageLightbox";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 // ── Shared types (exported so page.tsx can build the props) ───
 
@@ -103,6 +104,7 @@ function StylePlaceholder({ variant, label }: { variant: string; label: string }
 
 interface PortfolioGridProps {
   cards: PortfolioExampleCard[];
+  viewerVariant: StaticImageViewerVariant;
   imageFit?: "contain" | "cover";
   labels?: {
     emptyExamples?: string;
@@ -115,6 +117,7 @@ interface PortfolioGridProps {
 
 export function PortfolioExamplesGrid({
   cards,
+  viewerVariant,
   imageFit = "contain",
   labels,
 }: PortfolioGridProps) {
@@ -253,6 +256,7 @@ export function PortfolioExamplesGrid({
         return imgs.length > 0 ? (
           <ImageLightbox
             key={`portfolio-${open.id}`}
+            variant={viewerVariant}
             images={imgs}
             title={open.title}
             onClose={() => setOpen(null)}
@@ -345,6 +349,7 @@ export function StyleOptionsGrid({ cards, labels }: StyleGridProps) {
       {open?.imageUrl && (
         <ImageLightbox
           key={`style-${open.sortOrder}`}
+          variant="plan"
           images={[{ src: open.imageUrl, alt: open.imageAlt }]}
           title={open.title}
           onClose={() => setOpen(null)}

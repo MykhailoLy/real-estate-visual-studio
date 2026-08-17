@@ -15,9 +15,13 @@ test("property gallery contexts match the rendered responsive geometry", () => {
 });
 
 test("lightbox delivery is constrained to the dialog width at mobile and desktop", () => {
-  const lightbox = getOptimizedImageDelivery("property-lightbox");
+  const propertyLightbox = getOptimizedImageDelivery("property-lightbox");
+  const contentLightbox = getOptimizedImageDelivery("content-lightbox");
 
-  assert.equal(lightbox.quality, 70);
-  assert.match(lightbox.sizes, /calc\(100vw - 1\.5rem\)/);
-  assert.match(lightbox.sizes, /1280px/);
+  for (const lightbox of [propertyLightbox, contentLightbox]) {
+    assert.equal(lightbox.quality, 70);
+    assert.match(lightbox.sizes, /calc\(100vw - 1\.5rem\)/);
+    assert.match(lightbox.sizes, /calc\(100vw - 10rem\)/);
+    assert.match(lightbox.sizes, /1600px/);
+  }
 });

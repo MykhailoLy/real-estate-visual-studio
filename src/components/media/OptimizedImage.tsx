@@ -4,7 +4,7 @@ import {
   type OptimizedImageContext,
 } from "./image-delivery";
 
-type OptimizedImageProps = Omit<ImageProps, "quality" | "sizes"> & {
+export type OptimizedImageProps = Omit<ImageProps, "quality" | "sizes"> & {
   context: OptimizedImageContext;
 };
 

@@ -95,6 +95,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
       />
       <ServicePage
       serviceSlug="360-virtual-staging"
+      portfolioViewerVariant="photo"
       placeholderVariant="panorama-staging"
       eyebrow="360° Virtual Staging"
       title="360° Virtual Staging Pricing"

@@ -15,6 +15,7 @@ import OrderExamplesModal from "./OrderExamplesModal";
 import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { formatMoney } from "@/lib/pricing/format";
+import { PORTFOLIO_VIEWER_VARIANTS } from "@/components/media/static-image-variant";
 
 // ============================================================
 // OrderServiceCard — one service tile in the New Order hub.
@@ -227,6 +228,7 @@ export default function OrderServiceCard({
           onClose={() => setModalOpen(false)}
           title={service.title}
           serviceSlug={service.portfolioServiceSlug}
+          viewerVariant={PORTFOLIO_VIEWER_VARIANTS[service.portfolioServiceSlug]}
           pairs={examples}
         />
       )}

@@ -52,10 +52,12 @@ import {
 } from "@/lib/deliverables-config";
 import { formatBytes, formatDateTime as formatDate } from "@/lib/display/file-format";
 import { getReviewStatusLabel } from "@/lib/display/status-labels";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 // ── Types ──────────────────────────────────────────────────────
 
 interface Props {
+  viewerVariant: StaticImageViewerVariant;
   orderId: string;
   /** 1-based image number shown to the user. */
   imageNumber: number;
@@ -195,6 +197,7 @@ function SourcePlaceholder() {
 // ── Main component ─────────────────────────────────────────────
 
 export default function AdminOrderImageCard({
+  viewerVariant,
   orderId,
   imageNumber,
   imageCount,
@@ -451,6 +454,7 @@ export default function AdminOrderImageCard({
             {originalSource ? (
               <LargePreviewFrame>
                 <FilePreviewCard
+                  viewerVariant={viewerVariant}
                   filename={originalSource.filename}
                   mimeType={originalSource.mimeType}
                   fileSizeLabel={formatBytes(originalSource.fileSize)}
@@ -476,6 +480,7 @@ export default function AdminOrderImageCard({
                   Reference file
                 </p>
                 <FilePreviewCard
+                  viewerVariant={viewerVariant}
                   filename={referenceSource.filename}
                   mimeType={referenceSource.mimeType}
                   fileSizeLabel={formatBytes(referenceSource.fileSize)}
@@ -508,6 +513,7 @@ export default function AdminOrderImageCard({
                   <li key={d.id}>
                     <LargePreviewFrame>
                       <FilePreviewCard
+                        viewerVariant={viewerVariant}
                         filename={d.filename}
                         mimeType={d.mime_type}
                         fileSizeLabel={formatBytes(d.file_size) ?? undefined}
@@ -712,6 +718,7 @@ export default function AdminOrderImageCard({
                               {referenceFiles.map((file) => (
                                 <li key={file.id}>
                                   <FilePreviewCard
+                                    viewerVariant={viewerVariant}
                                     filename={file.filename}
                                     mimeType={file.mime_type}
                                     fileSizeLabel={formatBytes(file.file_size)}

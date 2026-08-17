@@ -33,6 +33,8 @@
 // ============================================================
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
+import { cn } from "@/lib/utils";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 // Intrinsic-ratio hint for the optimizer / CLS reservation only.
 // Real-estate photography is most commonly ~3:2; `h-auto` overrides
@@ -42,6 +44,8 @@ const RATIO_HINT_WIDTH = 1600;
 const RATIO_HINT_HEIGHT = 1067;
 
 interface GalleryBeforeAfterPairProps {
+  /** Present only when this pair is rendered inside an expanded viewer. */
+  viewerVariant?: StaticImageViewerVariant;
   beforeUrl: string | null;
   afterUrl: string | null;
   beforeAlt: string;
@@ -65,6 +69,7 @@ function LabelBar({ children }: { children: React.ReactNode }) {
 }
 
 export default function GalleryBeforeAfterPair({
+  viewerVariant,
   beforeUrl,
   afterUrl,
   beforeAlt,
@@ -79,30 +84,50 @@ export default function GalleryBeforeAfterPair({
   return (
     <article className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 items-start">
       {/* Before */}
-      <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
-        <OptimizedImage
-          src={beforeUrl}
-          alt={beforeAlt}
-          context="portfolio-comparison"
-          width={RATIO_HINT_WIDTH}
-          height={RATIO_HINT_HEIGHT}
-          className="block w-full h-auto"
-          loading={loading}
-        />
+      <figure
+        data-static-image-variant={viewerVariant}
+        className={cn(
+          "overflow-hidden rounded-xl ring-1",
+          viewerVariant
+            ? "bg-slate-950 ring-black/10"
+            : "bg-white ring-stone-200",
+        )}
+      >
+        <div className={cn(viewerVariant === "plan" && "static-image-plan-pair-surface bg-white p-2 sm:p-4 lg:p-5")}>
+          <OptimizedImage
+            src={beforeUrl}
+            alt={beforeAlt}
+            context="portfolio-comparison"
+            width={RATIO_HINT_WIDTH}
+            height={RATIO_HINT_HEIGHT}
+            className="block w-full h-auto"
+            loading={loading}
+          />
+        </div>
         <LabelBar>{beforeLabel}</LabelBar>
       </figure>
 
       {/* After / result */}
-      <figure className="overflow-hidden rounded-xl ring-1 ring-stone-200 bg-white">
-        <OptimizedImage
-          src={afterUrl}
-          alt={afterAlt}
-          context="portfolio-comparison"
-          width={RATIO_HINT_WIDTH}
-          height={RATIO_HINT_HEIGHT}
-          className="block w-full h-auto"
-          loading={loading}
-        />
+      <figure
+        data-static-image-variant={viewerVariant}
+        className={cn(
+          "overflow-hidden rounded-xl ring-1",
+          viewerVariant
+            ? "bg-slate-950 ring-black/10"
+            : "bg-white ring-stone-200",
+        )}
+      >
+        <div className={cn(viewerVariant === "plan" && "static-image-plan-pair-surface bg-white p-2 sm:p-4 lg:p-5")}>
+          <OptimizedImage
+            src={afterUrl}
+            alt={afterAlt}
+            context="portfolio-comparison"
+            width={RATIO_HINT_WIDTH}
+            height={RATIO_HINT_HEIGHT}
+            className="block w-full h-auto"
+            loading={loading}
+          />
+        </div>
         <LabelBar>{afterLabel}</LabelBar>
       </figure>
     </article>

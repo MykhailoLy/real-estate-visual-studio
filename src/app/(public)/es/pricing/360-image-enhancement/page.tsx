@@ -75,6 +75,7 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
       />
       <ServicePage
       serviceSlug="360-image-enhancement"
+      portfolioViewerVariant="photo"
       placeholderVariant="panorama-enhancement"
       eyebrow="Mejora de imagen 360°"
       title="Precios de Mejora de imagen 360°"
