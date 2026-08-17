@@ -1426,6 +1426,11 @@ test("Spanish required-field guidance remains valid UTF-8 copy", () => {
 });
 
 test("persisted previews use original filenames and compact cover thumbnails", () => {
+  const persistedPreviewDialog = FILE_UPLOAD.slice(
+    FILE_UPLOAD.indexOf("{open && previewUrl"),
+    FILE_UPLOAD.indexOf("function formatFileSize"),
+  );
+
   assert.match(STAGING_ITEM_CARD, /filename: uploadedOriginalFile\.originalFilename/);
   assert.match(STAGING_ITEM_CARD, /filename: uploadedReferenceFile\.originalFilename/);
   assert.match(FILE_UPLOAD, /<FilenameText filename=\{persistedFile\.filename\}/);
@@ -1433,7 +1438,9 @@ test("persisted previews use original filenames and compact cover thumbnails", (
   assert.match(FILE_UPLOAD, /className="sr-only">\{filename\}/);
   assert.match(FILE_UPLOAD, /w-28 shrink-0 self-start sm:w-32/);
   assert.match(FILE_UPLOAD, /className="h-full w-full object-cover"/);
-  assert.match(FILE_UPLOAD, /className="max-h-\[82vh\] w-full rounded-md object-contain"/);
+  assert.match(persistedPreviewDialog, /\bobject-contain\b/);
+  assert.match(persistedPreviewDialog, /\bobject-center\b/);
+  assert.doesNotMatch(persistedPreviewDialog, /\bobject-cover\b/);
   assert.doesNotMatch(FILE_UPLOAD, /storage_path|storagePath|bucket|user_id/);
   assert.doesNotMatch(STAGING_ITEM_CARD, /storage_path|storagePath|bucket|user_id/);
 });
