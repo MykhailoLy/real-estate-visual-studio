@@ -392,6 +392,93 @@ export async function getServiceOptionImagesByKeys(
 }
 
 /**
+ * Complete published example media for one service-option key.
+ *
+ * Virtual Staging uses both single images and Before / After examples. The
+ * shape stays JSON-serialisable so a Server Component can pass it directly to
+ * the interactive order form without exposing storage paths or server access.
+ */
+export interface ServiceOptionMedia {
+  mediaType: "image" | "before-after";
+  imageUrl: string | null;
+  beforeUrl: string | null;
+  afterUrl: string | null;
+  description: string | null;
+  altText: string | null;
+}
+
+/**
+ * Batched reader for published service-option Image and Before / After rows.
+ *
+ * One query serves every requested key. If administrators have supplied both
+ * media types for a key, the first row of each type (by sort order) is retained
+ * so callers can prefer the After image for a thumbnail while still falling
+ * back to the single image. Missing or unpublished media produces no entry.
+ */
+export async function getServiceOptionMediaByKeys(
+  keys: string[],
+): Promise<Map<string, ServiceOptionMedia>> {
+  const out = new Map<string, ServiceOptionMedia>();
+  const uniqueKeys = [...new Set(keys.filter((key) => key.trim() !== ""))];
+  if (uniqueKeys.length === 0 || !isSupabaseConfigured()) return out;
+
+  let supabase;
+  try {
+    supabase = createServerClient();
+  } catch {
+    return out;
+  }
+
+  const { data, error } = await supabase
+    .from("site_media_items")
+    .select("*")
+    .eq("section", "service-options")
+    .eq("published", true)
+    .in("media_type", ["image", "before-after"])
+    .in("service_slug", uniqueKeys)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.warn("site-media: getServiceOptionMediaByKeys failed", error);
+    return out;
+  }
+
+  for (const item of (data ?? []) as SiteMediaItem[]) {
+    const key = item.service_slug;
+    if (!key) continue;
+
+    const current = out.get(key) ?? {
+      mediaType: item.media_type === "before-after" ? "before-after" : "image",
+      imageUrl: null,
+      beforeUrl: null,
+      afterUrl: null,
+      description: null,
+      altText: null,
+    } satisfies ServiceOptionMedia;
+
+    if (item.media_type === "image" && !current.imageUrl) {
+      current.imageUrl = getSiteMediaPublicUrl(item.image_path);
+    }
+    if (item.media_type === "before-after") {
+      current.beforeUrl ??= getSiteMediaPublicUrl(item.before_image_path);
+      current.afterUrl ??= getSiteMediaPublicUrl(item.after_image_path);
+    }
+
+    current.description ??= item.description?.trim() || null;
+    current.altText ??= item.alt_text?.trim() || null;
+    current.mediaType =
+      current.beforeUrl || current.afterUrl ? "before-after" : "image";
+
+    if (current.imageUrl || current.beforeUrl || current.afterUrl) {
+      out.set(key, current);
+    }
+  }
+
+  return out;
+}
+
+/**
  * Service-hero before/after slider items for a specific service page.
  *
  * Reads from site_media_items where:

@@ -1,9 +1,10 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Info, Trash2 } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
-import StyleSelector from "@/components/order/virtual-staging/StyleSelector";
+import ExampleDialog from "@/components/order/virtual-staging/ExampleDialog";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
@@ -27,6 +28,7 @@ import {
 import type {
   OrderDraftUploadedFileSummary,
 } from "@/lib/order-drafts/files";
+import type { ServiceOptionMedia } from "@/lib/site-media";
 
 export interface StagingItemData {
   clientItemId: string;
@@ -46,11 +48,13 @@ export interface StagingItemData {
   needsOriginalFileReselection: boolean;
 }
 
-export const emptyStagingItem = (): StagingItemData => ({
+export const emptyStagingItem = (
+  furnitureStyle = "",
+): StagingItemData => ({
   clientItemId: createDraftClientItemId(),
   file: null,
   roomName: "",
-  furnitureStyle: "",
+  furnitureStyle,
   ...emptyItemDeliveryFields,
   referenceLink: "",
   referenceFile: null,
@@ -78,6 +82,8 @@ export function stagingItemDomId(clientItemId: string): string {
 interface StagingItemCardProps {
   index: number;
   data: StagingItemData;
+  defaultFurnitureStyle: string;
+  exampleMediaByKey: Record<string, ServiceOptionMedia>;
   onChange: (data: StagingItemData) => void;
   onRemove: () => void;
   canRemove: boolean;
@@ -118,6 +124,8 @@ const DEFAULT_DRAFT_COPY = {
 export default function StagingItemCard({
   index,
   data,
+  defaultFurnitureStyle,
+  exampleMediaByKey,
   onChange,
   onRemove,
   canRemove,
@@ -144,9 +152,9 @@ export default function StagingItemCard({
   savedInDraftLabel,
   validationErrors = {},
 }: StagingItemCardProps) {
+  const [previewAddonId, setPreviewAddonId] = useState<string | null>(null);
   const currency = useDisplayCurrency();
   const fieldIdPrefix = `staging-${data.clientItemId}`;
-  const visualStyleLabelId = `${fieldIdPrefix}-visual-style`;
   const roomNameId = `${fieldIdPrefix}-room-name`;
   const furnitureStyleId = `${fieldIdPrefix}-furniture-style`;
   const referenceLinkId = `${fieldIdPrefix}-reference-link`;
@@ -177,6 +185,12 @@ export default function StagingItemCard({
   };
 
   const subtotal = calculateStagingItemTotal(data.selectedAddons, currency);
+  const previewAddon = STAGING_ADDONS.find(
+    (addon) => addon.id === previewAddonId,
+  );
+  const previewAddonMedia = previewAddon
+    ? exampleMediaByKey[previewAddon.mediaKey] ?? null
+    : null;
 
   return (
     <div
@@ -252,48 +266,6 @@ export default function StagingItemCard({
           validationError={validationErrors.original}
         />
 
-        {/* Furniture Style — visual picker (kept in sync with the dropdown below) */}
-        <div
-          id={styleValidationId}
-          className={
-            validationErrors["furniture-style"]
-              ? "rounded-lg ring-2 ring-red-200"
-              : undefined
-          }
-        >
-          <p
-            id={visualStyleLabelId}
-            className="block text-sm font-medium text-foreground mb-2"
-          >
-            Furniture Style <span className="text-red-500">*</span>
-          </p>
-          <p className="text-xs text-foreground/75 mb-3">
-            Tap a style card to select it. The dropdown below stays in sync.
-          </p>
-          <StyleSelector
-            value={data.furnitureStyle}
-            onChange={(label) => onChange({ ...data, furnitureStyle: label })}
-            groupName={`${fieldIdPrefix}-visual-style`}
-            ariaLabelledBy={visualStyleLabelId}
-            ariaDescribedBy={
-              validationErrors["furniture-style"]
-                ? styleErrorId
-                : undefined
-            }
-            ariaInvalid={Boolean(validationErrors["furniture-style"])}
-            disabled={disabled}
-          />
-          {validationErrors["furniture-style"] && (
-            <p
-              id={styleErrorId}
-              role="alert"
-              className="mt-1.5 text-xs text-red-600"
-            >
-              {validationErrors["furniture-style"]}
-            </p>
-          )}
-        </div>
-
         {/* Room & Style */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div id={roomValidationId}>
@@ -335,7 +307,7 @@ export default function StagingItemCard({
               </p>
             )}
           </div>
-          <div>
+          <div id={styleValidationId}>
             <label
               htmlFor={furnitureStyleId}
               className="block text-sm font-medium text-foreground mb-1.5"
@@ -371,6 +343,22 @@ export default function StagingItemCard({
                 </option>
               ))}
             </select>
+            {data.furnitureStyle ? (
+              <p className="mt-1 text-[11px] font-medium text-muted">
+                {data.furnitureStyle === defaultFurnitureStyle
+                  ? "Order default"
+                  : "Individual selection"}
+              </p>
+            ) : null}
+            {validationErrors["furniture-style"] && (
+              <p
+                id={styleErrorId}
+                role="alert"
+                className="mt-1.5 text-xs text-red-600"
+              >
+                {validationErrors["furniture-style"]}
+              </p>
+            )}
           </div>
         </div>
 
@@ -480,15 +468,17 @@ export default function StagingItemCard({
           </label>
           <div className="space-y-2">
             {STAGING_ADDONS.map((addon) => (
-              <label
+              <div
                 key={addon.id}
-                className={`flex items-center justify-between p-3 rounded-lg border border-border transition-colors ${
-                  disabled
-                    ? "cursor-not-allowed opacity-70"
-                    : "cursor-pointer hover:bg-surface"
-                }`}
+                className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border p-2.5 transition-colors hover:bg-surface"
               >
-                <div className="flex items-center gap-2.5">
+                <label
+                  className={`flex min-w-0 items-center gap-2.5 py-1 ${
+                    disabled
+                      ? "cursor-not-allowed opacity-70"
+                      : "cursor-pointer"
+                  }`}
+                >
                   <input
                     type="checkbox"
                     checked={data.selectedAddons.includes(addon.id)}
@@ -496,14 +486,26 @@ export default function StagingItemCard({
                     onChange={() => toggleAddon(addon.id)}
                     className="w-4 h-4 rounded text-primary border-border focus:ring-primary disabled:cursor-not-allowed"
                   />
-                  <span className="text-sm text-foreground">{addon.label}</span>
+                  <span className="min-w-0 text-sm leading-5 text-foreground">
+                    {addon.label}
+                  </span>
+                </label>
+                <div className="flex items-center gap-1">
+                  <span className="whitespace-nowrap text-sm font-medium text-foreground/75">
+                    +<RegionalCentsText
+                      cents={getCatalogPrice(addon.priceKey, currency)}
+                    />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewAddonId(addon.id)}
+                    aria-label={`View ${addon.label} example`}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                  >
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </div>
-                <span className="text-sm font-medium text-foreground/75">
-                  +<RegionalCentsText
-                    cents={getCatalogPrice(addon.priceKey, currency)}
-                  />
-                </span>
-              </label>
+              </div>
             ))}
           </div>
         </div>
@@ -511,6 +513,20 @@ export default function StagingItemCard({
         {/* Subtotal */}
         <ItemSubtotal totalCents={subtotal} />
       </div>
+
+      {previewAddon ? (
+        <ExampleDialog
+          open={Boolean(previewAddonId)}
+          onOpenChange={(open) => {
+            if (!open) setPreviewAddonId(null);
+          }}
+          title={previewAddon.label}
+          description={
+            previewAddonMedia?.description?.trim() || previewAddon.description
+          }
+          media={previewAddonMedia}
+        />
+      ) : null}
     </div>
   );
 }

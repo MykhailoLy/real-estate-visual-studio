@@ -52,33 +52,136 @@ export const STAGING_STYLE_OPTIONS = [
 export interface StagingStyleCard {
   label: (typeof STAGING_STYLE_OPTIONS)[number];
   imageSrc: string;
+  mediaKey: string;
+  description: string;
 }
 
 export const STAGING_STYLE_CARDS: StagingStyleCard[] = [
-  { label: "Modern", imageSrc: "/images/styles/modern.jpg" },
-  { label: "Urban / Industrial", imageSrc: "/images/styles/urban-industrial.jpg" },
-  { label: "Scandinavian", imageSrc: "/images/styles/scandinavian.jpg" },
-  { label: "Mid-Century Modern", imageSrc: "/images/styles/mid-century-modern.jpg" },
-  { label: "Farmhouse", imageSrc: "/images/styles/farmhouse.jpg" },
-  { label: "Hamptons", imageSrc: "/images/styles/hamptons.jpg" },
-  { label: "Contemporary", imageSrc: "/images/styles/contemporary.jpg" },
-  { label: "Traditional", imageSrc: "/images/styles/traditional.jpg" },
-  { label: "Commercial Office", imageSrc: "/images/styles/commercial-office.jpg" },
-  { label: "Commercial Non-Office", imageSrc: "/images/styles/commercial-non-office.jpg" },
+  {
+    label: "Modern",
+    imageSrc: "/images/styles/modern.jpg",
+    mediaKey: "virtual-staging-style-modern",
+    description: "Clean lines, simple forms and a refined neutral palette.",
+  },
+  {
+    label: "Urban / Industrial",
+    imageSrc: "/images/styles/urban-industrial.jpg",
+    mediaKey: "virtual-staging-style-urban-industrial",
+    description:
+      "Loft-inspired furniture with metal, dark wood and exposed-texture details.",
+  },
+  {
+    label: "Scandinavian",
+    imageSrc: "/images/styles/scandinavian.jpg",
+    mediaKey: "virtual-staging-style-scandinavian",
+    description:
+      "Light woods, soft neutral colours and comfortable functional minimalism.",
+  },
+  {
+    label: "Mid-Century Modern",
+    imageSrc: "/images/styles/mid-century-modern.jpg",
+    mediaKey: "virtual-staging-style-mid-century-modern",
+    description:
+      "Warm wood, clean geometric forms and recognisable mid-century silhouettes.",
+  },
+  {
+    label: "Farmhouse",
+    imageSrc: "/images/styles/farmhouse.jpg",
+    mediaKey: "virtual-staging-style-farmhouse",
+    description:
+      "Comfortable traditional furniture with warm natural materials and subtle rustic details.",
+  },
+  {
+    label: "Hamptons",
+    imageSrc: "/images/styles/hamptons.jpg",
+    mediaKey: "virtual-staging-style-hamptons",
+    description:
+      "Light coastal elegance with airy upholstery, natural textures and soft blue or neutral accents.",
+  },
+  {
+    label: "Contemporary",
+    imageSrc: "/images/styles/contemporary.jpg",
+    mediaKey: "virtual-staging-style-contemporary",
+    description:
+      "Current, refined furniture with soft shapes, layered textures and a balanced neutral palette.",
+  },
+  {
+    label: "Traditional",
+    imageSrc: "/images/styles/traditional.jpg",
+    mediaKey: "virtual-staging-style-traditional",
+    description:
+      "Classic furniture forms, symmetry, richer materials and timeless detailing.",
+  },
+  {
+    label: "Commercial Office",
+    imageSrc: "/images/styles/commercial-office.jpg",
+    mediaKey: "virtual-staging-style-commercial-office",
+    description:
+      "Professional furniture layouts for offices, meeting rooms and collaborative work areas.",
+  },
+  {
+    label: "Commercial Non-Office",
+    imageSrc: "/images/styles/commercial-non-office.jpg",
+    mediaKey: "virtual-staging-style-commercial-non-office",
+    description:
+      "Staging for retail, reception, studio and other non-office commercial interiors.",
+  },
 ];
 
 export interface AddOnOption {
   id: string;
   label: string;
   priceKey: import("@/lib/pricing/types").PriceKey;
+  mediaKey: string;
+  description: string;
 }
 
 export const STAGING_ADDONS: AddOnOption[] = [
-  { id: "image-enhancement", label: "Image Enhancement", priceKey: "image-enhancement" },
-  { id: "day-to-dusk", label: "Day to Dusk", priceKey: "day-to-dusk" },
-  { id: "item-removal", label: "Item Removal & Virtual Cleaning", priceKey: "item-removal-virtual-cleaning" },
-  { id: "turn-on-lights", label: "Turn On Lights", priceKey: "turn-on-lights" },
-  { id: "colour-change", label: "Colour Change", priceKey: "colour-change" },
+  {
+    id: "image-enhancement",
+    label: "Image Enhancement",
+    priceKey: "image-enhancement",
+    mediaKey: "virtual-staging-addon-image-enhancement",
+    description:
+      "Improves lighting, colour, contrast and overall image clarity without changing the room layout.",
+  },
+  {
+    id: "day-to-dusk",
+    label: "Day to Dusk",
+    priceKey: "day-to-dusk",
+    mediaKey: "virtual-staging-addon-day-to-dusk",
+    description:
+      "Transforms a daylight image into a natural twilight scene with a dusk sky and realistic illuminated areas.",
+  },
+  {
+    id: "item-removal",
+    label: "Item Removal & Virtual Cleaning",
+    priceKey: "item-removal-virtual-cleaning",
+    mediaKey: "virtual-staging-addon-item-removal",
+    description:
+      "Removes unwanted furniture, clutter or selected objects to prepare a clean space for presentation or staging.",
+  },
+  {
+    id: "turn-on-lights",
+    label: "Turn On Lights",
+    priceKey: "turn-on-lights",
+    mediaKey: "virtual-staging-addon-turn-on-lights",
+    description:
+      "Makes existing light fixtures appear naturally illuminated without adding new fixtures.",
+  },
+  {
+    id: "colour-change",
+    label: "Colour Change",
+    priceKey: "colour-change",
+    mediaKey: "virtual-staging-addon-colour-change",
+    description:
+      "Changes requested colours of selected walls, finishes, furniture or other visible elements.",
+  },
+];
+
+export const VIRTUAL_STAGING_MEDIA_KEYS = [
+  ...STAGING_STYLE_CARDS.map((style) => style.mediaKey),
+  ...STAGING_ADDONS.map((addon) => addon.mediaKey),
 ];
 
 // --- Virtual Renovation ---

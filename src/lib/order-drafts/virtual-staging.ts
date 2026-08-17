@@ -16,6 +16,7 @@ import type {
   PricingPreview,
   UpdateOrderDraftInput,
 } from "./types.ts";
+import { deriveVirtualStagingDefaultFurnitureStyle } from "../../components/order/virtual-staging/virtual-staging-style-state.ts";
 
 export const VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION = 1;
 export const VIRTUAL_STAGING_DRAFT_ROUTE =
@@ -95,6 +96,7 @@ export interface VirtualStagingDraftState extends JsonObject {
   schemaVersion: typeof VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION;
   jobTitle: string;
   currentStep: typeof VIRTUAL_STAGING_DRAFT_CURRENT_STEP;
+  defaultFurnitureStyle: string;
   items: VirtualStagingDraftItemEnvelope[];
   termsUi: VirtualStagingDraftTermsUi;
   metadata: VirtualStagingDraftMetadata;
@@ -134,6 +136,7 @@ export interface VirtualStagingResumedFormItem {
 
 export interface VirtualStagingFormDraftSource {
   jobTitle: string;
+  defaultFurnitureStyle?: string;
   items: VirtualStagingFormItemDraftSource[];
   orderTerms: {
     accepted: boolean;
@@ -148,6 +151,7 @@ export interface VirtualStagingResumeResult {
   state: VirtualStagingDraftState;
   form: {
     jobTitle: string;
+    defaultFurnitureStyle: string;
     items: VirtualStagingResumedFormItem[];
     orderTerms: {
       accepted: boolean;
@@ -203,6 +207,9 @@ export const VirtualStagingDraftStateSchema = z
     schemaVersion: z.literal(VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION),
     jobTitle: z.string().max(120).default(""),
     currentStep: z.literal(VIRTUAL_STAGING_DRAFT_CURRENT_STEP),
+    // `.default("")` keeps version-1 drafts written before this optional
+    // persisted field backward compatible; restore then derives from item #1.
+    defaultFurnitureStyle: z.string().max(200).default(""),
     items: z
       .array(
         z
@@ -250,6 +257,10 @@ export function mapVirtualStagingFormToDraftState(
     schemaVersion: VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION,
     jobTitle: trimString(source.jobTitle, 120),
     currentStep: VIRTUAL_STAGING_DRAFT_CURRENT_STEP,
+    defaultFurnitureStyle: deriveVirtualStagingDefaultFurnitureStyle(
+      source.defaultFurnitureStyle,
+      source.items,
+    ),
     termsUi: {
       accepted: source.orderTerms.accepted === true,
       allowPortfolio: source.orderTerms.allowPortfolio === true,
@@ -292,27 +303,32 @@ export function mapVirtualStagingDraftToFormState(
   state: unknown,
 ): VirtualStagingResumeResult["form"] {
   const parsed = VirtualStagingDraftStateSchema.parse(state);
+  const items = parsed.items.map((item) => ({
+    clientItemId: item.clientItemId,
+    file: null,
+    roomName: item.state.roomName,
+    furnitureStyle: item.state.furnitureStyle,
+    fileSizeLimit: item.state.fileSizeLimit,
+    disclaimerText: item.state.disclaimerText,
+    referenceLink: item.state.referenceLink,
+    referenceFile: null,
+    additionalInfo: item.state.additionalInfo,
+    selectedAddons: [...item.state.selectedAddons],
+    originalFilename: item.state.originalFilename,
+    referenceFilename: item.state.referenceFilename,
+    needsOriginalFileReselection: false,
+  }));
   return {
     jobTitle: parsed.jobTitle,
+    defaultFurnitureStyle: deriveVirtualStagingDefaultFurnitureStyle(
+      parsed.defaultFurnitureStyle,
+      items,
+    ),
     orderTerms: {
       accepted: parsed.termsUi.accepted,
       allowPortfolio: parsed.termsUi.allowPortfolio,
     },
-    items: parsed.items.map((item) => ({
-      clientItemId: item.clientItemId,
-      file: null,
-      roomName: item.state.roomName,
-      furnitureStyle: item.state.furnitureStyle,
-      fileSizeLimit: item.state.fileSizeLimit,
-      disclaimerText: item.state.disclaimerText,
-      referenceLink: item.state.referenceLink,
-      referenceFile: null,
-      additionalInfo: item.state.additionalInfo,
-      selectedAddons: [...item.state.selectedAddons],
-      originalFilename: item.state.originalFilename,
-      referenceFilename: item.state.referenceFilename,
-      needsOriginalFileReselection: false,
-    })),
+    items,
   };
 }
 

@@ -122,6 +122,7 @@ test("form mapping creates versioned JSON-safe Virtual Staging draft state", () 
   const state = mapVirtualStagingFormToDraftState(source());
   assert.equal(state.schemaVersion, VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION);
   assert.equal(state.currentStep, VIRTUAL_STAGING_DRAFT_CURRENT_STEP);
+  assert.equal(state.defaultFurnitureStyle, "Modern");
   assert.equal(state.jobTitle, "Sunny Condo");
   assert.equal(state.items[0]?.clientItemId, ITEM_ID);
   assert.equal(state.items[0]?.state.originalFilename, "living.jpg");
@@ -135,12 +136,46 @@ test("draft mapping restores safe fields without file re-selection", () => {
     mapVirtualStagingFormToDraftState(source()),
   );
   assert.equal(form.jobTitle, "Sunny Condo");
+  assert.equal(form.defaultFurnitureStyle, "Modern");
   assert.equal(form.orderTerms.accepted, true);
   assert.equal(form.items[0]?.file, null);
   assert.equal(form.items[0]?.referenceFile, null);
   assert.equal(form.items[0]?.originalFilename, "living.jpg");
   assert.equal(form.items[0]?.needsOriginalFileReselection, false);
   assert.equal(form.items[0]?.furnitureStyle, "Modern");
+});
+
+test("global default and individual styles survive draft serialization", () => {
+  const initial = source();
+  const state = mapVirtualStagingFormToDraftState({
+    ...initial,
+    defaultFurnitureStyle: "Modern",
+    items: [
+      { ...initial.items[0]!, furnitureStyle: "Farmhouse" },
+      {
+        ...initial.items[0]!,
+        clientItemId: "22222222-2222-4222-8222-222222222222",
+        furnitureStyle: "Modern",
+      },
+    ],
+  });
+  const restored = mapVirtualStagingDraftToFormState(state);
+
+  assert.equal(restored.defaultFurnitureStyle, "Modern");
+  assert.deepEqual(
+    restored.items.map((item) => item.furnitureStyle),
+    ["Farmhouse", "Modern"],
+  );
+});
+
+test("older drafts without a global style derive it from the first valid item", () => {
+  const current = mapVirtualStagingFormToDraftState(source());
+  const legacy = { ...current } as Record<string, unknown>;
+  delete legacy.defaultFurnitureStyle;
+  const restored = mapVirtualStagingDraftToFormState(legacy);
+
+  assert.equal(restored.defaultFurnitureStyle, "Modern");
+  assert.equal(restored.items[0]?.furnitureStyle, "Modern");
 });
 
 test("stable item IDs and original filename metadata are preserved", () => {

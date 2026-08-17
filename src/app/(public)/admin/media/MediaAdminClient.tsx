@@ -25,6 +25,11 @@ import {
   type SiteMediaType,
   type SiteMediaUploadKind,
 } from "@/lib/site-media";
+import {
+  STAGING_ADDONS,
+  STAGING_STYLE_CARDS,
+  VIRTUAL_STAGING_MEDIA_KEYS,
+} from "@/data/order-options";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 // ============================================================
@@ -580,6 +585,9 @@ function MediaEditor({
   const [mediaType, setMediaType] = useState<SiteMediaType>(
     initial ? initial.media_type : (SITE_MEDIA_SECTION_META[0].defaultMediaType)
   );
+  const [serviceSlug, setServiceSlug] = useState(
+    initial?.service_slug ?? "",
+  );
 
   // Per-slot file state. `null` means "no new file picked".
   const [files, setFiles] = useState<Record<SlotKey, File | null>>({
@@ -980,19 +988,52 @@ function MediaEditor({
           </Field>
 
           <Field label="Service slug (optional)" htmlFor="service_slug">
+            {section === "service-options" ? (
+              <select
+                aria-label="Virtual Staging media key preset"
+                value={
+                  VIRTUAL_STAGING_MEDIA_KEYS.includes(serviceSlug)
+                    ? serviceSlug
+                    : ""
+                }
+                onChange={(event) => {
+                  if (event.target.value) setServiceSlug(event.target.value);
+                }}
+                className="mb-2 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">Virtual Staging preset (optional)</option>
+                <optgroup label="Furniture styles">
+                  {STAGING_STYLE_CARDS.map((style) => (
+                    <option key={style.mediaKey} value={style.mediaKey}>
+                      {style.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Optional add-ons">
+                  {STAGING_ADDONS.map((addon) => (
+                    <option key={addon.mediaKey} value={addon.mediaKey}>
+                      {addon.label}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            ) : null}
             <input
               id="service_slug"
               name="service_slug"
               type="text"
               maxLength={100}
-              defaultValue={initial?.service_slug ?? ""}
+              value={serviceSlug}
+              onChange={(event) => setServiceSlug(event.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="e.g. virtual-staging"
             />
             <p className="mt-1 text-[11px] text-muted-light">
-              For Virtual Staging style cards use: virtual-staging. If this
-              matches a portfolio service slug, the matching pricing page will
-              revalidate on save. For synchronized 360 before/after hero use:
+              For Virtual Staging order examples, choose a preset above and
+              upload either Image or Before / after media in Service options.
+              Manual keys remain supported. If this matches a portfolio service
+              slug, the matching pricing page will revalidate on save. For
+              synchronized 360 before/after hero use:
               Section Service hero, Media type Before / after, Service slug
               360-virtual-staging or 360-image-enhancement. Upload two matching
               2:1 equirectangular panorama images.

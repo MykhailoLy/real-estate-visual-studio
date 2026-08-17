@@ -23,7 +23,14 @@ import StagingItemCard, {
   stagingItemDomId,
   type StagingRequiredField,
 } from "@/components/order/virtual-staging/StagingItemCard";
+import ApplyStyleConfirmationDialog from "@/components/order/virtual-staging/ApplyStyleConfirmationDialog";
+import StyleSelector from "@/components/order/virtual-staging/StyleSelector";
 import VirtualStagingReview from "@/components/order/virtual-staging/VirtualStagingReview";
+import {
+  applyFurnitureStyleToAll,
+  countIndividualFurnitureStyles,
+  requestGlobalFurnitureStyleChange,
+} from "@/components/order/virtual-staging/virtual-staging-style-state";
 import {
   applyVirtualStagingInitialAddOns,
   shouldAllowVirtualStagingSupportPrefillAutosave,
@@ -63,6 +70,7 @@ import {
 } from "@/lib/order-drafts/files-client";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import type { OrderDraftRow } from "@/lib/order-drafts/types";
+import type { ServiceOptionMedia } from "@/lib/site-media";
 import { UuidSchema } from "@/lib/order-drafts/schema";
 import {
   buildVirtualStagingDraftFingerprint,
@@ -142,6 +150,7 @@ import {
 interface VirtualStagingOrderFormProps {
   clientEmail: string;
   orderRoute: string;
+  exampleMediaByKey: Record<string, ServiceOptionMedia>;
 }
 
 type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
@@ -464,18 +473,25 @@ function focusRequiredField(targetId: string): void {
 export default function VirtualStagingOrderForm({
   clientEmail,
   orderRoute,
+  exampleMediaByKey,
 }: VirtualStagingOrderFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedDraftId = searchParams.get("draft");
   const supportRecommendationTitleId = useId();
+  const globalStyleLabelId = useId();
+  const globalStyleHelperId = useId();
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
   const copy = DRAFT_COPY[language];
   const [items, setItems] = useState<StagingItemData[]>([emptyStagingItem()]);
+  const [defaultFurnitureStyle, setDefaultFurnitureStyle] = useState("");
+  const [pendingGlobalStyle, setPendingGlobalStyle] = useState<string | null>(
+    null,
+  );
   const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [step, setStep] = useState<VirtualStagingFormStep>("configure");
@@ -660,12 +676,37 @@ export default function VirtualStagingOrderForm({
     commitItems((prev) => prev.map((item, i) => (i === index ? data : item)));
   };
 
+  const applyGlobalStyle = (furnitureStyle: string) => {
+    setDefaultFurnitureStyle(furnitureStyle);
+    commitItems((prev) => applyFurnitureStyleToAll(prev, furnitureStyle));
+  };
+
+  const handleGlobalStyleChange = (furnitureStyle: string) => {
+    if (isSubmitting || finalizationRetryContextRef.current) return;
+    const request = requestGlobalFurnitureStyleChange(
+      itemsRef.current,
+      defaultFurnitureStyle,
+      furnitureStyle,
+    );
+    if (request.kind === "confirm") {
+      setPendingGlobalStyle(furnitureStyle);
+      return;
+    }
+    if (request.kind === "apply") applyGlobalStyle(furnitureStyle);
+  };
+
+  const confirmGlobalStyleChange = () => {
+    if (!pendingGlobalStyle) return;
+    applyGlobalStyle(pendingGlobalStyle);
+    setPendingGlobalStyle(null);
+  };
+
   const handleAddItem = () => {
     if (isSubmitting || finalizationRetryContextRef.current) return;
     commitItems((prev) => [
       ...prev,
       applyVirtualStagingInitialAddOns(
-        emptyStagingItem(),
+        emptyStagingItem(defaultFurnitureStyle),
         supportRecommendedAddOnIdsRef.current,
       ),
     ]);
@@ -674,24 +715,26 @@ export default function VirtualStagingOrderForm({
   const draftSource = useMemo(
     () => ({
       jobTitle,
+      defaultFurnitureStyle,
       items,
       orderTerms,
       currency,
       region,
     }),
-    [currency, items, jobTitle, orderTerms, region],
+    [currency, defaultFurnitureStyle, items, jobTitle, orderTerms, region],
   );
 
   const buildDraftSourceSnapshot = useCallback(
     (snapshotItems: StagingItemData[] = itemsRef.current):
       VirtualStagingFormDraftSource => ({
         jobTitle,
+        defaultFurnitureStyle,
         items: snapshotItems,
         orderTerms,
         currency,
         region,
       }),
-    [currency, jobTitle, orderTerms, region],
+    [currency, defaultFurnitureStyle, jobTitle, orderTerms, region],
   );
 
   const setDraftFileOperation = useCallback(
@@ -779,6 +822,8 @@ export default function VirtualStagingOrderForm({
 
       commitItems(resume.form.items);
       setJobTitle(resume.form.jobTitle);
+      setDefaultFurnitureStyle(resume.form.defaultFurnitureStyle);
+      setPendingGlobalStyle(null);
       setOrderTerms(resume.form.orderTerms);
       const restoredRegion = resolveVirtualStagingDraftRegion(draft);
       const restoredCurrency = currencyForRegion(restoredRegion);
@@ -789,6 +834,7 @@ export default function VirtualStagingOrderForm({
       draftVersionRef.current = resume.version;
       savedFingerprintRef.current = buildVirtualStagingDraftFingerprint({
         jobTitle: resume.form.jobTitle,
+        defaultFurnitureStyle: resume.form.defaultFurnitureStyle,
         items: resume.form.items,
         orderTerms: resume.form.orderTerms,
         currency: restoredCurrency,
@@ -984,6 +1030,8 @@ export default function VirtualStagingOrderForm({
     draftFileOperationsRef.current = fileReset.operations;
     setDraftFilesWarning(fileReset.warning);
     setJobTitle("");
+    setDefaultFurnitureStyle("");
+    setPendingGlobalStyle(null);
     setOrderTerms(emptyOrderTerms);
     setStep("configure");
     pendingScrollRef.current = { type: "top" };
@@ -1950,6 +1998,8 @@ export default function VirtualStagingOrderForm({
     }
     commitItems(resume.form.items);
     setJobTitle(resume.form.jobTitle);
+    setDefaultFurnitureStyle(resume.form.defaultFurnitureStyle);
+    setPendingGlobalStyle(null);
     setOrderTerms(resume.form.orderTerms);
     const restoredRegion = resolveVirtualStagingDraftRegion(result.data);
     const restoredCurrency = currencyForRegion(restoredRegion);
@@ -1958,6 +2008,7 @@ export default function VirtualStagingOrderForm({
     draftVersionRef.current = resume.version;
     savedFingerprintRef.current = buildVirtualStagingDraftFingerprint({
       jobTitle: resume.form.jobTitle,
+      defaultFurnitureStyle: resume.form.defaultFurnitureStyle,
       items: resume.form.items,
       orderTerms: resume.form.orderTerms,
       currency: restoredCurrency,
@@ -2402,6 +2453,9 @@ export default function VirtualStagingOrderForm({
     !hasActiveDraftFileOperation &&
     !isSubmitting &&
     (hasFinalizationRetryContext || missingRequiredFields.length === 0);
+  const pendingOverrideCount = pendingGlobalStyle
+    ? countIndividualFurnitureStyles(items, defaultFurnitureStyle)
+    : 0;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -2769,6 +2823,32 @@ export default function VirtualStagingOrderForm({
         disabled={hasFinalizationRetryContext || isSubmitting}
       />
 
+      <section className="rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+        <h2
+          id={globalStyleLabelId}
+          className="text-sm font-semibold text-foreground"
+        >
+          Furniture Style for Entire Order{" "}
+          <span className="text-red-500">*</span>
+        </h2>
+        <p
+          id={globalStyleHelperId}
+          className="mb-4 mt-1 text-xs leading-5 text-muted"
+        >
+          Select a default style for all images. You can override it for an
+          individual image below.
+        </p>
+        <StyleSelector
+          value={defaultFurnitureStyle}
+          onChange={handleGlobalStyleChange}
+          mediaByKey={exampleMediaByKey}
+          groupName="virtual-staging-order-style"
+          ariaLabelledBy={globalStyleLabelId}
+          ariaDescribedBy={globalStyleHelperId}
+          disabled={hasFinalizationRetryContext || isSubmitting}
+        />
+      </section>
+
       <div className="space-y-5">
         {items.map((item, index) => {
           const originalSlotKey = buildVirtualStagingDraftFileSlotKey(
@@ -2803,6 +2883,8 @@ export default function VirtualStagingOrderForm({
               key={item.clientItemId}
               index={index}
               data={item}
+              defaultFurnitureStyle={defaultFurnitureStyle}
+              exampleMediaByKey={exampleMediaByKey}
               onChange={(data) => handleItemChange(index, data)}
               onRemove={() => void handleRemoveItem(index)}
               canRemove={items.length > 1}
@@ -2890,6 +2972,13 @@ export default function VirtualStagingOrderForm({
       </button>
         </>
       )}
+      <ApplyStyleConfirmationDialog
+        open={pendingGlobalStyle !== null}
+        overrideCount={pendingOverrideCount}
+        onCancel={() => setPendingGlobalStyle(null)}
+        onConfirm={confirmGlobalStyleChange}
+        disabled={isSubmitting || hasFinalizationRetryContext}
+      />
     </OrderLayout>
   );
 }
