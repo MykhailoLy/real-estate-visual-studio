@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { useState } from "react";
+import { FileImage, Pencil } from "lucide-react";
 import { RegionalCentsText } from "@/components/pricing/currency-client";
 import LocalFilePreview from "@/components/order/LocalFilePreview";
 
@@ -18,6 +19,18 @@ export interface ReviewRow {
   value: string;
 }
 
+/**
+ * A review preview can use either the browser's existing local File or the
+ * already-authorized preview URL returned for a saved draft file. The latter
+ * deliberately contains only customer-facing display data, never a storage
+ * path or upload token.
+ */
+export interface ReviewFileDisplay {
+  filename: string;
+  fileSize: number;
+  previewUrl?: string | null;
+}
+
 interface OrderReviewItemProps {
   index: number;
   file: File | null;
@@ -31,6 +44,12 @@ interface OrderReviewItemProps {
   secondaryFile?: File | null;
   /** Caption for the secondary preview, e.g. "Markup / reference". */
   secondaryLabel?: string;
+  /** Existing saved-draft display data when the original local File is absent. */
+  persistedFile?: ReviewFileDisplay | null;
+  /** Existing saved-draft display data for the optional secondary file. */
+  persistedSecondaryFile?: ReviewFileDisplay | null;
+  /** Allow long filenames to wrap instead of preserving the legacy truncation. */
+  wrapFileNames?: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -47,7 +66,17 @@ export default function OrderReviewItem({
   onEdit,
   secondaryFile = null,
   secondaryLabel = "Markup / reference",
+  persistedFile = null,
+  persistedSecondaryFile = null,
+  wrapFileNames = false,
 }: OrderReviewItemProps) {
+  const primaryFilename = file?.name ?? persistedFile?.filename ?? null;
+  const primaryFileSize = file?.size ?? persistedFile?.fileSize ?? null;
+  const secondaryFilename =
+    secondaryFile?.name ?? persistedSecondaryFile?.filename ?? null;
+  const secondaryFileSize =
+    secondaryFile?.size ?? persistedSecondaryFile?.fileSize ?? null;
+
   return (
     <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
@@ -73,42 +102,64 @@ export default function OrderReviewItem({
               alt={`Photo ${index + 1} preview`}
               className="aspect-video w-full"
             />
+          ) : persistedFile ? (
+            <PersistedReviewFilePreview
+              previewUrl={persistedFile.previewUrl ?? null}
+              alt={`Photo ${index + 1} preview`}
+            />
           ) : (
             <div className="aspect-video w-full rounded-lg border border-border bg-surface flex items-center justify-center text-[11px] font-semibold text-muted">
               No file
             </div>
           )}
-          {file && (
+          {primaryFilename && primaryFileSize !== null && (
             <div className="mt-2">
               <p
-                className="text-[12px] font-semibold text-foreground truncate"
-                title={file.name}
+                className={`text-[12px] font-semibold text-foreground ${
+                  wrapFileNames ? "break-all" : "truncate"
+                }`}
+                title={primaryFilename}
               >
-                {file.name}
+                {primaryFilename}
               </p>
-              <p className="text-[11px] text-muted">{formatFileSize(file.size)}</p>
+              <p className="text-[11px] text-muted">
+                {formatFileSize(primaryFileSize)}
+              </p>
             </div>
           )}
 
-          {secondaryFile && (
+          {(secondaryFile || persistedSecondaryFile) && (
             <div className="mt-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light mb-1">
                 {secondaryLabel}
               </p>
-              <LocalFilePreview
-                file={secondaryFile}
-                alt={`Photo ${index + 1} ${secondaryLabel}`}
-                className="aspect-video w-full"
-              />
-              <p
-                className="mt-1 text-[12px] font-semibold text-foreground truncate"
-                title={secondaryFile.name}
-              >
-                {secondaryFile.name}
-              </p>
-              <p className="text-[11px] text-muted">
-                {formatFileSize(secondaryFile.size)}
-              </p>
+              {secondaryFile ? (
+                <LocalFilePreview
+                  file={secondaryFile}
+                  alt={`Photo ${index + 1} ${secondaryLabel}`}
+                  className="aspect-video w-full"
+                />
+              ) : persistedSecondaryFile ? (
+                <PersistedReviewFilePreview
+                  previewUrl={persistedSecondaryFile.previewUrl ?? null}
+                  alt={`Photo ${index + 1} ${secondaryLabel}`}
+                />
+              ) : null}
+              {secondaryFilename && secondaryFileSize !== null && (
+                <>
+                  <p
+                    className={`mt-1 text-[12px] font-semibold text-foreground ${
+                      wrapFileNames ? "break-all" : "truncate"
+                    }`}
+                    title={secondaryFilename}
+                  >
+                    {secondaryFilename}
+                  </p>
+                  <p className="text-[11px] text-muted">
+                    {formatFileSize(secondaryFileSize)}
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -134,6 +185,45 @@ export default function OrderReviewItem({
             </span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PersistedReviewFilePreview({
+  previewUrl,
+  alt,
+}: {
+  previewUrl: string | null;
+  alt: string;
+}) {
+  const [broken, setBroken] = useState(false);
+  const frameClass =
+    "aspect-video w-full rounded-lg border border-border bg-surface flex items-center justify-center overflow-hidden";
+
+  if (previewUrl && !broken) {
+    return (
+      <div className={frameClass}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- signed draft preview URLs are runtime values. */}
+        <img
+          src={previewUrl}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+          className="h-full w-full object-contain"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={frameClass}>
+      <div className="flex flex-col items-center justify-center gap-1.5 px-2 text-center text-muted">
+        <FileImage className="h-7 w-7 text-primary" aria-hidden />
+        <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
+          No preview
+        </span>
       </div>
     </div>
   );

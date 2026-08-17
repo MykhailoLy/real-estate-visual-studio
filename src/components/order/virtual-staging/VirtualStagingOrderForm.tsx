@@ -5,7 +5,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, RotateCcw } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
-import OrderTermsBlock, {
+import OrderStepIndicator, {
+  type OrderStep,
+} from "@/components/order/OrderStepIndicator";
+import {
   type OrderTermsData,
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
@@ -17,8 +20,10 @@ import StagingItemCard, {
   type StagingItemData,
   emptyStagingItem,
   getStagingRequiredFieldId,
+  stagingItemDomId,
   type StagingRequiredField,
 } from "@/components/order/virtual-staging/StagingItemCard";
+import VirtualStagingReview from "@/components/order/virtual-staging/VirtualStagingReview";
 import {
   applyVirtualStagingInitialAddOns,
   shouldAllowVirtualStagingSupportPrefillAutosave,
@@ -31,6 +36,10 @@ import {
 } from "@/components/pricing/currency-client";
 import { submitOrder, type OrderSubmitResult } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
+import {
+  scrollDashboardToTop,
+  scrollElementIntoViewWithinDashboard,
+} from "@/lib/dashboard-scroll";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { currencyForRegion } from "@/lib/currency";
 import {
@@ -215,6 +224,13 @@ type FinalizationRecoveryState =
       draftId: string;
       expectedVersion: number;
     };
+
+type VirtualStagingFormStep = "configure" | "review";
+
+const STEPS: OrderStep[] = [
+  { id: "configure", label: "Configure Order" },
+  { id: "review", label: "Review & Submit" },
+];
 
 const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   en: {
@@ -462,6 +478,7 @@ export default function VirtualStagingOrderForm({
   const [items, setItems] = useState<StagingItemData[]>([emptyStagingItem()]);
   const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
+  const [step, setStep] = useState<VirtualStagingFormStep>("configure");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -523,6 +540,12 @@ export default function VirtualStagingOrderForm({
   const draftFileAbortControllersRef = useRef<Map<string, AbortController>>(
     new Map(),
   );
+  const pendingScrollRef = useRef<
+    | { type: "top" }
+    | { type: "item"; clientItemId: string }
+    | null
+  >(null);
+  const submissionInFlightRef = useRef(false);
 
   useEffect(() => {
     window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
@@ -545,6 +568,22 @@ export default function VirtualStagingOrderForm({
       abortControllers.clear();
     };
   }, []);
+
+  useEffect(() => {
+    const pending = pendingScrollRef.current;
+    if (!pending) return;
+    pendingScrollRef.current = null;
+    const raf = requestAnimationFrame(() => {
+      if (pending.type === "item") {
+        scrollElementIntoViewWithinDashboard(
+          stagingItemDomId(pending.clientItemId),
+        );
+      } else {
+        scrollDashboardToTop();
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [step]);
 
   useEffect(() => {
     draftIdRef.current = draftId;
@@ -863,29 +902,48 @@ export default function VirtualStagingOrderForm({
     [draftFileOperations],
   );
 
+  const requiredFieldInput = useMemo(
+    () => ({
+      jobTitleValid: isJobTitleValid(jobTitle),
+      items: items.map((item) => ({
+        clientItemId: item.clientItemId,
+        hasOriginal:
+          item.file !== null ||
+          uploadedFilesBySlot.has(
+            buildVirtualStagingDraftFileSlotKey(item.clientItemId, "original"),
+          ),
+        roomName: item.roomName,
+        furnitureStyle: item.furnitureStyle,
+      })),
+    }),
+    [items, jobTitle, uploadedFilesBySlot],
+  );
+
+  // Terms belong to the final review step. Configuration validation uses the
+  // same field rules but deliberately treats terms as accepted so the client
+  // can advance without being asked to confirm too early.
+  const configurationMissingRequiredFields = useMemo(
+    () =>
+      buildRequiredFieldIssues(
+        findMissingVirtualStagingRequiredFields({
+          ...requiredFieldInput,
+          termsAccepted: true,
+        }),
+        copy,
+      ),
+    [copy, requiredFieldInput],
+  );
+
   const missingRequiredFields = useMemo(
     () =>
       buildRequiredFieldIssues(
         findMissingVirtualStagingRequiredFields({
-          jobTitleValid: isJobTitleValid(jobTitle),
+          ...requiredFieldInput,
           termsAccepted: orderTerms.accepted,
-          items: items.map((item) => ({
-            clientItemId: item.clientItemId,
-            hasOriginal:
-              item.file !== null ||
-              uploadedFilesBySlot.has(
-                buildVirtualStagingDraftFileSlotKey(
-                  item.clientItemId,
-                  "original",
-                ),
-              ),
-            roomName: item.roomName,
-            furnitureStyle: item.furnitureStyle,
-          })),
         }),
         copy,
       ),
-    [copy, items, jobTitle, orderTerms.accepted, uploadedFilesBySlot],
+    [copy, orderTerms.accepted, requiredFieldInput],
   );
 
   const replaceDraftUrl = useCallback(
@@ -927,11 +985,14 @@ export default function VirtualStagingOrderForm({
     setDraftFilesWarning(fileReset.warning);
     setJobTitle("");
     setOrderTerms(emptyOrderTerms);
+    setStep("configure");
+    pendingScrollRef.current = { type: "top" };
     setSubmitted(false);
     setOrderNumber("");
     setConfirmationEmailSent(false);
     setSubmitError("");
     setValidationAttempted(false);
+    submissionInFlightRef.current = false;
     setFinalizationKey(null);
     finalizationKeyRef.current = null;
     clearFinalizationRetryContext();
@@ -2076,6 +2137,7 @@ export default function VirtualStagingOrderForm({
     }
 
     if (result.ok) {
+      submissionInFlightRef.current = false;
       setOrderNumber(result.data.orderNumber);
       setConfirmationEmailSent(result.data.confirmationEmailSent === true);
       setSubmitted(true);
@@ -2114,6 +2176,7 @@ export default function VirtualStagingOrderForm({
         orderRoute,
       )
     ) {
+      submissionInFlightRef.current = false;
       return true;
     }
     if (
@@ -2127,21 +2190,66 @@ export default function VirtualStagingOrderForm({
         orderRoute,
       )
     ) {
+      submissionInFlightRef.current = false;
       return true;
     }
 
+    submissionInFlightRef.current = false;
     setIsSubmitting(false);
     setSubmitError(result.message || "Submission failed. Please try again.");
     return true;
   };
 
+  const goToReview = () => {
+    if (
+      isSubmitting ||
+      hasActiveDraftFileOperation ||
+      finalizationRetryContextRef.current
+    ) {
+      return;
+    }
+
+    setSubmitError("");
+    if (configurationMissingRequiredFields.length > 0) {
+      setValidationAttempted(true);
+      focusRequiredField(configurationMissingRequiredFields[0].targetId);
+      return;
+    }
+
+    setValidationAttempted(false);
+    pendingScrollRef.current = { type: "top" };
+    setStep("review");
+  };
+
+  const goToConfigureTop = () => {
+    if (isSubmitting || finalizationRetryContextRef.current) return;
+    pendingScrollRef.current = { type: "top" };
+    setStep("configure");
+  };
+
+  const handleEditItem = (index: number) => {
+    if (isSubmitting || finalizationRetryContextRef.current) return;
+    const item = itemsRef.current[index];
+    if (!item) return;
+    pendingScrollRef.current = { type: "item", clientItemId: item.clientItemId };
+    setStep("configure");
+  };
+
   const handleSubmit = async () => {
-    if (isSubmitting || hasActiveDraftFileOperation) return;
+    if (
+      step !== "review" ||
+      submissionInFlightRef.current ||
+      isSubmitting ||
+      hasActiveDraftFileOperation
+    ) {
+      return;
+    }
     const sessionAtStart = draftSessionRef.current;
     setSubmitError("");
 
     const retryContext = finalizationRetryContextRef.current;
     if (retryContext) {
+      submissionInFlightRef.current = true;
       setIsSubmitting(true);
       finalizationKeyRef.current = retryContext.finalizationKey;
       setFinalizationKey(retryContext.finalizationKey);
@@ -2161,6 +2269,7 @@ export default function VirtualStagingOrderForm({
     }
 
     setValidationAttempted(false);
+    submissionInFlightRef.current = true;
     setIsSubmitting(true);
     const saveOutcome = await enqueueDraftSave(buildDraftSourceSnapshot(), {
       force: true,
@@ -2175,6 +2284,7 @@ export default function VirtualStagingOrderForm({
       return;
     }
     if (!saveOutcome.ok) {
+      submissionInFlightRef.current = false;
       setIsSubmitting(false);
       setSubmitError("Please save the draft before submitting.");
       return;
@@ -2211,12 +2321,14 @@ export default function VirtualStagingOrderForm({
     );
 
     if (decision.mode === "not_ready") {
+      submissionInFlightRef.current = false;
       setIsSubmitting(false);
       setSubmitError("Please add an original image for every item.");
       return;
     }
 
     if (decision.mode === "local_upload_fallback_unavailable") {
+      submissionInFlightRef.current = false;
       setIsSubmitting(false);
       setSubmitError(
         "A current file change is not saved to the draft, but another item only has a saved draft image. Retry the failed draft upload or reselect the required originals before submitting.",
@@ -2246,10 +2358,15 @@ export default function VirtualStagingOrderForm({
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
+        submissionInFlightRef.current = false;
         setIsSubmitting(false);
         return;
       }
-      if (redirectOnOrderAuthError(result, orderRoute)) return;
+      if (redirectOnOrderAuthError(result, orderRoute)) {
+        submissionInFlightRef.current = false;
+        return;
+      }
+      submissionInFlightRef.current = false;
       setIsSubmitting(false);
       setSubmitError(result.error || "Submission failed. Please try again.");
       return;
@@ -2275,7 +2392,16 @@ export default function VirtualStagingOrderForm({
   const handleNewOrder = startNewVirtualStagingOrder;
 
   const hasFinalizationRetryContext = finalizationRetryContext !== null;
-  const canSubmit = !hasActiveDraftFileOperation && !isSubmitting;
+  const isReview = step === "review";
+  const canReview =
+    !hasActiveDraftFileOperation &&
+    !isSubmitting &&
+    !hasFinalizationRetryContext;
+  const canSubmit =
+    isReview &&
+    !hasActiveDraftFileOperation &&
+    !isSubmitting &&
+    (hasFinalizationRetryContext || missingRequiredFields.length === 0);
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((item, i) => ({
@@ -2432,61 +2558,105 @@ export default function VirtualStagingOrderForm({
           per image + optional add-ons.
         </>
       }
+      header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={
-        <OrderSummary
-          serviceName="Virtual Staging"
-          items={summaryItems}
-          pricingInput={{
-            serviceType: "virtual-staging",
-            items: items.map((item) => ({
-              selectedAddons: item.selectedAddons,
-            })),
-          }}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          canSubmit={canSubmit}
-          submitLabel={
-            hasFinalizationRetryContext
-              ? copy.retryOrderFinalization
-              : undefined
-          }
-          submittingLabel={
-            hasFinalizationRetryContext
-              ? copy.retryOrderFinalization
-              : copy.creatingOrder
-          }
-          submitHelper={
-            hasActiveDraftFileOperation ? (
-              <p role="status">{copy.waitForImages}</p>
-            ) : validationAttempted && missingRequiredFields.length > 0 ? (
-              <div aria-live="polite">
-                <p className="font-medium text-foreground">
-                  {copy.incompleteFields(missingRequiredFields.length)}
-                </p>
-                <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5">
-                  {missingRequiredFields.map((field, index) => (
-                    <span key={`${field.kind}-${field.clientItemId ?? "order"}`}>
-                      {index > 0 && (
-                        <span className="mr-1" aria-hidden>
-                          {"\u00b7"}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => focusRequiredField(field.targetId)}
-                        className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 hover:text-primary-light"
-                      >
-                        {field.summaryLabel}
-                      </button>
-                    </span>
-                  ))}
+        isReview ? (
+          <OrderSummary
+            serviceName="Virtual Staging"
+            items={summaryItems}
+            pricingInput={{
+              serviceType: "virtual-staging",
+              items: items.map((item) => ({
+                selectedAddons: item.selectedAddons,
+              })),
+            }}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+            canSubmit={canSubmit}
+            submitLabel={
+              hasFinalizationRetryContext
+                ? copy.retryOrderFinalization
+                : undefined
+            }
+            submittingLabel={
+              hasFinalizationRetryContext
+                ? copy.retryOrderFinalization
+                : copy.creatingOrder
+            }
+            submitHelper={
+              hasActiveDraftFileOperation ? (
+                <p role="status">{copy.waitForImages}</p>
+              ) : missingRequiredFields.length > 0 ? (
+                <p role="status">{copy.termsRequired}</p>
+              ) : null
+            }
+          />
+        ) : (
+          <OrderSummary
+            serviceName="Virtual Staging"
+            items={summaryItems}
+            pricingInput={{
+              serviceType: "virtual-staging",
+              items: items.map((item) => ({
+                selectedAddons: item.selectedAddons,
+              })),
+            }}
+            onSubmit={goToReview}
+            isSubmitting={false}
+            canSubmit={canReview}
+            submitLabel="Review Order"
+            footerNote="No payment now. You'll confirm your order on the next step."
+            submitHelper={
+              hasActiveDraftFileOperation ? (
+                <p role="status">{copy.waitForImages}</p>
+              ) : validationAttempted &&
+                configurationMissingRequiredFields.length > 0 ? (
+                <div aria-live="polite">
+                  <p className="font-medium text-foreground">
+                    {copy.incompleteFields(
+                      configurationMissingRequiredFields.length,
+                    )}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5">
+                    {configurationMissingRequiredFields.map((field, index) => (
+                      <span key={`${field.kind}-${field.clientItemId ?? "order"}`}>
+                        {index > 0 && (
+                          <span className="mr-1" aria-hidden>
+                            {"\u00b7"}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => focusRequiredField(field.targetId)}
+                          className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 hover:text-primary-light"
+                        >
+                          {field.summaryLabel}
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null
-          }
-        />
+              ) : null
+            }
+          />
+        )
       }
     >
+      {isReview ? (
+        <VirtualStagingReview
+          jobTitle={jobTitle}
+          items={items}
+          uploadedFilesBySlot={uploadedFilesBySlot}
+          orderTerms={orderTerms}
+          onTermsChange={setOrderTerms}
+          onEditItem={handleEditItem}
+          onBack={goToConfigureTop}
+          submitError={submitError}
+          termsContainerId={TERMS_REQUIRED_FIELD_ID}
+          disabled={hasFinalizationRetryContext || isSubmitting}
+        />
+      ) : (
+        <>
       {saveStatus === "saving" && (
         <p role="status" className="text-xs font-medium text-muted">
           {copy.saving}
@@ -2617,7 +2787,7 @@ export default function VirtualStagingOrderForm({
             Record<StagingRequiredField, string>
           > = {};
           if (validationAttempted) {
-            for (const field of missingRequiredFields) {
+            for (const field of configurationMissingRequiredFields) {
               if (
                 field.clientItemId === item.clientItemId &&
                 field.kind !== "job-title" &&
@@ -2718,15 +2888,8 @@ export default function VirtualStagingOrderForm({
         <Plus className="w-4 h-4" />
         Add Another Image
       </button>
-
-      <OrderTermsBlock
-        data={orderTerms}
-        onChange={setOrderTerms}
-        showError={validationAttempted}
-        containerId={TERMS_REQUIRED_FIELD_ID}
-        errorMessage={copy.termsRequired}
-        disabled={hasFinalizationRetryContext || isSubmitting}
-      />
+        </>
+      )}
     </OrderLayout>
   );
 }
