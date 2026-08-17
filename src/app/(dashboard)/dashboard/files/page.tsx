@@ -23,6 +23,7 @@ import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatBytes, formatDate, itemLabel } from "@/lib/display/file-format";
 import { getOrderStatusLabel } from "@/lib/display/status-labels";
 import { cn } from "@/lib/utils";
+import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
 
 export const metadata = {
   title: "Files | PicchuSpot Client Portal",
@@ -111,6 +112,7 @@ function DeliveredFileCard({ file }: { file: ClientDeliveredFileHubItem }) {
   return (
     <li className="bg-white border border-border rounded-xl p-4 shadow-sm">
       <FilePreviewCard
+        viewerVariant={getStaticImageViewerVariantForService(file.order.service_type)}
         filename={file.filename}
         mimeType={file.mime_type}
         fileSizeLabel={formatBytes(file.file_size)}
@@ -138,6 +140,7 @@ function UploadedFileCard({ file }: { file: ClientUploadedFileHubItem }) {
   return (
     <li className="bg-white border border-border rounded-xl p-4 shadow-sm">
       <FilePreviewCard
+        viewerVariant={getStaticImageViewerVariantForService(file.order.service_type)}
         filename={file.filename}
         mimeType={file.mime_type}
         fileSizeLabel={formatBytes(file.file_size)}

@@ -374,14 +374,14 @@ export default function PropertyGallery({
       {activeImage ? (
         <div
           ref={dialogRef}
-          className="fixed inset-0 z-[100] grid h-[100dvh] w-screen grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden bg-[#06101f]/96 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:gap-4 sm:p-6"
+          className="static-image-viewer-overlay static-image-viewer-root fixed inset-0 z-[100] grid h-[100dvh] w-screen grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden bg-[#06101f]/96 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:gap-4 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Property gallery: ${activeImage.label}`}
           onClick={closeGallery}
         >
           <div
-            className="mx-auto grid w-full max-w-[1600px] grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2"
+            className="static-image-viewer-header mx-auto grid w-full max-w-[1600px] grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2"
             onClick={(event) => event.stopPropagation()}
           >
             <span aria-hidden />
@@ -402,20 +402,21 @@ export default function PropertyGallery({
             </button>
           </div>
 
-          <div className="mx-auto grid min-h-0 w-full max-w-[1728px] grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
+          <div className="static-image-viewer-layout mx-auto grid min-h-0 w-full max-w-[1728px] grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
             <div
               className="relative col-span-3 row-start-1 min-h-0 overflow-hidden rounded-xl bg-black/20 sm:col-span-1 sm:col-start-2 sm:rounded-2xl"
               onClick={(event) => event.stopPropagation()}
             >
               <StaticImageStage
                 key={activeImage.src}
+                variant="photo"
                 src={activeImage.src}
                 alt={activeImage.alt}
                 context="property-lightbox"
                 loading="eager"
                 onLoad={() => setActiveImageReady(true)}
                 data-testid="property-gallery-lightbox-image"
-                stageClassName="h-full w-full bg-black/20"
+                stageClassName="h-full w-full"
               />
               {activeImageReady && images.length > 1 ? (
                 <OptimizedImagePreloader
@@ -431,7 +432,7 @@ export default function PropertyGallery({
                 event.stopPropagation();
                 showPrevious();
               }}
-              className="col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+              className="static-image-viewer-control col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
               aria-label="Previous gallery image"
             >
               <ChevronLeft className="h-6 w-6" aria-hidden />
@@ -455,7 +456,7 @@ export default function PropertyGallery({
                 event.stopPropagation();
                 showNext();
               }}
-              className="col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+              className="static-image-viewer-control col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
               aria-label="Next gallery image"
             >
               <ChevronRight className="h-6 w-6" aria-hidden />

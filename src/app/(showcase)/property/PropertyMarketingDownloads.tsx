@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
+import { NativeStaticImageStage } from "@/components/media/StaticImageStage";
 import type { PropertyMarketingMaterialLinks } from "@/features/property-showcase/marketing-materials";
 import type { PropertyLanguageCode } from "@/features/property-showcase/types";
 
@@ -209,13 +210,14 @@ export default function PropertyMarketingDownloads({
                     <span className="text-sm font-bold">PDF brochure ready to download</span>
                   </div>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <NativeStaticImageStage
+                    variant="plan"
                     src={links.preview}
                     alt={copy.preview}
                     onLoad={() => setPreviewState("ready")}
                     onError={() => setPreviewState("error")}
-                    className={`h-full w-full object-contain transition-opacity ${previewState === "ready" ? "opacity-100" : "opacity-0"}`}
+                    stageClassName="absolute inset-0"
+                    imageClassName={`transition-opacity ${previewState === "ready" ? "opacity-100" : "opacity-0"}`}
                   />
                 )}
                 {links.previewKind !== "document" && previewState !== "ready" ? (

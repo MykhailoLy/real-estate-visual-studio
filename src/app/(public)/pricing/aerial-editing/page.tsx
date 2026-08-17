@@ -40,6 +40,7 @@ export default function AerialEditingPricingPage() {
       />
       <ServicePage
       serviceSlug="aerial-editing"
+      portfolioViewerVariant="photo"
       placeholderVariant="aerial-editing"
       eyebrow="Aerial Editing"
       title="Aerial Editing Pricing"

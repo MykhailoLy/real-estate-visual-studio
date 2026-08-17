@@ -116,6 +116,7 @@ export default function ItemRemovalItemCard({
       <div className="space-y-5">
         {/* 1. Required original photo */}
         <FileUpload
+          viewerVariant="photo"
           label="Upload Original Photo"
           file={data.file}
           onFileChange={(file) => onChange({ ...data, file })}
@@ -165,6 +166,7 @@ export default function ItemRemovalItemCard({
 
         {/* 4. Optional markup / reference image (reuses referenceFile pipeline) */}
         <FileUpload
+          viewerVariant="photo"
           label="Upload Markup or Reference Image — Optional"
           file={data.referenceFile}
           onFileChange={(referenceFile) => onChange({ ...data, referenceFile })}

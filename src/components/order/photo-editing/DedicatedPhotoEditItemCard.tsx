@@ -75,6 +75,7 @@ export default function DedicatedPhotoEditItemCard({
 
       <div className="space-y-4">
         <FileUpload
+          viewerVariant="photo"
           label={config.uploadLabel}
           file={data.file}
           onFileChange={(file) => onChange({ ...data, file })}

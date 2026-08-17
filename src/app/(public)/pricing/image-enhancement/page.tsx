@@ -45,6 +45,7 @@ export default function ImageEnhancementPricingPage() {
       />
       <ServicePage
       serviceSlug="image-enhancement"
+      portfolioViewerVariant="photo"
       placeholderVariant="image-enhancement"
       eyebrow="Image Enhancement"
       title="Image Enhancement Pricing"

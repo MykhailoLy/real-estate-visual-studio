@@ -122,6 +122,7 @@ export default function FloorPlanItemCard({
       <div className="space-y-5">
         {/* File Upload */}
         <FileUpload
+          viewerVariant="plan"
           label="Upload Files"
           file={data.file}
           onFileChange={(file) => onChange({ ...data, file })}
@@ -393,6 +394,7 @@ export default function FloorPlanItemCard({
         </div>
 
         <FileUpload
+          viewerVariant="plan"
           label="Reference Image / Sample (optional)"
           file={data.referenceFile}
           onFileChange={(file) => onChange({ ...data, referenceFile: file })}

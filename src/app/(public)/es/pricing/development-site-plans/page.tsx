@@ -37,6 +37,7 @@ export default function SpanishDevelopmentSitePlansPricingPage() {
       />
       <ServicePage
       serviceSlug="development-site-plans"
+      portfolioViewerVariant="plan"
       placeholderVariant="site-plans"
       eyebrow="Planos de emplazamiento para promociones"
       title="Precios de Planos de emplazamiento para promociones"

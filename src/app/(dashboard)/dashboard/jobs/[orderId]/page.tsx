@@ -46,6 +46,7 @@ import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatBytes, itemLabel } from "@/lib/display/file-format";
 import { formatStoredMoney } from "@/lib/pricing/format";
 import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
+import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
 
 export async function generateMetadata({
   params,
@@ -193,6 +194,7 @@ export default async function OrderDetailPage({
   const orderLevelDeliverables = getOrderLevelDeliverables(currentDeliverables);
 
   const serviceLabel = getOrderServiceLabel(order.service_type, order.sub_service);
+  const viewerVariant = getStaticImageViewerVariantForService(order.service_type);
   const jobTitle = order.job_title?.trim() || "";
   const dashStatus = deriveDashboardStatusFromReviews(order.status, orderReviews);
   const progress = getProgressFromStatus(order.status);
@@ -373,6 +375,7 @@ export default async function OrderDetailPage({
 
               return (
                 <ClientOrderImageCard
+                  viewerVariant={viewerVariant}
                   key={item.id}
                   orderId={order.id}
                   imageNumber={item.item_index + 1}
@@ -420,6 +423,7 @@ export default async function OrderDetailPage({
               {orderLevelDeliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
                 <li key={deliverable.id} className="px-5 py-3.5">
                   <FilePreviewCard
+                    viewerVariant={viewerVariant}
                     filename={deliverable.filename}
                     mimeType={deliverable.mime_type}
                     fileSizeLabel={formatBytes(deliverable.file_size)}

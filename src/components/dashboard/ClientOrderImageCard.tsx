@@ -16,6 +16,7 @@ import OrderItemDetails from "@/components/order/OrderItemDetails";
 import type { CurrentDeliverableRow } from "@/lib/client-deliverable-display";
 import type { ClientSourceFile } from "@/lib/client-source-files";
 import { formatBytes } from "@/lib/display/file-format";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 export type ClientImageWorkflowStatus =
   | "awaiting_delivery"
@@ -27,6 +28,7 @@ export type ClientImageWorkflowStatus =
   | "resolved";
 
 interface Props {
+  viewerVariant: StaticImageViewerVariant;
   orderId: string;
   imageNumber: number;
   imageCount: number;
@@ -86,6 +88,7 @@ const COMMENT_STATUSES = new Set<ClientImageWorkflowStatus>([
 ]);
 
 export default function ClientOrderImageCard({
+  viewerVariant,
   orderId,
   imageNumber,
   imageCount,
@@ -127,6 +130,7 @@ export default function ClientOrderImageCard({
             {originalSource ? (
               <LargePreviewFrame>
                 <FilePreviewCard
+                  viewerVariant={viewerVariant}
                   filename={originalSource.filename}
                   mimeType={originalSource.mimeType}
                   fileSizeLabel={formatBytes(originalSource.fileSize)}
@@ -145,6 +149,7 @@ export default function ClientOrderImageCard({
                   Reference file
                 </p>
                 <FilePreviewCard
+                  viewerVariant={viewerVariant}
                   filename={referenceSource.filename}
                   mimeType={referenceSource.mimeType}
                   fileSizeLabel={formatBytes(referenceSource.fileSize)}
@@ -163,6 +168,7 @@ export default function ClientOrderImageCard({
                   <li key={deliverable.id}>
                     <LargePreviewFrame>
                       <FilePreviewCard
+                        viewerVariant={viewerVariant}
                         filename={deliverable.filename}
                         mimeType={deliverable.mime_type}
                         fileSizeLabel={formatBytes(deliverable.file_size)}

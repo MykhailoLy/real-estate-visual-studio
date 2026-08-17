@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import StaticImageStage from "@/components/media/StaticImageStage";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 
 export interface LightboxImage {
@@ -12,6 +13,7 @@ export interface LightboxImage {
 
 interface ImageLightboxProps {
   images: LightboxImage[];
+  variant: StaticImageViewerVariant;
   initialIndex?: number;
   onClose: () => void;
   /** Optional title shown above the image (e.g. style name). */
@@ -35,6 +37,7 @@ interface ImageLightboxProps {
  */
 export default function ImageLightbox({
   images,
+  variant,
   initialIndex = 0,
   onClose,
   title,
@@ -124,12 +127,12 @@ export default function ImageLightbox({
       aria-label={title ? `${title} — image gallery` : "Image gallery"}
       ref={dialogRef}
       tabIndex={-1}
-      className="fixed inset-0 z-[100] h-[100dvh] w-screen overflow-hidden bg-black/85 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm focus:outline-none sm:p-6"
+      className="static-image-viewer-overlay fixed inset-0 z-[100] h-[100dvh] w-screen overflow-hidden bg-black/85 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm focus:outline-none sm:p-6"
       onClick={onClose}
     >
-      <div className="mx-auto grid h-full w-full max-w-[1728px] grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
+      <div className="static-image-viewer-root mx-auto grid h-full w-full max-w-[1728px] grid-rows-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
         <div
-          className="mx-auto grid w-full max-w-[1600px] grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2"
+          className="static-image-viewer-header mx-auto grid w-full max-w-[1600px] grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2"
           onClick={(event) => event.stopPropagation()}
         >
           <span aria-hidden />
@@ -154,20 +157,21 @@ export default function ImageLightbox({
           </button>
         </div>
 
-        <div className="mx-auto grid min-h-0 w-full grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
+        <div className="static-image-viewer-layout mx-auto grid min-h-0 w-full grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
           <div
-            className="relative col-span-3 row-start-1 min-h-0 overflow-hidden rounded-xl shadow-2xl sm:col-span-1 sm:col-start-2 sm:rounded-2xl"
+            className="relative col-span-3 row-start-1 min-h-0 overflow-hidden rounded-xl sm:col-span-1 sm:col-start-2 sm:rounded-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <StaticImageStage
               key={current.src}
+              variant={variant}
               src={current.src}
               alt={current.alt}
               context="content-lightbox"
               loading="eager"
               onError={markCurrentFailed}
               showImage={!imgFailed}
-              stageClassName="h-full w-full bg-white"
+              stageClassName="h-full w-full"
             >
               {imgFailed ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-700 via-stone-600 to-stone-800">
@@ -187,7 +191,7 @@ export default function ImageLightbox({
                 goPrev();
               }}
               aria-label="Previous image"
-              className="col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+              className="static-image-viewer-control col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
             >
               <ChevronLeft className="h-6 w-6" aria-hidden />
             </button>
@@ -227,7 +231,7 @@ export default function ImageLightbox({
                 goNext();
               }}
               aria-label="Next image"
-              className="col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
+              className="static-image-viewer-control col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
             >
               <ChevronRight className="h-6 w-6" aria-hidden />
             </button>

@@ -37,6 +37,7 @@ export default function SpanishAerialEditingPricingPage() {
       />
       <ServicePage
       serviceSlug="aerial-editing"
+      portfolioViewerVariant="photo"
       placeholderVariant="aerial-editing"
       eyebrow="Edición aérea"
       title="Precios de Edición aérea"

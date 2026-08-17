@@ -42,6 +42,7 @@ export default function SpanishDayToDuskPricingPage() {
       />
       <ServicePage
       serviceSlug="day-to-dusk"
+      portfolioViewerVariant="photo"
       placeholderVariant="day-to-dusk"
       eyebrow="Day to Dusk"
       title="Precios de Day to Dusk"

@@ -8,6 +8,7 @@ import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 import { getGalleryPairLabels } from "@/lib/gallery";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
 import type { OrderExamplePair } from "@/lib/order-card-examples";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 // ============================================================
 // OrderExamplesModal — in-dashboard Before/After gallery dialog.
@@ -36,6 +37,7 @@ interface OrderExamplesModalProps {
   title: string;
   /** Portfolio slug → drives the Before/After label pair. */
   serviceSlug: PortfolioServiceSlug;
+  viewerVariant: StaticImageViewerVariant;
   pairs: OrderExamplePair[];
 }
 
@@ -44,6 +46,7 @@ export default function OrderExamplesModal({
   onClose,
   title,
   serviceSlug,
+  viewerVariant,
   pairs,
 }: OrderExamplesModalProps) {
   const headingId = useId();
@@ -93,18 +96,18 @@ export default function OrderExamplesModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
-        className="flex w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] flex-col overflow-hidden rounded-xl bg-white shadow-2xl sm:max-h-[calc(100dvh-48px)] sm:w-[min(1200px,calc(100vw-48px))] sm:rounded-2xl"
+        className="flex w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] flex-col overflow-hidden rounded-xl bg-slate-950 shadow-2xl sm:max-h-[calc(100dvh-48px)] sm:w-[min(1200px,calc(100vw-48px))] sm:rounded-2xl"
       >
         {/* Sticky header — stays visible while the body scrolls */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border bg-white px-5 py-4 sm:px-6">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-white/10 bg-slate-950 px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h2
               id={headingId}
-              className="truncate text-lg font-bold text-primary"
+              className="truncate text-lg font-bold text-white"
             >
               {title} examples
             </h2>
-            <p className="mt-0.5 text-xs text-muted">
+            <p className="mt-0.5 text-xs text-white/60">
               {count} {count === 1 ? "example" : "examples"}
             </p>
           </div>
@@ -113,7 +116,7 @@ export default function OrderExamplesModal({
             type="button"
             onClick={onClose}
             aria-label="Close examples"
-            className="flex-shrink-0 rounded-lg p-2 text-muted transition-colors hover:bg-surface hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="flex-shrink-0 rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
@@ -125,6 +128,7 @@ export default function OrderExamplesModal({
             {pairs.map((pair, index) => (
               <GalleryBeforeAfterPair
                 key={pair.id}
+                viewerVariant={viewerVariant}
                 beforeUrl={pair.beforeUrl}
                 afterUrl={pair.afterUrl}
                 beforeAlt={pair.beforeAlt}

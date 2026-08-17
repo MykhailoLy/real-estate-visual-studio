@@ -39,6 +39,7 @@ import {
 import { formatStoredMoney } from "@/lib/pricing/format";
 import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import type { PricingSnapshot } from "@/lib/pricing/types";
+import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
 
 // ============================================================
 // /admin/orders/[orderId] — admin order detail (per-image workflow)
@@ -634,6 +635,7 @@ export default async function AdminOrderDetailPage({
 
                     return (
                       <AdminOrderImageCard
+                        viewerVariant={getStaticImageViewerVariantForService(order.service_type)}
                         key={item.id}
                         orderId={order.id}
                         imageNumber={item.item_index + 1}
@@ -680,6 +682,7 @@ export default async function AdminOrderDetailPage({
               </div>
 
               <AdminDeliverableUpload
+                viewerVariant={getStaticImageViewerVariantForService(order.service_type)}
                 orderId={order.id}
                 orderNumber={order.order_number}
                 itemCount={order.item_count}

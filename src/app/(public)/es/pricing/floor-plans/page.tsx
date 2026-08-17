@@ -454,6 +454,7 @@ export default async function SpanishFloorPlansPage() {
 
           <PortfolioExamplesGrid
             cards={portfolioCards}
+            viewerVariant="plan"
             labels={{
               emptyExamples: "Ejemplos de planos",
               before: "Antes",

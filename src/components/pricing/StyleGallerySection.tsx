@@ -127,6 +127,7 @@ export default function StyleGallerySection({
       {activeEntry && activeImages.length > 0 && (
         <ImageLightbox
           key={activeEntry.id}
+          variant="photo"
           images={activeImages}
           initialIndex={openIndex}
           title={copy?.[activeEntry.id]?.label ?? activeEntry.label}

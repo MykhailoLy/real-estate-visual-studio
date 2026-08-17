@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  getContainedSurfaceGeometry,
+  PORTFOLIO_VIEWER_VARIANTS,
+} from "./static-image-variant.ts";
 
 const readSource = (path: string) => readFileSync(path, "utf8");
 
 const staticStageSource = readSource(
   "src/components/media/StaticImageStage.tsx",
+);
+const staticVariantSource = readSource(
+  "src/components/media/static-image-variant.ts",
 );
 const viewerScrollLockSource = readSource(
   "src/components/media/useViewerScrollLock.ts",
@@ -42,6 +49,24 @@ test("shared expanded static-image stage owns centered contain behavior", () => 
   assert.doesNotMatch(staticStageSource, /object-cover/);
   assert.match(staticStageSource, /"objectFit" \| "objectPosition"/);
   assert.match(staticStageSource, /data-static-image-viewer-image/);
+  assert.match(staticStageSource, /data-static-image-surface/);
+  assert.match(staticStageSource, /data-static-image-variant/);
+  assert.match(staticStageSource, /ResizeObserver/);
+  assert.match(staticStageSource, /variant === "plan" && "bg-white/);
+});
+
+test("viewer variants are selected only from explicit service context", () => {
+  assert.equal(PORTFOLIO_VIEWER_VARIANTS["floor-plans"], "plan");
+  assert.equal(PORTFOLIO_VIEWER_VARIANTS["development-site-plans"], "plan");
+  assert.equal(PORTFOLIO_VIEWER_VARIANTS["virtual-staging"], "photo");
+  assert.equal(PORTFOLIO_VIEWER_VARIANTS["image-enhancement"], "photo");
+  const selectionSource = staticVariantSource.slice(
+    staticVariantSource.indexOf("export const PORTFOLIO_VIEWER_VARIANTS"),
+  );
+  assert.doesNotMatch(
+    selectionSource,
+    /filename|naturalWidth|naturalHeight|getImageData|pixel|dominantColor/i,
+  );
 });
 
 test("expanded viewers lock both document scrolling elements", () => {
@@ -92,12 +117,14 @@ test("authenticated and generated preview dialogs retain uncropped image stages"
 
   for (const source of [filePreviewDialogSource, uploadPreviewDialogSource]) {
     assert.match(source, /h-\[100dvh\]/);
-    assert.match(source, /object-contain object-center/);
+    assert.match(source, /NativeStaticImageStage/);
+    assert.match(source, /variant=\{viewerVariant\}/);
     assert.doesNotMatch(source, /object-cover/);
   }
 
   assert.match(marketingDownloadsSource, /100dvh/);
-  assert.match(marketingDownloadsSource, /object-contain/);
+  assert.match(marketingDownloadsSource, /NativeStaticImageStage/);
+  assert.match(marketingDownloadsSource, /variant="plan"/);
 });
 
 test("expanded before-and-after examples preserve both natural image ratios", () => {
@@ -164,6 +191,8 @@ const viewports = [
   { width: 430, height: 932 },
   { width: 390, height: 844 },
   { width: 360, height: 800 },
+  { width: 844, height: 390 },
+  { width: 932, height: 430 },
 ] as const;
 
 test("contain geometry preserves every required source ratio at every viewport", () => {
@@ -188,5 +217,63 @@ test("contain geometry preserves every required source ratio at every viewport",
         source.name,
       );
     }
+  }
+});
+
+test("photo and plan surfaces preserve ratios and use variant-specific staging", () => {
+  for (const viewport of viewports) {
+    const stage = {
+      width: Math.max(1, viewport.width - (viewport.width >= 640 ? 160 : 24)),
+      height: Math.max(1, viewport.height - 112),
+    };
+
+    for (const source of sourceFormats) {
+      for (const variant of ["photo", "plan"] as const) {
+        const geometry = getContainedSurfaceGeometry(stage, source, variant);
+        assert.ok(geometry.surfaceWidth <= stage.width + 1e-9, `${source.name} ${variant}`);
+        assert.ok(geometry.surfaceHeight <= stage.height + 1e-9, `${source.name} ${variant}`);
+        assert.ok(
+          Math.abs(
+            geometry.imageWidth / geometry.imageHeight - source.width / source.height,
+          ) < 1e-10,
+          `${source.name} ${variant}`,
+        );
+        assert.ok(geometry.imageWidth <= source.width, `${source.name} ${variant}`);
+        assert.ok(geometry.imageHeight <= source.height, `${source.name} ${variant}`);
+
+        if (variant === "photo") {
+          assert.equal(geometry.padding, 0);
+          assert.equal(geometry.surfaceWidth, geometry.imageWidth);
+          assert.equal(geometry.surfaceHeight, geometry.imageHeight);
+        } else {
+          assert.ok(geometry.padding > 0);
+          assert.ok(geometry.surfaceWidth > geometry.imageWidth);
+          assert.ok(geometry.surfaceHeight > geometry.imageHeight);
+          assert.ok(
+            geometry.surfaceWidth < stage.width || geometry.surfaceHeight < stage.height,
+            `${source.name} plan surface must not become a full-size white panel`,
+          );
+        }
+      }
+    }
+  }
+});
+
+test("plan padding follows portrait, landscape, tablet, and desktop ranges", () => {
+  const natural = { width: 1400, height: 1800 };
+  const cases = [
+    { stage: { width: 336, height: 688 }, min: 8, max: 12 },
+    { stage: { width: 406, height: 820 }, min: 8, max: 12 },
+    { stage: { width: 576, height: 912 }, min: 16, max: 24 },
+    { stage: { width: 684, height: 912 }, min: 16, max: 24 },
+    { stage: { width: 684, height: 656 }, min: 16, max: 24 },
+    { stage: { width: 1280, height: 788 }, min: 16, max: 24 },
+    { stage: { width: 684, height: 278 }, min: 6, max: 10 },
+    { stage: { width: 772, height: 318 }, min: 6, max: 10 },
+  ] as const;
+
+  for (const { stage, min, max } of cases) {
+    const { padding } = getContainedSurfaceGeometry(stage, natural, "plan");
+    assert.ok(padding >= min && padding <= max, `${stage.width}x${stage.height}`);
   }
 });

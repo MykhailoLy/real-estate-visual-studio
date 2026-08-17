@@ -22,6 +22,7 @@ import {
 } from "@/lib/site-media";
 import { PortfolioExamplesGrid } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
 import type { PortfolioExampleCard } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 // ============================================================
 // ServicePage — shared server component
@@ -71,6 +72,7 @@ export interface UploadItem {
 export interface ServicePageProps {
   // Metadata
   serviceSlug: PortfolioServiceSlug;
+  portfolioViewerVariant: StaticImageViewerVariant;
   placeholderVariant: ServiceVariant;
 
   // Section C — pricing intro
@@ -163,6 +165,7 @@ async function buildSlides(
 
 export default async function ServicePage({
   serviceSlug,
+  portfolioViewerVariant,
   placeholderVariant,
   eyebrow,
   title,
@@ -335,6 +338,7 @@ export default async function ServicePage({
           {portfolioCards.length > 0 ? (
             <PortfolioExamplesGrid
               cards={portfolioCards}
+              viewerVariant={portfolioViewerVariant}
               imageFit="cover"
               labels={{
                 before: labels?.beforeLabel,

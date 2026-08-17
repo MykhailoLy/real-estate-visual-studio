@@ -78,6 +78,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
       />
       <ServicePage
       serviceSlug="360-image-enhancement"
+      portfolioViewerVariant="photo"
       placeholderVariant="panorama-enhancement"
       eyebrow="360° Image Enhancement"
       title="360° Image Enhancement Pricing"

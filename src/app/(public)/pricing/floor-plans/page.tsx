@@ -530,7 +530,7 @@ export default async function FloorPlansPage() {
           </div>
 
           {/* Client component — owns lightbox state for portfolio cards */}
-          <PortfolioExamplesGrid cards={portfolioCards} />
+          <PortfolioExamplesGrid cards={portfolioCards} viewerVariant="plan" />
         </Wide>
       </section>
 

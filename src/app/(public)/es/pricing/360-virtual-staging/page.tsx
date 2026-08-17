@@ -92,6 +92,7 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
       />
       <ServicePage
       serviceSlug="360-virtual-staging"
+      portfolioViewerVariant="photo"
       placeholderVariant="panorama-staging"
       eyebrow="Virtual Staging 360°"
       title="Precios de Virtual Staging 360°"

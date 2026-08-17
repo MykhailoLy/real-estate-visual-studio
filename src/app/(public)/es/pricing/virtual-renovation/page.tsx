@@ -92,6 +92,7 @@ export default function SpanishVirtualRenovationPricingPage() {
       />
       <ServicePage
       serviceSlug="virtual-renovation"
+      portfolioViewerVariant="photo"
       placeholderVariant="virtual-renovation"
       eyebrow="Renovación virtual"
       title="Precios de Renovación virtual"

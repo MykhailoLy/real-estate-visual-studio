@@ -47,6 +47,7 @@ export default function SpanishImageEnhancementPricingPage() {
       />
       <ServicePage
       serviceSlug="image-enhancement"
+      portfolioViewerVariant="photo"
       placeholderVariant="image-enhancement"
       eyebrow="Mejora de imagen"
       title="Precios de Mejora de imagen"

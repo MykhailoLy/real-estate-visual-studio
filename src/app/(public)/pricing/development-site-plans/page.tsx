@@ -40,6 +40,7 @@ export default function DevelopmentSitePlansPricingPage() {
       />
       <ServicePage
       serviceSlug="development-site-plans"
+      portfolioViewerVariant="plan"
       placeholderVariant="site-plans"
       eyebrow="Development Site Plans"
       title="Development Site Plans Pricing"

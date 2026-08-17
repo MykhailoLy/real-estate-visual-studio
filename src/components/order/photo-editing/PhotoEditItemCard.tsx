@@ -82,6 +82,7 @@ export default function PhotoEditItemCard({
       <div className="space-y-4">
         {/* File Upload */}
         <FileUpload
+          viewerVariant="photo"
           label="Upload Original Photo"
           file={data.file}
           onFileChange={(file) => onChange({ ...data, file })}

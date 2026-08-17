@@ -105,6 +105,7 @@ export default function RenovationItemCard({
       <div className="space-y-5">
         {/* File Upload */}
         <FileUpload
+          viewerVariant="photo"
           label="Upload Original Photo"
           file={data.file}
           onFileChange={(file) => onChange({ ...data, file })}
@@ -240,6 +241,7 @@ export default function RenovationItemCard({
 
         {/* Reference Image */}
         <FileUpload
+          viewerVariant="photo"
           label="Reference Image (optional)"
           file={data.referenceFile}
           onFileChange={(file) => onChange({ ...data, referenceFile: file })}

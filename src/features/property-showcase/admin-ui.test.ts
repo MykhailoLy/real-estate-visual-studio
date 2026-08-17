@@ -137,6 +137,10 @@ const marketingDownloadsSource = readFileSync(
   ),
   "utf8",
 );
+const staticImageStageSource = readFileSync(
+  new URL("../../components/media/StaticImageStage.tsx", import.meta.url),
+  "utf8",
+);
 const marketingAssetsSource = readFileSync(
   new URL("./marketing-material-assets.ts", import.meta.url),
   "utf8",
@@ -667,7 +671,9 @@ test("public brochure dialog uses available files only and has no print action",
   assert.equal(marketingDownloadsSource.includes("PDF brochure ready to download"), true);
   assert.equal(marketingDownloadsSource.includes("links.previewKind === \"document\""), true);
   assert.equal(marketingDownloadsSource.includes("src={links.preview}"), true);
-  assert.equal(marketingDownloadsSource.includes("object-contain"), true);
+  assert.equal(marketingDownloadsSource.includes("NativeStaticImageStage"), true);
+  assert.equal(marketingDownloadsSource.includes('variant="plan"'), true);
+  assert.equal(staticImageStageSource.includes("object-contain object-center"), true);
   assert.equal(marketingDownloadsSource.includes("Preparing brochure preview"), true);
   assert.equal(marketingDownloadsSource.includes("landscapePng"), false);
   assert.equal(marketingDownloadsSource.includes("flyerPdf"), false);

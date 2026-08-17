@@ -52,6 +52,7 @@ export default function VirtualRenovationPricingPage() {
       />
       <ServicePage
       serviceSlug="virtual-renovation"
+      portfolioViewerVariant="photo"
       placeholderVariant="virtual-renovation"
       eyebrow="Virtual Renovation"
       title="Virtual Renovation Pricing"
