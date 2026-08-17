@@ -70,6 +70,11 @@ export function getStagingRequiredFieldId(
   return `virtual-staging-${clientItemId}-${field}`;
 }
 
+/** Stable target used when the Review step sends a customer back to one image. */
+export function stagingItemDomId(clientItemId: string): string {
+  return `virtual-staging-item-${clientItemId}`;
+}
+
 interface StagingItemCardProps {
   index: number;
   data: StagingItemData;
@@ -174,7 +179,10 @@ export default function StagingItemCard({
   const subtotal = calculateStagingItemTotal(data.selectedAddons, currency);
 
   return (
-    <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+    <div
+      id={stagingItemDomId(data.clientItemId)}
+      className="bg-white border border-border rounded-xl p-5 shadow-sm"
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-sm font-semibold text-foreground">
