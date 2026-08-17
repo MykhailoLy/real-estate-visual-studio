@@ -127,6 +127,7 @@ function draftState(overrides: Partial<VirtualStagingDraftState> = {}): VirtualS
     schemaVersion: 1,
     jobTitle: "123 Main Street",
     currentStep: "virtual-staging-form",
+    defaultFurnitureStyle: "Modern",
     termsUi: {
       accepted: true,
       allowPortfolio: true,
@@ -1388,7 +1389,7 @@ test("required fields expose inline errors plus scroll and focus guidance", () =
   assert.match(VIRTUAL_STAGING_FORM, /onClick=\{\(\) => focusRequiredField\(field\.targetId\)\}/);
   assert.match(STAGING_ITEM_CARD, /validationError=\{validationErrors\.original\}/);
   assert.match(STAGING_ITEM_CARD, /aria-invalid=\{Boolean\(validationErrors\.room\)/);
-  assert.match(STAGING_ITEM_CARD, /ariaDescribedBy=/);
+  assert.match(STAGING_ITEM_CARD, /aria-describedby=/);
   assert.match(ORDER_JOB_TITLE_FIELD, /aria-invalid=\{displayError/);
   assert.match(ORDER_TERMS_BLOCK, /aria-invalid=\{displayError/);
 });
