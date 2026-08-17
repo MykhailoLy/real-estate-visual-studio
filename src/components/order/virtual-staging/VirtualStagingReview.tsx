@@ -142,6 +142,7 @@ export default function VirtualStagingReview({
               rows={buildVirtualStagingReviewRows(item, currency)}
               subtotalCents={subtotalCents}
               onEdit={() => onEditItem(index)}
+              wrapFileNames
             />
           );
         })}

@@ -1354,11 +1354,37 @@ test("incomplete submit returns before saving or calling submission endpoints", 
   );
 });
 
+test("Review Order validates configuration without invoking an order submission path", () => {
+  const reviewHandler = sourceSlice(
+    VIRTUAL_STAGING_FORM,
+    "const goToReview = () => {",
+    "const goToConfigureTop",
+  );
+
+  assert.match(
+    reviewHandler,
+    /if \(configurationMissingRequiredFields\.length > 0\)/,
+  );
+  assert.match(reviewHandler, /setValidationAttempted\(true\)/);
+  assert.match(
+    reviewHandler,
+    /focusRequiredField\(configurationMissingRequiredFields\[0\]\.targetId\)/,
+  );
+  assert.match(reviewHandler, /setStep\("review"\)/);
+  assert.doesNotMatch(
+    reviewHandler,
+    /submitVirtualStagingDraft|submitCurrentLocalOrder|submitOrder|\/api\/order/,
+  );
+});
+
 test("required fields expose inline errors plus scroll and focus guidance", () => {
   assert.match(VIRTUAL_STAGING_FORM, /findMissingVirtualStagingRequiredFields/);
   assert.match(VIRTUAL_STAGING_FORM, /scrollIntoView\(\{ behavior: "smooth"/);
   assert.match(VIRTUAL_STAGING_FORM, /control\?\.focus\(\{ preventScroll: true \}\)/);
-  assert.match(VIRTUAL_STAGING_FORM, /copy\.incompleteFields\(missingRequiredFields\.length\)/);
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /copy\.incompleteFields\(\s+configurationMissingRequiredFields\.length/,
+  );
   assert.match(VIRTUAL_STAGING_FORM, /onClick=\{\(\) => focusRequiredField\(field\.targetId\)\}/);
   assert.match(STAGING_ITEM_CARD, /validationError=\{validationErrors\.original\}/);
   assert.match(STAGING_ITEM_CARD, /aria-invalid=\{Boolean\(validationErrors\.room\)/);
@@ -1370,7 +1396,11 @@ test("required fields expose inline errors plus scroll and focus guidance", () =
 test("active image operations disable submit and explain the wait", () => {
   assert.match(
     VIRTUAL_STAGING_FORM,
-    /const canSubmit = !hasActiveDraftFileOperation && !isSubmitting/,
+    /const canReview =\s+!hasActiveDraftFileOperation &&\s+!isSubmitting/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /const canSubmit =\s+isReview &&\s+!hasActiveDraftFileOperation &&\s+!isSubmitting/,
   );
   assert.match(
     VIRTUAL_STAGING_FORM,
@@ -1378,7 +1408,7 @@ test("active image operations disable submit and explain the wait", () => {
   );
   assert.match(
     VIRTUAL_STAGING_FORM,
-    /if \(isSubmitting \|\| hasActiveDraftFileOperation\) return/,
+    /submissionInFlightRef\.current \|\|\s+isSubmitting \|\|\s+hasActiveDraftFileOperation/,
   );
   assert.match(ORDER_SUMMARY, /disabled=\{!canSubmit \|\| isSubmitting\}/);
 });

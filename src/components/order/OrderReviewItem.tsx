@@ -48,6 +48,8 @@ interface OrderReviewItemProps {
   persistedFile?: ReviewFileDisplay | null;
   /** Existing saved-draft display data for the optional secondary file. */
   persistedSecondaryFile?: ReviewFileDisplay | null;
+  /** Allow long filenames to wrap instead of preserving the legacy truncation. */
+  wrapFileNames?: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -66,6 +68,7 @@ export default function OrderReviewItem({
   secondaryLabel = "Markup / reference",
   persistedFile = null,
   persistedSecondaryFile = null,
+  wrapFileNames = false,
 }: OrderReviewItemProps) {
   const primaryFilename = file?.name ?? persistedFile?.filename ?? null;
   const primaryFileSize = file?.size ?? persistedFile?.fileSize ?? null;
@@ -112,7 +115,9 @@ export default function OrderReviewItem({
           {primaryFilename && primaryFileSize !== null && (
             <div className="mt-2">
               <p
-                className="text-[12px] font-semibold text-foreground break-all"
+                className={`text-[12px] font-semibold text-foreground ${
+                  wrapFileNames ? "break-all" : "truncate"
+                }`}
                 title={primaryFilename}
               >
                 {primaryFilename}
@@ -143,7 +148,9 @@ export default function OrderReviewItem({
               {secondaryFilename && secondaryFileSize !== null && (
                 <>
                   <p
-                    className="mt-1 text-[12px] font-semibold text-foreground break-all"
+                    className={`mt-1 text-[12px] font-semibold text-foreground ${
+                      wrapFileNames ? "break-all" : "truncate"
+                    }`}
                     title={secondaryFilename}
                   >
                     {secondaryFilename}
