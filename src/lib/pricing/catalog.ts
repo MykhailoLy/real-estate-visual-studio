@@ -3,7 +3,7 @@ import type {
   TransactionalCurrency,
 } from "./types.ts";
 
-export const PRICING_VERSION = "2026-06-25-v1";
+export const PRICING_VERSION = "2026-08-18-v1";
 
 type FixedCurrencyPrice = Record<TransactionalCurrency, number>;
 
@@ -17,6 +17,11 @@ export const PRICE_CATALOG: Record<PriceKey, FixedCurrencyPrice> = {
   "background-change": { USD: 450, EUR: 400, CAD: 650 },
   "colour-change": { USD: 250, EUR: 250, CAD: 350 },
   "turn-on-lights": { USD: 100, EUR: 100, CAD: 150 },
+  "aerial-colour-fade": { USD: 250, EUR: 250, CAD: 350 },
+  "aerial-drop-pin": { USD: 250, EUR: 250, CAD: 350 },
+  "aerial-single-lot-highlight": { USD: 250, EUR: 250, CAD: 350 },
+  "aerial-multiple-lot-highlight": { USD: 450, EUR: 400, CAD: 650 },
+  "aerial-full-markup": { USD: 550, EUR: 500, CAD: 750 },
   "water-effect": { USD: 450, EUR: 400, CAD: 650 },
   "360-image-enhancement": { USD: 450, EUR: 400, CAD: 650 },
   "360-virtual-staging": { USD: 2450, EUR: 2200, CAD: 3450 },
@@ -55,6 +60,7 @@ export const STAGING_ADDON_PRICE_KEYS = {
   "image-enhancement": "image-enhancement",
   "day-to-dusk": "day-to-dusk",
   "item-removal": "item-removal-virtual-cleaning",
+  "shadow-removal": "shadow-removal",
   "turn-on-lights": "turn-on-lights",
   "colour-change": "colour-change",
 } as const satisfies Record<string, PriceKey>;
@@ -107,6 +113,11 @@ export const PHOTO_EDIT_PRICE_KEYS = {
   "background-change": "background-change",
   "colour-change-pe": "colour-change",
   "turn-on-lights-pe": "turn-on-lights",
+  "aerial-colour-fade-pe": "aerial-colour-fade",
+  "aerial-drop-pin-pe": "aerial-drop-pin",
+  "aerial-single-lot-highlight-pe": "aerial-single-lot-highlight",
+  "aerial-multiple-lot-highlight-pe": "aerial-multiple-lot-highlight",
+  "aerial-full-markup-pe": "aerial-full-markup",
   "day-to-dusk-pe": "day-to-dusk",
   "water-effect": "water-effect",
 } as const satisfies Record<string, PriceKey>;

@@ -35,6 +35,8 @@ const KEY_LABELS: Record<string, string> = {
   tv_screen_replacement: "TV screen replacement",
   add_fire_to_fireplace: "Add fire to fireplace",
   day_sky_style_label: "Day sky style",
+  aerial_editing_label: "Aerial editing",
+  aerial_editing_instructions: "Aerial editing instructions",
   // Day to Dusk preferences
   dusk_style_label: "Dusk style",
   turn_on_interior_lights: "Interior lights",
@@ -54,6 +56,7 @@ const SKIP_KEYS = new Set([
   "sub_service",
   "sub_service_label",
   "day_sky_style",
+  "aerial_editing",
   "dusk_style",
   // Raw machine task ids (readable labels shown via removal_task_labels)
   "removal_tasks",

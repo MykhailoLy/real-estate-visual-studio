@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
-import OrderTermsBlock, {
+import OrderStepIndicator, {
+  type OrderStep,
+} from "@/components/order/OrderStepIndicator";
+import {
   type OrderTermsData,
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
@@ -13,71 +17,561 @@ import OrderJobTitleField, {
   isJobTitleValid,
 } from "@/components/order/OrderJobTitleField";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
+import { useDisplayRegion } from "@/components/pricing/currency-client";
 import { submitOrder } from "@/lib/submit-order";
 import Container from "@/components/layout/Container";
-import type { ServiceOptionImage } from "@/lib/site-media";
 import {
-  SINGLE_EXPOSURE_SUB_SERVICE,
+  scrollDashboardToTop,
+  scrollElementIntoViewWithinDashboard,
+} from "@/lib/dashboard-scroll";
+import { currencyForRegion } from "@/lib/currency";
+import type { ServiceOptionMedia } from "@/lib/site-media";
+import {
   SINGLE_EXPOSURE_OPTION_ID,
+  SINGLE_EXPOSURE_SUB_SERVICE,
+  getAerialEditingOption,
+  getEffectiveDaySkyStyle,
+  getSingleExposureSelectedOptions,
 } from "@/lib/image-enhancement";
+import {
+  createOrderDraft,
+  deleteOrderDraft,
+  getOrderDraft,
+  isOrderDraftVersionConflict,
+  updateOrderDraft,
+} from "@/lib/order-drafts/client";
+import {
+  completeOrderDraftFileUpload,
+  deleteOrderDraftFile,
+  getOrderDraftFilePreview,
+  listOrderDraftFiles,
+  prepareOrderDraftFileUpload,
+  uploadPreparedOrderDraftFile,
+} from "@/lib/order-drafts/files-client";
+import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import { UuidSchema } from "@/lib/order-drafts/schema";
+import {
+  buildSingleExposureCreateDraftInput,
+  buildSingleExposureDraftFileSlotKey,
+  buildSingleExposureDraftFingerprint,
+  buildSingleExposureUpdateDraftInput,
+  hasMeaningfulSingleExposureDraftChange,
+  isSingleExposureItemConfigurationValid,
+  resolveSingleExposureDraftRegion,
+  validateSingleExposureDraftForResume,
+  type SingleExposureAutosaveStatus,
+  type SingleExposureFormDraftSource,
+  type SingleExposureFormStep,
+} from "@/lib/order-drafts/single-exposure";
 import SingleExposureItemCard, {
   type SingleExposureItemData,
   emptySingleExposureItem,
+  singleExposureItemDomId,
 } from "./SingleExposureItemCard";
+import SingleExposureReview from "./SingleExposureReview";
 
-// ============================================================
-// SingleExposureOrderForm — Image Enhancement — Single Exposure.
-//
-// Backend model is UNCHANGED: serviceType "photo-editing", fixed
-// option image-enhancement-re (canonical fixed-currency price), PE order numbering.
-// New orders pin sub_service = image-enhancement-single-exposure.
-// Identity is sourced server-side (no "Your Details" block).
-// ============================================================
+const SERVICE_NAME = "Image Enhancement — Single Exposure";
+const STEPS: OrderStep[] = [
+  { id: "configure", label: "Configure Order" },
+  { id: "review", label: "Review & Submit" },
+];
 
 interface SingleExposureOrderFormProps {
   clientEmail: string;
   orderRoute: string;
-  /** mediaKey → resolved day-sky example image (admin-managed). */
-  daySkyImages: Record<string, ServiceOptionImage>;
+  exampleMediaByKey: Record<string, ServiceOptionMedia>;
 }
+
+interface DraftSaveOutcome {
+  draftId: string;
+  version: number;
+}
+
+type DraftFileKind = "original" | "reference";
 
 export default function SingleExposureOrderForm({
   clientEmail,
   orderRoute,
-  daySkyImages,
+  exampleMediaByKey,
 }: SingleExposureOrderFormProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const requestedDraftId = searchParams.get("draft");
+  const requestedDraftIsValid =
+    !requestedDraftId || UuidSchema.safeParse(requestedDraftId).success;
+  const [region, setRegion] = useDisplayRegion();
+  const currency = currencyForRegion(region);
   const [items, setItems] = useState<SingleExposureItemData[]>([
     emptySingleExposureItem(),
   ]);
   const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
+  const [step, setStep] = useState<SingleExposureFormStep>("configure");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [validationAttempted, setValidationAttempted] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(() =>
+    requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
+      ? requestedDraftId
+      : null,
+  );
+  const [draftVersion, setDraftVersion] = useState<number | null>(null);
+  const [saveStatus, setSaveStatus] =
+    useState<SingleExposureAutosaveStatus>("not_saved");
+  const [draftError, setDraftError] = useState(() =>
+    requestedDraftIsValid ? "" : "Draft link is invalid.",
+  );
+  const [resumeState, setResumeState] = useState<"loading" | "ready" | "error">(
+    requestedDraftId
+      ? requestedDraftIsValid
+        ? "loading"
+        : "error"
+      : "ready",
+  );
+  const [uploadedDraftFiles, setUploadedDraftFiles] = useState<
+    OrderDraftUploadedFileSummary[]
+  >([]);
+  const [fileOperationStatus, setFileOperationStatus] = useState<
+    Record<string, string>
+  >({});
+
+  const itemsRef = useRef(items);
+  const jobTitleRef = useRef(jobTitle);
+  const orderTermsRef = useRef(orderTerms);
+  const stepRef = useRef(step);
+  const draftIdRef = useRef(draftId);
+  const draftVersionRef = useRef(draftVersion);
+  const uploadedDraftFilesRef = useRef(uploadedDraftFiles);
+  const submittingRef = useRef(false);
+  const savedFingerprintRef = useRef<string | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingScrollRef = useRef<string | "top" | null>(null);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+  useEffect(() => {
+    jobTitleRef.current = jobTitle;
+  }, [jobTitle]);
+  useEffect(() => {
+    orderTermsRef.current = orderTerms;
+  }, [orderTerms]);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+  useEffect(() => {
+    draftIdRef.current = draftId;
+  }, [draftId]);
+  useEffect(() => {
+    draftVersionRef.current = draftVersion;
+  }, [draftVersion]);
+  useEffect(() => {
+    uploadedDraftFilesRef.current = uploadedDraftFiles;
+  }, [uploadedDraftFiles]);
+
+  useEffect(() => {
+    const pending = pendingScrollRef.current;
+    if (!pending) return;
+    pendingScrollRef.current = null;
+    const frame = requestAnimationFrame(() => {
+      if (pending === "top") scrollDashboardToTop();
+      else scrollElementIntoViewWithinDashboard(pending);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [step]);
+
+  const uploadedFilesBySlot = useMemo(() => {
+    const map = new Map<string, OrderDraftUploadedFileSummary>();
+    for (const file of uploadedDraftFiles) {
+      map.set(
+        buildSingleExposureDraftFileSlotKey(file.itemClientId, file.kind),
+        file,
+      );
+    }
+    return map;
+  }, [uploadedDraftFiles]);
+
+  const buildDraftSource = useCallback(
+    (
+      nextItems = itemsRef.current,
+      nextStep = stepRef.current,
+      nextTerms = orderTermsRef.current,
+    ): SingleExposureFormDraftSource => ({
+      jobTitle: jobTitleRef.current,
+      step: nextStep,
+      items: nextItems,
+      orderTerms: nextTerms,
+      currency,
+      region,
+    }),
+    [currency, region],
+  );
+
+  const replaceDraftQuery = useCallback(
+    (nextDraftId: string | null) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (nextDraftId) next.set("draft", nextDraftId);
+      else next.delete("draft");
+      router.replace(next.size ? `${pathname}?${next}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const persistDraft = useCallback(
+    async (
+      source: SingleExposureFormDraftSource,
+      force = false,
+    ): Promise<DraftSaveOutcome | null> => {
+      if (!hasMeaningfulSingleExposureDraftChange(source)) return null;
+      const fingerprint = buildSingleExposureDraftFingerprint(source);
+      if (!force && fingerprint === savedFingerprintRef.current) {
+        const currentId = draftIdRef.current;
+        const currentVersion = draftVersionRef.current;
+        return currentId && currentVersion
+          ? { draftId: currentId, version: currentVersion }
+          : null;
+      }
+
+      setSaveStatus("saving");
+      setDraftError("");
+      const currentId = draftIdRef.current;
+      if (!currentId) {
+        const result = await createOrderDraft(
+          buildSingleExposureCreateDraftInput(source),
+        );
+        if (!result.ok) {
+          setSaveStatus("save_failed");
+          setDraftError(result.message);
+          return null;
+        }
+        draftIdRef.current = result.data.id;
+        draftVersionRef.current = result.data.version;
+        setDraftId(result.data.id);
+        setDraftVersion(result.data.version);
+        savedFingerprintRef.current = fingerprint;
+        setSaveStatus("saved");
+        replaceDraftQuery(result.data.id);
+        return { draftId: result.data.id, version: result.data.version };
+      }
+
+      const currentVersion = draftVersionRef.current;
+      if (!currentVersion) {
+        setSaveStatus("save_failed");
+        setDraftError("Draft version is not ready yet.");
+        return null;
+      }
+      const result = await updateOrderDraft(
+        currentId,
+        buildSingleExposureUpdateDraftInput(source, currentVersion),
+      );
+      if (!result.ok) {
+        if (isOrderDraftVersionConflict(result)) {
+          setSaveStatus("conflict");
+          setDraftError(
+            "This draft changed in another tab. Reload the latest draft before continuing.",
+          );
+        } else {
+          setSaveStatus("save_failed");
+          setDraftError(result.message);
+        }
+        return null;
+      }
+      draftVersionRef.current = result.data.version;
+      setDraftVersion(result.data.version);
+      savedFingerprintRef.current = fingerprint;
+      setSaveStatus("saved");
+      return { draftId: currentId, version: result.data.version };
+    },
+    [replaceDraftQuery],
+  );
+
+  const enqueueDraftSave = useCallback(
+    (
+      source = buildDraftSource(),
+      force = false,
+    ): Promise<DraftSaveOutcome | null> => {
+      const operation = saveQueueRef.current.then(() =>
+        persistDraft(source, force),
+      );
+      saveQueueRef.current = operation.then(
+        () => undefined,
+        () => undefined,
+      );
+      return operation;
+    },
+    [buildDraftSource, persistDraft],
+  );
+
+  const refreshDraftFiles = useCallback(async (currentDraftId: string) => {
+    const result = await listOrderDraftFiles(currentDraftId);
+    if (!result.ok) {
+      setDraftError(result.message);
+      return false;
+    }
+    uploadedDraftFilesRef.current = result.data;
+    setUploadedDraftFiles(result.data);
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (!requestedDraftId) return;
+    if (
+      requestedDraftId === draftIdRef.current &&
+      resumeState === "ready"
+    ) {
+      return;
+    }
+    if (!requestedDraftIsValid) return;
+    const controller = new AbortController();
+    void getOrderDraft(requestedDraftId, controller.signal).then(
+      async (result) => {
+        if (!result.ok) {
+          setDraftError(result.message);
+          setResumeState("error");
+          return;
+        }
+        const restored = validateSingleExposureDraftForResume(result.data);
+        if (!restored.ok) {
+          setDraftError(restored.message);
+          setResumeState("error");
+          return;
+        }
+        const restoredRegion = resolveSingleExposureDraftRegion(result.data);
+        setRegion(restoredRegion);
+        setItems(restored.form.items as SingleExposureItemData[]);
+        itemsRef.current = restored.form.items as SingleExposureItemData[];
+        setJobTitle(restored.form.jobTitle);
+        jobTitleRef.current = restored.form.jobTitle;
+        setOrderTerms(restored.form.orderTerms);
+        orderTermsRef.current = restored.form.orderTerms;
+        setStep(restored.form.step);
+        stepRef.current = restored.form.step;
+        setDraftId(result.data.id);
+        draftIdRef.current = result.data.id;
+        setDraftVersion(restored.version);
+        draftVersionRef.current = restored.version;
+        savedFingerprintRef.current = buildSingleExposureDraftFingerprint({
+          jobTitle: restored.form.jobTitle,
+          step: restored.form.step,
+          items: restored.form.items,
+          orderTerms: restored.form.orderTerms,
+          currency: result.data.currency,
+          region: restoredRegion,
+        });
+        await refreshDraftFiles(result.data.id);
+        setSaveStatus("saved");
+        setResumeState("ready");
+      },
+    );
+    return () => controller.abort();
+  }, [
+    refreshDraftFiles,
+    requestedDraftId,
+    requestedDraftIsValid,
+    resumeState,
+    setRegion,
+  ]);
+
+  useEffect(() => {
+    if (resumeState !== "ready" || saveStatus === "conflict" || submitted) {
+      return;
+    }
+    const source = buildDraftSource(items, step, orderTerms);
+    if (!hasMeaningfulSingleExposureDraftChange(source)) return;
+    const timer = window.setTimeout(() => {
+      void enqueueDraftSave(source);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [
+    buildDraftSource,
+    enqueueDraftSave,
+    items,
+    jobTitle,
+    orderTerms,
+    resumeState,
+    saveStatus,
+    step,
+    submitted,
+  ]);
+
+  const commitItems = (next: SingleExposureItemData[]) => {
+    itemsRef.current = next;
+    setItems(next);
+  };
 
   const handleItemChange = (index: number, data: SingleExposureItemData) => {
-    setItems((prev) => prev.map((item, i) => (i === index ? data : item)));
+    commitItems(itemsRef.current.map((item, i) => (i === index ? data : item)));
   };
 
-  const handleAddItem = () =>
-    setItems((prev) => [...prev, emptySingleExposureItem()]);
-
-  const handleRemoveItem = (index: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+  const handleAddItem = () => {
+    commitItems([...itemsRef.current, emptySingleExposureItem()]);
   };
 
-  // Copy ONLY the intended preferences from `sourceIndex` to every other
-  // item: the four three-state preferences, the day sky style, and the
-  // file size preference. Uploaded files, Additional Instructions, and
-  // the per-item disclaimer text are intentionally NOT copied.
+  const removePersistedFile = useCallback(
+    async (item: SingleExposureItemData, kind: DraftFileKind) => {
+      const currentDraftId = draftIdRef.current;
+      const slotKey = buildSingleExposureDraftFileSlotKey(
+        item.clientItemId,
+        kind,
+      );
+      const uploaded = uploadedDraftFilesRef.current.find(
+        (file) =>
+          buildSingleExposureDraftFileSlotKey(file.itemClientId, file.kind) ===
+          slotKey,
+      );
+      if (!currentDraftId || !uploaded) return true;
+      setFileOperationStatus((current) => ({
+        ...current,
+        [slotKey]: "Removing saved file...",
+      }));
+      const result = await deleteOrderDraftFile(currentDraftId, uploaded.id);
+      setFileOperationStatus((current) => {
+        const next = { ...current };
+        delete next[slotKey];
+        return next;
+      });
+      if (!result.ok) {
+        setDraftError(result.message);
+        return false;
+      }
+      const nextFiles = uploadedDraftFilesRef.current.filter(
+        (file) => file.id !== uploaded.id,
+      );
+      uploadedDraftFilesRef.current = nextFiles;
+      setUploadedDraftFiles(nextFiles);
+      return true;
+    },
+    [],
+  );
+
+  const handleRemoveItem = async (index: number) => {
+    const item = itemsRef.current[index];
+    if (!item) return;
+    const originalRemoved = await removePersistedFile(item, "original");
+    const referenceRemoved = await removePersistedFile(item, "reference");
+    if (!originalRemoved || !referenceRemoved) return;
+    commitItems(itemsRef.current.filter((_, i) => i !== index));
+  };
+
+  const handleDraftFileChange = useCallback(
+    async (index: number, kind: DraftFileKind, file: File | null) => {
+      const item = itemsRef.current[index];
+      if (!item) return;
+      const slotKey = buildSingleExposureDraftFileSlotKey(
+        item.clientItemId,
+        kind,
+      );
+
+      if (!file) {
+        const removed = await removePersistedFile(item, kind);
+        if (!removed) return;
+        const nextItems = itemsRef.current.map((candidate, candidateIndex) =>
+          candidateIndex === index
+            ? {
+                ...candidate,
+                ...(kind === "original"
+                  ? { file: null, originalFilename: null }
+                  : { referenceFile: null, referenceFilename: null }),
+              }
+            : candidate,
+        );
+        commitItems(nextItems);
+        void enqueueDraftSave(buildDraftSource(nextItems), true);
+        return;
+      }
+
+      const nextItems = itemsRef.current.map((candidate, candidateIndex) =>
+        candidateIndex === index
+          ? {
+              ...candidate,
+              ...(kind === "original"
+                ? { file, originalFilename: file.name }
+                : { referenceFile: file, referenceFilename: file.name }),
+            }
+          : candidate,
+      );
+      commitItems(nextItems);
+      setFileOperationStatus((current) => ({
+        ...current,
+        [slotKey]: "Saving draft file...",
+      }));
+      const saved = await enqueueDraftSave(buildDraftSource(nextItems), true);
+      if (!saved) {
+        setFileOperationStatus((current) => {
+          const next = { ...current };
+          delete next[slotKey];
+          return next;
+        });
+        return;
+      }
+
+      const prepared = await prepareOrderDraftFileUpload(saved.draftId, {
+        itemClientId: item.clientItemId,
+        kind,
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+      });
+      if (!prepared.ok) {
+        setDraftError(prepared.message);
+        setFileOperationStatus((current) => {
+          const next = { ...current };
+          delete next[slotKey];
+          return next;
+        });
+        return;
+      }
+      const uploaded = await uploadPreparedOrderDraftFile(prepared.data, file);
+      if (!uploaded.ok) {
+        setDraftError(uploaded.message);
+        setFileOperationStatus((current) => {
+          const next = { ...current };
+          delete next[slotKey];
+          return next;
+        });
+        return;
+      }
+      const completed = await completeOrderDraftFileUpload(
+        saved.draftId,
+        prepared.data.file.id,
+      );
+      if (!completed.ok) {
+        setDraftError(completed.message);
+      } else {
+        const nextFiles = [
+          ...uploadedDraftFilesRef.current.filter(
+            (candidate) =>
+              buildSingleExposureDraftFileSlotKey(
+                candidate.itemClientId,
+                candidate.kind,
+              ) !== slotKey,
+          ),
+          completed.data,
+        ];
+        uploadedDraftFilesRef.current = nextFiles;
+        setUploadedDraftFiles(nextFiles);
+      }
+      setFileOperationStatus((current) => {
+        const next = { ...current };
+        delete next[slotKey];
+        return next;
+      });
+    },
+    [buildDraftSource, enqueueDraftSave, removePersistedFile],
+  );
+
   const handleApplyToAll = (sourceIndex: number) => {
-    setItems((prev) => {
-      const source = prev[sourceIndex];
-      if (!source) return prev;
-      return prev.map((item, i) =>
-        i === sourceIndex
+    const source = itemsRef.current[sourceIndex];
+    if (!source) return;
+    commitItems(
+      itemsRef.current.map((item, index) =>
+        index === sourceIndex
           ? item
           : {
               ...item,
@@ -87,82 +581,222 @@ export default function SingleExposureOrderForm({
               addFireToFireplace: source.addFireToFireplace,
               daySkyStyle: source.daySkyStyle,
               fileSizeLimit: source.fileSizeLimit,
-            }
+            },
+      ),
+    );
+  };
+
+  const configureValid =
+    items.length > 0 &&
+    isJobTitleValid(jobTitle) &&
+    items.every((item) => {
+      const original = uploadedFilesBySlot.get(
+        buildSingleExposureDraftFileSlotKey(item.clientItemId, "original"),
       );
+      const reference = uploadedFilesBySlot.get(
+        buildSingleExposureDraftFileSlotKey(item.clientItemId, "reference"),
+      );
+      return isSingleExposureItemConfigurationValid({
+        hasOriginal: Boolean(item.file || original),
+        hasReference: Boolean(item.referenceFile || reference),
+        skyReplacement: item.skyReplacement,
+        daySkyStyle: item.daySkyStyle,
+        aerialEditing: item.aerialEditing,
+        aerialEditingInstructions: item.aerialEditingInstructions,
+      });
     });
+  const fileOperationActive = Object.keys(fileOperationStatus).length > 0;
+  const reviewValid =
+    configureValid && orderTerms.accepted && !fileOperationActive;
+
+  const goToReview = () => {
+    setValidationAttempted(true);
+    setSubmitError("");
+    if (!configureValid || fileOperationActive) return;
+    pendingScrollRef.current = "top";
+    stepRef.current = "review";
+    setStep("review");
+    void enqueueDraftSave(buildDraftSource(itemsRef.current, "review"), true);
+  };
+
+  const goToConfigure = () => {
+    pendingScrollRef.current = "top";
+    stepRef.current = "configure";
+    setStep("configure");
+  };
+
+  const handleEditItem = (index: number) => {
+    const item = itemsRef.current[index];
+    if (!item) return;
+    pendingScrollRef.current = singleExposureItemDomId(item.clientItemId);
+    stepRef.current = "configure";
+    setStep("configure");
+  };
+
+  const resolvePersistedFile = async (
+    currentDraftId: string,
+    persisted: OrderDraftUploadedFileSummary,
+  ): Promise<File> => {
+    const fetchFile = async (url: string) => {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error("Saved draft file could not be loaded.");
+      const blob = await response.blob();
+      return new File([blob], persisted.originalFilename, {
+        type: persisted.mimeType || blob.type,
+        lastModified: Date.now(),
+      });
+    };
+    if (persisted.previewUrl) {
+      try {
+        return await fetchFile(persisted.previewUrl);
+      } catch {
+        // Refresh an expired signed URL below.
+      }
+    }
+    const preview = await getOrderDraftFilePreview(
+      currentDraftId,
+      persisted.id,
+    );
+    if (!preview.ok) throw new Error(preview.message);
+    return fetchFile(preview.data.previewUrl);
   };
 
   const handleSubmit = async () => {
+    if (submittingRef.current || !reviewValid || step !== "review") return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError("");
 
-    // Each item carries the fixed single option + the single-exposure
-    // sub-service + its preferences. The server re-validates the option
-    // matches the sub-service, validates the typed preference enums, and
-    // recalculates the price from PHOTO_EDIT_OPTIONS.
-    const itemsMetadata = items.map((item) => ({
-      subService: SINGLE_EXPOSURE_SUB_SERVICE,
-      selectedOptions: [SINGLE_EXPOSURE_OPTION_ID],
-      fileSizeLimit: item.fileSizeLimit,
-      disclaimerText: item.disclaimerText,
-      additionalInfo: item.additionalInfo,
-      grassRepair: item.grassRepair,
-      skyReplacement: item.skyReplacement,
-      tvScreenReplacement: item.tvScreenReplacement,
-      addFireToFireplace: item.addFireToFireplace,
-      daySkyStyle: item.daySkyStyle,
-    }));
+    try {
+      const saved = await enqueueDraftSave(
+        buildDraftSource(itemsRef.current, "review", orderTermsRef.current),
+        true,
+      );
+      const currentDraftId = saved?.draftId ?? draftIdRef.current;
+      const resolvedFiles = await Promise.all(
+        itemsRef.current.map(async (item) => {
+          const persistedOriginal = uploadedFilesBySlot.get(
+            buildSingleExposureDraftFileSlotKey(
+              item.clientItemId,
+              "original",
+            ),
+          );
+          const persistedReference = uploadedFilesBySlot.get(
+            buildSingleExposureDraftFileSlotKey(
+              item.clientItemId,
+              "reference",
+            ),
+          );
+          const original =
+            item.file ??
+            (currentDraftId && persistedOriginal
+              ? await resolvePersistedFile(currentDraftId, persistedOriginal)
+              : null);
+          if (!original) throw new Error("Every photo needs an original file.");
+          const aerial = getAerialEditingOption(item.aerialEditing);
+          const reference = aerial.requiresDetails
+            ? item.referenceFile ??
+              (currentDraftId && persistedReference
+                ? await resolvePersistedFile(currentDraftId, persistedReference)
+                : null)
+            : null;
+          return { file: original, referenceFile: reference };
+        }),
+      );
 
-    const files = items.map((item) => ({
-      file: item.file,
-      referenceFile: null,
-    }));
+      const itemsMetadata = itemsRef.current.map((item) => ({
+        subService: SINGLE_EXPOSURE_SUB_SERVICE,
+        selectedOptions: getSingleExposureSelectedOptions(
+          item.selectedAddons,
+          item.aerialEditing,
+        ),
+        fileSizeLimit: item.fileSizeLimit,
+        disclaimerText: item.disclaimerText,
+        additionalInfo: item.additionalInfo,
+        grassRepair: item.grassRepair,
+        skyReplacement: item.skyReplacement,
+        tvScreenReplacement: item.tvScreenReplacement,
+        addFireToFireplace: item.addFireToFireplace,
+        daySkyStyle:
+          getEffectiveDaySkyStyle(item.skyReplacement, item.daySkyStyle) ??
+          undefined,
+        aerialEditing: item.aerialEditing,
+        aerialEditingInstructions: item.aerialEditingInstructions,
+      }));
 
-    const result = await submitOrder(
-      "photo-editing",
-      itemsMetadata,
-      files,
-      orderTerms,
-      jobTitle
-    );
-
-    if (result.success && result.orderNumber) {
-      setOrderNumber(result.orderNumber);
-      setConfirmationEmailSent(result.confirmationEmailSent === true);
-      setSubmitted(true);
+      const result = await submitOrder(
+        "photo-editing",
+        itemsMetadata,
+        resolvedFiles,
+        orderTermsRef.current,
+        jobTitleRef.current,
+      );
+      if (result.success && result.orderNumber) {
+        setOrderNumber(result.orderNumber);
+        setConfirmationEmailSent(result.confirmationEmailSent === true);
+        setSubmitted(true);
+        const currentId = draftIdRef.current;
+        const currentVersion = draftVersionRef.current;
+        if (currentId && currentVersion) {
+          void deleteOrderDraft(currentId, currentVersion);
+        }
+        return;
+      }
+      if (redirectOnOrderAuthError(result, orderRoute)) return;
+      setSubmitError(result.error || "Submission failed. Please try again.");
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Submission failed. Please try again.",
+      );
+    } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
-      return;
     }
-
-    if (redirectOnOrderAuthError(result, orderRoute)) return;
-
-    setIsSubmitting(false);
-    setSubmitError(result.error || "Submission failed. Please try again.");
   };
 
   const handleNewOrder = () => {
-    setItems([emptySingleExposureItem()]);
+    const fresh = [emptySingleExposureItem()];
+    commitItems(fresh);
     setJobTitle("");
+    jobTitleRef.current = "";
     setOrderTerms(emptyOrderTerms);
+    orderTermsRef.current = emptyOrderTerms;
+    setStep("configure");
+    stepRef.current = "configure";
     setSubmitted(false);
     setOrderNumber("");
     setSubmitError("");
+    setValidationAttempted(false);
+    setDraftId(null);
+    draftIdRef.current = null;
+    setDraftVersion(null);
+    draftVersionRef.current = null;
+    setUploadedDraftFiles([]);
+    uploadedDraftFilesRef.current = [];
+    savedFingerprintRef.current = null;
+    setSaveStatus("not_saved");
+    replaceDraftQuery(null);
   };
 
-  // --- Validation ---
-  const allItemsValid = items.every((item) => item.file !== null);
-  const termsAccepted = orderTerms.accepted;
-  const canSubmit =
-    items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
-
-  // --- Summary ---
-  const summaryItems: SummaryItem[] = items.map((_, i) => ({
-    label: `Photo #${i + 1}`,
+  const summaryItems: SummaryItem[] = items.map((_, index) => ({
+    label: `Photo #${index + 1}`,
   }));
+  const pricingInput = {
+    serviceType: "photo-editing" as const,
+    items: items.map((item) => ({
+      selectedOptions: getSingleExposureSelectedOptions(
+        item.selectedAddons,
+        item.aerialEditing,
+      ),
+      baseOptionId: SINGLE_EXPOSURE_OPTION_ID,
+    })),
+  };
 
   if (submitted) {
     return (
-      <section className="py-16 bg-surface min-h-screen">
+      <section className="min-h-screen bg-surface py-16">
         <Container>
           <Confirmation
             orderNumber={orderNumber}
@@ -176,60 +810,163 @@ export default function SingleExposureOrderForm({
     );
   }
 
+  if (resumeState === "loading") {
+    return (
+      <section className="bg-surface py-16">
+        <Container>
+          <div className="rounded-xl border border-border bg-white p-8 text-center text-sm text-muted shadow-sm">
+            Restoring your saved order draft...
+          </div>
+        </Container>
+      </section>
+    );
+  }
+
+  if (resumeState === "error") {
+    return (
+      <section className="bg-surface py-16">
+        <Container>
+          <div className="rounded-xl border border-red-200 bg-white p-8 text-center shadow-sm">
+            <h1 className="text-xl font-bold text-primary">
+              Draft could not be restored
+            </h1>
+            <p className="mt-2 text-sm text-muted">{draftError}</p>
+          </div>
+        </Container>
+      </section>
+    );
+  }
+
+  const isReview = step === "review";
+  const sidebar = (
+    <OrderSummary
+      serviceName={SERVICE_NAME}
+      items={summaryItems}
+      pricingInput={pricingInput}
+      onSubmit={isReview ? handleSubmit : goToReview}
+      isSubmitting={isReview && isSubmitting}
+      canSubmit={isReview ? reviewValid : configureValid && !fileOperationActive}
+      submitLabel={isReview ? "Submit Order" : "Review Order"}
+      submittingLabel="Submitting..."
+      footerNote={
+        isReview
+          ? undefined
+          : "No payment now. You'll confirm your order on the next step."
+      }
+    />
+  );
+
   return (
     <OrderLayout
-      title="Image Enhancement — Single Exposure"
+      title={SERVICE_NAME}
       subtitle="Professional colour, exposure, white balance, contrast and detail correction for standard real-estate photographs."
-      sidebar={
-        <OrderSummary
-          serviceName="Image Enhancement — Single Exposure"
-          items={summaryItems}
-          pricingInput={{
-            serviceType: "photo-editing",
-            items: items.map(() => ({
-              selectedOptions: [SINGLE_EXPOSURE_OPTION_ID],
-            })),
-          }}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          canSubmit={canSubmit}
-        />
-      }
+      header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
+      sidebar={sidebar}
     >
-      {submitError && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
-          {submitError}
+      {draftError && resumeState === "ready" ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          {draftError}
         </div>
-      )}
+      ) : null}
 
-      <OrderJobTitleField value={jobTitle} onChange={setJobTitle} />
+      <p className="text-xs text-muted" aria-live="polite">
+        {saveStatus === "saving"
+          ? "Saving draft..."
+          : saveStatus === "saved"
+            ? "Draft saved"
+            : saveStatus === "save_failed"
+              ? "Draft not saved"
+              : ""}
+      </p>
 
-      <div className="space-y-5">
-        {items.map((item, index) => (
-          <SingleExposureItemCard
-            key={index}
-            index={index}
-            data={item}
-            onChange={(data) => handleItemChange(index, data)}
-            onRemove={() => handleRemoveItem(index)}
-            canRemove={items.length > 1}
-            daySkyImages={daySkyImages}
-            onApplyToAll={() => handleApplyToAll(index)}
-            showApplyToAll={items.length > 1}
+      {isReview ? (
+        <SingleExposureReview
+          jobTitle={jobTitle}
+          items={items}
+          uploadedFilesBySlot={uploadedFilesBySlot}
+          orderTerms={orderTerms}
+          onTermsChange={(next) => {
+            orderTermsRef.current = next;
+            setOrderTerms(next);
+          }}
+          onEditItem={handleEditItem}
+          onBack={goToConfigure}
+          submitError={submitError}
+          disabled={isSubmitting}
+        />
+      ) : (
+        <>
+          {submitError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              {submitError}
+            </div>
+          ) : null}
+
+          <OrderJobTitleField
+            value={jobTitle}
+            onChange={(value) => {
+              jobTitleRef.current = value;
+              setJobTitle(value);
+            }}
           />
-        ))}
-      </div>
 
-      <button
-        type="button"
-        onClick={handleAddItem}
-        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors"
-      >
-        <Plus className="w-4 h-4" />
-        Add Another Photo
-      </button>
+          <div className="space-y-5">
+            {items.map((item, index) => {
+              const originalSlot = buildSingleExposureDraftFileSlotKey(
+                item.clientItemId,
+                "original",
+              );
+              const referenceSlot = buildSingleExposureDraftFileSlotKey(
+                item.clientItemId,
+                "reference",
+              );
+              return (
+                <SingleExposureItemCard
+                  key={item.clientItemId}
+                  index={index}
+                  data={item}
+                  onChange={(data) => handleItemChange(index, data)}
+                  onRemove={() => void handleRemoveItem(index)}
+                  canRemove={items.length > 1}
+                  exampleMediaByKey={exampleMediaByKey}
+                  onApplyToAll={() => handleApplyToAll(index)}
+                  showApplyToAll={items.length > 1}
+                  persistedOriginal={uploadedFilesBySlot.get(originalSlot)}
+                  persistedReference={uploadedFilesBySlot.get(referenceSlot)}
+                  onOriginalFileChange={(file) =>
+                    void handleDraftFileChange(index, "original", file)
+                  }
+                  onReferenceFileChange={(file) =>
+                    void handleDraftFileChange(index, "reference", file)
+                  }
+                  onRemovePersistedOriginal={() =>
+                    void handleDraftFileChange(index, "original", null)
+                  }
+                  onRemovePersistedReference={() =>
+                    void handleDraftFileChange(index, "reference", null)
+                  }
+                  originalOperationStatus={fileOperationStatus[originalSlot]}
+                  referenceOperationStatus={fileOperationStatus[referenceSlot]}
+                  fileOperationsDisabled={fileOperationActive}
+                  showErrors={validationAttempted}
+                />
+              );
+            })}
+          </div>
 
-      <OrderTermsBlock data={orderTerms} onChange={setOrderTerms} />
+          <button
+            type="button"
+            onClick={handleAddItem}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-3 text-sm font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Another Photo
+          </button>
+        </>
+      )}
     </OrderLayout>
   );
 }

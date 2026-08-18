@@ -13,6 +13,11 @@ export type PriceKey =
   | "background-change"
   | "colour-change"
   | "turn-on-lights"
+  | "aerial-colour-fade"
+  | "aerial-drop-pin"
+  | "aerial-single-lot-highlight"
+  | "aerial-multiple-lot-highlight"
+  | "aerial-full-markup"
   | "water-effect"
   | "360-image-enhancement"
   | "360-virtual-staging"
@@ -68,6 +73,11 @@ export interface FloorPlanPricingItem {
 
 export interface PhotoEditingPricingItem {
   selectedOptions: string[];
+  /**
+   * Dedicated photo-editing flows may pin their base service explicitly.
+   * Legacy generic Photo Editing omits this and keeps highest-price-as-base.
+   */
+  baseOptionId?: string;
 }
 
 export type OrderPricingInput =

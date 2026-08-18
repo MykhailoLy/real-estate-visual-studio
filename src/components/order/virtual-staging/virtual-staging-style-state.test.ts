@@ -155,8 +155,8 @@ test("missing admin media remains a safe non-preview state", () => {
 });
 
 test("all Virtual Staging media keys are stable and unique", () => {
-  assert.equal(VIRTUAL_STAGING_MEDIA_KEYS.length, 15);
-  assert.equal(new Set(VIRTUAL_STAGING_MEDIA_KEYS).size, 15);
+  assert.equal(VIRTUAL_STAGING_MEDIA_KEYS.length, 16);
+  assert.equal(new Set(VIRTUAL_STAGING_MEDIA_KEYS).size, 16);
   assert.deepEqual(VIRTUAL_STAGING_MEDIA_KEYS, [
     "virtual-staging-style-modern",
     "virtual-staging-style-urban-industrial",
@@ -171,6 +171,7 @@ test("all Virtual Staging media keys are stable and unique", () => {
     "virtual-staging-addon-image-enhancement",
     "virtual-staging-addon-day-to-dusk",
     "virtual-staging-addon-item-removal",
+    "shared-addon-shadow-removal",
     "virtual-staging-addon-turn-on-lights",
     "virtual-staging-addon-colour-change",
   ]);
@@ -185,6 +186,7 @@ test("canonical add-on pricing keys remain unchanged", () => {
       ["image-enhancement", "image-enhancement"],
       ["day-to-dusk", "day-to-dusk"],
       ["item-removal", "item-removal-virtual-cleaning"],
+      ["shadow-removal", "shadow-removal"],
       ["turn-on-lights", "turn-on-lights"],
       ["colour-change", "colour-change"],
     ],

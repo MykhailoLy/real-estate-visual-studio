@@ -162,6 +162,14 @@ export const STAGING_ADDONS: AddOnOption[] = [
       "Removes unwanted furniture, clutter or selected objects to prepare a clean space for presentation or staging.",
   },
   {
+    id: "shadow-removal",
+    label: "Shadow Removal",
+    priceKey: "shadow-removal",
+    mediaKey: "shared-addon-shadow-removal",
+    description:
+      "Removes unwanted photographer, camera, flash or harsh cast shadows while preserving natural depth.",
+  },
+  {
     id: "turn-on-lights",
     label: "Turn On Lights",
     priceKey: "turn-on-lights",
@@ -340,6 +348,11 @@ export const PHOTO_EDIT_OPTIONS: PhotoEditOption[] = [
   { id: "background-change", label: "Background Change", priceKey: "background-change" },
   { id: "colour-change-pe", label: "Colour Change", priceKey: "colour-change" },
   { id: "turn-on-lights-pe", label: "Turn On Lights", priceKey: "turn-on-lights" },
+  { id: "aerial-colour-fade-pe", label: "Aerial Colour Fade", priceKey: "aerial-colour-fade" },
+  { id: "aerial-drop-pin-pe", label: "Aerial Drop Pin", priceKey: "aerial-drop-pin" },
+  { id: "aerial-single-lot-highlight-pe", label: "Single Lot Highlight", priceKey: "aerial-single-lot-highlight" },
+  { id: "aerial-multiple-lot-highlight-pe", label: "Multiple Lot Highlight — up to 5 lots", priceKey: "aerial-multiple-lot-highlight" },
+  { id: "aerial-full-markup-pe", label: "Full Aerial Markup — highlight, fade and pin", priceKey: "aerial-full-markup" },
   { id: "day-to-dusk-pe", label: "Day to Dusk", priceKey: "day-to-dusk" },
   { id: "water-effect", label: "Water Effect for Empty Pools & Jacuzzi", priceKey: "water-effect" },
 ];

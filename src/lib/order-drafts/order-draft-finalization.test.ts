@@ -534,6 +534,19 @@ test("ordinary /api/order continues using move mode", () => {
   assert.match(ORDER_ROUTE, /storageMode: "move"/);
 });
 
+test("Single Exposure aerial choices and detail requirements reach final order data", () => {
+  assert.match(ORDER_SERVICE, /base\.aerial_editing = aerial\.id/);
+  assert.match(ORDER_SERVICE, /base\.aerial_editing_label = aerial\.label/);
+  assert.match(
+    ORDER_SERVICE,
+    /base\.aerial_editing_instructions =\s*p\.aerialEditingInstructions\?\.trim\(\) \|\| ""/,
+  );
+  assert.match(
+    ORDER_SERVICE,
+    /isAerialDetailRequirementSatisfied\([\s\S]*?Boolean\(itemFiles\[index\]\?\.reference\)/,
+  );
+});
+
 test("final copy cleanup occurs on pre-order failure", () => {
   assert.match(ORDER_SERVICE, /cleanupAfterFinalizationFailure/);
   assert.match(

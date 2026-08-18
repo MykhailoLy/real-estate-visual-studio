@@ -31,6 +31,7 @@
     "test:virtual-staging-styles": "node --experimental-strip-types --test src/components/order/virtual-staging/virtual-staging-style-state.test.ts src/components/order/virtual-staging/virtual-staging-ui-structure.test.ts",
     "test:virtual-staging-drafts": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging.test.ts",
     "test:virtual-staging-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging-files.test.ts",
+    "test:single-exposure": "node --experimental-strip-types --test src/components/order/image-enhancement/single-exposure-review.test.ts src/components/order/image-enhancement/single-exposure-ui-structure.test.ts src/lib/image-enhancement.test.ts src/lib/order-drafts/single-exposure.test.ts src/lib/single-exposure-validation.test.ts",
     "test:property-showcase": "node --experimental-strip-types --test src/features/property-showcase/*.test.ts",
     "test:public-image-delivery": "node --experimental-strip-types --test src/components/media/image-delivery.test.ts",
     "test:static-image-viewers": "node --experimental-strip-types --test src/components/media/static-image-viewer.test.ts",

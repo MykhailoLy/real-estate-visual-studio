@@ -51,13 +51,14 @@ export function calculateFloorPlanItemTotal(
 
 export function calculatePhotoEditItemTotal(
   selectedOptionIds: string[],
-  currency: TransactionalCurrency = "USD"
+  currency: TransactionalCurrency = "USD",
+  baseOptionId?: string,
 ): number {
   if (selectedOptionIds.length === 0) return 0;
   return calculateOrderQuote({
     serviceType: "photo-editing",
     currency,
-    items: [{ selectedOptions: selectedOptionIds }],
+    items: [{ selectedOptions: selectedOptionIds, baseOptionId }],
   }).items[0].lineSubtotalCents;
 }
 
