@@ -11,7 +11,7 @@ const baseItem = {
   disclaimerText: "Keep the city view visible.",
   referenceLink: "https://example.com/inspiration/modern-living-room",
   additionalInfo: "Match the existing window treatments.",
-  selectedAddons: ["image-enhancement", "turn-on-lights"],
+  selectedAddons: ["image-enhancement", "shadow-removal", "turn-on-lights"],
 };
 
 test("review mapping keeps all Virtual Staging image choices readable", () => {
@@ -35,6 +35,10 @@ test("review mapping keeps all Virtual Staging image choices readable", () => {
     [
       `Image Enhancement (${formatMoney(
         getCatalogPrice("image-enhancement", "USD"),
+        "USD",
+      )})`,
+      `Shadow Removal (${formatMoney(
+        getCatalogPrice("shadow-removal", "USD"),
         "USD",
       )})`,
       `Turn On Lights (${formatMoney(

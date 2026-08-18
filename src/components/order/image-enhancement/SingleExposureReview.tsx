@@ -1,0 +1,180 @@
+"use client";
+
+import { ArrowLeft } from "lucide-react";
+import OrderReviewHeader from "@/components/order/OrderReviewHeader";
+import OrderReviewItem, {
+  type ReviewFileDisplay,
+} from "@/components/order/OrderReviewItem";
+import OrderTermsBlock, {
+  type OrderTermsData,
+} from "@/components/order/OrderTermsBlock";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { calculatePhotoEditItemTotal } from "@/lib/pricing";
+import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import { buildSingleExposureDraftFileSlotKey } from "@/lib/order-drafts/single-exposure";
+import {
+  SINGLE_EXPOSURE_OPTION_ID,
+  getAerialEditingOption,
+  getSingleExposureSelectedOptions,
+} from "@/lib/image-enhancement";
+import type { SingleExposureItemData } from "./SingleExposureItemCard";
+import { buildSingleExposureReviewRows } from "./single-exposure-review";
+
+const SERVICE_NAME = "Image Enhancement — Single Exposure";
+
+interface SingleExposureReviewProps {
+  jobTitle: string;
+  items: SingleExposureItemData[];
+  uploadedFilesBySlot: Map<string, OrderDraftUploadedFileSummary>;
+  orderTerms: OrderTermsData;
+  onTermsChange: (data: OrderTermsData) => void;
+  onEditItem: (index: number) => void;
+  onBack: () => void;
+  submitError: string;
+  disabled?: boolean;
+}
+
+function toReviewFileDisplay(
+  file: OrderDraftUploadedFileSummary | undefined,
+): ReviewFileDisplay | null {
+  return file
+    ? {
+        filename: file.originalFilename,
+        fileSize: file.fileSize,
+        previewUrl: file.previewUrl ?? null,
+      }
+    : null;
+}
+
+export default function SingleExposureReview({
+  jobTitle,
+  items,
+  uploadedFilesBySlot,
+  orderTerms,
+  onTermsChange,
+  onEditItem,
+  onBack,
+  submitError,
+  disabled = false,
+}: SingleExposureReviewProps) {
+  const currency = useDisplayCurrency();
+  const pricingItems = items.map((item) => ({
+    selectedOptions: getSingleExposureSelectedOptions(
+      item.selectedAddons,
+      item.aerialEditing,
+    ),
+    baseOptionId: SINGLE_EXPOSURE_OPTION_ID,
+  }));
+  const quote = calculateOrderQuote({
+    serviceType: "photo-editing",
+    currency,
+    items: pricingItems,
+  });
+
+  return (
+    <div className="space-y-5">
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to Edit
+      </button>
+
+      <OrderReviewHeader
+        jobTitle={jobTitle}
+        serviceName={SERVICE_NAME}
+        photoCount={items.length}
+        quote={quote}
+      />
+
+      {submitError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+        >
+          {submitError}
+        </div>
+      ) : null}
+
+      <div className="space-y-5">
+        {items.map((item, index) => {
+          const persistedOriginal = toReviewFileDisplay(
+            uploadedFilesBySlot.get(
+              buildSingleExposureDraftFileSlotKey(
+                item.clientItemId,
+                "original",
+              ),
+            ),
+          );
+          const persistedReference = toReviewFileDisplay(
+            uploadedFilesBySlot.get(
+              buildSingleExposureDraftFileSlotKey(
+                item.clientItemId,
+                "reference",
+              ),
+            ),
+          );
+          const selectedOptions = pricingItems[index]?.selectedOptions ?? [
+            SINGLE_EXPOSURE_OPTION_ID,
+          ];
+          const aerialRequiresReference = getAerialEditingOption(
+            item.aerialEditing,
+          ).requiresDetails;
+          const subtotal =
+            quote.items[index]?.lineSubtotalCents ??
+            calculatePhotoEditItemTotal(
+              selectedOptions,
+              currency,
+              SINGLE_EXPOSURE_OPTION_ID,
+            );
+
+          return (
+            <OrderReviewItem
+              key={item.clientItemId}
+              index={index}
+              file={item.file}
+              persistedFile={item.file ? null : persistedOriginal}
+              secondaryFile={
+                aerialRequiresReference ? item.referenceFile : null
+              }
+              persistedSecondaryFile={
+                aerialRequiresReference && !item.referenceFile
+                  ? persistedReference
+                  : null
+              }
+              secondaryLabel="Aerial Reference Image"
+              rows={buildSingleExposureReviewRows(
+                item,
+                currency,
+                Boolean(item.referenceFile || persistedReference),
+              )}
+              subtotalCents={subtotal}
+              onEdit={() => onEditItem(index)}
+              wrapFileNames
+            />
+          );
+        })}
+      </div>
+
+      <OrderTermsBlock
+        data={orderTerms}
+        onChange={onTermsChange}
+        disabled={disabled}
+      />
+
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary transition-colors hover:text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to Edit
+      </button>
+    </div>
+  );
+}

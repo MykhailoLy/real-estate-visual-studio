@@ -46,12 +46,17 @@ import {
 } from "./direct-upload-verification.ts";
 import { sendOrderEmails } from "@/lib/email/send-order-emails";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
-import { getDedicatedSubServiceLabel } from "@/lib/dedicated-photo-editing";
 import {
+  getDedicatedSubServiceLabel,
+  SUB_SERVICE_REQUIRED_OPTION,
+} from "@/lib/dedicated-photo-editing";
+import {
+  getAerialEditingOption,
+  getEffectiveDaySkyStyle,
+  isAerialDetailRequirementSatisfied,
+  isDaySkyStyleActive,
   getThreeStateLabel,
   getDaySkyStyleLabel,
-  isDaySkyStyleId,
-  DAY_SKY_STYLE_DEFAULT,
 } from "@/lib/image-enhancement";
 import {
   getDuskStyleLabel,
@@ -326,6 +331,13 @@ export async function createProductionOrder(
       status: 400,
     };
   }
+
+  const aerialValidation = validateSingleExposureAerialRequirements(
+    input.serviceType,
+    input.items,
+    input.itemFiles,
+  );
+  if (!aerialValidation.ok) return aerialValidation;
 
   let quote: OrderQuote;
   try {
@@ -642,10 +654,12 @@ function calculateServerQuote(
       input = {
         serviceType,
         currency,
-        items: items as Extract<
-          OrderPricingInput,
-          { serviceType: "photo-editing" }
-        >["items"],
+        items: (items as PhotoEditItem[]).map((item) => ({
+          selectedOptions: item.selectedOptions,
+          baseOptionId: item.subService
+            ? SUB_SERVICE_REQUIRED_OPTION[item.subService]
+            : undefined,
+        })),
       };
       break;
   }
@@ -739,10 +753,19 @@ function buildItemDetails(
         base.sky_replacement = getThreeStateLabel(p.skyReplacement);
         base.tv_screen_replacement = getThreeStateLabel(p.tvScreenReplacement);
         base.add_fire_to_fireplace = getThreeStateLabel(p.addFireToFireplace);
-        base.day_sky_style = isDaySkyStyleId(p.daySkyStyle)
-          ? p.daySkyStyle
-          : DAY_SKY_STYLE_DEFAULT;
-        base.day_sky_style_label = getDaySkyStyleLabel(p.daySkyStyle);
+        const daySkyStyle = getEffectiveDaySkyStyle(
+          p.skyReplacement,
+          p.daySkyStyle,
+        );
+        if (isDaySkyStyleActive(p.skyReplacement) && daySkyStyle) {
+          base.day_sky_style = daySkyStyle;
+          base.day_sky_style_label = getDaySkyStyleLabel(daySkyStyle);
+        }
+        const aerial = getAerialEditingOption(p.aerialEditing);
+        base.aerial_editing = aerial.id;
+        base.aerial_editing_label = aerial.label;
+        base.aerial_editing_instructions =
+          p.aerialEditingInstructions?.trim() || "";
       }
       if (p.subService === "day-to-dusk") {
         base.dusk_style = isDuskStyleId(p.duskStyle)
@@ -763,6 +786,41 @@ function buildItemDetails(
       return base;
     }
   }
+}
+
+export function validateSingleExposureAerialRequirements(
+  serviceType: ServiceType,
+  items: ValidatedOrderItem[],
+  itemFiles: TrustedOrderItemFiles[],
+):
+  | { ok: true }
+  | {
+      ok: false;
+      code: "invalid_input";
+      message: string;
+      status: 400;
+    } {
+  if (serviceType !== "photo-editing") return { ok: true };
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index] as PhotoEditItem;
+    if (item.subService !== "image-enhancement-single-exposure") continue;
+    const aerial = getAerialEditingOption(item.aerialEditing);
+    if (!isAerialDetailRequirementSatisfied(
+      aerial.id,
+      item.aerialEditingInstructions,
+      Boolean(itemFiles[index]?.reference),
+    )) {
+      return {
+        ok: false,
+        code: "invalid_input",
+        message: `Photo ${index + 1} requires Aerial Editing Instructions or an Aerial Reference Image.`,
+        status: 400,
+      };
+    }
+  }
+
+  return { ok: true };
 }
 
 async function finalizeFileToOrderPath(input: {

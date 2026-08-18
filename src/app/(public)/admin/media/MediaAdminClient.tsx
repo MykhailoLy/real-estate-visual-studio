@@ -30,7 +30,18 @@ import {
   STAGING_STYLE_CARDS,
   VIRTUAL_STAGING_MEDIA_KEYS,
 } from "@/data/order-options";
+import {
+  AERIAL_EDITING_OPTIONS,
+  SINGLE_EXPOSURE_ORDER_MEDIA_KEYS,
+} from "@/lib/image-enhancement";
 import { getSupabaseBrowser } from "@/lib/supabase";
+
+const ORDER_OPTION_MEDIA_PRESET_KEYS = [
+  ...new Set([
+    ...VIRTUAL_STAGING_MEDIA_KEYS,
+    ...SINGLE_EXPOSURE_ORDER_MEDIA_KEYS,
+  ]),
+];
 
 // ============================================================
 // MediaAdminClient
@@ -990,9 +1001,9 @@ function MediaEditor({
           <Field label="Service slug (optional)" htmlFor="service_slug">
             {section === "service-options" ? (
               <select
-                aria-label="Virtual Staging media key preset"
+                aria-label="Service option media key preset"
                 value={
-                  VIRTUAL_STAGING_MEDIA_KEYS.includes(serviceSlug)
+                  ORDER_OPTION_MEDIA_PRESET_KEYS.includes(serviceSlug)
                     ? serviceSlug
                     : ""
                 }
@@ -1001,7 +1012,7 @@ function MediaEditor({
                 }}
                 className="mb-2 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
-                <option value="">Virtual Staging preset (optional)</option>
+                <option value="">Service option preset (optional)</option>
                 <optgroup label="Furniture styles">
                   {STAGING_STYLE_CARDS.map((style) => (
                     <option key={style.mediaKey} value={style.mediaKey}>
@@ -1016,6 +1027,20 @@ function MediaEditor({
                     </option>
                   ))}
                 </optgroup>
+                <optgroup label="Image Enhancement — Aerial Editing">
+                  {AERIAL_EDITING_OPTIONS.flatMap((option) =>
+                    option.mediaKey
+                      ? [
+                          <option
+                            key={option.mediaKey}
+                            value={option.mediaKey}
+                          >
+                            {option.label}
+                          </option>,
+                        ]
+                      : [],
+                  )}
+                </optgroup>
               </select>
             ) : null}
             <input
@@ -1029,8 +1054,8 @@ function MediaEditor({
               placeholder="e.g. virtual-staging"
             />
             <p className="mt-1 text-[11px] text-muted-light">
-              For Virtual Staging order examples, choose a preset above and
-              upload either Image or Before / after media in Service options.
+              For order-form examples, choose a preset above and upload either
+              Image or Before / after media in Service options.
               Manual keys remain supported. If this matches a portfolio service
               slug, the matching pricing page will revalidate on save. For
               synchronized 360 before/after hero use:

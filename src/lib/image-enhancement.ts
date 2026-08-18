@@ -171,6 +171,221 @@ export function getDaySkyStyleLabel(value: unknown): string {
 }
 
 // -----------------------------------------------------------
+// Single Exposure optional add-ons
+// -----------------------------------------------------------
+export interface SingleExposureStandardAddOn {
+  /** Stable PHOTO_EDIT_OPTIONS id submitted for pricing and fulfilment. */
+  id: SingleExposureStandardAddOnId;
+  label: string;
+  priceKey: import("./pricing/types").PriceKey;
+  /** Existing shared Virtual Staging keys stay the media source of truth. */
+  mediaKey: string;
+  description: string;
+}
+
+export type SingleExposureStandardAddOnId =
+  | "item-removal-cleaning-pe"
+  | "shadow-removal"
+  | "turn-on-lights-pe"
+  | "colour-change-pe";
+
+export const SINGLE_EXPOSURE_STANDARD_ADDONS: SingleExposureStandardAddOn[] = [
+  {
+    id: "item-removal-cleaning-pe",
+    label: "Item Removal & Virtual Cleaning",
+    priceKey: "item-removal-virtual-cleaning",
+    mediaKey: "virtual-staging-addon-item-removal",
+    description:
+      "Removes unwanted furniture, clutter or selected objects to prepare a clean space for presentation.",
+  },
+  {
+    id: "shadow-removal",
+    label: "Shadow Removal",
+    priceKey: "shadow-removal",
+    mediaKey: "shared-addon-shadow-removal",
+    description:
+      "Removes unwanted photographer, camera, flash or harsh cast shadows while preserving natural depth.",
+  },
+  {
+    id: "turn-on-lights-pe",
+    label: "Turn On Lights",
+    priceKey: "turn-on-lights",
+    mediaKey: "virtual-staging-addon-turn-on-lights",
+    description:
+      "Makes existing light fixtures appear naturally illuminated without adding new fixtures.",
+  },
+  {
+    id: "colour-change-pe",
+    label: "Colour Change",
+    priceKey: "colour-change",
+    mediaKey: "virtual-staging-addon-colour-change",
+    description:
+      "Changes requested colours of selected walls, finishes, furniture or other visible elements.",
+  },
+];
+
+export const SINGLE_EXPOSURE_STANDARD_ADDON_IDS =
+  SINGLE_EXPOSURE_STANDARD_ADDONS.map((addon) => addon.id);
+
+export function isSingleExposureStandardAddOnId(
+  value: unknown,
+): value is SingleExposureStandardAddOnId {
+  return (
+    typeof value === "string" &&
+    SINGLE_EXPOSURE_STANDARD_ADDONS.some((addon) => addon.id === value)
+  );
+}
+
+export function normalizeSingleExposureStandardAddOns(
+  values: readonly unknown[],
+): SingleExposureStandardAddOnId[] {
+  return [...new Set(values.filter(isSingleExposureStandardAddOnId))];
+}
+
+export const AERIAL_EDITING_ID_VALUES = [
+  "none",
+  "colour-fade",
+  "drop-pin",
+  "single-lot-highlight",
+  "multiple-lot-highlight",
+  "full-markup",
+] as const;
+
+export type AerialEditingId = (typeof AERIAL_EDITING_ID_VALUES)[number];
+
+export interface AerialEditingOption {
+  id: AerialEditingId;
+  label: string;
+  optionId: string | null;
+  priceKey: import("./pricing/types").PriceKey | null;
+  mediaKey: string | null;
+  description: string;
+  requiresDetails: boolean;
+}
+
+export const AERIAL_EDITING_OPTIONS: AerialEditingOption[] = [
+  {
+    id: "none",
+    label: "No Aerial Editing",
+    optionId: null,
+    priceKey: null,
+    mediaKey: null,
+    description:
+      "Choose an aerial editing option when the uploaded photo needs a fade, pin, lot highlight or full markup.",
+    requiresDetails: false,
+  },
+  {
+    id: "colour-fade",
+    label: "Aerial Colour Fade",
+    optionId: "aerial-colour-fade-pe",
+    priceKey: "aerial-colour-fade",
+    mediaKey: "image-enhancement-aerial-colour-fade",
+    description:
+      "Softly de-emphasises the surrounding area so attention remains on the selected property.",
+    requiresDetails: false,
+  },
+  {
+    id: "drop-pin",
+    label: "Aerial Drop Pin",
+    optionId: "aerial-drop-pin-pe",
+    priceKey: "aerial-drop-pin",
+    mediaKey: "image-enhancement-aerial-drop-pin",
+    description:
+      "Adds a clear location marker to identify the property or an important nearby feature.",
+    requiresDetails: true,
+  },
+  {
+    id: "single-lot-highlight",
+    label: "Single Lot Highlight",
+    optionId: "aerial-single-lot-highlight-pe",
+    priceKey: "aerial-single-lot-highlight",
+    mediaKey: "image-enhancement-aerial-single-lot-highlight",
+    description:
+      "Highlights one property boundary using the supplied reference or instructions.",
+    requiresDetails: true,
+  },
+  {
+    id: "multiple-lot-highlight",
+    label: "Multiple Lot Highlight — up to 5 lots",
+    optionId: "aerial-multiple-lot-highlight-pe",
+    priceKey: "aerial-multiple-lot-highlight",
+    mediaKey: "image-enhancement-aerial-multiple-lot-highlight",
+    description:
+      "Highlights up to five individual lots using the supplied reference or marked screenshot.",
+    requiresDetails: true,
+  },
+  {
+    id: "full-markup",
+    label: "Full Aerial Markup — highlight, fade and pin",
+    optionId: "aerial-full-markup-pe",
+    priceKey: "aerial-full-markup",
+    mediaKey: "image-enhancement-aerial-full-markup",
+    description:
+      "Combines a property highlight, surrounding-area fade and location pin in one aerial image.",
+    requiresDetails: true,
+  },
+];
+
+export const AERIAL_EDITING_DEFAULT: AerialEditingId = "none";
+
+export const AERIAL_EDITING_OPTION_IDS = AERIAL_EDITING_OPTIONS.flatMap(
+  (option) => (option.optionId ? [option.optionId] : []),
+);
+
+export function isAerialEditingId(value: unknown): value is AerialEditingId {
+  return (
+    typeof value === "string" &&
+    (AERIAL_EDITING_ID_VALUES as readonly string[]).includes(value)
+  );
+}
+
+export function getAerialEditingOption(value: unknown): AerialEditingOption {
+  return (
+    AERIAL_EDITING_OPTIONS.find((option) => option.id === value) ??
+    AERIAL_EDITING_OPTIONS[0]
+  );
+}
+
+export function isAerialDetailRequirementSatisfied(
+  aerialEditing: unknown,
+  instructions: unknown,
+  hasReference: boolean,
+): boolean {
+  const aerial = getAerialEditingOption(aerialEditing);
+  return (
+    !aerial.requiresDetails ||
+    (typeof instructions === "string" && instructions.trim().length > 0) ||
+    hasReference
+  );
+}
+
+export function getSingleExposureSelectedOptions(
+  selectedAddons: readonly unknown[],
+  aerialEditing: unknown,
+): string[] {
+  const aerialOption = getAerialEditingOption(aerialEditing);
+  return [
+    SINGLE_EXPOSURE_OPTION_ID,
+    ...normalizeSingleExposureStandardAddOns(selectedAddons),
+    ...(aerialOption.optionId ? [aerialOption.optionId] : []),
+  ];
+}
+
+export function isDaySkyStyleActive(
+  skyReplacement: unknown,
+): skyReplacement is "yes" {
+  return skyReplacement === "yes";
+}
+
+export function getEffectiveDaySkyStyle(
+  skyReplacement: unknown,
+  daySkyStyle: unknown,
+): DaySkyStyleId | null {
+  if (!isDaySkyStyleActive(skyReplacement)) return null;
+  return isDaySkyStyleId(daySkyStyle) ? daySkyStyle : DAY_SKY_STYLE_DEFAULT;
+}
+
+// -----------------------------------------------------------
 // Type selector
 // -----------------------------------------------------------
 export interface ImageEnhancementType {
@@ -221,4 +436,13 @@ export const IMAGE_ENHANCEMENT_TYPES: ImageEnhancementType[] = [
 export const IMAGE_ENHANCEMENT_MEDIA_KEYS: string[] = [
   ...IMAGE_ENHANCEMENT_TYPES.map((t) => t.mediaKey),
   ...DAY_SKY_STYLES.map((s) => s.mediaKey),
+];
+
+/** Published examples used by the authenticated Single Exposure order form. */
+export const SINGLE_EXPOSURE_ORDER_MEDIA_KEYS: string[] = [
+  ...DAY_SKY_STYLES.map((style) => style.mediaKey),
+  ...SINGLE_EXPOSURE_STANDARD_ADDONS.map((addon) => addon.mediaKey),
+  ...AERIAL_EDITING_OPTIONS.flatMap((option) =>
+    option.mediaKey ? [option.mediaKey] : [],
+  ),
 ];

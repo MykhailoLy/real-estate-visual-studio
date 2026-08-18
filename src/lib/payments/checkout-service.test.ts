@@ -28,6 +28,7 @@ const now = new Date("2026-07-13T12:00:00.000Z");
 const { createCheckoutSession, checkoutInternals, CheckoutServiceError } =
   await import("./checkout-service.ts");
 const { handleCheckoutRequest } = await import("./checkout-request.ts");
+const { PRICING_VERSION } = await import("../pricing/catalog.ts");
 
 function validOrder(overrides: Record<string, unknown> = {}) {
   return {
@@ -40,7 +41,7 @@ function validOrder(overrides: Record<string, unknown> = {}) {
     estimated_total_cents: 1350,
     currency: "USD",
     pricing_snapshot: {
-      pricingVersion: "2026-06-25-v1",
+      pricingVersion: PRICING_VERSION,
       currency: "USD",
       serviceType: "virtual-staging",
       eligibleUnits: 1,

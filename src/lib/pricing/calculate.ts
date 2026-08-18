@@ -204,11 +204,21 @@ function calculatePhotoEditingItems(
         input.currency
       ),
     }));
-    // Generic Photo Editing treats the highest-priced selected option as the
-    // base service; every other selected option is an undiscounted add-on.
-    const [base] = [...priced].sort(
-      (a, b) => b.unitPriceCents - a.unitPriceCents
-    );
+    // Dedicated photo-editing flows can identify their base service so a
+    // higher-priced add-on never receives the volume discount. Legacy generic
+    // Photo Editing retains its highest-price-as-base behaviour.
+    const explicitBase = item.baseOptionId
+      ? priced.find((option) => option.id === item.baseOptionId)
+      : null;
+    if (item.baseOptionId && !explicitBase) {
+      throw new PricingValidationError(
+        `Base photo-editing option is not selected: ${item.baseOptionId}`,
+        "invalid-base-option-id"
+      );
+    }
+    const base =
+      explicitBase ??
+      [...priced].sort((a, b) => b.unitPriceCents - a.unitPriceCents)[0];
     const addOns = priced
       .filter((option) => option.id !== base.id)
       .map((option) =>

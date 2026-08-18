@@ -5,7 +5,7 @@ import {
   DAY_SKY_STYLES,
   type DaySkyStyleId,
 } from "@/lib/image-enhancement";
-import type { ServiceOptionImage } from "@/lib/site-media";
+import type { ServiceOptionMedia } from "@/lib/site-media";
 import SelectorMediaTile from "./SelectorMediaTile";
 
 // ============================================================
@@ -26,7 +26,7 @@ interface DaySkyStyleSelectorProps {
   value: DaySkyStyleId;
   onChange: (value: DaySkyStyleId) => void;
   /** mediaKey → resolved image. Missing keys render a CSS fallback. */
-  images: Record<string, ServiceOptionImage>;
+  mediaByKey: Record<string, ServiceOptionMedia>;
   /** Unique id prefix so multiple item cards don't collide. */
   idPrefix: string;
 }
@@ -34,7 +34,7 @@ interface DaySkyStyleSelectorProps {
 export default function DaySkyStyleSelector({
   value,
   onChange,
-  images,
+  mediaByKey,
   idPrefix,
 }: DaySkyStyleSelectorProps) {
   const groupName = `${idPrefix}-day-sky`;
@@ -52,7 +52,9 @@ export default function DaySkyStyleSelector({
         {DAY_SKY_STYLES.map((style) => {
           const id = `${idPrefix}-${style.id}`;
           const selected = value === style.id;
-          const media = images[style.mediaKey] ?? null;
+          const media = mediaByKey[style.mediaKey] ?? null;
+          const mediaUrl =
+            media?.imageUrl ?? media?.afterUrl ?? media?.beforeUrl ?? null;
 
           return (
             <label
@@ -75,8 +77,8 @@ export default function DaySkyStyleSelector({
               />
 
               <SelectorMediaTile
-                url={media?.url ?? null}
-                alt={media?.alt ?? `${style.label} sky example`}
+                url={mediaUrl}
+                alt={media?.altText ?? `${style.label} sky example`}
                 sizes="(min-width: 1024px) 18vw, (min-width: 640px) 33vw, 45vw"
                 rounded="rounded-none"
               />

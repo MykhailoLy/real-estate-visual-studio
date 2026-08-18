@@ -78,6 +78,83 @@ test("generic Photo Editing uses the highest-priced option as the discounted bas
   assert.equal(quote.totalCents, 8_800);
 });
 
+test("Single Exposure pins Image Enhancement as base and discounts no add-ons", () => {
+  const quote = calculateOrderQuote({
+    serviceType: "photo-editing",
+    currency: "USD",
+    items: Array.from({ length: 10 }, () => ({
+      selectedOptions: [
+        "image-enhancement-re",
+        "shadow-removal",
+        "aerial-full-markup-pe",
+      ],
+      baseOptionId: "image-enhancement-re",
+    })),
+  });
+  assert.equal(quote.baseSubtotalCents, 1_500);
+  assert.equal(quote.addOnSubtotalCents, 12_500);
+  assert.equal(quote.volumeDiscountCents, 150);
+  assert.equal(quote.totalCents, 13_850);
+});
+
+test("Shadow Removal uses approved USD, EUR and CAD prices in both services", () => {
+  const currencies = ["USD", "EUR", "CAD"] as const;
+  const staging = currencies.map(
+    (currency) =>
+      calculateOrderQuote({
+        serviceType: "virtual-staging",
+        currency,
+        items: [{ selectedAddons: ["shadow-removal"] }],
+      }).items[0]?.addOnSubtotalCents,
+  );
+  const singleExposure = currencies.map(
+    (currency) =>
+      calculateOrderQuote({
+        serviceType: "photo-editing",
+        currency,
+        items: [
+          {
+            selectedOptions: ["image-enhancement-re", "shadow-removal"],
+            baseOptionId: "image-enhancement-re",
+          },
+        ],
+      }).items[0]?.addOnSubtotalCents,
+  );
+  assert.deepEqual(staging, [700, 650, 1_000]);
+  assert.deepEqual(singleExposure, staging);
+});
+
+test("every Aerial Editing option uses its approved currency price", () => {
+  const optionIds = [
+    "aerial-colour-fade-pe",
+    "aerial-drop-pin-pe",
+    "aerial-single-lot-highlight-pe",
+    "aerial-multiple-lot-highlight-pe",
+    "aerial-full-markup-pe",
+  ];
+  const expected = {
+    USD: [250, 250, 250, 450, 550],
+    EUR: [250, 250, 250, 400, 500],
+    CAD: [350, 350, 350, 650, 750],
+  } as const;
+  for (const currency of ["USD", "EUR", "CAD"] as const) {
+    const actual = optionIds.map(
+      (optionId) =>
+        calculateOrderQuote({
+          serviceType: "photo-editing",
+          currency,
+          items: [
+            {
+              selectedOptions: ["image-enhancement-re", optionId],
+              baseOptionId: "image-enhancement-re",
+            },
+          ],
+        }).items[0]?.addOnSubtotalCents,
+    );
+    assert.deepEqual(actual, expected[currency]);
+  }
+});
+
 test("USD, EUR, and CAD use fixed catalog prices", () => {
   const totals = (["USD", "EUR", "CAD"] as const).map(
     (currency) =>

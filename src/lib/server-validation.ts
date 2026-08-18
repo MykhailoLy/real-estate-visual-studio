@@ -10,8 +10,12 @@ import {
   ITEM_REMOVAL_MIN_INSTRUCTIONS,
 } from "./dedicated-photo-editing.ts";
 import {
+  AERIAL_EDITING_ID_VALUES,
+  AERIAL_EDITING_OPTION_IDS,
+  SINGLE_EXPOSURE_STANDARD_ADDON_IDS,
   THREE_STATE_VALUES,
   DAY_SKY_STYLE_ID_VALUES,
+  getAerialEditingOption,
 } from "./image-enhancement.ts";
 import { DUSK_STYLE_ID_VALUES } from "./day-to-dusk.ts";
 import { REMOVAL_TASK_ID_VALUES } from "./item-removal.ts";
@@ -164,6 +168,12 @@ export const PhotoEditItemSchema = z
     tvScreenReplacement: z.enum(THREE_STATE_VALUES).optional(),
     addFireToFireplace: z.enum(THREE_STATE_VALUES).optional(),
     daySkyStyle: z.enum(DAY_SKY_STYLE_ID_VALUES).optional(),
+    aerialEditing: z.enum(AERIAL_EDITING_ID_VALUES).optional(),
+    aerialEditingInstructions: z
+      .string()
+      .max(5000, "Aerial editing instructions are too long")
+      .optional()
+      .default(""),
     // --- Day to Dusk preferences ---
     // All optional + typed so other photo-editing sub-services and the
     // legacy generic form are unaffected. Validated below only for the
@@ -189,18 +199,72 @@ export const PhotoEditItemSchema = z
     // of PHOTO_EDIT_OPTIONS is allowed (unchanged behaviour).
     if (!data.subService) return;
 
-    // Dedicated sub-service: selectedOptions MUST be exactly the one
-    // option mapped to that sub-service. Reject tampered combinations.
+    // Dedicated sub-services normally pin exactly one option. Single Exposure
+    // additionally allows its explicit per-photo add-ons while retaining the
+    // required Image Enhancement base option.
     const required = SUB_SERVICE_REQUIRED_OPTION[data.subService];
-    if (
-      data.selectedOptions.length !== 1 ||
-      data.selectedOptions[0] !== required
-    ) {
+    const singleExposureAllowed = new Set([
+      required,
+      ...SINGLE_EXPOSURE_STANDARD_ADDON_IDS,
+      ...AERIAL_EDITING_OPTION_IDS,
+    ]);
+    const dedicatedOptionsValid =
+      data.subService === "image-enhancement-single-exposure"
+        ? data.selectedOptions.includes(required) &&
+          data.selectedOptions.every((id) => singleExposureAllowed.has(id))
+        : data.selectedOptions.length === 1 &&
+          data.selectedOptions[0] === required;
+    if (!dedicatedOptionsValid) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["selectedOptions"],
-        message: `For ${data.subService}, selectedOptions must be exactly ["${required}"].`,
+        message:
+          data.subService === "image-enhancement-single-exposure"
+            ? `For ${data.subService}, selectedOptions must contain "${required}" and only approved Single Exposure add-ons.`
+            : `For ${data.subService}, selectedOptions must be exactly ["${required}"].`,
       });
+    }
+
+    if (data.subService === "image-enhancement-single-exposure") {
+      const requiredPreferences = [
+        ["grassRepair", data.grassRepair],
+        ["skyReplacement", data.skyReplacement],
+        ["tvScreenReplacement", data.tvScreenReplacement],
+        ["addFireToFireplace", data.addFireToFireplace],
+      ] as const;
+      for (const [field, value] of requiredPreferences) {
+        if (value === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: `${field} preference is required.`,
+          });
+        }
+      }
+
+      if (data.skyReplacement === "yes" && data.daySkyStyle === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["daySkyStyle"],
+          message: "A day sky style is required when Sky Replacement is Yes.",
+        });
+      }
+
+      const aerial = getAerialEditingOption(data.aerialEditing);
+      const selectedAerialIds = data.selectedOptions.filter((id) =>
+        AERIAL_EDITING_OPTION_IDS.includes(id),
+      );
+      const aerialSelectionValid = aerial.optionId
+        ? selectedAerialIds.length === 1 &&
+          selectedAerialIds[0] === aerial.optionId
+        : selectedAerialIds.length === 0;
+      if (!aerialSelectionValid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["aerialEditing"],
+          message: "Aerial Editing must match the selected priced option.",
+        });
+      }
     }
 
     // Item Removal & Virtual Cleaning requires meaningful removal instructions.
