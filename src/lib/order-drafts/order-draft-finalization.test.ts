@@ -144,6 +144,7 @@ function draftState(overrides: Partial<VirtualStagingDraftState> = {}): VirtualS
           fileSizeLimit: "",
           disclaimerText: "",
           referenceLink: "",
+          referenceFiles: [],
           additionalInfo: "Use warm accents",
           selectedAddons: ["day-to-dusk"],
           originalFilename: "living.jpg",
@@ -543,7 +544,7 @@ test("Single Exposure aerial choices and detail requirements reach final order d
   );
   assert.match(
     ORDER_SERVICE,
-    /isAerialDetailRequirementSatisfied\([\s\S]*?Boolean\(itemFiles\[index\]\?\.reference\)/,
+    /isAerialDetailRequirementSatisfied\([\s\S]*?itemFiles\[index\]\?\.reference[\s\S]*?itemFiles\[index\]\?\.references\?\.length/,
   );
 });
 
@@ -1209,11 +1210,11 @@ test("Saved Drafts cards expose finishing actions without converted drafts", () 
 
 test("opened Virtual Staging drafts render persisted original and reference previews", () => {
   assert.match(STAGING_ITEM_CARD, /label="Upload Original Photo"/);
-  assert.match(STAGING_ITEM_CARD, /label="Reference Image \(optional\)"/);
+  assert.match(STAGING_ITEM_CARD, /ReferenceFilesUploader/);
   assert.match(STAGING_ITEM_CARD, /uploadedOriginalFile\.previewUrl/);
   assert.match(STAGING_ITEM_CARD, /uploadedReferenceFile\.previewUrl/);
   assert.match(STAGING_ITEM_CARD, /!data\.file && uploadedOriginalFile/);
-  assert.match(STAGING_ITEM_CARD, /!data\.referenceFile && uploadedReferenceFile/);
+  assert.match(STAGING_ITEM_CARD, /displayedReferenceFiles/);
   assert.match(FILE_UPLOAD, /className="h-full w-full object-cover"/);
   assert.match(FILE_UPLOAD, /role="dialog"/);
   assert.match(FILE_UPLOAD, /onError=\{\(\) => setBroken\(true\)\}/);

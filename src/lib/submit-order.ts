@@ -10,6 +10,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   MAX_FILE_SIZE_MB,
 } from "@/lib/upload-config";
+import { validateReferenceFiles } from "@/lib/reference-files";
 
 // ============================================================
 // CLIENT-SIDE ORDER SUBMISSION
@@ -61,6 +62,7 @@ export type OrderErrorCode =
 interface FileRef {
   file: File | null;
   referenceFile?: File | null;
+  referenceFiles?: File[];
 }
 
 interface UploadedFileRef {
@@ -69,6 +71,11 @@ interface UploadedFileRef {
   originalFilename: string;
   size: number;
   mimeType: string;
+}
+
+interface UploadedReferenceFileRef extends UploadedFileRef {
+  referenceId: string;
+  position: number;
 }
 
 /**
@@ -99,11 +106,21 @@ async function requestSignedUploadUrl(params: {
   itemIndex: number;
   kind: "original" | "reference";
   file: File;
+  referenceId?: string;
+  referencePosition?: number;
 }): Promise<
   | { ok: true; data: { bucket: string; path: string; token: string; signedUrl: string } }
   | { ok: false; status: number; message: string }
 > {
-  const { serviceType, pendingToken, itemIndex, kind, file } = params;
+  const {
+    serviceType,
+    pendingToken,
+    itemIndex,
+    kind,
+    file,
+    referenceId,
+    referencePosition,
+  } = params;
 
   let response: Response;
   try {
@@ -118,6 +135,8 @@ async function requestSignedUploadUrl(params: {
         filename: file.name,
         contentType: file.type || "application/octet-stream",
         size: file.size,
+        referenceId,
+        referencePosition,
       }),
     });
   } catch {
@@ -247,9 +266,27 @@ export async function submitOrder(
 ): Promise<OrderSubmitResult> {
   // ---- 1. Local pre-flight ----
   for (let i = 0; i < files.length; i++) {
-    const check = localFileCheck(i, files[i].file, files[i].referenceFile ?? null);
+    const references = (
+      files[i].referenceFiles ??
+      (files[i].referenceFile ? [files[i].referenceFile] : [])
+    ).filter((file): file is File => Boolean(file));
+    const check = localFileCheck(i, files[i].file, references[0] ?? null);
     if (!check.ok) {
       return { success: false, error: check.message, errorCode: check.code };
+    }
+    const referenceErrors = validateReferenceFiles(
+      references.map((file) => ({
+        filename: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+      })),
+    );
+    if (referenceErrors.length > 0) {
+      return {
+        success: false,
+        error: referenceErrors[0],
+        errorCode: "validation-failed",
+      };
     }
   }
 
@@ -259,10 +296,15 @@ export async function submitOrder(
   const itemFiles: Array<{
     original: UploadedFileRef;
     reference: UploadedFileRef | null;
+    references: UploadedReferenceFileRef[];
   }> = [];
 
   for (let i = 0; i < files.length; i++) {
-    const { file, referenceFile } = files[i];
+    const { file } = files[i];
+    const referenceFiles = (
+      files[i].referenceFiles ??
+      (files[i].referenceFile ? [files[i].referenceFile] : [])
+    ).filter((referenceFile): referenceFile is File => Boolean(referenceFile));
     if (!file) {
       // Already covered by localFileCheck, but TypeScript narrows here.
       return {
@@ -318,14 +360,22 @@ export async function submitOrder(
     };
 
     // -- reference (optional) --
-    let referenceRef: UploadedFileRef | null = null;
-    if (referenceFile) {
+    const referenceRefs: UploadedReferenceFileRef[] = [];
+    for (
+      let referencePosition = 0;
+      referencePosition < referenceFiles.length;
+      referencePosition += 1
+    ) {
+      const referenceFile = referenceFiles[referencePosition];
+      const referenceId = crypto.randomUUID();
       const refUrl = await requestSignedUploadUrl({
         serviceType,
         pendingToken,
         itemIndex: i,
         kind: "reference",
         file: referenceFile,
+        referenceId,
+        referencePosition,
       });
       if (!refUrl.ok) {
         return {
@@ -355,16 +405,22 @@ export async function submitOrder(
           errorCode: "upload-failed",
         };
       }
-      referenceRef = {
+      referenceRefs.push({
         bucket: refUrl.data.bucket,
         path: refUrl.data.path,
         originalFilename: referenceFile.name,
         size: referenceFile.size,
         mimeType: referenceFile.type || "application/octet-stream",
-      };
+        referenceId,
+        position: referencePosition,
+      });
     }
 
-    itemFiles.push({ original: originalRef, reference: referenceRef });
+    itemFiles.push({
+      original: originalRef,
+      reference: null,
+      references: referenceRefs,
+    });
   }
 
   // ---- 3. Submit lightweight order metadata ----

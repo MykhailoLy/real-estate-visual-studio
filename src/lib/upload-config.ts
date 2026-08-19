@@ -37,6 +37,12 @@ export const ALLOWED_FLOOR_PLAN_MIME_TYPES = [
 
 /** Reference images (optional secondary uploads) are always images only. */
 export const ALLOWED_REFERENCE_MIME_TYPES = ALLOWED_IMAGE_MIME_TYPES;
+export const ALLOWED_MULTI_REFERENCE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+] as const;
 
 export type UploadKind = "original" | "reference";
 
@@ -46,6 +52,8 @@ const DIRECT_PENDING_TOKEN_REGEX = /^[0-9a-f]{32}$/;
 const UPLOAD_EXTENSION_REGEX = /^[a-z0-9]{1,16}$/;
 const DIRECT_PENDING_BASENAME_REGEX =
   /^(0|[1-9][0-9]*)-(original|reference)\.([a-z0-9]{1,16})$/;
+const MULTI_REFERENCE_PENDING_BASENAME_REGEX =
+  /^(0|[1-9][0-9]*)-reference-([0-9])-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.([a-z0-9]{1,16})$/;
 
 export interface DirectPendingPathParts {
   userId: string;
@@ -55,6 +63,8 @@ export interface DirectPendingPathParts {
   itemIndex: number;
   kind: UploadKind;
   extension: string;
+  referencePosition?: number;
+  referenceId?: string;
 }
 
 export function isCanonicalSupabaseUserId(value: string): boolean {
@@ -92,6 +102,10 @@ export function getAllowedMimeTypes(
   return ALLOWED_IMAGE_MIME_TYPES;
 }
 
+export function getAllowedMultiReferenceMimeTypes(): readonly string[] {
+  return ALLOWED_MULTI_REFERENCE_MIME_TYPES;
+}
+
 /**
  * Best-effort extension extractor. Lower-cased, falls back to "bin"
  * so storage paths always have something to put after the dot.
@@ -115,6 +129,8 @@ export function buildPendingPath(
   itemIndex: number,
   kind: UploadKind,
   ext: string,
+  referencePosition?: number,
+  referenceId?: string,
 ): string {
   if (
     !isCanonicalSupabaseUserId(userId) ||
@@ -125,6 +141,20 @@ export function buildPendingPath(
     !isCanonicalUploadExtension(ext)
   ) {
     throw new Error("Invalid pending upload path input.");
+  }
+
+  if (referencePosition !== undefined || referenceId !== undefined) {
+    if (
+      kind !== "reference" ||
+      !Number.isInteger(referencePosition) ||
+      referencePosition! < 0 ||
+      referencePosition! > 9 ||
+      !referenceId ||
+      !SUPABASE_USER_ID_REGEX.test(referenceId)
+    ) {
+      throw new Error("Invalid multi-reference pending upload path input.");
+    }
+    return `pending/${userId}/${pendingToken}/${itemIndex}-reference-${referencePosition}-${referenceId}.${ext}`;
   }
 
   return `pending/${userId}/${pendingToken}/${itemIndex}-${kind}.${ext}`;
@@ -146,6 +176,31 @@ export function parseDirectPendingPath(
     !isCanonicalDirectPendingToken(pendingToken)
   ) {
     return null;
+  }
+
+  const multiReferenceMatch = MULTI_REFERENCE_PENDING_BASENAME_REGEX.exec(basename);
+  if (multiReferenceMatch) {
+    const [, itemIndexText, positionText, referenceId, extension] = multiReferenceMatch;
+    const itemIndex = Number(itemIndexText);
+    if (
+      !Number.isInteger(itemIndex) ||
+      itemIndex < 0 ||
+      itemIndexText !== String(itemIndex) ||
+      !isCanonicalUploadExtension(extension)
+    ) {
+      return null;
+    }
+    return {
+      userId,
+      pendingToken,
+      directory: `pending/${userId}/${pendingToken}`,
+      basename,
+      itemIndex,
+      kind: "reference",
+      extension,
+      referencePosition: Number(positionText),
+      referenceId,
+    };
   }
 
   const basenameMatch = DIRECT_PENDING_BASENAME_REGEX.exec(basename);
@@ -183,7 +238,16 @@ export function buildFinalPath(
   itemIndex: number,
   kind: UploadKind,
   ext: string,
+  referencePosition?: number,
+  referenceId?: string,
 ): string {
+  if (
+    kind === "reference" &&
+    referencePosition !== undefined &&
+    referenceId
+  ) {
+    return `${orderNumber}/${itemIndex}-reference-${referencePosition}-${referenceId}.${ext}`;
+  }
   return `${orderNumber}/${itemIndex}-${kind}.${ext}`;
 }
 

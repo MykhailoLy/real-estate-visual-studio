@@ -5,6 +5,13 @@ import {
   parseDirectPendingPath,
 } from "./upload-config.ts";
 import {
+  MAX_REFERENCE_FILES,
+  MAX_REFERENCE_FILE_SIZE_BYTES,
+  MAX_REFERENCE_TOTAL_SIZE_BYTES,
+  REFERENCE_FILE_ERRORS,
+  REFERENCE_FILE_MIME_TYPES,
+} from "./reference-files.ts";
+import {
   DEDICATED_PHOTO_EDITING_SUB_SERVICES,
   SUB_SERVICE_REQUIRED_OPTION,
   ITEM_REMOVAL_MIN_INSTRUCTIONS,
@@ -81,12 +88,29 @@ const itemDeliveryFields = {
     .default(""),
 };
 
+const OptionalHttpUrlSchema = z
+  .string()
+  .max(5000)
+  .refine((value) => {
+    if (!value) return true;
+    try {
+      const parsed = new URL(value);
+      return (
+        (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+        !parsed.username &&
+        !parsed.password
+      );
+    } catch {
+      return false;
+    }
+  }, "Reference Link must be a valid HTTP or HTTPS URL.");
+
 // --- Virtual Staging Item ---
 export const StagingItemSchema = z
   .object({
     roomName: z.string().min(1, "Room name is required"),
     furnitureStyle: z.string().min(1, "Furniture style is required"),
-    referenceLink: z.string().url().optional().or(z.literal("")),
+    referenceLink: OptionalHttpUrlSchema.optional().default(""),
     additionalInfo: z.string().optional().default(""),
     selectedAddons: z
       .array(z.enum(STAGING_ADDON_IDS as [string, ...string[]]))
@@ -108,7 +132,7 @@ export const RenovationItemSchema = z
       .default([]),
     room: z.string().min(1, "Room / Area is required"),
     presentationStyle: z.string().optional().default(""),
-    referenceLink: z.string().url().optional().or(z.literal("")),
+    referenceLink: OptionalHttpUrlSchema.optional().default(""),
     additionalInfo: z.string().optional().default(""),
     ...itemDeliveryFields,
   })
@@ -141,7 +165,7 @@ export const FloorPlanItemSchema = z.object({
   projectTitle: z.string().optional().default(""),
   disclaimerOption: z.string().optional().default("Do not show disclaimer"),
   customDisclaimer: z.string().optional().default(""),
-  referenceLink: z.string().url().optional().or(z.literal("")),
+  referenceLink: OptionalHttpUrlSchema.optional().default(""),
   additionalInfo: z.string().optional().default(""),
   ...itemDeliveryFields,
 });
@@ -158,6 +182,7 @@ export const PhotoEditItemSchema = z
       .min(1, "At least one editing option is required"),
     subService: z.enum(DEDICATED_PHOTO_EDITING_SUB_SERVICES).optional(),
     additionalInfo: z.string().optional().default(""),
+    referenceLink: OptionalHttpUrlSchema.optional().default(""),
     // --- Image Enhancement — Single Exposure preferences ---
     // All optional + typed enums so other photo-editing sub-services
     // and the legacy generic form are unaffected. Validated below only
@@ -394,10 +419,95 @@ export const UploadedFileSchema = z.object({
   mimeType: z.string().min(1).max(255),
 });
 
-export const ItemFilesSchema = z.object({
-  original: UploadedFileSchema,
-  reference: UploadedFileSchema.nullable().optional(),
+export const UploadedReferenceFileSchema = UploadedFileSchema.extend({
+  referenceId: z.string().uuid(),
+  position: z.number().int().min(0).max(9),
+}).superRefine((file, ctx) => {
+  const parsed = parseDirectPendingPath(file.path);
+  if (
+    !parsed ||
+    parsed.kind !== "reference" ||
+    parsed.referenceId !== file.referenceId ||
+    parsed.referencePosition !== file.position
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["path"],
+      message: "Reference identity and position must match its pending path.",
+    });
+  }
+  if (!(REFERENCE_FILE_MIME_TYPES as readonly string[]).includes(file.mimeType)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["mimeType"],
+      message: REFERENCE_FILE_ERRORS.type,
+    });
+  }
+  if (file.size > MAX_REFERENCE_FILE_SIZE_BYTES) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["size"],
+      message: "Each reference file must be 20 MB or smaller.",
+    });
+  }
 });
+
+export const ItemFilesSchema = z
+  .object({
+    original: UploadedFileSchema,
+    reference: UploadedFileSchema.nullable().optional(),
+    references: z.array(UploadedReferenceFileSchema).max(MAX_REFERENCE_FILES).default([]),
+  })
+  .superRefine((data, ctx) => {
+    const ids = new Set<string>();
+    const positions = new Set<number>();
+    const paths = new Set<string>();
+    let total = 0;
+    for (const reference of data.references) {
+      total += reference.size;
+      if (
+        ids.has(reference.referenceId) ||
+        positions.has(reference.position) ||
+        paths.has(reference.path)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["references"],
+          message: "Reference identities, positions and paths must be unique.",
+        });
+        break;
+      }
+      ids.add(reference.referenceId);
+      positions.add(reference.position);
+      paths.add(reference.path);
+    }
+    const distinctLegacyReference =
+      data.reference && !paths.has(data.reference.path) ? data.reference : null;
+    if (data.references.length + (distinctLegacyReference ? 1 : 0) > MAX_REFERENCE_FILES) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["references"],
+        message: "You can upload up to 10 reference files.",
+      });
+    }
+    if (distinctLegacyReference) {
+      total += distinctLegacyReference.size;
+      if (distinctLegacyReference.size > MAX_REFERENCE_FILE_SIZE_BYTES) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["reference", "size"],
+          message: "Each reference file must be 20 MB or smaller.",
+        });
+      }
+    }
+    if (total > MAX_REFERENCE_TOTAL_SIZE_BYTES) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["references"],
+        message: "Reference files may total up to 100 MB.",
+      });
+    }
+  });
 
 // --- Full Order Metadata Schema ---
 // `termsAcceptance` is REQUIRED. The previous order-level fields
@@ -445,4 +555,5 @@ export type RenovationItem = z.infer<typeof RenovationItemSchema>;
 export type FloorPlanItem = z.infer<typeof FloorPlanItemSchema>;
 export type PhotoEditItem = z.infer<typeof PhotoEditItemSchema>;
 export type UploadedFile = z.infer<typeof UploadedFileSchema>;
+export type UploadedReferenceFile = z.infer<typeof UploadedReferenceFileSchema>;
 export type ItemFiles = z.infer<typeof ItemFilesSchema>;

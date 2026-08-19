@@ -33,6 +33,7 @@ import type {
   PricingPreview,
   UpdateOrderDraftInput,
 } from "./types.ts";
+import type { ReferenceFileValue } from "../reference-files.ts";
 
 export const SINGLE_EXPOSURE_DRAFT_STATE_SCHEMA_VERSION = 1;
 export const SINGLE_EXPOSURE_DRAFT_ROUTE =
@@ -57,6 +58,14 @@ export interface SingleExposureDraftItemState extends JsonObject {
   fileSizeLimit: string;
   disclaimerText: string;
   additionalInfo: string;
+  referenceLink: string;
+  referenceFiles: Array<{
+    id: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    lastModified: number | null;
+  } & JsonObject>;
   grassRepair: ThreeStateValue;
   skyReplacement: ThreeStateValue;
   tvScreenReplacement: ThreeStateValue;
@@ -89,6 +98,9 @@ export interface SingleExposureFormItemDraftSource {
   clientItemId?: string;
   file?: { name?: string } | null;
   referenceFile?: { name?: string } | null;
+  referenceLink?: string;
+  referenceFiles?: ReferenceFileValue[];
+  aerialReferenceImage?: { name?: string } | null;
   fileSizeLimit: string;
   disclaimerText: string;
   additionalInfo: string;
@@ -118,6 +130,8 @@ export interface SingleExposureResumedFormItem
   clientItemId: string;
   file: null;
   referenceFile: null;
+  referenceLink: string;
+  referenceFiles: ReferenceFileValue[];
   originalFilename: string | null;
   referenceFilename: string | null;
 }
@@ -129,6 +143,19 @@ const DraftItemStateSchema = z
     fileSizeLimit: z.string().max(200).default(""),
     disclaimerText: z.string().max(STRING_FIELD_MAX).default(""),
     additionalInfo: z.string().max(STRING_FIELD_MAX).default(""),
+    referenceLink: z.string().max(STRING_FIELD_MAX).default(""),
+    referenceFiles: z
+      .array(
+        z.object({
+          id: z.string().min(1).max(100),
+          filename: z.string().min(1).max(255),
+          fileSize: z.number().int().min(0).max(20 * 1024 * 1024),
+          mimeType: z.string().min(1).max(255),
+          lastModified: z.number().int().nonnegative().nullable().default(null),
+        }).strict(),
+      )
+      .max(10)
+      .default([]),
     grassRepair: z.enum(THREE_STATE_VALUES).default(THREE_STATE_DEFAULT),
     skyReplacement: z.enum(THREE_STATE_VALUES).default(THREE_STATE_DEFAULT),
     tvScreenReplacement: z.enum(THREE_STATE_VALUES).default(THREE_STATE_DEFAULT),
@@ -216,6 +243,14 @@ export function mapSingleExposureFormToDraftState(
         fileSizeLimit: trim(item.fileSizeLimit, 200),
         disclaimerText: trim(item.disclaimerText),
         additionalInfo: trim(item.additionalInfo),
+        referenceLink: trim(item.referenceLink ?? ""),
+        referenceFiles: (item.referenceFiles ?? []).map((reference) => ({
+          id: reference.id,
+          filename: reference.filename,
+          fileSize: reference.fileSize,
+          mimeType: reference.mimeType,
+          lastModified: reference.lastModified,
+        })),
         grassRepair: item.grassRepair,
         skyReplacement: item.skyReplacement,
         tvScreenReplacement: item.tvScreenReplacement,
@@ -241,7 +276,9 @@ export function mapSingleExposureDraftToFormState(state: unknown): {
   items: SingleExposureResumedFormItem[];
   orderTerms: { accepted: boolean; allowPortfolio: boolean };
 } {
-  const parsed = SingleExposureDraftStateSchema.parse(state);
+  const parsed = SingleExposureDraftStateSchema.parse(
+    normalizeLegacySingleExposureDraftState(state),
+  );
   return {
     jobTitle: parsed.jobTitle,
     step: parsed.currentStep,
@@ -250,6 +287,11 @@ export function mapSingleExposureDraftToFormState(state: unknown): {
       clientItemId: item.clientItemId,
       file: null,
       referenceFile: null,
+      referenceLink: item.state.referenceLink,
+      referenceFiles: item.state.referenceFiles.map((reference) => ({
+        ...reference,
+        file: null,
+      })),
       fileSizeLimit: item.state.fileSizeLimit,
       disclaimerText: item.state.disclaimerText,
       additionalInfo: item.state.additionalInfo,
@@ -289,6 +331,8 @@ export function hasMeaningfulSingleExposureDraftChange(
     (item) =>
       item.file != null ||
       item.referenceFile != null ||
+      (item.referenceFiles?.length ?? 0) > 0 ||
+      (item.referenceLink?.trim() ?? "") !== "" ||
       item.originalFilename != null ||
       item.referenceFilename != null ||
       item.fileSizeLimit.trim() !== "" ||
@@ -417,7 +461,9 @@ export function validateSingleExposureDraftForResume(
   if (draft.stateSchemaVersion !== SINGLE_EXPOSURE_DRAFT_STATE_SCHEMA_VERSION) {
     return { ok: false, message: "This draft version is no longer supported." };
   }
-  const parsed = SingleExposureDraftStateSchema.safeParse(draft.state);
+  const parsed = SingleExposureDraftStateSchema.safeParse(
+    normalizeLegacySingleExposureDraftState(draft.state),
+  );
   if (!parsed.success) {
     return { ok: false, message: "This draft could not be restored safely." };
   }
@@ -425,6 +471,49 @@ export function validateSingleExposureDraftForResume(
     ok: true,
     form: mapSingleExposureDraftToFormState(parsed.data),
     version: draft.version,
+  };
+}
+
+export function normalizeLegacySingleExposureDraftState(state: unknown): unknown {
+  if (!state || typeof state !== "object" || Array.isArray(state)) return state;
+  const root = state as Record<string, unknown>;
+  if (!Array.isArray(root.items)) return state;
+  return {
+    ...root,
+    items: root.items.map((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry;
+      const envelope = entry as Record<string, unknown>;
+      const rawState = envelope.state;
+      if (!rawState || typeof rawState !== "object" || Array.isArray(rawState)) {
+        return entry;
+      }
+      const item = rawState as Record<string, unknown>;
+      const existing = Array.isArray(item.referenceFiles) ? item.referenceFiles : [];
+      const legacy = item.aerialReferenceImage ?? item.referenceImage;
+      let migrated = existing;
+      if (existing.length === 0 && legacy && typeof legacy === "object") {
+        const legacyRecord = legacy as Record<string, unknown>;
+        const legacyName = typeof legacyRecord.name === "string"
+          ? legacyRecord.name
+          : typeof item.referenceFilename === "string"
+            ? item.referenceFilename
+            : "reference.jpg";
+        migrated = [{
+          id: `legacy-${String(envelope.clientItemId ?? "reference")}`,
+          filename: legacyName,
+          fileSize: typeof legacyRecord.size === "number" ? legacyRecord.size : 0,
+          mimeType: typeof legacyRecord.type === "string" ? legacyRecord.type : "image/jpeg",
+          lastModified: null,
+        }];
+      }
+      const { aerialReferenceImage: _aerial, referenceImage: _reference, ...rest } = item;
+      void _aerial;
+      void _reference;
+      return {
+        ...envelope,
+        state: { ...rest, referenceFiles: migrated },
+      };
+    }),
   };
 }
 

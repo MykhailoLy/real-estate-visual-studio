@@ -228,8 +228,7 @@ export default function AdminOrderImageCard({
   // ── Derived values ──────────────────────────────────────
 
   const originalSource = sourceFiles.find((f) => f.kind === "original") ?? null;
-  const referenceSource =
-    sourceFiles.find((f) => f.kind === "reference") ?? null;
+  const referenceSources = sourceFiles.filter((f) => f.kind === "reference");
 
   // Derive card-header status badge from the latest review
   const latestReview = reviewList[0] ?? null;
@@ -474,23 +473,29 @@ export default function AdminOrderImageCard({
               <SourcePlaceholder />
             )}
 
-            {referenceSource && (
+            {referenceSources.length > 0 && (
               <div className="mt-3 rounded-lg border border-border bg-surface/30 p-3">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
-                  Reference file
+                  Reference files
                 </p>
-                <FilePreviewCard
-                  viewerVariant={viewerVariant}
-                  filename={referenceSource.filename}
-                  mimeType={referenceSource.mimeType}
-                  fileSizeLabel={formatBytes(referenceSource.fileSize)}
-                  badgeLabel="Reference"
-                  signedUrlEndpoint={`/api/admin/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
-                  downloadLabel="Download"
-                />
+                <ul className="space-y-2">
+                  {referenceSources.map((referenceSource, index) => (
+                    <li key={referenceSource.id}>
+                      <FilePreviewCard
+                        viewerVariant={viewerVariant}
+                        filename={referenceSource.filename}
+                        mimeType={referenceSource.mimeType}
+                        fileSizeLabel={formatBytes(referenceSource.fileSize)}
+                        badgeLabel={`Reference ${index + 1}`}
+                        signedUrlEndpoint={`/api/admin/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
+                        downloadLabel="Download"
+                      />
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
-            {!referenceSource && (
+            {referenceSources.length === 0 && (
               <div className="mt-3 rounded-lg border border-dashed border-border bg-surface/30 px-3 py-2.5">
                 <p className="text-[11px] font-semibold text-foreground">
                   No order reference file

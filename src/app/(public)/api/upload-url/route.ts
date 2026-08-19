@@ -9,6 +9,7 @@ import {
   MAX_FILE_SIZE_MB,
   buildPendingPath,
   getAllowedMimeTypes,
+  getAllowedMultiReferenceMimeTypes,
   getFileExtension,
   isCanonicalDirectPendingToken,
   isCanonicalUploadExtension,
@@ -43,6 +44,22 @@ const RequestSchema = z.object({
     .int()
     .min(1, "File appears to be empty")
     .max(MAX_FILE_SIZE_BYTES, `File exceeds ${MAX_FILE_SIZE_MB} MB limit`),
+  referenceId: z.string().uuid().optional(),
+  referencePosition: z.number().int().min(0).max(9).optional(),
+}).superRefine((data, ctx) => {
+  const hasMultiReference =
+    data.referenceId !== undefined || data.referencePosition !== undefined;
+  if (
+    hasMultiReference &&
+    (data.kind !== "reference" ||
+      data.referenceId === undefined ||
+      data.referencePosition === undefined)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Multi-reference uploads require a reference ID and position.",
+    });
+  }
 });
 
 function getSupabaseAdmin() {
@@ -107,14 +124,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { serviceType, pendingToken, itemIndex, kind, filename, contentType, size } =
+  const { serviceType, pendingToken, itemIndex, kind, filename, contentType, size,
+    referenceId, referencePosition } =
     parsed.data;
 
   // MIME type allow-list. We trust the client's reported MIME enough to
   // route into the right bucket, but if it's not on the allow-list we
   // refuse to issue an upload URL at all. Note: Storage itself does
   // NOT validate content type when using a signed upload URL.
-  const allowedTypes = getAllowedMimeTypes(serviceType, kind as UploadKind);
+  const allowedTypes = referenceId
+    ? getAllowedMultiReferenceMimeTypes()
+    : getAllowedMimeTypes(serviceType, kind as UploadKind);
   if (!allowedTypes.includes(contentType)) {
     return NextResponse.json(
       {
@@ -131,7 +151,15 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const path = buildPendingPath(ownerUserId, pendingToken, itemIndex, kind, ext);
+  const path = buildPendingPath(
+    ownerUserId,
+    pendingToken,
+    itemIndex,
+    kind,
+    ext,
+    referencePosition,
+    referenceId,
+  );
 
   let supabase;
   try {

@@ -144,6 +144,7 @@ export interface VirtualStagingFinalizationFileDescriptor {
 }
 
 export interface VirtualStagingFinalizationItemFiles {
+  clientItemId: string;
   original: VirtualStagingFinalizationFileDescriptor;
   reference: VirtualStagingFinalizationFileDescriptor | null;
 }
@@ -497,6 +498,7 @@ export function buildVirtualStagingFinalizationItemFiles(
   slots: VirtualStagingFinalizationSlot[],
 ): VirtualStagingFinalizationItemFiles[] {
   return slots.map((slot) => ({
+    clientItemId: slot.clientItemId,
     original: mapDraftFileDescriptor(slot.original),
     reference: slot.reference ? mapDraftFileDescriptor(slot.reference) : null,
   }));

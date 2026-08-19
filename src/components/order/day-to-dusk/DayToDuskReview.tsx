@@ -13,6 +13,7 @@ import { calculateOrderQuote } from "@/lib/pricing/calculate";
 import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { DAY_TO_DUSK_OPTION_ID, getDuskStyleLabel } from "@/lib/day-to-dusk";
 import type { DayToDuskItemData } from "./DayToDuskItemCard";
+import ReferenceFilesReview from "@/components/order/ReferenceFilesReview";
 
 // ============================================================
 // DayToDuskReview — Review & Submit step body for a Day to Dusk order.
@@ -108,14 +109,19 @@ export default function DayToDuskReview({
 
       <div className="space-y-5">
         {items.map((item, index) => (
-          <OrderReviewItem
-            key={index}
-            index={index}
-            file={item.file}
-            rows={buildRows(item)}
-            subtotalCents={perItem}
-            onEdit={() => onEditItem(index)}
-          />
+          <div key={index} className="space-y-2">
+            <OrderReviewItem
+              index={index}
+              file={item.file}
+              rows={buildRows(item)}
+              subtotalCents={perItem}
+              onEdit={() => onEditItem(index)}
+            />
+            <ReferenceFilesReview
+              referenceLink={item.referenceLink}
+              files={item.referenceFiles}
+            />
+          </div>
         ))}
       </div>
 

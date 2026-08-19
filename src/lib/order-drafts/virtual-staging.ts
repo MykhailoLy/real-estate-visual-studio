@@ -16,6 +16,7 @@ import type {
   PricingPreview,
   UpdateOrderDraftInput,
 } from "./types.ts";
+import type { ReferenceFileValue } from "../reference-files.ts";
 import { deriveVirtualStagingDefaultFurnitureStyle } from "../../components/order/virtual-staging/virtual-staging-style-state.ts";
 
 export const VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION = 1;
@@ -69,6 +70,13 @@ export interface VirtualStagingDraftItemState
   fileSizeLimit: string;
   disclaimerText: string;
   referenceLink: string;
+  referenceFiles: Array<{
+    id: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    lastModified: number | null;
+  } & JsonObject>;
   additionalInfo: string;
   selectedAddons: string[];
 }
@@ -111,6 +119,8 @@ export interface VirtualStagingFormItemDraftSource {
   disclaimerText: string;
   referenceLink: string;
   referenceFile?: { name?: string } | null;
+  referenceFiles?: ReferenceFileValue[];
+  referenceImage?: { name?: string; size?: number; type?: string } | null;
   additionalInfo: string;
   selectedAddons: string[];
   originalFilename?: string | null;
@@ -126,6 +136,7 @@ export interface VirtualStagingResumedFormItem {
   fileSizeLimit: string;
   disclaimerText: string;
   referenceLink: string;
+  referenceFiles: ReferenceFileValue[];
   referenceFile: null;
   additionalInfo: string;
   selectedAddons: string[];
@@ -195,6 +206,18 @@ const DraftItemStateSchema = z
     fileSizeLimit: z.string().max(200).default(""),
     disclaimerText: z.string().max(STRING_FIELD_MAX).default(""),
     referenceLink: z.string().max(STRING_FIELD_MAX).default(""),
+    referenceFiles: z
+      .array(
+        z.object({
+          id: z.string().min(1).max(100),
+          filename: z.string().min(1).max(255),
+          fileSize: z.number().int().min(0).max(20 * 1024 * 1024),
+          mimeType: z.string().min(1).max(255),
+          lastModified: z.number().int().nonnegative().nullable().default(null),
+        }).strict(),
+      )
+      .max(10)
+      .default([]),
     additionalInfo: z.string().max(STRING_FIELD_MAX).default(""),
     selectedAddons: z.array(z.string().min(1).max(100)).default([]),
     originalFilename: z.string().min(1).max(255).nullable().default(null),
@@ -276,6 +299,13 @@ export function mapVirtualStagingFormToDraftState(
         fileSizeLimit: trimString(item.fileSizeLimit, 200),
         disclaimerText: trimString(item.disclaimerText),
         referenceLink: trimString(item.referenceLink),
+        referenceFiles: (item.referenceFiles ?? []).map((reference) => ({
+          id: reference.id,
+          filename: reference.filename,
+          fileSize: reference.fileSize,
+          mimeType: reference.mimeType,
+          lastModified: reference.lastModified,
+        })),
         additionalInfo: trimString(item.additionalInfo),
         selectedAddons: [...item.selectedAddons],
         originalFilename:
@@ -302,7 +332,9 @@ export function buildVirtualStagingDraftFingerprint(
 export function mapVirtualStagingDraftToFormState(
   state: unknown,
 ): VirtualStagingResumeResult["form"] {
-  const parsed = VirtualStagingDraftStateSchema.parse(state);
+  const parsed = VirtualStagingDraftStateSchema.parse(
+    normalizeLegacyVirtualStagingDraftState(state),
+  );
   const items = parsed.items.map((item) => ({
     clientItemId: item.clientItemId,
     file: null,
@@ -311,6 +343,10 @@ export function mapVirtualStagingDraftToFormState(
     fileSizeLimit: item.state.fileSizeLimit,
     disclaimerText: item.state.disclaimerText,
     referenceLink: item.state.referenceLink,
+    referenceFiles: item.state.referenceFiles.map((reference) => ({
+      ...reference,
+      file: null,
+    })),
     referenceFile: null,
     additionalInfo: item.state.additionalInfo,
     selectedAddons: [...item.state.selectedAddons],
@@ -341,6 +377,7 @@ export function hasMeaningfulVirtualStagingDraftChange(
     return (
       item.file != null ||
       item.referenceFile != null ||
+      (item.referenceFiles?.length ?? 0) > 0 ||
       item.roomName.trim() !== "" ||
       item.furnitureStyle.trim() !== "" ||
       item.fileSizeLimit.trim() !== "" ||
@@ -352,6 +389,38 @@ export function hasMeaningfulVirtualStagingDraftChange(
       item.referenceFilename != null
     );
   });
+}
+
+export function normalizeLegacyVirtualStagingDraftState(state: unknown): unknown {
+  if (!state || typeof state !== "object" || Array.isArray(state)) return state;
+  const root = state as Record<string, unknown>;
+  if (!Array.isArray(root.items)) return state;
+  return {
+    ...root,
+    items: root.items.map((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry;
+      const envelope = entry as Record<string, unknown>;
+      const raw = envelope.state;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return entry;
+      const item = raw as Record<string, unknown>;
+      const existing = Array.isArray(item.referenceFiles) ? item.referenceFiles : [];
+      const legacy = item.referenceImage;
+      let referenceFiles = existing;
+      if (existing.length === 0 && legacy && typeof legacy === "object") {
+        const file = legacy as Record<string, unknown>;
+        referenceFiles = [{
+          id: `legacy-${String(envelope.clientItemId ?? "reference")}`,
+          filename: typeof file.name === "string" ? file.name : "reference.jpg",
+          fileSize: typeof file.size === "number" ? file.size : 0,
+          mimeType: typeof file.type === "string" ? file.type : "image/jpeg",
+          lastModified: null,
+        }];
+      }
+      const { referenceImage: _legacy, ...rest } = item;
+      void _legacy;
+      return { ...envelope, state: { ...rest, referenceFiles } };
+    }),
+  };
 }
 
 export function findMissingVirtualStagingRequiredFields(
@@ -597,7 +666,9 @@ export function validateVirtualStagingDraftForResume(
     };
   }
 
-  const parsed = VirtualStagingDraftStateSchema.safeParse(draft.state);
+  const parsed = VirtualStagingDraftStateSchema.safeParse(
+    normalizeLegacyVirtualStagingDraftState(draft.state),
+  );
   if (!parsed.success) {
     return {
       ok: false,

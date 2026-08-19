@@ -23,12 +23,16 @@ import {
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 import {
   updateOriginalFileDraftMetadata,
-  updateReferenceFileDraftMetadata,
 } from "@/lib/order-drafts/virtual-staging";
 import type {
   OrderDraftUploadedFileSummary,
 } from "@/lib/order-drafts/files";
 import type { ServiceOptionMedia } from "@/lib/site-media";
+import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
+import {
+  mergeReferenceFiles,
+  type ReferenceFileValue,
+} from "@/lib/reference-files";
 
 export interface StagingItemData {
   clientItemId: string;
@@ -40,6 +44,8 @@ export interface StagingItemData {
   /** Per-item optional disclaimer text */
   disclaimerText: string;
   referenceLink: string;
+  referenceFiles: ReferenceFileValue[];
+  /** Legacy singular draft shape retained for backward restoration. */
   referenceFile: File | null;
   additionalInfo: string;
   selectedAddons: string[];
@@ -57,6 +63,7 @@ export const emptyStagingItem = (
   furnitureStyle,
   ...emptyItemDeliveryFields,
   referenceLink: "",
+  referenceFiles: [],
   referenceFile: null,
   additionalInfo: "",
   selectedAddons: [],
@@ -85,6 +92,7 @@ interface StagingItemCardProps {
   defaultFurnitureStyle: string;
   exampleMediaByKey: Record<string, ServiceOptionMedia>;
   onChange: (data: StagingItemData) => void;
+  onReferenceFilesChange?: (files: ReferenceFileValue[]) => void;
   onRemove: () => void;
   canRemove: boolean;
   disabled?: boolean;
@@ -127,6 +135,7 @@ export default function StagingItemCard({
   defaultFurnitureStyle,
   exampleMediaByKey,
   onChange,
+  onReferenceFilesChange,
   onRemove,
   canRemove,
   disabled = false,
@@ -141,11 +150,9 @@ export default function StagingItemCard({
   originalBusy = false,
   referenceBusy = false,
   onOriginalFileSelected,
-  onReferenceFileSelected,
   onRemoveUploadedOriginal,
   onRemoveUploadedReference,
   onRetryOriginalUpload,
-  onRetryReferenceUpload,
   retryUploadLabel,
   replaceFileLabel,
   removeSavedFileLabel,
@@ -175,6 +182,22 @@ export default function StagingItemCard({
   const styleErrorId = `${styleValidationId}-error`;
   const originalDisabled = disabled || originalBusy;
   const referenceDisabled = disabled || referenceBusy;
+  const displayedReferenceFiles = mergeReferenceFiles(
+    data.referenceFiles,
+    uploadedReferenceFile
+      ? [{
+          id: uploadedReferenceFile.id,
+          file: null,
+          filename: uploadedReferenceFile.originalFilename,
+          fileSize: uploadedReferenceFile.fileSize,
+          mimeType: uploadedReferenceFile.mimeType,
+          lastModified: null,
+          previewUrl: uploadedReferenceFile.previewUrl,
+          previewExpiresAt: uploadedReferenceFile.previewExpiresAt,
+          draftFileId: uploadedReferenceFile.id,
+        }]
+      : [],
+  );
   const toggleAddon = (id: string) => {
     if (disabled) return;
     const current = data.selectedAddons;
@@ -379,7 +402,7 @@ export default function StagingItemCard({
             htmlFor={referenceLinkId}
             className="block text-sm font-medium text-foreground mb-1.5"
           >
-            Reference Link
+            Reference Link (optional)
           </label>
           <input
             id={referenceLinkId}
@@ -392,53 +415,32 @@ export default function StagingItemCard({
             placeholder="https://example.com/inspiration"
             className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
           />
+          <p className="mt-1 text-xs text-muted">
+            Add a link to an online example, brand guide or shared reference.
+          </p>
         </div>
 
-        {/* Reference Image */}
-        <FileUpload
-          viewerVariant="photo"
-          label="Reference Image (optional)"
-          file={data.referenceFile}
-          onFileChange={(file) => {
-            if (onReferenceFileSelected) {
-              onReferenceFileSelected(file);
-              return;
-            }
-            onChange({
-              ...data,
-              referenceFile: file,
-              ...updateReferenceFileDraftMetadata(data, file),
-            });
+        <ReferenceFilesUploader
+          files={displayedReferenceFiles}
+          onChange={(files) => {
+            const keptLegacy = files.some(
+              (reference) => reference.id === uploadedReferenceFile?.id,
+            );
+            if (!keptLegacy && uploadedReferenceFile) onRemoveUploadedReference?.();
+            const normalized = files.filter(
+              (reference) => reference.id !== uploadedReferenceFile?.id,
+            );
+            if (onReferenceFilesChange) onReferenceFilesChange(normalized);
+            else onChange({ ...data, referenceFiles: normalized });
           }}
-          helperText={
-            !data.referenceFile && data.referenceFilename
-              ? draftCopy.savedReferenceFile(data.referenceFilename)
-              : undefined
-          }
-          persistedFile={
-            !data.referenceFile && uploadedReferenceFile
-              ? {
-                  id: uploadedReferenceFile.id,
-                  filename: uploadedReferenceFile.originalFilename,
-                  fileSize: uploadedReferenceFile.fileSize,
-                  statusLabel: savedInDraftLabel,
-                  previewUrl: uploadedReferenceFile.previewUrl ?? null,
-                  previewExpiresAt:
-                    uploadedReferenceFile.previewExpiresAt ?? null,
-                }
-              : null
-          }
-          operationStatusText={referenceOperationStatusText}
-          operationErrorText={referenceOperationErrorText}
           disabled={referenceDisabled}
-          retryDisabled={referenceDisabled}
-          removeDisabled={referenceDisabled}
-          onRetry={onRetryReferenceUpload}
-          onRemovePersisted={onRemoveUploadedReference}
-          retryLabel={retryUploadLabel}
-          replaceLabel={replaceFileLabel}
-          removePersistedLabel={removeSavedFileLabel}
+          operationStatus={referenceOperationStatusText}
         />
+        {referenceOperationErrorText ? (
+          <p className="text-xs font-medium text-red-700" role="alert">
+            {referenceOperationErrorText}
+          </p>
+        ) : null}
 
         {/* Additional Information */}
         <div>

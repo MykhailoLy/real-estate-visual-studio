@@ -77,10 +77,28 @@ export async function POST(
     return NextResponse.json({ error: "Source file not found." }, { status: 404 });
   }
 
-  const slot = getClientSourceFileSlot(
+  let slot = getClientSourceFileSlot(
     item as unknown as ClientOrderItemSourceFileRow,
     parsedFileId.kind
   );
+  if (parsedFileId.referenceId) {
+    const { data: reference, error: referenceErr } = await supabase
+      .from("order_item_reference_files")
+      .select("storage_path, original_filename, file_size, mime_type")
+      .eq("order_item_id", parsedFileId.orderItemId)
+      .eq("reference_id", parsedFileId.referenceId)
+      .maybeSingle();
+    if (referenceErr || !reference) {
+      return NextResponse.json({ error: "Source file not found." }, { status: 404 });
+    }
+    slot = {
+      kind: "reference",
+      storagePath: reference.storage_path,
+      filename: reference.original_filename,
+      fileSize: reference.file_size,
+      mimeType: reference.mime_type,
+    };
+  }
   if (!slot.storagePath) {
     return NextResponse.json({ error: "Source file not found." }, { status: 404 });
   }

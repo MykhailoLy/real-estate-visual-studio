@@ -30,8 +30,18 @@ export interface OrderItemSourceFileRow {
   created_at: string | null;
 }
 
+export interface AdminNormalizedReferenceRow {
+  order_item_id: string;
+  reference_id: string;
+  position: number;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string | null;
+}
+
 const SOURCE_FILE_ID_RE =
-  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(original|reference)$/i;
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(original|reference)(?:-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i;
 
 export function makeAdminSourceFileId(
   orderItemId: string,
@@ -42,21 +52,27 @@ export function makeAdminSourceFileId(
 
 export function parseAdminSourceFileId(
   fileId: string
-): { orderItemId: string; kind: AdminSourceFileKind } | null {
+): { orderItemId: string; kind: AdminSourceFileKind; referenceId: string | null } | null {
   const match = SOURCE_FILE_ID_RE.exec(fileId);
   if (!match) return null;
   return {
     orderItemId: match[1],
     kind: match[2] as AdminSourceFileKind,
+    referenceId: match[3] ?? null,
   };
 }
 
 export function buildAdminSourceFiles(
-  rows: OrderItemSourceFileRow[]
+  rows: OrderItemSourceFileRow[],
+  normalizedReferences: AdminNormalizedReferenceRow[] = [],
 ): AdminSourceFile[] {
-  return rows.flatMap((row) => {
+  const normalizedItemIds = new Set(
+    normalizedReferences.map((reference) => reference.order_item_id),
+  );
+  const legacy = rows.flatMap((row) => {
     const files: AdminSourceFile[] = [];
     for (const kind of ["original", "reference"] as const) {
+      if (kind === "reference" && normalizedItemIds.has(row.id)) continue;
       const slot = getAdminSourceFileSlot(row, kind);
       if (!slot.storagePath) continue;
       files.push({
@@ -72,6 +88,20 @@ export function buildAdminSourceFiles(
     }
     return files;
   });
+  const itemIndexById = new Map(rows.map((row) => [row.id, row.item_index]));
+  return [
+    ...legacy,
+    ...normalizedReferences.map((reference) => ({
+      id: `${reference.order_item_id}-reference-${reference.reference_id}`,
+      orderItemId: reference.order_item_id,
+      kind: "reference" as const,
+      itemIndex: itemIndexById.get(reference.order_item_id) ?? 0,
+      filename: reference.original_filename,
+      fileSize: reference.file_size,
+      mimeType: reference.mime_type,
+      uploadedAt: reference.created_at,
+    })),
+  ];
 }
 
 export function getAdminSourceFileSlot(

@@ -18,6 +18,10 @@ import {
 } from "@/lib/day-to-dusk";
 import DuskSkyStyleSelector from "./DuskSkyStyleSelector";
 import LightingPreferenceToggle from "./LightingPreferenceToggle";
+import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
+import type { ReferenceFileValue } from "@/lib/reference-files";
+import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 
 // ============================================================
 // DayToDuskItemCard — one uploaded photo for a Day to Dusk order.
@@ -35,7 +39,11 @@ import LightingPreferenceToggle from "./LightingPreferenceToggle";
 // ============================================================
 
 export interface DayToDuskItemData {
+  clientItemId: string;
   file: File | null;
+  originalFilename: string | null;
+  referenceLink: string;
+  referenceFiles: ReferenceFileValue[];
   fileSizeLimit: string;
   disclaimerText: string;
   additionalInfo: string;
@@ -46,7 +54,11 @@ export interface DayToDuskItemData {
 }
 
 export const emptyDayToDuskItem = (): DayToDuskItemData => ({
+  clientItemId: createDraftClientItemId(),
   file: null,
+  originalFilename: null,
+  referenceLink: "",
+  referenceFiles: [],
   ...emptyItemDeliveryFields,
   additionalInfo: "",
   duskStyle: DUSK_STYLE_DEFAULT,
@@ -72,6 +84,13 @@ interface DayToDuskItemCardProps {
    * File upload, Additional Instructions and subtotal remain editable.
    */
   sharedLocked: boolean;
+  persistedOriginal?: OrderDraftUploadedFileSummary | null;
+  onOriginalFileChange?: (file: File | null) => void;
+  onRemovePersistedOriginal?: () => void;
+  onReferenceFilesChange?: (files: ReferenceFileValue[]) => void;
+  originalOperationStatus?: string;
+  referenceOperationStatus?: string;
+  fileOperationsDisabled?: boolean;
 }
 
 export default function DayToDuskItemCard({
@@ -82,6 +101,13 @@ export default function DayToDuskItemCard({
   canRemove,
   duskStyleImages,
   sharedLocked,
+  persistedOriginal,
+  onOriginalFileChange,
+  onRemovePersistedOriginal,
+  onReferenceFilesChange,
+  originalOperationStatus,
+  referenceOperationStatus,
+  fileOperationsDisabled = false,
 }: DayToDuskItemCardProps) {
   const currency = useDisplayCurrency();
   const subtotal = calculatePhotoEditItemTotal(
@@ -117,9 +143,59 @@ export default function DayToDuskItemCard({
           viewerVariant="photo"
           label="Upload Daytime Exterior Photo"
           file={data.file}
-          onFileChange={(file) => onChange({ ...data, file })}
+          onFileChange={
+            onOriginalFileChange ?? ((file) => onChange({ ...data, file }))
+          }
           accept={PHOTO_EDIT_FILE_ACCEPT}
           required
+          persistedFile={
+            persistedOriginal
+              ? {
+                  id: persistedOriginal.id,
+                  filename: persistedOriginal.originalFilename,
+                  fileSize: persistedOriginal.fileSize,
+                  previewUrl: persistedOriginal.previewUrl,
+                  previewExpiresAt: persistedOriginal.previewExpiresAt,
+                  statusLabel: "Saved in draft",
+                }
+              : null
+          }
+          operationStatusText={originalOperationStatus}
+          disabled={fileOperationsDisabled}
+          removeDisabled={fileOperationsDisabled}
+          onRemovePersisted={onRemovePersistedOriginal}
+        />
+
+        <div>
+          <label
+            htmlFor={`${idPrefix}-reference-link`}
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            Reference Link (optional)
+          </label>
+          <input
+            id={`${idPrefix}-reference-link`}
+            type="url"
+            value={data.referenceLink}
+            onChange={(event) =>
+              onChange({ ...data, referenceLink: event.target.value })
+            }
+            placeholder="https://example.com/reference"
+            className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Add a link to an online example, brand guide or shared reference.
+          </p>
+        </div>
+
+        <ReferenceFilesUploader
+          files={data.referenceFiles}
+          onChange={
+            onReferenceFilesChange ??
+            ((referenceFiles) => onChange({ ...data, referenceFiles }))
+          }
+          disabled={fileOperationsDisabled}
+          operationStatus={referenceOperationStatus}
         />
 
         {/* Shared-preferences notice for photos #2+ while sharing is on. */}
