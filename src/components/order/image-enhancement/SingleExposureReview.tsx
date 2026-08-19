@@ -15,11 +15,12 @@ import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { buildSingleExposureDraftFileSlotKey } from "@/lib/order-drafts/single-exposure";
 import {
   SINGLE_EXPOSURE_OPTION_ID,
-  getAerialEditingOption,
   getSingleExposureSelectedOptions,
 } from "@/lib/image-enhancement";
 import type { SingleExposureItemData } from "./SingleExposureItemCard";
 import { buildSingleExposureReviewRows } from "./single-exposure-review";
+import ReferenceFilesReview from "@/components/order/ReferenceFilesReview";
+import { mergeReferenceFiles } from "@/lib/reference-files";
 
 const SERVICE_NAME = "Image Enhancement — Single Exposure";
 
@@ -121,9 +122,20 @@ export default function SingleExposureReview({
           const selectedOptions = pricingItems[index]?.selectedOptions ?? [
             SINGLE_EXPOSURE_OPTION_ID,
           ];
-          const aerialRequiresReference = getAerialEditingOption(
-            item.aerialEditing,
-          ).requiresDetails;
+          const reviewReferences = mergeReferenceFiles(
+            item.referenceFiles,
+            persistedReference
+              ? [{
+                  id: persistedReference.filename,
+                  file: null,
+                  filename: persistedReference.filename,
+                  fileSize: persistedReference.fileSize,
+                  mimeType: "image/jpeg",
+                  lastModified: null,
+                  previewUrl: persistedReference.previewUrl,
+                }]
+              : [],
+          );
           const subtotal =
             quote.items[index]?.lineSubtotalCents ??
             calculatePhotoEditItemTotal(
@@ -133,29 +145,25 @@ export default function SingleExposureReview({
             );
 
           return (
-            <OrderReviewItem
-              key={item.clientItemId}
-              index={index}
-              file={item.file}
-              persistedFile={item.file ? null : persistedOriginal}
-              secondaryFile={
-                aerialRequiresReference ? item.referenceFile : null
-              }
-              persistedSecondaryFile={
-                aerialRequiresReference && !item.referenceFile
-                  ? persistedReference
-                  : null
-              }
-              secondaryLabel="Aerial Reference Image"
-              rows={buildSingleExposureReviewRows(
-                item,
-                currency,
-                Boolean(item.referenceFile || persistedReference),
-              )}
-              subtotalCents={subtotal}
-              onEdit={() => onEditItem(index)}
-              wrapFileNames
-            />
+            <div key={item.clientItemId} className="space-y-2">
+              <OrderReviewItem
+                index={index}
+                file={item.file}
+                persistedFile={item.file ? null : persistedOriginal}
+                rows={buildSingleExposureReviewRows(
+                  item,
+                  currency,
+                  reviewReferences.length > 0,
+                )}
+                subtotalCents={subtotal}
+                onEdit={() => onEditItem(index)}
+                wrapFileNames
+              />
+              <ReferenceFilesReview
+                referenceLink={item.referenceLink}
+                files={reviewReferences}
+              />
+            </div>
           );
         })}
       </div>

@@ -29,7 +29,6 @@ import type { ServiceOptionMedia } from "@/lib/site-media";
 import {
   SINGLE_EXPOSURE_OPTION_ID,
   SINGLE_EXPOSURE_SUB_SERVICE,
-  getAerialEditingOption,
   getEffectiveDaySkyStyle,
   getSingleExposureSelectedOptions,
 } from "@/lib/image-enhancement";
@@ -69,6 +68,15 @@ import SingleExposureItemCard, {
   singleExposureItemDomId,
 } from "./SingleExposureItemCard";
 import SingleExposureReview from "./SingleExposureReview";
+import { normalizeReferenceLink } from "@/lib/reference-files";
+import {
+  completeDraftReferenceFile,
+  deleteDraftReferenceFile,
+  listDraftReferenceFiles,
+  prepareDraftReferenceFile,
+  uploadPreparedDraftReferenceFile,
+} from "@/lib/order-drafts/draft-reference-files-client";
+import type { ReferenceFileValue } from "@/lib/reference-files";
 
 const SERVICE_NAME = "Image Enhancement — Single Exposure";
 const STEPS: OrderStep[] = [
@@ -344,8 +352,18 @@ export default function SingleExposureOrderForm({
         }
         const restoredRegion = resolveSingleExposureDraftRegion(result.data);
         setRegion(restoredRegion);
-        setItems(restored.form.items as SingleExposureItemData[]);
-        itemsRef.current = restored.form.items as SingleExposureItemData[];
+        let restoredItems = restored.form.items as SingleExposureItemData[];
+        const restoredReferences = await listDraftReferenceFiles(result.data.id);
+        if (restoredReferences.ok) {
+          restoredItems = restoredItems.map((item) => ({
+            ...item,
+            referenceFiles: restoredReferences.data.filter(
+              (reference) => reference.itemClientId === item.clientItemId,
+            ),
+          }));
+        }
+        setItems(restoredItems);
+        itemsRef.current = restoredItems;
         setJobTitle(restored.form.jobTitle);
         jobTitleRef.current = restored.form.jobTitle;
         setOrderTerms(restored.form.orderTerms);
@@ -359,7 +377,7 @@ export default function SingleExposureOrderForm({
         savedFingerprintRef.current = buildSingleExposureDraftFingerprint({
           jobTitle: restored.form.jobTitle,
           step: restored.form.step,
-          items: restored.form.items,
+          items: restoredItems,
           orderTerms: restored.form.orderTerms,
           currency: result.data.currency,
           region: restoredRegion,
@@ -566,6 +584,89 @@ export default function SingleExposureOrderForm({
     [buildDraftSource, enqueueDraftSave, removePersistedFile],
   );
 
+  const handleReferenceFilesChange = useCallback(
+    async (index: number, nextReferences: ReferenceFileValue[]) => {
+      const item = itemsRef.current[index];
+      if (!item) return;
+      const previous = item.referenceFiles;
+      const nextItems = itemsRef.current.map((candidate, candidateIndex) =>
+        candidateIndex === index
+          ? { ...candidate, referenceFiles: nextReferences }
+          : candidate,
+      );
+      commitItems(nextItems);
+
+      const removed = previous.filter(
+        (reference) =>
+          reference.draftFileId &&
+          !nextReferences.some((candidate) => candidate.id === reference.id),
+      );
+      const additions = nextReferences.filter(
+        (reference) =>
+          reference.file &&
+          !previous.some((candidate) => candidate.id === reference.id),
+      );
+      if (removed.length === 0 && additions.length === 0) return;
+
+      const saved = await enqueueDraftSave(buildDraftSource(nextItems), true);
+      if (!saved) return;
+      const operationKey = `${item.clientItemId}:references`;
+      setFileOperationStatus((current) => ({
+        ...current,
+        [operationKey]: "Saving reference files...",
+      }));
+      let working = nextReferences;
+      for (const reference of removed) {
+        const deleted = await deleteDraftReferenceFile(saved.draftId, reference.id);
+        if (!deleted.ok) setDraftError(deleted.message);
+      }
+      for (const reference of additions) {
+        if (!reference.file) continue;
+        const position = working.findIndex((candidate) => candidate.id === reference.id);
+        const prepared = await prepareDraftReferenceFile(saved.draftId, {
+          itemClientId: item.clientItemId,
+          referenceId: reference.id,
+          position,
+          filename: reference.filename,
+          fileSize: reference.fileSize,
+          mimeType: reference.mimeType as "image/jpeg" | "image/png" | "image/webp" | "application/pdf",
+        });
+        if (!prepared.ok) {
+          setDraftError(prepared.message);
+          continue;
+        }
+        const uploaded = await uploadPreparedDraftReferenceFile(prepared.data, reference.file);
+        if (!uploaded.ok) {
+          setDraftError(uploaded.message);
+          await deleteDraftReferenceFile(saved.draftId, reference.id);
+          continue;
+        }
+        const completed = await completeDraftReferenceFile(saved.draftId, reference.id);
+        if (!completed.ok) {
+          setDraftError(completed.message);
+          await deleteDraftReferenceFile(saved.draftId, reference.id);
+          continue;
+        }
+        working = working.map((candidate) =>
+          candidate.id === reference.id ? completed.data : candidate,
+        );
+      }
+      const committed = itemsRef.current.map((candidate, candidateIndex) =>
+        candidateIndex === index
+          ? { ...candidate, referenceFiles: working }
+          : candidate,
+      );
+      commitItems(committed);
+      void enqueueDraftSave(buildDraftSource(committed), true);
+      setFileOperationStatus((current) => {
+        const next = { ...current };
+        delete next[operationKey];
+        return next;
+      });
+    },
+    [buildDraftSource, enqueueDraftSave],
+  );
+
   const handleApplyToAll = (sourceIndex: number) => {
     const source = itemsRef.current[sourceIndex];
     if (!source) return;
@@ -598,12 +699,14 @@ export default function SingleExposureOrderForm({
       );
       return isSingleExposureItemConfigurationValid({
         hasOriginal: Boolean(item.file || original),
-        hasReference: Boolean(item.referenceFile || reference),
+        hasReference: Boolean(
+          item.referenceFiles.length > 0 || item.referenceFile || reference,
+        ),
         skyReplacement: item.skyReplacement,
         daySkyStyle: item.daySkyStyle,
         aerialEditing: item.aerialEditing,
         aerialEditingInstructions: item.aerialEditingInstructions,
-      });
+      }) && normalizeReferenceLink(item.referenceLink) !== null;
     });
   const fileOperationActive = Object.keys(fileOperationStatus).length > 0;
   const reviewValid =
@@ -673,6 +776,12 @@ export default function SingleExposureOrderForm({
         true,
       );
       const currentDraftId = saved?.draftId ?? draftIdRef.current;
+      const listedReferences = currentDraftId
+        ? await listDraftReferenceFiles(currentDraftId)
+        : null;
+      if (listedReferences && !listedReferences.ok) {
+        throw new Error(listedReferences.message);
+      }
       const resolvedFiles = await Promise.all(
         itemsRef.current.map(async (item) => {
           const persistedOriginal = uploadedFilesBySlot.get(
@@ -693,14 +802,40 @@ export default function SingleExposureOrderForm({
               ? await resolvePersistedFile(currentDraftId, persistedOriginal)
               : null);
           if (!original) throw new Error("Every photo needs an original file.");
-          const aerial = getAerialEditingOption(item.aerialEditing);
-          const reference = aerial.requiresDetails
-            ? item.referenceFile ??
-              (currentDraftId && persistedReference
-                ? await resolvePersistedFile(currentDraftId, persistedReference)
-                : null)
-            : null;
-          return { file: original, referenceFile: reference };
+          const currentReferences = listedReferences?.ok
+            ? listedReferences.data.filter(
+                (reference) => reference.itemClientId === item.clientItemId,
+              )
+            : item.referenceFiles;
+          const localReferences = await Promise.all(
+            currentReferences.map(async (reference) => {
+              if (reference.file) return reference.file;
+              if (!reference.previewUrl) {
+                throw new Error(`Saved reference ${reference.filename} could not be loaded.`);
+              }
+              const response = await fetch(reference.previewUrl, { cache: "no-store" });
+              if (!response.ok) {
+                throw new Error(`Saved reference ${reference.filename} could not be loaded.`);
+              }
+              return new File([await response.blob()], reference.filename, {
+                type: reference.mimeType,
+                lastModified: Date.now(),
+              });
+            }),
+          );
+          const legacyReference = item.referenceFile ??
+            (currentDraftId && persistedReference
+              ? await resolvePersistedFile(currentDraftId, persistedReference)
+              : null);
+          return {
+            file: original,
+            referenceFiles:
+              localReferences.length > 0
+                ? localReferences
+                : legacyReference
+                  ? [legacyReference]
+                  : [],
+          };
         }),
       );
 
@@ -713,6 +848,7 @@ export default function SingleExposureOrderForm({
         fileSizeLimit: item.fileSizeLimit,
         disclaimerText: item.disclaimerText,
         additionalInfo: item.additionalInfo,
+        referenceLink: item.referenceLink,
         grassRepair: item.grassRepair,
         skyReplacement: item.skyReplacement,
         tvScreenReplacement: item.tvScreenReplacement,
@@ -929,6 +1065,9 @@ export default function SingleExposureOrderForm({
                   index={index}
                   data={item}
                   onChange={(data) => handleItemChange(index, data)}
+                  onReferenceFilesChange={(referenceFiles) =>
+                    void handleReferenceFilesChange(index, referenceFiles)
+                  }
                   onRemove={() => void handleRemoveItem(index)}
                   canRemove={items.length > 1}
                   exampleMediaByKey={exampleMediaByKey}

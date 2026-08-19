@@ -14,6 +14,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   buildAdminSourceFiles,
   type AdminSourceFile,
+  type AdminNormalizedReferenceRow,
   type OrderItemSourceFileRow,
 } from "@/lib/admin-source-files";
 import {
@@ -239,7 +240,21 @@ export default async function AdminOrderDetailPage({
 
         if (!itemErr && itemData) {
           const typedItemData = itemData as unknown as OrderItemSourceFileRow[];
-          sourceFiles = buildAdminSourceFiles(typedItemData);
+          const itemIds = typedItemData.map((item) => item.id);
+          const { data: referenceData, error: referenceErr } = itemIds.length > 0
+            ? await supabase
+                .from("order_item_reference_files")
+                .select("order_item_id, reference_id, position, original_filename, file_size, mime_type, created_at")
+                .in("order_item_id", itemIds)
+                .order("position")
+            : { data: [], error: null };
+          if (referenceErr) {
+            console.warn("[admin/order-detail] Reference file lookup:", referenceErr.message);
+          }
+          sourceFiles = buildAdminSourceFiles(
+            typedItemData,
+            (referenceData ?? []) as AdminNormalizedReferenceRow[],
+          );
           orderItems = typedItemData.map((row) => ({
             id: row.id,
             item_index: row.item_index,

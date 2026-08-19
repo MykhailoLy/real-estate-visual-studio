@@ -198,7 +198,43 @@ export async function submitVirtualStagingDraftForUser(
       return storageVerification;
     }
 
-    const itemFiles = buildVirtualStagingFinalizationItemFiles(slots.data);
+    const normalizedReferences = await loadLiveDraftReferenceFiles(input.draftId);
+    const referenceVerification = await verifyNormalizedDraftReferenceObjects(
+      normalizedReferences,
+    );
+    if (!referenceVerification.ok) {
+      await releaseClaimBestEffort(input);
+      return referenceVerification;
+    }
+
+    const itemFiles = buildVirtualStagingFinalizationItemFiles(slots.data).map(
+      (slot) => {
+        const itemReferences = normalizedReferences.filter(
+          (reference) => reference.itemClientId === slot.clientItemId,
+        );
+        const mirroredReference = itemReferences.find(
+          (reference) => reference.storagePath === slot.reference?.path,
+        );
+        return {
+          ...slot,
+          reference:
+            slot.reference && mirroredReference
+              ? { ...slot.reference, referenceId: mirroredReference.referenceId }
+              : slot.reference,
+          references: itemReferences
+            .filter((reference) => reference.storagePath !== slot.reference?.path)
+            .map((reference) => ({
+              bucket: ORDER_FILES_BUCKET,
+              path: reference.storagePath,
+              originalFilename: reference.originalFilename,
+              size: reference.fileSize,
+              mimeType: reference.mimeType,
+              referenceId: reference.referenceId,
+              position: reference.position,
+            })),
+        };
+      },
+    );
     const sourcePaths = collectDraftSourcePaths(itemFiles);
 
     const orderResult = await createProductionOrder({
@@ -431,6 +467,64 @@ async function loadLiveUploadedDraftFiles(
     return [];
   }
   return (data ?? []).map(mapOrderDraftFileDatabaseRow);
+}
+
+interface NormalizedDraftReferenceRow {
+  itemIndex: number;
+  itemClientId: string;
+  referenceId: string;
+  position: number;
+  storagePath: string;
+  originalFilename: string;
+  fileSize: number;
+  mimeType: string;
+}
+
+async function loadLiveDraftReferenceFiles(
+  draftId: string,
+): Promise<NormalizedDraftReferenceRow[]> {
+  const { data, error } = await getSupabaseAdminClient()
+    .from("order_draft_item_reference_files")
+    .select("item_index, item_client_id, reference_id, position, storage_path, original_filename, file_size, mime_type")
+    .eq("draft_id", draftId)
+    .eq("upload_status", "uploaded")
+    .is("deleted_at", null)
+    .order("item_index")
+    .order("position");
+  if (error) {
+    console.error("[order-draft-finalization] normalized reference lookup failed:", error.message);
+    throw new Error("Normalized draft references could not be loaded.");
+  }
+  return (data ?? []).map((row) => ({
+    itemIndex: Number(row.item_index),
+    itemClientId: String(row.item_client_id),
+    referenceId: String(row.reference_id),
+    position: Number(row.position),
+    storagePath: String(row.storage_path),
+    originalFilename: String(row.original_filename),
+    fileSize: Number(row.file_size),
+    mimeType: String(row.mime_type),
+  }));
+}
+
+async function verifyNormalizedDraftReferenceObjects(
+  references: NormalizedDraftReferenceRow[],
+): Promise<DraftFinalizationResult<true>> {
+  for (const reference of references) {
+    const object = await getStoredDraftObjectInfo(reference.storagePath);
+    if (!object.ok) return object;
+    if (
+      !object.data ||
+      object.data.size !== reference.fileSize ||
+      object.data.contentType?.toLowerCase() !== reference.mimeType.toLowerCase()
+    ) {
+      return finalizationError(
+        "file_mismatch",
+        "A saved reference file could not be verified.",
+      );
+    }
+  }
+  return { ok: true, data: true };
 }
 
 async function loadProductionOrderBySourceDraft(
@@ -839,11 +933,16 @@ function buildMovedFilesFromFinalized(
 }
 
 function collectDraftSourcePaths(
-  itemFiles: ReturnType<typeof buildVirtualStagingFinalizationItemFiles>,
+  itemFiles: Array<
+    ReturnType<typeof buildVirtualStagingFinalizationItemFiles>[number] & {
+      references?: Array<{ path: string }>;
+    }
+  >,
 ): string[] {
   return itemFiles.flatMap((slot) => [
     slot.original.path,
     ...(slot.reference ? [slot.reference.path] : []),
+    ...(slot.references ?? []).map((reference) => reference.path),
   ]);
 }
 

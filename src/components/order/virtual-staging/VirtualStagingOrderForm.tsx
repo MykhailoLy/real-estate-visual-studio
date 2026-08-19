@@ -136,6 +136,14 @@ import {
   consumeSupportOrderPrefill,
   getSupportOrderPrefillStorage,
 } from "@/lib/support-order-prefill";
+import {
+  completeDraftReferenceFile,
+  deleteDraftReferenceFile,
+  listDraftReferenceFiles,
+  prepareDraftReferenceFile,
+  uploadPreparedDraftReferenceFile,
+} from "@/lib/order-drafts/draft-reference-files-client";
+import type { ReferenceFileValue } from "@/lib/reference-files";
 
 // ============================================================
 // Virtual Staging order form (authenticated dashboard).
@@ -820,7 +828,17 @@ export default function VirtualStagingOrderForm({
         return;
       }
 
-      commitItems(resume.form.items);
+      let restoredItems = resume.form.items;
+      const restoredReferences = await listDraftReferenceFiles(draft.id);
+      if (restoredReferences.ok) {
+        restoredItems = restoredItems.map((item) => ({
+          ...item,
+          referenceFiles: restoredReferences.data.filter(
+            (reference) => reference.itemClientId === item.clientItemId,
+          ),
+        }));
+      }
+      commitItems(restoredItems);
       setJobTitle(resume.form.jobTitle);
       setDefaultFurnitureStyle(resume.form.defaultFurnitureStyle);
       setPendingGlobalStyle(null);
@@ -835,7 +853,7 @@ export default function VirtualStagingOrderForm({
       savedFingerprintRef.current = buildVirtualStagingDraftFingerprint({
         jobTitle: resume.form.jobTitle,
         defaultFurnitureStyle: resume.form.defaultFurnitureStyle,
-        items: resume.form.items,
+        items: restoredItems,
         orderTerms: resume.form.orderTerms,
         currency: restoredCurrency,
         region: restoredRegion,
@@ -1555,6 +1573,111 @@ export default function VirtualStagingOrderForm({
     ],
   );
 
+  const handleReferenceFilesChange = useCallback(
+    async (index: number, nextReferences: ReferenceFileValue[]) => {
+      if (isSubmitting || finalizationRetryContextRef.current) return;
+      const item = itemsRef.current[index];
+      if (!item) return;
+      const previous = item.referenceFiles;
+      const nextItems = itemsRef.current.map((candidate, candidateIndex) =>
+        candidateIndex === index
+          ? { ...candidate, referenceFiles: nextReferences }
+          : candidate,
+      );
+      commitItems(nextItems);
+      const removed = previous.filter(
+        (reference) =>
+          reference.draftFileId &&
+          !nextReferences.some((candidate) => candidate.id === reference.id),
+      );
+      const additions = nextReferences.filter(
+        (reference) =>
+          reference.file &&
+          !previous.some((candidate) => candidate.id === reference.id),
+      );
+      if (removed.length === 0 && additions.length === 0) return;
+
+      const slotKey = buildVirtualStagingDraftFileSlotKey(
+        item.clientItemId,
+        "reference",
+      );
+      const generation = nextVirtualStagingDraftFileOperationGeneration(
+        draftFileOperationsRef.current[slotKey],
+      );
+      setDraftFileOperation(slotKey, {
+        status: "saving_draft",
+        generation,
+        error: null,
+        pendingFileId: null,
+      });
+      const saved = await enqueueDraftSave(buildDraftSourceSnapshot(nextItems), {
+        force: true,
+      });
+      if (!saved.ok) {
+        setDraftFileOperation(slotKey, {
+          status: "error",
+          generation,
+          error: copy.fileOperationFailed,
+          pendingFileId: null,
+        });
+        return;
+      }
+      let working = nextReferences;
+      for (const reference of removed) {
+        const deleted = await deleteDraftReferenceFile(saved.draftId, reference.id);
+        if (!deleted.ok) setDraftError(deleted.message);
+      }
+      for (const reference of additions) {
+        if (!reference.file) continue;
+        const position = working.findIndex((candidate) => candidate.id === reference.id);
+        const prepared = await prepareDraftReferenceFile(saved.draftId, {
+          itemClientId: item.clientItemId,
+          referenceId: reference.id,
+          position,
+          filename: reference.filename,
+          fileSize: reference.fileSize,
+          mimeType: reference.mimeType as "image/jpeg" | "image/png" | "image/webp" | "application/pdf",
+        });
+        if (!prepared.ok) {
+          setDraftError(prepared.message);
+          continue;
+        }
+        const uploaded = await uploadPreparedDraftReferenceFile(prepared.data, reference.file);
+        if (!uploaded.ok) {
+          setDraftError(uploaded.message);
+          await deleteDraftReferenceFile(saved.draftId, reference.id);
+          continue;
+        }
+        const completed = await completeDraftReferenceFile(saved.draftId, reference.id);
+        if (!completed.ok) {
+          setDraftError(completed.message);
+          await deleteDraftReferenceFile(saved.draftId, reference.id);
+          continue;
+        }
+        working = working.map((candidate) =>
+          candidate.id === reference.id ? completed.data : candidate,
+        );
+      }
+      const committed = itemsRef.current.map((candidate, candidateIndex) =>
+        candidateIndex === index
+          ? { ...candidate, referenceFiles: working }
+          : candidate,
+      );
+      commitItems(committed);
+      void enqueueDraftSave(buildDraftSourceSnapshot(committed), { force: true });
+      clearDraftFileOperation(slotKey, generation);
+    },
+    [
+      buildDraftSourceSnapshot,
+      clearDraftFileOperation,
+      commitItems,
+      copy.fileOperationFailed,
+      enqueueDraftSave,
+      isSubmitting,
+      setDraftFileOperation,
+    ],
+  );
+
   const handleRemoveItem = useCallback(
     async (index: number) => {
       if (isSubmitting || finalizationRetryContextRef.current) return;
@@ -1996,7 +2119,17 @@ export default function VirtualStagingOrderForm({
       setDraftError(resume.message);
       return;
     }
-    commitItems(resume.form.items);
+    let restoredItems = resume.form.items;
+    const restoredReferences = await listDraftReferenceFiles(result.data.id);
+    if (restoredReferences.ok) {
+      restoredItems = restoredItems.map((item) => ({
+        ...item,
+        referenceFiles: restoredReferences.data.filter(
+          (reference) => reference.itemClientId === item.clientItemId,
+        ),
+      }));
+    }
+    commitItems(restoredItems);
     setJobTitle(resume.form.jobTitle);
     setDefaultFurnitureStyle(resume.form.defaultFurnitureStyle);
     setPendingGlobalStyle(null);
@@ -2009,7 +2142,7 @@ export default function VirtualStagingOrderForm({
     savedFingerprintRef.current = buildVirtualStagingDraftFingerprint({
       jobTitle: resume.form.jobTitle,
       defaultFurnitureStyle: resume.form.defaultFurnitureStyle,
-      items: resume.form.items,
+      items: restoredItems,
       orderTerms: resume.form.orderTerms,
       currency: restoredCurrency,
       region: restoredRegion,
@@ -2128,9 +2261,41 @@ export default function VirtualStagingOrderForm({
       selectedAddons: item.selectedAddons,
     }));
 
-    const files = currentItems.map((item) => ({
-      file: item.file,
-      referenceFile: item.referenceFile,
+    const currentDraftId = draftIdRef.current;
+    const listedReferences = currentDraftId
+      ? await listDraftReferenceFiles(currentDraftId)
+      : null;
+    if (listedReferences && !listedReferences.ok) {
+      return {
+        success: false,
+        error: listedReferences.message,
+        errorCode: "server-error",
+      };
+    }
+    const files = await Promise.all(currentItems.map(async (item) => {
+      const references = listedReferences?.ok
+        ? listedReferences.data.filter(
+            (reference) => reference.itemClientId === item.clientItemId,
+          )
+        : item.referenceFiles;
+      const referenceFiles = await Promise.all(references.map(async (reference) => {
+        if (reference.file) return reference.file;
+        if (!reference.previewUrl) {
+          throw new Error(`Saved reference ${reference.filename} could not be loaded.`);
+        }
+        const response = await fetch(reference.previewUrl, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Saved reference ${reference.filename} could not be loaded.`);
+        }
+        return new File([await response.blob()], reference.filename, {
+          type: reference.mimeType,
+          lastModified: Date.now(),
+        });
+      }));
+      if (referenceFiles.length === 0 && item.referenceFile) {
+        referenceFiles.push(item.referenceFile);
+      }
+      return { file: item.file, referenceFiles };
     }));
 
     return submitOrder(
@@ -2886,6 +3051,9 @@ export default function VirtualStagingOrderForm({
               defaultFurnitureStyle={defaultFurnitureStyle}
               exampleMediaByKey={exampleMediaByKey}
               onChange={(data) => handleItemChange(index, data)}
+              onReferenceFilesChange={(referenceFiles) =>
+                void handleReferenceFilesChange(index, referenceFiles)
+              }
               onRemove={() => void handleRemoveItem(index)}
               canRemove={items.length > 1}
               removeDisabled={

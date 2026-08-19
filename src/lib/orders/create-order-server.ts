@@ -15,6 +15,7 @@ import {
   type ServiceType,
   type StagingItem,
   type UploadedFile,
+  type UploadedReferenceFile,
 } from "@/lib/server-validation";
 import {
   getStagingAddonLabels,
@@ -75,11 +76,17 @@ export type StorageFinalizationMode = "move" | "copy";
 
 export interface TrustedOrderFileDescriptor extends UploadedFile {
   draftFileId?: string;
+  referenceId?: string;
+  position?: number;
 }
 
 export interface TrustedOrderItemFiles {
   original: TrustedOrderFileDescriptor;
   reference?: TrustedOrderFileDescriptor | null;
+  references?: Array<TrustedOrderFileDescriptor & {
+    referenceId: string;
+    position: number;
+  }>;
 }
 
 export interface FinalizedOrderFile {
@@ -90,11 +97,14 @@ export interface FinalizedOrderFile {
   size: number;
   mimeType: string;
   draftFileId: string | null;
+  referenceId?: string;
+  position?: number;
 }
 
 export interface FinalizedOrderItemFiles {
   original: FinalizedOrderFile;
   reference: FinalizedOrderFile | null;
+  references: FinalizedOrderFile[];
 }
 
 export interface CreateProductionOrderInput {
@@ -200,6 +210,20 @@ export function validatePendingOrderFileDescriptors(
     if (slot.reference) {
       const reference = validateDirectPendingDescriptorStructure({
         descriptor: slot.reference,
+        itemIndex: i,
+        kind: "reference",
+        seenPaths,
+      });
+      if (!reference.ok) {
+        return {
+          ok: false,
+          error: `Item ${i + 1} reference file descriptor is invalid.`,
+        };
+      }
+    }
+    for (const descriptor of slot.references ?? []) {
+      const reference = validateDirectPendingDescriptorStructure({
+        descriptor: descriptor as UploadedReferenceFile,
         itemIndex: i,
         kind: "reference",
         seenPaths,
@@ -373,7 +397,10 @@ export async function createProductionOrder(
           supabase,
           ownerUserId: input.ownerUserId,
           serviceType: input.serviceType,
-          itemFiles: input.itemFiles,
+          itemFiles: input.itemFiles.map((slot) => ({
+            ...slot,
+            references: slot.references ?? [],
+          })),
         })
       : { ok: true as const, data: input.itemFiles };
 
@@ -439,6 +466,7 @@ export async function createProductionOrder(
         itemIndex: i,
         kind: "reference",
         mode: input.storageMode,
+        referenceId: slot.reference.referenceId,
       });
       if (!finalizedReference.ok) {
         await cleanupAfterFinalizationFailure({
@@ -459,9 +487,52 @@ export async function createProductionOrder(
       }
     }
 
+    const references: FinalizedOrderFile[] = [];
+    const trustedReferences = slot.references ?? [];
+    for (const trustedReference of trustedReferences) {
+      const finalizedReference = await finalizeFileToOrderPath({
+        supabase,
+        uploaded: trustedReference,
+        orderNumber,
+        itemIndex: i,
+        kind: "reference",
+        mode: input.storageMode,
+        referenceId: trustedReference.referenceId,
+        referencePosition: trustedReference.position,
+      });
+      if (!finalizedReference.ok) {
+        await cleanupAfterFinalizationFailure({
+          supabase,
+          mode: input.storageMode,
+          copiedFinalPaths,
+          movedDirectFiles,
+          scope: "multi-reference finalization failure",
+        });
+        return finalizedReference;
+      }
+      references.push(finalizedReference.file);
+      if (input.storageMode === "copy") {
+        copiedFinalPaths.push(finalizedReference.file.finalPath);
+      }
+      if (isSuccessfulDirectMove(finalizedReference.directMove)) {
+        movedDirectFiles.push(finalizedReference.directMove);
+      }
+    }
+
+    if (!reference && references.length > 0) reference = references[0];
+    const allReferences = reference
+      ? [
+          reference,
+          ...references.filter(
+            (candidate) => candidate.finalPath !== reference.finalPath,
+          ),
+        ]
+      : references;
+
     finalizedItemFiles.push({
       original: original.file,
       reference,
+      references: allReferences,
     });
   }
 
@@ -519,6 +590,7 @@ export async function createProductionOrder(
   };
 
   const orderItemsPayload = input.items.map((item, i) => ({
+    id: crypto.randomUUID(),
     order_id: orderData.id,
     item_index: i,
     original_photo_path: finalizedItemFiles[i].original.finalPath,
@@ -535,9 +607,10 @@ export async function createProductionOrder(
       portfolio_permission: trustedPortfolioPermission,
       uploaded_files: {
         original: serializeUploadedFile(itemFiles.data[i].original),
-        reference: itemFiles.data[i].reference
-          ? serializeUploadedFile(itemFiles.data[i].reference)
+        reference: getTrustedReferenceFiles(itemFiles.data[i])[0]
+          ? serializeUploadedFile(getTrustedReferenceFiles(itemFiles.data[i])[0])
           : null,
+        references: getTrustedReferenceFiles(itemFiles.data[i]).map(serializeUploadedFile),
       },
     },
   }));
@@ -547,7 +620,10 @@ export async function createProductionOrder(
     .insert(orderItemsPayload);
 
   if (itemsError) {
-    console.error("[orders] failed to insert order items:", itemsError.message);
+    console.error(
+      "[orders] failed to insert order items:",
+      itemsError.message,
+    );
     await supabase.from("orders").delete().eq("id", orderData.id);
     await cleanupAfterDatabaseFailure({
       supabase,
@@ -562,6 +638,47 @@ export async function createProductionOrder(
       message: "Failed to save order items. Please try again.",
       status: 500,
     };
+  }
+
+  const insertedItemIds = new Map<number, string>();
+  for (const row of orderItemsPayload) {
+    insertedItemIds.set(Number(row.item_index), String(row.id));
+  }
+  const normalizedReferences = finalizedItemFiles.flatMap((slot, itemIndex) => {
+    const orderItemId = insertedItemIds.get(itemIndex);
+    if (!orderItemId) return [];
+    return slot.references.map((reference, position) => ({
+      order_item_id: orderItemId,
+      reference_id: reference.referenceId ?? crypto.randomUUID(),
+      position: reference.position ?? position,
+      bucket: ORDER_FILES_BUCKET,
+      storage_path: reference.finalPath,
+      original_filename: reference.originalFilename,
+      file_size: reference.size,
+      mime_type: reference.mimeType,
+    }));
+  });
+  if (normalizedReferences.length > 0) {
+    const { error: referencesError } = await supabase
+      .from("order_item_reference_files")
+      .insert(normalizedReferences);
+    if (referencesError) {
+      console.error("[orders] failed to insert reference files:", referencesError.message);
+      await supabase.from("orders").delete().eq("id", orderData.id);
+      await cleanupAfterDatabaseFailure({
+        supabase,
+        mode: input.storageMode,
+        finalizedItemFiles,
+        movedDirectFiles,
+        scope: "reference metadata insert failure",
+      });
+      return {
+        ok: false,
+        code: "database_error",
+        message: "Failed to save reference files. Please try again.",
+        status: 500,
+      };
+    }
   }
 
   const emailResult = await sendOrderEmails({
@@ -741,6 +858,7 @@ function buildItemDetails(
       const base: Record<string, unknown> = {
         selected_options: p.selectedOptions,
         option_labels: getPhotoEditOptionLabels(p.selectedOptions),
+        reference_link: p.referenceLink || "",
         additional_info: p.additionalInfo || "",
       };
       const subServiceLabel = getDedicatedSubServiceLabel(p.subService);
@@ -809,12 +927,15 @@ export function validateSingleExposureAerialRequirements(
     if (!isAerialDetailRequirementSatisfied(
       aerial.id,
       item.aerialEditingInstructions,
-      Boolean(itemFiles[index]?.reference),
+      Boolean(
+        itemFiles[index]?.reference ||
+        (itemFiles[index]?.references?.length ?? 0) > 0,
+      ),
     )) {
       return {
         ok: false,
         code: "invalid_input",
-        message: `Photo ${index + 1} requires Aerial Editing Instructions or an Aerial Reference Image.`,
+        message: `Photo ${index + 1} requires Aerial Editing Instructions or at least one Reference File.`,
         status: 400,
       };
     }
@@ -830,6 +951,8 @@ async function finalizeFileToOrderPath(input: {
   itemIndex: number;
   kind: UploadKind;
   mode: StorageFinalizationMode;
+  referenceId?: string;
+  referencePosition?: number;
 }): Promise<
   | {
       ok: true;
@@ -851,6 +974,8 @@ async function finalizeFileToOrderPath(input: {
     input.itemIndex,
     input.kind,
     ext,
+    input.referencePosition,
+    input.referenceId,
   );
 
   if (input.uploaded.path !== finalPath) {
@@ -905,6 +1030,8 @@ function buildFinalizedFile(
   input: {
     uploaded: TrustedOrderFileDescriptor;
     kind: UploadKind;
+    referenceId?: string;
+    referencePosition?: number;
   },
   finalPath: string,
 ): FinalizedOrderFile {
@@ -916,6 +1043,12 @@ function buildFinalizedFile(
     size: input.uploaded.size,
     mimeType: input.uploaded.mimeType,
     draftFileId: input.uploaded.draftFileId ?? null,
+    ...(input.referenceId
+      ? {
+          referenceId: input.referenceId,
+          position: input.referencePosition,
+        }
+      : {}),
   };
 }
 
@@ -928,6 +1061,20 @@ function serializeUploadedFile(u: TrustedOrderFileDescriptor) {
   };
 }
 
+function getTrustedReferenceFiles(
+  slot: TrustedOrderItemFiles,
+): TrustedOrderFileDescriptor[] {
+  const references = slot.reference
+    ? [slot.reference, ...(slot.references ?? [])]
+    : (slot.references ?? []);
+  const paths = new Set<string>();
+  return references.filter((reference) => {
+    if (paths.has(reference.path)) return false;
+    paths.add(reference.path);
+    return true;
+  });
+}
+
 async function cleanupFinalizedFiles(
   supabase: SupabaseClient,
   finalized: FinalizedOrderItemFiles[],
@@ -935,7 +1082,7 @@ async function cleanupFinalizedFiles(
   const paths: string[] = [];
   for (const slot of finalized) {
     paths.push(slot.original.finalPath);
-    if (slot.reference) paths.push(slot.reference.finalPath);
+    for (const reference of slot.references) paths.push(reference.finalPath);
   }
   await cleanupFinalPaths(supabase, paths);
 }

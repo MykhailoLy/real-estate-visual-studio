@@ -30,8 +30,17 @@ export interface ClientOrderItemSourceFileRow {
   details: Record<string, unknown> | null;
 }
 
+export interface ClientNormalizedReferenceRow {
+  order_item_id: string;
+  reference_id: string;
+  position: number;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+}
+
 const SOURCE_FILE_ID_RE =
-  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(original|reference)$/i;
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(original|reference)(?:-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i;
 
 export function makeClientSourceFileId(
   orderItemId: string,
@@ -42,12 +51,13 @@ export function makeClientSourceFileId(
 
 export function parseClientSourceFileId(
   fileId: string
-): { orderItemId: string; kind: ClientSourceFileKind } | null {
+): { orderItemId: string; kind: ClientSourceFileKind; referenceId: string | null } | null {
   const match = SOURCE_FILE_ID_RE.exec(fileId);
   if (!match) return null;
   return {
     orderItemId: match[1],
     kind: match[2] as ClientSourceFileKind,
+    referenceId: match[3] ?? null,
   };
 }
 
@@ -132,8 +142,34 @@ export async function getClientSourceFilesForOrder(
     console.error("[client-source-files] Item lookup:", itemErr.message);
     return [];
   }
-
-  return buildClientSourceFiles((items ?? []) as unknown as ClientOrderItemSourceFileRow[]);
+  const typedItems = (items ?? []) as unknown as ClientOrderItemSourceFileRow[];
+  const itemIds = typedItems.map((item) => item.id);
+  const { data: normalized, error: referenceErr } = itemIds.length > 0
+    ? await supabase
+        .from("order_item_reference_files")
+        .select("order_item_id, reference_id, position, original_filename, file_size, mime_type")
+        .in("order_item_id", itemIds)
+        .order("position")
+    : { data: [], error: null };
+  if (referenceErr) {
+    console.warn("[client-source-files] Reference lookup:", referenceErr.message);
+  }
+  const normalizedRows = (normalized ?? []) as ClientNormalizedReferenceRow[];
+  const normalizedItemIds = new Set(normalizedRows.map((row) => row.order_item_id));
+  const legacy = buildClientSourceFiles(typedItems).filter(
+    (file) => file.kind === "original" || !normalizedItemIds.has(file.orderItemId),
+  );
+  const itemIndexById = new Map(typedItems.map((item) => [item.id, item.item_index]));
+  const references: ClientSourceFile[] = normalizedRows.map((row) => ({
+    id: `${row.order_item_id}-reference-${row.reference_id}`,
+    orderItemId: row.order_item_id,
+    kind: "reference",
+    itemIndex: itemIndexById.get(row.order_item_id) ?? 0,
+    filename: row.original_filename,
+    fileSize: row.file_size,
+    mimeType: row.mime_type,
+  }));
+  return [...legacy, ...references];
 }
 
 function getUploadedFileMetadata(

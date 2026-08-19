@@ -5,11 +5,13 @@ import type {
   ItemFiles,
   ServiceType,
   UploadedFile,
+  UploadedReferenceFile,
 } from "../server-validation.ts";
 import {
   MAX_FILE_SIZE_BYTES,
   ORDER_FILES_BUCKET,
   getAllowedMimeTypes,
+  getAllowedMultiReferenceMimeTypes,
   normalizeSupabaseUserId,
   parseDirectPendingPath,
   type DirectPendingPathParts,
@@ -44,15 +46,24 @@ export interface VerifiedDirectOrderFileDescriptor extends UploadedFile {
   originalFilename: string;
   size: number;
   mimeType: string;
+  referenceId?: string;
+  position?: number;
+}
+
+export interface VerifiedDirectReferenceFileDescriptor
+  extends VerifiedDirectOrderFileDescriptor {
+  referenceId: string;
+  position: number;
 }
 
 export interface VerifiedDirectOrderItemFiles {
   original: VerifiedDirectOrderFileDescriptor;
   reference?: VerifiedDirectOrderFileDescriptor | null;
+  references: VerifiedDirectReferenceFileDescriptor[];
 }
 
 interface DirectUploadCandidate {
-  descriptor: UploadedFile;
+  descriptor: UploadedFile | UploadedReferenceFile;
   itemIndex: number;
   kind: UploadKind;
   path: DirectPendingPathParts;
@@ -86,8 +97,20 @@ export function validateDirectPendingDescriptorStructure(input: {
 
   if (
     parsed.itemIndex !== input.itemIndex ||
-    parsed.basename !== `${input.itemIndex}-${input.kind}.${parsed.extension}` ||
     parsed.kind !== input.kind
+  ) {
+    return invalidDirectUpload();
+  }
+  const descriptor = input.descriptor as Partial<UploadedReferenceFile>;
+  if (parsed.referenceId) {
+    if (
+      descriptor.referenceId !== parsed.referenceId ||
+      descriptor.position !== parsed.referencePosition
+    ) {
+      return invalidDirectUpload();
+    }
+  } else if (
+    parsed.basename !== `${input.itemIndex}-${input.kind}.${parsed.extension}`
   ) {
     return invalidDirectUpload();
   }
@@ -117,7 +140,10 @@ export async function verifyDirectOrderUploads(input: {
     }
   }
 
-  const verifiedByPath = new Map<string, VerifiedDirectOrderFileDescriptor>();
+  const verifiedByPath = new Map<
+    string,
+    VerifiedDirectOrderFileDescriptor | VerifiedDirectReferenceFileDescriptor
+  >();
   const candidatesByDirectory = groupDirectUploadCandidatesByDirectory(
     candidates.data,
   );
@@ -152,6 +178,11 @@ export async function verifyDirectOrderUploads(input: {
         ? verifiedByPath.get(slot.reference.path) ??
           failMissingVerifiedDescriptor()
         : null,
+      references: (slot.references ?? []).map((reference) =>
+        (verifiedByPath.get(reference.path) as
+          | VerifiedDirectReferenceFileDescriptor
+          | undefined) ?? failMissingVerifiedDescriptor(),
+      ),
     })),
   };
 }
@@ -188,6 +219,22 @@ function collectDirectUploadCandidates(
       if (!reference.ok) return reference;
       candidates.push({
         descriptor: slot.reference,
+        itemIndex,
+        kind: "reference",
+        path: reference.data,
+      });
+    }
+    for (const descriptor of slot.references ?? []) {
+      if (slot.reference?.path === descriptor.path) continue;
+      const reference = validateDirectPendingDescriptorStructure({
+        descriptor,
+        itemIndex,
+        kind: "reference",
+        seenPaths,
+      });
+      if (!reference.ok) return reference;
+      candidates.push({
+        descriptor,
         itemIndex,
         kind: "reference",
         path: reference.data,
@@ -285,10 +332,9 @@ function verifyStoredDirectObject(input: {
     return invalidDirectUpload();
   }
 
-  const allowedMimeTypes = getAllowedMimeTypes(
-    input.serviceType,
-    input.candidate.kind,
-  );
+  const allowedMimeTypes = input.candidate.path.referenceId
+    ? getAllowedMultiReferenceMimeTypes()
+    : getAllowedMimeTypes(input.serviceType, input.candidate.kind);
   if (!allowedMimeTypes.includes(actualMimeType)) {
     return invalidDirectUpload();
   }
@@ -303,6 +349,7 @@ function verifyStoredDirectObject(input: {
     return invalidDirectUpload();
   }
 
+  const referenceDescriptor = input.candidate.descriptor as Partial<UploadedReferenceFile>;
   return {
     ok: true,
     data: {
@@ -311,6 +358,12 @@ function verifyStoredDirectObject(input: {
       originalFilename: input.candidate.descriptor.originalFilename,
       size: actualSize,
       mimeType: actualMimeType,
+      ...(input.candidate.path.referenceId
+        ? {
+            referenceId: referenceDescriptor.referenceId!,
+            position: referenceDescriptor.position!,
+          }
+        : {}),
     },
   };
 }

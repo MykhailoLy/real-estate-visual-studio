@@ -101,7 +101,7 @@ export default function ClientOrderImageCard({
 }: Props) {
   const statusConfig = STATUS_CONFIG[status];
   const originalSource = sourceFiles.find((file) => file.kind === "original") ?? null;
-  const referenceSource = sourceFiles.find((file) => file.kind === "reference") ?? null;
+  const referenceSources = sourceFiles.filter((file) => file.kind === "reference");
 
   return (
     <article className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
@@ -143,20 +143,26 @@ export default function ClientOrderImageCard({
               <SourcePlaceholder />
             )}
 
-            {referenceSource && (
+            {referenceSources.length > 0 && (
               <div className="mt-3 rounded-lg border border-border bg-surface/30 p-3">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
-                  Reference file
+                  Reference files
                 </p>
-                <FilePreviewCard
-                  viewerVariant={viewerVariant}
-                  filename={referenceSource.filename}
-                  mimeType={referenceSource.mimeType}
-                  fileSizeLabel={formatBytes(referenceSource.fileSize)}
-                  badgeLabel="Reference"
-                  signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
-                  downloadLabel="Download"
-                />
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                  {referenceSources.map((referenceSource, index) => (
+                    <li key={referenceSource.id}>
+                      <FilePreviewCard
+                        viewerVariant={viewerVariant}
+                        filename={referenceSource.filename}
+                        mimeType={referenceSource.mimeType}
+                        fileSizeLabel={formatBytes(referenceSource.fileSize)}
+                        badgeLabel={`Reference ${index + 1}`}
+                        signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
+                        downloadLabel="Download"
+                      />
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </WorkflowPanel>

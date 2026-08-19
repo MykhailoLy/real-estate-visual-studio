@@ -17,6 +17,8 @@ import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { buildVirtualStagingDraftFileSlotKey } from "@/lib/order-drafts/virtual-staging-files";
 import type { StagingItemData } from "./StagingItemCard";
 import { buildVirtualStagingReviewRows } from "./virtual-staging-review";
+import ReferenceFilesReview from "@/components/order/ReferenceFilesReview";
+import { mergeReferenceFiles } from "@/lib/reference-files";
 
 // ============================================================
 // VirtualStagingReview — read-only final step for Virtual Staging.
@@ -128,22 +130,36 @@ export default function VirtualStagingReview({
             quote.items[index]?.lineSubtotalCents ??
             calculateStagingItemTotal(item.selectedAddons, currency);
 
+          const reviewReferences = mergeReferenceFiles(
+            item.referenceFiles,
+            persistedReference
+              ? [{
+                  id: persistedReference.filename,
+                  file: null,
+                  filename: persistedReference.filename,
+                  fileSize: persistedReference.fileSize,
+                  mimeType: "image/jpeg",
+                  lastModified: null,
+                  previewUrl: persistedReference.previewUrl,
+                }]
+              : [],
+          );
           return (
-            <OrderReviewItem
-              key={item.clientItemId}
-              index={index}
-              file={item.file}
-              persistedFile={item.file ? null : persistedOriginal}
-              secondaryFile={item.referenceFile}
-              persistedSecondaryFile={
-                item.referenceFile ? null : persistedReference
-              }
-              secondaryLabel="Reference Image"
-              rows={buildVirtualStagingReviewRows(item, currency)}
-              subtotalCents={subtotalCents}
-              onEdit={() => onEditItem(index)}
-              wrapFileNames
-            />
+            <div key={item.clientItemId} className="space-y-2">
+              <OrderReviewItem
+                index={index}
+                file={item.file}
+                persistedFile={item.file ? null : persistedOriginal}
+                rows={buildVirtualStagingReviewRows(item, currency)}
+                subtotalCents={subtotalCents}
+                onEdit={() => onEditItem(index)}
+                wrapFileNames
+              />
+              <ReferenceFilesReview
+                referenceLink={item.referenceLink}
+                files={reviewReferences}
+              />
+            </div>
           );
         })}
       </div>

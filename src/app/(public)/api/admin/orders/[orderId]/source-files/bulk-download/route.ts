@@ -64,14 +64,45 @@ export async function POST(
   }
 
   const rows = (items ?? []) as unknown as OrderItemSourceFileRow[];
-  const sourceFiles = rows.flatMap((row) =>
+  const itemIds = rows.map((row) => row.id);
+  const { data: normalizedReferences, error: referencesError } = itemIds.length > 0
+    ? await supabase
+        .from("order_item_reference_files")
+        .select("order_item_id, position, storage_path, original_filename, file_size, mime_type")
+        .in("order_item_id", itemIds)
+        .order("position")
+    : { data: [], error: null };
+  if (referencesError) {
+    console.error(
+      "[admin/source-files/bulk-download] Reference lookup:",
+      referencesError.message,
+    );
+    return NextResponse.json({ error: "Could not load reference files." }, { status: 500 });
+  }
+  const normalizedItemIds = new Set(
+    (normalizedReferences ?? []).map((reference) => reference.order_item_id),
+  );
+  const legacySourceFiles = rows.flatMap((row) =>
     (["original", "reference"] as const)
+      .filter((kind) => kind === "original" || !normalizedItemIds.has(row.id))
       .map((kind) => ({
         itemIndex: row.item_index,
         slot: getAdminSourceFileSlot(row, kind),
       }))
       .filter((file) => Boolean(file.slot.storagePath))
   );
+  const itemIndexById = new Map(rows.map((row) => [row.id, row.item_index]));
+  const normalizedSourceFiles = (normalizedReferences ?? []).map((reference) => ({
+    itemIndex: itemIndexById.get(reference.order_item_id) ?? 0,
+    slot: {
+      kind: "reference" as const,
+      storagePath: reference.storage_path,
+      filename: reference.original_filename,
+      fileSize: reference.file_size,
+      mimeType: reference.mime_type,
+    },
+  }));
+  const sourceFiles = [...legacySourceFiles, ...normalizedSourceFiles];
 
   const limit = assertZipLimits(
     sourceFiles.map((file) => ({ sizeBytes: file.slot.fileSize }))

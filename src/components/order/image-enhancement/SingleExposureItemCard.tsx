@@ -36,10 +36,18 @@ import {
 } from "@/lib/image-enhancement";
 import ThreeStatePreference from "./ThreeStatePreference";
 import DaySkyStyleSelector from "./DaySkyStyleSelector";
+import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
+import {
+  mergeReferenceFiles,
+  type ReferenceFileValue,
+} from "@/lib/reference-files";
 
 export interface SingleExposureItemData {
   clientItemId: string;
   file: File | null;
+  referenceLink: string;
+  referenceFiles: ReferenceFileValue[];
+  /** Legacy singular draft fields retained only for backward restoration. */
   referenceFile: File | null;
   originalFilename: string | null;
   referenceFilename: string | null;
@@ -60,6 +68,8 @@ export interface SingleExposureItemData {
 export const emptySingleExposureItem = (): SingleExposureItemData => ({
   clientItemId: createDraftClientItemId(),
   file: null,
+  referenceLink: "",
+  referenceFiles: [],
   referenceFile: null,
   originalFilename: null,
   referenceFilename: null,
@@ -82,6 +92,7 @@ interface SingleExposureItemCardProps {
   index: number;
   data: SingleExposureItemData;
   onChange: (data: SingleExposureItemData) => void;
+  onReferenceFilesChange?: (files: ReferenceFileValue[]) => void;
   onRemove: () => void;
   canRemove: boolean;
   exampleMediaByKey: Record<string, ServiceOptionMedia>;
@@ -105,6 +116,7 @@ export default function SingleExposureItemCard({
   index,
   data,
   onChange,
+  onReferenceFilesChange,
   onRemove,
   canRemove,
   exampleMediaByKey,
@@ -113,7 +125,6 @@ export default function SingleExposureItemCard({
   persistedOriginal,
   persistedReference,
   onOriginalFileChange,
-  onReferenceFileChange,
   onRemovePersistedOriginal,
   onRemovePersistedReference,
   originalOperationStatus,
@@ -148,8 +159,25 @@ export default function SingleExposureItemCard({
     showErrors &&
     selectedAerial.requiresDetails &&
     !data.aerialEditingInstructions.trim() &&
+    data.referenceFiles.length === 0 &&
     !data.referenceFile &&
     !persistedReference;
+  const displayedReferenceFiles = mergeReferenceFiles(
+    data.referenceFiles,
+    persistedReference
+      ? [{
+          id: persistedReference.id,
+          file: null,
+          filename: persistedReference.originalFilename,
+          fileSize: persistedReference.fileSize,
+          mimeType: persistedReference.mimeType,
+          lastModified: null,
+          previewUrl: persistedReference.previewUrl,
+          previewExpiresAt: persistedReference.previewExpiresAt,
+          draftFileId: persistedReference.id,
+        }]
+      : [],
+  );
 
   const toggleAddOn = (id: SingleExposureStandardAddOnId) => {
     const selectedAddons = data.selectedAddons.includes(id)
@@ -211,6 +239,54 @@ export default function SingleExposureItemCard({
               ? "Upload an original photo before review."
               : undefined
           }
+        />
+
+        <div>
+          <label
+            htmlFor={`${idPrefix}-reference-link`}
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            Reference Link (optional)
+          </label>
+          <input
+            id={`${idPrefix}-reference-link`}
+            type="url"
+            value={data.referenceLink}
+            onChange={(event) =>
+              onChange({ ...data, referenceLink: event.target.value })
+            }
+            placeholder="https://example.com/reference"
+            className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Add a link to an online example, brand guide or shared reference.
+          </p>
+        </div>
+
+        <ReferenceFilesUploader
+          files={displayedReferenceFiles}
+          onChange={(referenceFiles) => {
+            const retainedLegacy = referenceFiles.some(
+              (reference) => reference.id === persistedReference?.id,
+            );
+            if (!retainedLegacy && persistedReference) {
+              onRemovePersistedReference?.();
+            }
+            const normalized = referenceFiles.filter(
+              (reference) => reference.id !== persistedReference?.id,
+            );
+            if (onReferenceFilesChange) onReferenceFilesChange(normalized);
+            else {
+              onChange({
+                ...data,
+                referenceFiles: normalized,
+                referenceFile: null,
+                referenceFilename: null,
+              });
+            }
+          }}
+          disabled={fileOperationsDisabled}
+          operationStatus={referenceOperationStatus}
         />
 
         <div className="space-y-4 rounded-xl border border-border bg-surface/40 p-4">
@@ -364,39 +440,10 @@ export default function SingleExposureItemCard({
                 />
               </div>
 
-              {selectedAerial.requiresDetails ? (
-                <FileUpload
-                  viewerVariant="photo"
-                  label="Aerial Reference Image"
-                  file={data.referenceFile}
-                  onFileChange={
-                    onReferenceFileChange ??
-                    ((referenceFile) => onChange({ ...data, referenceFile }))
-                  }
-                  accept={PHOTO_EDIT_FILE_ACCEPT}
-                  helperText="Upload a marked screenshot or reference showing the required boundary, lots or pin location."
-                  persistedFile={
-                    persistedReference
-                      ? {
-                          id: persistedReference.id,
-                          filename: persistedReference.originalFilename,
-                          fileSize: persistedReference.fileSize,
-                          previewUrl: persistedReference.previewUrl,
-                          previewExpiresAt: persistedReference.previewExpiresAt,
-                          statusLabel: "Saved in draft",
-                        }
-                      : null
-                  }
-                  operationStatusText={referenceOperationStatus}
-                  disabled={fileOperationsDisabled}
-                  removeDisabled={fileOperationsDisabled}
-                  onRemovePersisted={onRemovePersistedReference}
-                  validationError={
-                    aerialDetailsMissing
-                      ? "Add meaningful instructions or a reference image."
-                      : undefined
-                  }
-                />
+              {aerialDetailsMissing ? (
+                <p className="text-xs font-medium text-red-700" role="alert">
+                  Add meaningful instructions or at least one Reference File.
+                </p>
               ) : null}
 
               {data.aerialEditing === "multiple-lot-highlight" ? (
