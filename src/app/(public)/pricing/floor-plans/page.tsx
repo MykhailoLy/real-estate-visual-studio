@@ -35,6 +35,7 @@ import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 import type { PriceKey } from "@/lib/pricing/types";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // /pricing/floor-plans  —  Floor Plans service page
@@ -301,15 +302,24 @@ async function buildSliderSlides(): Promise<ServicePageSlide[]> {
     (it) => it.before_image_path && it.after_image_path
   );
   if (usable.length > 0) {
-    return usable.map((item) => ({
-      kind: "image" as const,
-      id: item.id,
-      beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
-      afterUrl: getSiteMediaPublicUrl(item.after_image_path) ?? "",
-      beforeAlt: item.alt_text ?? item.title ?? "Floor plan — before",
-      afterAlt: item.alt_text ?? item.title ?? "Floor plan — after",
-      title: item.title ?? undefined,
-    }));
+    return usable.map((item) => {
+      const alt = getBeforeAfterAlt({
+        sharedAlt: item.alt_text,
+        title: item.title,
+        description: item.description,
+        serviceLabel: "Floor Plans",
+        serviceSlug: item.service_slug,
+      });
+      return {
+        kind: "image" as const,
+        id: item.id,
+        beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
+        afterUrl: getSiteMediaPublicUrl(item.after_image_path) ?? "",
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
+        title: item.title ?? undefined,
+      };
+    });
   }
   return [{ kind: "placeholder", id: "fp-fallback", variant: "floor-plans" }];
 }
@@ -344,15 +354,25 @@ export default async function FloorPlansPage() {
   // ── Resolve portfolio example cards ────────────────────────
   const portfolioCards: PortfolioExampleCard[] =
     e2eStaticImageViewerCards() ??
-    allItems.map((item) => ({
-      id: item.id,
-      title: item.title,
-      description: item.description,
-      beforeUrl: getPortfolioPublicUrl(item.before_image_path),
-      afterUrl: getPortfolioPublicUrl(item.after_image_path),
-      beforeAlt: item.before_alt ?? `${item.title} — before`,
-      afterAlt: item.after_alt ?? `${item.title} — after`,
-    }));
+    allItems.map((item) => {
+      const alt = getBeforeAfterAlt({
+        beforeAlt: item.before_alt,
+        afterAlt: item.after_alt,
+        title: item.title,
+        description: item.description,
+        serviceLabel: "Floor Plans",
+        serviceSlug: item.service_slug,
+      });
+      return {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        beforeUrl: getPortfolioPublicUrl(item.before_image_path),
+        afterUrl: getPortfolioPublicUrl(item.after_image_path),
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
+      };
+    });
 
   // ── Resolve style option cards ──────────────────────────────
   // If admin has uploaded service-options items, use them fully

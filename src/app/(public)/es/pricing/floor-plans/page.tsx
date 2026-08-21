@@ -38,6 +38,7 @@ import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 import type { PriceKey } from "@/lib/pricing/types";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 export const metadata = spanishMetadata({
   title: "Planos",
@@ -269,15 +270,25 @@ async function buildSliderSlides(): Promise<ServicePageSlide[]> {
     (it) => it.before_image_path && it.after_image_path,
   );
   if (usable.length > 0) {
-    return usable.map((item) => ({
-      kind: "image" as const,
-      id: item.id,
-      beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
-      afterUrl: getSiteMediaPublicUrl(item.after_image_path) ?? "",
-      beforeAlt: item.alt_text ?? item.title ?? "Plano - antes",
-      afterAlt: item.alt_text ?? item.title ?? "Plano - después",
-      title: item.title ?? undefined,
-    }));
+    return usable.map((item) => {
+      const alt = getBeforeAfterAlt({
+        sharedAlt: item.alt_text,
+        title: item.title,
+        description: item.description,
+        serviceLabel: "Planos",
+        serviceSlug: item.service_slug,
+        locale: "es",
+      });
+      return {
+        kind: "image" as const,
+        id: item.id,
+        beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
+        afterUrl: getSiteMediaPublicUrl(item.after_image_path) ?? "",
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
+        title: item.title ?? undefined,
+      };
+    });
   }
   return [{ kind: "placeholder", id: "fp-fallback", variant: "floor-plans" }];
 }
@@ -291,14 +302,23 @@ export default async function SpanishFloorPlansPage() {
 
   const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => {
     const title = translatePricingExampleTitle(item.title);
+    const alt = getBeforeAfterAlt({
+      beforeAlt: item.before_alt,
+      afterAlt: item.after_alt,
+      title,
+      description: item.description,
+      serviceLabel: "Planos",
+      serviceSlug: item.service_slug,
+      locale: "es",
+    });
     return {
       id: item.id,
       title,
       description: item.description,
       beforeUrl: getPortfolioPublicUrl(item.before_image_path),
       afterUrl: getPortfolioPublicUrl(item.after_image_path),
-      beforeAlt: item.before_alt ?? `${title} - antes`,
-      afterAlt: item.after_alt ?? `${title} - después`,
+      beforeAlt: alt.beforeAlt,
+      afterAlt: alt.afterAlt,
     };
   });
 

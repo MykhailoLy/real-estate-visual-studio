@@ -1,10 +1,12 @@
 import {
   getPortfolioPublicUrl,
+  getPortfolioService,
   getServicePageItemsForService,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
 import type { ServiceVariant } from "@/components/home/ServicePlaceholder";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // PORTFOLIO EXAMPLES — pricing-page section
@@ -52,6 +54,7 @@ export default async function PortfolioExamples({
   // existing hero/preview already supplies a placeholder visual,
   // so we never show an empty broken Examples section.
   if (items.length === 0) return null;
+  const serviceLabel = getPortfolioService(serviceSlug).label;
 
   const sectionBg =
     background === "stone-50" ? "bg-stone-50" : "bg-white";
@@ -77,6 +80,14 @@ export default async function PortfolioExamples({
           {items.map((item) => {
             const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
             const afterUrl = getPortfolioPublicUrl(item.after_image_path);
+            const alt = getBeforeAfterAlt({
+              beforeAlt: item.before_alt,
+              afterAlt: item.after_alt,
+              title: item.title,
+              description: item.description,
+              serviceLabel,
+              serviceSlug,
+            });
             return (
               <article
                 key={item.id}
@@ -89,8 +100,8 @@ export default async function PortfolioExamples({
                   <BeforeAfterFrame
                     beforeUrl={beforeUrl}
                     afterUrl={afterUrl}
-                    beforeAlt={item.before_alt || `${item.title} before`}
-                    afterAlt={item.after_alt || `${item.title} after`}
+                    beforeAlt={alt.beforeAlt}
+                    afterAlt={alt.afterAlt}
                     placeholderVariant={placeholderVariant}
                   />
                 </div>

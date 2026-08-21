@@ -22,6 +22,7 @@ import {
   getGalleryFilterOptions,
 } from "@/lib/gallery";
 import { absoluteUrl } from "@/lib/seo";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // /gallery/[serviceSlug]  —  Service gallery detail page (EN)
@@ -97,12 +98,20 @@ export default async function GalleryServicePage({
       const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
       const afterUrl = getPortfolioPublicUrl(item.after_image_path);
       if (!beforeUrl || !afterUrl) return null;
+      const alt = getBeforeAfterAlt({
+        beforeAlt: item.before_alt,
+        afterAlt: item.after_alt,
+        title: item.title,
+        description: item.description,
+        serviceLabel: service.label,
+        serviceSlug,
+      });
       return {
         id: item.id,
         beforeUrl,
         afterUrl,
-        beforeAlt: item.before_alt ?? `${item.title} — before`,
-        afterAlt: item.after_alt ?? `${item.title} — after`,
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
         galleryFilter: item.gallery_filter,
       };
     })

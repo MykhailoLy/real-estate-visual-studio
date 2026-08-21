@@ -7,6 +7,7 @@ import {
 } from "@/lib/image-enhancement";
 import type { ServiceOptionMedia } from "@/lib/site-media";
 import SelectorMediaTile from "./SelectorMediaTile";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // DaySkyStyleSelector — visual radio-card selector for the Day Sky
@@ -55,6 +56,16 @@ export default function DaySkyStyleSelector({
           const media = mediaByKey[style.mediaKey] ?? null;
           const mediaUrl =
             media?.imageUrl ?? media?.afterUrl ?? media?.beforeUrl ?? null;
+          const pairAlt = getBeforeAfterAlt({
+            sharedAlt: media?.altText,
+            title: style.label,
+            description: media?.description,
+          });
+          const mediaAlt = media?.imageUrl
+            ? media.altText ?? `${style.label} sky example`
+            : media?.afterUrl
+              ? pairAlt.afterAlt
+              : pairAlt.beforeAlt;
 
           return (
             <label
@@ -78,7 +89,7 @@ export default function DaySkyStyleSelector({
 
               <SelectorMediaTile
                 url={mediaUrl}
-                alt={media?.altText ?? `${style.label} sky example`}
+                alt={mediaAlt}
                 sizes="(min-width: 1024px) 18vw, (min-width: 640px) 33vw, 45vw"
                 rounded="rounded-none"
               />

@@ -1089,7 +1089,10 @@ function MediaEditor({
           />
         </Field>
 
-        <Field label="Alt text" htmlFor="alt_text">
+        <Field
+          label={mediaType === "before-after" ? "Scene description" : "Alt text"}
+          htmlFor="alt_text"
+        >
           <input
             id="alt_text"
             name="alt_text"
@@ -1097,8 +1100,18 @@ function MediaEditor({
             maxLength={300}
             defaultValue={initial?.alt_text ?? ""}
             className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            placeholder="Description for screen readers"
+            placeholder={
+              mediaType === "before-after"
+                ? "e.g. Modern villa exterior with pool and landscaped garden"
+                : "Description for screen readers"
+            }
           />
+          {mediaType === "before-after" && (
+            <p className="mt-1 text-[11px] text-muted-light">
+              Used to generate accessible alt text for Before and After images
+              when individual alt text is not provided.
+            </p>
+          )}
         </Field>
 
         {/* Embed URL — visible only for media types that use it. */}
