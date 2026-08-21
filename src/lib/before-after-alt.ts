@@ -84,6 +84,20 @@ function cleanGeneratedScene(value: string | null): string | null {
   return metadataText(withoutSidePrefix);
 }
 
+function generatedSceneSource(
+  sharedScene: string | null,
+  oppositeExplicitAlt: string | null,
+  descriptionScene: string | null,
+  titleScene: string | null,
+): string | null {
+  // An opposite-side explicit ALT can describe the shared scene, but it must
+  // never become the missing side's ALT verbatim. generatedAlt() always adds
+  // the requested side and service context to this semantic source text.
+  return (
+    sharedScene ?? oppositeExplicitAlt ?? descriptionScene ?? titleScene
+  );
+}
+
 function generatedAlt(
   side: "before" | "after",
   sceneValue: string | null,
@@ -122,8 +136,10 @@ function generatedAlt(
  * Resolve accessible, distinct ALT text for a Before/After pair.
  *
  * Non-empty per-image values always win and are returned unchanged. Only a
- * missing side is generated, using shared ALT, the other side's explicit ALT,
- * description/title metadata, and finally service context.
+ * missing side is generated using shared ALT, description/title metadata, and
+ * service context. When necessary, the opposite explicit ALT may supply scene
+ * meaning, but it is always passed through the missing-side formatter and is
+ * never returned verbatim for both images.
  */
 export function getBeforeAfterAlt({
   beforeAlt,
@@ -147,7 +163,12 @@ export function getBeforeAfterAlt({
       explicitBefore ??
       generatedAlt(
         "before",
-        sharedScene ?? explicitAfter ?? descriptionScene ?? titleScene,
+        generatedSceneSource(
+          sharedScene,
+          explicitAfter,
+          descriptionScene,
+          titleScene,
+        ),
         context,
         locale,
       ),
@@ -155,7 +176,12 @@ export function getBeforeAfterAlt({
       explicitAfter ??
       generatedAlt(
         "after",
-        sharedScene ?? explicitBefore ?? descriptionScene ?? titleScene,
+        generatedSceneSource(
+          sharedScene,
+          explicitBefore,
+          descriptionScene,
+          titleScene,
+        ),
         context,
         locale,
       ),

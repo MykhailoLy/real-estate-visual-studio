@@ -32,32 +32,46 @@ test("turns one shared scene description into distinct ALT values", () => {
   );
 });
 
-test("generates only a missing After ALT", () => {
-  assert.deepEqual(
-    getBeforeAfterAlt({
-      beforeAlt: "Modern villa exterior photographed in daylight",
-      serviceLabel: "Day to Dusk",
-    }),
-    {
-      beforeAlt: "Modern villa exterior photographed in daylight",
-      afterAlt:
-        "After day-to-dusk editing: Modern villa exterior photographed in daylight",
-    },
-  );
+test("preserves an explicit Before ALT and generates only the missing After ALT", () => {
+  const result = getBeforeAfterAlt({
+    beforeAlt: "Modern villa exterior photographed in daylight",
+    serviceLabel: "Day to Dusk",
+  });
+
+  assert.deepEqual(result, {
+    beforeAlt: "Modern villa exterior photographed in daylight",
+    afterAlt:
+      "After day-to-dusk editing: Modern villa exterior photographed in daylight",
+  });
+  assert.notEqual(result.afterAlt, result.beforeAlt);
 });
 
-test("generates only a missing Before ALT", () => {
-  assert.deepEqual(
-    getBeforeAfterAlt({
-      afterAlt: "Furnished living room with contemporary furniture",
-      serviceLabel: "Virtual Staging",
-    }),
-    {
-      beforeAlt:
-        "Before virtual staging: Furnished living room with contemporary furniture",
-      afterAlt: "Furnished living room with contemporary furniture",
-    },
-  );
+test("preserves an explicit After ALT and generates only the missing Before ALT", () => {
+  const result = getBeforeAfterAlt({
+    afterAlt: "Furnished living room with contemporary furniture",
+    serviceLabel: "Virtual Staging",
+  });
+
+  assert.deepEqual(result, {
+    beforeAlt:
+      "Before virtual staging: Furnished living room with contemporary furniture",
+    afterAlt: "Furnished living room with contemporary furniture",
+  });
+  assert.notEqual(result.beforeAlt, result.afterAlt);
+});
+
+test("never copies an opposite-side explicit ALT verbatim to the missing side", () => {
+  const beforeOnly = getBeforeAfterAlt({
+    beforeAlt: "Modern villa exterior in daylight",
+    serviceLabel: "Day to Dusk",
+  });
+  const afterOnly = getBeforeAfterAlt({
+    afterAlt: "Modern villa exterior after twilight editing",
+    serviceLabel: "Day to Dusk",
+  });
+
+  assert.notEqual(beforeOnly.afterAlt, beforeOnly.beforeAlt);
+  assert.notEqual(afterOnly.beforeAlt, afterOnly.afterAlt);
 });
 
 test("uses description, title, and service metadata as fallbacks", () => {
