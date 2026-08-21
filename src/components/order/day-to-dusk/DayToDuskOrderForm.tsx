@@ -1043,6 +1043,7 @@ export default function DayToDuskOrderForm({
       sidebar={sidebar}
       leadingRail={guide}
       editorial
+      workspaceVariant={isReview ? undefined : "wide"}
     >
       {draftError ? (
         <div

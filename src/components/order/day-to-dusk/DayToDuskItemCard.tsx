@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import { Trash2, Lock } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
@@ -22,6 +23,7 @@ import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
 import type { ReferenceFileValue } from "@/lib/reference-files";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
+import { cn } from "@/lib/utils";
 
 // ============================================================
 // DayToDuskItemCard — one uploaded photo for a Day to Dusk order.
@@ -71,6 +73,14 @@ export const emptyDayToDuskItem = (): DayToDuskItemData => ({
 export const dayToDuskItemDomId = (index: number) =>
   `day-to-dusk-item-${index}`;
 
+const PREVIEWABLE_PHOTO_EXTENSION = /\.(?:gif|jpe?g|png|webp)$/i;
+
+function isPreviewablePhoto(filename: string, mimeType: string): boolean {
+  return (
+    mimeType.startsWith("image/") || PREVIEWABLE_PHOTO_EXTENSION.test(filename)
+  );
+}
+
 interface DayToDuskItemCardProps {
   index: number;
   data: DayToDuskItemData;
@@ -115,6 +125,34 @@ export default function DayToDuskItemCard({
     currency
   );
   const idPrefix = `day-to-dusk-item-${index}`;
+  const uploadInputId = `${idPrefix}-original-upload`;
+  const localPreviewUrl = useMemo(() => {
+    if (!data.file || !isPreviewablePhoto(data.file.name, data.file.type)) {
+      return null;
+    }
+    return URL.createObjectURL(data.file);
+  }, [data.file]);
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    };
+  }, [localPreviewUrl]);
+
+  const persistedPreviewUrl =
+    !data.file &&
+    persistedOriginal?.previewUrl &&
+    isPreviewablePhoto(
+      persistedOriginal.originalFilename,
+      persistedOriginal.mimeType,
+    )
+      ? persistedOriginal.previewUrl
+      : null;
+  const currentPreviewUrl = localPreviewUrl ?? persistedPreviewUrl;
+  const currentPreviewFilename =
+    data.file?.name ?? persistedOriginal?.originalFilename ?? null;
+  const hasCurrentPhotoPreview =
+    currentPreviewUrl !== null && currentPreviewFilename !== null;
 
   return (
     <div
@@ -137,35 +175,62 @@ export default function DayToDuskItemCard({
         )}
       </div>
 
-      <div className="space-y-9">
+      <div
+        className={cn(
+          "grid min-w-0 gap-9",
+          hasCurrentPhotoPreview &&
+            "min-[1700px]:grid-cols-[minmax(0,1fr)_minmax(300px,340px)] min-[1700px]:items-start min-[1700px]:gap-x-8",
+        )}
+      >
         {/* 1. Upload Daytime Exterior Photo (always editable) */}
-        <FileUpload
-          viewerVariant="photo"
-          label="Upload Daytime Exterior Photo"
-          file={data.file}
-          onFileChange={
-            onOriginalFileChange ?? ((file) => onChange({ ...data, file }))
-          }
-          accept={PHOTO_EDIT_FILE_ACCEPT}
-          required
-          persistedFile={
-            persistedOriginal
-              ? {
-                  id: persistedOriginal.id,
-                  filename: persistedOriginal.originalFilename,
-                  fileSize: persistedOriginal.fileSize,
-                  previewUrl: persistedOriginal.previewUrl,
-                  previewExpiresAt: persistedOriginal.previewExpiresAt,
-                  statusLabel: "Saved in draft",
-                }
-              : null
-          }
-          operationStatusText={originalOperationStatus}
-          disabled={fileOperationsDisabled}
-          removeDisabled={fileOperationsDisabled}
-          onRemovePersisted={onRemovePersistedOriginal}
-          comfortable
-        />
+        <div className="min-w-0">
+          <FileUpload
+            viewerVariant="photo"
+            label="Upload Daytime Exterior Photo"
+            file={data.file}
+            onFileChange={
+              onOriginalFileChange ?? ((file) => onChange({ ...data, file }))
+            }
+            accept={PHOTO_EDIT_FILE_ACCEPT}
+            required
+            persistedFile={
+              persistedOriginal
+                ? {
+                    id: persistedOriginal.id,
+                    filename: persistedOriginal.originalFilename,
+                    fileSize: persistedOriginal.fileSize,
+                    previewUrl: persistedOriginal.previewUrl,
+                    previewExpiresAt: persistedOriginal.previewExpiresAt,
+                    statusLabel: "Saved in draft",
+                  }
+                : null
+            }
+            operationStatusText={originalOperationStatus}
+            disabled={fileOperationsDisabled}
+            removeDisabled={fileOperationsDisabled}
+            onRemovePersisted={onRemovePersistedOriginal}
+            replaceLabel="Change photo"
+            inputId={uploadInputId}
+            presentationVariant="workspace"
+            comfortable
+          />
+        </div>
+
+        {currentPreviewUrl && currentPreviewFilename && (
+          <div className="min-w-0 min-[1700px]:col-start-2 min-[1700px]:row-span-2 min-[1700px]:row-start-1">
+            <div className="min-[1700px]:sticky min-[1700px]:top-8">
+              <CurrentPhotoPreview
+                key={currentPreviewUrl}
+                previewUrl={currentPreviewUrl}
+                filename={currentPreviewFilename}
+                inputId={uploadInputId}
+                disabled={fileOperationsDisabled}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="min-w-0 space-y-9 min-[1700px]:col-start-1 min-[1700px]:row-start-2">
 
         <div>
           <label
@@ -219,7 +284,7 @@ export default function DayToDuskItemCard({
 
         {/* 3. Lighting Preferences (shared) */}
         <section
-          className="space-y-5 rounded-xl border border-border bg-surface/40 p-5 sm:p-6"
+          className="space-y-5 rounded-xl bg-surface/60 p-5 sm:p-6"
           aria-labelledby={`${idPrefix}-lighting-title`}
         >
           <h3
@@ -228,16 +293,18 @@ export default function DayToDuskItemCard({
           >
             Lighting Preferences
           </h3>
-          {DUSK_LIGHTING_PREFERENCES.map((pref) => (
-            <LightingPreferenceToggle
-              key={pref.field}
-              label={pref.label}
-              value={data[pref.field] as boolean}
-              onChange={(value) => onChange({ ...data, [pref.field]: value })}
-              idPrefix={`${idPrefix}-${pref.field}`}
-              disabled={sharedLocked}
-            />
-          ))}
+          <div className="grid gap-5 min-[1280px]:grid-cols-3">
+            {DUSK_LIGHTING_PREFERENCES.map((pref) => (
+              <LightingPreferenceToggle
+                key={pref.field}
+                label={pref.label}
+                value={data[pref.field] as boolean}
+                onChange={(value) => onChange({ ...data, [pref.field]: value })}
+                idPrefix={`${idPrefix}-${pref.field}`}
+                disabled={sharedLocked}
+              />
+            ))}
+          </div>
         </section>
 
         {/* 4. File Size Limit (shared) + disclaimer (always individual) */}
@@ -249,6 +316,7 @@ export default function DayToDuskItemCard({
           }}
           onChange={(prefs) => onChange({ ...data, ...prefs })}
           disableFileSizeLimit={sharedLocked}
+          layoutVariant="desktop-columns"
           comfortable
         />
 
@@ -274,7 +342,56 @@ export default function DayToDuskItemCard({
 
         {/* 6. Item subtotal */}
         <ItemSubtotal totalCents={subtotal} />
+        </div>
       </div>
     </div>
+  );
+}
+
+function CurrentPhotoPreview({
+  previewUrl,
+  filename,
+  inputId,
+  disabled,
+}: {
+  previewUrl: string;
+  filename: string;
+  inputId: string;
+  disabled: boolean;
+}) {
+  return (
+    <figure className="w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-surface/70 min-[1700px]:max-w-none">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-white p-3">
+        {/* Signed draft URLs and local blob URLs intentionally bypass next/image. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt={`Current photo preview: ${filename}`}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-contain object-center"
+        />
+      </div>
+      <figcaption className="flex min-w-0 flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+            Current photo
+          </p>
+          <p className="mt-1 truncate text-sm text-muted" title={filename}>
+            {filename}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            document.getElementById(inputId)?.click();
+          }}
+          disabled={disabled}
+          className="shrink-0 self-start rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
+        >
+          Change photo
+        </button>
+      </figcaption>
+    </figure>
   );
 }

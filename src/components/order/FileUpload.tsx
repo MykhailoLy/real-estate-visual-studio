@@ -58,6 +58,13 @@ interface FileUploadProps {
   onRemovePersisted?: () => void;
   /** Day-to-Dusk-sized labels and supporting copy; defaults to compact. */
   comfortable?: boolean;
+  /** Stable input id for a related external preview or action. */
+  inputId?: string;
+  /**
+   * Keeps selected-file chrome compact when a larger preview is rendered by
+   * the surrounding workspace. Empty uploads still use the full drop zone.
+   */
+  presentationVariant?: "default" | "workspace";
 }
 
 const DEFAULT_ACCEPT: FileUploadAccept = {
@@ -132,9 +139,12 @@ export default function FileUpload({
   onRetry,
   onRemovePersisted,
   comfortable = false,
+  inputId: inputIdProp,
+  presentationVariant = "default",
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const inputId = useId();
+  const generatedInputId = useId();
+  const inputId = inputIdProp ?? generatedInputId;
   const labelId = `${inputId}-label`;
   const uploadActionId = `${inputId}-upload-action`;
   const maxSizeId = `${inputId}-max-size`;
@@ -152,15 +162,16 @@ export default function FileUpload({
   const [isDragActive, setIsDragActive] = useState(false);
   const [rejected, setRejected] = useState(false);
   const isEmptyUploadState = file === null && persistedFile == null;
+  const isWorkspacePresentation = presentationVariant === "workspace";
 
   // Local object URL for image previews. Derived from the current File via
   // useMemo so we avoid the "setState in useEffect" anti-pattern; an
   // accompanying effect revokes the URL when it changes or on unmount to
   // avoid memory leaks.
   const previewUrl = useMemo<string | null>(() => {
-    if (!file || !isPreviewableImage(file)) return null;
+    if (isWorkspacePresentation || !file || !isPreviewableImage(file)) return null;
     return URL.createObjectURL(file);
-  }, [file]);
+  }, [file, isWorkspacePresentation]);
 
   useEffect(() => {
     return () => {
@@ -295,8 +306,17 @@ export default function FileUpload({
       />
 
       {file ? (
-        <div className="flex items-stretch gap-3 p-3 bg-surface border border-border rounded-lg">
-          {previewUrl ? (
+        <div
+          className={cn(
+            "flex gap-3 rounded-lg border border-border bg-surface p-3",
+            isWorkspacePresentation ? "flex-wrap items-center" : "items-stretch",
+          )}
+        >
+          {isWorkspacePresentation ? (
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-white">
+              <FileImage className="h-5 w-5 text-primary" aria-hidden="true" />
+            </div>
+          ) : previewUrl ? (
             // Local-File preview. Plain <img> is intentional: next/image needs
             // a static or remote URL, while object URLs are short-lived blobs.
             // eslint-disable-next-line @next/next/no-img-element
@@ -334,6 +354,16 @@ export default function FileUpload({
               </p>
             )}
           </div>
+          {isWorkspacePresentation && (
+            <button
+              type="button"
+              onClick={openPicker}
+              disabled={disabled}
+              className="flex-shrink-0 rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {replaceLabel}
+            </button>
+          )}
           {onRetry && operationErrorText && (
             <button
               type="button"
@@ -356,12 +386,18 @@ export default function FileUpload({
         </div>
       ) : persistedFile ? (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-stretch">
-          <PersistedFilePreview
-            viewerVariant={viewerVariant}
-            label={label}
-            filename={persistedFile.filename}
-            previewUrl={persistedFile.previewUrl ?? null}
-          />
+          {isWorkspacePresentation ? (
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center self-start rounded-md bg-white">
+              <FileImage className="h-5 w-5 text-primary" aria-hidden="true" />
+            </div>
+          ) : (
+            <PersistedFilePreview
+              viewerVariant={viewerVariant}
+              label={label}
+              filename={persistedFile.filename}
+              previewUrl={persistedFile.previewUrl ?? null}
+            />
+          )}
           <div className="min-w-0 flex-1">
             <FilenameText filename={persistedFile.filename} />
             <p className="text-xs text-foreground/75">

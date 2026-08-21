@@ -17,6 +17,15 @@ const selector = readFileSync(
   "src/components/order/day-to-dusk/DuskSkyStyleSelector.tsx",
   "utf8",
 );
+const itemCard = readFileSync(
+  "src/components/order/day-to-dusk/DayToDuskItemCard.tsx",
+  "utf8",
+);
+const fileUpload = readFileSync("src/components/order/FileUpload.tsx", "utf8");
+const deliveryFields = readFileSync(
+  "src/components/order/ItemDeliveryFields.tsx",
+  "utf8",
+);
 const layout = readFileSync("src/components/order/OrderLayout.tsx", "utf8");
 const guide = readFileSync("src/components/order/OrderGuideRail.tsx", "utf8");
 const page = readFileSync(
@@ -65,7 +74,31 @@ test("the reusable guide consumes no tablet or mobile width", () => {
   assert.match(layout, /hidden min-w-0 xl:block/);
   assert.match(layout, /minmax\(220px,260px\)/);
   assert.match(guide, /hidden min-\[1400px\]:block/);
-  assert.match(page, /max-w-\[1600px\]/);
+});
+
+test("configure opts into the wide dashboard workspace while Review stays default", () => {
+  assert.match(form, /workspaceVariant=\{isReview \? undefined : "wide"\}/);
+  assert.match(layout, /workspaceVariant\?: "wide"/);
+  assert.match(layout, /max-w-\[1800px\]/);
+  assert.match(layout, /minmax\(240px,270px\)/);
+  assert.match(page, /max-w-\[1800px\]/);
+});
+
+test("each uploaded photo keeps one item-local responsive preview", () => {
+  assert.match(itemCard, /presentationVariant="workspace"/);
+  assert.match(itemCard, /min-\[1700px\]:grid-cols-/);
+  assert.match(itemCard, /Current photo/);
+  assert.match(itemCard, /object-contain/);
+  assert.match(itemCard, /loading="lazy"/);
+  assert.match(itemCard, /document\.getElementById\(inputId\)\?\.click\(\)/);
+  assert.match(fileUpload, /isWorkspacePresentation/);
+  assert.match(fileUpload, /\{replaceLabel\}/);
+});
+
+test("wide configuration controls use intentional desktop grids", () => {
+  assert.match(itemCard, /min-\[1280px\]:grid-cols-3/);
+  assert.match(itemCard, /layoutVariant="desktop-columns"/);
+  assert.match(deliveryFields, /lg:grid-cols-2/);
 });
 
 test("sky cards are responsive and the zoom control is separate from selection", () => {
@@ -80,4 +113,12 @@ test("sky cards are responsive and the zoom control is separate from selection",
   const firstLabelClose = selector.indexOf("</label>");
   const zoomControl = selector.indexOf("aria-label={`View ${style.label}");
   assert.ok(firstLabelClose >= 0 && zoomControl > firstLabelClose);
+});
+
+test("the configure layout does not change submitted Day to Dusk metadata", () => {
+  assert.match(form, /selectedOptions: \[DAY_TO_DUSK_OPTION_ID\]/);
+  assert.match(form, /duskStyle: item\.duskStyle/);
+  assert.match(form, /turnOnInteriorLights: item\.turnOnInteriorLights/);
+  assert.match(form, /turnOnExteriorLights: item\.turnOnExteriorLights/);
+  assert.match(form, /addPoolLights: item\.addPoolLights/);
 });
