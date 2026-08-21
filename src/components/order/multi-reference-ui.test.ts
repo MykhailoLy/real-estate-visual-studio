@@ -69,5 +69,5 @@ test("Day to Dusk only submits from Review and persists draft references", () =>
   assert.match(dayForm, /listDraftReferenceFiles/);
   assert.match(dayForm, /handleReferenceFilesChange/);
   assert.match(dayForm, /enqueueDraftSave/);
-  assert.match(dayForm, /submitLabel="Review Order"/);
+  assert.match(dayForm, /Review Order/);
 });

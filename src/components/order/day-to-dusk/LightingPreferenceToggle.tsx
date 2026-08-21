@@ -39,7 +39,7 @@ export default function LightingPreferenceToggle({
 
   return (
     <fieldset>
-      <legend className="block text-sm font-medium text-foreground mb-1.5">
+      <legend className="mb-2 block text-base font-medium text-foreground">
         {label}
       </legend>
       <div
@@ -56,7 +56,7 @@ export default function LightingPreferenceToggle({
             <label
               key={optionKey}
               htmlFor={id}
-              className={`relative flex items-center justify-center rounded-lg border px-2 py-2 text-center text-[12px] font-semibold transition-colors focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 ${
+              className={`relative flex items-center justify-center rounded-lg border px-3 py-2.5 text-center text-sm font-semibold transition-colors focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 ${
                 disabled ? "cursor-default" : "cursor-pointer"
               } ${
                 selected

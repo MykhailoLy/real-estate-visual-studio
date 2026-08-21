@@ -25,7 +25,7 @@ export default function ApplyToAllPreferencesToggle({
   return (
     <label
       className={[
-        "flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors",
+        "flex items-start gap-3 rounded-xl border p-5 cursor-pointer transition-colors",
         "focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
         checked
           ? "border-primary bg-primary/5"
@@ -36,13 +36,13 @@ export default function ApplyToAllPreferencesToggle({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border text-primary focus:ring-primary"
+        className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-border text-primary focus:ring-primary"
       />
       <span className="min-w-0">
-        <span className="block text-sm font-bold text-foreground">
+        <span className="block text-base font-bold text-foreground">
           Use Photo #1 preferences for all photos
         </span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-muted">
+        <span className="mt-1 block text-sm leading-6 text-muted">
           Dusk style, lighting preferences and file-size preference will be
           shared across every photo. Uploaded files and Additional Instructions
           remain individual.

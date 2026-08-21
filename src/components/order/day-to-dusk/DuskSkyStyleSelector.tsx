@@ -1,9 +1,15 @@
 "use client";
 
-import { Check } from "lucide-react";
-import { DUSK_STYLES, type DuskStyleId } from "@/lib/day-to-dusk";
+import { useState } from "react";
+import { Check, Maximize2 } from "lucide-react";
+import {
+  DUSK_STYLES,
+  type DuskStyleConfig,
+  type DuskStyleId,
+} from "@/lib/day-to-dusk";
 import type { ServiceOptionImage } from "@/lib/site-media";
 import SelectorMediaTile from "@/components/order/image-enhancement/SelectorMediaTile";
+import ImageLightbox from "@/components/pricing/ImageLightbox";
 
 // ============================================================
 // DuskSkyStyleSelector — visual radio-card selector for the Dusk Sky
@@ -44,17 +50,26 @@ export default function DuskSkyStyleSelector({
   disabled = false,
 }: DuskSkyStyleSelectorProps) {
   const groupName = `${idPrefix}-dusk-sky`;
+  const [activeStyle, setActiveStyle] = useState<DuskStyleConfig | null>(null);
+  const activeMedia = activeStyle ? images[activeStyle.mediaKey] ?? null : null;
 
   return (
     <div>
-      <p className="block text-sm font-medium text-foreground mb-2">
+      <h3
+        id={`${idPrefix}-dusk-style-title`}
+        className="mb-2 block text-xl font-semibold leading-tight text-primary sm:text-[22px]"
+      >
         Select a Dusk Sky Style
+      </h3>
+      <p className="mb-5 max-w-2xl text-sm leading-6 text-muted">
+        Choose the atmosphere that best suits this property. Open any example
+        to inspect the sky treatment in more detail.
       </p>
       <div
         role="radiogroup"
-        aria-label="Select a Dusk Sky Style"
+        aria-labelledby={`${idPrefix}-dusk-style-title`}
         aria-disabled={disabled || undefined}
-        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${
+        className={`grid grid-cols-1 gap-5 sm:grid-cols-2 min-[1400px]:grid-cols-3 min-[1400px]:gap-6 ${
           disabled ? "opacity-60" : ""
         }`}
       >
@@ -64,62 +79,88 @@ export default function DuskSkyStyleSelector({
           const media = images[style.mediaKey] ?? null;
 
           return (
-            <label
-              key={style.id}
-              htmlFor={id}
-              className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${
-                disabled ? "cursor-default" : "cursor-pointer"
-              } ${
-                selected
-                  ? "border-secondary border-2 shadow-md"
-                  : `border-border ${
-                      disabled ? "" : "hover:border-primary/40"
-                    }`
-              }`}
-            >
-              <input
-                id={id}
-                type="radio"
-                name={groupName}
-                value={style.id}
-                checked={selected}
-                disabled={disabled}
-                onChange={() => onChange(style.id)}
-                className="sr-only"
-              />
+            <div key={style.id} className="relative min-w-0">
+              <label
+                htmlFor={id}
+                className={`group relative flex h-full flex-col overflow-hidden rounded-xl border bg-white transition-all focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${
+                  disabled ? "cursor-default" : "cursor-pointer"
+                } ${
+                  selected
+                    ? "border-2 border-secondary shadow-md"
+                    : `border-border ${
+                        disabled ? "" : "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+                      }`
+                }`}
+              >
+                <input
+                  id={id}
+                  type="radio"
+                  name={groupName}
+                  value={style.id}
+                  checked={selected}
+                  disabled={disabled}
+                  onChange={() => onChange(style.id)}
+                  className="sr-only"
+                />
 
-              <SelectorMediaTile
-                url={media?.url ?? null}
-                alt={media?.alt ?? `${style.label} dusk sky example`}
-                sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 92vw"
-                rounded="rounded-none"
-              />
+                <SelectorMediaTile
+                  url={media?.url ?? null}
+                  alt={media?.alt ?? `${style.label} dusk sky example`}
+                  sizes="(min-width: 1400px) 20vw, (min-width: 1280px) 26vw, (min-width: 1024px) 34vw, (min-width: 640px) 44vw, 92vw"
+                  rounded="rounded-none"
+                />
 
-              {selected && (
-                <span
-                  className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-white shadow"
-                  aria-hidden
+                {selected && (
+                  <span
+                    className="absolute left-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-white shadow"
+                    aria-hidden
+                  >
+                    <Check className="h-4 w-4" strokeWidth={3} />
+                  </span>
+                )}
+
+                <span className="flex flex-1 flex-col gap-1 px-4 py-4">
+                  <span
+                    className={`text-base font-semibold leading-tight ${
+                      selected ? "text-secondary-dark" : "text-foreground/90"
+                    }`}
+                  >
+                    {style.label}
+                  </span>
+                  <span className="text-sm leading-5 text-muted">
+                    {style.supportingText}
+                  </span>
+                </span>
+              </label>
+
+              {media?.url ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveStyle(style)}
+                  aria-label={`View ${style.label} example larger`}
+                  className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full border border-white/60 bg-primary/90 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                 >
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                </span>
-              )}
-
-              <span className="flex flex-col gap-0.5 px-3 py-2.5">
-                <span
-                  className={`text-[13px] font-semibold leading-tight ${
-                    selected ? "text-secondary-dark" : "text-foreground/80"
-                  }`}
-                >
-                  {style.label}
-                </span>
-                <span className="text-[11px] leading-snug text-muted">
-                  {style.supportingText}
-                </span>
-              </span>
-            </label>
+                  <Maximize2 className="h-4 w-4" aria-hidden />
+                </button>
+              ) : null}
+            </div>
           );
         })}
       </div>
+
+      {activeStyle && activeMedia?.url ? (
+        <ImageLightbox
+          images={[
+            {
+              src: activeMedia.url,
+              alt: activeMedia.alt ?? `${activeStyle.label} dusk sky example`,
+            },
+          ]}
+          variant="photo"
+          title={`${activeStyle.label} example`}
+          onClose={() => setActiveStyle(null)}
+        />
+      ) : null}
     </div>
   );
 }

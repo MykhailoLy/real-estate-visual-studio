@@ -56,6 +56,8 @@ interface FileUploadProps {
   removeDisabled?: boolean;
   onRetry?: () => void;
   onRemovePersisted?: () => void;
+  /** Day-to-Dusk-sized labels and supporting copy; defaults to compact. */
+  comfortable?: boolean;
 }
 
 const DEFAULT_ACCEPT: FileUploadAccept = {
@@ -129,6 +131,7 @@ export default function FileUpload({
   removeDisabled = false,
   onRetry,
   onRemovePersisted,
+  comfortable = false,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputId = useId();
@@ -256,13 +259,22 @@ export default function FileUpload({
       <label
         id={labelId}
         htmlFor={inputId}
-        className="block text-sm font-medium text-foreground mb-1.5"
+        className={cn(
+          "mb-1.5 block font-medium text-foreground",
+          comfortable ? "text-base" : "text-sm",
+        )}
       >
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {helperText && (
-        <p id={helperTextId} className="text-xs text-foreground/75 mb-2">
+        <p
+          id={helperTextId}
+          className={cn(
+            "mb-2 text-foreground/75",
+            comfortable ? "text-sm leading-6" : "text-xs",
+          )}
+        >
           {helperText}
         </p>
       )}
@@ -436,18 +448,34 @@ export default function FileUpload({
           />
           <span
             id={uploadActionId}
-            className="block text-sm text-foreground font-medium"
+            className={cn(
+              "block font-medium text-foreground",
+              comfortable ? "text-base" : "text-sm",
+            )}
           >
             {isDragActive ? "Drop file here" : "Click or drag to upload"}
           </span>
-          <span id={maxSizeId} className="block text-xs text-foreground/75 mt-1">
+          <span
+            id={maxSizeId}
+            className={cn(
+              "mt-1 block text-foreground/75",
+              comfortable ? "text-sm" : "text-xs",
+            )}
+          >
             Max {Math.round(maxSize / 1024 / 1024)}MB
           </span>
         </button>
       )}
 
       {rejected && (
-        <p id={rejectedId} role="alert" className="text-xs text-red-700 mt-1">
+        <p
+          id={rejectedId}
+          role="alert"
+          className={cn(
+            "mt-1 text-red-700",
+            comfortable ? "text-sm" : "text-xs",
+          )}
+        >
           File rejected. Please check format and size.
         </p>
       )}
@@ -455,13 +483,23 @@ export default function FileUpload({
         <p
           id={operationStatusId}
           aria-live="polite"
-          className="mt-1 text-xs text-foreground/75"
+          className={cn(
+            "mt-1 text-foreground/75",
+            comfortable ? "text-sm" : "text-xs",
+          )}
         >
           {operationStatusText}
         </p>
       )}
       {isEmptyUploadState && operationErrorText && (
-        <p id={operationErrorId} role="alert" className="mt-1 text-xs text-red-700">
+        <p
+          id={operationErrorId}
+          role="alert"
+          className={cn(
+            "mt-1 text-red-700",
+            comfortable ? "text-sm" : "text-xs",
+          )}
+        >
           {operationErrorText}
         </p>
       )}
@@ -469,7 +507,10 @@ export default function FileUpload({
         <p
           id={validationErrorId}
           role="alert"
-          className="mt-1.5 text-xs text-red-600"
+          className={cn(
+            "mt-1.5 text-red-600",
+            comfortable ? "text-sm" : "text-xs",
+          )}
         >
           {validationError}
         </p>

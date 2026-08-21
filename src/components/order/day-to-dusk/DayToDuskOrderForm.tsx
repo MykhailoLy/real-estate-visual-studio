@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
+import OrderGuideRail, {
+  type OrderGuideStep,
+} from "@/components/order/OrderGuideRail";
 import OrderStepIndicator, {
   type OrderStep,
 } from "@/components/order/OrderStepIndicator";
@@ -102,6 +105,24 @@ const STEPS: OrderStep[] = [
 ];
 
 const SERVICE_NAME = "Day to Dusk";
+
+const DAY_TO_DUSK_GUIDE_STEPS: OrderGuideStep[] = [
+  {
+    title: "Upload",
+    description:
+      "Upload your daytime exterior photo and any optional references.",
+  },
+  {
+    title: "Choose",
+    description:
+      "Select your preferred dusk sky style and lighting options.",
+  },
+  {
+    title: "Review",
+    description:
+      "Review your photos, selected options and order total before submitting.",
+  },
+];
 
 interface DayToDuskOrderFormProps {
   clientEmail: string;
@@ -985,23 +1006,34 @@ export default function DayToDuskOrderForm({
       submitLabel="Submit Order"
       submittingLabel="Submitting..."
     />
-  ) : (
-    <OrderSummary
-      serviceName={SERVICE_NAME}
-      items={summaryItems}
-      pricingInput={{
-        serviceType: "photo-editing",
-        items: items.map(() => ({
-          selectedOptions: [DAY_TO_DUSK_OPTION_ID],
-        })),
-      }}
-      onSubmit={goToReview}
-      isSubmitting={false}
-      canSubmit={configureValid && !fileOperationActive}
-      submitLabel="Review Order"
-      footerNote="No payment now. You'll confirm your order on the next step."
+  ) : undefined;
+
+  const guide = !isReview ? (
+    <OrderGuideRail
+      steps={DAY_TO_DUSK_GUIDE_STEPS}
+      deferInformation
+      information={
+        <>
+          <p className="font-semibold text-foreground">Important</p>
+          <p>
+            For the best result, upload the highest-quality daytime exterior
+            image available.
+          </p>
+          <p>
+            Not sure which sky works best? Choose “Let Our Experts Decide”.
+          </p>
+          <p>
+            Reference files are optional and can show a preferred sky, colour
+            mood or visual direction.
+          </p>
+          <p>
+            Reference files: JPG, JPEG, PNG, WebP or PDF. Up to 10 files, 20 MB
+            each and 100 MB total.
+          </p>
+        </>
+      }
     />
-  );
+  ) : undefined;
 
   return (
     <OrderLayout
@@ -1009,17 +1041,19 @@ export default function DayToDuskOrderForm({
       subtitle="Transform daytime exterior photographs into warm, realistic twilight images with illuminated interiors and natural dusk skies."
       header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={sidebar}
+      leadingRail={guide}
+      editorial
     >
       {draftError ? (
         <div
           role="alert"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-base leading-6 text-amber-900"
         >
           {draftError}
         </div>
       ) : null}
 
-      <p className="text-xs text-muted" aria-live="polite">
+      <p className="text-sm text-muted" aria-live="polite">
         {saveStatus === "saving"
           ? "Saving draft..."
           : saveStatus === "saved"
@@ -1045,7 +1079,7 @@ export default function DayToDuskOrderForm({
       ) : (
         <>
           {submitError && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-base text-red-800">
               {submitError}
             </div>
           )}
@@ -1056,9 +1090,10 @@ export default function DayToDuskOrderForm({
               jobTitleRef.current = value;
               setJobTitle(value);
             }}
+            comfortable
           />
 
-          <div className="space-y-5">
+          <div className="space-y-8">
             {items.map((item, index) => (
               <DayToDuskItemCard
                 key={item.clientItemId}
@@ -1106,11 +1141,27 @@ export default function DayToDuskOrderForm({
           <button
             type="button"
             onClick={handleAddItem}
-            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-base font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="h-5 w-5" aria-hidden />
             Add Another Photo
           </button>
+
+          <div className="flex flex-col gap-4 border-t border-border pt-7 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-xl text-sm leading-6 text-muted">
+              Next, review every photo, selected option and the full estimated
+              order total before submitting.
+            </p>
+            <button
+              type="button"
+              onClick={goToReview}
+              disabled={!configureValid || fileOperationActive}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
+            >
+              Review Order
+              <ArrowRight className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
         </>
       )}
     </OrderLayout>

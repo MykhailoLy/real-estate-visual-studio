@@ -3,6 +3,7 @@
 import { Upload, X } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
 import ReferenceFileThumbnail from "@/components/order/ReferenceFileThumbnail";
+import { cn } from "@/lib/utils";
 import {
   MAX_REFERENCE_FILES,
   MAX_REFERENCE_TOTAL_SIZE_BYTES,
@@ -18,6 +19,8 @@ interface ReferenceFilesUploaderProps {
   onChange: (files: ReferenceFileValue[]) => void;
   disabled?: boolean;
   operationStatus?: string;
+  /** Larger typography for wide, editorial order forms. */
+  comfortable?: boolean;
 }
 
 const HELPER =
@@ -30,6 +33,7 @@ export default function ReferenceFilesUploader({
   onChange,
   disabled = false,
   operationStatus,
+  comfortable = false,
 }: ReferenceFilesUploaderProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,11 +69,31 @@ export default function ReferenceFilesUploader({
   return (
     <section className="space-y-3" aria-labelledby={`${inputId}-label`}>
       <div>
-        <p id={`${inputId}-label`} className="text-sm font-medium text-foreground">
+        <p
+          id={`${inputId}-label`}
+          className={cn(
+            "font-medium text-foreground",
+            comfortable ? "text-base" : "text-sm",
+          )}
+        >
           Reference Files (optional)
         </p>
-        <p className="mt-1 text-xs leading-relaxed text-muted">{HELPER}</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted">{ORDER_HELPER}</p>
+        <p
+          className={cn(
+            "mt-1 leading-relaxed text-muted",
+            comfortable ? "text-sm" : "text-xs",
+          )}
+        >
+          {HELPER}
+        </p>
+        <p
+          className={cn(
+            "mt-1 leading-relaxed text-muted",
+            comfortable ? "text-sm" : "text-xs",
+          )}
+        >
+          {ORDER_HELPER}
+        </p>
       </div>
 
       <input
@@ -109,13 +133,26 @@ export default function ReferenceFilesUploader({
         }`}
       >
         <Upload className="mb-2 h-5 w-5 text-muted" aria-hidden />
-        <span className="text-sm font-medium text-foreground">
+        <span
+          className={cn(
+            "font-medium text-foreground",
+            comfortable ? "text-base" : "text-sm",
+          )}
+        >
           Choose files or drag and drop
         </span>
-        <span className="mt-1 text-xs text-muted">JPG, JPEG, PNG, WebP or PDF</span>
+        <span className={cn("mt-1 text-muted", comfortable ? "text-sm" : "text-xs")}>
+          JPG, JPEG, PNG, WebP or PDF
+        </span>
       </label>
 
-      <p className="text-xs font-medium text-muted" aria-live="polite">
+      <p
+        className={cn(
+          "font-medium text-muted",
+          comfortable ? "text-sm" : "text-xs",
+        )}
+        aria-live="polite"
+      >
         {files.length} of {MAX_REFERENCE_FILES} files · {formatReferenceFileSize(total)} of{" "}
         {formatReferenceFileSize(MAX_REFERENCE_TOTAL_SIZE_BYTES)}
       </p>
@@ -123,14 +160,23 @@ export default function ReferenceFilesUploader({
       {errors.length > 0 && (
         <div className="space-y-1" role="alert">
           {errors.map((error) => (
-            <p key={error} className="text-xs font-medium text-red-700">
+            <p
+              key={error}
+              className={cn(
+                "font-medium text-red-700",
+                comfortable ? "text-sm" : "text-xs",
+              )}
+            >
               {error}
             </p>
           ))}
         </div>
       )}
       {operationStatus && (
-        <p className="text-xs text-muted" aria-live="polite">
+        <p
+          className={cn("text-muted", comfortable ? "text-sm" : "text-xs")}
+          aria-live="polite"
+        >
           {operationStatus}
         </p>
       )}
@@ -149,7 +195,12 @@ export default function ReferenceFilesUploader({
                   iconClassName="h-5 w-5"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="break-all text-xs font-medium text-foreground">
+                  <p
+                    className={cn(
+                      "break-all font-medium text-foreground",
+                      comfortable ? "text-sm" : "text-xs",
+                    )}
+                  >
                     {reference.filename}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted">

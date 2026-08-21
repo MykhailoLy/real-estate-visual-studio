@@ -26,22 +26,11 @@ import {
   type SiteMediaUploadKind,
 } from "@/lib/site-media";
 import {
-  STAGING_ADDONS,
-  STAGING_STYLE_CARDS,
-  VIRTUAL_STAGING_MEDIA_KEYS,
-} from "@/data/order-options";
-import {
-  AERIAL_EDITING_OPTIONS,
-  SINGLE_EXPOSURE_ORDER_MEDIA_KEYS,
-} from "@/lib/image-enhancement";
+  ORDER_OPTION_MEDIA_PRESET_KEYS,
+  SERVICE_OPTION_MEDIA_PRESET_GROUPS,
+  getServiceOptionMediaPresetDefaults,
+} from "@/lib/admin-media-presets";
 import { getSupabaseBrowser } from "@/lib/supabase";
-
-const ORDER_OPTION_MEDIA_PRESET_KEYS = [
-  ...new Set([
-    ...VIRTUAL_STAGING_MEDIA_KEYS,
-    ...SINGLE_EXPOSURE_ORDER_MEDIA_KEYS,
-  ]),
-];
 
 // ============================================================
 // MediaAdminClient
@@ -599,6 +588,7 @@ function MediaEditor({
   const [serviceSlug, setServiceSlug] = useState(
     initial?.service_slug ?? "",
   );
+  const [title, setTitle] = useState(initial?.title ?? "");
 
   // Per-slot file state. `null` means "no new file picked".
   const [files, setFiles] = useState<Record<SlotKey, File | null>>({
@@ -644,6 +634,14 @@ function MediaEditor({
     }
     setLocalError(null);
     setFiles((prev) => ({ ...prev, [slot]: f }));
+  }
+
+  function onServiceOptionPresetChange(mediaKey: string) {
+    const defaults = getServiceOptionMediaPresetDefaults(mediaKey);
+    if (!defaults) return;
+    setMediaType(defaults.mediaType);
+    setServiceSlug(defaults.serviceSlug);
+    setTitle(defaults.title);
   }
 
   async function requestSignedUrl(
@@ -982,7 +980,8 @@ function MediaEditor({
               name="title"
               type="text"
               maxLength={200}
-              defaultValue={initial?.title ?? ""}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Optional headline"
             />
@@ -1008,39 +1007,22 @@ function MediaEditor({
                     : ""
                 }
                 onChange={(event) => {
-                  if (event.target.value) setServiceSlug(event.target.value);
+                  if (event.target.value) {
+                    onServiceOptionPresetChange(event.target.value);
+                  }
                 }}
                 className="mb-2 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Service option preset (optional)</option>
-                <optgroup label="Furniture styles">
-                  {STAGING_STYLE_CARDS.map((style) => (
-                    <option key={style.mediaKey} value={style.mediaKey}>
-                      {style.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Optional add-ons">
-                  {STAGING_ADDONS.map((addon) => (
-                    <option key={addon.mediaKey} value={addon.mediaKey}>
-                      {addon.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Image Enhancement — Aerial Editing">
-                  {AERIAL_EDITING_OPTIONS.flatMap((option) =>
-                    option.mediaKey
-                      ? [
-                          <option
-                            key={option.mediaKey}
-                            value={option.mediaKey}
-                          >
-                            {option.label}
-                          </option>,
-                        ]
-                      : [],
-                  )}
-                </optgroup>
+                {SERVICE_OPTION_MEDIA_PRESET_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.presets.map((preset) => (
+                      <option key={preset.mediaKey} value={preset.mediaKey}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             ) : null}
             <input

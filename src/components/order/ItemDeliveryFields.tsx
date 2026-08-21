@@ -1,6 +1,7 @@
 "use client";
 
 import { FILE_SIZE_LIMIT_OPTIONS } from "@/data/order-options";
+import { cn } from "@/lib/utils";
 
 /**
  * Per-item delivery preferences shape.
@@ -36,6 +37,8 @@ interface ItemDeliveryFieldsProps {
   disableFileSizeLimit?: boolean;
   /** When true, both item delivery fields are read-only. */
   disabled?: boolean;
+  /** Larger typography for wide, editorial order forms. */
+  comfortable?: boolean;
 }
 
 /**
@@ -52,6 +55,7 @@ export default function ItemDeliveryFields({
   idPrefix,
   disableFileSizeLimit = false,
   disabled = false,
+  comfortable = false,
 }: ItemDeliveryFieldsProps) {
   const sizeId = idPrefix ? `${idPrefix}-file-size-limit` : undefined;
   const discId = idPrefix ? `${idPrefix}-disclaimer-text` : undefined;
@@ -61,11 +65,19 @@ export default function ItemDeliveryFields({
       <div>
         <label
           htmlFor={sizeId}
-          className="block text-sm font-medium text-foreground mb-1.5"
+          className={cn(
+            "mb-1.5 block font-medium text-foreground",
+            comfortable ? "text-base" : "text-sm",
+          )}
         >
           File Size Limit (MLS and other online websites)
         </label>
-        <p className="text-xs text-muted mb-2">
+        <p
+          className={cn(
+            "mb-2 text-muted",
+            comfortable ? "text-sm leading-6" : "text-xs",
+          )}
+        >
           Many listing portals cap individual file uploads. Pick a target if
           your portal has a strict limit.
         </p>
@@ -76,7 +88,10 @@ export default function ItemDeliveryFields({
           onChange={(e) =>
             onChange({ ...data, fileSizeLimit: e.target.value })
           }
-          className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
+          className={cn(
+            "w-full rounded-lg border border-border bg-white px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60",
+            comfortable ? "text-base" : "text-sm",
+          )}
         >
           <option value="">Please Select...</option>
           {FILE_SIZE_LIMIT_OPTIONS.map((opt) => (
@@ -90,11 +105,19 @@ export default function ItemDeliveryFields({
       <div>
         <label
           htmlFor={discId}
-          className="block text-sm font-medium text-foreground mb-1.5"
+          className={cn(
+            "mb-1.5 block font-medium text-foreground",
+            comfortable ? "text-base" : "text-sm",
+          )}
         >
           Your Disclaimer Text
         </label>
-        <p className="text-xs text-muted mb-2">
+        <p
+          className={cn(
+            "mb-2 text-muted",
+            comfortable ? "text-sm leading-6" : "text-xs",
+          )}
+        >
           Optional text to include with delivered files or listing materials
           if required.
         </p>
@@ -108,7 +131,10 @@ export default function ItemDeliveryFields({
           placeholder="Enter any required disclaimer text..."
           rows={3}
           maxLength={2000}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+          className={cn(
+            "w-full resize-none rounded-lg border border-border px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60",
+            comfortable ? "text-base leading-6" : "text-sm",
+          )}
         />
       </div>
     </div>

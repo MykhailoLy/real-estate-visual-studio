@@ -119,17 +119,17 @@ export default function DayToDuskItemCard({
   return (
     <div
       id={dayToDuskItemDomId(index)}
-      className="bg-white border border-border rounded-xl p-5 shadow-sm scroll-mt-4"
+      className="scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-7"
     >
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-foreground">
+      <div className="mb-7 flex items-center justify-between">
+        <h2 className="text-xl font-semibold leading-tight text-primary sm:text-[22px]">
           Photo #{index + 1}
-        </h4>
+        </h2>
         {canRemove && (
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             aria-label={`Remove photo ${index + 1}`}
           >
             <Trash2 className="w-4 h-4" />
@@ -137,7 +137,7 @@ export default function DayToDuskItemCard({
         )}
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-9">
         {/* 1. Upload Daytime Exterior Photo (always editable) */}
         <FileUpload
           viewerVariant="photo"
@@ -164,12 +164,13 @@ export default function DayToDuskItemCard({
           disabled={fileOperationsDisabled}
           removeDisabled={fileOperationsDisabled}
           onRemovePersisted={onRemovePersistedOriginal}
+          comfortable
         />
 
         <div>
           <label
             htmlFor={`${idPrefix}-reference-link`}
-            className="mb-1.5 block text-sm font-medium text-foreground"
+            className="mb-2 block text-base font-medium text-foreground"
           >
             Reference Link (optional)
           </label>
@@ -181,9 +182,9 @@ export default function DayToDuskItemCard({
               onChange({ ...data, referenceLink: event.target.value })
             }
             placeholder="https://example.com/reference"
-            className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-lg border border-border px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-2 text-sm leading-6 text-muted">
             Add a link to an online example, brand guide or shared reference.
           </p>
         </div>
@@ -196,12 +197,13 @@ export default function DayToDuskItemCard({
           }
           disabled={fileOperationsDisabled}
           operationStatus={referenceOperationStatus}
+          comfortable
         />
 
         {/* Shared-preferences notice for photos #2+ while sharing is on. */}
         {sharedLocked && (
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface/60 px-3 py-2 text-[12px] font-medium text-muted">
-            <Lock className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface/60 px-4 py-3 text-sm font-medium text-muted">
+            <Lock className="h-4 w-4 flex-shrink-0" aria-hidden />
             Using Photo #1 preferences
           </div>
         )}
@@ -216,10 +218,16 @@ export default function DayToDuskItemCard({
         />
 
         {/* 3. Lighting Preferences (shared) */}
-        <div className="space-y-4 rounded-xl border border-border bg-surface/40 p-4">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
+        <section
+          className="space-y-5 rounded-xl border border-border bg-surface/40 p-5 sm:p-6"
+          aria-labelledby={`${idPrefix}-lighting-title`}
+        >
+          <h3
+            id={`${idPrefix}-lighting-title`}
+            className="text-lg font-semibold text-primary sm:text-xl"
+          >
             Lighting Preferences
-          </p>
+          </h3>
           {DUSK_LIGHTING_PREFERENCES.map((pref) => (
             <LightingPreferenceToggle
               key={pref.field}
@@ -230,7 +238,7 @@ export default function DayToDuskItemCard({
               disabled={sharedLocked}
             />
           ))}
-        </div>
+        </section>
 
         {/* 4. File Size Limit (shared) + disclaimer (always individual) */}
         <ItemDeliveryFields
@@ -241,13 +249,14 @@ export default function DayToDuskItemCard({
           }}
           onChange={(prefs) => onChange({ ...data, ...prefs })}
           disableFileSizeLimit={sharedLocked}
+          comfortable
         />
 
         {/* 5. Additional Instructions (always individual) */}
         <div>
           <label
             htmlFor={`${idPrefix}-notes`}
-            className="block text-sm font-medium text-foreground mb-1.5"
+            className="mb-2 block text-base font-medium text-foreground"
           >
             Additional Instructions
           </label>
@@ -258,8 +267,8 @@ export default function DayToDuskItemCard({
               onChange({ ...data, additionalInfo: e.target.value })
             }
             placeholder="Tell us about any specific lighting, window, exterior, pool, or atmosphere preferences for this photo."
-            rows={2}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            rows={3}
+            className="w-full resize-none rounded-lg border border-border px-3 py-3 text-base leading-6 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
