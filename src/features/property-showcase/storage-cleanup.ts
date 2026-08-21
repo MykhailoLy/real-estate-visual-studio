@@ -109,7 +109,6 @@ export function ownedPropertyCustomFlyerStoragePath(
 function collectMediaValues(property: PropertyShowcase): string[] {
   return [
     property.coverImage,
-    property.brochureUrl,
     ...property.gallery.map((image) => image.src),
     property.virtualTour?.posterImage,
     property.interactiveFloorPlanTour?.posterImage,
@@ -138,7 +137,7 @@ export function collectPropertyShowcaseReferencedSiteMediaPaths(
 ): string[] {
   return [
     ...new Set(
-      collectMediaValues(property)
+      [...collectMediaValues(property), property.brochureUrl]
         .map((value) =>
           siteMediaObjectPathFromUrl(value, { allowRelativeObjectPath: true }),
         )

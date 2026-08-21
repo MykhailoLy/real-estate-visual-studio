@@ -131,6 +131,35 @@ test("read-only reference collection includes shared site-media paths", () => {
   assert.equal(owned.includes("service-options/shared-cover.jpg"), false);
 });
 
+test("brochure URLs remain outside existing owned-media deletion semantics", () => {
+  const existing = cloneProperty();
+  existing.slug = "altea";
+  existing.brochureUrl = storageUrl(
+    "property-showcases/altea/listing-brochure.pdf",
+  );
+
+  assert.equal(
+    collectPropertyShowcaseReferencedSiteMediaPaths(existing).includes(
+      "property-showcases/altea/listing-brochure.pdf",
+    ),
+    true,
+  );
+  assert.equal(
+    collectPropertyShowcaseMediaPaths(existing, existing.slug).includes(
+      "property-showcases/altea/listing-brochure.pdf",
+    ),
+    false,
+  );
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({
+      existing,
+      next: { ...existing, brochureUrl: undefined },
+      slug: existing.slug,
+    }),
+    [],
+  );
+});
+
 test("external lookalike URLs cannot become deletion candidates", () => {
   const existing = cloneProperty();
   existing.slug = "altea";
