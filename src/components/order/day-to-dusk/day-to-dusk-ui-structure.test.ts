@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   DAY_TO_DUSK_OPTION_ID,
+  DAY_TO_DUSK_MEDIA_KEYS,
+  DUSK_STYLES,
   DUSK_STYLE_DEFAULT,
   DUSK_STYLE_ID_VALUES,
 } from "../../../lib/day-to-dusk.ts";
@@ -33,6 +35,21 @@ test("Day to Dusk transactional option values and default remain unchanged", () 
     "orange-yellow",
     "cool-blue",
   ]);
+});
+
+test("the selector resolves the exact six canonical admin media keys", () => {
+  assert.deepEqual(DAY_TO_DUSK_MEDIA_KEYS, [
+    "day-to-dusk-style-expert-decide",
+    "day-to-dusk-style-dramatic-clouds",
+    "day-to-dusk-style-warm-sun-glow",
+    "day-to-dusk-style-purple-pink-fantasy",
+    "day-to-dusk-style-orange-yellow",
+    "day-to-dusk-style-cool-blue",
+  ]);
+  assert.equal(DUSK_STYLES[0].label, "Let Our Experts Decide");
+  assert.equal(DUSK_STYLES[0].mediaKey, DAY_TO_DUSK_MEDIA_KEYS[0]);
+  assert.match(selector, /images\[style\.mediaKey\]/);
+  assert.match(page, /getServiceOptionImagesByKeys\(DAY_TO_DUSK_MEDIA_KEYS\)/);
 });
 
 test("configure uses the guide and local Review action while Review keeps one summary", () => {
