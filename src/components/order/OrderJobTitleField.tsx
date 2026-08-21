@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { Tag } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // ============================================================
 // OrderJobTitleField — shared, required order-level Job Title.
@@ -37,6 +38,8 @@ interface OrderJobTitleFieldProps {
   disabled?: boolean;
   containerId?: string;
   errorMessage?: string;
+  /** Larger typography for wide, editorial order forms. */
+  comfortable?: boolean;
 }
 
 export default function OrderJobTitleField({
@@ -46,6 +49,7 @@ export default function OrderJobTitleField({
   disabled = false,
   containerId,
   errorMessage = "Enter a job title.",
+  comfortable = false,
 }: OrderJobTitleFieldProps) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
@@ -71,11 +75,20 @@ export default function OrderJobTitleField({
         <div className="min-w-0">
           <label
             htmlFor={inputId}
-            className="block text-sm font-semibold text-foreground leading-tight"
+            className={cn(
+              "block font-semibold leading-tight text-foreground",
+              comfortable ? "text-base" : "text-sm",
+            )}
           >
             Job Title <span className="text-red-500">*</span>
           </label>
-          <p id={helpId} className="text-xs text-muted mt-0.5">
+          <p
+            id={helpId}
+            className={cn(
+              "mt-0.5 text-muted",
+              comfortable ? "text-sm leading-6" : "text-xs",
+            )}
+          >
             Give this order a name so you can find it later. This appears as
             the headline for the order in your Jobs list.
           </p>
@@ -95,14 +108,20 @@ export default function OrderJobTitleField({
         aria-required="true"
         aria-invalid={displayError || undefined}
         aria-describedby={displayError ? `${helpId} ${errorId}` : helpId}
-        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60 ${
-          displayError ? "border-red-300" : "border-border"
-        }`}
+        className={cn(
+          "w-full rounded-lg border px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60",
+          comfortable ? "text-base" : "text-sm",
+          displayError ? "border-red-300" : "border-border",
+        )}
       />
 
       <div className="mt-1.5 flex items-center justify-between gap-3">
         {displayError ? (
-          <p id={errorId} className="text-xs text-red-500" role="alert">
+          <p
+            id={errorId}
+            className={comfortable ? "text-sm text-red-500" : "text-xs text-red-500"}
+            role="alert"
+          >
             {errorMessage}
           </p>
         ) : (

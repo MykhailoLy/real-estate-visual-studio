@@ -23,7 +23,7 @@ export default async function NewDayToDuskOrderPage() {
   const duskStyleImages = Object.fromEntries(imageMap);
 
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1600px] py-0">
       <DayToDuskOrderForm
         clientEmail={email}
         orderRoute={ROUTE}
