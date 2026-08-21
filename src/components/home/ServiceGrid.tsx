@@ -12,6 +12,7 @@ import {
 import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { getSpanishPath } from "@/lib/localized-routes";
 import type { PriceKey } from "@/lib/pricing/types";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // REMOTE DIGITAL SERVICES — "This is what we do" grid
@@ -258,6 +259,15 @@ export default async function ServiceGrid({
         afterAlt: `${localized.name} ${copy.afterLabel ?? "after"}`,
       };
     }
+    const alt = getBeforeAfterAlt({
+      beforeAlt: item.before_alt,
+      afterAlt: item.after_alt,
+      title: item.title,
+      description: item.description,
+      serviceLabel: localized.name,
+      serviceSlug: item.service_slug,
+      locale,
+    });
     return {
       svc,
       name: localized.name,
@@ -269,8 +279,8 @@ export default async function ServiceGrid({
       href,
       beforeUrl: getPortfolioPublicUrl(item.before_image_path),
       afterUrl: getPortfolioPublicUrl(item.after_image_path),
-      beforeAlt: item.before_alt || `${localized.name} ${copy.beforeLabel ?? "before"}`,
-      afterAlt: item.after_alt || `${localized.name} ${copy.afterLabel ?? "after"}`,
+      beforeAlt: alt.beforeAlt,
+      afterAlt: alt.afterAlt,
     };
   });
 

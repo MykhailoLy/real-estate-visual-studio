@@ -78,11 +78,7 @@ export default function BeforeAfterFrame({
   }
 
   return (
-    <div
-      className={cn("absolute inset-0 flex overflow-hidden", className)}
-      role="img"
-      aria-label={`${beforeAlt} versus ${afterAlt}`}
-    >
+    <div className={cn("absolute inset-0 flex overflow-hidden", className)}>
       {/* LEFT half — before */}
       <div className="relative w-1/2 overflow-hidden bg-stone-100">
         <OptimizedImage

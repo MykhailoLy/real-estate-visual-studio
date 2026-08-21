@@ -25,6 +25,7 @@ import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 import type { PriceKey } from "@/lib/pricing/types";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // /pricing/virtual-staging  —  Virtual Staging service page
@@ -209,15 +210,25 @@ async function buildSliderSlides(
     return [{ kind: "placeholder", id: "vs-fallback", variant: "virtual-staging" }];
   }
 
-  return usable.map((item) => ({
-    kind: "image" as const,
-    id: item.id,
-    beforeUrl: getPortfolioPublicUrl(item.before_image_path) ?? "",
-    afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
-    beforeAlt: item.before_alt ?? `${item.title} — before`,
-    afterAlt: item.after_alt ?? `${item.title} — after`,
-    title: item.title,
-  }));
+  return usable.map((item) => {
+    const alt = getBeforeAfterAlt({
+      beforeAlt: item.before_alt,
+      afterAlt: item.after_alt,
+      title: item.title,
+      description: item.description,
+      serviceLabel: "Virtual Staging",
+      serviceSlug: item.service_slug,
+    });
+    return {
+      kind: "image" as const,
+      id: item.id,
+      beforeUrl: getPortfolioPublicUrl(item.before_image_path) ?? "",
+      afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
+      beforeAlt: alt.beforeAlt,
+      afterAlt: alt.afterAlt,
+      title: item.title,
+    };
+  });
 }
 
 // ── Page ─────────────────────────────────────────────────────
@@ -416,6 +427,14 @@ export default async function VirtualStagingPage() {
               {allItems.map((item) => {
                 const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
                 const afterUrl = getPortfolioPublicUrl(item.after_image_path);
+                const alt = getBeforeAfterAlt({
+                  beforeAlt: item.before_alt,
+                  afterAlt: item.after_alt,
+                  title: item.title,
+                  description: item.description,
+                  serviceLabel: "Virtual Staging",
+                  serviceSlug: item.service_slug,
+                });
                 return (
                   <article
                     key={item.id}
@@ -426,8 +445,8 @@ export default async function VirtualStagingPage() {
                       <BeforeAfterFrame
                         beforeUrl={beforeUrl}
                         afterUrl={afterUrl}
-                        beforeAlt={item.before_alt ?? `${item.title} — before`}
-                        afterAlt={item.after_alt ?? `${item.title} — after`}
+                        beforeAlt={alt.beforeAlt}
+                        afterAlt={alt.afterAlt}
                         placeholderVariant="virtual-staging"
                       />
                     </div>

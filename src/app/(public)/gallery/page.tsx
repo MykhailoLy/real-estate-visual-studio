@@ -12,6 +12,7 @@ import {
   GALLERY_CARD_DESCRIPTIONS,
 } from "@/lib/gallery";
 import { publicPageMetadata } from "@/lib/seo";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // /gallery  —  Gallery landing page (EN)
@@ -72,14 +73,20 @@ export default async function GalleryPage() {
               {visibleServices.map((svc) => {
                 const item = featuredItems.get(svc.slug)!;
                 const imageUrl = getPortfolioPublicUrl(item.after_image_path);
+                const alt = getBeforeAfterAlt({
+                  beforeAlt: item.before_alt,
+                  afterAlt: item.after_alt,
+                  title: item.title,
+                  description: item.description,
+                  serviceLabel: svc.label,
+                  serviceSlug: svc.slug,
+                });
                 return (
                   <GalleryCategoryCard
                     key={svc.slug}
                     href={`/gallery/${svc.slug}`}
                     imageUrl={imageUrl}
-                    imageAlt={
-                      item.after_alt ?? `${svc.label} after example`
-                    }
+                    imageAlt={alt.afterAlt}
                     title={svc.label}
                     description={GALLERY_CARD_DESCRIPTIONS[svc.slug]}
                   />

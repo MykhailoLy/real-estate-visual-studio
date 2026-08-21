@@ -17,8 +17,10 @@
 import {
   getGalleryItemsGroupedByService,
   getPortfolioPublicUrl,
+  getPortfolioService,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 /** A complete Before/After example, ready to render. Serializable. */
 export interface OrderExamplePair {
@@ -43,16 +45,25 @@ export async function getOrderServiceExamples(): Promise<
 
   for (const [slug, items] of grouped) {
     const pairs: OrderExamplePair[] = [];
+    const serviceLabel = getPortfolioService(slug).label;
     for (const item of items) {
       const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
       const afterUrl = getPortfolioPublicUrl(item.after_image_path);
       if (!beforeUrl || !afterUrl) continue; // skip single-sided records
+      const alt = getBeforeAfterAlt({
+        beforeAlt: item.before_alt,
+        afterAlt: item.after_alt,
+        title: item.title,
+        description: item.description,
+        serviceLabel,
+        serviceSlug: slug,
+      });
       pairs.push({
         id: item.id,
         beforeUrl,
         afterUrl,
-        beforeAlt: item.before_alt ?? `${item.title} — before`,
-        afterAlt: item.after_alt ?? `${item.title} — after`,
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
       });
     }
     if (pairs.length > 0) out.set(slug, pairs);

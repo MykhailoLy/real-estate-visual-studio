@@ -26,6 +26,7 @@ import {
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { spanishMetadata } from "./seo";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 export const metadata = spanishMetadata({
   title: "PicchuSpot - Visuales inmobiliarios",
@@ -223,31 +224,47 @@ export default async function SpanishHomePage() {
       const beforeUrl = getSiteMediaPublicUrl(row.before_image_path);
       const afterUrl = getSiteMediaPublicUrl(row.after_image_path);
       if (!beforeUrl || !afterUrl) return null;
+      const alt = getBeforeAfterAlt({
+        sharedAlt: row.alt_text,
+        title: row.title,
+        description: row.description,
+        serviceSlug: row.service_slug,
+        locale: "es",
+      });
       return {
         kind: "image",
         id: row.id,
         beforeUrl,
         afterUrl,
-        beforeAlt: row.alt_text || row.title || "Antes",
-        afterAlt: row.alt_text || row.title || "Después",
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
       };
     })
     .filter((slide): slide is ShowcaseSlide => slide !== null);
 
   const collageTiles: AboutCollageTile[] = collageRows
     .map<AboutCollageTile | null>((row) => {
-      const url =
-        getSiteMediaPublicUrl(row.image_path) ||
-        getSiteMediaPublicUrl(row.after_image_path) ||
-        getSiteMediaPublicUrl(row.before_image_path) ||
-        getSiteMediaPublicUrl(row.poster_image_path) ||
-        getSiteMediaPublicUrl(row.panorama_image_path);
-      if (!url) return null;
+      const pairAlt = getBeforeAfterAlt({
+        sharedAlt: row.alt_text,
+        title: row.title,
+        description: row.description,
+        serviceSlug: row.service_slug,
+        locale: "es",
+      });
+      const singleAlt = row.alt_text || row.title || "Sobre PicchuSpot";
+      const selected = [
+        { url: getSiteMediaPublicUrl(row.image_path), alt: singleAlt },
+        { url: getSiteMediaPublicUrl(row.after_image_path), alt: pairAlt.afterAlt },
+        { url: getSiteMediaPublicUrl(row.before_image_path), alt: pairAlt.beforeAlt },
+        { url: getSiteMediaPublicUrl(row.poster_image_path), alt: singleAlt },
+        { url: getSiteMediaPublicUrl(row.panorama_image_path), alt: singleAlt },
+      ].find((candidate) => candidate.url);
+      if (!selected?.url) return null;
       return {
         kind: "image",
         id: row.id,
-        url,
-        alt: row.alt_text || row.title || "Sobre PicchuSpot",
+        url: selected.url,
+        alt: selected.alt,
       };
     })
     .filter((tile): tile is AboutCollageTile => tile !== null);

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import type { ServiceOptionMedia } from "@/lib/site-media";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 interface ExampleDialogProps {
   open: boolean;
@@ -75,8 +76,11 @@ export default function ExampleDialog({
   const singleUrl = hasPair
     ? null
     : media?.imageUrl ?? media?.afterUrl ?? media?.beforeUrl ?? null;
-  const fallbackAlt = `${title} example`;
-  const mediaAlt = media?.altText?.trim() || fallbackAlt;
+  const alt = getBeforeAfterAlt({
+    sharedAlt: media?.altText,
+    title,
+    description: media?.description,
+  });
 
   return (
     <dialog
@@ -127,18 +131,21 @@ export default function ExampleDialog({
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <PreviewImage
                 src={media.beforeUrl}
-                alt={`Before: ${mediaAlt}`}
+                alt={alt.beforeAlt}
                 label="Before"
               />
               <PreviewImage
                 src={media.afterUrl}
-                alt={`After: ${mediaAlt}`}
+                alt={alt.afterAlt}
                 label="After"
               />
             </div>
           ) : singleUrl ? (
             <div className="mx-auto max-w-3xl">
-              <PreviewImage src={singleUrl} alt={mediaAlt} />
+              <PreviewImage
+                src={singleUrl}
+                alt={media?.altText?.trim() || `${title} example`}
+              />
             </div>
           ) : null}
         </div>

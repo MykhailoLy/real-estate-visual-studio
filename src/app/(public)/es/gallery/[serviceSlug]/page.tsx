@@ -24,6 +24,7 @@ import {
 } from "@/lib/gallery";
 import { absoluteUrl } from "@/lib/seo";
 import { getSpanishPath } from "@/lib/localized-routes";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // /es/gallery/[serviceSlug]  —  Service gallery detail page (ES)
@@ -105,12 +106,21 @@ export default async function SpanishGalleryServicePage({
       const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
       const afterUrl = getPortfolioPublicUrl(item.after_image_path);
       if (!beforeUrl || !afterUrl) return null;
+      const alt = getBeforeAfterAlt({
+        beforeAlt: item.before_alt,
+        afterAlt: item.after_alt,
+        title: item.title,
+        description: item.description,
+        serviceLabel: labelEs,
+        serviceSlug,
+        locale: "es",
+      });
       return {
         id: item.id,
         beforeUrl,
         afterUrl,
-        beforeAlt: item.before_alt ?? `${item.title} — antes`,
-        afterAlt: item.after_alt ?? `${item.title} — después`,
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
         galleryFilter: item.gallery_filter,
       };
     })

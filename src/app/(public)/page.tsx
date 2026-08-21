@@ -20,6 +20,7 @@ import {
 import { publicPageMetadata } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Real Estate Visuals for Listings",
@@ -70,13 +71,19 @@ export default async function HomePage() {
       // path, but a local check makes the URL fallback explicit
       // and keeps TypeScript happy.
       if (!beforeUrl || !afterUrl) return null;
+      const alt = getBeforeAfterAlt({
+        sharedAlt: row.alt_text,
+        title: row.title,
+        description: row.description,
+        serviceSlug: row.service_slug,
+      });
       return {
         kind: "image",
         id: row.id,
         beforeUrl,
         afterUrl,
-        beforeAlt: row.alt_text || row.title || "Before",
-        afterAlt: row.alt_text || row.title || "After",
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
       };
     })
     .filter((s): s is ShowcaseSlide => s !== null);
@@ -87,18 +94,26 @@ export default async function HomePage() {
       // collage items are usually plain "image" media_type, but
       // we tolerate other shapes (e.g. an admin reuses a
       // before/after item by surfacing only the after frame).
-      const url =
-        getSiteMediaPublicUrl(row.image_path) ||
-        getSiteMediaPublicUrl(row.after_image_path) ||
-        getSiteMediaPublicUrl(row.before_image_path) ||
-        getSiteMediaPublicUrl(row.poster_image_path) ||
-        getSiteMediaPublicUrl(row.panorama_image_path);
-      if (!url) return null;
+      const pairAlt = getBeforeAfterAlt({
+        sharedAlt: row.alt_text,
+        title: row.title,
+        description: row.description,
+        serviceSlug: row.service_slug,
+      });
+      const singleAlt = row.alt_text || row.title || "About PicchuSpot";
+      const selected = [
+        { url: getSiteMediaPublicUrl(row.image_path), alt: singleAlt },
+        { url: getSiteMediaPublicUrl(row.after_image_path), alt: pairAlt.afterAlt },
+        { url: getSiteMediaPublicUrl(row.before_image_path), alt: pairAlt.beforeAlt },
+        { url: getSiteMediaPublicUrl(row.poster_image_path), alt: singleAlt },
+        { url: getSiteMediaPublicUrl(row.panorama_image_path), alt: singleAlt },
+      ].find((candidate) => candidate.url);
+      if (!selected?.url) return null;
       return {
         kind: "image",
         id: row.id,
-        url,
-        alt: row.alt_text || row.title || "About PicchuSpot",
+        url: selected.url,
+        alt: selected.alt,
       };
     })
     .filter((t): t is AboutCollageTile => t !== null);

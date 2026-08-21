@@ -14,6 +14,7 @@ import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 export const metadata: Metadata = {
   title: "360° Virtual Staging Pricing",
@@ -41,21 +42,20 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
   const heroPanoramaUrl = getSiteMediaPublicUrl(
     heroPanorama?.panorama_image_path
   );
+  const heroAlt = getBeforeAfterAlt({
+    sharedAlt: heroBeforeAfter?.alt_text,
+    title: heroBeforeAfter?.title,
+    description: heroBeforeAfter?.description,
+    serviceLabel: "360° Virtual Staging",
+    serviceSlug: heroBeforeAfter?.service_slug,
+  });
   const heroContent =
     beforePanoramaUrl && afterPanoramaUrl ? (
       <SyncedPanoramaCompareViewer
         beforeImageUrl={beforePanoramaUrl}
         afterImageUrl={afterPanoramaUrl}
-        beforeTitle={
-          heroBeforeAfter?.alt_text ??
-          heroBeforeAfter?.title ??
-          "Before 360 virtual staging panorama"
-        }
-        afterTitle={
-          heroBeforeAfter?.alt_text ??
-          heroBeforeAfter?.title ??
-          "After 360 virtual staging panorama"
-        }
+        beforeTitle={heroAlt.beforeAlt}
+        afterTitle={heroAlt.afterAlt}
         fallbackLabel="360 Virtual Staging before and after hero placeholder"
       />
     ) : (

@@ -13,6 +13,7 @@ import {
   GALLERY_LABELS_ES,
 } from "@/lib/gallery";
 import { spanishMetadata } from "../seo";
+import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================
 // /es/gallery  —  Gallery landing page (ES)
@@ -66,14 +67,21 @@ export default async function SpanishGalleryPage() {
               {visibleServices.map((svc) => {
                 const item = featuredItems.get(svc.slug)!;
                 const imageUrl = getPortfolioPublicUrl(item.after_image_path);
+                const alt = getBeforeAfterAlt({
+                  beforeAlt: item.before_alt,
+                  afterAlt: item.after_alt,
+                  title: item.title,
+                  description: item.description,
+                  serviceLabel: GALLERY_LABELS_ES[svc.slug],
+                  serviceSlug: svc.slug,
+                  locale: "es",
+                });
                 return (
                   <GalleryCategoryCard
                     key={svc.slug}
                     href={`/es/gallery/${svc.slug}`}
                     imageUrl={imageUrl}
-                    imageAlt={
-                      item.after_alt ?? `${GALLERY_LABELS_ES[svc.slug]} ejemplo`
-                    }
+                    imageAlt={alt.afterAlt}
                     title={GALLERY_LABELS_ES[svc.slug]}
                     description={GALLERY_CARD_DESCRIPTIONS_ES[svc.slug]}
                   />

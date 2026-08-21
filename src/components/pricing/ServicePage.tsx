@@ -23,6 +23,10 @@ import {
 import { PortfolioExamplesGrid } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
 import type { PortfolioExampleCard } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
 import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
+import {
+  getBeforeAfterAlt,
+  type BeforeAfterAltLocale,
+} from "@/lib/before-after-alt";
 
 // ============================================================
 // ServicePage — shared server component
@@ -141,22 +145,34 @@ export interface ServicePageProps {
 
 async function buildSlides(
   slug: PortfolioServiceSlug,
-  fallbackVariant: ServiceVariant
+  fallbackVariant: ServiceVariant,
+  serviceLabel: string,
+  locale: BeforeAfterAltLocale,
 ): Promise<ServicePageSlide[]> {
   const heroMedia = await getServiceHeroSliderItems(slug);
   const usable = heroMedia.filter(
     (it) => it.before_image_path && it.after_image_path
   );
   if (usable.length > 0) {
-    return usable.map((item) => ({
-      kind: "image" as const,
-      id: item.id,
-      beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
-      afterUrl: getSiteMediaPublicUrl(item.after_image_path) ?? "",
-      beforeAlt: item.alt_text ?? item.title ?? `${slug} — before`,
-      afterAlt: item.alt_text ?? item.title ?? `${slug} — after`,
-      title: item.title ?? undefined,
-    }));
+    return usable.map((item) => {
+      const alt = getBeforeAfterAlt({
+        sharedAlt: item.alt_text,
+        title: item.title,
+        description: item.description,
+        serviceLabel,
+        serviceSlug: slug,
+        locale,
+      });
+      return {
+        kind: "image" as const,
+        id: item.id,
+        beforeUrl: getSiteMediaPublicUrl(item.before_image_path) ?? "",
+        afterUrl: getSiteMediaPublicUrl(item.after_image_path) ?? "",
+        beforeAlt: alt.beforeAlt,
+        afterAlt: alt.afterAlt,
+        title: item.title ?? undefined,
+      };
+    });
   }
   return [{ kind: "placeholder", id: `${slug}-fallback`, variant: fallbackVariant }];
 }
@@ -193,27 +209,43 @@ export default async function ServicePage({
   heroContent,
   labels,
 }: ServicePageProps) {
+  const altLocale: BeforeAfterAltLocale =
+    labels?.beforeLabel === "Antes" ? "es" : "en";
   const slidesPromise = heroContent
     ? Promise.resolve<ServicePageSlide[] | null>(null)
-    : buildSlides(serviceSlug, placeholderVariant);
+    : buildSlides(serviceSlug, placeholderVariant, eyebrow, altLocale);
 
   const [sliderSlides, allItems] = await Promise.all([
     slidesPromise,
     getServicePageItemsForService(serviceSlug),
   ]);
 
-  const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => ({
-    id: item.id,
-    title: labels?.translateExampleTitle?.(item.title) ?? item.title,
-    description: item.description
+  const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => {
+    const itemTitle =
+      labels?.translateExampleTitle?.(item.title) ?? item.title;
+    const itemDescription = item.description
       ? (labels?.translateExampleDescription?.(item.description) ??
         item.description)
-      : item.description,
-    beforeUrl: getPortfolioPublicUrl(item.before_image_path),
-    afterUrl: getPortfolioPublicUrl(item.after_image_path),
-    beforeAlt: item.before_alt ?? `${item.title} — before`,
-    afterAlt: item.after_alt ?? `${item.title} — after`,
-  }));
+      : item.description;
+    const alt = getBeforeAfterAlt({
+      beforeAlt: item.before_alt,
+      afterAlt: item.after_alt,
+      title: itemTitle,
+      description: itemDescription,
+      serviceLabel: eyebrow,
+      serviceSlug,
+      locale: altLocale,
+    });
+    return {
+      id: item.id,
+      title: itemTitle,
+      description: itemDescription,
+      beforeUrl: getPortfolioPublicUrl(item.before_image_path),
+      afterUrl: getPortfolioPublicUrl(item.after_image_path),
+      beforeAlt: alt.beforeAlt,
+      afterAlt: alt.afterAlt,
+    };
+  });
 
   return (
     <>
