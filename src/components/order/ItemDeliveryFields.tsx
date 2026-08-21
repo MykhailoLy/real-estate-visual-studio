@@ -39,6 +39,8 @@ interface ItemDeliveryFieldsProps {
   disabled?: boolean;
   /** Larger typography for wide, editorial order forms. */
   comfortable?: boolean;
+  /** Opt-in two-column arrangement on desktop; defaults to stacked. */
+  layoutVariant?: "stacked" | "desktop-columns";
 }
 
 /**
@@ -56,12 +58,19 @@ export default function ItemDeliveryFields({
   disableFileSizeLimit = false,
   disabled = false,
   comfortable = false,
+  layoutVariant = "stacked",
 }: ItemDeliveryFieldsProps) {
   const sizeId = idPrefix ? `${idPrefix}-file-size-limit` : undefined;
   const discId = idPrefix ? `${idPrefix}-disclaimer-text` : undefined;
 
   return (
-    <div className="space-y-4">
+    <div
+      className={cn(
+        layoutVariant === "desktop-columns"
+          ? "grid gap-5 lg:grid-cols-2 lg:items-start"
+          : "space-y-4",
+      )}
+    >
       <div>
         <label
           htmlFor={sizeId}

@@ -22,6 +22,11 @@ interface OrderLayoutProps {
   header?: React.ReactNode;
   /** Larger, calmer type and spacing for visually led order flows. */
   editorial?: boolean;
+  /**
+   * Opt-in workspace width for dashboard order flows that need more room.
+   * The default continues to use the shared public-site Container unchanged.
+   */
+  workspaceVariant?: "wide";
 }
 
 export default function OrderLayout({
@@ -32,9 +37,15 @@ export default function OrderLayout({
   leadingRail,
   header,
   editorial = false,
+  workspaceVariant,
 }: OrderLayoutProps) {
   const hasLeadingRail = leadingRail != null;
   const hasSidebar = sidebar != null;
+  const isWideWorkspace = workspaceVariant === "wide";
+  // Wide dashboard workflows render a plain wrapper instead of nesting the
+  // public-site Container. The default path and every existing caller keep
+  // the shared Container exactly as before.
+  const ContentWrapper = isWideWorkspace ? "div" : Container;
 
   return (
     // No `min-h-screen` here: this layout always renders INSIDE the
@@ -49,7 +60,13 @@ export default function OrderLayout({
         editorial ? "py-8 sm:py-10 lg:py-12" : "py-10 lg:py-16",
       )}
     >
-      <Container>
+      <ContentWrapper
+        className={
+          isWideWorkspace
+            ? "mx-auto w-full max-w-[1800px] px-4 sm:px-6 lg:px-8 2xl:px-12"
+            : undefined
+        }
+      >
         {header && <div className={editorial ? "mb-7 lg:mb-9" : "mb-8"}>{header}</div>}
 
         <div className={editorial ? "mb-8 max-w-4xl lg:mb-10" : "mb-8"}>
@@ -78,7 +95,9 @@ export default function OrderLayout({
             "grid min-w-0 grid-cols-1 gap-8",
             hasLeadingRail &&
               !hasSidebar &&
-              "xl:grid-cols-[minmax(220px,260px)_minmax(0,1fr)] xl:gap-8 2xl:gap-10",
+              (isWideWorkspace
+                ? "xl:grid-cols-[minmax(240px,270px)_minmax(0,1fr)] xl:gap-8 2xl:gap-9"
+                : "xl:grid-cols-[minmax(220px,260px)_minmax(0,1fr)] xl:gap-8 2xl:gap-10"),
             !hasLeadingRail &&
               hasSidebar &&
               (editorial
@@ -111,7 +130,7 @@ export default function OrderLayout({
             </div>
           )}
         </div>
-      </Container>
+      </ContentWrapper>
     </section>
   );
 }
