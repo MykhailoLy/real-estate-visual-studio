@@ -22,6 +22,13 @@ import {
   GALLERY_FILTER_FIELD_LABELS,
   getGalleryFilterLabel,
 } from "@/lib/gallery";
+import {
+  STANDARD_PUBLIC_IMAGE_PROFILE,
+  formatImageOptimizationSummary,
+  optimizeClientImage,
+  summarizeImageOptimizations,
+  type OptimizedClientImage,
+} from "@/lib/client-image-optimizer";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 // ============================================================
@@ -33,12 +40,13 @@ import { getSupabaseBrowser } from "@/lib/supabase";
 //   3. Item table   — every existing portfolio_items row
 //
 // IMAGE UPLOAD FLOW (per item):
-//   1. POST /api/admin/portfolio/upload-url     → JSON, ~few hundred bytes
-//   2. supabase.storage.uploadToSignedUrl()     → bytes go browser → Supabase
-//   3. POST /api/admin/portfolio (or PATCH)     → JSON metadata + paths
+//   1. Canvas/WebP optimization in the browser
+//   2. POST /api/admin/portfolio/upload-url     → JSON, ~few hundred bytes
+//   3. supabase.storage.uploadToSignedUrl()     → bytes go browser → Supabase
+//   4. POST /api/admin/portfolio (or PATCH)     → JSON metadata + paths
 //
-// Step 2 is the whole reason this file exists in its current
-// shape: streaming multi-MB image bytes through a Vercel
+// The direct Storage upload is the whole reason this file exists
+// in its current shape: streaming multi-MB image bytes through a Vercel
 // Function returns 413 FUNCTION_PAYLOAD_TOO_LARGE for the
 // combined before+after pair. Routing them straight to Storage
 // keeps the API request body as JSON metadata only.
@@ -480,7 +488,9 @@ interface EditorValues {
 /** Stage of the multi-step submit, for nicer status copy. */
 type Stage =
   | "idle"
+  | "optimizing-before"
   | "uploading-before"
+  | "optimizing-after"
   | "uploading-after"
   | "saving";
 
@@ -636,6 +646,35 @@ function PortfolioEditor({
     }
   }
 
+  async function cleanupFailedUploads(
+    serviceSlug: PortfolioServiceSlug,
+    uploadedPaths: readonly string[],
+    retainedPaths: readonly string[],
+  ): Promise<void> {
+    if (uploadedPaths.length === 0) return;
+
+    try {
+      const response = await fetch("/api/admin/portfolio/upload-url", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          service_slug: serviceSlug,
+          uploaded_paths: uploadedPaths,
+          retained_paths: retainedPaths,
+        }),
+      });
+      if (!response.ok) {
+        console.warn(
+          "portfolio: failed upload cleanup returned an error",
+          await safeJson(response),
+        );
+      }
+    } catch (error) {
+      console.warn("portfolio: failed upload cleanup could not run", error);
+    }
+  }
+
   /**
    * Read the typed/checked values out of the form once. Booleans
    * come from the DOM elements directly because unchecked
@@ -748,61 +787,63 @@ function PortfolioEditor({
       }
     }
 
-    // ----- 1+2. Upload changed files directly to Supabase -----
+    // Optimize every changed image before requesting its signed URL.
     let beforePath = isEdit && initial ? initial.before_image_path : "";
     let afterPath = isEdit && initial ? initial.after_image_path : "";
+    const uploadedPaths: string[] = [];
+    const retainedPaths = initial
+      ? [initial.before_image_path, initial.after_image_path]
+      : [];
+    const optimizedImages: OptimizedClientImage[] = [];
 
     try {
       if (beforeFile) {
+        setStage("optimizing-before");
+        const optimized = await optimizeClientImage(
+          beforeFile,
+          STANDARD_PUBLIC_IMAGE_PROFILE,
+        );
+        optimizedImages.push(optimized);
+
         setStage("uploading-before");
         const signed = await requestSignedUrl(
           values.service_slug,
-          beforeFile,
-          "before"
+          optimized.file,
+          "before",
         );
-        if (!signed.ok) {
-          setLocalError(signed.message);
-          onError(signed.message);
-          return;
-        }
-        const upload = await uploadOne(beforeFile, signed.data);
-        if (!upload.ok) {
-          setLocalError(upload.message);
-          onError(upload.message);
-          return;
-        }
+        if (!signed.ok) throw new Error(signed.message);
+        uploadedPaths.push(signed.data.path);
+        const upload = await uploadOne(optimized.file, signed.data);
+        if (!upload.ok) throw new Error(upload.message);
         beforePath = signed.data.path;
       }
 
       if (afterFile) {
+        setStage("optimizing-after");
+        const optimized = await optimizeClientImage(
+          afterFile,
+          STANDARD_PUBLIC_IMAGE_PROFILE,
+        );
+        optimizedImages.push(optimized);
+
         setStage("uploading-after");
         const signed = await requestSignedUrl(
           values.service_slug,
-          afterFile,
-          "after"
+          optimized.file,
+          "after",
         );
-        if (!signed.ok) {
-          setLocalError(signed.message);
-          onError(signed.message);
-          return;
-        }
-        const upload = await uploadOne(afterFile, signed.data);
-        if (!upload.ok) {
-          setLocalError(upload.message);
-          onError(upload.message);
-          return;
-        }
+        if (!signed.ok) throw new Error(signed.message);
+        uploadedPaths.push(signed.data.path);
+        const upload = await uploadOne(optimized.file, signed.data);
+        if (!upload.ok) throw new Error(upload.message);
         afterPath = signed.data.path;
       }
 
-      // ----- 3. Save the row metadata -----
+      // Save only the paths returned for successful direct uploads.
       setStage("saving");
 
       if (!beforePath || !afterPath) {
-        const m = "Could not save portfolio item.";
-        setLocalError(m);
-        onError(m);
-        return;
+        throw new Error("Could not save portfolio item.");
       }
 
       const baseBody = {
@@ -825,42 +866,57 @@ function PortfolioEditor({
         ? `/api/admin/portfolio/${initial!.id}`
         : "/api/admin/portfolio";
 
-      let res: Response;
       try {
-        res = await fetch(url, {
+        const res = await fetch(url, {
           method: isEdit ? "PATCH" : "POST",
           headers: { "content-type": "application/json" },
           credentials: "same-origin",
           body: JSON.stringify(baseBody),
         });
-      } catch {
-        const m = "Could not save portfolio item.";
-        setLocalError(m);
-        onError(m);
-        return;
+        if (!res.ok) {
+          const body = await safeJson(res);
+          throw new Error(body?.error ?? "Could not save portfolio item.");
+        }
+      } catch (error) {
+        if (error instanceof Error) throw error;
+        throw new Error("Could not save portfolio item.");
       }
 
-      if (!res.ok) {
-        const body = await safeJson(res);
-        const message = body?.error ?? "Could not save portfolio item.";
-        setLocalError(message);
-        onError(message);
-        return;
-      }
-
-      onSaved(
+      const savedMessage =
         isEdit
           ? `Saved "${values.title || initial?.title || "item"}".`
-          : `Created "${values.title || "item"}".`
+          : `Created "${values.title || "item"}".`;
+      const optimizationMessage =
+        optimizedImages.length > 0
+          ? ` Images optimized: ${formatImageOptimizationSummary(
+              summarizeImageOptimizations(optimizedImages),
+            )}.`
+          : "";
+      onSaved(`${savedMessage}${optimizationMessage}`);
+    } catch (error) {
+      await cleanupFailedUploads(
+        values.service_slug,
+        uploadedPaths,
+        retainedPaths,
       );
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not save portfolio item.";
+      setLocalError(message);
+      onError(message);
     } finally {
       setStage("idle");
     }
   }
 
   const submitLabel =
-    stage === "uploading-before"
+    stage === "optimizing-before"
+      ? "Optimizing before image…"
+      : stage === "uploading-before"
       ? "Uploading before image…"
+      : stage === "optimizing-after"
+      ? "Optimizing after image…"
       : stage === "uploading-after"
       ? "Uploading after image…"
       : stage === "saving"

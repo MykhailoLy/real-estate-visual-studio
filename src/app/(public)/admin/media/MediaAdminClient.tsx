@@ -30,6 +30,14 @@ import {
   SERVICE_OPTION_MEDIA_PRESET_GROUPS,
   getServiceOptionMediaPresetDefaults,
 } from "@/lib/admin-media-presets";
+import { usesStandardPublicImageProfile } from "@/lib/admin-public-image-optimization";
+import {
+  STANDARD_PUBLIC_IMAGE_PROFILE,
+  formatImageOptimizationSummary,
+  optimizeClientImage,
+  summarizeImageOptimizations,
+  type OptimizedClientImage,
+} from "@/lib/client-image-optimizer";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 // ============================================================
@@ -43,13 +51,14 @@ import { getSupabaseBrowser } from "@/lib/supabase";
 //   3. Items list   — every row, grouped by section
 //
 // IMAGE UPLOAD FLOW (per file):
-//   1. POST /api/admin/media/upload-url           (small JSON)
-//   2. supabase.storage.uploadToSignedUrl(...)    (bytes go straight
+//   1. Browser optimization for ordinary public-image slots
+//   2. POST /api/admin/media/upload-url           (small JSON)
+//   3. supabase.storage.uploadToSignedUrl(...)    (bytes go straight
 //                                                  to Supabase)
-//   3. POST/PATCH /api/admin/media[/:id]          (JSON metadata
+//   4. POST/PATCH /api/admin/media[/:id]          (JSON metadata
 //                                                  + paths)
 //
-// Step 2 is what keeps Vercel from returning 413
+// The direct Storage upload keeps Vercel from returning 413
 // FUNCTION_PAYLOAD_TOO_LARGE on multi-MB images. We do NOT push
 // bytes through any Vercel function.
 //
@@ -566,7 +575,7 @@ interface EditorProps {
   onError: (message: string) => void;
 }
 
-type Stage = "idle" | "uploading" | "saving";
+type Stage = "idle" | "optimizing" | "uploading" | "saving";
 
 function MediaEditor({
   mode,
@@ -730,6 +739,36 @@ function MediaEditor({
     }
   }
 
+  async function cleanupFailedUploads(
+    uploadedPaths: readonly string[],
+    retainedPaths: readonly (string | null)[],
+  ): Promise<void> {
+    if (uploadedPaths.length === 0) return;
+
+    try {
+      const response = await fetch("/api/admin/media/upload-url", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          section,
+          uploaded_paths: uploadedPaths,
+          retained_paths: retainedPaths.filter(
+            (path): path is string => Boolean(path),
+          ),
+        }),
+      });
+      if (!response.ok) {
+        console.warn(
+          "site-media: failed upload cleanup returned an error",
+          await safeJson(response),
+        );
+      }
+    } catch (error) {
+      console.warn("site-media: failed upload cleanup could not run", error);
+    }
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
@@ -809,27 +848,44 @@ function MediaEditor({
       }
     }
 
+    const uploadedPaths: string[] = [];
+    const retainedPaths = initial
+      ? [
+          initial.before_image_path,
+          initial.after_image_path,
+          initial.image_path,
+          initial.poster_image_path,
+          initial.panorama_image_path,
+        ]
+      : [];
+    const optimizedImages: OptimizedClientImage[] = [];
+
     try {
       for (const { slot } of slots) {
         const file = files[slot];
         if (!file) continue;
         const cfg = SLOT_CONFIG[slot];
 
+        let uploadFile = file;
+        if (usesStandardPublicImageProfile(slot)) {
+          setStage("optimizing");
+          setStageDetail(cfg.label);
+          const optimized = await optimizeClientImage(
+            file,
+            STANDARD_PUBLIC_IMAGE_PROFILE,
+          );
+          optimizedImages.push(optimized);
+          uploadFile = optimized.file;
+        }
+
         setStage("uploading");
         setStageDetail(cfg.label);
 
-        const signed = await requestSignedUrl(file, cfg.kind);
-        if (!signed.ok) {
-          setLocalError(signed.message);
-          onError(signed.message);
-          return;
-        }
-        const upload = await uploadOne(file, signed.data);
-        if (!upload.ok) {
-          setLocalError(upload.message);
-          onError(upload.message);
-          return;
-        }
+        const signed = await requestSignedUrl(uploadFile, cfg.kind);
+        if (!signed.ok) throw new Error(signed.message);
+        uploadedPaths.push(signed.data.path);
+        const upload = await uploadOne(uploadFile, signed.data);
+        if (!upload.ok) throw new Error(upload.message);
         finalPaths[cfg.field] = signed.data.path;
       }
 
@@ -858,34 +914,41 @@ function MediaEditor({
         ? `/api/admin/media/${initial!.id}`
         : "/api/admin/media";
 
-      let res: Response;
       try {
-        res = await fetch(url, {
+        const res = await fetch(url, {
           method: isEdit ? "PATCH" : "POST",
           headers: { "content-type": "application/json" },
           credentials: "same-origin",
           body: JSON.stringify(baseBody),
         });
-      } catch {
-        const m = "Could not save site media item.";
-        setLocalError(m);
-        onError(m);
-        return;
+        if (!res.ok) {
+          const body = await safeJson(res);
+          throw new Error(body?.error ?? "Could not save site media item.");
+        }
+      } catch (error) {
+        if (error instanceof Error) throw error;
+        throw new Error("Could not save site media item.");
       }
 
-      if (!res.ok) {
-        const body = await safeJson(res);
-        const message = body?.error ?? "Could not save site media item.";
-        setLocalError(message);
-        onError(message);
-        return;
-      }
-
-      onSaved(
+      const savedMessage =
         isEdit
           ? `Saved "${title || initial?.title || "item"}".`
-          : `Created "${title || "item"}".`
-      );
+          : `Created "${title || "item"}".`;
+      const optimizationMessage =
+        optimizedImages.length > 0
+          ? ` Images optimized: ${formatImageOptimizationSummary(
+              summarizeImageOptimizations(optimizedImages),
+            )}.`
+          : "";
+      onSaved(`${savedMessage}${optimizationMessage}`);
+    } catch (error) {
+      await cleanupFailedUploads(uploadedPaths, retainedPaths);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not save site media item.";
+      setLocalError(message);
+      onError(message);
     } finally {
       setStage("idle");
       setStageDetail("");
@@ -895,7 +958,9 @@ function MediaEditor({
   const slots = slotsForType(mediaType);
 
   const submitLabel =
-    stage === "uploading"
+    stage === "optimizing"
+      ? `Optimizing${stageDetail ? ` ${stageDetail.toLowerCase()}` : ""}…`
+      : stage === "uploading"
       ? `Uploading${stageDetail ? ` ${stageDetail.toLowerCase()}` : ""}…`
       : stage === "saving"
       ? "Saving…"

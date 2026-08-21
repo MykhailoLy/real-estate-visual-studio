@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { failedAdminUploadCleanupCandidates } from "@/lib/admin-upload-cleanup";
 import {
   SITE_MEDIA_SECTIONS,
   SITE_MEDIA_UPLOAD_KINDS,
@@ -10,9 +11,12 @@ import {
 import {
   buildSiteMediaObjectPath,
   createSiteMediaSignedUploadUrl,
+  deleteSiteMediaFiles,
+  isValidSiteMediaObjectPath,
   SITE_MEDIA_ALLOWED_MIMES,
   SITE_MEDIA_MAX_IMAGE_BYTES,
   SITE_MEDIA_MAX_IMAGE_MB,
+  unreferencedSiteMediaFiles,
 } from "@/lib/site-media-server";
 
 // ============================================================
@@ -58,6 +62,17 @@ const Body = z.object({
       `File is too large. Max ${SITE_MEDIA_MAX_IMAGE_MB} MB.`
     ),
 });
+
+const CleanupBody = z
+  .object({
+    section: z.enum(SITE_MEDIA_SECTIONS),
+    uploaded_paths: z.array(z.string().trim().min(1).max(512)).max(5),
+    retained_paths: z
+      .array(z.string().trim().min(1).max(512))
+      .max(5)
+      .optional(),
+  })
+  .strict();
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -124,4 +139,36 @@ export async function POST(request: Request) {
     kind,
     section,
   });
+}
+
+export async function DELETE(request: Request) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const parsed = CleanupBody.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid cleanup request.", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const section = parsed.data.section as SiteMediaSection;
+  const paths = failedAdminUploadCleanupCandidates({
+    uploadedPaths: parsed.data.uploaded_paths,
+    retainedPaths: parsed.data.retained_paths,
+    isOwnedPath: (path) => isValidSiteMediaObjectPath(path, section),
+  });
+
+  const unreferencedPaths = await unreferencedSiteMediaFiles(paths);
+  await deleteSiteMediaFiles(unreferencedPaths);
+  return NextResponse.json({ ok: true, deleted: unreferencedPaths.length });
 }

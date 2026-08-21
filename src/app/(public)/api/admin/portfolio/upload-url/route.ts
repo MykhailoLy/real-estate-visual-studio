@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { failedAdminUploadCleanupCandidates } from "@/lib/admin-upload-cleanup";
 import {
   PORTFOLIO_SERVICE_SLUGS,
   type PortfolioServiceSlug,
@@ -11,6 +12,9 @@ import {
   ADMIN_MAX_IMAGE_MB,
   buildPortfolioObjectPath,
   createPortfolioSignedUploadUrl,
+  deletePortfolioFiles,
+  isValidPortfolioObjectPath,
+  unreferencedPortfolioFiles,
 } from "@/lib/portfolio-server";
 
 // ============================================================
@@ -57,6 +61,17 @@ const Body = z.object({
     ),
   kind: z.enum(["before", "after"] as const),
 });
+
+const CleanupBody = z
+  .object({
+    service_slug: z.enum(PORTFOLIO_SERVICE_SLUGS),
+    uploaded_paths: z.array(z.string().trim().min(1).max(512)).max(2),
+    retained_paths: z
+      .array(z.string().trim().min(1).max(512))
+      .max(2)
+      .optional(),
+  })
+  .strict();
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -132,4 +147,36 @@ export async function POST(request: Request) {
     contentType: content_type,
     kind,
   });
+}
+
+export async function DELETE(request: Request) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const parsed = CleanupBody.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid cleanup request.", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const serviceSlug = parsed.data.service_slug as PortfolioServiceSlug;
+  const paths = failedAdminUploadCleanupCandidates({
+    uploadedPaths: parsed.data.uploaded_paths,
+    retainedPaths: parsed.data.retained_paths,
+    isOwnedPath: (path) => isValidPortfolioObjectPath(path, serviceSlug),
+  });
+
+  const unreferencedPaths = await unreferencedPortfolioFiles(paths);
+  await deletePortfolioFiles(unreferencedPaths);
+  return NextResponse.json({ ok: true, deleted: unreferencedPaths.length });
 }

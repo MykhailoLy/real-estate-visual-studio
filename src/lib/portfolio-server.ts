@@ -201,6 +201,51 @@ export async function deletePortfolioFiles(
   }
 }
 
+/**
+ * Fail closed when cleaning up an interrupted browser upload: a path that is
+ * already referenced by any portfolio row is committed, not an orphan.
+ */
+export async function unreferencedPortfolioFiles(
+  paths: readonly string[],
+): Promise<string[]> {
+  const unique = [...new Set(paths)];
+  if (unique.length === 0) return [];
+
+  try {
+    const supabase = createServerClient();
+    const [before, after] = await Promise.all([
+      supabase
+        .from("portfolio_items")
+        .select("before_image_path")
+        .in("before_image_path", unique),
+      supabase
+        .from("portfolio_items")
+        .select("after_image_path")
+        .in("after_image_path", unique),
+    ]);
+
+    if (before.error || after.error) {
+      console.warn("portfolio: could not verify failed upload ownership", {
+        beforeError: before.error,
+        afterError: after.error,
+      });
+      return [];
+    }
+
+    const referenced = new Set<string>();
+    for (const row of before.data ?? []) {
+      if (row.before_image_path) referenced.add(row.before_image_path);
+    }
+    for (const row of after.data ?? []) {
+      if (row.after_image_path) referenced.add(row.after_image_path);
+    }
+    return unique.filter((path) => !referenced.has(path));
+  } catch (error) {
+    console.warn("portfolio: failed upload ownership check threw", error);
+    return [];
+  }
+}
+
 // ============================================================
 // PATH VALIDATION
 // ============================================================
