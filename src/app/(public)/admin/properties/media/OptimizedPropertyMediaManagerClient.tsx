@@ -43,8 +43,8 @@ import {
 } from "@/features/property-showcase/admin-routing";
 import {
   formatImageBytes,
-  optimizePropertyImage,
-} from "@/features/property-showcase/client-image-optimizer";
+  optimizeClientImage,
+} from "@/lib/client-image-optimizer";
 import {
   getPrimaryLanguage,
   getPropertyLanguageOptions,
@@ -747,7 +747,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         setUploadDetail(
           `Optimizing ${index + 1} of ${files.length}: ${sourceFile.name}`,
         );
-        const optimized = await optimizePropertyImage(sourceFile, "gallery");
+        const optimized = await optimizeClientImage(sourceFile, "gallery");
         originalBytes += optimized.originalBytes;
         optimizedBytes += optimized.optimizedBytes;
         setUploadDetail(
@@ -819,7 +819,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
         setUploadDetail(
           `Optimizing floor plan ${index + 1} of ${files.length}: ${sourceFile.name}`,
         );
-        const optimized = await optimizePropertyImage(sourceFile, "floor-plan");
+        const optimized = await optimizeClientImage(sourceFile, "floor-plan");
         originalBytes += optimized.originalBytes;
         optimizedBytes += optimized.optimizedBytes;
         setUploadDetail(
@@ -900,7 +900,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     let uploadedPublicUrl = "";
 
     try {
-      const optimized = await optimizePropertyImage(sourceFile, "floor-plan");
+      const optimized = await optimizeClientImage(sourceFile, "floor-plan");
       setUploadDetail(
         `Uploading replacement floor plan: ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} × ${optimized.height})`,
       );
@@ -965,7 +965,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     setLastSavings(null);
     let uploadedPublicUrl = "";
     try {
-      const optimized = await optimizePropertyImage(sourceFile, "gallery");
+      const optimized = await optimizeClientImage(sourceFile, "gallery");
       setUploadDetail(
         `Uploading tour poster: ${formatImageBytes(optimized.originalBytes)} → ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} × ${optimized.height})`,
       );
@@ -1027,7 +1027,7 @@ function PropertyMediaEditor({ record }: { record: PropertyShowcaseAdminRecord }
     setLastSavings(null);
     let uploadedPublicUrl = "";
     try {
-      const optimized = await optimizePropertyImage(sourceFile, "gallery");
+      const optimized = await optimizeClientImage(sourceFile, "gallery");
       setUploadDetail(
         `Uploading ${label}: ${formatImageBytes(optimized.originalBytes)} -> ${formatImageBytes(optimized.optimizedBytes)} (${optimized.width} x ${optimized.height})`,
       );

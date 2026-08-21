@@ -1,8 +1,8 @@
 "use client";
 
-export type PropertyImageProfile = "gallery" | "floor-plan";
+export type ClientImageProfile = "gallery" | "floor-plan";
 
-export interface OptimizedPropertyImage {
+export interface OptimizedClientImage {
   file: File;
   originalBytes: number;
   optimizedBytes: number;
@@ -12,7 +12,14 @@ export interface OptimizedPropertyImage {
   savedPercent: number;
 }
 
-interface ImageProfileSettings {
+export interface ImageOptimizationSummary {
+  originalBytes: number;
+  optimizedBytes: number;
+  savedBytes: number;
+  savedPercent: number;
+}
+
+export interface ImageProfileSettings {
   maxLongSide: number;
   minLongSide: number;
   targetBytes: number;
@@ -20,7 +27,12 @@ interface ImageProfileSettings {
   minimumQuality: number;
 }
 
-const PROFILE_SETTINGS: Record<PropertyImageProfile, ImageProfileSettings> = {
+export const STANDARD_PUBLIC_IMAGE_PROFILE: ClientImageProfile = "gallery";
+
+export const IMAGE_PROFILE_SETTINGS: Record<
+  ClientImageProfile,
+  ImageProfileSettings
+> = {
   gallery: {
     maxLongSide: 2800,
     minLongSide: 1800,
@@ -39,13 +51,14 @@ const PROFILE_SETTINGS: Record<PropertyImageProfile, ImageProfileSettings> = {
 
 const MAX_SOURCE_PIXELS = 100_000_000;
 
-function outputName(filename: string, profile: PropertyImageProfile): string {
-  const stem = filename
-    .replace(/\.[^.]+$/, "")
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^[-.]+|[-.]+$/g, "") || "property-image";
+function outputName(filename: string, profile: ClientImageProfile): string {
+  const stem =
+    filename
+      .replace(/\.[^.]+$/, "")
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^[-.]+|[-.]+$/g, "") || "property-image";
   return `${stem}-${profile}.webp`;
 }
 
@@ -165,11 +178,11 @@ async function encodeBestWebp(
   return best;
 }
 
-export async function optimizePropertyImage(
+export async function optimizeClientImage(
   file: File,
-  profile: PropertyImageProfile,
-): Promise<OptimizedPropertyImage> {
-  const settings = PROFILE_SETTINGS[profile];
+  profile: ClientImageProfile,
+): Promise<OptimizedClientImage> {
+  const settings = IMAGE_PROFILE_SETTINGS[profile];
   const decoded = await loadImage(file);
 
   try {
@@ -195,7 +208,8 @@ export async function optimizePropertyImage(
       },
     );
     const savedBytes = Math.max(0, file.size - optimizedFile.size);
-    const savedPercent = file.size > 0 ? Math.round((savedBytes / file.size) * 100) : 0;
+    const savedPercent =
+      file.size > 0 ? Math.round((savedBytes / file.size) * 100) : 0;
 
     return {
       file: optimizedFile,
@@ -211,10 +225,38 @@ export async function optimizePropertyImage(
   }
 }
 
+export function summarizeImageOptimizations(
+  images: readonly Pick<
+    OptimizedClientImage,
+    "originalBytes" | "optimizedBytes"
+  >[],
+): ImageOptimizationSummary {
+  const originalBytes = images.reduce(
+    (total, image) => total + image.originalBytes,
+    0,
+  );
+  const optimizedBytes = images.reduce(
+    (total, image) => total + image.optimizedBytes,
+    0,
+  );
+  const savedBytes = Math.max(0, originalBytes - optimizedBytes);
+  const savedPercent =
+    originalBytes > 0 ? Math.round((savedBytes / originalBytes) * 100) : 0;
+
+  return { originalBytes, optimizedBytes, savedBytes, savedPercent };
+}
+
 export function formatImageBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const kilobytes = bytes / 1024;
-  if (kilobytes < 1024) return `${kilobytes.toFixed(kilobytes >= 100 ? 0 : 1)} KB`;
+  if (kilobytes < 1024)
+    return `${kilobytes.toFixed(kilobytes >= 100 ? 0 : 1)} KB`;
   const megabytes = kilobytes / 1024;
   return `${megabytes.toFixed(megabytes >= 10 ? 1 : 2)} MB`;
+}
+
+export function formatImageOptimizationSummary(
+  summary: ImageOptimizationSummary,
+): string {
+  return `Original total: ${formatImageBytes(summary.originalBytes)} → uploaded: ${formatImageBytes(summary.optimizedBytes)} (${summary.savedPercent}% saved)`;
 }

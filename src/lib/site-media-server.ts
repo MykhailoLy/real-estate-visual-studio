@@ -189,6 +189,54 @@ export async function deleteSiteMediaFiles(
   }
 }
 
+/**
+ * Fail closed when cleaning up an interrupted browser upload: never delete a
+ * path that has already been attached to a site_media_items row.
+ */
+export async function unreferencedSiteMediaFiles(
+  paths: readonly string[],
+): Promise<string[]> {
+  const unique = [...new Set(paths)];
+  if (unique.length === 0) return [];
+
+  const fields = [
+    "before_image_path",
+    "after_image_path",
+    "image_path",
+    "poster_image_path",
+    "panorama_image_path",
+  ] as const;
+
+  try {
+    const supabase = createServerClient();
+    const results = await Promise.all(
+      fields.map((field) =>
+        supabase.from("site_media_items").select(field).in(field, unique),
+      ),
+    );
+
+    if (results.some((result) => result.error)) {
+      console.warn("site-media: could not verify failed upload ownership", {
+        errors: results.map((result) => result.error).filter(Boolean),
+      });
+      return [];
+    }
+
+    const referenced = new Set<string>();
+    results.forEach((result) => {
+      for (const row of result.data ?? []) {
+        for (const path of Object.values(row)) {
+          if (typeof path === "string") referenced.add(path);
+        }
+      }
+    });
+    return unique.filter((path) => !referenced.has(path));
+  } catch (error) {
+    console.warn("site-media: failed upload ownership check threw", error);
+    return [];
+  }
+}
+
 // ============================================================
 // PATH VALIDATION
 // ============================================================
