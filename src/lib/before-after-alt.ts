@@ -31,6 +31,17 @@ function metadataText(value: string | null | undefined): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function equivalentExplicitAlts(
+  beforeAlt: string | null,
+  afterAlt: string | null,
+): boolean {
+  if (!beforeAlt || !afterAlt) return false;
+  return (
+    metadataText(beforeAlt)?.toLocaleLowerCase("en-US") ===
+    metadataText(afterAlt)?.toLocaleLowerCase("en-US")
+  );
+}
+
 function serviceContext({
   serviceLabel,
   serviceSlug,
@@ -135,11 +146,14 @@ function generatedAlt(
 /**
  * Resolve accessible, distinct ALT text for a Before/After pair.
  *
- * Non-empty per-image values always win and are returned unchanged. Only a
- * missing side is generated using shared ALT, description/title metadata, and
- * service context. When necessary, the opposite explicit ALT may supply scene
- * meaning, but it is always passed through the missing-side formatter and is
- * never returned verbatim for both images.
+ * Meaningfully different non-empty per-image values win and are returned
+ * unchanged. Equivalent explicit values are treated as shared semantic source
+ * text and receive distinct rendered side/service context without changing the
+ * stored values. A missing side is generated using shared ALT,
+ * description/title metadata, and service context. When necessary, the
+ * opposite explicit ALT may supply scene meaning, but it is always passed
+ * through the missing-side formatter and is never returned verbatim for both
+ * images.
  */
 export function getBeforeAfterAlt({
   beforeAlt,
@@ -157,6 +171,14 @@ export function getBeforeAfterAlt({
   const descriptionScene = metadataText(description);
   const titleScene = metadataText(title);
   const context = serviceContext({ serviceLabel, serviceSlug, locale });
+
+  if (equivalentExplicitAlts(explicitBefore, explicitAfter)) {
+    const duplicateScene = metadataText(explicitBefore);
+    return {
+      beforeAlt: generatedAlt("before", duplicateScene, context, locale),
+      afterAlt: generatedAlt("after", duplicateScene, context, locale),
+    };
+  }
 
   return {
     beforeAlt:

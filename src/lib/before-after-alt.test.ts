@@ -17,6 +17,63 @@ test("preserves explicit per-image ALT values verbatim", () => {
   );
 });
 
+test("generates distinct rendered ALT values from identical explicit ALT", () => {
+  const result = getBeforeAfterAlt({
+    beforeAlt: "Modern villa exterior",
+    afterAlt: "Modern villa exterior",
+    serviceLabel: "Day to Dusk",
+  });
+
+  assert.deepEqual(result, {
+    beforeAlt: "Before day-to-dusk editing: Modern villa exterior",
+    afterAlt: "After day-to-dusk editing: Modern villa exterior",
+  });
+  assert.notEqual(result.beforeAlt, result.afterAlt);
+});
+
+test("treats explicit ALT values differing only by case as duplicates", () => {
+  const result = getBeforeAfterAlt({
+    beforeAlt: "Modern villa exterior",
+    afterAlt: "modern villa exterior",
+    serviceLabel: "Day to Dusk",
+  });
+
+  assert.deepEqual(result, {
+    beforeAlt: "Before day-to-dusk editing: Modern villa exterior",
+    afterAlt: "After day-to-dusk editing: Modern villa exterior",
+  });
+  assert.notEqual(result.beforeAlt, result.afterAlt);
+});
+
+test("treats surrounding whitespace as insignificant for duplicate explicit ALT", () => {
+  const result = getBeforeAfterAlt({
+    beforeAlt: " Modern villa exterior ",
+    afterAlt: "Modern villa exterior",
+    serviceLabel: "Day to Dusk",
+  });
+
+  assert.deepEqual(result, {
+    beforeAlt: "Before day-to-dusk editing: Modern villa exterior",
+    afterAlt: "After day-to-dusk editing: Modern villa exterior",
+  });
+  assert.notEqual(result.beforeAlt, result.afterAlt);
+});
+
+test("treats whitespace-only explicit ALT as missing", () => {
+  const result = getBeforeAfterAlt({
+    beforeAlt: "  \t  ",
+    afterAlt: "Modern villa exterior after twilight editing",
+    serviceLabel: "Day to Dusk",
+  });
+
+  assert.deepEqual(result, {
+    beforeAlt:
+      "Before day-to-dusk editing: Modern villa exterior after twilight editing",
+    afterAlt: "Modern villa exterior after twilight editing",
+  });
+  assert.notEqual(result.beforeAlt, result.afterAlt);
+});
+
 test("turns one shared scene description into distinct ALT values", () => {
   assert.deepEqual(
     getBeforeAfterAlt({
