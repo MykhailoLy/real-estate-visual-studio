@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PropertyShowcaseSchema } from "../src/features/property-showcase/schema.ts";
+import { collectPropertyShowcaseReferencedSiteMediaPaths } from "../src/features/property-showcase/storage-cleanup.ts";
 import {
   PORTFOLIO_IMAGE_COLUMNS,
   SITE_MEDIA_REFERENCE_COLUMNS,
   isPublicMediaBucket,
   type ApplyRepository,
-  type BackfillCandidate,
   type BackfillTable,
   type CleanupReportRepository,
   type DiscoveryRepository,
@@ -45,7 +46,7 @@ function assertAllowedBucket(bucket: string): asserts bucket is PublicMediaBucke
 
 async function fetchAllRows(
   client: SupabaseClient,
-  table: BackfillTable,
+  table: BackfillTable | "property_showcases",
   columns: string,
 ): Promise<unknown[]> {
   const rows: unknown[] = [];
@@ -144,6 +145,7 @@ async function findReferences(
   client: SupabaseClient,
   bucket: PublicMediaBucket,
   path: string,
+  listPropertyShowcaseRows: () => Promise<readonly unknown[]>,
 ): Promise<ExistingReference[]> {
   assertAllowedBucket(bucket);
   const table: BackfillTable =
@@ -173,6 +175,64 @@ async function findReferences(
     }
   }
 
+  if (bucket === "site-media") {
+    references.push(
+      ...propertyShowcaseContentReferences(
+        await listPropertyShowcaseRows(),
+        path,
+      ),
+    );
+  }
+
+  return references;
+}
+
+export function propertyShowcaseContentReferences(
+  rows: readonly unknown[],
+  path: string,
+): ExistingReference[] {
+  const references: ExistingReference[] = [];
+
+  rows.forEach((value, index) => {
+    const fallbackRowId = `<invalid-property-showcase-${index}>`;
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      references.push({
+        table: "property_showcases",
+        rowId: fallbackRowId,
+        column: "content",
+      });
+      return;
+    }
+    const row = value as Record<string, unknown>;
+    const rowId =
+      typeof row.id === "string" && row.id.trim() ? row.id : fallbackRowId;
+    const rowSlug =
+      typeof row.slug === "string" && row.slug.trim() ? row.slug : null;
+    const parsed = PropertyShowcaseSchema.safeParse(row.content);
+    if (!rowSlug || !parsed.success || parsed.data.slug !== rowSlug) {
+      references.push({ table: "property_showcases", rowId, column: "content" });
+      return;
+    }
+
+    try {
+      if (
+        collectPropertyShowcaseReferencedSiteMediaPaths(parsed.data).includes(
+          path,
+        )
+      ) {
+        references.push({
+          table: "property_showcases",
+          rowId,
+          column: "content",
+        });
+      }
+    } catch {
+      // Cleanup safety is fail-closed: an unparseable row retains every old
+      // object rather than allowing any of them to be called safe.
+      references.push({ table: "property_showcases", rowId, column: "content" });
+    }
+  });
+
   return references;
 }
 
@@ -183,6 +243,16 @@ export type SupabasePublicMediaBackfillRepository = DiscoveryRepository &
 export function createSupabasePublicMediaBackfillRepository(
   client: SupabaseClient,
 ): SupabasePublicMediaBackfillRepository {
+  let propertyShowcaseRows: Promise<unknown[]> | null = null;
+  const listPropertyShowcaseRows = () => {
+    propertyShowcaseRows ??= fetchAllRows(
+      client,
+      "property_showcases",
+      "id,slug,content",
+    );
+    return propertyShowcaseRows;
+  };
+
   return {
     listSiteMediaRows: () =>
       fetchAllRows(
@@ -224,12 +294,7 @@ export function createSupabasePublicMediaBackfillRepository(
     },
     guardedReplaceReference: (reference, newPath) =>
       guardedReplaceExactReference(client, reference, newPath),
-    findReferences: (bucket, path) => findReferences(client, bucket, path),
+    findReferences: (bucket, path) =>
+      findReferences(client, bucket, path, listPropertyShowcaseRows),
   };
-}
-
-export function candidateAuditKey(candidate: BackfillCandidate): string {
-  return [candidate.table, candidate.rowId, candidate.column, candidate.path].join(
-    ":",
-  );
 }

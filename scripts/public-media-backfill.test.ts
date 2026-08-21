@@ -1,12 +1,20 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import sharp from "sharp";
+import { costaBlancaDemo } from "../src/features/property-showcase/registry.ts";
 import {
   IMAGE_PROFILE_SETTINGS,
   STANDARD_PUBLIC_IMAGE_PROFILE,
 } from "../src/lib/image-profile-settings.ts";
-import { parseCliOptions } from "./backfill-public-images.ts";
+import {
+  manifestStatus,
+  parseCliOptions,
+  writeTextFileAtomically,
+} from "./backfill-public-images.ts";
 import { optimizeLegacyGalleryImage } from "./optimize-legacy-gallery-image.ts";
 import {
   applyBackfillCandidates,
@@ -15,6 +23,8 @@ import {
   buildLegacyGalleryObjectPath,
   candidateSkipReason,
   discoverBackfillCandidates,
+  resolveBackfillCandidatesWithManifest,
+  stableCandidateAuditKey,
   type ApplyRepository,
   type BackfillCandidate,
   type CleanupReportRepository,
@@ -26,7 +36,10 @@ import {
   type StorageObjectInfo,
   type StorageUploadOptions,
 } from "./public-media-backfill-core.ts";
-import { guardedReplaceExactReference } from "./supabase-public-media-backfill-adapter.ts";
+import {
+  guardedReplaceExactReference,
+  propertyShowcaseContentReferences,
+} from "./supabase-public-media-backfill-adapter.ts";
 
 const TARGET_BYTES = IMAGE_PROFILE_SETTINGS.gallery.targetBytes;
 
@@ -108,6 +121,30 @@ function candidate(
     intendedNewPath:
       "service-options/1800000000000-abcdef123456-legacy-gallery.webp",
     reason: "referenced public image exceeds the gallery target",
+    ...overrides,
+  };
+}
+
+function manifestAttempt(
+  currentCandidate: BackfillCandidate,
+  overrides: Partial<{
+    candidateKey: string;
+    oldPath: string;
+    newPath: string;
+    optimizedBytes: number;
+    status: string;
+  }> = {},
+) {
+  return {
+    candidateKey: stableCandidateAuditKey(currentCandidate),
+    table: currentCandidate.table,
+    rowId: currentCandidate.rowId,
+    column: currentCandidate.column,
+    bucket: currentCandidate.bucket,
+    oldPath: currentCandidate.path,
+    newPath: currentCandidate.intendedNewPath,
+    optimizedBytes: 4,
+    status: "uploaded-uncommitted",
     ...overrides,
   };
 }
@@ -279,7 +316,7 @@ test("candidate discovery filters by live references and excludes panorama", asy
   );
   assert.equal(discovery.originalTotalBytes, 5_000_000);
   assert.equal(discovery.theoreticalTargetCeiling, 3_200_000);
-  assert.equal(discovery.potentialMaximumSavings, 1_800_000);
+  assert.equal(discovery.targetBasedSavings, 1_800_000);
   assert.equal(repository.writes, 0);
 });
 
@@ -466,6 +503,209 @@ test("DB failure leaves the old reference and reports the uploaded cleanup candi
   assert.equal(repository.deleteCalls, 0);
 });
 
+test("verified upload is resumed from the authoritative manifest after DB failure without a second upload", async () => {
+  const firstCandidate = candidate();
+  const firstRepository = new FakeApplyRepository(firstCandidate);
+  firstRepository.dbFailure = true;
+  let journaledBytes: number | null = null;
+
+  const firstResult = await applyBackfillCandidate(
+    firstCandidate,
+    firstRepository,
+    async () => optimizedImage,
+    {
+      recordVerifiedUpload: async (_candidate, optimizedBytes) => {
+        journaledBytes = optimizedBytes;
+      },
+    },
+  );
+
+  assert.equal(firstResult.status, "failed");
+  assert.equal(manifestStatus(firstResult), "uploaded-uncommitted");
+  assert.equal(journaledBytes, optimizedImage.bytes.byteLength);
+
+  const rediscoveredCandidate = candidate({
+    intendedNewPath:
+      "service-options/1800000009999-different999-legacy-gallery.webp",
+  });
+  const [resumedCandidate] = resolveBackfillCandidatesWithManifest(
+    [rediscoveredCandidate],
+    [
+      manifestAttempt(firstCandidate, {
+        status: manifestStatus(firstResult),
+        optimizedBytes: journaledBytes ?? 0,
+      }),
+    ],
+  );
+  assert.ok(resumedCandidate);
+  assert.equal(resumedCandidate.intendedNewPath, firstCandidate.intendedNewPath);
+
+  const resumedRepository = new FakeApplyRepository(resumedCandidate);
+  const uploadedInfo = firstRepository.objects.get(
+    `${firstCandidate.bucket}/${firstCandidate.intendedNewPath}`,
+  );
+  assert.ok(uploadedInfo);
+  resumedRepository.objects.set(
+    `${resumedCandidate.bucket}/${resumedCandidate.intendedNewPath}`,
+    uploadedInfo,
+  );
+  let secondOptimizeCalls = 0;
+  let secondUploadJournalCalls = 0;
+  const resumedResult = await applyBackfillCandidate(
+    resumedCandidate,
+    resumedRepository,
+    async () => {
+      secondOptimizeCalls += 1;
+      return optimizedImage;
+    },
+    {
+      recordVerifiedUpload: async () => {
+        secondUploadJournalCalls += 1;
+      },
+    },
+  );
+
+  assert.equal(resumedResult.status, "migrated");
+  assert.equal(resumedRepository.referenceValue, firstCandidate.intendedNewPath);
+  assert.equal(secondOptimizeCalls, 0);
+  assert.equal(secondUploadJournalCalls, 0);
+  assert.equal(
+    resumedRepository.events.filter((event) => event === "upload").length,
+    0,
+  );
+  assert.equal(
+    resumedRepository.events.filter((event) => event === "download").length,
+    0,
+  );
+});
+
+test("missing uploaded-uncommitted object fails closed without another upload", async () => {
+  const freshCandidate = candidate();
+  const [resumedCandidate] = resolveBackfillCandidatesWithManifest(
+    [freshCandidate],
+    [manifestAttempt(freshCandidate)],
+  );
+  assert.ok(resumedCandidate);
+  const repository = new FakeApplyRepository(resumedCandidate);
+
+  const applied = await applyBackfillCandidate(
+    resumedCandidate,
+    repository,
+    async () => {
+      assert.fail("resume must not optimize");
+    },
+  );
+
+  assert.equal(applied.status, "failed");
+  assert.equal(manifestStatus(applied), "uploaded-uncommitted");
+  assert.equal(applied.stage, "verify-upload");
+  assert.match(applied.message, /could not be found/);
+  assert.equal(repository.events.includes("upload"), false);
+  assert.equal(repository.events.includes("guarded-update"), false);
+  assert.equal(repository.referenceValue, resumedCandidate.path);
+});
+
+test("uploaded-uncommitted size or MIME mismatch fails closed", async (t) => {
+  for (const mismatch of ["size", "mime"] as const) {
+    await t.test(mismatch, async () => {
+      const freshCandidate = candidate();
+      const [resumedCandidate] = resolveBackfillCandidatesWithManifest(
+        [freshCandidate],
+        [manifestAttempt(freshCandidate)],
+      );
+      assert.ok(resumedCandidate);
+      const repository = new FakeApplyRepository(resumedCandidate);
+      repository.objects.set(
+        `${resumedCandidate.bucket}/${resumedCandidate.intendedNewPath}`,
+        mismatch === "size"
+          ? { size: optimizedImage.bytes.byteLength + 1, mimeType: "image/webp" }
+          : { size: optimizedImage.bytes.byteLength, mimeType: "image/jpeg" },
+      );
+
+      const applied = await applyBackfillCandidate(
+        resumedCandidate,
+        repository,
+        async () => {
+          assert.fail("resume must not optimize");
+        },
+      );
+
+      assert.equal(applied.status, "failed");
+      assert.equal(applied.stage, "verify-upload");
+      assert.equal(repository.events.includes("upload"), false);
+      assert.equal(repository.events.includes("guarded-update"), false);
+      assert.equal(repository.referenceValue, resumedCandidate.path);
+    });
+  }
+});
+
+test("manifest migration remains idempotently skipped", async () => {
+  const freshCandidate = candidate();
+  const [migratedCandidate] = resolveBackfillCandidatesWithManifest(
+    [freshCandidate],
+    [manifestAttempt(freshCandidate, { status: "migrated" })],
+  );
+  assert.ok(migratedCandidate);
+  const repository = new FakeApplyRepository(migratedCandidate);
+
+  const applied = await applyBackfillCandidate(
+    migratedCandidate,
+    repository,
+    async () => {
+      assert.fail("migrated manifest entry must not optimize");
+    },
+  );
+
+  assert.equal(applied.status, "skipped");
+  assert.equal(manifestStatus(applied), "migrated");
+  assert.match(applied.message, /manifest already records/);
+  assert.deepEqual(repository.events, ["read-reference"]);
+  assert.equal(repository.referenceValue, migratedCandidate.path);
+});
+
+test("a different old DB reference does not inherit another manifest attempt", () => {
+  const attemptedCandidate = candidate();
+  const differentReference = candidate({
+    path: "service-options/different-original.jpg",
+    intendedNewPath:
+      "service-options/1800000009999-freshpath999-legacy-gallery.webp",
+  });
+
+  const [resolved] = resolveBackfillCandidatesWithManifest(
+    [differentReference],
+    [manifestAttempt(attemptedCandidate)],
+  );
+
+  assert.ok(resolved);
+  assert.equal(resolved.intendedNewPath, differentReference.intendedNewPath);
+  assert.equal(resolved.manifestState, undefined);
+});
+
+test("a changed DB reference is not overwritten while resuming", async () => {
+  const freshCandidate = candidate();
+  const [resumedCandidate] = resolveBackfillCandidatesWithManifest(
+    [freshCandidate],
+    [manifestAttempt(freshCandidate)],
+  );
+  assert.ok(resumedCandidate);
+  const repository = new FakeApplyRepository(resumedCandidate);
+  repository.referenceValue = "service-options/concurrently-changed.jpg";
+
+  const applied = await applyBackfillCandidate(
+    resumedCandidate,
+    repository,
+    async () => {
+      assert.fail("conflicting resume must not optimize");
+    },
+  );
+
+  assert.equal(applied.status, "conflict");
+  assert.equal(manifestStatus(applied), "uploaded-uncommitted");
+  assert.equal(repository.events.includes("upload"), false);
+  assert.equal(repository.events.includes("guarded-update"), false);
+  assert.equal(repository.referenceValue, "service-options/concurrently-changed.jpg");
+});
+
 test("concurrent DB change is reported without overwriting either reference", async () => {
   const currentCandidate = candidate();
   const repository = new FakeApplyRepository(currentCandidate);
@@ -558,6 +798,74 @@ test("cleanup report is read-only and checks all relevant references", async () 
   assert.deepEqual(writes, []);
 });
 
+test("cleanup report retains an object referenced only by Property Showcase content", async () => {
+  const previousProjectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://demo.supabase.co";
+  try {
+    const oldPath = "service-options/property-showcase-only.jpg";
+    const property = structuredClone(costaBlancaDemo);
+    property.coverImage =
+      `https://demo.supabase.co/storage/v1/object/public/site-media/${oldPath}`;
+    const references = propertyShowcaseContentReferences(
+      [{ id: "property-row", slug: property.slug, content: property }],
+      oldPath,
+    );
+    assert.deepEqual(references, [
+      {
+        table: "property_showcases",
+        rowId: "property-row",
+        column: "content",
+      },
+    ]);
+
+    const repository: CleanupReportRepository = {
+      async findReferences() {
+        return references;
+      },
+      async getStorageObjectInfo() {
+        return { size: TARGET_BYTES + 1, mimeType: "image/jpeg" };
+      },
+    };
+    const report = await buildCleanupReport(repository, [
+      {
+        bucket: "site-media",
+        oldPath,
+        newPath:
+          "service-options/1800000000000-abcdef123456-legacy-gallery.webp",
+      },
+    ]);
+
+    assert.equal(report.safeCandidates.length, 0);
+    assert.equal(report.retained[0]?.reason, "still-referenced");
+    assert.equal(
+      report.retained[0]?.references[0]?.table,
+      "property_showcases",
+    );
+  } finally {
+    if (previousProjectUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = previousProjectUrl;
+    }
+  }
+});
+
+test("invalid Property Showcase content fails closed for cleanup safety", () => {
+  assert.deepEqual(
+    propertyShowcaseContentReferences(
+      [{ id: "invalid-property", slug: "invalid-property", content: {} }],
+      "service-options/old.jpg",
+    ),
+    [
+      {
+        table: "property_showcases",
+        rowId: "invalid-property",
+        column: "content",
+      },
+    ],
+  );
+});
+
 test("Sharp optimizer produces WebP, never upscales, and honors max long side", async () => {
   const largeSource = await sharp({
     create: {
@@ -607,4 +915,24 @@ test("CLI defaults to dry-run and apply requires an explicit manifest", () => {
     parseCliOptions(["--apply", "--manifest", "audit.json"]),
     { mode: "apply", manifestPath: "audit.json" },
   );
+});
+
+test("atomic manifest writes replace complete files without leaving a temp file", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "picchuspot-manifest-"));
+  const manifestPath = join(directory, "audit.json");
+  try {
+    await writeTextFileAtomically(manifestPath, '{"version":1}\n');
+    await writeTextFileAtomically(
+      manifestPath,
+      `${JSON.stringify({ version: 1, entries: [{ status: "migrated" }] })}\n`,
+    );
+
+    assert.deepEqual(JSON.parse(await readFile(manifestPath, "utf8")), {
+      version: 1,
+      entries: [{ status: "migrated" }],
+    });
+    assert.deepEqual(await readdir(directory), ["audit.json"]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

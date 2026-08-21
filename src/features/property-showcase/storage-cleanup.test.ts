@@ -3,6 +3,7 @@ import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
 import {
   collectPropertyShowcaseMediaPaths,
+  collectPropertyShowcaseReferencedSiteMediaPaths,
   failedPropertyShowcaseUploadCleanupCandidates,
   isOwnedPropertyShowcaseStoragePath,
   ownedPropertyCustomFlyerStoragePath,
@@ -115,6 +116,19 @@ test("storage URL parsing rejects unrelated and lookalike Supabase public URLs",
     ),
     null,
   );
+});
+
+test("read-only reference collection includes shared site-media paths", () => {
+  const property = cloneProperty();
+  property.coverImage = storageUrl("service-options/shared-cover.jpg");
+  property.brochureUrl = "service-options/shared-brochure.pdf";
+
+  const references = collectPropertyShowcaseReferencedSiteMediaPaths(property);
+  assert.equal(references.includes("service-options/shared-brochure.pdf"), true);
+  assert.equal(references.includes("service-options/shared-cover.jpg"), true);
+  const owned = collectPropertyShowcaseMediaPaths(property, property.slug);
+  assert.equal(owned.includes("service-options/shared-brochure.pdf"), false);
+  assert.equal(owned.includes("service-options/shared-cover.jpg"), false);
 });
 
 test("external lookalike URLs cannot become deletion candidates", () => {

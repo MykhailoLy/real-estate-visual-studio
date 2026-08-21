@@ -1,21 +1,20 @@
-import { access, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
+import { access, open, readFile, rename } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   applyBackfillCandidates,
   buildCleanupReport,
   discoverBackfillCandidates,
   isPublicMediaBucket,
+  resolveBackfillCandidatesWithManifest,
+  stableCandidateAuditKey,
   type ApplyResult,
   type BackfillCandidate,
   type MigratedObjectRecord,
-  type OptimizedGalleryImage,
 } from "./public-media-backfill-core.ts";
 import { optimizeLegacyGalleryImage } from "./optimize-legacy-gallery-image.ts";
-import {
-  candidateAuditKey,
-  createSupabasePublicMediaBackfillRepository,
-} from "./supabase-public-media-backfill-adapter.ts";
+import { createSupabasePublicMediaBackfillRepository } from "./supabase-public-media-backfill-adapter.ts";
 
 type CliMode = "dry-run" | "apply" | "cleanup-report" | "help";
 
@@ -34,6 +33,7 @@ type ManifestEntryStatus =
 
 interface ManifestEntry {
   attemptId: string;
+  candidateKey?: string;
   table: string;
   rowId: string;
   column: string;
@@ -188,8 +188,8 @@ function printDiscovery(
       value: `${discovery.theoreticalTargetCeiling} (${formatBytes(discovery.theoreticalTargetCeiling)})`,
     },
     {
-      metric: "potential maximum savings",
-      value: `${discovery.potentialMaximumSavings} (${formatBytes(discovery.potentialMaximumSavings)})`,
+      metric: "savings at gallery target ceiling",
+      value: `${discovery.targetBasedSavings} (${formatBytes(discovery.targetBasedSavings)})`,
     },
   ]);
   console.log(
@@ -209,6 +209,41 @@ function projectUrl(): string {
   return new URL(raw).origin;
 }
 
+const MANIFEST_ENTRY_STATUSES = new Set<ManifestEntryStatus>([
+  "uploaded-uncommitted",
+  "migrated",
+  "skipped",
+  "conflict",
+  "failed",
+  "fatal",
+]);
+
+function isManifestEntry(value: unknown): value is ManifestEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entry = value as Record<string, unknown>;
+  return (
+    typeof entry.attemptId === "string" &&
+    (entry.candidateKey === undefined || typeof entry.candidateKey === "string") &&
+    typeof entry.table === "string" &&
+    typeof entry.rowId === "string" &&
+    typeof entry.column === "string" &&
+    typeof entry.bucket === "string" &&
+    typeof entry.oldPath === "string" &&
+    typeof entry.newPath === "string" &&
+    typeof entry.originalBytes === "number" &&
+    Number.isSafeInteger(entry.originalBytes) &&
+    entry.originalBytes >= 0 &&
+    (entry.optimizedBytes === null ||
+      (typeof entry.optimizedBytes === "number" &&
+        Number.isSafeInteger(entry.optimizedBytes) &&
+        entry.optimizedBytes > 0)) &&
+    typeof entry.status === "string" &&
+    MANIFEST_ENTRY_STATUSES.has(entry.status as ManifestEntryStatus) &&
+    typeof entry.message === "string" &&
+    typeof entry.updatedAt === "string"
+  );
+}
+
 function isManifest(value: unknown): value is BackfillManifest {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
@@ -217,17 +252,40 @@ function isManifest(value: unknown): value is BackfillManifest {
     typeof record.projectUrl === "string" &&
     typeof record.createdAt === "string" &&
     typeof record.updatedAt === "string" &&
-    Array.isArray(record.entries)
+    Array.isArray(record.entries) &&
+    record.entries.every(isManifestEntry)
   );
+}
+
+export async function writeTextFileAtomically(
+  targetPath: string,
+  contents: string,
+): Promise<void> {
+  const targetDirectory = dirname(targetPath);
+  await access(targetDirectory);
+  const temporaryPath = join(
+    targetDirectory,
+    `.${basename(targetPath)}.${process.pid}.${randomUUID()}.tmp`,
+  );
+  const handle = await open(temporaryPath, "wx");
+  try {
+    await handle.writeFile(contents, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  await rename(temporaryPath, targetPath);
 }
 
 async function writeManifest(
   manifestPath: string,
   manifest: BackfillManifest,
 ): Promise<void> {
-  await access(dirname(manifestPath));
   manifest.updatedAt = new Date().toISOString();
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await writeTextFileAtomically(
+    manifestPath,
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
 }
 
 async function loadOrCreateManifest(
@@ -295,9 +353,11 @@ function upsertManifestEntry(
     optimizedBytes: number | null;
   },
 ): void {
-  const attemptId = `${candidateAuditKey(candidate)}:${candidate.intendedNewPath}`;
+  const candidateKey = stableCandidateAuditKey(candidate);
+  const attemptId = JSON.stringify([candidateKey, candidate.intendedNewPath]);
   const entry: ManifestEntry = {
     attemptId,
+    candidateKey,
     table: candidate.table,
     rowId: candidate.rowId,
     column: candidate.column,
@@ -311,13 +371,31 @@ function upsertManifestEntry(
     updatedAt: new Date().toISOString(),
   };
   const existing = manifest.entries.findIndex(
-    (manifestEntry) => manifestEntry.attemptId === attemptId,
+    (manifestEntry) =>
+      manifestEntry.attemptId === attemptId ||
+      (manifestEntry.table === candidate.table &&
+        manifestEntry.rowId === candidate.rowId &&
+        manifestEntry.column === candidate.column &&
+        manifestEntry.oldPath === candidate.path &&
+        manifestEntry.newPath === candidate.intendedNewPath),
   );
   if (existing === -1) manifest.entries.push(entry);
   else manifest.entries[existing] = entry;
 }
 
-function manifestStatus(result: ApplyResult): ManifestEntryStatus {
+export function manifestStatus(result: ApplyResult): ManifestEntryStatus {
+  if (
+    result.status === "migrated" ||
+    result.candidate.manifestState?.status === "migrated"
+  ) {
+    return "migrated";
+  }
+  if (
+    result.cleanupCandidatePath ||
+    result.candidate.manifestState?.status === "uploaded-uncommitted"
+  ) {
+    return "uploaded-uncommitted";
+  }
   return result.status;
 }
 
@@ -362,7 +440,14 @@ async function runApply(
   }
 
   const journal = await loadOrCreateManifest(manifestPath, projectUrl());
-  const discovery = await discoverBackfillCandidates(repository);
+  const discovered = await discoverBackfillCandidates(repository);
+  const discovery = {
+    ...discovered,
+    candidates: resolveBackfillCandidatesWithManifest(
+      discovered.candidates,
+      journal.manifest.entries,
+    ),
+  };
   printDiscovery(discovery);
   console.log(`Audit manifest: ${journal.path}`);
 
@@ -374,21 +459,21 @@ async function runApply(
       journal: {
         recordVerifiedUpload: async (
           candidate: BackfillCandidate,
-          optimized: OptimizedGalleryImage,
+          optimizedBytes: number,
         ) => {
           upsertManifestEntry(journal.manifest, candidate, {
             status: "uploaded-uncommitted",
             message:
               "New object verified; DB reference has not yet been changed. This path is an uncommitted cleanup candidate if the process stops here.",
-            optimizedBytes: optimized.bytes.byteLength,
+            optimizedBytes,
           });
           await writeManifest(journal.path, journal.manifest);
         },
-        recordCommittedMigration: async (candidate, optimized) => {
+        recordCommittedMigration: async (candidate, optimizedBytes) => {
           upsertManifestEntry(journal.manifest, candidate, {
             status: "migrated",
             message: "Guarded DB replacement and post-update verification succeeded.",
-            optimizedBytes: optimized.bytes.byteLength,
+            optimizedBytes,
           });
           await writeManifest(journal.path, journal.manifest);
         },
@@ -397,7 +482,10 @@ async function runApply(
         upsertManifestEntry(journal.manifest, candidateResult.candidate, {
           status: manifestStatus(candidateResult),
           message: candidateResult.message,
-          optimizedBytes: candidateResult.optimizedBytes,
+          optimizedBytes:
+            candidateResult.optimizedBytes ??
+            candidateResult.candidate.manifestState?.optimizedBytes ??
+            null,
         });
         await writeManifest(journal.path, journal.manifest);
         console.log(

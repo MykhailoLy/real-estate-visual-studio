@@ -47,6 +47,22 @@ export interface BackfillCandidate extends PublicImageReference {
   mimeType: string;
   intendedNewPath: string;
   reason: string;
+  manifestState?: {
+    status: "uploaded-uncommitted" | "migrated";
+    optimizedBytes: number;
+  };
+}
+
+export interface BackfillManifestAttempt {
+  candidateKey?: string;
+  table: string;
+  rowId: string;
+  column: string;
+  bucket: string;
+  oldPath: string;
+  newPath: string;
+  optimizedBytes: number | null;
+  status: string;
 }
 
 export interface DiscoverySkip extends PublicImageReference {
@@ -58,7 +74,7 @@ export interface DiscoveryResult {
   skipped: DiscoverySkip[];
   originalTotalBytes: number;
   theoreticalTargetCeiling: number;
-  potentialMaximumSavings: number;
+  targetBasedSavings: number;
 }
 
 export type CandidateSkipReason =
@@ -120,11 +136,11 @@ export interface OptimizedGalleryImage {
 export interface ApplyJournal {
   recordVerifiedUpload?(
     candidate: BackfillCandidate,
-    optimized: OptimizedGalleryImage,
+    optimizedBytes: number,
   ): Promise<void>;
   recordCommittedMigration?(
     candidate: BackfillCandidate,
-    optimized: OptimizedGalleryImage,
+    optimizedBytes: number,
   ): Promise<void>;
 }
 
@@ -162,9 +178,9 @@ export interface ApplyBackfillResult {
 }
 
 export interface ExistingReference {
-  table: BackfillTable;
+  table: BackfillTable | "property_showcases";
   rowId: string;
-  column: SiteMediaReferenceColumn | PortfolioImageColumn;
+  column: SiteMediaReferenceColumn | PortfolioImageColumn | "content";
 }
 
 export interface CleanupReportRepository {
@@ -378,6 +394,109 @@ export function isBackfillGeneratedPath(path: string): boolean {
   return /-legacy-gallery\.webp$/i.test(path);
 }
 
+export function stableCandidateAuditKey(
+  reference: Pick<PublicImageReference, "table" | "rowId" | "column" | "path">,
+): string {
+  return JSON.stringify([
+    reference.table,
+    reference.rowId,
+    reference.column,
+    reference.path,
+  ]);
+}
+
+function manifestAttemptCandidateKey(attempt: BackfillManifestAttempt): string {
+  return JSON.stringify([
+    attempt.table,
+    attempt.rowId,
+    attempt.column,
+    attempt.oldPath,
+  ]);
+}
+
+function assertManifestAttemptForCandidate(
+  candidate: BackfillCandidate,
+  attempt: BackfillManifestAttempt,
+): void {
+  const stableKey = stableCandidateAuditKey(candidate);
+  if (attempt.candidateKey && attempt.candidateKey !== stableKey) {
+    throw new Error(
+      `Manifest candidate key does not match its audit fields for ${stableKey}.`,
+    );
+  }
+  if (attempt.bucket !== candidate.bucket) {
+    throw new Error(`Manifest bucket does not match candidate ${stableKey}.`);
+  }
+  assertUnambiguousObjectPath(attempt.newPath, candidate.bucket);
+  if (!isBackfillGeneratedPath(attempt.newPath)) {
+    throw new Error(`Manifest replacement path is not a backfill path for ${stableKey}.`);
+  }
+  const oldFolder = candidate.path.slice(0, candidate.path.lastIndexOf("/"));
+  const newFolder = attempt.newPath.slice(0, attempt.newPath.lastIndexOf("/"));
+  if (!oldFolder || newFolder !== oldFolder) {
+    throw new Error(`Manifest replacement path changed folders for ${stableKey}.`);
+  }
+  if (
+    !Number.isSafeInteger(attempt.optimizedBytes) ||
+    (attempt.optimizedBytes ?? 0) <= 0
+  ) {
+    throw new Error(`Manifest optimized byte count is invalid for ${stableKey}.`);
+  }
+}
+
+export function resolveBackfillCandidatesWithManifest(
+  candidates: readonly BackfillCandidate[],
+  attempts: readonly BackfillManifestAttempt[],
+): BackfillCandidate[] {
+  const relevantAttempts = new Map<string, BackfillManifestAttempt[]>();
+  for (const attempt of attempts) {
+    if (attempt.status !== "uploaded-uncommitted" && attempt.status !== "migrated") {
+      continue;
+    }
+    const key = manifestAttemptCandidateKey(attempt);
+    if (attempt.candidateKey && attempt.candidateKey !== key) {
+      throw new Error("Manifest candidate key does not match its audit fields.");
+    }
+    const existing = relevantAttempts.get(key) ?? [];
+    existing.push(attempt);
+    relevantAttempts.set(key, existing);
+  }
+
+  return candidates.map((candidate) => {
+    const stableKey = stableCandidateAuditKey(candidate);
+    const matching = relevantAttempts.get(stableKey) ?? [];
+    if (matching.length === 0) return candidate;
+
+    for (const attempt of matching) {
+      assertManifestAttemptForCandidate(candidate, attempt);
+    }
+    const paths = new Set(matching.map((attempt) => attempt.newPath));
+    if (paths.size !== 1) {
+      throw new Error(
+        `Manifest has multiple replacement paths for stable candidate ${stableKey}.`,
+      );
+    }
+    const optimizedSizes = new Set(
+      matching.map((entry) => entry.optimizedBytes),
+    );
+    if (optimizedSizes.size !== 1) {
+      throw new Error(
+        `Manifest has multiple optimized byte counts for stable candidate ${stableKey}.`,
+      );
+    }
+    const attempt =
+      matching.find((entry) => entry.status === "migrated") ?? matching[0];
+    return {
+      ...candidate,
+      intendedNewPath: attempt.newPath,
+      manifestState: {
+        status: attempt.status as "uploaded-uncommitted" | "migrated",
+        optimizedBytes: attempt.optimizedBytes as number,
+      },
+    };
+  });
+}
+
 export function isSharpDecodableImageMime(mimeType: string): boolean {
   return SUPPORTED_SHARP_IMAGE_MIMES.has(mimeType.trim().toLowerCase());
 }
@@ -488,7 +607,7 @@ export async function discoverBackfillCandidates(
     skipped,
     originalTotalBytes,
     theoreticalTargetCeiling,
-    potentialMaximumSavings: Math.max(
+    targetBasedSavings: Math.max(
       0,
       originalTotalBytes - theoreticalTargetCeiling,
     ),
@@ -530,6 +649,7 @@ export async function applyBackfillCandidate(
 ): Promise<ApplyResult> {
   let stage: ApplyResult["stage"] = "re-read-row";
   let optimized: OptimizedGalleryImage | null = null;
+  let optimizedBytes: number | null = null;
   let uploaded = false;
   let databaseUpdated = false;
 
@@ -561,6 +681,16 @@ export async function applyBackfillCandidate(
         null,
       );
     }
+    if (candidate.manifestState?.status === "migrated") {
+      return result(
+        candidate,
+        "skipped",
+        stage,
+        "The manifest already records this stable candidate as migrated; no write was attempted.",
+        candidate.manifestState.optimizedBytes,
+        null,
+      );
+    }
 
     stage = "source-object-check";
     const sourceInfo = await repository.getStorageObjectInfo(
@@ -582,35 +712,44 @@ export async function applyBackfillCandidate(
       throw new Error("Source object disappeared before migration.");
     }
 
-    stage = "download";
-    const sourceBytes = await repository.downloadObject(
-      candidate.bucket,
-      candidate.path,
-    );
-    if (sourceBytes.byteLength !== sourceInfo.size) {
-      throw new Error(
-        `Downloaded ${sourceBytes.byteLength} bytes but Storage reports ${sourceInfo.size}.`,
+    if (candidate.manifestState?.status === "uploaded-uncommitted") {
+      optimizedBytes = candidate.manifestState.optimizedBytes;
+      uploaded = true;
+    } else {
+      stage = "download";
+      const sourceBytes = await repository.downloadObject(
+        candidate.bucket,
+        candidate.path,
       );
-    }
+      if (sourceBytes.byteLength !== sourceInfo.size) {
+        throw new Error(
+          `Downloaded ${sourceBytes.byteLength} bytes but Storage reports ${sourceInfo.size}.`,
+        );
+      }
 
-    stage = "optimize";
-    optimized = await optimize(sourceBytes, sourceInfo.mimeType);
-    if (optimized.bytes.byteLength <= 0) {
-      throw new Error("Optimizer produced an empty WebP buffer.");
-    }
+      stage = "optimize";
+      optimized = await optimize(sourceBytes, sourceInfo.mimeType);
+      if (optimized.bytes.byteLength <= 0) {
+        throw new Error("Optimizer produced an empty WebP buffer.");
+      }
+      optimizedBytes = optimized.bytes.byteLength;
 
-    stage = "upload";
-    await repository.uploadObject(
-      candidate.bucket,
-      candidate.intendedNewPath,
-      optimized.bytes,
-      {
-        contentType: "image/webp",
-        cacheControl: "31536000",
-        upsert: false,
-      },
-    );
-    uploaded = true;
+      stage = "upload";
+      await repository.uploadObject(
+        candidate.bucket,
+        candidate.intendedNewPath,
+        optimized.bytes,
+        {
+          contentType: "image/webp",
+          cacheControl: "31536000",
+          upsert: false,
+        },
+      );
+      uploaded = true;
+    }
+    if (optimizedBytes === null) {
+      throw new Error("Verified upload byte count is unavailable.");
+    }
 
     stage = "verify-upload";
     const uploadedInfo = await repository.getStorageObjectInfo(
@@ -620,9 +759,9 @@ export async function applyBackfillCandidate(
     if (!uploadedInfo) {
       throw new Error("The uploaded object could not be found during verification.");
     }
-    if (uploadedInfo.size !== optimized.bytes.byteLength) {
+    if (uploadedInfo.size !== optimizedBytes) {
       throw new Error(
-        `Uploaded object has ${uploadedInfo.size} bytes; expected ${optimized.bytes.byteLength}.`,
+        `Uploaded object has ${uploadedInfo.size} bytes; expected ${optimizedBytes}.`,
       );
     }
     if (uploadedInfo.mimeType.toLowerCase() !== "image/webp") {
@@ -631,8 +770,10 @@ export async function applyBackfillCandidate(
       );
     }
 
-    stage = "journal-upload";
-    await journal.recordVerifiedUpload?.(candidate, optimized);
+    if (!candidate.manifestState) {
+      stage = "journal-upload";
+      await journal.recordVerifiedUpload?.(candidate, optimizedBytes);
+    }
 
     stage = "guarded-db-update";
     const replacement = await repository.guardedReplaceReference(
@@ -645,7 +786,7 @@ export async function applyBackfillCandidate(
         "conflict",
         stage,
         "The optimistic database guard found a concurrent change.",
-        optimized.bytes.byteLength,
+        optimizedBytes,
         candidate.intendedNewPath,
       );
     }
@@ -662,23 +803,25 @@ export async function applyBackfillCandidate(
         "fatal",
         stage,
         "Database update returned success but the new reference could not be verified. Stop immediately; the original object was retained.",
-        optimized.bytes.byteLength,
+        optimizedBytes,
         null,
         true,
       );
     }
 
     stage = "journal-commit";
-    await journal.recordCommittedMigration?.(candidate, optimized);
+    await journal.recordCommittedMigration?.(candidate, optimizedBytes);
 
     return result(
       candidate,
       "migrated",
       "complete",
-      optimized.targetMet
-        ? "Uploaded and verified a target-sized WebP, then replaced the guarded DB reference."
-        : "Uploaded and verified the smallest profile-compliant WebP, then replaced the guarded DB reference; the target could not be reached without going below the minimum dimensions.",
-      optimized.bytes.byteLength,
+      candidate.manifestState?.status === "uploaded-uncommitted"
+        ? "Reused and re-verified the manifest's uploaded WebP, then replaced the guarded DB reference without a second upload."
+        : optimized?.targetMet
+          ? "Uploaded and verified a target-sized WebP, then replaced the guarded DB reference."
+          : "Uploaded and verified the smallest profile-compliant WebP, then replaced the guarded DB reference; the target could not be reached without going below the minimum dimensions.",
+      optimizedBytes,
       null,
     );
   } catch (error) {
@@ -689,7 +832,7 @@ export async function applyBackfillCandidate(
       databaseUpdated ? "fatal" : "failed",
       stage,
       `${messageFromError(error)} The original object was retained.`,
-      optimized?.bytes.byteLength ?? null,
+      optimizedBytes,
       cleanupCandidatePath,
       databaseUpdated,
     );
