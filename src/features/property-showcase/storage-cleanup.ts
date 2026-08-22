@@ -53,7 +53,8 @@ export function siteMediaObjectPathFromUrl(
   const directPath = normalizeObjectPath(trimmed);
   if (
     options.allowRelativeObjectPath &&
-    directPath?.startsWith(`${PROPERTY_SHOWCASE_STORAGE_ROOT}/`)
+    directPath &&
+    !/^[a-z][a-z0-9+.-]*:/i.test(trimmed)
   ) {
     return directPath;
   }
@@ -123,6 +124,26 @@ function collectMediaValues(property: PropertyShowcase): string[] {
     property.marketingMaterials?.customFlyer?.jpg,
     property.marketingMaterials?.customFlyer?.png,
   ].filter((value): value is string => Boolean(value));
+}
+
+/**
+ * Collect every confidently parsed site-media object path referenced by the
+ * validated Property Showcase document, including shared paths outside the
+ * property's owned folder. This broader read-only view is used by cleanup
+ * safety checks; ownership checks below remain deliberately narrower.
+ */
+export function collectPropertyShowcaseReferencedSiteMediaPaths(
+  property: PropertyShowcase,
+): string[] {
+  return [
+    ...new Set(
+      [...collectMediaValues(property), property.brochureUrl]
+        .map((value) =>
+          siteMediaObjectPathFromUrl(value, { allowRelativeObjectPath: true }),
+        )
+        .filter((path): path is string => Boolean(path)),
+    ),
+  ].sort();
 }
 
 export function collectPropertyShowcaseMediaPaths(

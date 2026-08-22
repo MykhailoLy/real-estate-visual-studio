@@ -3,6 +3,7 @@ import test from "node:test";
 import { costaBlancaDemo } from "./registry.ts";
 import {
   collectPropertyShowcaseMediaPaths,
+  collectPropertyShowcaseReferencedSiteMediaPaths,
   failedPropertyShowcaseUploadCleanupCandidates,
   isOwnedPropertyShowcaseStoragePath,
   ownedPropertyCustomFlyerStoragePath,
@@ -114,6 +115,48 @@ test("storage URL parsing rejects unrelated and lookalike Supabase public URLs",
       "https://demo.supabase.co/storage/v1/object/public/site-media/property-showcases/altea/%E0%A4%A",
     ),
     null,
+  );
+});
+
+test("read-only reference collection includes shared site-media paths", () => {
+  const property = cloneProperty();
+  property.coverImage = storageUrl("service-options/shared-cover.jpg");
+  property.brochureUrl = "service-options/shared-brochure.pdf";
+
+  const references = collectPropertyShowcaseReferencedSiteMediaPaths(property);
+  assert.equal(references.includes("service-options/shared-brochure.pdf"), true);
+  assert.equal(references.includes("service-options/shared-cover.jpg"), true);
+  const owned = collectPropertyShowcaseMediaPaths(property, property.slug);
+  assert.equal(owned.includes("service-options/shared-brochure.pdf"), false);
+  assert.equal(owned.includes("service-options/shared-cover.jpg"), false);
+});
+
+test("brochure URLs remain outside existing owned-media deletion semantics", () => {
+  const existing = cloneProperty();
+  existing.slug = "altea";
+  existing.brochureUrl = storageUrl(
+    "property-showcases/altea/listing-brochure.pdf",
+  );
+
+  assert.equal(
+    collectPropertyShowcaseReferencedSiteMediaPaths(existing).includes(
+      "property-showcases/altea/listing-brochure.pdf",
+    ),
+    true,
+  );
+  assert.equal(
+    collectPropertyShowcaseMediaPaths(existing, existing.slug).includes(
+      "property-showcases/altea/listing-brochure.pdf",
+    ),
+    false,
+  );
+  assert.deepEqual(
+    propertyShowcaseMediaDeletionCandidates({
+      existing,
+      next: { ...existing, brochureUrl: undefined },
+      slug: existing.slug,
+    }),
+    [],
   );
 });
 

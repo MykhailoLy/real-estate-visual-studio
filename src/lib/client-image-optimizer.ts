@@ -1,6 +1,17 @@
 "use client";
 
-export type ClientImageProfile = "gallery" | "floor-plan";
+import {
+  IMAGE_PROFILE_SETTINGS,
+  type ClientImageProfile,
+  type ImageProfileSettings,
+} from "./image-profile-settings.ts";
+
+export {
+  IMAGE_PROFILE_SETTINGS,
+  STANDARD_PUBLIC_IMAGE_PROFILE,
+  type ClientImageProfile,
+  type ImageProfileSettings,
+} from "./image-profile-settings.ts";
 
 export interface OptimizedClientImage {
   file: File;
@@ -18,36 +29,6 @@ export interface ImageOptimizationSummary {
   savedBytes: number;
   savedPercent: number;
 }
-
-export interface ImageProfileSettings {
-  maxLongSide: number;
-  minLongSide: number;
-  targetBytes: number;
-  initialQuality: number;
-  minimumQuality: number;
-}
-
-export const STANDARD_PUBLIC_IMAGE_PROFILE: ClientImageProfile = "gallery";
-
-export const IMAGE_PROFILE_SETTINGS: Record<
-  ClientImageProfile,
-  ImageProfileSettings
-> = {
-  gallery: {
-    maxLongSide: 2800,
-    minLongSide: 1800,
-    targetBytes: 1_600_000,
-    initialQuality: 0.84,
-    minimumQuality: 0.68,
-  },
-  "floor-plan": {
-    maxLongSide: 4000,
-    minLongSide: 2400,
-    targetBytes: 3_000_000,
-    initialQuality: 0.92,
-    minimumQuality: 0.82,
-  },
-};
 
 const MAX_SOURCE_PIXELS = 100_000_000;
 
