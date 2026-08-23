@@ -15,8 +15,7 @@ import type {
 // ADMIN ORDER NOTIFICATION EMAIL
 // Sent to ADMIN_EMAIL (orders@picchuspot.com by default) after a
 // new order has been saved. Detail-heavy: every relevant item field,
-// the client's full contact info, file paths, signed download URLs
-// where available.
+// the client's full contact info and a stable authenticated admin-order link.
 // ============================================================
 
 export interface AdminOrderItem {
@@ -36,6 +35,7 @@ export interface AdminOrderItem {
 }
 
 export interface AdminNotificationInput {
+  adminOrderUrl?: string;
   orderNumber: string;
   serviceType: ServiceType;
   /** Optional dedicated label (e.g. "Day to Dusk") overriding the broad service label. */
@@ -73,6 +73,7 @@ export function renderAdminNotification(
   input: AdminNotificationInput
 ): RenderedEmail {
   const {
+    adminOrderUrl,
     orderNumber,
     serviceType,
     client,
@@ -131,6 +132,7 @@ export function renderAdminNotification(
     "",
     "ORDER",
     `  Order number: ${orderNumber}`,
+    ...(adminOrderUrl ? [`  Open order: ${adminOrderUrl}`] : []),
     `  Service: ${service}`,
     ...(jobTitle ? [`  Job title: ${jobTitle}`] : []),
     `  Items: ${itemCount}`,
@@ -212,6 +214,11 @@ export function renderAdminNotification(
         <h1 style="font-size:22px;font-weight:700;margin:0;color:#1a365d;">
           New order ${escapeHtml(orderNumber)}
         </h1>
+        ${
+          adminOrderUrl
+            ? `<p style="margin:14px 0 0;"><a href="${escapeHtml(adminOrderUrl)}" style="display:inline-block;padding:9px 14px;border-radius:7px;background:#0B1F3A;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;">Open authenticated order</a></p>`
+            : ""
+        }
       </div>
 
       <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin-bottom:6px;">Client</div>

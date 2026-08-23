@@ -14,6 +14,7 @@ import {
   isCanonicalDirectPendingToken,
   isCanonicalUploadExtension,
   normalizeSupabaseUserId,
+  pendingTokenForSubmissionId,
   type UploadKind,
 } from "@/lib/upload-config";
 
@@ -31,6 +32,7 @@ export const maxDuration = 30;
  */
 
 const RequestSchema = z.object({
+  submissionId: z.string().uuid(),
   serviceType: ServiceTypeSchema,
   pendingToken: z
     .string()
@@ -113,6 +115,16 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!body || typeof body !== "object" || !("submissionId" in body)) {
+    return NextResponse.json(
+      {
+        error: "This order form is outdated. Refresh before uploading.",
+        code: "client_upgrade_required",
+      },
+      { status: 409 },
+    );
+  }
+
   const parsed = RequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -124,9 +136,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const { serviceType, pendingToken, itemIndex, kind, filename, contentType, size,
+  const { submissionId, serviceType, pendingToken, itemIndex, kind, filename, contentType, size,
     referenceId, referencePosition } =
     parsed.data;
+
+  if (pendingTokenForSubmissionId(submissionId) !== pendingToken) {
+    return NextResponse.json(
+      { error: "Upload namespace does not match submissionId." },
+      { status: 400 },
+    );
+  }
 
   // MIME type allow-list. We trust the client's reported MIME enough to
   // route into the right bucket, but if it's not on the allow-list we
@@ -176,7 +195,9 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase.storage
     .from(ORDER_FILES_BUCKET)
-    .createSignedUploadUrl(path);
+    // Re-uploading the deterministic pending path is safe for the same
+    // submission and lets a partial upload retry complete without a new key.
+    .createSignedUploadUrl(path, { upsert: true });
 
   if (error || !data) {
     console.error("createSignedUploadUrl failed:", {

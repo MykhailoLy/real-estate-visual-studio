@@ -7,10 +7,7 @@ import {
 import type { ResolvedClientIdentity } from "../profile-completion.ts";
 import { TERMS_VERSION } from "../order-terms.ts";
 import { ORDER_FILES_BUCKET } from "../upload-config.ts";
-import {
-  createProductionOrder,
-  type FinalizedOrderItemFiles,
-} from "../orders/create-order-server.ts";
+import { createProductionOrder } from "../orders/create-order-server.ts";
 import {
   ORDER_DRAFT_FILE_SELECT,
   ORDER_DRAFT_SELECT,
@@ -24,7 +21,6 @@ import {
 } from "./files.ts";
 import {
   buildTrustedFinalPathForDraftFile,
-  buildTrustedMovedDraftFiles,
   buildVirtualStagingFinalizationItemFiles,
   finalizationError,
   mapClaimCodeToPublicError,
@@ -235,9 +231,8 @@ export async function submitVirtualStagingDraftForUser(
         };
       },
     );
-    const sourcePaths = collectDraftSourcePaths(itemFiles);
-
     const orderResult = await createProductionOrder({
+      submissionId: input.draftId,
       ownerUserId: input.userId,
       clientIdentity: input.clientIdentity,
       serviceType: "virtual-staging",
@@ -253,6 +248,8 @@ export async function submitVirtualStagingDraftForUser(
         allowed: stateResult.data.termsUi.allowPortfolio,
       },
       sourceDraftId: input.draftId,
+      draftExpectedVersion: input.expectedVersion,
+      draftFinalizationKey: input.finalizationKey,
       storageMode: "copy",
     });
 
@@ -283,28 +280,13 @@ export async function submitVirtualStagingDraftForUser(
       );
     }
 
-    const movedFiles = buildMovedFilesFromFinalized(orderResult.finalizedItemFiles);
-    const complete = await completeDraftFinalization({
-      ...input,
-      orderId: orderResult.orderId,
-      movedFiles,
-    });
-    if (complete.code !== "completed") {
-      return finalizationError(
-        "finalization_incomplete",
-        "Order was created, but draft conversion needs to be reconciled.",
-      );
-    }
-
-    await removeDraftSourcesBestEffort(sourcePaths);
-
     return {
       ok: true,
       data: {
         orderNumber: orderResult.orderNumber,
         orderId: orderResult.orderId,
         draftId: input.draftId,
-        alreadyFinalized: false,
+        alreadyFinalized: orderResult.replayed,
         confirmationEmailSent:
           orderResult.emailNotifications.clientConfirmation === true,
       },
@@ -909,41 +891,6 @@ function getStringMetadata(
     }
   }
   return null;
-}
-
-function buildMovedFilesFromFinalized(
-  finalizedItemFiles: FinalizedOrderItemFiles[],
-): TrustedMovedDraftFile[] {
-  return buildTrustedMovedDraftFiles(
-    finalizedItemFiles.flatMap((slot) => [
-      {
-        draftFileId: slot.original.draftFileId,
-        finalPath: slot.original.finalPath,
-      },
-      ...(slot.reference
-        ? [
-            {
-              draftFileId: slot.reference.draftFileId,
-              finalPath: slot.reference.finalPath,
-            },
-          ]
-        : []),
-    ]),
-  );
-}
-
-function collectDraftSourcePaths(
-  itemFiles: Array<
-    ReturnType<typeof buildVirtualStagingFinalizationItemFiles>[number] & {
-      references?: Array<{ path: string }>;
-    }
-  >,
-): string[] {
-  return itemFiles.flatMap((slot) => [
-    slot.original.path,
-    ...(slot.reference ? [slot.reference.path] : []),
-    ...(slot.references ?? []).map((reference) => reference.path),
-  ]);
 }
 
 async function removeDraftSourcesBestEffort(paths: string[]): Promise<void> {

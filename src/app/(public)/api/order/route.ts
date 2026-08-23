@@ -28,6 +28,16 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!bodyJson || typeof bodyJson !== "object" || !("submissionId" in bodyJson)) {
+      return NextResponse.json(
+        {
+          error: "This order form is outdated. Refresh before submitting.",
+          code: "client_upgrade_required",
+        },
+        { status: 409 },
+      );
+    }
+
     const metaResult = OrderMetadataSchema.safeParse(bodyJson);
     if (!metaResult.success) {
       return NextResponse.json(
@@ -37,6 +47,7 @@ export async function POST(request: Request) {
     }
 
     const {
+      submissionId,
       serviceType,
       currency,
       deliveryPreferences,
@@ -95,6 +106,7 @@ export async function POST(request: Request) {
     const fileValidation = validatePendingOrderFileDescriptors(
       serviceType,
       itemFiles,
+      submissionId,
     );
     if (!fileValidation.ok) {
       return NextResponse.json(
@@ -104,6 +116,7 @@ export async function POST(request: Request) {
     }
 
     const result = await createProductionOrder({
+      submissionId,
       ownerUserId: sessionUser.id,
       clientIdentity: identity,
       serviceType,
@@ -128,21 +141,48 @@ export async function POST(request: Request) {
           { status: result.status },
         );
       }
+      const responseCode = result.code === "in_progress"
+        ? "submission_in_progress"
+        : result.code === "payload_conflict"
+          ? "submission_payload_conflict"
+          : result.code === "not_found"
+            ? "submission_unavailable"
+            : result.code;
       return NextResponse.json(
-        { error: result.message, code: result.code },
+        {
+          error: result.message,
+          code: responseCode,
+          submissionId,
+          ...(result.code === "in_progress"
+            ? { recoveryPath: `/api/order/submissions/${submissionId}` }
+            : {}),
+          ...(result.code === "pricing_changed"
+            ? {
+                reviewRequired: true,
+                newSubmissionIdRequired: true,
+                currentPricingSnapshot: result.currentPricingSnapshot,
+              }
+            : {}),
+        },
         { status: result.status },
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      orderNumber: result.orderNumber,
-      estimatedTotalCents: result.estimatedTotalCents,
-      currency: result.currency,
-      pricingSnapshot: result.pricingSnapshot,
-      itemCount: result.itemCount,
-      emailNotifications: result.emailNotifications,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        submissionId,
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        estimatedTotalCents: result.estimatedTotalCents,
+        currency: result.currency,
+        pricingSnapshot: result.pricingSnapshot,
+        itemCount: result.itemCount,
+        replayed: result.replayed,
+        emailNotifications: result.emailNotifications,
+      },
+      { status: result.replayed ? 200 : 201 },
+    );
   } catch (err) {
     console.error("Unhandled order submission error:", err);
     return NextResponse.json(

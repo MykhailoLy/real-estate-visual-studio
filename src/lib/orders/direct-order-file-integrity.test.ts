@@ -16,8 +16,9 @@ import {
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const SECOND_USER_ID = "22222222-2222-4222-8222-222222222222";
-const TOKEN = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const TOKEN = "aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa";
 const SECOND_TOKEN = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const SUBMISSION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ORDER_NUMBER = "VS-0001";
 const SUBMIT_ORDER_SOURCE = readFileSync("src/lib/submit-order.ts", "utf8");
 const DRAFT_STORAGE_PATHS_SOURCE = readFileSync(
@@ -33,11 +34,11 @@ export function getSupabaseAdminClient() {
 `)}`;
 
 const EMAIL_MOCK_URL = `data:text/javascript,${encodeURIComponent(`
-export async function sendOrderEmails(args) {
+export async function dispatchOrderEmailOutbox(args) {
   if (typeof globalThis.__directOrderEmailMock === "function") {
     return globalThis.__directOrderEmailMock(args);
   }
-  return { client: { sent: true }, admin: { sent: true } };
+  return { claimed: 2, sent: 2, failed: 0, unknown: 0 };
 }
 `)}`;
 
@@ -123,6 +124,7 @@ interface ItemFilesForTest {
 }
 
 interface ProductionOrderInputForTest {
+  submissionId: string;
   ownerUserId: string;
   clientIdentity: {
     name: string;
@@ -146,6 +148,10 @@ type ProductionOrderResultForTest =
       ok: true;
       orderId: string;
       orderNumber: string;
+      replayed: boolean;
+      pricingSnapshot: {
+        items: Array<{ lineSubtotalCents: number }>;
+      };
       emailNotifications: {
         clientConfirmation: boolean;
         adminNotification: boolean;
@@ -188,8 +194,10 @@ interface CreateOrderModuleForTest {
 }
 
 interface EmailMockResult {
-  client: { sent: boolean };
-  admin: { sent: boolean };
+  claimed: number;
+  sent: number;
+  failed: number;
+  unknown: number;
 }
 
 type DirectOrderTestGlobals = typeof globalThis & {
@@ -232,6 +240,10 @@ interface ListOperationForTest {
 
 interface MockSupabaseOptions {
   rpcError?: boolean;
+  claimCode?: string;
+  commitCode?: string;
+  commitError?: boolean;
+  recoveryCommitted?: boolean;
   orderInsertError?: boolean;
   orderItemsInsertError?: boolean;
   listFailures?: string[];
@@ -326,11 +338,50 @@ class MockSupabase {
 
   async rpc(name: string, params: unknown) {
     this.rpcCalls.push({ name, params });
-    if (name === "generate_order_number" && this.options.rpcError) {
+    if (this.options.rpcError) {
       return { data: null, error: databaseError("RpcFailed") };
     }
-    return { data: ORDER_NUMBER, error: null };
+    const input = params as Record<string, unknown>;
+    if (name === "claim_order_submission") {
+      const code = this.options.claimCode ?? "claimed";
+      this.claimSnapshot = input.p_pricing_snapshot;
+      return {
+        data: [{
+          result_code: code,
+          lease_token: code === "claimed" ? input.p_lease_token : null,
+          reserved_order_id: "33333333-3333-4333-8333-333333333333",
+          reserved_order_number: ORDER_NUMBER,
+          order_id: code === "committed" ? "33333333-3333-4333-8333-333333333333" : null,
+          estimated_total_cents: input.p_estimated_total_cents,
+          currency: input.p_currency,
+          pricing_snapshot: input.p_pricing_snapshot,
+        }],
+        error: null,
+      };
+    }
+    if (name === "commit_order_submission") {
+      if (this.options.commitError) {
+        return { data: null, error: databaseError("CommitConnectionLost") };
+      }
+      const items = input.p_items as unknown[];
+      return {
+        data: [{
+          result_code: this.options.commitCode ?? "created",
+          created: (this.options.commitCode ?? "created") === "created",
+          order_id: "33333333-3333-4333-8333-333333333333",
+          order_number: ORDER_NUMBER,
+          estimated_total_cents: 2900,
+          currency: "USD",
+          pricing_snapshot: this.claimSnapshot,
+          item_count: items.length,
+        }],
+        error: null,
+      };
+    }
+    return { data: "released", error: null };
   }
+
+  claimSnapshot: unknown = null;
 
   from(table: string): MockTableQuery {
     return new MockTableQuery(this, table);
@@ -338,8 +389,10 @@ class MockSupabase {
 
   get emailResult(): EmailMockResult {
     return this.options.emailResult ?? {
-      client: { sent: true },
-      admin: { sent: true },
+      claimed: 2,
+      sent: 2,
+      failed: 0,
+      unknown: 0,
     };
   }
 
@@ -349,6 +402,10 @@ class MockSupabase {
 
   get shouldFailOrderItemsInsert(): boolean {
     return this.options.orderItemsInsertError === true;
+  }
+
+  get recoveryCommitted(): boolean {
+    return this.options.recoveryCommitted === true;
   }
 }
 
@@ -381,6 +438,7 @@ class MockUploadUrlSupabase {
 class MockTableQuery {
   private readonly supabase: MockSupabase;
   private readonly table: string;
+  private filters = new Map<string, unknown>();
 
   constructor(
     supabase: MockSupabase,
@@ -407,6 +465,32 @@ class MockTableQuery {
         ? databaseError("OrderItemsInsertFailed")
         : null,
     };
+  }
+
+  select() {
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.filters.set(column, value);
+    return this;
+  }
+
+  async maybeSingle() {
+    if (this.table === "order_submissions" && this.supabase.recoveryCommitted) {
+      return {
+        data: {
+          status: "committed",
+          order_id: "33333333-3333-4333-8333-333333333333",
+          reserved_order_number: ORDER_NUMBER,
+          estimated_total_cents: 2900,
+          currency: "USD",
+          pricing_snapshot: this.supabase.claimSnapshot,
+        },
+        error: null,
+      };
+    }
+    return { data: null, error: null };
   }
 
   delete() {
@@ -485,14 +569,6 @@ function finalPath(
   return `${ORDER_NUMBER}/${itemIndex}-${kind}.${extension}`;
 }
 
-function draftPath(
-  itemIndex: number,
-  kind: UploadKind,
-  extension = "jpg",
-): string {
-  return `drafts/user/draft/file-${itemIndex}-${kind}/source.${extension}`;
-}
-
 function metadata(size: number, mimeType: string): Record<string, unknown> {
   return { size, mimetype: mimeType };
 }
@@ -535,6 +611,7 @@ function orderInput(
 ): ProductionOrderInputForTest {
   const itemFiles = overrides.itemFiles ?? itemFilesForDirectOrder();
   return {
+    submissionId: SUBMISSION_ID,
     ownerUserId: USER_ID,
     clientIdentity: {
       name: "Ada Client",
@@ -633,6 +710,7 @@ async function loadUploadRoute(): Promise<{
 
 function validUploadUrlBody(overrides: Record<string, unknown> = {}) {
   return {
+    submissionId: SUBMISSION_ID,
     serviceType: "virtual-staging",
     pendingToken: TOKEN,
     itemIndex: 0,
@@ -678,20 +756,6 @@ function assertListCalls(
       limit: 100,
     })),
   );
-}
-
-function getOrderItemsPayload(supabase: MockSupabase): Record<string, unknown>[] {
-  const insert = supabase.inserts.find((entry) => entry.table === "order_items");
-  assert.ok(insert);
-  assert.ok(Array.isArray(insert.payload));
-  return insert.payload.map((entry) => asRecord(entry));
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  assert.equal(typeof value, "object");
-  assert.notEqual(value, null);
-  assert.equal(Array.isArray(value), false);
-  return value as Record<string, unknown>;
 }
 
 test("direct pending path helpers build and parse the canonical user-bound format", () => {
@@ -790,6 +854,20 @@ test("upload-url route rejects unauthenticated requests", async () => {
   const response = await POST(uploadUrlRequest(validUploadUrlBody()));
 
   assert.equal(response.status, 401);
+  assert.equal(supabase.signedUploadPaths.length, 0);
+});
+
+test("upload-url route tells an authenticated old tab to refresh", async () => {
+  const supabase = installUploadRouteMock();
+  const { POST } = await loadUploadRoute();
+  const legacyBody = validUploadUrlBody() as Record<string, unknown>;
+  delete legacyBody.submissionId;
+
+  const response = await POST(uploadUrlRequest(legacyBody));
+  const body = await responseJson(response);
+
+  assert.equal(response.status, 409);
+  assert.equal(body.code, "client_upgrade_required");
   assert.equal(supabase.signedUploadPaths.length, 0);
 });
 
@@ -1373,7 +1451,7 @@ test("direct verifier returns normalized server-trusted metadata", async () => {
   assert.equal(result.data?.[0]?.original.originalFilename, "client-name.jpg");
 });
 
-test("successful direct finalization moves files and uses verified metadata", async () => {
+test("atomic direct creation copies first, commits once, then removes pending source", async () => {
   const itemFiles = itemFilesForDirectOrder();
   const supabase = new MockSupabase();
   addStoredObjects(supabase, itemFiles);
@@ -1383,247 +1461,170 @@ test("successful direct finalization moves files and uses verified metadata", as
   const result = await createProductionOrder(orderInput({ itemFiles }));
 
   assert.equal(result.ok, true);
+  assert.equal(result.ok && result.replayed, false);
+  assert.equal(supabase.copies.length, 1);
+  assert.equal(supabase.moves.length, 0);
   assert.equal(supabase.objects.has(directPath(0, "original")), false);
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
-  assert.deepEqual(supabase.moves, [
-    {
-      sourcePath: directPath(0, "original"),
-      finalPath: finalPath(0, "original"),
-    },
-  ]);
+  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission").length, 1);
+  const commitCall = supabase.rpcCalls.find((call) => call.name === "commit_order_submission");
+  const commitItems = (commitCall?.params as { p_items: Array<{ subtotalCents: number }> }).p_items;
+  assert.equal(commitItems[0].subtotalCents, result.ok ? result.pricingSnapshot.items[0].lineSubtotalCents : -1);
   assert.equal(supabase.emailCalls.length, 1);
-  const payload = getOrderItemsPayload(supabase);
-  const details = asRecord(payload[0].details);
-  const uploadedFiles = asRecord(details.uploaded_files);
-  const original = asRecord(uploadedFiles.original);
-  assert.equal(original.size_bytes, 1234);
-  assert.equal(original.mime_type, "image/jpeg");
 });
 
-test("first direct move failure creates no order and sends no email", async () => {
+test("exact committed replay returns original result without Storage or email work", async () => {
   const itemFiles = itemFilesForDirectOrder();
-  const source = directPath(0, "original");
-  const supabase = new MockSupabase({
-    moveFailures: [moveKey(source, finalPath(0, "original"))],
-  });
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(orderInput({ itemFiles }));
-
-  assertFailure(result, "storage_error");
-  assert.equal(supabase.inserts.length, 0);
-  assert.equal(supabase.emailCalls.length, 0);
-  assert.equal(supabase.objects.has(source), true);
-});
-
-test("later direct move failure rolls earlier moves back in reverse order", async () => {
-  const itemFiles: ItemFilesForTest[] = [
-    {
-      original: descriptor(directPath(0, "original")),
-      reference: descriptor(directPath(0, "reference", "png"), {
-        size: 1234,
-        mimeType: "image/png",
-      }),
-    },
-    { original: descriptor(directPath(1, "original")) },
-  ];
-  const failingMove = moveKey(directPath(1, "original"), finalPath(1, "original"));
-  const supabase = new MockSupabase({ moveFailures: [failingMove] });
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(orderInput({ itemFiles }));
-
-  assertFailure(result, "storage_error");
-  assert.deepEqual(
-    supabase.moves.map((move) => moveKey(move.sourcePath, move.finalPath)),
-    [
-      moveKey(directPath(0, "original"), finalPath(0, "original")),
-      moveKey(directPath(0, "reference", "png"), finalPath(0, "reference", "png")),
-      failingMove,
-      moveKey(finalPath(0, "reference", "png"), directPath(0, "reference", "png")),
-      moveKey(finalPath(0, "original"), directPath(0, "original")),
-    ],
-  );
-  assert.equal(supabase.inserts.length, 0);
-  assert.equal(supabase.emailCalls.length, 0);
-});
-
-test("rollback failure still creates no order", async () => {
-  const itemFiles = [
-    { original: descriptor(directPath(0, "original")) },
-    { original: descriptor(directPath(1, "original")) },
-  ];
-  const supabase = new MockSupabase({
-    moveFailures: [
-      moveKey(directPath(1, "original"), finalPath(1, "original")),
-      moveKey(finalPath(0, "original"), directPath(0, "original")),
-    ],
-  });
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(orderInput({ itemFiles }));
-
-  assertFailure(result, "storage_error");
-  assert.equal(supabase.inserts.length, 0);
-  assert.equal(supabase.emailCalls.length, 0);
-});
-
-test("order-number RPC failure leaves direct pending sources untouched", async () => {
-  const itemFiles = itemFilesForDirectOrder();
-  const supabase = new MockSupabase({ rpcError: true });
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(orderInput({ itemFiles }));
-
-  assertFailure(result, "database_error");
-  assert.equal(supabase.objects.has(directPath(0, "original")), true);
-  assert.equal(supabase.moves.length, 0);
-  assert.equal(supabase.removes.length, 0);
-  assert.equal(supabase.emailCalls.length, 0);
-});
-
-test("order insert failure rolls all direct moves back", async () => {
-  const itemFiles = itemFilesForDirectOrder();
-  const supabase = new MockSupabase({ orderInsertError: true });
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(orderInput({ itemFiles }));
-
-  assertFailure(result, "database_error");
-  assert.deepEqual(
-    supabase.moves.map((move) => moveKey(move.sourcePath, move.finalPath)),
-    [
-      moveKey(directPath(0, "original"), finalPath(0, "original")),
-      moveKey(finalPath(0, "original"), directPath(0, "original")),
-    ],
-  );
-  assert.equal(supabase.emailCalls.length, 0);
-});
-
-test("order-item insert failure deletes the order and rolls direct moves back", async () => {
-  const itemFiles = itemFilesForDirectOrder();
-  const supabase = new MockSupabase({ orderItemsInsertError: true });
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(orderInput({ itemFiles }));
-
-  assertFailure(result, "database_error");
-  assert.deepEqual(supabase.deletes, [
-    { table: "orders", column: "id", value: "order-id-1" },
-  ]);
-  assert.equal(supabase.objects.has(directPath(0, "original")), true);
-  assert.equal(supabase.emailCalls.length, 0);
-});
-
-test("email failure after database success preserves the direct order", async () => {
-  const itemFiles = itemFilesForDirectOrder();
-  const supabase = new MockSupabase({
-    emailResult: { client: { sent: false }, admin: { sent: false } },
-  });
-  addStoredObjects(supabase, itemFiles);
+  const supabase = new MockSupabase({ claimCode: "committed" });
   installSupabaseMock(supabase);
   const { createProductionOrder } = await loadOrderModule();
 
   const result = await createProductionOrder(orderInput({ itemFiles }));
 
   assert.equal(result.ok, true);
-  assert.equal(result.ok ? result.emailNotifications.clientConfirmation : true, false);
-  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
-  assert.equal(supabase.inserts.some((entry) => entry.table === "orders"), true);
-});
-
-test("repeated direct submission after a successful move is rejected", async () => {
-  const itemFiles = itemFilesForDirectOrder();
-  const supabase = new MockSupabase();
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const first = await createProductionOrder(orderInput({ itemFiles }));
-  const second = await createProductionOrder(orderInput({ itemFiles }));
-
-  assert.equal(first.ok, true);
-  assertFailure(second, "invalid_upload");
-  assert.equal(
-    supabase.inserts.filter((entry) => entry.table === "orders").length,
-    1,
-  );
-});
-
-test("verification failure sends no email and creates no order", async () => {
-  const itemFiles = itemFilesForDirectOrder();
-  const supabase = new MockSupabase();
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(orderInput({ itemFiles }));
-
-  assertFailure(result, "invalid_upload");
-  assert.equal(supabase.inserts.length, 0);
-  assert.equal(supabase.emailCalls.length, 0);
-});
-
-test("draft copy flow still copies instead of moving", async () => {
-  const sourcePath = draftPath(0, "original");
-  const itemFiles = [
-    {
-      original: descriptor(sourcePath, {
-        draftFileId: "draft-file-1",
-      }),
-    },
-  ];
-  const supabase = new MockSupabase();
-  supabase.addObject(sourcePath, metadata(1234, "image/jpeg"));
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
-
-  const result = await createProductionOrder(
-    orderInput({ itemFiles, storageMode: "copy", sourceDraftId: "draft-1" }),
-  );
-
-  assert.equal(result.ok, true);
+  assert.equal(result.ok && result.replayed, true);
   assert.equal(supabase.listCalls.length, 0);
-  assert.equal(supabase.moves.length, 0);
-  assert.deepEqual(supabase.copies, [
-    { sourcePath, finalPath: finalPath(0, "original") },
-  ]);
-  assert.equal(supabase.objects.has(sourcePath), true);
-  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.emailCalls.length, 0);
 });
 
-test("draft copy failure remains fatal", async () => {
-  const sourcePath = draftPath(0, "original");
-  const itemFiles = [
-    {
-      original: descriptor(sourcePath, {
-        draftFileId: "draft-file-1",
-      }),
-    },
-  ];
-  const supabase = new MockSupabase({
-    copyFailures: [moveKey(sourcePath, finalPath(0, "original"))],
+for (const [claimCode, expectedCode] of [
+  ["in_progress", "in_progress"],
+  ["payload_conflict", "payload_conflict"],
+  ["pricing_changed", "pricing_changed"],
+] as const) {
+  test(`${claimCode} claim fails safely before Storage finalization`, async () => {
+    const supabase = new MockSupabase({ claimCode });
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+    const result = await createProductionOrder(orderInput());
+    assertFailure(result, expectedCode);
+    assert.equal(result.ok ? 0 : result.status, 409);
+    assert.equal(supabase.listCalls.length, 0);
+    assert.equal(supabase.emailCalls.length, 0);
   });
-  supabase.addObject(sourcePath, metadata(1234, "image/jpeg"));
+}
+
+test("an unauthorized submission replay is ownership-safe and does no Storage work", async () => {
+  const supabase = new MockSupabase({ claimCode: "not_found" });
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  const result = await createProductionOrder(orderInput());
+  assertFailure(result, "not_found");
+  assert.equal(result.ok ? 0 : result.status, 404);
+  assert.equal(supabase.listCalls.length, 0);
+  assert.equal(supabase.emailCalls.length, 0);
+});
+
+test("response loss after atomic commit recovers the committed result and preserves final files", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({ commitError: true, recoveryCommitted: true });
+  addStoredObjects(supabase, itemFiles);
   installSupabaseMock(supabase);
   const { createProductionOrder } = await loadOrderModule();
 
-  const result = await createProductionOrder(
-    orderInput({ itemFiles, storageMode: "copy", sourceDraftId: "draft-1" }),
-  );
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.ok && result.replayed, true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.equal(supabase.objects.has(directPath(0, "original")), false);
+  assert.equal(supabase.emailCalls.length, 0);
+});
+
+test("ambiguous commit without recovery does not delete pending or prepared final files", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({ commitError: true });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "database_error");
+  assert.equal(supabase.objects.has(directPath(0, "original")), true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.equal(supabase.removes.length, 0);
+});
+
+test("known Storage copy failure keeps pending source and releases the claim", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const sourcePath = directPath(0, "original");
+  const destination = finalPath(0, "original");
+  const supabase = new MockSupabase({ copyFailures: [moveKey(sourcePath, destination)] });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
 
   assertFailure(result, "storage_error");
-  assert.equal(supabase.inserts.length, 0);
-  assert.equal(supabase.emailCalls.length, 0);
+  assert.equal(supabase.objects.has(sourcePath), true);
+  assert.equal(supabase.rpcCalls.some((call) => call.name === "release_order_submission"), true);
+});
+
+test("retry reuses an existing deterministic final object only after metadata verification", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const sourcePath = directPath(0, "original");
+  const destination = finalPath(0, "original");
+  const supabase = new MockSupabase({ copyFailures: [moveKey(sourcePath, destination)] });
+  addStoredObjects(supabase, itemFiles);
+  supabase.addObject(destination, metadata(1234, "image/jpeg"));
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.objects.has(destination), true);
+  assert.equal(supabase.objects.has(sourcePath), false);
+  assert.equal(supabase.removes.some((paths) => paths.includes(destination)), false);
+});
+
+test("retry rejects a deterministic final object whose metadata does not match", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const sourcePath = directPath(0, "original");
+  const destination = finalPath(0, "original");
+  const supabase = new MockSupabase({ copyFailures: [moveKey(sourcePath, destination)] });
+  addStoredObjects(supabase, itemFiles);
+  supabase.addObject(destination, metadata(9999, "image/png"));
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "storage_error");
+  assert.equal(supabase.objects.has(sourcePath), true);
+  assert.equal(supabase.objects.has(destination), true);
+  assert.equal(supabase.removes.some((paths) => paths.includes(destination)), false);
+});
+
+test("known atomic commit rejection cleans only finals created by this attempt", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({ commitCode: "draft_conflict" });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "draft_conflict");
+  assert.equal(supabase.objects.has(directPath(0, "original")), true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), false);
+});
+
+test("email dispatch failure cannot roll back an atomically committed order", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({
+    emailResult: { claimed: 2, sent: 0, failed: 2, unknown: 0 },
+  });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission").length, 1);
 });

@@ -83,6 +83,13 @@ export function isCanonicalDirectPendingToken(value: string): boolean {
   return DIRECT_PENDING_TOKEN_REGEX.test(value);
 }
 
+/** The pending Storage namespace is deterministically bound to one submission. */
+export function pendingTokenForSubmissionId(submissionId: string): string | null {
+  const normalized = submissionId.trim().toLowerCase();
+  if (!isCanonicalSupabaseUserId(normalized)) return null;
+  return normalized.replaceAll("-", "");
+}
+
 export function isCanonicalUploadExtension(value: string): boolean {
   return UPLOAD_EXTENSION_REGEX.test(value);
 }
