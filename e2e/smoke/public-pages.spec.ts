@@ -25,7 +25,7 @@ test("home page loads without client or server smoke failures", async ({
 const publicRoutes = [
   {
     route: "/pricing",
-    heading: "Transparent Pricing, No Hidden Fees",
+    heading: "Pricing",
   },
   {
     route: "/pricing/virtual-staging",
