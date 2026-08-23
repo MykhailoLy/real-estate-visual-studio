@@ -14,11 +14,7 @@ import ServicePageSlider, {
 } from "@/components/pricing/ServicePageSlider";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
-import {
-  getPortfolioPublicUrl,
-  getServicePageItemsForService,
-  shouldRenderVirtualStagingPortfolioCopy,
-} from "@/lib/portfolio";
+import { getPortfolioPublicUrl, getServicePageItemsForService } from "@/lib/portfolio";
 import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
@@ -215,12 +211,11 @@ async function buildSliderSlides(
   }
 
   return usable.map((item) => {
-    const showPortfolioCopy = shouldRenderVirtualStagingPortfolioCopy(item.id);
     const alt = getBeforeAfterAlt({
       beforeAlt: item.before_alt,
       afterAlt: item.after_alt,
-      title: showPortfolioCopy ? item.title : null,
-      description: showPortfolioCopy ? item.description : null,
+      title: item.title,
+      description: item.description,
       serviceLabel: "Virtual Staging",
       serviceSlug: item.service_slug,
     });
@@ -231,7 +226,7 @@ async function buildSliderSlides(
       afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
       beforeAlt: alt.beforeAlt,
       afterAlt: alt.afterAlt,
-      title: showPortfolioCopy ? item.title : undefined,
+      title: item.title,
     };
   });
 }
@@ -426,21 +421,17 @@ export default async function VirtualStagingPage() {
           {/* ── Full examples grid (2-col desktop, 1-col mobile) ──
               Shown when portfolio items are uploaded. Falls back to
               a single full-width placeholder so the section always
-              has visual weight even before any images are added.
-              Captions remain visible except for the known record whose
-              source copy still contains a legacy price. */}
+              has visual weight even before any images are added. */}
           {hasItems ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
               {allItems.map((item) => {
                 const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
                 const afterUrl = getPortfolioPublicUrl(item.after_image_path);
-                const showPortfolioCopy =
-                  shouldRenderVirtualStagingPortfolioCopy(item.id);
                 const alt = getBeforeAfterAlt({
                   beforeAlt: item.before_alt,
                   afterAlt: item.after_alt,
-                  title: showPortfolioCopy ? item.title : null,
-                  description: showPortfolioCopy ? item.description : null,
+                  title: item.title,
+                  description: item.description,
                   serviceLabel: "Virtual Staging",
                   serviceSlug: item.service_slug,
                 });
@@ -459,20 +450,16 @@ export default async function VirtualStagingPage() {
                         placeholderVariant="virtual-staging"
                       />
                     </div>
-                    {showPortfolioCopy && (item.title || item.description) && (
-                      <div className="p-5 lg:p-6">
-                        {item.title && (
-                          <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                            {item.title}
-                          </h3>
-                        )}
-                        {item.description && (
-                          <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                            {item.description}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <div className="p-5 lg:p-6">
+                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
+                        {item.title}
+                      </h3>
+                      {item.description && (
+                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
                   </article>
                 );
               })}

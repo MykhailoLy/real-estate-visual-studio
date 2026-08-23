@@ -24,7 +24,6 @@ import Wide from "@/components/pricing/Wide";
 import {
   getPortfolioPublicUrl,
   getServicePageItemsForService,
-  shouldRenderVirtualStagingPortfolioCopy,
 } from "@/lib/portfolio";
 import {
   getServiceOptionsImages,
@@ -232,15 +231,12 @@ async function buildSliderSlides(
   }
 
   return usable.map((item) => {
-    const showPortfolioCopy = shouldRenderVirtualStagingPortfolioCopy(item.id);
-    const title = showPortfolioCopy
-      ? translatePricingExampleTitle(item.title)
-      : undefined;
+    const title = translatePricingExampleTitle(item.title);
     const alt = getBeforeAfterAlt({
       beforeAlt: item.before_alt,
       afterAlt: item.after_alt,
       title,
-      description: showPortfolioCopy ? item.description : null,
+      description: item.description,
       serviceLabel: "Virtual Staging",
       serviceSlug: item.service_slug,
       locale: "es",
@@ -423,16 +419,12 @@ export default async function SpanishVirtualStagingPage() {
               {allItems.map((item) => {
                 const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
                 const afterUrl = getPortfolioPublicUrl(item.after_image_path);
-                const showPortfolioCopy =
-                  shouldRenderVirtualStagingPortfolioCopy(item.id);
-                const title = showPortfolioCopy
-                  ? translatePricingExampleTitle(item.title)
-                  : undefined;
+                const title = translatePricingExampleTitle(item.title);
                 const alt = getBeforeAfterAlt({
                   beforeAlt: item.before_alt,
                   afterAlt: item.after_alt,
                   title,
-                  description: showPortfolioCopy ? item.description : null,
+                  description: item.description,
                   serviceLabel: "Virtual Staging",
                   serviceSlug: item.service_slug,
                   locale: "es",
@@ -454,24 +446,20 @@ export default async function SpanishVirtualStagingPage() {
                         placeholderLabels={{
                           left: "Antes",
                           right: "Después",
-                          ariaLabel: title
-                            ? `${title}: antes y después`
-                            : "Virtual Staging: antes y después",
+                          ariaLabel: `${title}: antes y después`,
                         }}
                       />
                     </div>
-                    {showPortfolioCopy && title && (
-                      <div className="p-5 lg:p-6">
-                        <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                          {title}
-                        </h3>
-                        {item.description && (
-                          <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                            {item.description}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <div className="p-5 lg:p-6">
+                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
+                        {title}
+                      </h3>
+                      {item.description && (
+                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
                   </article>
                 );
               })}
