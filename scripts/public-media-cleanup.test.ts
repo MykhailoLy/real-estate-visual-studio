@@ -174,7 +174,7 @@ test("cleanup record validation refuses replacement paths as deletion targets", 
     () =>
       validateCleanupDeleteRecord(
         record({
-          oldPath: "service-options/1800000000000-abcdef123456-legacy-gallery.webp",
+          oldPath: "service-options/1799999999999-deadbeef0000-legacy-gallery.webp",
         }),
       ),
     /refuses to delete generated replacement/,
