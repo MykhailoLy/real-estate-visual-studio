@@ -108,7 +108,7 @@ test("client preserves one UUID and upload namespace across ambiguous retries", 
   assert.match(CLIENT_SUBMIT, /record\.stage = "ambiguous"/);
   assert.match(CLIENT_SUBMIT, /previous\.stage === "ambiguous"/);
   assert.match(CLIENT_SUBMIT, /submissionId: record\.submissionId/);
-  assert.match(CLIENT_SUBMIT, /result\.code === "pricing_changed"[\s\S]*removeSubmissionRecord/);
+  assert.match(CLIENT_SUBMIT, /result\.code === "pricing_changed"[\s\S]*clearOrderSubmissionRecord/);
 });
 
 test("API has explicit create, replay, conflict, upgrade and owned recovery contracts", () => {

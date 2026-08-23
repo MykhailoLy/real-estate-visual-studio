@@ -113,6 +113,12 @@ export interface FinalizedOrderItemFiles {
   references: FinalizedOrderFile[];
 }
 
+interface StorageObjectIdentity {
+  etag: string;
+  size: number;
+  mimeType: string;
+}
+
 export interface CreateProductionOrderInput {
   submissionId: string;
   ownerUserId: string;
@@ -998,6 +1004,21 @@ async function finalizeFileToOrderPath(input: {
     input.referenceId,
   );
 
+  // Supabase Storage's server-read object ETag is the preparation proof for
+  // this copy attempt. Size and MIME remain validation attributes, but are not
+  // sufficient identity on their own.
+  const sourceIdentity = await getStorageObjectIdentity(
+    input.supabase,
+    input.uploaded.path,
+  );
+  if (!sourceIdentity || !storageIdentityMatchesDescriptor(sourceIdentity, input.uploaded)) {
+    console.warn("[orders] storage source identity could not be verified:", {
+      itemIndex: input.itemIndex,
+      kind: input.kind,
+    });
+    return storagePreparationError();
+  }
+
   if (input.uploaded.path === finalPath) {
     return { ok: true, file: buildFinalizedFile(input, finalPath), createdFinal: false };
   }
@@ -1008,25 +1029,31 @@ async function finalizeFileToOrderPath(input: {
     .from(ORDER_FILES_BUCKET)
     .copy(input.uploaded.path, finalPath);
   if (error) {
-    const existingMatches = await finalObjectMatchesDescriptor(
+    const existingIdentity = await getStorageObjectIdentity(
       input.supabase,
       finalPath,
-      input.uploaded,
     );
-    if (!existingMatches) {
+    if (!existingIdentity || !storageIdentitiesMatch(sourceIdentity, existingIdentity)) {
       console.warn("[orders] storage final copy failed:", {
         itemIndex: input.itemIndex,
         kind: input.kind,
         reason: getSafeStorageErrorLabel(error),
       });
-      return {
-        ok: false,
-        code: "storage_error",
-        message: "Could not prepare uploaded files for the order.",
-        status: 500,
-      };
+      return storagePreparationError();
     }
     return { ok: true, file: buildFinalizedFile(input, finalPath), createdFinal: false };
+  }
+
+  const copiedIdentity = await getStorageObjectIdentity(input.supabase, finalPath);
+  if (!copiedIdentity || !storageIdentitiesMatch(sourceIdentity, copiedIdentity)) {
+    // The copy call itself succeeded, so this path was created by this attempt
+    // and may be removed before the DB transaction. The pending source remains.
+    await cleanupFinalPaths(input.supabase, [finalPath]);
+    console.warn("[orders] copied final identity did not match its source:", {
+      itemIndex: input.itemIndex,
+      kind: input.kind,
+    });
+    return storagePreparationError();
   }
 
   return {
@@ -1036,31 +1063,67 @@ async function finalizeFileToOrderPath(input: {
   };
 }
 
-async function finalObjectMatchesDescriptor(
+async function getStorageObjectIdentity(
   supabase: SupabaseClient,
-  finalPath: string,
-  descriptor: TrustedOrderFileDescriptor,
-): Promise<boolean> {
-  const slash = finalPath.lastIndexOf("/");
-  if (slash < 1) return false;
-  const directory = finalPath.slice(0, slash);
-  const basename = finalPath.slice(slash + 1);
+  path: string,
+): Promise<StorageObjectIdentity | null> {
   try {
     const { data, error } = await supabase.storage
       .from(ORDER_FILES_BUCKET)
-      .list(directory, { limit: 100, search: basename });
-    if (error) return false;
-    const object = (data ?? []).find((candidate) => candidate.name === basename);
-    const metadata = object?.metadata as Record<string, unknown> | undefined;
-    if (!metadata) return false;
-    const size = Number(metadata.size ?? metadata.contentLength);
+      .info(path);
+    if (error || !data || typeof data !== "object") return null;
+    const record = data as Record<string, unknown>;
+    const size = Number(record.size);
     const mimeType = String(
-      metadata.mimetype ?? metadata.mimeType ?? metadata.contentType ?? "",
+      record.contentType ??
+      record.content_type ??
+      "",
     ).toLowerCase();
-    return size === descriptor.size && mimeType === descriptor.mimeType.toLowerCase();
+    // Only the object-info endpoint's system field is accepted. Custom object
+    // metadata is intentionally not an identity source.
+    const etag = normalizeStorageEtag(record.etag);
+    if (!Number.isFinite(size) || size < 1 || !mimeType || !etag) return null;
+    return { etag, size, mimeType };
   } catch {
-    return false;
+    return null;
   }
+}
+
+function storageIdentityMatchesDescriptor(
+  identity: StorageObjectIdentity,
+  descriptor: TrustedOrderFileDescriptor,
+): boolean {
+  return identity.size === descriptor.size &&
+    identity.mimeType === descriptor.mimeType.toLowerCase();
+}
+
+function storageIdentitiesMatch(
+  source: StorageObjectIdentity,
+  destination: StorageObjectIdentity,
+): boolean {
+  return source.etag === destination.etag &&
+    source.size === destination.size &&
+    source.mimeType === destination.mimeType;
+}
+
+function normalizeStorageEtag(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== ""
+    ? value.trim()
+    : null;
+}
+
+function storagePreparationError(): {
+  ok: false;
+  code: "storage_error";
+  message: string;
+  status: 500;
+} {
+  return {
+    ok: false,
+    code: "storage_error",
+    message: "Could not prepare uploaded files for the order.",
+    status: 500,
+  };
 }
 
 function buildFinalizedFile(

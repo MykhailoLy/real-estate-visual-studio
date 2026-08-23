@@ -14,6 +14,13 @@ import {
 import { validateReferenceFiles } from "@/lib/reference-files";
 import { canonicalJson } from "@/lib/orders/canonical-json";
 import type { PricingSnapshot } from "@/lib/pricing/types";
+import {
+  clearOrderSubmissionRecord,
+  readOrderSubmissionRecord,
+  recoverAnyAmbiguousOrderSubmission,
+  writeOrderSubmissionRecord,
+  type OrderSubmissionSessionRecord,
+} from "@/lib/orders/submission-recovery";
 
 // ============================================================
 // CLIENT-SIDE ORDER SUBMISSION
@@ -32,7 +39,9 @@ import type { PricingSnapshot } from "@/lib/pricing/types";
 
 export interface OrderSubmitResult {
   success: boolean;
+  orderId?: string;
   orderNumber?: string;
+  recovered?: boolean;
   /**
    * Whether the post-submit client confirmation email was actually
    * sent. Only `true` when the API reports the Resend send was
@@ -93,14 +102,6 @@ type UploadedItemFiles = Array<{
   reference: UploadedFileRef | null;
   references: UploadedReferenceFileRef[];
 }>;
-
-interface SubmissionSessionRecord {
-  submissionId: string;
-  intentHash: string;
-  stage: "allocated" | "uploaded" | "ambiguous";
-  referenceIds: string[][];
-  itemFiles?: UploadedItemFiles;
-}
 
 /**
  * Ask the server for a signed Supabase Storage upload URL. The server
@@ -274,6 +275,48 @@ export async function submitOrder(
   jobTitle: string,
   deliveryPreferences?: DeliveryPreferencesData
 ): Promise<OrderSubmitResult> {
+  // Reconcile a previous unknown outcome before reading the current form or
+  // requiring browser File objects. This is also a defense-in-depth guard for
+  // callers outside the shared new-order recovery layout.
+  const recovery = await recoverAnyAmbiguousOrderSubmission();
+  if (recovery.status === "committed") {
+    return {
+      success: true,
+      orderId: recovery.orderId,
+      orderNumber: recovery.orderNumber,
+      recovered: true,
+      confirmationEmailSent: false,
+    };
+  }
+  if (recovery.status === "processing") {
+    return {
+      success: false,
+      error: "Your previous order submission is still processing. Check again in a moment; no new submission was started.",
+      errorCode: "in-progress",
+    };
+  }
+  if (recovery.status === "unavailable") {
+    return {
+      success: false,
+      error: "The previous submission is unavailable. Review the order before starting a new submission.",
+      errorCode: "submission-unavailable",
+    };
+  }
+  if (recovery.status === "unauthorized") {
+    return {
+      success: false,
+      error: "Please sign in to recover the previous order submission.",
+      errorCode: "unauthorized",
+    };
+  }
+  if (recovery.status === "error") {
+    return {
+      success: false,
+      error: "The previous order outcome could not be confirmed. No new submission was started.",
+      errorCode: "server-error",
+    };
+  }
+
   // ---- 1. Local pre-flight ----
   for (let i = 0; i < files.length; i++) {
     const references = (
@@ -317,8 +360,7 @@ export async function submitOrder(
         .map(fileIdentity),
     })),
   });
-  const sessionKey = `picchuspot:order-submission:v1:${serviceType}`;
-  const previous = readSubmissionRecord(sessionKey);
+  const previous = readOrderSubmissionRecord<UploadedItemFiles>(serviceType);
   if (previous && previous.intentHash !== intentHash && previous.stage === "ambiguous") {
     return {
       success: false,
@@ -326,7 +368,7 @@ export async function submitOrder(
       errorCode: "submission-conflict",
     };
   }
-  const record: SubmissionSessionRecord = previous?.intentHash === intentHash
+  const record: OrderSubmissionSessionRecord<UploadedItemFiles> = previous?.intentHash === intentHash
     ? previous
     : {
         submissionId: crypto.randomUUID(),
@@ -338,7 +380,7 @@ export async function submitOrder(
             .map(() => crypto.randomUUID()),
         ),
       };
-  writeSubmissionRecord(sessionKey, record);
+  writeOrderSubmissionRecord(serviceType, record);
   const pendingToken = pendingTokenForSubmissionId(record.submissionId);
   if (!pendingToken) {
     return { success: false, error: "Could not allocate order submission.", errorCode: "server-error" };
@@ -478,7 +520,7 @@ export async function submitOrder(
   if (!record.itemFiles) {
     record.itemFiles = itemFiles;
     record.stage = "uploaded";
-    writeSubmissionRecord(sessionKey, record);
+    writeOrderSubmissionRecord(serviceType, record);
   }
 
   // ---- 3. Submit lightweight order metadata ----
@@ -518,7 +560,7 @@ export async function submitOrder(
     });
   } catch {
     record.stage = "ambiguous";
-    writeSubmissionRecord(sessionKey, record);
+    writeOrderSubmissionRecord(serviceType, record);
     return {
       success: false,
       error:
@@ -585,7 +627,7 @@ export async function submitOrder(
       };
     }
     if (result.code === "pricing_changed") {
-      removeSubmissionRecord(sessionKey);
+      clearOrderSubmissionRecord(serviceType);
       return {
         success: false,
         error: result.error || "Pricing changed. Review the updated total and confirm again.",
@@ -595,7 +637,7 @@ export async function submitOrder(
     }
     if (result.code === "submission_in_progress") {
       record.stage = "ambiguous";
-      writeSubmissionRecord(sessionKey, record);
+      writeOrderSubmissionRecord(serviceType, record);
       return {
         success: false,
         error: result.error || "This order is still processing. Retry in a moment.",
@@ -604,7 +646,7 @@ export async function submitOrder(
     }
     if (result.code === "submission_payload_conflict") {
       record.stage = "ambiguous";
-      writeSubmissionRecord(sessionKey, record);
+      writeOrderSubmissionRecord(serviceType, record);
       return {
         success: false,
         error: result.error || "This submissionId belongs to different order details.",
@@ -612,7 +654,7 @@ export async function submitOrder(
       };
     }
     if (result.code === "submission_unavailable") {
-      removeSubmissionRecord(sessionKey);
+      clearOrderSubmissionRecord(serviceType);
       return {
         success: false,
         error: result.error || "This order submission is unavailable. Review and submit again.",
@@ -628,7 +670,7 @@ export async function submitOrder(
     }
     if (response.status >= 500) {
       record.stage = "ambiguous";
-      writeSubmissionRecord(sessionKey, record);
+      writeOrderSubmissionRecord(serviceType, record);
       return {
         success: false,
         error:
@@ -645,7 +687,7 @@ export async function submitOrder(
 
   if (!result.orderNumber) {
     record.stage = "ambiguous";
-    writeSubmissionRecord(sessionKey, record);
+    writeOrderSubmissionRecord(serviceType, record);
     return {
       success: false,
       error: "Order saved but no order number was returned. Please contact support.",
@@ -653,7 +695,7 @@ export async function submitOrder(
     };
   }
 
-  removeSubmissionRecord(sessionKey);
+  clearOrderSubmissionRecord(serviceType);
   return {
     success: true,
     orderNumber: result.orderNumber,
@@ -676,31 +718,4 @@ function fileIdentity(file: File | null) {
     type: file.type || "application/octet-stream",
     lastModified: file.lastModified,
   } : null;
-}
-
-function readSubmissionRecord(key: string): SubmissionSessionRecord | null {
-  try {
-    const value = sessionStorage.getItem(key);
-    if (!value) return null;
-    const parsed = JSON.parse(value) as SubmissionSessionRecord;
-    return parsed?.submissionId && parsed?.intentHash ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeSubmissionRecord(key: string, value: SubmissionSessionRecord): void {
-  try {
-    sessionStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // A single attempt remains safe even when browser storage is unavailable.
-  }
-}
-
-function removeSubmissionRecord(key: string): void {
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    // Best effort only.
-  }
 }

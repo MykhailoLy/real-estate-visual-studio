@@ -44,7 +44,7 @@
     "test:stripe-server": "node --experimental-strip-types --test src/lib/payments/stripe-config.test.ts src/lib/payments/stripe-server.test.ts",
     "test:stripe-checkout": "node --experimental-strip-types --test src/lib/payments/checkout-service.test.ts",
     "test:stripe-webhook": "node --experimental-strip-types --test src/lib/payments/webhook-service.test.ts",
-    "test:order-integrity": "node --experimental-strip-types --test src/lib/orders/canonical-json.test.ts src/lib/orders/atomic-order-migration.test.ts src/lib/orders/direct-order-file-integrity.test.ts",
+    "test:order-integrity": "node --experimental-strip-types --test src/lib/orders/canonical-json.test.ts src/lib/orders/submission-recovery.test.ts src/lib/orders/atomic-order-migration.test.ts src/lib/orders/direct-order-file-integrity.test.ts",
     "media:backfill:dry-run": "node --conditions=react-server --experimental-strip-types scripts/backfill-public-images.ts --dry-run",
     "media:backfill:apply": "node --conditions=react-server --experimental-strip-types scripts/backfill-public-images.ts --apply",
     "media:backfill:cleanup-report": "node --conditions=react-server --experimental-strip-types scripts/backfill-public-images.ts --cleanup-report",

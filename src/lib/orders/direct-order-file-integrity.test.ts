@@ -254,6 +254,7 @@ interface MockSupabaseOptions {
 
 class MockSupabase {
   readonly objects = new Map<string, StoredObjectForTest>();
+  readonly infoCalls: string[] = [];
   readonly listCalls: ListOperationForTest[] = [];
   readonly moves: StorageOperationForTest[] = [];
   readonly copies: StorageOperationForTest[] = [];
@@ -269,6 +270,22 @@ class MockSupabase {
 
   readonly storage = {
     from: (bucket: string) => ({
+      info: async (path: string) => {
+        this.infoCalls.push(path);
+        const object = this.objects.get(path);
+        if (!object?.metadata) {
+          return { data: null, error: storageError("NotFound") };
+        }
+        return {
+          data: {
+            size: object.metadata.size,
+            contentType: object.metadata.mimetype,
+            etag: object.metadata.eTag,
+            metadata: object.metadata,
+          },
+          error: null,
+        };
+      },
       list: async (
         directory: string,
         options?: { search?: string; limit?: number },
@@ -569,8 +586,12 @@ function finalPath(
   return `${ORDER_NUMBER}/${itemIndex}-${kind}.${extension}`;
 }
 
-function metadata(size: number, mimeType: string): Record<string, unknown> {
-  return { size, mimetype: mimeType };
+function metadata(
+  size: number,
+  mimeType: string,
+  etag = `"etag-${size}-${mimeType}"`,
+): Record<string, unknown> {
+  return { size, mimetype: mimeType, eTag: etag };
 }
 
 function descriptor(
@@ -1563,7 +1584,7 @@ test("known Storage copy failure keeps pending source and releases the claim", a
   assert.equal(supabase.rpcCalls.some((call) => call.name === "release_order_submission"), true);
 });
 
-test("retry reuses an existing deterministic final object only after metadata verification", async () => {
+test("retry reuses an existing deterministic final object only after exact Storage ETag verification", async () => {
   const itemFiles = itemFilesForDirectOrder();
   const sourcePath = directPath(0, "original");
   const destination = finalPath(0, "original");
@@ -1578,6 +1599,47 @@ test("retry reuses an existing deterministic final object only after metadata ve
   assert.equal(result.ok, true);
   assert.equal(supabase.objects.has(destination), true);
   assert.equal(supabase.objects.has(sourcePath), false);
+  assert.equal(supabase.removes.some((paths) => paths.includes(destination)), false);
+});
+
+test("retry fails closed when Storage does not provide an object ETag", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const sourcePath = directPath(0, "original");
+  const destination = finalPath(0, "original");
+  const supabase = new MockSupabase({ copyFailures: [moveKey(sourcePath, destination)] });
+  addStoredObjects(supabase, itemFiles);
+  supabase.addObject(sourcePath, { size: 1234, mimetype: "image/jpeg" });
+  supabase.addObject(destination, metadata(1234, "image/jpeg"));
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "storage_error");
+  assert.equal(supabase.objects.has(sourcePath), true);
+  assert.equal(supabase.objects.has(destination), true);
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.removes.length, 0);
+});
+
+test("retry rejects the same size and MIME when the Storage ETag identity differs", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const sourcePath = directPath(0, "original");
+  const destination = finalPath(0, "original");
+  const supabase = new MockSupabase({ copyFailures: [moveKey(sourcePath, destination)] });
+  addStoredObjects(supabase, itemFiles);
+  supabase.addObject(
+    destination,
+    metadata(1234, "image/jpeg", '"different-object-etag"'),
+  );
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "storage_error");
+  assert.equal(supabase.objects.has(sourcePath), true);
+  assert.equal(supabase.objects.has(destination), true);
   assert.equal(supabase.removes.some((paths) => paths.includes(destination)), false);
 });
 
