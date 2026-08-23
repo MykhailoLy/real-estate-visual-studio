@@ -161,9 +161,9 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-base font-semibold uppercase tracking-wider mb-4">
+            <p className="text-base font-semibold uppercase tracking-wider mb-4">
               {copy.servicesHeading}
-            </h4>
+            </p>
             <ul className="space-y-2">
               {copy.services.map((link) => (
                 <li key={link.href}>
@@ -174,9 +174,9 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-base font-semibold uppercase tracking-wider mb-4">
+            <p className="text-base font-semibold uppercase tracking-wider mb-4">
               {copy.pagesHeading}
-            </h4>
+            </p>
             <ul className="space-y-2">
               {copy.pages.map((link) => (
                 <li key={link.href}>
@@ -187,9 +187,9 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-base font-semibold uppercase tracking-wider mb-4">
+            <p className="text-base font-semibold uppercase tracking-wider mb-4">
               {copy.serviceAreaHeading}
-            </h4>
+            </p>
             <p className="text-base leading-relaxed text-white/70">
               {serviceAreaCities.join(" · ")}
             </p>

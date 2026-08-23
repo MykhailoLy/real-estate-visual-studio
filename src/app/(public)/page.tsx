@@ -121,6 +121,10 @@ export default async function HomePage() {
   return (
     <>
       <JsonLd data={[organizationSchema(), webSiteSchema()]} />
+      {/* Visually-hidden page-level h1 — first heading in DOM order so
+          the document outline starts with exactly one h1 before any
+          visible section headings (h2) appear. */}
+      <h1 className="sr-only">PicchuSpot Real Estate Visual Services</h1>
       {/* 1. Slider — wide banner strip directly under the nav. */}
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
@@ -141,9 +145,9 @@ export default async function HomePage() {
               <p className="text-secondary-dark text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2">
                 Remote Digital Services
               </p>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
                 Help Your Listings Stand Out and Sell Faster
-              </h1>
+              </h2>
               <p className="mt-2 text-sm sm:text-base lg:text-lg text-muted leading-snug">
                 Virtual staging, photo editing, floor plans, 360 visuals, and
                 local real estate media for market-ready property listings.
