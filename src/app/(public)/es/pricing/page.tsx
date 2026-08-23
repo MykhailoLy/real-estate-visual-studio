@@ -8,6 +8,11 @@ import {
   PUBLIC_TAX_NOTICE_ES,
   PUBLIC_VOLUME_DISCOUNTS_ES,
 } from "@/lib/pricing/public";
+import {
+  formatLocalPricingRow,
+  getLocalPricingPresentation,
+  type LocalPricingServiceId,
+} from "@/lib/pricing/local-catalog";
 import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
@@ -143,24 +148,38 @@ const digitalSections: Array<{
   },
 ];
 
-const localRows: PricingRow[] = [
-  {
-    label: "Fotografía inmobiliaria",
-    price: "Desde 129 € / 15 fotos editadas",
-  },
-  {
-    label: "Tour virtual 360",
-    price: "Desde 120 € / apartamento pequeño",
-  },
-  {
-    label: "Vídeo de propiedad",
-    price: "Desde 250 € / recorrido corto",
-  },
-  {
-    label: "Dron / fotografía aérea",
-    price: "Presupuesto bajo petición",
-  },
+const LOCAL_PRICING_ORDER: readonly LocalPricingServiceId[] = [
+  "photography",
+  "360-tours",
+  "video-tours",
+  "drone-photography",
+  "floor-plan-2d",
 ];
+
+const localRows: PricingRow[] = LOCAL_PRICING_ORDER.flatMap((serviceId) => {
+  const presentation = getLocalPricingPresentation(serviceId, "es");
+
+  return presentation.rows.map((row) => {
+    if (row.packageLabel) {
+      return {
+        label: `${presentation.serviceLabel} — ${row.packageLabel}`,
+        price: `${row.priceLabel}${row.detailLabel ? ` / ${row.detailLabel}` : ""}`,
+      };
+    }
+
+    if (presentation.rows.length > 1 && row.detailLabel) {
+      return {
+        label: `${presentation.serviceLabel} — ${row.detailLabel}`,
+        price: row.priceLabel,
+      };
+    }
+
+    return {
+      label: presentation.serviceLabel,
+      price: formatLocalPricingRow(row),
+    };
+  });
+});
 
 const inclusions = [
   "1 revisión incluida en cada pedido digital",

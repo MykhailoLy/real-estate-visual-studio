@@ -9,7 +9,7 @@
     "lint": "eslint",
     "e2e:smoke": "playwright test",
     "e2e:smoke:headed": "playwright test --headed",
-    "test:pricing": "node --experimental-strip-types --test src/lib/pricing/calculate.test.ts",
+    "test:pricing": "node --experimental-strip-types --test src/lib/pricing/calculate.test.ts src/lib/pricing/local-catalog.test.ts",
     "test:drafts-page": "node --experimental-strip-types --test src/lib/order-drafts/drafts-page.test.ts",
     "test:order-drafts": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts.test.ts",
     "test:order-drafts-api": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts-api.test.ts",

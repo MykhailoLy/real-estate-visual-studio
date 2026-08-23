@@ -300,6 +300,7 @@ function pricingHrefForSlug(slug: PortfolioServiceSlug): string {
  * display-location flag (show_in_gallery / show_on_service_page /
  * featured_home) takes effect without a redeploy:
  *   - the homepages (EN `/` and ES `/es`) — featured_home grid
+ *   - the pricing hub — gallery-visible card imagery
  *   - the pricing/service pages for the changed slugs (EN + ES) —
  *     show_on_service_page examples
  *   - the gallery landing pages (EN + ES) — gallery covers
@@ -315,7 +316,14 @@ export function revalidatePortfolioPaths(
   affectedSlugs: PortfolioServiceSlug[]
 ): void {
   const seen = new Set<string>();
-  const queue = ["/", "/es", "/admin/portfolio", "/gallery", "/es/gallery"];
+  const queue = [
+    "/",
+    "/es",
+    "/pricing",
+    "/admin/portfolio",
+    "/gallery",
+    "/es/gallery",
+  ];
   for (const slug of affectedSlugs) {
     if (!isPortfolioServiceSlug(slug)) continue;
     // Pricing/service page — EN, plus the ES equivalent if mapped.

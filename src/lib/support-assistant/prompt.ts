@@ -1,7 +1,49 @@
 import "server-only";
+import {
+  LOCAL_PRICE_CATALOG,
+  formatLocalEuro,
+  formatLocalPricingRow,
+  getLocalPricingPresentation,
+  type LocalPricingServiceId,
+} from "../pricing/local-catalog.ts";
 
-export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.3";
+export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.4";
 export const PICCHUSPOT_PRICING_VERSION = "2026-06-25-v1";
+
+const LOCAL_SUPPORT_PRICING_ORDER: readonly LocalPricingServiceId[] = [
+  "photography",
+  "360-tours",
+  "video-tours",
+  "drone-photography",
+  "floor-plan-2d",
+];
+
+const LOCAL_SUPPORT_PRICING_SECTION = LOCAL_SUPPORT_PRICING_ORDER.map(
+  (serviceId) => {
+    const pricing = getLocalPricingPresentation(serviceId, "en", true);
+    const rows = pricing.rows.map(
+      (row) => `* ${formatLocalPricingRow(row)}`,
+    );
+    return `${pricing.serviceLabel}:\n\n${rows.join("\n")}`;
+  },
+).join("\n\n");
+
+const LOCAL_PHOTOGRAPHY_START = getLocalPricingPresentation(
+  "photography",
+  "en",
+  true,
+).overviewPriceLabel;
+const LOCAL_360_START = getLocalPricingPresentation(
+  "360-tours",
+  "en",
+  true,
+).overviewPriceLabel;
+const LOCAL_COMBINED_START = `From ${formatLocalEuro(
+  LOCAL_PRICE_CATALOG.photography.packages[0].priceCents +
+    LOCAL_PRICE_CATALOG["360-tours"].packages[0].priceCents,
+  "en",
+  true,
+)}`;
 
 export const PICCHUSPOT_SUPPORT_SYSTEM_PROMPT = `You are the official customer support and pre-sales assistant for PicchuSpot,
 a real estate visual marketing company.
@@ -466,7 +508,7 @@ approved.
 
 ## Pricing version
 
-The authoritative PicchuSpot pricing version is:
+The authoritative PicchuSpot remote digital pricing version is:
 
 2026-06-25-v1
 
@@ -716,30 +758,7 @@ US$2.50 / €2.50 / CA$3.50 per image
 
 Local services are quoted only in EUR.
 
-Real Estate Photography:
-
-* from €129.00 for 15 photos
-* €179.00 for 25 photos
-* €239.00 for 35 photos
-
-The following require a custom quote:
-
-* 50 or more photos
-* villas
-* luxury properties
-* urgent delivery
-
-360 Virtual Tours:
-
-* from €120.00 for a small apartment
-
-Property Video Tours:
-
-* from €250.00 for a short walkthrough
-
-Drone or Aerial Photography:
-
-* custom quote
+${LOCAL_SUPPORT_PRICING_SECTION}
 
 Local pricing may depend on:
 
@@ -766,9 +785,9 @@ shown as “from”.
 
 Example:
 
-* Photography: from €129.00
-* 360 Virtual Tour: from €120.00
-* Combined starting estimate: from €249.00
+* Photography: ${LOCAL_PHOTOGRAPHY_START}
+* 360 Virtual Tour: ${LOCAL_360_START}
+* Combined starting estimate: ${LOCAL_COMBINED_START}
 
 Never present a sum of starting prices as a fixed final price.
 

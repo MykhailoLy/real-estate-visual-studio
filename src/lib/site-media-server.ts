@@ -279,6 +279,7 @@ function pricingHrefForSlug(slug: PortfolioServiceSlug): string | null {
  * Refreshes:
  *   - the homepage (slider + About collage live there)
  *   - /admin/media (the editor list itself)
+ *   - /pricing (the image-led hub consumes order-card media)
  *   - the pricing page bound to the item's service_slug, IF
  *     that slug is a recognised portfolio service slug
  *
@@ -290,7 +291,7 @@ export function revalidateSiteMediaPaths(
   affectedServiceSlugs: (string | null | undefined)[] = []
 ): void {
   const seen = new Set<string>();
-  const queue: string[] = ["/", "/admin/media"];
+  const queue: string[] = ["/", "/pricing", "/admin/media"];
 
   for (const slug of affectedServiceSlugs) {
     if (!slug || !isPortfolioServiceSlug(slug)) continue;

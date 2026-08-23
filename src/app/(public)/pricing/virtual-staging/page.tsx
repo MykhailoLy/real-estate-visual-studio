@@ -97,27 +97,6 @@ const WHAT_IT_IS_BULLETS = [
   "High-resolution JPG delivery in 24–48h",
 ] as const;
 
-const STALE_VIRTUAL_STAGING_PRICE = /US\$19(?:\.00)?/i;
-
-function CanonicalVirtualStagingPortfolioCopy({
-  text,
-}: {
-  text: string | null;
-}) {
-  if (!text) return null;
-
-  const match = STALE_VIRTUAL_STAGING_PRICE.exec(text);
-  if (!match || match.index === undefined) return text;
-
-  return (
-    <>
-      {text.slice(0, match.index)}
-      <CatalogPriceText priceKey="virtual-staging" />
-      {text.slice(match.index + match[0].length)}
-    </>
-  );
-}
-
 const PRICING_CARDS: Array<{
   label: string;
   priceKey: PriceKey;
@@ -232,11 +211,11 @@ async function buildSliderSlides(
   }
 
   return usable.map((item) => {
+    // Portfolio copy is editorial content, not a pricing source. Keep the
+    // image-led slider independent from freeform titles and descriptions.
     const alt = getBeforeAfterAlt({
       beforeAlt: item.before_alt,
       afterAlt: item.after_alt,
-      title: item.title,
-      description: item.description,
       serviceLabel: "Virtual Staging",
       serviceSlug: item.service_slug,
     });
@@ -247,7 +226,6 @@ async function buildSliderSlides(
       afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
       beforeAlt: alt.beforeAlt,
       afterAlt: alt.afterAlt,
-      title: item.title,
     };
   });
 }
@@ -442,7 +420,9 @@ export default async function VirtualStagingPage() {
           {/* ── Full examples grid (2-col desktop, 1-col mobile) ──
               Shown when portfolio items are uploaded. Falls back to
               a single full-width placeholder so the section always
-              has visual weight even before any images are added. */}
+              has visual weight even before any images are added.
+              Freeform portfolio captions are intentionally not rendered;
+              canonical service copy and pricing live above the grid. */}
           {hasItems ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
               {allItems.map((item) => {
@@ -451,8 +431,6 @@ export default async function VirtualStagingPage() {
                 const alt = getBeforeAfterAlt({
                   beforeAlt: item.before_alt,
                   afterAlt: item.after_alt,
-                  title: item.title,
-                  description: item.description,
                   serviceLabel: "Virtual Staging",
                   serviceSlug: item.service_slug,
                 });
@@ -470,20 +448,6 @@ export default async function VirtualStagingPage() {
                         afterAlt={alt.afterAlt}
                         placeholderVariant="virtual-staging"
                       />
-                    </div>
-                    <div className="p-5 lg:p-6">
-                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                        <CanonicalVirtualStagingPortfolioCopy
-                          text={item.title}
-                        />
-                      </h3>
-                      {item.description && (
-                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                          <CanonicalVirtualStagingPortfolioCopy
-                            text={item.description}
-                          />
-                        </p>
-                      )}
                     </div>
                   </article>
                 );

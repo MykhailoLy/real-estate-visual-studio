@@ -11,11 +11,10 @@ import { getOrderCardImages } from "@/lib/order-card-media";
 import { getOrderServiceExamples } from "@/lib/order-card-examples";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
 import { PUBLIC_TAX_NOTICE } from "@/lib/pricing/public";
+import { getLocalPricingPresentation } from "@/lib/pricing/local-catalog";
 import type { PriceKey } from "@/lib/pricing/types";
 import { publicPageMetadata } from "@/lib/seo";
 import type { LocalServiceType } from "@/types";
-
-export const revalidate = 3600;
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Pricing",
@@ -237,9 +236,7 @@ function getLocalService(serviceId: LocalServiceType) {
 }
 
 function getLocalPriceLabel(serviceId: LocalServiceType): string {
-  const service = getLocalService(serviceId);
-  if (!service.priceFrom || service.priceFrom <= 0) return "Quote on request";
-  return `From €${service.priceFrom} / ${service.priceUnit}`;
+  return getLocalPricingPresentation(serviceId).overviewPriceLabel;
 }
 
 export default async function PricingPage() {

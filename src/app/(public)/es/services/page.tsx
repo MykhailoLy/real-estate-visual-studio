@@ -14,6 +14,11 @@ import {
 import Container from "@/components/layout/Container";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { spanishMetadata } from "../seo";
+import {
+  formatLocalPricingRow,
+  getLocalPricingPresentation,
+  type LocalPricingServiceId,
+} from "@/lib/pricing/local-catalog";
 import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
@@ -102,32 +107,43 @@ const digitalServices: Service[] = [
   },
 ];
 
+function getLocalServicePriceLines(serviceId: LocalPricingServiceId) {
+  const rows = getLocalPricingPresentation(serviceId, "es").rows;
+  const [first, ...additional] = rows;
+
+  return {
+    price: formatLocalPricingRow(first),
+    additionalPricing:
+      additional.length > 0 ? additional.map(formatLocalPricingRow) : null,
+  };
+}
+
 const localServices = [
   {
     icon: Camera,
     title: "Fotografía inmobiliaria",
-    price: "Desde 129 € / 15 fotos editadas",
+    ...getLocalServicePriceLines("photography"),
     description:
       "Fotografía profesional para pisos, villas, alquileres y propiedades que necesitan una presentación sólida.",
   },
   {
     icon: View,
     title: "Tours virtuales 360",
-    price: "Desde 120 € / apartamento pequeño",
+    ...getLocalServicePriceLines("360-tours"),
     description:
       "Recorridos interactivos para compradores remotos, alquiler vacacional y visitas previas más eficientes.",
   },
   {
     icon: Video,
     title: "Vídeo de propiedad",
-    price: "Desde 250 € / recorrido corto",
+    ...getLocalServicePriceLines("video-tours"),
     description:
       "Vídeos limpios para portales, redes sociales, agencias y campañas inmobiliarias.",
   },
   {
     icon: Home,
     title: "Media aérea y encargos a medida",
-    price: "Presupuesto bajo petición",
+    ...getLocalServicePriceLines("drone-photography"),
     description:
       "Dron mediante especialista autorizado cuando la normativa y la ubicación lo permiten.",
   },
@@ -272,6 +288,18 @@ export default function SpanishServicesPage() {
                   <p className="text-sm font-semibold text-secondary-dark mb-3">
                     {service.price}
                   </p>
+                  {service.additionalPricing && (
+                    <ul className="mb-4 space-y-1.5 border-t border-border pt-3">
+                      {service.additionalPricing.map((line) => (
+                        <li
+                          key={line}
+                          className="text-xs leading-relaxed text-foreground"
+                        >
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <p className="text-sm text-muted leading-relaxed">
                     {service.description}
                   </p>
