@@ -152,12 +152,14 @@ export async function runGeminiSupportInteraction(
     const interaction = await createInteraction(
       buildGeminiSupportInteractionRequest(history, systemPrompt),
     );
-    assertCompletedGeminiSupportInteraction(interaction);
-
     const steps = interactionSteps(interaction);
     const functionCalls = validatedFunctionCalls(steps);
     if (functionCalls.length === 0) {
       return extractCompletedGeminiSupportOutput(interaction);
+    }
+
+    if (interaction.status !== "requires_action") {
+      assertCompletedGeminiSupportInteraction(interaction);
     }
 
     if (toolCallRounds >= GEMINI_SUPPORT_MAX_TOOL_CALL_ROUNDS) {

@@ -22,6 +22,15 @@ function completed(
   };
 }
 
+function requiresAction(steps: unknown[]): GeminiSupportInteractionLike {
+  return {
+    id: "interaction-id",
+    status: "requires_action",
+    output_text: "",
+    steps,
+  };
+}
+
 function createSequence(
   responses: readonly GeminiSupportInteractionLike[],
   requests: GeminiSupportInteractionRequest[],
@@ -74,7 +83,7 @@ test("stateless orchestration preserves model steps and returns the final answer
     "Canonical system prompt",
     createSequence(
       [
-        completed("", [thoughtStep, callStep]),
+        requiresAction([thoughtStep, callStep]),
         completed("The authoritative total is US$45.00."),
       ],
       requests,
@@ -133,6 +142,82 @@ test("stateless orchestration preserves model steps and returns the final answer
   });
 });
 
+test("completed interactions with function calls remain supported", async () => {
+  const requests: GeminiSupportInteractionRequest[] = [];
+  const output = await runGeminiSupportInteraction(
+    "Quote three Virtual Staging images",
+    "Canonical system prompt",
+    createSequence(
+      [
+        completed("", [
+          {
+            type: "function_call",
+            name: "get_remote_service_quote",
+            id: "completed-call-1",
+            arguments: {
+              service: "virtual-staging",
+              quantity: 3,
+              currency: "USD",
+            },
+          },
+        ]),
+        completed("The authoritative total is US$45.00."),
+      ],
+      requests,
+    ),
+  );
+
+  assert.equal(output, "The authoritative total is US$45.00.");
+  assert.equal(requests.length, 2);
+  assert.equal(
+    functionResultStep(requests[1]!).call_id,
+    "completed-call-1",
+  );
+});
+
+test("requires_action without a function call fails safely", async () => {
+  await assert.rejects(
+    () =>
+      runGeminiSupportInteraction(
+        "Give me a final answer",
+        "Canonical system prompt",
+        async () => requiresAction([]),
+      ),
+    (error: unknown) =>
+      error instanceof SupportAssistantGenerationError &&
+      error.logCategory === "provider_unexpected_status",
+  );
+});
+
+test("function calls reject inappropriate interaction statuses", async () => {
+  await assert.rejects(
+    () =>
+      runGeminiSupportInteraction(
+        "Quote three Virtual Staging images",
+        "Canonical system prompt",
+        async () => ({
+          id: "interaction-id",
+          status: "failed",
+          steps: [
+            {
+              type: "function_call",
+              name: "get_remote_service_quote",
+              id: "failed-call-1",
+              arguments: {
+                service: "virtual-staging",
+                quantity: 3,
+                currency: "USD",
+              },
+            },
+          ],
+        }),
+      ),
+    (error: unknown) =>
+      error instanceof SupportAssistantGenerationError &&
+      error.logCategory === "provider_failed",
+  );
+});
+
 test("invalid function arguments are rejected server-side and returned as an error result", async () => {
   const requests: GeminiSupportInteractionRequest[] = [];
   const output = await runGeminiSupportInteraction(
@@ -140,7 +225,7 @@ test("invalid function arguments are rejected server-side and returned as an err
     "Canonical system prompt",
     createSequence(
       [
-        completed("", [
+        requiresAction([
           {
             type: "function_call",
             name: "get_remote_service_quote",
@@ -169,7 +254,7 @@ test("invalid function arguments are rejected server-side and returned as an err
   assert.match(JSON.stringify(result.issues), /currency/);
 });
 
-test("unknown function names are rejected before execution", async () => {
+test("requires_action with an unauthorised function fails safely", async () => {
   const requests: GeminiSupportInteractionRequest[] = [];
 
   await assert.rejects(
@@ -179,7 +264,7 @@ test("unknown function names are rejected before execution", async () => {
         "Canonical system prompt",
         createSequence(
           [
-            completed("", [
+            requiresAction([
               {
                 type: "function_call",
                 name: "delete_order",
@@ -205,7 +290,7 @@ test("malformed function call arguments are rejected safely", async () => {
         "Quote this",
         "Canonical system prompt",
         async () =>
-          completed("", [
+          requiresAction([
             {
               type: "function_call",
               name: "get_remote_service_quote",
@@ -225,7 +310,7 @@ test("maximum function-call round protection stops repeated tool loops", async (
   const repeatedCalls = Array.from(
     { length: GEMINI_SUPPORT_MAX_TOOL_CALL_ROUNDS + 1 },
     (_, index) =>
-      completed("", [
+      requiresAction([
         {
           type: "function_call",
           name: "get_remote_service_quote",
@@ -257,7 +342,7 @@ test("maximum function-call round protection stops repeated tool loops", async (
   assert.equal(GEMINI_SUPPORT_MAX_TOOL_CALL_ROUNDS, 2);
 });
 
-test("normal non-pricing support answers complete without function results", async () => {
+test("final completed interactions return the visible answer", async () => {
   const requests: GeminiSupportInteractionRequest[] = [];
   const output = await runGeminiSupportInteraction(
     "What is your turnaround time?",
