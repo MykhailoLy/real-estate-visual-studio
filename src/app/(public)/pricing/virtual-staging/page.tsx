@@ -97,6 +97,27 @@ const WHAT_IT_IS_BULLETS = [
   "High-resolution JPG delivery in 24–48h",
 ] as const;
 
+const STALE_VIRTUAL_STAGING_PRICE = /US\$19(?:\.00)?/i;
+
+function CanonicalVirtualStagingPortfolioCopy({
+  text,
+}: {
+  text: string | null;
+}) {
+  if (!text) return null;
+
+  const match = STALE_VIRTUAL_STAGING_PRICE.exec(text);
+  if (!match || match.index === undefined) return text;
+
+  return (
+    <>
+      {text.slice(0, match.index)}
+      <CatalogPriceText priceKey="virtual-staging" />
+      {text.slice(match.index + match[0].length)}
+    </>
+  );
+}
+
 const PRICING_CARDS: Array<{
   label: string;
   priceKey: PriceKey;
@@ -452,11 +473,15 @@ export default async function VirtualStagingPage() {
                     </div>
                     <div className="p-5 lg:p-6">
                       <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                        {item.title}
+                        <CanonicalVirtualStagingPortfolioCopy
+                          text={item.title}
+                        />
                       </h3>
                       {item.description && (
                         <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                          {item.description}
+                          <CanonicalVirtualStagingPortfolioCopy
+                            text={item.description}
+                          />
                         </p>
                       )}
                     </div>

@@ -1,467 +1,403 @@
 import type { Metadata } from "next";
-import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
-import SectionHeader from "@/components/sections/SectionHeader";
-import CtaSection from "@/components/sections/CtaSection";
+import type { ServiceVariant } from "@/components/home/ServicePlaceholder";
+import PricingHubServiceTile, {
+  type PricingHubImage,
+} from "@/components/pricing/PricingHubServiceTile";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
-import { publicPageMetadata } from "@/lib/seo";
-import { Check } from "lucide-react";
-import {
-  FLOOR_PLAN_TYPES,
-  PHOTO_EDIT_OPTIONS,
-  RENOVATION_EXTERNAL_OPTIONS,
-  RENOVATION_INTERNAL_OPTIONS,
-  STAGING_ADDONS,
-} from "@/data/order-options";
-import {
-  PUBLIC_TAX_NOTICE,
-  PUBLIC_VOLUME_DISCOUNTS,
-} from "@/lib/pricing/public";
+import CtaSection from "@/components/sections/CtaSection";
+import { localServices } from "@/data/services";
+import { getOrderCardImages } from "@/lib/order-card-media";
+import { getOrderServiceExamples } from "@/lib/order-card-examples";
+import type { PortfolioServiceSlug } from "@/lib/portfolio";
+import { PUBLIC_TAX_NOTICE } from "@/lib/pricing/public";
 import type { PriceKey } from "@/lib/pricing/types";
+import { publicPageMetadata } from "@/lib/seo";
+import type { LocalServiceType } from "@/types";
+
+export const revalidate = 3600;
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Pricing",
   description:
-    "Transparent pricing for virtual staging, floor plans, photo editing, and local real estate media. See service costs before you order.",
+    "Explore starting prices for PicchuSpot virtual staging, photo editing, floor plans, 360 services, and local real estate media.",
   canonicalPath: "/pricing",
   spanishPath: "/es/pricing",
 });
 
-type PublicPricingRow = {
-  label: string;
-  priceKey: PriceKey;
-  unit?: string;
-};
+type HubPrice =
+  | {
+      kind: "catalog";
+      priceKey: PriceKey;
+      unit: string;
+    }
+  | {
+      kind: "label";
+      label: string;
+    };
 
-const stagingAddons: PublicPricingRow[] = STAGING_ADDONS;
-const renovationInternal: PublicPricingRow[] = RENOVATION_INTERNAL_OPTIONS;
-const renovationExternal: PublicPricingRow[] = RENOVATION_EXTERNAL_OPTIONS;
-const floorPlanTypes: PublicPricingRow[] = FLOOR_PLAN_TYPES.map((plan) => ({
-  label: plan.label,
-  priceKey: plan.priceKey,
-  unit: "per floor",
-}));
-const photoEditOptions: PublicPricingRow[] = PHOTO_EDIT_OPTIONS;
+interface RemoteHubService {
+  name: string;
+  href: string;
+  price: HubPrice;
+  mediaSlug: PortfolioServiceSlug;
+  fallbackVariant: ServiceVariant;
+}
 
-const inclusions = [
-  "1 revision included with every order",
-  "High-resolution file delivery (JPG, PDF)",
-  "Commercial usage rights",
-  "24-48 hour standard turnaround",
-  "No subscription or monthly fees",
-  "Volume discounts for bulk orders",
-];
+interface RemoteServiceGroup {
+  title: string;
+  services: readonly RemoteHubService[];
+}
 
-export default function PricingPage() {
+interface LocalHubService {
+  serviceId: LocalServiceType;
+  href: string;
+  mediaSlug: PortfolioServiceSlug;
+  fallbackVariant: ServiceVariant;
+}
+
+const REMOTE_SERVICE_GROUPS: readonly RemoteServiceGroup[] = [
+  {
+    title: "Photo Editing",
+    services: [
+      {
+        name: "Image Enhancement",
+        href: "/pricing/image-enhancement",
+        price: {
+          kind: "catalog",
+          priceKey: "image-enhancement",
+          unit: "image",
+        },
+        mediaSlug: "image-enhancement",
+        fallbackVariant: "image-enhancement",
+      },
+      {
+        name: "Day to Dusk",
+        href: "/pricing/day-to-dusk",
+        price: {
+          kind: "catalog",
+          priceKey: "day-to-dusk",
+          unit: "image",
+        },
+        mediaSlug: "day-to-dusk",
+        fallbackVariant: "day-to-dusk",
+      },
+      {
+        name: "Item Removal & Virtual Cleaning",
+        href: "/pricing/photo-editing",
+        price: {
+          kind: "catalog",
+          priceKey: "item-removal-virtual-cleaning",
+          unit: "image",
+        },
+        mediaSlug: "item-removal-virtual-cleaning",
+        fallbackVariant: "item-removal",
+      },
+      {
+        name: "Aerial Editing",
+        href: "/pricing/aerial-editing",
+        price: { kind: "label", label: "Quote on request" },
+        mediaSlug: "aerial-editing",
+        fallbackVariant: "aerial-editing",
+      },
+    ],
+  },
+  {
+    title: "Staging & Renovation",
+    services: [
+      {
+        name: "Virtual Staging",
+        href: "/pricing/virtual-staging",
+        price: {
+          kind: "catalog",
+          priceKey: "virtual-staging",
+          unit: "image",
+        },
+        mediaSlug: "virtual-staging",
+        fallbackVariant: "virtual-staging",
+      },
+      {
+        name: "Virtual Renovation",
+        href: "/pricing/virtual-renovation",
+        price: { kind: "label", label: "Option-based pricing" },
+        mediaSlug: "virtual-renovation",
+        fallbackVariant: "virtual-renovation",
+      },
+      {
+        name: "360° Virtual Staging",
+        href: "/pricing/360-virtual-staging",
+        price: {
+          kind: "catalog",
+          priceKey: "360-virtual-staging",
+          unit: "panorama",
+        },
+        mediaSlug: "360-virtual-staging",
+        fallbackVariant: "panorama-staging",
+      },
+      {
+        name: "360° Image Enhancement",
+        href: "/pricing/360-image-enhancement",
+        price: {
+          kind: "catalog",
+          priceKey: "360-image-enhancement",
+          unit: "panorama",
+        },
+        mediaSlug: "360-image-enhancement",
+        fallbackVariant: "panorama-enhancement",
+      },
+    ],
+  },
+  {
+    title: "Plans & Property Visuals",
+    services: [
+      {
+        name: "2D / 3D Floor Plans",
+        href: "/pricing/floor-plans",
+        price: {
+          kind: "catalog",
+          priceKey: "floor-plan-2d-bw",
+          unit: "floor",
+        },
+        mediaSlug: "floor-plans",
+        fallbackVariant: "floor-plans",
+      },
+      {
+        name: "Development Site Plans",
+        href: "/pricing/development-site-plans",
+        price: { kind: "label", label: "Quote on request" },
+        mediaSlug: "development-site-plans",
+        fallbackVariant: "site-plans",
+      },
+    ],
+  },
+] as const;
+
+const LOCAL_HUB_SERVICES: readonly LocalHubService[] = [
+  {
+    serviceId: "photography",
+    href: "/local#real-estate-photography",
+    mediaSlug: "image-enhancement",
+    fallbackVariant: "local-photography",
+  },
+  {
+    serviceId: "360-tours",
+    href: "/local#360-virtual-tours",
+    mediaSlug: "360-image-enhancement",
+    fallbackVariant: "local-360-tour",
+  },
+  {
+    serviceId: "video-tours",
+    href: "/local#property-video-tours",
+    mediaSlug: "virtual-staging",
+    fallbackVariant: "local-video",
+  },
+  {
+    serviceId: "drone-photography",
+    href: "/local#drone-aerial-media",
+    mediaSlug: "aerial-editing",
+    fallbackVariant: "local-drone",
+  },
+] as const;
+
+const PRICING_NOTES = [
+  {
+    title: "Pay per service",
+    description:
+      "Choose only the services and images you need. There is no subscription.",
+  },
+  {
+    title: "Taxes shown separately",
+    description: PUBLIC_TAX_NOTICE,
+  },
+  {
+    title: "Volume pricing available",
+    description:
+      "Eligible bulk orders can receive volume pricing. Ask us about larger projects.",
+  },
+] as const;
+
+function renderPriceLabel(price: HubPrice) {
+  if (price.kind === "label") return price.label;
+
+  return (
+    <CatalogPriceText
+      priceKey={price.priceKey}
+      prefix="From "
+      suffix={` / ${price.unit}`}
+    />
+  );
+}
+
+function getLocalService(serviceId: LocalServiceType) {
+  const service = localServices.find((item) => item.id === serviceId);
+  if (!service) {
+    throw new Error(`Missing local service configuration: ${serviceId}`);
+  }
+  return service;
+}
+
+function getLocalPriceLabel(serviceId: LocalServiceType): string {
+  const service = getLocalService(serviceId);
+  if (!service.priceFrom || service.priceFrom <= 0) return "Quote on request";
+  return `From €${service.priceFrom} / ${service.priceUnit}`;
+}
+
+export default async function PricingPage() {
+  const [cardImages, examples] = await Promise.all([
+    getOrderCardImages(),
+    getOrderServiceExamples(),
+  ]);
+
+  function resolveImage(mediaSlug: PortfolioServiceSlug): PricingHubImage | null {
+    const example = examples.get(mediaSlug)?.[0];
+    if (example) {
+      return { url: example.afterUrl, alt: example.afterAlt };
+    }
+
+    const cardImage = cardImages.get(mediaSlug);
+    if (cardImage) {
+      return {
+        url: cardImage.url,
+        alt: cardImage.alt ?? `${mediaSlug.replaceAll("-", " ")} example`,
+      };
+    }
+
+    return null;
+  }
+
   return (
     <>
-      {/* Hero */}
-      <section className="bg-primary py-16 lg:py-24">
+      <section className="bg-primary py-10 sm:py-12 lg:py-14">
         <Container>
           <div className="max-w-3xl">
-            <h1 className="text-3xl lg:text-5xl font-bold text-white mb-4">
-              Transparent Pricing, No Hidden Fees
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+              Pricing
             </h1>
-            <p className="text-lg text-white/75 leading-relaxed">
-              Pay per image or per option. No subscriptions. See exactly what
-              each service costs before you order.
+            <p className="mt-3 text-xl font-semibold text-white sm:text-2xl">
+              Clear starting prices.
+            </p>
+            <p className="mt-2 max-w-2xl text-base leading-relaxed text-white/75 lg:text-lg">
+              Choose a service to see examples, options and full pricing.
             </p>
           </div>
         </Container>
       </section>
 
-      {/* Virtual Staging */}
-      <section className="py-16 lg:py-24" id="virtual-staging">
+      <section className="bg-white py-14 sm:py-16 lg:py-20">
         <Container>
-          <div className="max-w-4xl">
-            <SectionHeader
-              title="Virtual Staging"
-              subtitle="Base price per image + optional add-ons."
-              align="left"
-            />
-
-            <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <div className="flex items-baseline gap-2 mb-6">
-                <span className="text-3xl font-bold text-primary">
-                  <CatalogPriceText priceKey="virtual-staging" />
-                </span>
-                <span className="text-muted text-sm">per image</span>
-              </div>
-
-              <h4 className="text-sm font-semibold text-foreground mb-3">
-                Optional Add-ons
-              </h4>
-              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {stagingAddons.map((addon, i) => (
-                      <tr
-                        key={addon.label}
-                        className={i % 2 === 0 ? "bg-white" : "bg-surface"}
-                      >
-                        <td className="px-4 py-3 text-foreground">
-                          {addon.label}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-primary">
-                          <CatalogPriceText
-                            priceKey={addon.priceKey}
-                            prefix="+"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <TrackedLink
-              href="/order/virtual-staging"
-              analyticsLabel="Order Virtual Staging"
-              analyticsLocation="pricing_card"
-              analyticsEvent="pricing_cta"
-              className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
-            >
-              Order Virtual Staging →
-            </TrackedLink>
+          <div className="max-w-3xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary-dark">
+              Worldwide
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-5xl">
+              Remote Digital Services
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-muted lg:text-lg">
+              Professional property visuals delivered online. Select a service
+              for examples, available options and complete pricing.
+            </p>
           </div>
-        </Container>
-      </section>
 
-      {/* Virtual Renovation */}
-      <section className="py-16 lg:py-24 bg-surface" id="virtual-renovation">
-        <Container>
-          <div className="max-w-4xl">
-            <SectionHeader
-              title="Virtual Renovation"
-              subtitle="Option-based pricing. Select only the renovations you need for each image."
-              align="left"
-            />
+          <div className="mt-12 space-y-14 lg:mt-16 lg:space-y-18">
+            {REMOTE_SERVICE_GROUPS.map((group) => {
+              const headingId = `pricing-${group.title
+                .toLowerCase()
+                .replaceAll("&", "and")
+                .replaceAll(" ", "-")}`;
 
-            {/* Internal */}
-            <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <h4 className="text-sm font-semibold text-foreground mb-3">
-                Internal Renovations
-              </h4>
-              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {renovationInternal.map((opt, i) => (
-                      <tr
-                        key={opt.label}
-                        className={i % 2 === 0 ? "bg-white" : "bg-surface"}
-                      >
-                        <td className="px-4 py-3 text-foreground">
-                          {opt.label}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          <CatalogPriceText priceKey={opt.priceKey} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* External */}
-            <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <h4 className="text-sm font-semibold text-foreground mb-3">
-                External Renovations
-              </h4>
-              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {renovationExternal.map((opt, i) => (
-                      <tr
-                        key={opt.label}
-                        className={i % 2 === 0 ? "bg-white" : "bg-surface"}
-                      >
-                        <td className="px-4 py-3 text-foreground">
-                          {opt.label}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          <CatalogPriceText priceKey={opt.priceKey} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <TrackedLink
-              href="/order/virtual-renovation"
-              analyticsLabel="Order Virtual Renovation"
-              analyticsLocation="pricing_card"
-              analyticsEvent="pricing_cta"
-              className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
-            >
-              Order Virtual Renovation →
-            </TrackedLink>
-          </div>
-        </Container>
-      </section>
-
-      {/* Floor Plans */}
-      <section className="py-16 lg:py-24" id="floor-plans">
-        <Container>
-          <div className="max-w-4xl">
-            <SectionHeader
-              title="2D / 3D Floor Plans"
-              subtitle="Price per floor, based on plan type selected."
-              align="left"
-            />
-
-            <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-surface">
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">
-                        Plan Type
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted">
-                        Price
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {floorPlanTypes.map((plan, i) => (
-                      <tr
-                        key={plan.label}
-                        className={i % 2 === 0 ? "bg-white" : "bg-surface"}
-                      >
-                        <td className="px-4 py-3 text-foreground font-medium">
-                          {plan.label}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-bold text-primary">
-                            <CatalogPriceText priceKey={plan.priceKey} />
-                          </span>
-                          <span className="text-xs text-muted ml-1">
-                            {plan.unit}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-muted mt-4">
-                Includes custom flooring/finish preferences, address display
-                options, and disclaimer settings. See order form for full
-                configuration.
-              </p>
-            </div>
-
-            <TrackedLink
-              href="/order/3d-floor-plans"
-              analyticsLabel="Order Floor Plans"
-              analyticsLocation="pricing_card"
-              analyticsEvent="pricing_cta"
-              className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
-            >
-              Order Floor Plans →
-            </TrackedLink>
-          </div>
-        </Container>
-      </section>
-
-      {/* Photo Editing */}
-      <section className="py-16 lg:py-24 bg-surface" id="photo-editing">
-        <Container>
-          <div className="max-w-4xl">
-            <SectionHeader
-              title="Real Estate Photo Editing"
-              subtitle="Select the editing options you need for each photo. Combine multiple options for best results."
-              align="left"
-            />
-
-            <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {photoEditOptions.map((opt, i) => (
-                      <tr
-                        key={opt.label}
-                        className={i % 2 === 0 ? "bg-white" : "bg-surface"}
-                      >
-                        <td className="px-4 py-3 text-foreground">
-                          {opt.label}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-primary whitespace-nowrap">
-                          <CatalogPriceText priceKey={opt.priceKey} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <TrackedLink
-              href="/order/photo-editing"
-              analyticsLabel="Order Photo Editing"
-              analyticsLocation="pricing_card"
-              analyticsEvent="pricing_cta"
-              className="inline-flex px-6 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
-            >
-              Order Photo Editing →
-            </TrackedLink>
-          </div>
-        </Container>
-      </section>
-
-      {/* Local Services Pricing */}
-      <section className="py-16 lg:py-24" id="local-services">
-        <Container>
-          <div className="max-w-4xl">
-            <SectionHeader
-              title="Local Services — Alicante & Costa Blanca"
-              subtitle="On-location pricing depends on property size and requirements. Contact us for a custom quote."
-              align="left"
-            />
-
-            <div className="bg-white border border-border rounded-2xl p-6 lg:p-8 mb-6">
-              <div className="border border-border rounded-lg overflow-hidden overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-surface">
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">
-                        Service
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted">
-                        Starting From
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="bg-white">
-                      <td className="px-4 py-3 text-foreground">
-                        Real Estate Photography
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-primary">
-                        From €129 / 15 photos
-                      </td>
-                    </tr>
-                    <tr className="bg-surface">
-                      <td className="px-4 py-3 text-foreground">
-                        360 Virtual Tours
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-primary">
-                        From €120 / small apt
-                      </td>
-                    </tr>
-                    <tr className="bg-white">
-                      <td className="px-4 py-3 text-foreground">
-                        Property Video Tours
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-primary">
-                        From €250 / short walkthrough
-                      </td>
-                    </tr>
-                    <tr className="bg-surface">
-                      <td className="px-4 py-3 text-foreground">
-                        Drone / Aerial Photography
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-primary">
-                        Quote on request
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-muted mt-4">
-                Photography: €129 (15 photos), €179 (25 photos), €239 (35
-                photos). Custom quote for 50+ photos, villas, luxury properties,
-                or urgent delivery. 360 tours and video depend on property size.
-                Drone via licensed specialist — price depends on location and
-                flight permissions. Travel fee may apply 30km+ from Alicante.
-              </p>
-            </div>
-
-            <TrackedLink
-              href="/contact"
-              analyticsLabel="Request a Quote"
-              analyticsLocation="pricing_card"
-              className="inline-flex px-6 py-3 border border-primary text-primary text-sm font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors"
-            >
-              Request a Quote →
-            </TrackedLink>
-          </div>
-        </Container>
-      </section>
-
-      {/* What's Included + Volume Discounts */}
-      <section className="py-16 lg:py-24 bg-surface">
-        <Container>
-          <div className="max-w-4xl">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Inclusions */}
-              <div className="bg-white border border-border rounded-2xl p-6 lg:p-8">
-                <h3 className="text-lg font-bold text-foreground mb-4">
-                  What&apos;s Included
-                </h3>
-                <ul className="space-y-3">
-                  {inclusions.map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-start gap-3 text-sm text-foreground"
+              return (
+                <div key={group.title} aria-labelledby={headingId}>
+                  <div className="mb-6 flex items-center gap-4 lg:mb-8">
+                    <h3
+                      id={headingId}
+                      className="shrink-0 text-lg font-bold tracking-tight text-primary sm:text-xl"
                     >
-                      <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                      {group.title}
+                    </h3>
+                    <span className="h-px flex-1 bg-stone-200" aria-hidden />
+                  </div>
 
-              {/* Volume Discounts */}
-              <div className="bg-white border border-border rounded-2xl p-6 lg:p-8">
-                <h3 className="text-lg font-bold text-foreground mb-4">
-                  Volume Discounts
-                </h3>
-                <p className="text-sm text-muted mb-4">
-                  Ordering in bulk? Save more with volume pricing.
-                </p>
-                <div className="space-y-3">
-                  {PUBLIC_VOLUME_DISCOUNTS.map((tier, index) => (
-                    <div
-                      key={tier.range}
-                      className={`flex justify-between items-center py-2 ${
-                        index < PUBLIC_VOLUME_DISCOUNTS.length - 1
-                          ? "border-b border-border"
-                          : ""
-                      }`}
-                    >
-                      <span className="text-sm text-foreground">
-                        {tier.range}
-                      </span>
-                      <span className="text-sm font-bold text-primary">
-                        {tier.discount}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="grid grid-cols-1 gap-x-7 gap-y-10 md:grid-cols-2 xl:grid-cols-3 xl:gap-x-8 xl:gap-y-12">
+                    {group.services.map((service) => (
+                      <PricingHubServiceTile
+                        key={service.href}
+                        href={service.href}
+                        name={service.name}
+                        priceLabel={renderPriceLabel(service.price)}
+                        image={resolveImage(service.mediaSlug)}
+                        fallbackVariant={service.fallbackVariant}
+                        headingLevel={4}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <p className="text-xs text-muted mt-4">
-                  Discounts apply automatically to the base service subtotal.
-                  Add-ons are not volume-discounted. {PUBLIC_TAX_NOTICE}
-                </p>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </Container>
       </section>
 
-      {/* CTA */}
+      <section className="border-y border-stone-200 bg-stone-50 py-14 sm:py-16 lg:py-20">
+        <Container>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary-dark">
+                Alicante &amp; Costa Blanca
+              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-5xl">
+                Local Real Estate Media
+              </h2>
+            </div>
+            <p className="max-w-xl text-base leading-relaxed text-muted lg:text-right lg:text-lg">
+              On-location photography, tours, video and aerial media for
+              properties across the region.
+            </p>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 gap-x-8 gap-y-10 md:grid-cols-2 lg:mt-12 lg:gap-y-12">
+            {LOCAL_HUB_SERVICES.map((item) => {
+              const service = getLocalService(item.serviceId);
+              return (
+                <PricingHubServiceTile
+                  key={item.serviceId}
+                  href={item.href}
+                  name={service.name}
+                  priceLabel={getLocalPriceLabel(item.serviceId)}
+                  image={resolveImage(item.mediaSlug)}
+                  fallbackVariant={item.fallbackVariant}
+                />
+              );
+            })}
+          </div>
+        </Container>
+      </section>
+
+      <section className="bg-white py-12 sm:py-14 lg:py-16">
+        <Container>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-10">
+            {PRICING_NOTES.map((note) => (
+              <div key={note.title} className="border-t-2 border-secondary pt-4">
+                <h2 className="text-base font-bold text-primary">
+                  {note.title}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {note.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Container>
+      </section>
+
       <CtaSection
-        title="Ready to Order?"
-        subtitle="Choose your service and get started in minutes. No upfront payment required."
-        primaryLabel="Order Online"
+        title="Ready to get started?"
+        subtitle="Choose a service and start your order, or send us a question about the right option for your property."
+        primaryLabel="Start an Order"
         primaryHref="/order"
         primaryAnalyticsEvent="pricing_cta"
-        secondaryLabel="View Services"
-        secondaryHref="/services"
+        secondaryLabel="Ask a Question"
+        secondaryHref="/contact"
+        secondaryAnalyticsEvent="contact_intent"
       />
     </>
   );

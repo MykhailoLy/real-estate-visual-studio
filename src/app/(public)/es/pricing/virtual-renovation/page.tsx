@@ -6,7 +6,6 @@ import { spanishServicePageLabels } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
-import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
@@ -76,9 +75,6 @@ export default function SpanishVirtualRenovationPricingPage() {
             description:
               "Muestra el potencial de renovación con actualizaciones visuales realistas de acabados, instalaciones, distribuciones, materiales y presentación de la propiedad. Precio por opciones.",
             url: absoluteUrl("/es/pricing/virtual-renovation"),
-            price: getCatalogPriceDecimal("renovation-replace-walls"),
-            priceCurrency: "USD",
-            offerNote: "Precio inicial por opción e imagen",
           }),
           breadcrumbSchema([
             { name: "Inicio", item: absoluteUrl("/es") },
@@ -97,12 +93,7 @@ export default function SpanishVirtualRenovationPricingPage() {
       eyebrow="Renovación virtual"
       title="Precios de Renovación virtual"
       description="Muestra el potencial de renovación con actualizaciones visuales realistas de acabados, instalaciones, distribuciones, materiales y presentación de la propiedad."
-      priceLine={
-        <CatalogPriceText
-          priceKey="renovation-replace-walls"
-          prefix="Desde "
-        />
-      }
+      priceLine="Precio por opciones"
       orderHref="/order/virtual-renovation"
       orderLabel="Pedir Renovación virtual"
       whenToUseTitle="Cuándo usar Renovación virtual"
