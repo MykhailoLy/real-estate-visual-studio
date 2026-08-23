@@ -2,8 +2,7 @@ import "server-only";
 
 import { GoogleGenAI } from "@google/genai";
 import { PICCHUSPOT_SUPPORT_SYSTEM_PROMPT } from "./prompt.ts";
-import { buildGeminiSupportInteractionRequest } from "./gemini-request.ts";
-import { extractCompletedGeminiSupportOutput } from "./gemini-response.ts";
+import { runGeminiSupportInteraction } from "./gemini-orchestration.ts";
 import {
   SupportAssistantConfigurationError,
   SupportAssistantGenerationError,
@@ -35,13 +34,12 @@ function getGeminiClient(): GoogleGenAI {
 export class GeminiSupportTransport implements SupportAssistantTransport {
   async generate(input: string): Promise<string> {
     try {
-      const interaction = await getGeminiClient().interactions.create(
-        buildGeminiSupportInteractionRequest(
-          input,
-          PICCHUSPOT_SUPPORT_SYSTEM_PROMPT,
-        ),
+      const client = getGeminiClient();
+      return await runGeminiSupportInteraction(
+        input,
+        PICCHUSPOT_SUPPORT_SYSTEM_PROMPT,
+        (request) => client.interactions.create(request),
       );
-      return extractCompletedGeminiSupportOutput(interaction);
     } catch (error) {
       if (
         error instanceof SupportAssistantConfigurationError ||

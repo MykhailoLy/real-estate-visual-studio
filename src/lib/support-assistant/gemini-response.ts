@@ -1,13 +1,13 @@
-import type { Interactions } from "@google/genai";
 import {
   SupportAssistantGenerationError,
   type SupportAssistantGenerationLogCategory,
 } from "./types.ts";
 
-type GeminiSupportInteractionLike = Partial<
-  Pick<Interactions.Interaction, "status" | "output_text">
-> &
-  Record<string, unknown>;
+export interface GeminiSupportInteractionLike extends Record<string, unknown> {
+  status?: unknown;
+  output_text?: unknown;
+  steps?: unknown;
+}
 
 function logCategoryForGeminiStatus(
   status: unknown,
@@ -27,14 +27,12 @@ function logCategoryForGeminiStatus(
 export function extractCompletedGeminiSupportOutput(
   interaction: GeminiSupportInteractionLike,
 ): string {
-  if (interaction.status !== "completed") {
-    throw new SupportAssistantGenerationError(
-      "Support assistant provider did not complete.",
-      logCategoryForGeminiStatus(interaction.status),
-    );
-  }
+  assertCompletedGeminiSupportInteraction(interaction);
 
-  const output = (interaction.output_text ?? "").trim();
+  const output =
+    typeof interaction.output_text === "string"
+      ? interaction.output_text.trim()
+      : "";
   if (!output) {
     throw new SupportAssistantGenerationError(
       "Support assistant returned an empty response.",
@@ -42,4 +40,15 @@ export function extractCompletedGeminiSupportOutput(
   }
 
   return output;
+}
+
+export function assertCompletedGeminiSupportInteraction(
+  interaction: GeminiSupportInteractionLike,
+): void {
+  if (interaction.status !== "completed") {
+    throw new SupportAssistantGenerationError(
+      "Support assistant provider did not complete.",
+      logCategoryForGeminiStatus(interaction.status),
+    );
+  }
 }
