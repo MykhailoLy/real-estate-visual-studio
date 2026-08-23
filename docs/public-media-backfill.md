@@ -33,7 +33,8 @@ floor-plan profile is not used.
 - One exact row and one exact column are updated with guards on both `id` and
   the expected old path.
 - The updated row is re-read and verified.
-- Original objects are always retained. The tool has no delete operation.
+- Original objects are always retained by the backfill tool. The backfill tool
+  itself has no delete operation.
 - A verified upload is journaled before the guarded DB update. If the update
   then fails or conflicts, the manifest and console identify the new object as
   an uncommitted cleanup candidate; it is not deleted automatically.
@@ -52,9 +53,17 @@ reviewed and approved manually.
 
 ## Required environment variable names
 
+Backfill:
+
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `PUBLIC_MEDIA_BACKFILL_CONFIRM` (apply only)
+- `PUBLIC_MEDIA_BACKFILL_CONFIRM` (backfill apply only)
+
+Cleanup deletion:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `PUBLIC_MEDIA_CLEANUP_CONFIRM` (cleanup delete apply only)
 
 Keep the service-role value in a server-side operator environment. Never place
 it in a browser-visible variable, committed file, command transcript, or PR.
@@ -118,23 +127,85 @@ where before_image_path like '%-legacy-gallery.webp'
 ```
 
 For each migrated entry, also verify the new public image renders correctly and
-that the original object still exists.
+that the original object still exists before cleanup.
 
-## Later cleanup candidate report
+## Cleanup candidate report
 
-This mode is read-only. It considers only successful `migrated` manifest
-entries, then checks the old path across every relevant column. For
-`site-media`, that safety check also includes `panorama_image_path`, even though
-panoramas are never backfilled. It also validates and parses every
-`property_showcases.content` document and retains an object referenced there.
-Invalid or uncertain Property Showcase content fails closed by retaining the
-object; Property Showcase rows are never changed.
+The backfill cleanup-report mode is read-only. It considers only successful
+`migrated` manifest entries, then checks the old path across every relevant
+column. For `site-media`, that safety check also includes
+`panorama_image_path`, even though panoramas are never backfilled. It also
+validates and parses every `property_showcases.content` document and retains an
+object referenced there. Invalid or uncertain Property Showcase content fails
+closed by retaining the object; Property Showcase rows are never changed.
 
 ```powershell
 npm.cmd run media:backfill:cleanup-report -- C:\path\outside-repo\public-media-backfill.json
 ```
 
-An old object is listed as a future cleanup candidate only when it still exists
-and no relevant DB row references it. Referenced or missing objects are listed
-as retained. This command does not delete anything. Cleanup execution is
-explicitly deferred to a separate reviewed task and PR.
+An old object is listed as a cleanup candidate only when it still exists and no
+relevant DB row references it. Referenced or missing objects are retained. This
+command never deletes anything.
+
+## Guarded deletion cleanup
+
+Deletion is implemented as a separate tool so the migration and destructive
+cleanup remain independently reviewable. It only reads successful `migrated`
+entries from the backfill manifest and can only delete their `oldPath` objects
+from `site-media` or `portfolio`. It never deletes a generated
+`-legacy-gallery.webp` replacement and never mutates database rows.
+
+Before an old object is eligible, the cleanup tool verifies all of the
+following:
+
+- the source manifest belongs to the current Supabase project;
+- the migrated table/column matches the public bucket;
+- old and replacement paths are unambiguous and remain in the same folder;
+- the replacement still exists with the exact journaled byte count and
+  `image/webp` MIME type;
+- the old object has no references in the same cleanup-report reference scan,
+  including `property_showcases.content` for `site-media`;
+- the old object's current byte count exactly matches the backfill manifest.
+
+The cleanup dry run is remote- and local-write-free:
+
+```powershell
+npm.cmd run media:cleanup:dry-run -- --manifest C:\path\outside-repo\public-media-backfill.json
+```
+
+Review the output before deletion. A clean first-run report should contain only
+`safe` candidates and zero `retained` entries.
+
+Deletion requires a separate confirmation variable and a separate cleanup
+audit journal:
+
+```powershell
+$env:PUBLIC_MEDIA_CLEANUP_CONFIRM = "YES"
+npm.cmd run media:cleanup:apply -- --manifest C:\path\outside-repo\public-media-backfill.json --journal C:\path\outside-repo\public-media-cleanup.json
+```
+
+The cleanup journal parent directory must already exist. Keep the same cleanup
+journal if the process is interrupted. Before every individual Storage delete,
+the tool first writes a `deleting` intent atomically, then repeats the reference,
+source-size, replacement-size, and replacement-MIME guards immediately before
+the delete. After Storage removal it verifies that the old object is absent and
+only then records `deleted`.
+
+If an interruption happens after a delete intent, resume with the same cleanup
+journal. A `deleting` entry with an absent old object can be completed only when
+the replacement is still valid and the old path still has no references. A
+journal entry that says `deleted` while the old object exists fails closed.
+
+The tool processes objects sequentially and stops on any fatal ambiguity or
+delete/verification failure. `order-files`, `deliverables`, panorama objects,
+Property Showcase rows, database schemas, RLS/policies, payments, email, and
+authentication are outside cleanup scope.
+
+After cleanup, a read-only verification can reuse the cleanup journal:
+
+```powershell
+npm.cmd run media:cleanup:dry-run -- --manifest C:\path\outside-repo\public-media-backfill.json --journal C:\path\outside-repo\public-media-cleanup.json
+```
+
+A completed run should report all source records as `already-deleted`, zero
+pending safe candidates, and zero retained records.
