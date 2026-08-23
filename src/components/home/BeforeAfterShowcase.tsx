@@ -21,8 +21,7 @@ function isSlideMounted(
   if (i === idx) return true;
   if (!neighborsReady) return false;
   const next = (idx + 1) % total;
-  const prev = (idx - 1 + total) % total;
-  return i === next || i === prev;
+  return i === next;
 }
 
 // ============================================================

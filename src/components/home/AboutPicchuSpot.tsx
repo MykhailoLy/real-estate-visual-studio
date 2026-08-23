@@ -177,6 +177,7 @@ function CollageCell({
           // Collage lives in a ~58vw column on desktop, full width on
           // mobile; the largest (anchor) tile is ~40vw on desktop.
           sizes="(min-width: 1500px) 523px, (min-width: 1024px) calc(38.889vw - 61px), (min-width: 640px) calc(66.667vw - 36px), calc(66.667vw - 25px)"
+          quality={70}
           className="object-cover"
         />
       ) : (

@@ -56,7 +56,7 @@ export const OPTIMIZED_IMAGE_CONTEXTS = {
     quality: 70,
   },
   "portfolio-frame": {
-    sizes: "(min-width: 1500px) 341px, (min-width: 1024px) calc(25vw - 34px), calc(50vw - 16px)",
+    sizes: "(min-width: 1500px) 341px, (min-width: 768px) calc(25vw - 34px), calc(50vw - 16px)",
     quality: 70,
   },
   "content-lightbox": {
