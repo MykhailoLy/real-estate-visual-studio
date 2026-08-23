@@ -23,36 +23,37 @@ import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Real Estate Visuals for Listings",
+  title: "Real Estate Photo Editing & Virtual Staging",
   description:
-    "Property visuals that make listings stand out. Virtual staging, virtual renovation, floor plans, photo editing, and local real estate media.",
+    "Professional real estate photo editing, virtual staging, day-to-dusk, item removal, virtual renovation, floor plans and 360° image enhancement.",
   canonicalPath: "/",
   spanishPath: "/es",
 });
 
 // ============================================================
-// HOME / REMOTE DIGITAL SERVICES
+// HOME
 //
-// Final section order (post-refinement):
-//   1. Header / two-level nav (sticky, owned by RootLayout)
-//   2. Wide low-height before/after slider (banner strip)
-//   3. Slider dots
-//   4. Why work with PicchuSpot — benefits row
-//   5. Remote Digital Services — compact horizontal intro strip
-//   6. This is what we do — service grid (2 large cards / row)
-//   7. How it works
+// Section order:
+//   1. Header / two-level nav (sticky, owned by PublicLayout)
+//   2. Before/After slider — visual demonstration banner strip
+//   3. SEO intro — visible H1 + supporting paragraph
+//   4. Remote Digital Services — service grid (what we do)
+//   5. Why Work with PicchuSpot — benefits row
+//   6. Help Your Listings Stand Out — results / CTA strip
+//   7. How It Works
 //   8. About PicchuSpot — collage + narrative
 //   9. Testimonials carousel
-//  10. Footer CTA
+//  10. Final CTA — navy block
+//  11. Footer (owned by PublicLayout)
 //
 // Data flow:
-//   - The slider and the About collage now read from the
+//   - The slider and the About collage read from the
 //     admin-managed `site_media_items` table (see /admin/media).
 //   - When the table is empty (or Supabase isn't configured),
 //     each component falls back to its built-in placeholders so
-//     a fresh deploy still ships a polished hero + About section.
+//     a fresh deploy still ships a polished page.
 //   - This page is rendered as a server component; the slider
-//     stays "use client" for autoplay/pause logic.
+//     and Testimonials stay "use client" for interactivity.
 // ============================================================
 
 export default async function HomePage() {
@@ -121,6 +122,7 @@ export default async function HomePage() {
   return (
     <>
       <JsonLd data={[organizationSchema(), webSiteSchema()]} />
+
       {/* 1. Slider — wide banner strip directly under the nav. */}
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
@@ -128,12 +130,33 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 2. Why work with PicchuSpot — benefits */}
+      {/* 2. SEO introduction — visible H1 and supporting paragraph.
+            Compact band that tells users and search engines what the
+            page is about without pushing the service content down. */}
+      <section className="bg-white border-b border-border">
+        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-6 lg:py-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+            Real Estate Photo Editing, Virtual Staging &amp; Floor Plans
+          </h1>
+          <p className="mt-3 text-sm sm:text-base lg:text-lg text-muted leading-relaxed max-w-4xl">
+            Create listing-ready visuals with professional image enhancement,
+            day-to-dusk editing, virtual staging, item removal, virtual
+            renovation, floor plans, and 360° image enhancement. Built for real
+            estate agents, photographers, property managers, and marketing
+            teams.
+          </p>
+        </div>
+      </section>
+
+      {/* 3. Remote Digital Services — service grid (what we do). */}
+      <ServiceGrid />
+
+      {/* 4. Why Work with PicchuSpot — benefits row. */}
       <BenefitsRow />
 
-      {/* 3. Remote Digital Services — compact horizontal intro strip
-            sitting below the benefits. Reads as a transitional band
-            into the service grid rather than a full hero. */}
+      {/* 5. Help Your Listings Stand Out — results / CTA strip.
+            Positioned after the service grid and benefits so users have
+            already seen what we do and why before the conversion prompt. */}
       <section className="bg-white border-y border-border">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-10">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
@@ -141,9 +164,9 @@ export default async function HomePage() {
               <p className="text-secondary-dark text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2">
                 Remote Digital Services
               </p>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
                 Help Your Listings Stand Out and Sell Faster
-              </h1>
+              </h2>
               <p className="mt-2 text-sm sm:text-base lg:text-lg text-muted leading-snug">
                 Virtual staging, photo editing, floor plans, 360 visuals, and
                 local real estate media for market-ready property listings.
@@ -168,19 +191,16 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 4. This is what we do — service grid (2 large cards per row). */}
-      <ServiceGrid />
-
-      {/* 5. How it works (bg flipped to white). */}
+      {/* 6. How It Works. */}
       <HowItWorksDetailed />
 
-      {/* 6. About PicchuSpot — collage + narrative (bg flipped to surface). */}
+      {/* 7. About PicchuSpot — collage + narrative. */}
       <AboutPicchuSpot tiles={collageTiles} />
 
-      {/* 7. Testimonials carousel (bg flipped to white). */}
+      {/* 8. Testimonials carousel. */}
       <Testimonials />
 
-      {/* 8. Final CTA — navy block. */}
+      {/* 9. Final CTA — navy block. */}
       <CtaSection
         title="Start your next listing with the visuals already done."
         subtitle="Upload your photos and we will take it from there."
