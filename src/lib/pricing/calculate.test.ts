@@ -47,11 +47,11 @@ test("discount applies to base only and add-ons remain undiscounted", () => {
     items: stagingItems(11, ["day-to-dusk"]),
   });
 
-  assert.equal(quote.baseSubtotalCents, 13_200);
-  assert.equal(quote.addOnSubtotalCents, 4_400);
+  assert.equal(quote.baseSubtotalCents, 15_400);
+  assert.equal(quote.addOnSubtotalCents, 3_300);
   assert.equal(quote.volumeDiscountPercent, 10);
-  assert.equal(quote.volumeDiscountCents, 1_320);
-  assert.equal(quote.totalCents, 16_280);
+  assert.equal(quote.volumeDiscountCents, 1_540);
+  assert.equal(quote.totalCents, 17_160);
 });
 
 test("generic Photo Editing uses the highest-priced option as the discounted base", () => {
@@ -66,16 +66,16 @@ test("generic Photo Editing uses the highest-priced option as the discounted bas
   });
 
   assert.equal(quote.items[0].priceKey, "shadow-removal");
-  assert.equal(quote.items[0].unitPriceCents, 700);
+  assert.equal(quote.items[0].unitPriceCents, 500);
   assert.deepEqual(
     quote.items[0].addOns.map((addOn) => addOn.priceKey),
     ["image-enhancement", "turn-on-lights"]
   );
-  assert.equal(quote.baseSubtotalCents, 7_000);
-  assert.equal(quote.addOnSubtotalCents, 2_500);
+  assert.equal(quote.baseSubtotalCents, 5_000);
+  assert.equal(quote.addOnSubtotalCents, 1_500);
   assert.equal(quote.volumeDiscountPercent, 10);
-  assert.equal(quote.volumeDiscountCents, 700);
-  assert.equal(quote.totalCents, 8_800);
+  assert.equal(quote.volumeDiscountCents, 500);
+  assert.equal(quote.totalCents, 6_000);
 });
 
 test("Single Exposure pins Image Enhancement as base and discounts no add-ons", () => {
@@ -91,10 +91,10 @@ test("Single Exposure pins Image Enhancement as base and discounts no add-ons", 
       baseOptionId: "image-enhancement-re",
     })),
   });
-  assert.equal(quote.baseSubtotalCents, 1_500);
-  assert.equal(quote.addOnSubtotalCents, 12_500);
-  assert.equal(quote.volumeDiscountCents, 150);
-  assert.equal(quote.totalCents, 13_850);
+  assert.equal(quote.baseSubtotalCents, 1_000);
+  assert.equal(quote.addOnSubtotalCents, 10_500);
+  assert.equal(quote.volumeDiscountCents, 100);
+  assert.equal(quote.totalCents, 11_400);
 });
 
 test("Shadow Removal uses approved USD, EUR and CAD prices in both services", () => {
@@ -120,7 +120,7 @@ test("Shadow Removal uses approved USD, EUR and CAD prices in both services", ()
         ],
       }).items[0]?.addOnSubtotalCents,
   );
-  assert.deepEqual(staging, [700, 650, 1_000]);
+  assert.deepEqual(staging, [500, 450, 650]);
   assert.deepEqual(singleExposure, staging);
 });
 
@@ -164,7 +164,61 @@ test("USD, EUR, and CAD use fixed catalog prices", () => {
         items: photoItems(1, ["image-enhancement-re"]),
       }).totalCents
   );
-  assert.deepEqual(totals, [150, 150, 200]);
+  assert.deepEqual(totals, [100, 100, 150]);
+});
+
+test("Virtual Staging base and every supported add-on use final catalog prices", () => {
+  const selectedAddons = [
+    "image-enhancement",
+    "day-to-dusk",
+    "item-removal",
+    "shadow-removal",
+    "turn-on-lights",
+    "colour-change",
+  ];
+  const expected = {
+    USD: { base: 1_500, addOns: [100, 350, 500, 500, 50, 200] },
+    EUR: { base: 1_400, addOns: [100, 300, 450, 450, 50, 150] },
+    CAD: { base: 1_900, addOns: [150, 450, 650, 650, 100, 250] },
+  } as const;
+
+  for (const currency of ["USD", "EUR", "CAD"] as const) {
+    const quote = calculateOrderQuote({
+      serviceType: "virtual-staging",
+      currency,
+      items: [{ selectedAddons }],
+    });
+    assert.equal(quote.items[0].baseSubtotalCents, expected[currency].base);
+    assert.deepEqual(
+      quote.items[0].addOns.map((addOn) => addOn.unitPriceCents),
+      expected[currency].addOns,
+    );
+  }
+});
+
+test("Virtual Renovation keeps synchronized prices and receives no automatic discount", () => {
+  const quote = calculateOrderQuote({
+    serviceType: "virtual-renovation",
+    currency: "USD",
+    items: Array.from({ length: 20 }, () => ({
+      selectedInternal: [
+        "replace-flooring",
+        "item-removal-cleaning",
+        "staging-residential",
+        "color-change-interior",
+      ],
+      selectedExternal: [],
+    })),
+  });
+
+  assert.deepEqual(
+    quote.items[0].addOns.map((addOn) => addOn.unitPriceCents),
+    [1_700, 500, 1_500, 200],
+  );
+  assert.equal(quote.eligibleUnits, 0);
+  assert.equal(quote.volumeDiscountPercent, 0);
+  assert.equal(quote.volumeDiscountCents, 0);
+  assert.equal(quote.totalCents, 78_000);
 });
 
 test("floor-plan quantities are priced per floor and discounted by floors", () => {

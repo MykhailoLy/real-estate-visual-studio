@@ -19,6 +19,19 @@ import type { ServiceVariant } from "@/components/home/ServicePlaceholder";
 export const PORTFOLIO_BUCKET = "portfolio";
 
 /**
+ * This production record still contains a legacy "$19" promotion in its
+ * title and description. Keep its editorial copy out of the Virtual Staging
+ * pricing pages until the record is corrected at the source; other portfolio
+ * captions remain visible.
+ */
+export const STALE_VIRTUAL_STAGING_PRICING_COPY_ITEM_ID =
+  "688f3627-d68e-4947-8ef2-c652c88ad49b";
+
+export function shouldRenderVirtualStagingPortfolioCopy(itemId: string): boolean {
+  return itemId !== STALE_VIRTUAL_STAGING_PRICING_COPY_ITEM_ID;
+}
+
+/**
  * Canonical portfolio service slugs. These are also the values
  * the `portfolio_items.service_slug` CHECK constraint enforces in
  * supabase/portfolio.sql — keep in sync with that file.

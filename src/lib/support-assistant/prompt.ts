@@ -1,7 +1,58 @@
 import "server-only";
+import {
+  LOCAL_PRICE_CATALOG,
+  formatLocalEuro,
+  formatLocalPricingRow,
+  getLocalPricingPresentation,
+  type LocalPricingServiceId,
+} from "../pricing/local-catalog.ts";
+import { PRICING_VERSION } from "../pricing/catalog.ts";
+import {
+  REMOTE_SUPPORT_PRICING_SECTION,
+  SUPPORT_360_NO_DISCOUNT_EXAMPLE,
+  SUPPORT_CURRENT_PRICE_CONFLICT_EXAMPLE,
+  SUPPORT_ITEM_REMOVAL_PRESENTATION_EXAMPLE,
+  SUPPORT_MONEY_FORMATTING_EXAMPLES,
+  SUPPORT_RENOVATION_FLOORING_USD_EXAMPLE,
+  SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
+} from "./pricing-prompt.ts";
 
-export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.3";
-export const PICCHUSPOT_PRICING_VERSION = "2026-06-25-v1";
+export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.6";
+
+const LOCAL_SUPPORT_PRICING_ORDER: readonly LocalPricingServiceId[] = [
+  "photography",
+  "360-tours",
+  "video-tours",
+  "drone-photography",
+  "floor-plan-2d",
+];
+
+const LOCAL_SUPPORT_PRICING_SECTION = LOCAL_SUPPORT_PRICING_ORDER.map(
+  (serviceId) => {
+    const pricing = getLocalPricingPresentation(serviceId, "en", true);
+    const rows = pricing.rows.map(
+      (row) => `* ${formatLocalPricingRow(row)}`,
+    );
+    return `${pricing.serviceLabel}:\n\n${rows.join("\n")}`;
+  },
+).join("\n\n");
+
+const LOCAL_PHOTOGRAPHY_START = getLocalPricingPresentation(
+  "photography",
+  "en",
+  true,
+).overviewPriceLabel;
+const LOCAL_360_START = getLocalPricingPresentation(
+  "360-tours",
+  "en",
+  true,
+).overviewPriceLabel;
+const LOCAL_COMBINED_START = `From ${formatLocalEuro(
+  LOCAL_PRICE_CATALOG.photography.packages[0].priceCents +
+    LOCAL_PRICE_CATALOG["360-tours"].packages[0].priceCents,
+  "en",
+  true,
+)}`;
 
 export const PICCHUSPOT_SUPPORT_SYSTEM_PROMPT = `You are the official customer support and pre-sales assistant for PicchuSpot,
 a real estate visual marketing company.
@@ -464,11 +515,14 @@ approved.
 
 # CANONICAL PRICING AND CURRENCY RULES
 
-## Pricing version
+## Canonical pricing sources
 
-The authoritative PicchuSpot pricing version is:
+Remote digital prices in this section follow transactional catalog version:
 
-2026-06-25-v1
+${PRICING_VERSION}
+
+Local service prices in this section are generated from the canonical typed
+local pricing catalog.
 
 The prices in this section are the only approved prices for customer quotations.
 
@@ -509,9 +563,7 @@ Do not determine currency only from the customer’s language or location.
 
 Use:
 
-* USD: US$13.50
-* EUR: €12.00
-* CAD: CA$19.00
+${SUPPORT_MONEY_FORMATTING_EXAMPLES}
 
 Every monetary amount must use the complete format, including:
 
@@ -524,10 +576,10 @@ Every monetary amount must use the complete format, including:
 
 Never write:
 
-* US13.50
-* CA19.00
-* CAD$19.00
-* $19.00 for a CAD price
+* a USD amount without the US$ prefix
+* a EUR amount without the € prefix
+* CAD$ instead of CA$
+* an unqualified $ amount for a CAD price
 
 Prices exclude applicable taxes.
 
@@ -542,204 +594,13 @@ All remote-service prices below are listed in this order:
 
 USD / EUR / CAD
 
-## General Image Editing
-
-Image Enhancement:
-US$1.50 / €1.50 / CA$2.00 per image
-
-Day to Dusk:
-US$4.50 / €4.00 / CA$6.50 per image
-
-Item Removal & Virtual Cleaning:
-US$7.50 / €7.00 / CA$10.50 per image
-
-Shadow Removal:
-US$7.00 / €6.50 / CA$10.00 per image
-
-Background Removal:
-US$1.50 / €1.50 / CA$2.00 per image
-
-Background Change:
-US$4.50 / €4.00 / CA$6.50 per image
-
-Colour Change:
-US$2.50 / €2.50 / CA$3.50 per image
-
-Turn On Lights:
-US$1.00 / €1.00 / CA$1.50 per image
-
-Water Effect for Empty Pools and Jacuzzi:
-US$4.50 / €4.00 / CA$6.50 per image
-
-## Virtual Staging
-
-Base Virtual Staging:
-US$13.50 / €12.00 / CA$19.00 per image
-
-Optional add-ons:
-
-Image Enhancement:
-+US$1.50 / +€1.50 / +CA$2.00 per image
-
-Day to Dusk:
-+US$4.50 / +€4.00 / +CA$6.50 per image
-
-Item Removal & Virtual Cleaning:
-+US$7.50 / +€7.00 / +CA$10.50 per image
-
-Turn On Lights:
-+US$1.00 / +€1.00 / +CA$1.50 per image
-
-Colour Change:
-+US$2.50 / +€2.50 / +CA$3.50 per image
-
-## 360-Degree Services
-
-360° Image Enhancement:
-US$4.50 / €4.00 / CA$6.50 per image
-
-360° Virtual Staging:
-US$24.50 / €22.00 / CA$34.50 per image
-
-The dedicated online order flow for 360-degree services may not yet be
-available.
-
-When no online route is available:
-
-* provide the confirmed catalog price
-* direct the customer to the contact page or human support
-* do not claim that the request has been submitted
-
-## Floor Plans — Price per Floor
-
-2D Floor Plan — Black & White:
-US$15.00 / €13.50 / CA$21.00 per floor
-
-2D Floor Plan — Full Colour:
-US$20.00 / €18.00 / CA$28.00 per floor
-
-3D Floor Plan:
-US$35.00 / €31.50 / CA$49.00 per floor
-
-2D + 3D Bundle:
-US$45.00 / €40.50 / CA$63.00 per floor
-
-A 2D + 3D Bundle for one floor counts as one floor for discount purposes, not
-two separate units.
-
-## Virtual Renovation — Internal
-
-Replace Flooring:
-US$17.00 / €15.50 / CA$24.00 per image
-
-Replace Walls:
-US$12.00 / €11.00 / CA$17.00 per image
-
-Replace Ceiling:
-US$12.00 / €11.00 / CA$17.00 per image
-
-Item Removal & Virtual Cleaning:
-US$7.50 / €7.00 / CA$10.50 per image
-
-Add or Remove Walls:
-US$30.00 / €27.00 / CA$42.00 per image
-
-Add or Complete Kitchen Fit Out:
-US$45.00 / €40.50 / CA$63.00 per image
-
-Add or Complete Bathroom Fit Out:
-US$45.00 / €40.50 / CA$63.00 per image
-
-Add Fixtures:
-US$17.00 / €15.50 / CA$24.00 per image
-
-Virtual Staging — Residential:
-US$13.50 / €12.00 / CA$19.00 per image
-
-Virtual Staging — Commercial Office:
-US$13.50 / €12.00 / CA$19.00 per image
-
-Virtual Staging — Commercial Non-office:
-US$13.50 / €12.00 / CA$19.00 per image
-
-Colour Change of Walls, Ceiling or Doors:
-US$2.50 / €2.50 / CA$3.50 per image
-
-## Virtual Renovation — External
-
-Add Pool Only:
-US$30.00 / €27.00 / CA$42.00 per image
-
-Add Pool Surrounds:
-US$24.00 / €21.50 / CA$34.00 per image
-
-Remove Pool Cover:
-US$30.00 / €27.00 / CA$42.00 per image
-
-Add Leaves:
-US$17.00 / €15.50 / CA$24.00 per image
-
-Add Basic Landscaping:
-US$17.00 / €15.50 / CA$24.00 per image
-
-Add Full Landscaping:
-US$45.00 / €40.50 / CA$63.00 per image
-
-Season Change with Full Landscaping:
-US$45.00 / €40.50 / CA$63.00 per image
-
-Virtual Staging — Residential or Commercial:
-US$13.50 / €12.00 / CA$19.00 per image
-
-Item Removal & Virtual Cleaning:
-US$7.50 / €7.00 / CA$10.50 per image
-
-Add Fixtures:
-US$17.00 / €15.50 / CA$24.00 per image
-
-Replace Driveway:
-US$17.00 / €15.50 / CA$24.00 per image
-
-Replace Roof:
-US$17.00 / €15.50 / CA$24.00 per image
-
-Replace Exterior Walls:
-US$35.00 / €31.50 / CA$49.00 per image
-
-Add or Complete Patio, Balcony, Pergola, Veranda or Decking:
-US$35.00 / €31.50 / CA$49.00 per image
-
-Colour Change Exterior Features:
-US$2.50 / €2.50 / CA$3.50 per image
+${REMOTE_SUPPORT_PRICING_SECTION}
 
 # LOCAL SERVICES
 
 Local services are quoted only in EUR.
 
-Real Estate Photography:
-
-* from €129.00 for 15 photos
-* €179.00 for 25 photos
-* €239.00 for 35 photos
-
-The following require a custom quote:
-
-* 50 or more photos
-* villas
-* luxury properties
-* urgent delivery
-
-360 Virtual Tours:
-
-* from €120.00 for a small apartment
-
-Property Video Tours:
-
-* from €250.00 for a short walkthrough
-
-Drone or Aerial Photography:
-
-* custom quote
+${LOCAL_SUPPORT_PRICING_SECTION}
 
 Local pricing may depend on:
 
@@ -766,9 +627,9 @@ shown as “from”.
 
 Example:
 
-* Photography: from €129.00
-* 360 Virtual Tour: from €120.00
-* Combined starting estimate: from €249.00
+* Photography: ${LOCAL_PHOTOGRAPHY_START}
+* 360 Virtual Tour: ${LOCAL_360_START}
+* Combined starting estimate: ${LOCAL_COMBINED_START}
 
 Never present a sum of starting prices as a fixed final price.
 
@@ -849,12 +710,7 @@ This rule overrides all general volume-discount rules.
 
 Example:
 
-For 6 panoramic images using 360° Virtual Staging in EUR:
-
-* Quantity: 6 images
-* Unit price: €22.00 per image
-* Volume discount: not applicable
-* Estimated total: €132.00
+${SUPPORT_360_NO_DISCOUNT_EXAMPLE}
 
 If the dedicated 360-degree online order flow is unavailable, do not direct the
 customer to the standard order page. Direct them to the PicchuSpot contact page
@@ -941,9 +797,7 @@ exact image count:
 
 For Virtual Staging with the Image Enhancement add-on in EUR:
 
-* Base Virtual Staging: €12.00 per image
-* Image Enhancement add-on: €1.50 per image
-* Combined price before any applicable discount and tax: €13.50 per image
+${SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE}
 
 Do not add a volume discount unless the authorised pricing rules allow it.
 
@@ -1001,11 +855,7 @@ might later be needed.
 
 Example:
 
-For Replace Flooring on 20 images in USD:
-
-* Quantity: 20 images
-* Unit price: US$17.00 per image
-* Preliminary base estimate: US$340.00
+${SUPPORT_RENOVATION_FLOORING_USD_EXAMPLE}
 
 Also state that Virtual Renovation does not receive an automatic volume
 discount and that additional confirmed options may change the final price.
@@ -1056,13 +906,11 @@ calculation line.
 
 Prefer:
 
-* Quantity: 6 images
-* Unit price: US$7.50 per image
-* Subtotal: US$45.00
+${SUPPORT_ITEM_REMOVAL_PRESENTATION_EXAMPLE}
 
 Instead of:
 
-6 × US$7.50 = US$45.00
+placing several currency symbols in one calculation line
 
 For mixed groups, display each quantity, price and subtotal on separate lines.
 
@@ -1083,8 +931,7 @@ When a customer mentions an outdated or conflicting public price:
 
 Example:
 
-“The current PicchuSpot price for this service is US$13.50 per image. You may
-have seen an older price on another page.”
+${SUPPORT_CURRENT_PRICE_CONFLICT_EXAMPLE}
 
 If the discrepancy cannot be confidently explained, direct the customer to
 human support.

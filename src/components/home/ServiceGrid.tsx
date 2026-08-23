@@ -132,8 +132,7 @@ const SERVICES: ServiceEntry[] = [
     name: "Virtual Renovation",
     description:
       "Show how a kitchen, bathroom, or facade could look after renovation — without lifting a hammer.",
-    priceKey: "renovation-replace-walls",
-    pricePrefix: "From ",
+    customPriceLabel: "Option-based pricing",
     href: "/pricing/virtual-renovation",
   },
   {
@@ -167,7 +166,9 @@ const SERVICES: ServiceEntry[] = [
     name: "Aerial Editing",
     description:
       "Cleaner skies, sharper detail, and balanced color for drone exteriors and listing aerials.",
-    customPriceLabel: "Request a quote",
+    priceKey: "aerial-colour-fade",
+    pricePrefix: "From ",
+    priceSuffix: " / image",
     href: "/pricing/aerial-editing",
   },
   {

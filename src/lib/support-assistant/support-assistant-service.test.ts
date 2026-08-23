@@ -16,6 +16,11 @@ import {
   SUPPORT_ASSISTANT_MAX_RESPONSE_CHARS,
 } from "./schema.ts";
 import { SupportAssistantGenerationError } from "./types.ts";
+import {
+  REMOTE_SUPPORT_PRICING_SECTION,
+  SUPPORT_360_NO_DISCOUNT_EXAMPLE,
+  SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
+} from "./pricing-prompt.ts";
 
 const supportPromptSource = readFileSync(
   new URL("./prompt.ts", import.meta.url),
@@ -230,12 +235,12 @@ test("custom-quote service marker is removed and produces no action", async () =
     { message: "Which service?", history: [] },
     {
       async generate() {
-        return "Use aerial editing.\n[[PICCHUSPOT_ORDER_SERVICE:aerial-editing]]";
+        return "Use a development site plan.\n[[PICCHUSPOT_ORDER_SERVICE:development-site-plans]]";
       },
     },
   );
 
-  assert.deepEqual(reply, { message: "Use aerial editing." });
+  assert.deepEqual(reply, { message: "Use a development site plan." });
 });
 
 test("hidden photo-editing marker is removed and produces no action", async () => {
@@ -862,13 +867,28 @@ test("partial Gemini output is never returned to the service layer", async () =>
 test("support prompt versions and targeted service-selection contract are current", () => {
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.3";',
+      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.6";',
     ),
   );
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_PRICING_VERSION = "2026-06-25-v1";',
+      'import { PRICING_VERSION } from "../pricing/catalog.ts";',
     ),
+  );
+  assert.ok(supportPromptSource.includes("${PRICING_VERSION}"));
+  assert.doesNotMatch(
+    supportPromptSource,
+    /PICCHUSPOT_PRICING_VERSION|2026-06-25-v1/,
+  );
+  assert.ok(
+    supportPromptSource.includes("${LOCAL_SUPPORT_PRICING_SECTION}"),
+  );
+  assert.ok(
+    supportPromptSource.includes("${REMOTE_SUPPORT_PRICING_SECTION}"),
+  );
+  assert.doesNotMatch(
+    supportPromptSource,
+    /€129\.00 for 15 photos|€179\.00 for 25 photos|€239\.00 for 35 photos|€120\.00 for a small apartment|€250\.00 for a short walkthrough/,
   );
   assert.match(
     supportPromptSource,
@@ -893,6 +913,59 @@ test("support prompt versions and targeted service-selection contract are curren
     supportPromptSource.includes(
       "do not ask quantity or currency merely because the customer asked which",
     ),
+  );
+});
+
+test("support pricing output is generated from the final remote catalog", () => {
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Image Enhancement:\nUS\$1\.00 \/ €1\.00 \/ CA\$1\.50 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Day to Dusk:\nUS\$3\.50 \/ €3\.00 \/ CA\$4\.50 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Item Removal & Virtual Cleaning:\nUS\$5\.00 \/ €4\.50 \/ CA\$6\.50 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Shadow Removal:\nUS\$5\.00 \/ €4\.50 \/ CA\$6\.50 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Base Virtual Staging:\nUS\$15\.00 \/ €14\.00 \/ CA\$19\.00 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Shadow Removal:\n\+US\$5\.00 \/ \+€4\.50 \/ \+CA\$6\.50 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /360° Image Enhancement:\nUS\$3\.50 \/ €3\.50 \/ CA\$5\.00 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /360° Virtual Staging:\nUS\$30\.00 \/ €28\.00 \/ CA\$40\.00 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Colour Fade:\nUS\$2\.50 \/ €2\.50 \/ CA\$3\.50 per image/,
+  );
+  assert.match(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Full Markup:\nUS\$5\.50 \/ €5\.00 \/ CA\$7\.50 per image/,
+  );
+  assert.match(
+    SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
+    /Base Virtual Staging: €14\.00[\s\S]*Image Enhancement add-on: €1\.00[\s\S]*Combined price[^\n]*€15\.00/,
+  );
+  assert.match(SUPPORT_360_NO_DISCOUNT_EXAMPLE, /Estimated total: €168\.00/);
+
+  assert.doesNotMatch(
+    REMOTE_SUPPORT_PRICING_SECTION,
+    /Base Virtual Staging:\nUS\$13\.50|Image Enhancement:\nUS\$1\.50 \/ €1\.50|Day to Dusk:\nUS\$4\.50 \/ €4\.00|Item Removal & Virtual Cleaning:\nUS\$7\.50|Shadow Removal:\nUS\$7\.00|US\$24\.50 \/ €22\.00 \/ CA\$34\.50/,
   );
 });
 
@@ -968,7 +1041,7 @@ test("support prompt treats non-exact quantity wording as insufficient for total
   );
   assert.ok(
     supportPromptSource.includes(
-      "* Combined price before any applicable discount and tax: €13.50 per image",
+      "${SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE}",
     ),
   );
 });

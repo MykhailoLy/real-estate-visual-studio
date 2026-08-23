@@ -1,7 +1,18 @@
+import type { PriceKey } from "./types.ts";
+
 export interface VolumeDiscount {
   percent: number;
   customQuote: boolean;
 }
+
+/**
+ * Catalog-only 360 services are not accepted by the standard order calculator
+ * and remain outside its automatic 5% / 10% / 15% discount tiers.
+ */
+export const STANDARD_VOLUME_DISCOUNT_EXCLUDED_PRICE_KEYS = [
+  "360-image-enhancement",
+  "360-virtual-staging",
+] as const satisfies readonly PriceKey[];
 
 export function getVolumeDiscount(eligibleUnits: number): VolumeDiscount {
   if (!Number.isInteger(eligibleUnits) || eligibleUnits < 0) {

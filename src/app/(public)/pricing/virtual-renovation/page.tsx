@@ -10,7 +10,6 @@ import {
   RENOVATION_EXTERNAL_OPTIONS,
   RENOVATION_INTERNAL_OPTIONS,
 } from "@/data/order-options";
-import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata: Metadata = {
   title: "Virtual Renovation",
@@ -36,9 +35,6 @@ export default function VirtualRenovationPricingPage() {
             description:
               "Show renovation potential with realistic visual updates for finishes, fixtures, layouts, materials, and property presentation. Option-based pricing.",
             url: absoluteUrl("/pricing/virtual-renovation"),
-            price: getCatalogPriceDecimal("renovation-replace-walls"),
-            priceCurrency: "USD",
-            offerNote: "Starting price per option and image",
           }),
           breadcrumbSchema([
             { name: "Home", item: absoluteUrl("/") },
@@ -57,12 +53,7 @@ export default function VirtualRenovationPricingPage() {
       eyebrow="Virtual Renovation"
       title="Virtual Renovation Pricing"
       description="Show renovation potential with realistic visual updates for finishes, fixtures, layouts, materials, and property presentation."
-      priceLine={
-        <CatalogPriceText
-          priceKey="renovation-replace-walls"
-          prefix="From "
-        />
-      }
+      priceLine="Option-based pricing"
       orderHref="/order/virtual-renovation"
       orderLabel="Order Virtual Renovation"
       whenToUseTitle="When to use Virtual Renovation"

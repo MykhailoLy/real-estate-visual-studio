@@ -3,28 +3,28 @@ import type {
   TransactionalCurrency,
 } from "./types.ts";
 
-export const PRICING_VERSION = "2026-08-18-v1";
+export const PRICING_VERSION = "2026-08-23-v1";
 
 type FixedCurrencyPrice = Record<TransactionalCurrency, number>;
 
 export const PRICE_CATALOG: Record<PriceKey, FixedCurrencyPrice> = {
-  "image-enhancement": { USD: 150, EUR: 150, CAD: 200 },
-  "day-to-dusk": { USD: 450, EUR: 400, CAD: 650 },
-  "virtual-staging": { USD: 1350, EUR: 1200, CAD: 1900 },
-  "item-removal-virtual-cleaning": { USD: 750, EUR: 700, CAD: 1050 },
-  "shadow-removal": { USD: 700, EUR: 650, CAD: 1000 },
+  "image-enhancement": { USD: 100, EUR: 100, CAD: 150 },
+  "day-to-dusk": { USD: 350, EUR: 300, CAD: 450 },
+  "virtual-staging": { USD: 1500, EUR: 1400, CAD: 1900 },
+  "item-removal-virtual-cleaning": { USD: 500, EUR: 450, CAD: 650 },
+  "shadow-removal": { USD: 500, EUR: 450, CAD: 650 },
   "background-removal": { USD: 150, EUR: 150, CAD: 200 },
   "background-change": { USD: 450, EUR: 400, CAD: 650 },
-  "colour-change": { USD: 250, EUR: 250, CAD: 350 },
-  "turn-on-lights": { USD: 100, EUR: 100, CAD: 150 },
+  "colour-change": { USD: 200, EUR: 150, CAD: 250 },
+  "turn-on-lights": { USD: 50, EUR: 50, CAD: 100 },
   "aerial-colour-fade": { USD: 250, EUR: 250, CAD: 350 },
   "aerial-drop-pin": { USD: 250, EUR: 250, CAD: 350 },
   "aerial-single-lot-highlight": { USD: 250, EUR: 250, CAD: 350 },
   "aerial-multiple-lot-highlight": { USD: 450, EUR: 400, CAD: 650 },
   "aerial-full-markup": { USD: 550, EUR: 500, CAD: 750 },
   "water-effect": { USD: 450, EUR: 400, CAD: 650 },
-  "360-image-enhancement": { USD: 450, EUR: 400, CAD: 650 },
-  "360-virtual-staging": { USD: 2450, EUR: 2200, CAD: 3450 },
+  "360-image-enhancement": { USD: 350, EUR: 350, CAD: 500 },
+  "360-virtual-staging": { USD: 3000, EUR: 2800, CAD: 4000 },
   "floor-plan-2d-bw": { USD: 1500, EUR: 1350, CAD: 2100 },
   "floor-plan-2d-colour": { USD: 2000, EUR: 1800, CAD: 2800 },
   "floor-plan-3d": { USD: 3500, EUR: 3150, CAD: 4900 },
@@ -47,13 +47,13 @@ export const PRICE_CATALOG: Record<PriceKey, FixedCurrencyPrice> = {
   "renovation-bathroom-fit-out": { USD: 4500, EUR: 4050, CAD: 6300 },
   "renovation-full-landscaping": { USD: 4500, EUR: 4050, CAD: 6300 },
   "renovation-season-change-landscaping": { USD: 4500, EUR: 4050, CAD: 6300 },
-  "renovation-staging-residential": { USD: 1350, EUR: 1200, CAD: 1900 },
-  "renovation-staging-commercial-office": { USD: 1350, EUR: 1200, CAD: 1900 },
-  "renovation-staging-commercial-non-office": { USD: 1350, EUR: 1200, CAD: 1900 },
-  "renovation-exterior-staging": { USD: 1350, EUR: 1200, CAD: 1900 },
-  "renovation-item-removal-cleaning": { USD: 750, EUR: 700, CAD: 1050 },
-  "renovation-colour-change-interior": { USD: 250, EUR: 250, CAD: 350 },
-  "renovation-colour-change-exterior": { USD: 250, EUR: 250, CAD: 350 },
+  "renovation-staging-residential": { USD: 1500, EUR: 1400, CAD: 1900 },
+  "renovation-staging-commercial-office": { USD: 1500, EUR: 1400, CAD: 1900 },
+  "renovation-staging-commercial-non-office": { USD: 1500, EUR: 1400, CAD: 1900 },
+  "renovation-exterior-staging": { USD: 1500, EUR: 1400, CAD: 1900 },
+  "renovation-item-removal-cleaning": { USD: 500, EUR: 450, CAD: 650 },
+  "renovation-colour-change-interior": { USD: 200, EUR: 150, CAD: 250 },
+  "renovation-colour-change-exterior": { USD: 200, EUR: 150, CAD: 250 },
 };
 
 export const STAGING_ADDON_PRICE_KEYS = {

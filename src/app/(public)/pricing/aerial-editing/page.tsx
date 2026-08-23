@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { Plane, Home, Map, ImageIcon } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata: Metadata = {
   title: "Aerial Editing",
   description:
-    "Enhance drone and aerial property visuals for cleaner land, exterior, neighborhood, and listing presentation. Quote-based.",
+    "Enhance drone and aerial property visuals with fixed-price colour fade, map pins, lot highlights, and full markup.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/aerial-editing",
     englishPath: "/pricing/aerial-editing",
@@ -27,6 +29,9 @@ export default function AerialEditingPricingPage() {
             description:
               "Enhance drone and aerial property visuals for cleaner land, exterior, neighborhood, and listing presentation.",
             url: absoluteUrl("/pricing/aerial-editing"),
+            price: getCatalogPriceDecimal("aerial-colour-fade"),
+            priceCurrency: "USD",
+            offerNote: "Starting price per image",
           }),
           breadcrumbSchema([
             { name: "Home", item: absoluteUrl("/") },
@@ -45,7 +50,13 @@ export default function AerialEditingPricingPage() {
       eyebrow="Aerial Editing"
       title="Aerial Editing Pricing"
       description="Enhance drone and aerial property visuals for cleaner land, exterior, neighborhood, and listing presentation."
-      priceLine="Request a quote"
+      priceLine={
+        <CatalogPriceText
+          priceKey="aerial-colour-fade"
+          prefix="From "
+          suffix=" / image"
+        />
+      }
       orderHref="/order/photo-editing"
       orderLabel="Order Aerial Editing"
       whenToUseTitle="When to use Aerial Editing"
@@ -104,29 +115,41 @@ export default function AerialEditingPricingPage() {
       ]}
       uploadFootnote="Required fields are marked *. DNG files are accepted for maximum editing quality."
       pricingTitle="Aerial Editing pricing"
-      pricingDescription="Pricing is based on the image and the amount of correction needed. Send your images for a quote."
+      pricingDescription="Choose the fixed-price aerial operation required for each image. Multiple operations can be combined where needed."
       pricingCards={[
         {
-          label: "Aerial Photo Enhancement",
-          price: "Request quote",
+          label: "Colour Fade",
+          price: <CatalogPriceText priceKey="aerial-colour-fade" />,
           unit: "per image",
-          note: "Color, exposure, sky, and property clarity improvements.",
+          note: "Fade surrounding colour to make the property or site stand out.",
           isBase: true,
         },
         {
-          label: "Sky Replacement",
-          price: "Request quote",
+          label: "Drop Pin",
+          price: <CatalogPriceText priceKey="aerial-drop-pin" />,
           unit: "per image",
-          note: "Replace overcast or flat skies with a more attractive alternative.",
+          note: "Add a clear location pin to identify the subject property.",
         },
         {
-          label: "Object / Distraction Removal",
-          price: "Request quote",
+          label: "Single Lot Highlight",
+          price: <CatalogPriceText priceKey="aerial-single-lot-highlight" />,
           unit: "per image",
-          note: "Remove cars, cables, signage, or other elements.",
+          note: "Outline and highlight one lot or property boundary.",
+        },
+        {
+          label: "Multiple Lot Highlight",
+          price: <CatalogPriceText priceKey="aerial-multiple-lot-highlight" />,
+          unit: "per image",
+          note: "Highlight multiple lots in one aerial image.",
+        },
+        {
+          label: "Full Markup",
+          price: <CatalogPriceText priceKey="aerial-full-markup" />,
+          unit: "per image",
+          note: "Combine highlight, colour fade, and location pin markup.",
         },
       ]}
-      pricingFootnote="Contact us with sample images for an accurate per-image or batch quote."
+      pricingFootnote="Each selected operation is priced from the current catalog. Complex custom retouching outside these operations may require review."
       faqTitle="Aerial Editing questions"
       faqItems={[
         {
@@ -147,7 +170,7 @@ export default function AerialEditingPricingPage() {
         },
         {
           question: "How is the price set?",
-          answer: "Pricing depends on the image resolution and the amount and type of correction needed. Send a sample file and we'll quote in writing.",
+          answer: "The listed aerial operations have fixed per-image prices. Choose Colour Fade, Drop Pin, a lot highlight, or Full Markup in the Photo Editing order flow.",
         },
         {
           question: "How long does it take?",
@@ -163,7 +186,7 @@ export default function AerialEditingPricingPage() {
         },
       ]}
       ctaTitle="Make every drone shot listing-ready."
-      ctaSubtitle="Send your aerial images and we'll quote the editing scope in writing within 24 hours."
+      ctaSubtitle="Upload your aerial images and select the fixed-price markup operations each one needs."
     />
     </>
   );

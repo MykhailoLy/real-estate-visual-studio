@@ -20,7 +20,7 @@ test.describe("public navigation", () => {
     await page.getByRole("link", { name: "Pricing" }).first().click();
     await expect(page).toHaveURL(/\/pricing$/);
     await expect(
-      page.getByRole("heading", { name: /transparent pricing, no hidden fees/i }),
+      page.getByRole("heading", { name: "Pricing", exact: true }),
     ).toBeVisible();
 
     await page.getByRole("link", { name: "Gallery" }).first().click();

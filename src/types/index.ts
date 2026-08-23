@@ -29,9 +29,8 @@ export interface Service {
   category: ServiceCategory;
   description: string;
   deliverables: string[];
-  priceFrom?: number;
   priceKey?: PriceKey;
-  priceUnit: string; // "per image", "per plan", "per property"
+  priceUnit?: string; // Transactional services expose their catalog unit.
   orderable: boolean; // true for remote services (can be ordered online)
 }
 

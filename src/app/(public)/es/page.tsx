@@ -115,7 +115,7 @@ const serviceGridCopy: ServiceGridCopy = {
       name: "Renovación virtual",
       description:
         "Muestra cómo podría verse una cocina, baño o fachada tras una reforma, sin levantar un martillo.",
-      pricePrefix: "Desde ",
+      customPriceLabel: "Precio por opciones",
     },
     "360-image-enhancement": {
       name: "Mejora de imagen 360°",
@@ -135,7 +135,8 @@ const serviceGridCopy: ServiceGridCopy = {
       name: "Edición aérea",
       description:
         "Cielos más limpios, mayor detalle y color equilibrado para exteriores con dron e imágenes aéreas de anuncios.",
-      customPriceLabel: "Solicitar presupuesto",
+      pricePrefix: "Desde ",
+      priceSuffix: " / imagen",
     },
     "development-site-plans": {
       name: "Planos de desarrollo",

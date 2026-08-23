@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
+import {
+  formatLocalPricingRow,
+  getLocalPricingPresentation,
+  type LocalPricingServiceId,
+} from "@/lib/pricing/local-catalog";
 import type { PriceKey } from "@/lib/pricing/types";
 import {
   ImagePlus,
@@ -198,7 +203,8 @@ type RemoteService = {
   variant: PlaceholderVariant;
   icon: typeof ImagePlus;
   title: string;
-  priceKey: PriceKey;
+  priceKey?: PriceKey;
+  priceLabel?: string;
   pricePrefix?: string;
   priceSuffix?: string;
   description: string;
@@ -208,6 +214,8 @@ type RemoteService = {
 };
 
 function RemotePrice({ service }: { service: RemoteService }) {
+  if (!service.priceKey) return service.priceLabel ?? "Option-based pricing";
+
   return (
     <CatalogPriceText
       priceKey={service.priceKey}
@@ -240,8 +248,7 @@ const remoteServices: RemoteService[] = [
     variant: "renovation",
     icon: Paintbrush,
     title: "Virtual Renovation",
-    priceKey: "renovation-replace-walls",
-    pricePrefix: "From ",
+    priceLabel: "Option-based pricing",
     description:
       "Show renovation potential without construction. Update kitchens, bathrooms, flooring, walls, exteriors, pools, landscaping, and more.",
     highlights: [
@@ -307,18 +314,28 @@ type LocalService = {
   note: string | null;
 };
 
+function getLocalServicePriceLines(serviceId: LocalPricingServiceId) {
+  const rows = getLocalPricingPresentation(serviceId, "en").rows;
+  const [first, ...additional] = rows;
+
+  return {
+    price: formatLocalPricingRow(first),
+    additionalPricing:
+      additional.length > 0 ? additional.map(formatLocalPricingRow) : null,
+  };
+}
+
+const photographyPricing = getLocalServicePriceLines("photography");
+const tours360Pricing = getLocalServicePriceLines("360-tours");
+const videoPricing = getLocalServicePriceLines("video-tours");
+const dronePricing = getLocalServicePriceLines("drone-photography");
 
 const localServices: LocalService[] = [
   {
     variant: "photography",
     icon: Camera,
     title: "Real Estate Photography",
-    price: "From €129 / 15 edited photos",
-    additionalPricing: [
-      "From €179 / 25 edited photos",
-      "From €239 / 35 edited photos",
-      "Custom quote for 50+ photos, villas, luxury properties, exterior-heavy shoots, or urgent delivery.",
-    ],
+    ...photographyPricing,
     description:
       "Professional photography for apartments, villas, rentals, and real estate listings.",
     note: null,
@@ -327,8 +344,7 @@ const localServices: LocalService[] = [
     variant: "tour-360",
     icon: View,
     title: "360 Virtual Tours",
-    price: "From €120 / small apartment",
-    additionalPricing: null,
+    ...tours360Pricing,
     description:
       "Interactive 360 tours for property listings, rentals, and remote buyer previews. Final price depends on property size, number of scan points / panoramas, hosting period, and delivery platform.",
     note: null,
@@ -337,18 +353,16 @@ const localServices: LocalService[] = [
     variant: "video",
     icon: Video,
     title: "Property Video Tours",
-    price: "From €250 / short walkthrough",
-    additionalPricing: null,
+    ...videoPricing,
     description:
-      "Clean walkthrough videos for listings, social media, real estate agencies, and property marketing campaigns. Custom quote for cinematic edits, drone integration, longer videos, or social media versions.",
+      "Clean walkthrough videos for listings, social media, real estate agencies, and property marketing campaigns.",
     note: null,
   },
   {
     variant: "drone",
     icon: Plane,
     title: "Drone / Aerial Photography & Video",
-    price: "Quote on request",
-    additionalPricing: null,
+    ...dronePricing,
     description:
       "Available through a licensed specialist where regulations permit. Final price depends on location, flight permissions, property type, scope, and specialist availability.",
     note: "Licensed specialist available by arrangement.",

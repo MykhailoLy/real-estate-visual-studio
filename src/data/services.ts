@@ -31,8 +31,6 @@ export const remoteServices: Service[] = [
       "1 revision included",
       "High-resolution JPG",
     ],
-    priceKey: "renovation-replace-walls",
-    priceUnit: "per option",
     orderable: true,
   },
   {
@@ -103,8 +101,6 @@ export const localServices: Service[] = [
       "Edited and color-corrected",
       "Delivered within 24-48h",
     ],
-    priceFrom: 129,
-    priceUnit: "15 photos",
     orderable: false,
   },
   {
@@ -120,8 +116,6 @@ export const localServices: Service[] = [
       "Embeddable on listings",
       "Mobile-friendly viewer",
     ],
-    priceFrom: 120,
-    priceUnit: "small apartment",
     orderable: false,
   },
   {
@@ -137,8 +131,6 @@ export const localServices: Service[] = [
       "Background music",
       "Multiple formats (social, web)",
     ],
-    priceFrom: 250,
-    priceUnit: "short walkthrough",
     orderable: false,
   },
   {
@@ -154,8 +146,6 @@ export const localServices: Service[] = [
       "4K resolution",
       "Licensed drone operator",
     ],
-    priceFrom: 0,
-    priceUnit: "quote on request",
     orderable: false,
   },
 ];
