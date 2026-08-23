@@ -1,15 +1,17 @@
 import { Home, ImageIcon, Map, Plane } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { spanishMetadata } from "../../seo";
 import { spanishServicePageLabels } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
+import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata = spanishMetadata({
   title: "Edición aérea",
   description:
-    "Mejora imágenes de dron y vistas aéreas de propiedades para una presentación más limpia de terrenos, exteriores, barrios y anuncios. Bajo presupuesto.",
+    "Mejora imágenes de dron con precios fijos para desvanecido de color, marcadores, resaltado de parcelas y marcado completo.",
   path: "/es/pricing/aerial-editing",
   englishPath: "/pricing/aerial-editing",
 });
@@ -24,6 +26,9 @@ export default function SpanishAerialEditingPricingPage() {
             description:
               "Mejora imágenes de dron y vistas aéreas de propiedades para una presentación más limpia de terrenos, exteriores, barrios y anuncios.",
             url: absoluteUrl("/es/pricing/aerial-editing"),
+            price: getCatalogPriceDecimal("aerial-colour-fade"),
+            priceCurrency: "USD",
+            offerNote: "Precio inicial por imagen",
           }),
           breadcrumbSchema([
             { name: "Inicio", item: absoluteUrl("/es") },
@@ -42,7 +47,13 @@ export default function SpanishAerialEditingPricingPage() {
       eyebrow="Edición aérea"
       title="Precios de Edición aérea"
       description="Mejora imágenes de dron y vistas aéreas de propiedades para una presentación más limpia de terrenos, exteriores, barrios y anuncios."
-      priceLine="Solicitar presupuesto"
+      priceLine={
+        <CatalogPriceText
+          priceKey="aerial-colour-fade"
+          prefix="Desde "
+          suffix=" / imagen"
+        />
+      }
       orderHref="/order/photo-editing"
       orderLabel="Pedir Edición aérea"
       whenToUseTitle="Cuándo usar Edición aérea"
@@ -105,29 +116,41 @@ export default function SpanishAerialEditingPricingPage() {
       ]}
       uploadFootnote="Los campos obligatorios están marcados con *. Se aceptan archivos DNG para máxima calidad de edición."
       pricingTitle="Precios de Edición aérea"
-      pricingDescription="El precio depende de la imagen y de la cantidad de corrección necesaria. Envía tus imágenes para recibir un presupuesto."
+      pricingDescription="Elige la operación aérea de precio fijo que necesita cada imagen. Puedes combinar varias operaciones cuando sea necesario."
       pricingCards={[
         {
-          label: "Mejora de foto aérea",
-          price: "Solicitar presupuesto",
+          label: "Desvanecido de color",
+          price: <CatalogPriceText priceKey="aerial-colour-fade" />,
           unit: "por imagen",
-          note: "Mejoras de color, exposición, cielo y claridad de la propiedad.",
+          note: "Atenúa el color del entorno para destacar la propiedad o parcela.",
           isBase: true,
         },
         {
-          label: "Sustitución de cielo",
-          price: "Solicitar presupuesto",
+          label: "Marcador de ubicación",
+          price: <CatalogPriceText priceKey="aerial-drop-pin" />,
           unit: "por imagen",
-          note: "Sustituye cielos planos o nublados por una alternativa más atractiva.",
+          note: "Añade un marcador claro para identificar la propiedad.",
         },
         {
-          label: "Eliminación de objetos / distracciones",
-          price: "Solicitar presupuesto",
+          label: "Resaltado de una parcela",
+          price: <CatalogPriceText priceKey="aerial-single-lot-highlight" />,
           unit: "por imagen",
-          note: "Elimina coches, cables, señalización u otros elementos.",
+          note: "Delimita y resalta una parcela o propiedad.",
+        },
+        {
+          label: "Resaltado de varias parcelas",
+          price: <CatalogPriceText priceKey="aerial-multiple-lot-highlight" />,
+          unit: "por imagen",
+          note: "Resalta varias parcelas en una imagen aérea.",
+        },
+        {
+          label: "Marcado completo",
+          price: <CatalogPriceText priceKey="aerial-full-markup" />,
+          unit: "por imagen",
+          note: "Combina resaltado, desvanecido de color y marcador de ubicación.",
         },
       ]}
-      pricingFootnote="Contacta con nosotros con imágenes de muestra para un presupuesto preciso por imagen o por lote."
+      pricingFootnote="Cada operación seleccionada usa el precio del catálogo actual. El retoque personalizado fuera de estas operaciones puede requerir revisión."
       faqTitle="Preguntas sobre Edición aérea"
       faqItems={[
         {
@@ -153,7 +176,7 @@ export default function SpanishAerialEditingPricingPage() {
         {
           question: "¿Cómo se fija el precio?",
           answer:
-            "El precio depende de la resolución de la imagen y de la cantidad y tipo de corrección necesaria. Envía un archivo de muestra y te presupuestaremos por escrito.",
+            "Las operaciones aéreas indicadas tienen precios fijos por imagen. Elige Desvanecido de color, Marcador, Resaltado de parcela o Marcado completo en el pedido de Retoque fotográfico.",
         },
         {
           question: "¿Cuánto tarda?",
@@ -171,7 +194,7 @@ export default function SpanishAerialEditingPricingPage() {
         },
       ]}
       ctaTitle="Haz que cada toma de dron esté lista para publicar."
-      ctaSubtitle="Envía tus imágenes aéreas y presupuestaremos el alcance de edición por escrito en 24 horas."
+      ctaSubtitle="Sube tus imágenes aéreas y selecciona las operaciones de marcado de precio fijo que necesita cada una."
       labels={{
         ...spanishServicePageLabels,
         heroAriaLabel: "Ejemplos antes y después de Edición aérea",

@@ -31,8 +31,6 @@ export const remoteServices: Service[] = [
       "1 revision included",
       "High-resolution JPG",
     ],
-    priceKey: "renovation-replace-walls",
-    priceUnit: "per option",
     orderable: true,
   },
   {

@@ -203,7 +203,8 @@ type RemoteService = {
   variant: PlaceholderVariant;
   icon: typeof ImagePlus;
   title: string;
-  priceKey: PriceKey;
+  priceKey?: PriceKey;
+  priceLabel?: string;
   pricePrefix?: string;
   priceSuffix?: string;
   description: string;
@@ -213,6 +214,8 @@ type RemoteService = {
 };
 
 function RemotePrice({ service }: { service: RemoteService }) {
+  if (!service.priceKey) return service.priceLabel ?? "Option-based pricing";
+
   return (
     <CatalogPriceText
       priceKey={service.priceKey}
@@ -245,8 +248,7 @@ const remoteServices: RemoteService[] = [
     variant: "renovation",
     icon: Paintbrush,
     title: "Virtual Renovation",
-    priceKey: "renovation-replace-walls",
-    pricePrefix: "From ",
+    priceLabel: "Option-based pricing",
     description:
       "Show renovation potential without construction. Update kitchens, bathrooms, flooring, walls, exteriors, pools, landscaping, and more.",
     highlights: [

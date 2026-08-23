@@ -83,9 +83,9 @@ export const ORDER_SERVICE_CATALOG = [
   {
     slug: "aerial-editing",
     title: "Aerial Editing",
-    route: null,
+    route: "/dashboard/orders/new/photo-editing",
     publicServiceSlug: "aerial-editing",
-    availability: "custom-quote",
+    availability: "active",
     sortOrder: 9,
   },
   {

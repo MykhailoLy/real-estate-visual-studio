@@ -32,7 +32,8 @@ export const metadata = spanishMetadata({
 type Service = {
   icon: typeof ImagePlus;
   title: string;
-  priceKey: PriceKey;
+  priceKey?: PriceKey;
+  priceLabel?: string;
   pricePrefix?: string;
   priceSuffix?: string;
   description: string;
@@ -61,8 +62,7 @@ const digitalServices: Service[] = [
   {
     icon: Paintbrush,
     title: "Renovación virtual",
-    priceKey: "renovation-replace-walls",
-    pricePrefix: "Desde ",
+    priceLabel: "Precio por opciones",
     description:
       "Muestra posibilidades de reforma sin obra: suelos, paredes, cocinas, baños, exteriores, piscinas y paisajismo.",
     bullets: [
@@ -215,11 +215,15 @@ export default function SpanishServicesPage() {
                     {service.title}
                   </h3>
                   <p className="text-base font-semibold text-secondary-dark mb-4">
-                    <CatalogPriceText
-                      priceKey={service.priceKey}
-                      prefix={service.pricePrefix}
-                      suffix={service.priceSuffix}
-                    />
+                    {service.priceKey ? (
+                      <CatalogPriceText
+                        priceKey={service.priceKey}
+                        prefix={service.pricePrefix}
+                        suffix={service.priceSuffix}
+                      />
+                    ) : (
+                      service.priceLabel
+                    )}
                   </p>
                   <p className="text-sm lg:text-base text-muted leading-relaxed mb-5">
                     {service.description}

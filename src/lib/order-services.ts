@@ -141,8 +141,7 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
     description:
       "Digitally renovate kitchens, bathrooms, interiors, and exteriors with option-based pricing.",
     portfolioServiceSlug: "virtual-renovation",
-    priceLabel: "Current catalog price",
-    priceKey: "renovation-replace-walls",
+    priceLabel: "Option-based pricing",
     turnaroundLabel: DIGITAL_TURNAROUND,
     badge: null,
     mediaServiceSlug: "virtual-renovation",
@@ -173,11 +172,12 @@ export const ORDER_SERVICE_CARDS: OrderServiceCard[] = [
   {
     ...canonicalService("aerial-editing"),
     description:
-      "Enhance drone and aerial imagery with labels, boundaries, and clean-ups. Custom quote.",
+      "Enhance drone and aerial imagery with fixed-price labels, boundaries, and markup operations.",
     portfolioServiceSlug: "aerial-editing",
-    priceLabel: "Custom Quote",
-    turnaroundLabel: null,
-    badge: "Quote",
+    priceLabel: "Current catalog price",
+    priceKey: "aerial-colour-fade",
+    turnaroundLabel: DIGITAL_TURNAROUND,
+    badge: "Aerial",
     mediaServiceSlug: "aerial-editing",
     icon: Plane,
   },

@@ -22,7 +22,8 @@ test("review shows every active preference, add-on, aerial choice and reference"
   assert.equal(values["Sky Replacement"], "Yes");
   assert.equal(values["Day Sky Style"], "Deep Blue Sky");
   assert.match(values["Selected Add-ons"] ?? "", /Shadow Removal/);
-  assert.match(values["Selected Add-ons"] ?? "", /CA\$10\.00/);
+  assert.match(values["Selected Add-ons"] ?? "", /CA\$6\.50/);
+  assert.match(values["Selected Add-ons"] ?? "", /CA\$1\.00/);
   assert.match(values["Aerial Editing"] ?? "", /Aerial Drop Pin/);
   assert.equal(values["Aerial Reference Image"], "Included");
   assert.equal(values["Additional Instructions"], "Keep the window view.");

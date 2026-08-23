@@ -95,7 +95,11 @@ const REMOTE_SERVICE_GROUPS: readonly RemoteServiceGroup[] = [
       {
         name: "Aerial Editing",
         href: "/pricing/aerial-editing",
-        price: { kind: "label", label: "Quote on request" },
+        price: {
+          kind: "catalog",
+          priceKey: "aerial-colour-fade",
+          unit: "image",
+        },
         mediaSlug: "aerial-editing",
         fallbackVariant: "aerial-editing",
       },
