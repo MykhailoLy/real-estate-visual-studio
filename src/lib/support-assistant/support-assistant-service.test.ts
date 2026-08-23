@@ -10,6 +10,7 @@ import {
   GEMINI_SUPPORT_MAX_OUTPUT_TOKENS,
   GEMINI_SUPPORT_MODEL,
   buildGeminiSupportInteractionRequest,
+  buildGeminiSupportStatelessHistory,
 } from "./gemini-request.ts";
 import { extractCompletedGeminiSupportOutput } from "./gemini-response.ts";
 import {
@@ -756,8 +757,11 @@ test("overlong model output is capped safely", () => {
 
 test("Gemini request builder uses the required Interactions API fields", () => {
   const exactSystemPrompt = "Exact PicchuSpot prompt";
-  const request = buildGeminiSupportInteractionRequest(
+  const history = buildGeminiSupportStatelessHistory(
     "Serialized transcript",
+  );
+  const request = buildGeminiSupportInteractionRequest(
+    history,
     exactSystemPrompt,
   );
 
@@ -770,9 +774,19 @@ test("Gemini request builder uses the required Interactions API fields", () => {
     max_output_tokens: GEMINI_SUPPORT_MAX_OUTPUT_TOKENS,
   });
   assert.equal(GEMINI_SUPPORT_MAX_OUTPUT_TOKENS, 2048);
-  assert.equal(request.input, "Serialized transcript");
+  assert.deepEqual(request.input, [
+    {
+      type: "user_input",
+      content: [
+        { type: "text", text: "Serialized transcript" },
+      ],
+    },
+  ]);
+  assert.deepEqual(
+    request.tools.map((tool) => tool.name),
+    ["get_remote_service_quote", "get_local_service_pricing"],
+  );
   assert.equal(Object.hasOwn(request, "previous_interaction_id"), false);
-  assert.equal(Object.hasOwn(request, "tools"), false);
   assert.equal(Object.hasOwn(request, "stream"), false);
 });
 
@@ -867,8 +881,16 @@ test("partial Gemini output is never returned to the service layer", async () =>
 test("support prompt versions and targeted service-selection contract are current", () => {
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.6";',
+      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.7";',
     ),
+  );
+  assert.match(
+    supportPromptSource,
+    /Tool-returned pricing has priority over the static pricing fallback/,
+  );
+  assert.match(
+    supportPromptSource,
+    /Never modify, override or recalculate a tool-returned price/,
   );
   assert.ok(
     supportPromptSource.includes(
