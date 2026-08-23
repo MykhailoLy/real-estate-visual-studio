@@ -6,9 +6,9 @@ import {
   getLocalPricingPresentation,
   type LocalPricingServiceId,
 } from "../pricing/local-catalog.ts";
+import { PRICING_VERSION } from "../pricing/catalog.ts";
 
-export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.4";
-export const PICCHUSPOT_PRICING_VERSION = "2026-06-25-v1";
+export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.5";
 
 const LOCAL_SUPPORT_PRICING_ORDER: readonly LocalPricingServiceId[] = [
   "photography",
@@ -506,11 +506,14 @@ approved.
 
 # CANONICAL PRICING AND CURRENCY RULES
 
-## Pricing version
+## Canonical pricing sources
 
-The authoritative PicchuSpot remote digital pricing version is:
+Remote digital prices in this section follow transactional catalog version:
 
-2026-06-25-v1
+${PRICING_VERSION}
+
+Local service prices in this section are generated from the canonical typed
+local pricing catalog.
 
 The prices in this section are the only approved prices for customer quotations.
 

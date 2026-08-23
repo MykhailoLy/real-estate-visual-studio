@@ -14,7 +14,11 @@ import ServicePageSlider, {
 } from "@/components/pricing/ServicePageSlider";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
-import { getPortfolioPublicUrl, getServicePageItemsForService } from "@/lib/portfolio";
+import {
+  getPortfolioPublicUrl,
+  getServicePageItemsForService,
+  shouldRenderVirtualStagingPortfolioCopy,
+} from "@/lib/portfolio";
 import {
   getServiceOptionsImages,
   getSiteMediaPublicUrl,
@@ -211,11 +215,12 @@ async function buildSliderSlides(
   }
 
   return usable.map((item) => {
-    // Portfolio copy is editorial content, not a pricing source. Keep the
-    // image-led slider independent from freeform titles and descriptions.
+    const showPortfolioCopy = shouldRenderVirtualStagingPortfolioCopy(item.id);
     const alt = getBeforeAfterAlt({
       beforeAlt: item.before_alt,
       afterAlt: item.after_alt,
+      title: showPortfolioCopy ? item.title : null,
+      description: showPortfolioCopy ? item.description : null,
       serviceLabel: "Virtual Staging",
       serviceSlug: item.service_slug,
     });
@@ -226,6 +231,7 @@ async function buildSliderSlides(
       afterUrl: getPortfolioPublicUrl(item.after_image_path) ?? "",
       beforeAlt: alt.beforeAlt,
       afterAlt: alt.afterAlt,
+      title: showPortfolioCopy ? item.title : undefined,
     };
   });
 }
@@ -421,16 +427,20 @@ export default async function VirtualStagingPage() {
               Shown when portfolio items are uploaded. Falls back to
               a single full-width placeholder so the section always
               has visual weight even before any images are added.
-              Freeform portfolio captions are intentionally not rendered;
-              canonical service copy and pricing live above the grid. */}
+              Captions remain visible except for the known record whose
+              source copy still contains a legacy price. */}
           {hasItems ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
               {allItems.map((item) => {
                 const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
                 const afterUrl = getPortfolioPublicUrl(item.after_image_path);
+                const showPortfolioCopy =
+                  shouldRenderVirtualStagingPortfolioCopy(item.id);
                 const alt = getBeforeAfterAlt({
                   beforeAlt: item.before_alt,
                   afterAlt: item.after_alt,
+                  title: showPortfolioCopy ? item.title : null,
+                  description: showPortfolioCopy ? item.description : null,
                   serviceLabel: "Virtual Staging",
                   serviceSlug: item.service_slug,
                 });
@@ -449,6 +459,20 @@ export default async function VirtualStagingPage() {
                         placeholderVariant="virtual-staging"
                       />
                     </div>
+                    {showPortfolioCopy && (item.title || item.description) && (
+                      <div className="p-5 lg:p-6">
+                        {item.title && (
+                          <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
+                            {item.title}
+                          </h3>
+                        )}
+                        {item.description && (
+                          <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </article>
                 );
               })}

@@ -862,13 +862,18 @@ test("partial Gemini output is never returned to the service layer", async () =>
 test("support prompt versions and targeted service-selection contract are current", () => {
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.4";',
+      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.5";',
     ),
   );
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_PRICING_VERSION = "2026-06-25-v1";',
+      'import { PRICING_VERSION } from "../pricing/catalog.ts";',
     ),
+  );
+  assert.ok(supportPromptSource.includes("${PRICING_VERSION}"));
+  assert.doesNotMatch(
+    supportPromptSource,
+    /PICCHUSPOT_PRICING_VERSION|2026-06-25-v1/,
   );
   assert.ok(
     supportPromptSource.includes("${LOCAL_SUPPORT_PRICING_SECTION}"),
