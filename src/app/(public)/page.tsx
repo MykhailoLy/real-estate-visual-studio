@@ -23,7 +23,7 @@ import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 export const metadata: Metadata = publicPageMetadata({
-  title: "Real Estate Photo Editing & Virtual Staging | PicchuSpot",
+  title: "Real Estate Photo Editing & Virtual Staging",
   description:
     "Professional real estate photo editing, virtual staging, day-to-dusk, item removal, virtual renovation, floor plans and 360° image enhancement.",
   canonicalPath: "/",
