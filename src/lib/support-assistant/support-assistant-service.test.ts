@@ -881,7 +881,7 @@ test("partial Gemini output is never returned to the service layer", async () =>
 test("support prompt versions and targeted service-selection contract are current", () => {
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.7";',
+      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.8";',
     ),
   );
   assert.match(
@@ -935,6 +935,52 @@ test("support prompt versions and targeted service-selection contract are curren
     supportPromptSource.includes(
       "do not ask quantity or currency merely because the customer asked which",
     ),
+  );
+});
+
+test("support prompt requires clean plain-text customer responses", () => {
+  assert.match(
+    supportPromptSource,
+    /Customer-visible responses must use clean plain text only/,
+  );
+  assert.match(
+    supportPromptSource,
+    /no Markdown emphasis such as \*\*bold\*\* or \*italic\*/,
+  );
+  assert.match(
+    supportPromptSource,
+    /no Markdown link syntax such as \[text\]\(url\)/,
+  );
+  assert.match(supportPromptSource, /no Markdown headings such as # Heading/);
+  assert.match(supportPromptSource, /no Markdown tables/);
+  assert.match(
+    supportPromptSource,
+    /no fenced code blocks or inline code formatting unless genuinely required/,
+  );
+  assert.match(
+    supportPromptSource,
+    /do not prefix ordinary pricing rows with the Markdown \* character/,
+  );
+  assert.match(
+    supportPromptSource,
+    /Simple plain-text bullets\s+using • are allowed when a list genuinely helps/,
+  );
+  assert.match(
+    supportPromptSource,
+    /Quantity: 8 images\s+Unit price: €14\.00 per image\s+Base subtotal: €112\.00\s+Volume discount \(5%\): −€5\.60\s+Estimated total: €106\.40/,
+  );
+  assert.match(
+    supportPromptSource,
+    /Please contact our support team at hello@picchuspot\.com/,
+  );
+  assert.equal(
+    [...supportPromptSource.matchAll(/hello@picchuspot\.com/g)].length,
+    3,
+  );
+  assert.doesNotMatch(supportPromptSource, /mailto:/);
+  assert.doesNotMatch(
+    supportPromptSource,
+    /\[hello@picchuspot\.com\]\(mailto:hello@picchuspot\.com\)/,
   );
 });
 
