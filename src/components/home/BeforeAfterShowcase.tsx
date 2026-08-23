@@ -15,13 +15,19 @@ function isSlideMounted(
   i: number,
   idx: number,
   total: number,
-  neighborsReady: boolean
+  neighborsReady: boolean,
+  preparePrev: boolean
 ): boolean {
   if (total <= 1) return true;
   if (i === idx) return true;
   if (!neighborsReady) return false;
   const next = (idx + 1) % total;
-  return i === next;
+  if (i === next) return true;
+  if (preparePrev) {
+    const prev = (idx - 1 + total) % total;
+    if (i === prev) return true;
+  }
+  return false;
 }
 
 // ============================================================
@@ -85,6 +91,7 @@ export default function BeforeAfterShowcase({ slides }: Props) {
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [neighborsReady, setNeighborsReady] = useState(false);
+  const [preparePrev, setPreparePrev] = useState(false);
 
   const idx = effective.length > 0 ? rawIdx % effective.length : 0;
 
@@ -153,6 +160,7 @@ export default function BeforeAfterShowcase({ slides }: Props) {
   const handlePointerDown = (e: React.PointerEvent) => {
     // Only track primary pointer (finger or mouse left-button).
     if (!e.isPrimary) return;
+    setPreparePrev(true);
     dragStart.current = { x: e.clientX, y: e.clientY };
     isDragging.current = false;
   };
@@ -183,9 +191,15 @@ export default function BeforeAfterShowcase({ slides }: Props) {
   return (
     <div
       className="relative w-full"
-      onMouseEnter={() => setPaused(true)}
+      onMouseEnter={() => {
+        setPaused(true);
+        setPreparePrev(true);
+      }}
       onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
+      onFocus={() => {
+        setPaused(true);
+        setPreparePrev(true);
+      }}
       onBlur={() => setPaused(false)}
       role="region"
       aria-roledescription="carousel"
@@ -206,7 +220,8 @@ export default function BeforeAfterShowcase({ slides }: Props) {
             i,
             idx,
             effective.length,
-            neighborsReady
+            neighborsReady,
+            preparePrev
           );
           return (
             <div
