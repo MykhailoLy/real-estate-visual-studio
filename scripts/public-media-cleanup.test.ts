@@ -93,14 +93,16 @@ function manifestEntry(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function manifest(entries: unknown[]) {
+function manifest(
+  entries: unknown[],
+): Parameters<typeof extractCleanupDeleteRecords>[0] {
   return {
-    version: 1 as const,
+    version: 1,
     projectUrl: "https://example.supabase.co",
     createdAt: "2026-08-23T00:00:00.000Z",
     updatedAt: "2026-08-23T00:00:00.000Z",
     entries,
-  };
+  } as Parameters<typeof extractCleanupDeleteRecords>[0];
 }
 
 test("cleanup CLI defaults to dry-run and requires a source manifest", () => {
