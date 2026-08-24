@@ -160,33 +160,44 @@ function dependencies(repository: FakeRepository) {
   };
 }
 
-test("dispatches the durable order outbox only after a paid event is stored as processed", async () => {
+test("enqueues then dispatches only after a paid event is stored as processed", async () => {
   const repository = new FakeRepository();
+  const enqueued: string[] = [];
   const dispatched: string[] = [];
   const result = await handleStripeWebhookRequest(
     { rawBody: "raw", stripeSignature: "signature" },
     {
       ...dependencies(repository),
-      dispatchOrderEmailOutbox: async (candidateOrderId) => {
+      enqueuePaymentConfirmationEmail: async (candidateOrderId) => {
         assert.equal(repository.events.get("evt_live_payment")?.processing_status, "processed");
+        enqueued.push(candidateOrderId);
+        return true;
+      },
+      dispatchOrderEmailOutbox: async (candidateOrderId) => {
         dispatched.push(candidateOrderId);
       },
     },
   );
 
   assert.equal(result.status, 200);
+  assert.deepEqual(enqueued, [orderId]);
   assert.deepEqual(dispatched, [orderId]);
   assert.equal(repository.payment.payment_status, "paid");
 });
 
-test("does not dispatch a payment confirmation for completed but unpaid Checkout", async () => {
+test("does not enqueue or dispatch a payment confirmation for completed but unpaid Checkout", async () => {
   const repository = new FakeRepository();
+  const enqueued: string[] = [];
   const dispatched: string[] = [];
   const result = await handleStripeWebhookRequest(
     { rawBody: "raw", stripeSignature: "signature" },
     {
       ...dependencies(repository),
       verifyEvent: () => paidEvent("unpaid"),
+      enqueuePaymentConfirmationEmail: async (candidateOrderId) => {
+        enqueued.push(candidateOrderId);
+        return true;
+      },
       dispatchOrderEmailOutbox: async (candidateOrderId) => {
         dispatched.push(candidateOrderId);
       },
@@ -194,8 +205,26 @@ test("does not dispatch a payment confirmation for completed but unpaid Checkout
   );
 
   assert.equal(result.status, 200);
+  assert.deepEqual(enqueued, []);
   assert.deepEqual(dispatched, []);
   assert.equal(repository.events.get("evt_live_payment")?.processing_status, "ignored");
+});
+
+test("enqueue failure returns 500 so Stripe can retry the idempotent webhook", async () => {
+  const repository = new FakeRepository();
+  const result = await handleStripeWebhookRequest(
+    { rawBody: "raw", stripeSignature: "signature" },
+    {
+      ...dependencies(repository),
+      enqueuePaymentConfirmationEmail: async () => {
+        throw new Error("temporary database failure");
+      },
+    },
+  );
+
+  assert.equal(result.status, 500);
+  assert.equal(repository.payment.payment_status, "paid");
+  assert.equal(repository.events.get("evt_live_payment")?.processing_status, "processed");
 });
 
 test("email dispatch failure never changes the successful Stripe webhook acknowledgement", async () => {
@@ -207,6 +236,7 @@ test("email dispatch failure never changes the successful Stripe webhook acknowl
       { rawBody: "raw", stripeSignature: "signature" },
       {
         ...dependencies(repository),
+        enqueuePaymentConfirmationEmail: async () => true,
         dispatchOrderEmailOutbox: async () => {
           throw new Error("temporary email failure");
         },
