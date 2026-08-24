@@ -48,6 +48,8 @@ interface PersistedOrderItem {
 interface PersistedPayment {
   provider: string;
   payment_status: string;
+  refund_status: string;
+  refunded_amount_cents: number;
   currency: string;
   subtotal_cents: number;
   tax_cents: number | null;
@@ -69,6 +71,20 @@ interface DispatchOrderEmailsInput {
   supabase: SupabaseClient;
   limit?: number;
   orderId?: string;
+}
+
+export async function enqueuePaymentConfirmationEmail(input: {
+  supabase: SupabaseClient;
+  orderId: string;
+}): Promise<boolean> {
+  const { data, error } = await input.supabase.rpc(
+    "enqueue_order_payment_confirmation_email",
+    { p_order_id: input.orderId },
+  );
+  if (error) {
+    throw new Error("Payment confirmation outbox enqueue failed.");
+  }
+  return data === true;
 }
 
 /** Drain the durable order email outbox strictly after order commit/payment verification. */
@@ -195,7 +211,7 @@ async function buildPersistedEmailPayload(
       "item_index,original_photo_path,reference_image_path,subtotal_cents,details",
     ).eq("order_id", delivery.order_id).order("item_index", { ascending: true }),
     supabase.from("order_payments").select(
-      "provider,payment_status,currency,subtotal_cents,tax_cents,total_cents,paid_at",
+      "provider,payment_status,refund_status,refunded_amount_cents,currency,subtotal_cents,tax_cents,total_cents,paid_at",
     ).eq("order_id", delivery.order_id).maybeSingle(),
   ]);
   if (orderError || itemsError || !orderData || !Array.isArray(itemsData)) {
@@ -248,6 +264,8 @@ async function buildPersistedEmailPayload(
     if (
       payment.provider !== "stripe" ||
       payment.payment_status !== "paid" ||
+      payment.refund_status !== "none" ||
+      payment.refunded_amount_cents !== 0 ||
       payment.currency.toUpperCase() !== order.currency ||
       !Number.isSafeInteger(payment.subtotal_cents) ||
       payment.subtotal_cents !== order.estimated_total_cents ||
