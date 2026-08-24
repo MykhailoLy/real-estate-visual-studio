@@ -70,6 +70,7 @@ function payment(overrides: Record<string, unknown> = {}) {
     provider: "stripe",
     payment_status: "pending",
     refund_status: "none",
+    refunded_amount_cents: 0,
     subtotal_cents: 1350,
     tax_cents: null,
     total_cents: null,

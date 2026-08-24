@@ -167,6 +167,8 @@ export default function OrderPaymentPanel({
   const isPaymentRequired = summary.state === "payment_required";
   const isProcessing = summary.state === "processing";
   const isPaid = summary.state === "paid";
+  const isPartiallyRefunded = summary.state === "partially_refunded";
+  const isRefunded = summary.state === "refunded";
   const canOpenCheckout = isPaymentRequired || isProcessing;
 
   return (
@@ -185,6 +187,10 @@ export default function OrderPaymentPanel({
             "rounded-full border px-2.5 py-1 text-xs font-bold",
             isPaid
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : isPartiallyRefunded
+                ? "border-orange-200 bg-orange-50 text-orange-800"
+                : isRefunded
+                  ? "border-rose-200 bg-rose-50 text-rose-800"
               : isProcessing
                 ? "border-blue-200 bg-blue-50 text-blue-700"
                 : isPaymentRequired
@@ -194,6 +200,10 @@ export default function OrderPaymentPanel({
         >
           {isPaid
             ? "Paid"
+            : isPartiallyRefunded
+              ? "Partially refunded"
+              : isRefunded
+                ? "Refunded"
             : isProcessing
               ? "Payment processing"
               : isPaymentRequired
@@ -225,6 +235,10 @@ export default function OrderPaymentPanel({
             ? "Stripe is processing this payment. This order will show Paid only after the verified payment update is received."
             : isPaid
               ? "Your payment has been verified and recorded."
+              : isPartiallyRefunded
+                ? "This payment has been partially refunded. Our team will review the order before any work proceeds."
+                : isRefunded
+                  ? "This payment has been refunded. Work will not proceed unless the order is reviewed and payment is resolved."
               : "We’ll review your order and contact you with the appropriate next step."}
       </p>
 

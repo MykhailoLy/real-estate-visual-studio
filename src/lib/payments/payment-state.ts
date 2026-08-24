@@ -7,6 +7,8 @@ import type { PaymentStatus, RefundStatus } from "./domain.ts";
 
 export type PersistedOrderPaymentState =
   | "paid"
+  | "partially_refunded"
+  | "refunded"
   | "payment_required"
   | "processing"
   | "manual_review";
@@ -20,6 +22,7 @@ export interface PersistedOrderPayment {
   provider: string;
   payment_status: PaymentStatus;
   refund_status: RefundStatus;
+  refunded_amount_cents: number;
   subtotal_cents: number;
   tax_cents: number | null;
   total_cents: number | null;
@@ -34,7 +37,8 @@ export interface PersistedOrderPayment {
  * Derives an operational payment state from the immutable order snapshot and
  * the webhook-owned payment record. A browser redirect or UI status is never
  * an input. Paid also requires the persisted mode to match the current Stripe
- * environment and requires no already-persisted refund. Ineligible and
+ * environment. Successful refunds remain separate from payment_status and are
+ * derived only from the persisted aggregate refund fields. Ineligible and
  * custom-quote orders retain their manual workflow.
  */
 export function getPersistedOrderPaymentState(
@@ -57,11 +61,10 @@ export function getPersistedOrderPaymentState(
     expectedStripeLivemode,
   );
 
-  if (
+  const verifiedPaid =
     matchesCheckoutSnapshot &&
     payment &&
     payment.payment_status === "paid" &&
-    payment.refund_status === "none" &&
     payment.paid_at !== null &&
     payment.total_cents === price.subtotalCents &&
     payment.tax_cents !== null &&
@@ -69,9 +72,31 @@ export function getPersistedOrderPaymentState(
     payment.tax_cents >= 0 &&
     payment.tax_cents <= price.subtotalCents &&
     Boolean(payment.stripe_checkout_session_id) &&
-    Boolean(payment.stripe_payment_intent_id)
-  ) {
-    return "paid";
+    Boolean(payment.stripe_payment_intent_id) &&
+    Number.isSafeInteger(payment.refunded_amount_cents) &&
+    payment.refunded_amount_cents >= 0 &&
+    payment.refunded_amount_cents <= price.subtotalCents;
+
+  if (verifiedPaid && payment) {
+    if (
+      payment.refund_status === "full" &&
+      payment.refunded_amount_cents === price.subtotalCents
+    ) {
+      return "refunded";
+    }
+    if (
+      payment.refund_status === "partial" &&
+      payment.refunded_amount_cents > 0 &&
+      payment.refunded_amount_cents < price.subtotalCents
+    ) {
+      return "partially_refunded";
+    }
+    if (
+      payment.refund_status === "none" &&
+      payment.refunded_amount_cents === 0
+    ) {
+      return "paid";
+    }
   }
 
   if (

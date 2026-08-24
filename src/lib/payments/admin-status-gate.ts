@@ -27,7 +27,9 @@ export class AdminPaymentGateError extends Error {
 
   constructor(paymentState: PersistedOrderPaymentState) {
     super(
-      paymentState === "processing"
+      paymentState === "partially_refunded" || paymentState === "refunded"
+        ? "Refunded payments cannot enter production. Review the order and refund before advancing it."
+        : paymentState === "processing"
         ? "Payment verification is still processing. Wait for Paid before advancing this order."
         : "A matching Paid payment is required before this fixed-price order can enter production.",
     );

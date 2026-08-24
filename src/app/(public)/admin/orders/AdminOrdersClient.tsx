@@ -76,6 +76,8 @@ function formatDate(iso: string): string {
 
 function getPaymentStateLabel(state: PersistedOrderPaymentState): string {
   if (state === "paid") return "Paid";
+  if (state === "partially_refunded") return "Partially refunded";
+  if (state === "refunded") return "Refunded";
   if (state === "processing") return "Processing";
   if (state === "payment_required") return "Payment required";
   return "Manual review";
@@ -334,6 +336,10 @@ function OrderRow({
             "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold",
             order.payment_state === "paid"
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : order.payment_state === "partially_refunded"
+                ? "border-orange-200 bg-orange-50 text-orange-800"
+                : order.payment_state === "refunded"
+                  ? "border-rose-200 bg-rose-50 text-rose-800"
               : order.payment_state === "processing"
                 ? "border-blue-200 bg-blue-50 text-blue-700"
                 : order.payment_state === "payment_required"

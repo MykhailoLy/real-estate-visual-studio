@@ -61,6 +61,8 @@ export async function getAuthoritativePaymentSummary(
     paymentMatches &&
     payment &&
     (state === "paid" ||
+      state === "partially_refunded" ||
+      state === "refunded" ||
       state === "processing" ||
       payment.payment_status === "pending" ||
       payment.payment_status === "expired" ||
@@ -94,6 +96,8 @@ function deriveCustomerPaymentState({
   paymentMatches: boolean;
 }): CustomerPaymentState {
   if (persistedState === "paid") return "paid";
+  if (persistedState === "partially_refunded") return "partially_refunded";
+  if (persistedState === "refunded") return "refunded";
   if (persistedState === "processing") return "processing";
   if (
     orderStatus === "pending" &&

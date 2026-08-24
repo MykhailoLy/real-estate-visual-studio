@@ -130,7 +130,7 @@ export async function POST(
     const { data: paymentData, error: paymentError } = await supabase
       .from("order_payments")
       .select(
-        "order_id, provider, payment_status, refund_status, subtotal_cents, tax_cents, total_cents, " +
+        "order_id, provider, payment_status, refund_status, refunded_amount_cents, subtotal_cents, tax_cents, total_cents, " +
           "currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, paid_at",
       )
       .eq("order_id", orderId)

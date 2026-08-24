@@ -55,6 +55,7 @@ function payment(overrides: Record<string, unknown> = {}) {
     provider: "stripe",
     payment_status: "pending",
     refund_status: "none",
+    refunded_amount_cents: 0,
     subtotal_cents: 1500,
     tax_cents: null,
     total_cents: null,
@@ -223,10 +224,19 @@ test("already-persisted partial and full refunds cannot advance", () => {
         payment({
           ...paidPayment(false),
           refund_status: refundStatus,
+          refunded_amount_cents: refundStatus === "partial" ? 500 : 1500,
         }),
         "confirmed",
       ),
-      AdminPaymentGateError,
+      (error: unknown) => {
+        assert.ok(error instanceof AdminPaymentGateError);
+        assert.equal(
+          error.paymentState,
+          refundStatus === "partial" ? "partially_refunded" : "refunded",
+        );
+        assert.match(error.message, /refunded/i);
+        return true;
+      },
     );
   }
 });

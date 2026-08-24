@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PaymentStatus } from "./domain.ts";
+import type { PaymentStatus, RefundStatus } from "./domain.ts";
 
 export type WebhookEventProcessingStatus = "received" | "processed" | "ignored" | "failed";
 
@@ -17,6 +17,9 @@ export interface WebhookPaymentRecord {
   order_id: string;
   provider: "stripe";
   payment_status: PaymentStatus;
+  refund_status: RefundStatus;
+  refunded_amount_cents: number;
+  refunded_at: string | null;
   subtotal_cents: number;
   tax_cents: number | null;
   total_cents: number | null;
@@ -47,6 +50,9 @@ export interface WebhookRepository {
     orderId: string | null;
   }): Promise<boolean>;
   getPayment(orderId: string): Promise<WebhookPaymentRecord | null>;
+  getPaymentByPaymentIntent(
+    stripePaymentIntentId: string,
+  ): Promise<WebhookPaymentRecord | null>;
   markPaid(input: {
     payment: WebhookPaymentRecord;
     stripeCheckoutSessionId: string;
@@ -66,6 +72,12 @@ export interface WebhookRepository {
     stripeCheckoutSessionId: string;
     stripePaymentIntentId: string | null;
   }): Promise<boolean>;
+  syncRefund(input: {
+    payment: WebhookPaymentRecord;
+    refundStatus: Exclude<RefundStatus, "none">;
+    refundedAmountCents: number;
+    refundedAt: string;
+  }): Promise<boolean>;
 }
 
 export class WebhookRepositoryError extends Error {
@@ -77,7 +89,8 @@ export class WebhookRepositoryError extends Error {
 
 const EVENT_COLUMNS = "stripe_event_id, processing_status, processed_at, order_id";
 const PAYMENT_COLUMNS =
-  "id, order_id, provider, payment_status, subtotal_cents, tax_cents, total_cents, " +
+  "id, order_id, provider, payment_status, refund_status, refunded_amount_cents, refunded_at, " +
+  "subtotal_cents, tax_cents, total_cents, " +
   "currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_customer_id, " +
   "stripe_livemode, checkout_expires_at, paid_at";
 const UNPAID_PAYMENT_STATUSES = ["pending", "checkout_open", "expired", "failed"];
@@ -150,6 +163,16 @@ export function createSupabaseWebhookRepository(
       return (data as unknown as WebhookPaymentRecord | null) ?? null;
     },
 
+    async getPaymentByPaymentIntent(stripePaymentIntentId) {
+      const { data, error } = await supabase
+        .from("order_payments")
+        .select(PAYMENT_COLUMNS)
+        .eq("stripe_payment_intent_id", stripePaymentIntentId)
+        .maybeSingle();
+      if (error) throw new WebhookRepositoryError();
+      return (data as unknown as WebhookPaymentRecord | null) ?? null;
+    },
+
     async markPaid(input) {
       let query = supabase
         .from("order_payments")
@@ -214,6 +237,35 @@ export function createSupabaseWebhookRepository(
         .eq("stripe_checkout_session_id", input.stripeCheckoutSessionId)
         .is("paid_at", null);
       query = withExpectedStripePaymentIntent(query, input.payment);
+      const { data, error } = await query.select("id").maybeSingle();
+      if (error) throw new WebhookRepositoryError();
+      return Boolean(data);
+    },
+
+    async syncRefund(input) {
+      let query = supabase
+        .from("order_payments")
+        .update({
+          refund_status: input.refundStatus,
+          refunded_amount_cents: input.refundedAmountCents,
+          refunded_at: input.refundedAt,
+        })
+        .eq("id", input.payment.id)
+        .eq("order_id", input.payment.order_id)
+        .eq("provider", "stripe")
+        .eq("payment_status", "paid")
+        .eq("refund_status", input.payment.refund_status)
+        .eq("refunded_amount_cents", input.payment.refunded_amount_cents)
+        .eq("stripe_livemode", input.payment.stripe_livemode)
+        .eq("currency", input.payment.currency)
+        .eq("subtotal_cents", input.payment.subtotal_cents);
+      query = withExpectedStripeIds(query, input.payment);
+      query = input.payment.total_cents === null
+        ? query.is("total_cents", null)
+        : query.eq("total_cents", input.payment.total_cents);
+      query = input.payment.paid_at === null
+        ? query.is("paid_at", null)
+        : query.eq("paid_at", input.payment.paid_at);
       const { data, error } = await query.select("id").maybeSingle();
       if (error) throw new WebhookRepositoryError();
       return Boolean(data);

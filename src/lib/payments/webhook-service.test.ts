@@ -28,6 +28,9 @@ function payment(overrides: Record<string, unknown> = {}) {
     order_id: orderId,
     provider: "stripe" as const,
     payment_status: "checkout_open" as const,
+    refund_status: "none" as const,
+    refunded_amount_cents: 0,
+    refunded_at: null,
     subtotal_cents: 1350,
     tax_cents: null,
     total_cents: null,
@@ -39,6 +42,74 @@ function payment(overrides: Record<string, unknown> = {}) {
     checkout_expires_at: "2026-07-14T12:30:00.000Z",
     paid_at: null,
     ...overrides,
+  };
+}
+
+function paidPayment(overrides: Record<string, unknown> = {}) {
+  return payment({
+    payment_status: "paid",
+    tax_cents: 100,
+    total_cents: 1350,
+    stripe_payment_intent_id: "pi_test_123",
+    checkout_expires_at: null,
+    paid_at: now.toISOString(),
+    ...overrides,
+  });
+}
+
+function charge(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "ch_test_123",
+    object: "charge",
+    amount: 1350,
+    amount_refunded: 500,
+    currency: "usd",
+    livemode: false,
+    paid: true,
+    payment_intent: "pi_test_123",
+    refunded: false,
+    status: "succeeded",
+    ...overrides,
+  };
+}
+
+function refundEvent(
+  type: "refund.created" | "refund.updated" | "refund.failed",
+  refundOverrides: Record<string, unknown> = {},
+  eventOverrides: Record<string, unknown> = {},
+) {
+  return {
+    id: `evt_${type}`,
+    type,
+    livemode: false,
+    created: 1784030400,
+    data: {
+      object: {
+        id: "re_test_123",
+        object: "refund",
+        amount: 500,
+        charge: "ch_test_123",
+        currency: "usd",
+        payment_intent: "pi_test_123",
+        status: type === "refund.failed" ? "failed" : "succeeded",
+        ...refundOverrides,
+      },
+    },
+    ...eventOverrides,
+  };
+}
+
+function chargeRefundedEvent(
+  chargeOverrides: Record<string, unknown> = {},
+  eventOverrides: Record<string, unknown> = {},
+) {
+  return {
+    id: "evt_charge_refunded",
+    type: "charge.refunded",
+    livemode: false,
+    created: 1784030400,
+    data: { object: charge(chargeOverrides) },
+    ...eventOverrides,
   };
 }
 
@@ -132,6 +203,12 @@ class FakeRepository {
     return this.currentPayment;
   }
 
+  async getPaymentByPaymentIntent(stripePaymentIntentId: string) {
+    return this.currentPayment?.stripe_payment_intent_id === stripePaymentIntentId
+      ? this.currentPayment
+      : null;
+  }
+
   async markPaid(input: {
     stripeCheckoutSessionId: string;
     stripePaymentIntentId: string;
@@ -170,10 +247,37 @@ class FakeRepository {
     this.updates += 1;
     return true;
   }
+
+  async syncRefund(input: {
+    payment: ReturnType<typeof payment>;
+    refundStatus: "partial" | "full";
+    refundedAmountCents: number;
+    refundedAt: string;
+  }) {
+    if (
+      !this.currentPayment ||
+      this.currentPayment.refund_status !== input.payment.refund_status ||
+      this.currentPayment.refunded_amount_cents !== input.payment.refunded_amount_cents
+    ) {
+      return false;
+    }
+    this.currentPayment.refund_status = input.refundStatus;
+    this.currentPayment.refunded_amount_cents = input.refundedAmountCents;
+    this.currentPayment.refunded_at = input.refundedAt;
+    this.updates += 1;
+    return true;
+  }
 }
 
-function dependencies(repository: FakeRepository) {
-  return { repository, now: () => now };
+function dependencies(
+  repository: FakeRepository,
+  chargeOverrides: Record<string, unknown> = {},
+) {
+  return {
+    repository,
+    retrieveCharge: async () => charge(chargeOverrides),
+    now: () => now,
+  };
 }
 
 test("keeps raw-body signature behavior and does not disclose configuration errors", async () => {
@@ -373,6 +477,7 @@ test("rejects total, currency, Session, order, and livemode mismatches", async (
     { id: "amount", session: { amount_total: 1450 } },
     { id: "currency", session: { currency: "eur" } },
     { id: "session", session: { id: "cs_test_other" } },
+    { id: "payment-intent", session: { payment_intent: { id: "pi_test_other" } } },
     {
       id: "order",
       session: {
@@ -384,6 +489,11 @@ test("rejects total, currency, Session, order, and livemode mismatches", async (
 
   for (const mismatch of mismatches) {
     const repository = new FakeRepository();
+    if (mismatch.id === "payment-intent") {
+      repository.currentPayment = payment({
+        stripe_payment_intent_id: "pi_test_123",
+      });
+    }
     const candidate = event(
       "checkout.session.completed",
       mismatch.session,
@@ -483,4 +593,171 @@ test("persists only reconciliation metadata and sanitized static errors", async 
   assert.equal(serialized.includes("customer@example.com"), false);
   assert.equal(serialized.includes("private"), false);
   assert.equal(serialized.includes("payment_method_types"), false);
+});
+
+test("refund.created synchronizes partial refunds and duplicate events are idempotent", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = paidPayment();
+  const candidate = refundEvent("refund.created");
+
+  const first = await processVerifiedStripeWebhook(candidate, dependencies(repository));
+  assert.equal(first.status, 200);
+  assert.equal(repository.currentPayment.refund_status, "partial");
+  assert.equal(repository.currentPayment.refunded_amount_cents, 500);
+  assert.equal(repository.currentPayment.refunded_at, now.toISOString());
+  assert.equal(repository.events.get(candidate.id)?.order_id, orderId);
+  assert.equal(repository.updates, 1);
+
+  const duplicate = await processVerifiedStripeWebhook(candidate, dependencies(repository));
+  assert.equal(duplicate.status, 200);
+  assert.equal(repository.currentPayment.refunded_amount_cents, 500);
+  assert.equal(repository.updates, 1);
+});
+
+test("refund.created synchronizes a full aggregate refund", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = paidPayment();
+  const result = await processVerifiedStripeWebhook(
+    refundEvent("refund.created", { amount: 1350 }),
+    dependencies(repository, { amount_refunded: 1350, refunded: true }),
+  );
+
+  assert.equal(result.status, 200);
+  assert.equal(repository.currentPayment.refund_status, "full");
+  assert.equal(repository.currentPayment.refunded_amount_cents, 1350);
+});
+
+test("refund.updated advances an existing successful refund aggregate", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = paidPayment({
+    refund_status: "partial",
+    refunded_amount_cents: 500,
+    refunded_at: "2026-07-14T11:00:00.000Z",
+  });
+  const result = await processVerifiedStripeWebhook(
+    refundEvent("refund.updated", { amount: 300 }),
+    dependencies(repository, { amount_refunded: 800 }),
+  );
+
+  assert.equal(result.status, 200);
+  assert.equal(repository.currentPayment.refund_status, "partial");
+  assert.equal(repository.currentPayment.refunded_amount_cents, 800);
+});
+
+test("refund.failed is an idempotent operational event that preserves aggregate state", async () => {
+  for (const current of [
+    { refund_status: "none", refunded_amount_cents: 0, refunded_at: null },
+    {
+      refund_status: "partial",
+      refunded_amount_cents: 500,
+      refunded_at: "2026-07-14T11:00:00.000Z",
+    },
+    {
+      refund_status: "full",
+      refunded_amount_cents: 1350,
+      refunded_at: "2026-07-14T11:00:00.000Z",
+    },
+  ] as const) {
+    const repository = new FakeRepository();
+    repository.currentPayment = paidPayment(current);
+    const candidate = refundEvent("refund.failed", { amount: 100 });
+    const before = { ...repository.currentPayment };
+
+    const first = await processVerifiedStripeWebhook(candidate, dependencies(repository));
+    const duplicate = await processVerifiedStripeWebhook(candidate, dependencies(repository));
+
+    assert.equal(first.status, 200);
+    assert.equal(duplicate.status, 200);
+    assert.equal(repository.events.get(candidate.id)?.processing_status, "processed");
+    assert.deepEqual(repository.currentPayment, before);
+    assert.equal(repository.updates, 0);
+  }
+});
+
+test("charge.refunded synchronizes partial and full aggregate refunds", async () => {
+  for (const [amountRefunded, refunded, expectedStatus] of [
+    [500, false, "partial"],
+    [1350, true, "full"],
+  ] as const) {
+    const repository = new FakeRepository();
+    repository.currentPayment = paidPayment();
+    const result = await processVerifiedStripeWebhook(
+      chargeRefundedEvent(
+        { amount_refunded: amountRefunded, refunded },
+        { id: `evt_charge_refunded_${amountRefunded}` },
+      ),
+      dependencies(repository),
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(repository.currentPayment.refund_status, expectedStatus);
+    assert.equal(repository.currentPayment.refunded_amount_cents, amountRefunded);
+  }
+});
+
+test("refund reconciliation rejects Payment Intent, amount, currency, and livemode mismatches", async () => {
+  const cases = [
+    {
+      id: "payment-intent",
+      candidate: refundEvent("refund.created", {}, { id: "evt_refund_pi" }),
+      charge: { payment_intent: "pi_test_other" },
+    },
+    {
+      id: "amount",
+      candidate: refundEvent("refund.created", {}, { id: "evt_refund_amount" }),
+      charge: { amount: 1450 },
+    },
+    {
+      id: "currency",
+      candidate: refundEvent(
+        "refund.created",
+        { currency: "eur" },
+        { id: "evt_refund_currency" },
+      ),
+      charge: {},
+    },
+    {
+      id: "livemode",
+      candidate: refundEvent(
+        "refund.created",
+        {},
+        { id: "evt_refund_livemode", livemode: true },
+      ),
+      charge: { livemode: true },
+    },
+  ];
+
+  for (const mismatch of cases) {
+    const repository = new FakeRepository();
+    repository.currentPayment = paidPayment();
+    const result = await processVerifiedStripeWebhook(
+      mismatch.candidate,
+      dependencies(repository, mismatch.charge),
+    );
+
+    assert.equal(result.status, 200, mismatch.id);
+    assert.equal(repository.currentPayment.refund_status, "none", mismatch.id);
+    assert.equal(repository.currentPayment.refunded_amount_cents, 0, mismatch.id);
+    assert.equal(
+      repository.events.get(mismatch.candidate.id)?.processing_status,
+      "failed",
+      mismatch.id,
+    );
+  }
+});
+
+test("malformed refund events are terminal and cannot mutate payment state", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = paidPayment();
+  const candidate = refundEvent(
+    "refund.created",
+    { amount: "500" },
+    { id: "evt_refund_malformed" },
+  );
+
+  const result = await processVerifiedStripeWebhook(candidate, dependencies(repository));
+  assert.equal(result.status, 200);
+  assert.equal(repository.events.get(candidate.id)?.processing_status, "failed");
+  assert.equal(repository.currentPayment.refund_status, "none");
+  assert.equal(repository.updates, 0);
 });
