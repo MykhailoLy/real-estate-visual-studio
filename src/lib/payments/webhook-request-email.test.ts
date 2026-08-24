@@ -34,7 +34,7 @@ class FakeRepository {
     id: "22222222-2222-4222-8222-222222222222",
     order_id: orderId,
     provider: "stripe" as const,
-    payment_status: "checkout_open" as const | "paid",
+    payment_status: "checkout_open" as "checkout_open" | "paid",
     refund_status: "none" as const,
     refunded_amount_cents: 0,
     refunded_at: null,
