@@ -203,20 +203,27 @@ test("payment confirmation email reports the verified inclusive amount without p
   assert.doesNotMatch(combined, /24-48 hours/i);
 });
 
-test("payment confirmation migration is additive, idempotent, and only reacts to a verified paid transition", () => {
+test("payment confirmation migration is additive, idempotent, and backward-compatible before deploy", () => {
   assert.match(
     PAYMENT_EMAIL_MIGRATION,
     /delivery_kind IN \([\s\S]*'client_confirmation'[\s\S]*'admin_notification'[\s\S]*'payment_confirmation'/,
   );
+  assert.match(
+    PAYMENT_EMAIL_MIGRATION,
+    /FUNCTION public\.enqueue_order_payment_confirmation_email\([\s\S]*p_order_id UUID/,
+  );
+  assert.match(PAYMENT_EMAIL_MIGRATION, /RETURNS BOOLEAN/);
   assert.match(PAYMENT_EMAIL_MIGRATION, /SECURITY INVOKER/);
-  assert.match(PAYMENT_EMAIL_MIGRATION, /AFTER UPDATE OF payment_status, paid_at ON public\.order_payments/);
-  assert.match(PAYMENT_EMAIL_MIGRATION, /NEW\.provider = 'stripe'/);
-  assert.match(PAYMENT_EMAIL_MIGRATION, /NEW\.payment_status = 'paid'/);
-  assert.match(PAYMENT_EMAIL_MIGRATION, /NEW\.paid_at IS NOT NULL/);
-  assert.match(PAYMENT_EMAIL_MIGRATION, /OLD\.payment_status IS DISTINCT FROM 'paid'/);
-  assert.match(PAYMENT_EMAIL_MIGRATION, /'payment-confirmed-' \|\| NEW\.order_id::TEXT \|\| '-client-v1'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /FOR UPDATE/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /v_payment\.provider IS DISTINCT FROM 'stripe'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /v_payment\.payment_status IS DISTINCT FROM 'paid'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /v_payment\.paid_at IS NULL/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /v_payment\.refund_status IS DISTINCT FROM 'none'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /v_payment\.refunded_amount_cents IS DISTINCT FROM 0/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /'payment-confirmed-' \|\| p_order_id::TEXT \|\| '-client-v1'/);
   assert.match(PAYMENT_EMAIL_MIGRATION, /ON CONFLICT \(order_id, delivery_kind\) DO NOTHING/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /GRANT EXECUTE ON FUNCTION public\.enqueue_order_payment_confirmation_email\(UUID\)[\s\S]*TO service_role/);
+  assert.doesNotMatch(PAYMENT_EMAIL_MIGRATION, /CREATE TRIGGER/i);
   assert.doesNotMatch(PAYMENT_EMAIL_MIGRATION, /INSERT INTO public\.order_email_deliveries[\s\S]*SELECT/i);
   assert.doesNotMatch(PAYMENT_EMAIL_MIGRATION, /UPDATE public\.orders/);
-}
-);
+});
