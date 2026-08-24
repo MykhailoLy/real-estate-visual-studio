@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import test from "node:test";
 
@@ -22,7 +23,12 @@ registerHooks({
 
 const { renderClientConfirmation } = await import("./order-client-confirmation.ts");
 const { renderAdminNotification } = await import("./order-admin-notification.ts");
+const { renderPaymentConfirmation } = await import("./order-payment-confirmation.ts");
 const { PRICING_VERSION } = await import("../pricing/catalog.ts");
+const PAYMENT_EMAIL_MIGRATION = readFileSync(
+  "supabase/add-payment-confirmation-email.sql",
+  "utf8",
+);
 
 function snapshot(customQuote = false) {
   return {
@@ -172,3 +178,45 @@ test("admin email calls the stored fixed amount final and inclusive", () => {
     assert.doesNotMatch(output, /Final total/);
   }
 });
+
+test("payment confirmation email reports the verified inclusive amount without promising production", () => {
+  const rendered = renderPaymentConfirmation({
+    orderNumber: "PE-0004",
+    serviceType: "photo-editing",
+    serviceLabelOverride: "Image Enhancement",
+    jobTitle: "Live payment smoke test",
+    clientName: "A Client",
+    clientOrderUrl: "https://picchuspot.com/dashboard/jobs/11111111-1111-4111-8111-111111111111",
+    currency: "EUR",
+    totalCents: 100,
+    taxCents: 17,
+  });
+  const combined = `${rendered.subject}\n${rendered.text}\n${rendered.html}`;
+
+  assert.match(rendered.subject, /Payment confirmed for order PE-0004/);
+  assert.match(combined, /Amount paid: €1\.00 EUR/);
+  assert.match(combined, /Tax included: €0\.17 EUR/);
+  assert.match(combined, /ready for our team to review before production begins/);
+  assert.match(combined, /dashboard\/jobs\/11111111-1111-4111-8111-111111111111/);
+  assert.doesNotMatch(combined, /Pay securely/);
+  assert.doesNotMatch(combined, /invoice/i);
+  assert.doesNotMatch(combined, /24-48 hours/i);
+});
+
+test("payment confirmation migration is additive, idempotent, and only reacts to a verified paid transition", () => {
+  assert.match(
+    PAYMENT_EMAIL_MIGRATION,
+    /delivery_kind IN \([\s\S]*'client_confirmation'[\s\S]*'admin_notification'[\s\S]*'payment_confirmation'/,
+  );
+  assert.match(PAYMENT_EMAIL_MIGRATION, /SECURITY INVOKER/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /AFTER UPDATE OF payment_status, paid_at ON public\.order_payments/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /NEW\.provider = 'stripe'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /NEW\.payment_status = 'paid'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /NEW\.paid_at IS NOT NULL/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /OLD\.payment_status IS DISTINCT FROM 'paid'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /'payment-confirmed-' \|\| NEW\.order_id::TEXT \|\| '-client-v1'/);
+  assert.match(PAYMENT_EMAIL_MIGRATION, /ON CONFLICT \(order_id, delivery_kind\) DO NOTHING/);
+  assert.doesNotMatch(PAYMENT_EMAIL_MIGRATION, /INSERT INTO public\.order_email_deliveries[\s\S]*SELECT/i);
+  assert.doesNotMatch(PAYMENT_EMAIL_MIGRATION, /UPDATE public\.orders/);
+}
+);
