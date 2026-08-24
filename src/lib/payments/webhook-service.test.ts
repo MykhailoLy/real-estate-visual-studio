@@ -695,6 +695,50 @@ test("charge.refunded synchronizes partial and full aggregate refunds", async ()
   }
 });
 
+test("out-of-order refund events can advance but never downgrade the Charge aggregate", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = paidPayment();
+
+  const partial = await processVerifiedStripeWebhook(
+    refundEvent(
+      "refund.created",
+      {},
+      { id: "evt_refund_order_partial", created: 1784020000 },
+    ),
+    dependencies(repository, { amount_refunded: 500 }),
+  );
+  assert.equal(partial.status, 200);
+  assert.equal(repository.currentPayment.refund_status, "partial");
+  assert.equal(repository.currentPayment.refunded_amount_cents, 500);
+
+  const full = await processVerifiedStripeWebhook(
+    chargeRefundedEvent(
+      { amount_refunded: 1350, refunded: true },
+      { id: "evt_refund_order_full" },
+    ),
+    dependencies(repository),
+  );
+  assert.equal(full.status, 200);
+  assert.equal(repository.currentPayment.refund_status, "full");
+  assert.equal(repository.currentPayment.refunded_amount_cents, 1350);
+  const fullRefundedAt = repository.currentPayment.refunded_at;
+  const updatesAfterFull = repository.updates;
+
+  const delayedPartial = await processVerifiedStripeWebhook(
+    refundEvent(
+      "refund.created",
+      {},
+      { id: "evt_refund_order_delayed_partial", created: 1784020000 },
+    ),
+    dependencies(repository, { amount_refunded: 500 }),
+  );
+  assert.equal(delayedPartial.status, 200);
+  assert.equal(repository.currentPayment.refund_status, "full");
+  assert.equal(repository.currentPayment.refunded_amount_cents, 1350);
+  assert.equal(repository.currentPayment.refunded_at, fullRefundedAt);
+  assert.equal(repository.updates, updatesAfterFull);
+});
+
 test("refund reconciliation rejects Payment Intent, amount, currency, and livemode mismatches", async () => {
   const cases = [
     {
