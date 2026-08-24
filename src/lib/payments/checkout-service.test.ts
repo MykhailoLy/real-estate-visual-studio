@@ -263,6 +263,7 @@ test("creates a server-authoritative Checkout Session and checkout_open payment"
     mode: "payment",
     payment_method_types: ["card"],
     automatic_tax: { enabled: true },
+    tax_id_collection: { enabled: true },
     billing_address_collection: "auto",
     allow_promotion_codes: false,
     client_reference_id: orderId,
