@@ -584,6 +584,7 @@ export async function submitOrder(
   let result: {
     error?: string;
     code?: string;
+    orderId?: string;
     orderNumber?: string;
     details?: unknown;
     currentPricingSnapshot?: PricingSnapshot;
@@ -685,7 +686,7 @@ export async function submitOrder(
     };
   }
 
-  if (!result.orderNumber) {
+  if (!result.orderId || !result.orderNumber) {
     record.stage = "ambiguous";
     writeOrderSubmissionRecord(serviceType, record);
     return {
@@ -698,6 +699,7 @@ export async function submitOrder(
   clearOrderSubmissionRecord(serviceType);
   return {
     success: true,
+    orderId: result.orderId,
     orderNumber: result.orderNumber,
     confirmationEmailSent: result.emailNotifications?.clientConfirmation === true,
   };

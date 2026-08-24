@@ -77,6 +77,7 @@ export default function ItemRemovalOrderForm({
   const [attemptedReview, setAttemptedReview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [orderId, setOrderId] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -169,7 +170,8 @@ export default function ItemRemovalOrderForm({
       jobTitle
     );
 
-    if (result.success && result.orderNumber) {
+    if (result.success && result.orderId && result.orderNumber) {
+      setOrderId(result.orderId);
       setOrderNumber(result.orderNumber);
       setConfirmationEmailSent(result.confirmationEmailSent === true);
       setSubmitted(true);
@@ -191,6 +193,7 @@ export default function ItemRemovalOrderForm({
     setOrderTerms(emptyOrderTerms);
     setAttemptedReview(false);
     setSubmitted(false);
+    setOrderId("");
     setOrderNumber("");
     setSubmitError("");
   };
@@ -212,6 +215,7 @@ export default function ItemRemovalOrderForm({
       <section className="py-16 bg-surface">
         <Container>
           <Confirmation
+            orderId={orderId}
             orderNumber={orderNumber}
             email={clientEmail}
             jobTitle={jobTitle}

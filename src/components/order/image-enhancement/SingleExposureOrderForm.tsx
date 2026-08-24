@@ -118,6 +118,7 @@ export default function SingleExposureOrderForm({
   const [step, setStep] = useState<SingleExposureFormStep>("configure");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [orderId, setOrderId] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -867,7 +868,8 @@ export default function SingleExposureOrderForm({
         orderTermsRef.current,
         jobTitleRef.current,
       );
-      if (result.success && result.orderNumber) {
+      if (result.success && result.orderId && result.orderNumber) {
+        setOrderId(result.orderId);
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
@@ -902,6 +904,7 @@ export default function SingleExposureOrderForm({
     setStep("configure");
     stepRef.current = "configure";
     setSubmitted(false);
+    setOrderId("");
     setOrderNumber("");
     setSubmitError("");
     setValidationAttempted(false);
@@ -935,6 +938,7 @@ export default function SingleExposureOrderForm({
       <section className="min-h-screen bg-surface py-16">
         <Container>
           <Confirmation
+            orderId={orderId}
             orderNumber={orderNumber}
             email={clientEmail}
             jobTitle={jobTitle}

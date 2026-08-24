@@ -505,6 +505,7 @@ export default function VirtualStagingOrderForm({
   const [step, setStep] = useState<VirtualStagingFormStep>("configure");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [orderId, setOrderId] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -925,6 +926,7 @@ export default function VirtualStagingOrderForm({
       clearFinalizationRetryContext();
 
       if (status.status === "already_converted") {
+        setOrderId(status.orderId);
         setOrderNumber(status.orderNumber);
         setConfirmationEmailSent(false);
         setSubmitted(true);
@@ -1054,6 +1056,7 @@ export default function VirtualStagingOrderForm({
     setStep("configure");
     pendingScrollRef.current = { type: "top" };
     setSubmitted(false);
+    setOrderId("");
     setOrderNumber("");
     setConfirmationEmailSent(false);
     setSubmitError("");
@@ -2354,6 +2357,7 @@ export default function VirtualStagingOrderForm({
 
     if (result.ok) {
       submissionInFlightRef.current = false;
+      setOrderId(result.data.orderId);
       setOrderNumber(result.data.orderNumber);
       setConfirmationEmailSent(result.data.confirmationEmailSent === true);
       setSubmitted(true);
@@ -2557,7 +2561,7 @@ export default function VirtualStagingOrderForm({
       setFinalizationKey(null);
       clearFinalizationRetryContext();
       const result = await submitCurrentLocalOrder(currentItems);
-      if (result.success && result.orderNumber) {
+      if (result.success && result.orderId && result.orderNumber) {
         await retireSubmittedDraftBestEffort(
           saveOutcome.draftId,
           saveOutcome.version,
@@ -2571,6 +2575,7 @@ export default function VirtualStagingOrderForm({
         ) {
           return;
         }
+        setOrderId(result.orderId);
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
@@ -2632,6 +2637,7 @@ export default function VirtualStagingOrderForm({
       <section className="py-16 bg-surface min-h-screen">
         <Container>
           <Confirmation
+            orderId={orderId}
             orderNumber={orderNumber}
             email={clientEmail}
             jobTitle={jobTitle}

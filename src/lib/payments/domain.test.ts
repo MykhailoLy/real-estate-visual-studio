@@ -3,9 +3,9 @@ import test from "node:test";
 import {
   PAYMENT_STATUSES,
   REFUND_STATUSES,
-  STRIPE_LAUNCH_CURRENCY,
   isPaymentStatus,
   isRefundStatus,
+  toStripeCheckoutCurrency,
   transitionPaymentStatus,
   transitionRefundStatus,
 } from "./domain.ts";
@@ -50,8 +50,12 @@ test("rejects refund status regressions", () => {
   assert.equal(transitionRefundStatus("full", "none"), null);
 });
 
-test("uses usd as the launch currency", () => {
-  assert.equal(STRIPE_LAUNCH_CURRENCY, "usd");
+test("maps only canonical fixed-price currencies to Stripe currencies", () => {
+  assert.equal(toStripeCheckoutCurrency("USD"), "usd");
+  assert.equal(toStripeCheckoutCurrency("EUR"), "eur");
+  assert.equal(toStripeCheckoutCurrency("CAD"), "cad");
+  assert.equal(toStripeCheckoutCurrency("GBP"), null);
+  assert.equal(toStripeCheckoutCurrency("usd"), null);
 });
 
 test("accepts only defined payment and refund status values", () => {

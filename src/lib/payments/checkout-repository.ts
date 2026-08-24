@@ -57,7 +57,7 @@ export class CheckoutRepositoryError extends Error {
 
 const ORDER_COLUMNS =
   "id, order_number, user_id, client_email, status, service_type, " +
-  "estimated_total_cents, currency, pricing_snapshot";
+  "item_count, estimated_total_cents, currency, pricing_snapshot";
 const PAYMENT_COLUMNS =
   "id, order_id, payment_status, refund_status, subtotal_cents, currency, " +
   "stripe_checkout_session_id, stripe_livemode, checkout_attempt, checkout_expires_at, paid_at";

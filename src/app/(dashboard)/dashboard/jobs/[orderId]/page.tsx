@@ -20,6 +20,7 @@ import ClientOrderImageCard, {
 import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import FilePreviewCard from "@/components/FilePreviewCard";
+import OrderPaymentPanel from "@/components/payments/OrderPaymentPanel";
 import { getClientUser } from "@/lib/client-auth";
 import { getDeliverablesForClient } from "@/lib/client-deliverables";
 import {
@@ -47,6 +48,9 @@ import { formatBytes, itemLabel } from "@/lib/display/file-format";
 import { formatStoredMoney } from "@/lib/pricing/format";
 import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
+import { createSupabaseCheckoutRepository } from "@/lib/payments/checkout-repository";
+import { getAuthoritativePaymentSummary } from "@/lib/payments/payment-summary";
+import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export async function generateMetadata({
   params,
@@ -180,10 +184,13 @@ export default async function OrderDetailPage({
   const order = await getOrderForClient(orderId, ownership);
   if (!order) notFound();
 
-  const [allDeliverables, allReviews, sourceFiles] = await Promise.all([
+  const [allDeliverables, allReviews, sourceFiles, paymentSummary] = await Promise.all([
     getDeliverablesForClient(ownership),
     getReviewsForClient(ownership),
     getClientSourceFilesForOrder(order.id, ownership),
+    getAuthoritativePaymentSummary(order.id, user.id, {
+      repository: createSupabaseCheckoutRepository(getSupabaseAdminClient()),
+    }),
   ]);
 
   const orderDeliverables = allDeliverables.filter((deliverable) => deliverable.order_id === order.id);
@@ -252,6 +259,17 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
+      {paymentSummary ? (
+        <div className="mb-7">
+          <OrderPaymentPanel
+            orderId={order.id}
+            initialSummary={paymentSummary}
+            secondaryHref="/dashboard/jobs"
+            secondaryLabel="Back to jobs"
+          />
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-5 mb-7">
         <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
@@ -278,7 +296,7 @@ export default async function OrderDetailPage({
               value={`${order.item_count} image${order.item_count !== 1 ? "s" : ""}`}
             />
             <SummaryRow
-              label="Estimated total before tax"
+              label={paymentSummary?.finalTotalCents != null ? "Final total" : "Estimated total"}
               value={formatStoredMoney(
                 order.estimated_total_cents,
                 order.currency
@@ -325,7 +343,16 @@ export default async function OrderDetailPage({
           </div>
           <ProgressBar value={progress} className="mb-3" />
           <p className="text-[11px] text-muted leading-relaxed">
+            {paymentSummary?.state === "payment_required" &&
+              "Your order has been received. Payment is required before production can begin."}
+            {paymentSummary?.state === "processing" &&
+              "Your payment is processing. Production will not begin until payment is verified."}
+            {paymentSummary?.state === "paid" && order.status === "pending" &&
+              "Payment is verified. Your order is awaiting confirmation."}
             {order.status === "pending" &&
+              paymentSummary?.state !== "payment_required" &&
+              paymentSummary?.state !== "processing" &&
+              paymentSummary?.state !== "paid" &&
               "Your order has been received and is awaiting confirmation."}
             {order.status === "confirmed" &&
               "Your order has been confirmed and will enter production soon."}

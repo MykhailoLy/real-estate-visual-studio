@@ -1,5 +1,6 @@
 import "server-only";
 
+import type Stripe from "stripe";
 import { absoluteUrl } from "@/lib/seo";
 import { getStripeApiConfig, getStripeServerClient } from "./stripe-server.ts";
 import {
@@ -19,7 +20,7 @@ export interface CheckoutStripeClient {
   checkout: {
     sessions: {
       create(
-        params: CheckoutSessionCreateParams,
+        params: Stripe.Checkout.SessionCreateParams,
         options: { idempotencyKey: string },
       ): Promise<CheckoutSession>;
       retrieve(
@@ -35,27 +36,6 @@ interface CheckoutSession {
   status?: "open" | "complete" | "expired";
   expires_at: number | null;
   livemode: boolean;
-}
-
-interface CheckoutSessionCreateParams {
-  mode: "payment";
-  payment_method_types: ["card"];
-  automatic_tax: { enabled: true };
-  allow_promotion_codes: false;
-  client_reference_id: string;
-  customer_email?: string;
-  success_url: string;
-  cancel_url: string;
-  metadata: Record<string, string>;
-  payment_intent_data: { metadata: Record<string, string> };
-  line_items: Array<{
-    quantity: 1;
-    price_data: {
-      currency: "usd";
-      unit_amount: number;
-      product_data: { name: string };
-    };
-  }>;
 }
 
 export class CheckoutServiceError extends Error {
@@ -155,7 +135,7 @@ export async function createCheckoutSession(
   let session: CheckoutSession;
   try {
     session = await stripe.checkout.sessions.create(
-      buildCheckoutSessionParams(order, price.subtotalCents),
+      buildCheckoutSessionParams(order, price.subtotalCents, price.currency),
       { idempotencyKey: getCheckoutIdempotencyKey(payment.id, attempt) },
     );
   } catch {
@@ -392,7 +372,8 @@ async function failAttemptSafely(
 function buildCheckoutSessionParams(
   order: CheckoutEligibleOrder,
   subtotalCents: number,
-): CheckoutSessionCreateParams {
+  currency: "usd" | "eur" | "cad",
+): Stripe.Checkout.SessionCreateParams {
   const orderId = order.id;
   const orderNumber = order.order_number;
   const customerEmail = trustedEmail(order.client_email);
@@ -401,6 +382,7 @@ function buildCheckoutSessionParams(
     mode: "payment",
     payment_method_types: ["card"],
     automatic_tax: { enabled: true },
+    billing_address_collection: "auto",
     allow_promotion_codes: false,
     client_reference_id: orderId,
     customer_email: customerEmail ?? undefined,
@@ -424,8 +406,9 @@ function buildCheckoutSessionParams(
       {
         quantity: 1,
         price_data: {
-          currency: "usd",
+          currency,
           unit_amount: subtotalCents,
+          tax_behavior: "inclusive",
           product_data: { name: `PicchuSpot order ${orderNumber}` },
         },
       },
