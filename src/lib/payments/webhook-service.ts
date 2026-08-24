@@ -6,17 +6,28 @@ import type {
   WebhookRepository,
 } from "./webhook-repository.ts";
 
-const HANDLED_EVENT_TYPES = new Set([
+const CHECKOUT_EVENT_TYPES = new Set([
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
   "checkout.session.async_payment_failed",
   "checkout.session.expired",
+]);
+const REFUND_EVENT_TYPES = new Set([
+  "refund.created",
+  "refund.updated",
+  "refund.failed",
+  "charge.refunded",
+]);
+const HANDLED_EVENT_TYPES = new Set([
+  ...CHECKOUT_EVENT_TYPES,
+  ...REFUND_EVENT_TYPES,
 ]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TRANSIENT_ERROR_MESSAGE = "Payment webhook processing could not be completed.";
 
 export interface StripeWebhookCheckoutSession {
   id?: unknown;
+  object?: unknown;
   client_reference_id?: unknown;
   metadata?: unknown;
   livemode?: unknown;
@@ -28,6 +39,11 @@ export interface StripeWebhookCheckoutSession {
   payment_intent?: unknown;
   customer?: unknown;
   total_details?: unknown;
+  amount?: unknown;
+  amount_refunded?: unknown;
+  charge?: unknown;
+  refunded?: unknown;
+  paid?: unknown;
 }
 
 export interface VerifiedStripeWebhookEvent {
@@ -40,6 +56,7 @@ export interface VerifiedStripeWebhookEvent {
 
 export interface StripeWebhookServiceDependencies {
   repository: WebhookRepository;
+  retrieveCharge: (chargeId: string) => Promise<StripeWebhookCheckoutSession>;
   now?: () => Date;
 }
 
@@ -84,8 +101,7 @@ export async function processVerifiedStripeWebhook(
 
   let linkedOrderId: string | null = null;
   try {
-    const verifiedOrderId = getPicchuSpotOrderId(normalized.session);
-    if (!HANDLED_EVENT_TYPES.has(normalized.type) || !verifiedOrderId) {
+    if (!HANDLED_EVENT_TYPES.has(normalized.type)) {
       await finishTerminal(
         dependencies.repository,
         normalized.id,
@@ -97,16 +113,9 @@ export async function processVerifiedStripeWebhook(
       return received(200);
     }
 
-    const payment = await dependencies.repository.getPayment(verifiedOrderId);
-    if (!payment) throw new Error("Payment record is unavailable.");
-    if (payment.order_id !== verifiedOrderId) {
-      throw new PermanentWebhookError("Payment order does not match verified Checkout metadata.");
-    }
-    linkedOrderId = payment.order_id;
-    assertPaymentMatchesSession(payment, normalized);
-
-    if (normalized.type === "checkout.session.completed") {
-      if (normalized.session.payment_status !== "paid") {
+    if (CHECKOUT_EVENT_TYPES.has(normalized.type)) {
+      const verifiedOrderId = getPicchuSpotOrderId(normalized.session);
+      if (!verifiedOrderId) {
         await finishTerminal(
           dependencies.repository,
           normalized.id,
@@ -117,13 +126,70 @@ export async function processVerifiedStripeWebhook(
         );
         return received(200);
       }
-      await processPaidEvent(payment, normalized, dependencies.repository);
-    } else if (normalized.type === "checkout.session.async_payment_succeeded") {
-      await processPaidEvent(payment, normalized, dependencies.repository);
-    } else if (normalized.type === "checkout.session.async_payment_failed") {
-      await processFailedEvent(payment, normalized, dependencies.repository);
+
+      const payment = await dependencies.repository.getPayment(verifiedOrderId);
+      if (!payment) throw new Error("Payment record is unavailable.");
+      if (payment.order_id !== verifiedOrderId) {
+        throw new PermanentWebhookError("Payment order does not match verified Checkout metadata.");
+      }
+      linkedOrderId = payment.order_id;
+      assertPaymentMatchesSession(payment, normalized);
+
+      if (normalized.type === "checkout.session.completed") {
+        if (normalized.session.payment_status !== "paid") {
+          await finishTerminal(
+            dependencies.repository,
+            normalized.id,
+            "ignored",
+            null,
+            linkedOrderId,
+            now(),
+          );
+          return received(200);
+        }
+        await processPaidEvent(payment, normalized, dependencies.repository);
+      } else if (normalized.type === "checkout.session.async_payment_succeeded") {
+        await processPaidEvent(payment, normalized, dependencies.repository);
+      } else if (normalized.type === "checkout.session.async_payment_failed") {
+        await processFailedEvent(payment, normalized, dependencies.repository);
+      } else {
+        await processExpiredEvent(payment, normalized, dependencies.repository);
+      }
     } else {
-      await processExpiredEvent(payment, normalized, dependencies.repository);
+      const paymentIntentId = extractStripeId(normalized.session.payment_intent);
+      if (!paymentIntentId) {
+        await finishTerminal(
+          dependencies.repository,
+          normalized.id,
+          "ignored",
+          null,
+          null,
+          now(),
+        );
+        return received(200);
+      }
+
+      const payment = await dependencies.repository.getPaymentByPaymentIntent(
+        paymentIntentId,
+      );
+      if (!payment) {
+        await finishTerminal(
+          dependencies.repository,
+          normalized.id,
+          "ignored",
+          null,
+          null,
+          now(),
+        );
+        return received(200);
+      }
+      linkedOrderId = payment.order_id;
+
+      if (normalized.type === "charge.refunded") {
+        await processChargeRefundedEvent(payment, normalized, dependencies.repository);
+      } else {
+        await processRefundObjectEvent(payment, normalized, dependencies);
+      }
     }
 
     await finishTerminal(
@@ -348,6 +414,255 @@ async function processExpiredEvent(
     isSameTerminalSession(current, "expired", match, paymentIntentId)
   ) return;
   throw new PermanentWebhookError("Payment state conflicts with an expired Checkout Session.");
+}
+
+interface RefundObjectMatch {
+  chargeId: string;
+  status: "pending" | "requires_action" | "succeeded" | "failed" | "canceled";
+}
+
+interface RefundChargeMatch {
+  paymentIntentId: string;
+  refundedAmountCents: number;
+  totalCents: number;
+}
+
+async function processRefundObjectEvent(
+  payment: WebhookPaymentRecord,
+  event: NormalizedEvent,
+  dependencies: StripeWebhookServiceDependencies,
+): Promise<void> {
+  const refund = assertRefundObjectMatchesPayment(payment, event);
+
+  if (event.type === "refund.failed") {
+    if (refund.status !== "failed") {
+      throw new PermanentWebhookError("Failed refund event has an inconsistent status.");
+    }
+    // Failed refunds are operational events only. The persisted aggregate
+    // continues to describe money successfully refunded to the customer.
+    return;
+  }
+
+  if (refund.status !== "succeeded") return;
+
+  const charge = await dependencies.retrieveCharge(refund.chargeId);
+  const chargeMatch = assertChargeMatchesPayment(
+    payment,
+    event,
+    charge,
+    refund.chargeId,
+  );
+  await syncSuccessfulRefund(payment, chargeMatch, event, dependencies.repository);
+}
+
+async function processChargeRefundedEvent(
+  payment: WebhookPaymentRecord,
+  event: NormalizedEvent,
+  repository: WebhookRepository,
+): Promise<void> {
+  const chargeMatch = assertChargeMatchesPayment(
+    payment,
+    event,
+    event.session,
+    requiredId(event.session.id, "Refunded Charge ID is required."),
+  );
+  if (chargeMatch.refundedAmountCents <= 0) {
+    throw new PermanentWebhookError("Refunded Charge has no successful refund amount.");
+  }
+  await syncSuccessfulRefund(payment, chargeMatch, event, repository);
+}
+
+function assertRefundObjectMatchesPayment(
+  payment: WebhookPaymentRecord,
+  event: NormalizedEvent,
+): RefundObjectMatch {
+  const refund = event.session;
+  const refundId = requiredId(refund.id, "Refund ID is required.");
+  const chargeId = requiredId(
+    extractStripeId(refund.charge),
+    "Refund Charge ID is required.",
+  );
+  const paymentIntentId = requiredId(
+    extractStripeId(refund.payment_intent),
+    "Refund Payment Intent is required.",
+  );
+  const currency = normalizeCurrency(refund.currency);
+  const amount = safeAmount(refund.amount);
+  const status = normalizeRefundObjectStatus(refund.status);
+  if (
+    refund.object !== "refund" ||
+    !refundId ||
+    !currency ||
+    amount === null ||
+    amount <= 0 ||
+    !status
+  ) {
+    throw new PermanentWebhookError("Refund event is malformed.");
+  }
+  const totalCents = assertPaidPaymentForRefund(
+    payment,
+    event,
+    paymentIntentId,
+    currency,
+  );
+  if (amount > totalCents) {
+    throw new PermanentWebhookError("Refund amount exceeds the stored payment total.");
+  }
+  return { chargeId, status };
+}
+
+function assertChargeMatchesPayment(
+  payment: WebhookPaymentRecord,
+  event: NormalizedEvent,
+  charge: StripeWebhookCheckoutSession,
+  expectedChargeId: string,
+): RefundChargeMatch {
+  const chargeId = requiredId(charge.id, "Charge ID is required.");
+  const paymentIntentId = requiredId(
+    extractStripeId(charge.payment_intent),
+    "Charge Payment Intent is required.",
+  );
+  const currency = normalizeCurrency(charge.currency);
+  const amount = safeAmount(charge.amount);
+  const amountRefunded = safeAmount(charge.amount_refunded);
+  const totalCents = currency
+    ? assertPaidPaymentForRefund(
+        payment,
+        event,
+        paymentIntentId,
+        currency,
+      )
+    : null;
+  if (
+    charge.object !== "charge" ||
+    chargeId !== expectedChargeId ||
+    typeof charge.livemode !== "boolean" ||
+    charge.livemode !== event.livemode ||
+    charge.paid !== true ||
+    charge.status !== "succeeded" ||
+    !currency ||
+    amount === null ||
+    amountRefunded === null ||
+    totalCents === null ||
+    amount !== totalCents ||
+    amountRefunded > amount ||
+    charge.refunded !== (amountRefunded === amount)
+  ) {
+    throw new PermanentWebhookError("Charge refund does not match the stored payment.");
+  }
+  return {
+    paymentIntentId,
+    refundedAmountCents: amountRefunded,
+    totalCents,
+  };
+}
+
+function assertPaidPaymentForRefund(
+  payment: WebhookPaymentRecord,
+  event: NormalizedEvent,
+  paymentIntentId: string,
+  currency: string,
+): number {
+  const totalCents = safeAmount(payment.total_cents);
+  if (
+    payment.provider !== "stripe" ||
+    payment.payment_status !== "paid" ||
+    payment.paid_at === null ||
+    !payment.stripe_checkout_session_id ||
+    payment.stripe_payment_intent_id !== paymentIntentId ||
+    payment.stripe_livemode !== event.livemode ||
+    payment.currency !== currency ||
+    totalCents === null ||
+    totalCents <= 0 ||
+    payment.subtotal_cents !== totalCents
+  ) {
+    throw new PermanentWebhookError("Refund does not match a verified Paid payment.");
+  }
+  assertStoredRefundAggregate(payment, totalCents);
+  return totalCents;
+}
+
+async function syncSuccessfulRefund(
+  payment: WebhookPaymentRecord,
+  charge: RefundChargeMatch,
+  event: NormalizedEvent,
+  repository: WebhookRepository,
+): Promise<void> {
+  if (charge.refundedAmountCents <= 0) return;
+  if (charge.refundedAmountCents <= payment.refunded_amount_cents) {
+    // Webhook delivery order is not guaranteed. Never regress a newer
+    // successful aggregate when an older event arrives later.
+    return;
+  }
+
+  const refundStatus = charge.refundedAmountCents === charge.totalCents
+    ? "full"
+    : "partial";
+  const refundedAt = requiredStripeTimestamp(event.createdAt);
+  const updated = await repository.syncRefund({
+    payment,
+    refundStatus,
+    refundedAmountCents: charge.refundedAmountCents,
+    refundedAt,
+  });
+  if (updated) return;
+
+  const current = await repository.getPaymentByPaymentIntent(
+    charge.paymentIntentId,
+  );
+  if (
+    current &&
+    samePaidPaymentIdentity(current, payment) &&
+    current.refunded_amount_cents >= charge.refundedAmountCents
+  ) {
+    assertStoredRefundAggregate(current, charge.totalCents);
+    return;
+  }
+  throw new PermanentWebhookError("Payment refund state conflicts with the Stripe Charge.");
+}
+
+function assertStoredRefundAggregate(
+  payment: WebhookPaymentRecord,
+  totalCents: number,
+): void {
+  const amount = safeAmount(payment.refunded_amount_cents);
+  const isConsistent =
+    amount !== null &&
+    ((payment.refund_status === "none" && amount === 0) ||
+      (payment.refund_status === "partial" && amount > 0 && amount < totalCents) ||
+      (payment.refund_status === "full" && amount === totalCents));
+  if (!isConsistent) {
+    throw new PermanentWebhookError("Stored refund aggregate is inconsistent.");
+  }
+}
+
+function samePaidPaymentIdentity(
+  current: WebhookPaymentRecord,
+  expected: WebhookPaymentRecord,
+): boolean {
+  return current.id === expected.id &&
+    current.order_id === expected.order_id &&
+    current.provider === "stripe" &&
+    current.payment_status === "paid" &&
+    current.paid_at !== null &&
+    current.stripe_checkout_session_id === expected.stripe_checkout_session_id &&
+    current.stripe_payment_intent_id === expected.stripe_payment_intent_id &&
+    current.stripe_livemode === expected.stripe_livemode &&
+    current.currency === expected.currency &&
+    current.subtotal_cents === expected.subtotal_cents &&
+    current.total_cents === expected.total_cents;
+}
+
+function normalizeRefundObjectStatus(
+  value: unknown,
+): RefundObjectMatch["status"] | null {
+  return value === "pending" ||
+      value === "requires_action" ||
+      value === "succeeded" ||
+      value === "failed" ||
+      value === "canceled"
+    ? value
+    : null;
 }
 
 async function finishTerminal(

@@ -35,6 +35,8 @@ export type CustomerPaymentState =
   | "payment_required"
   | "processing"
   | "paid"
+  | "partially_refunded"
+  | "refunded"
   | "not_available";
 
 export interface AuthoritativePaymentSummary {

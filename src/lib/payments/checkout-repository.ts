@@ -10,6 +10,7 @@ export interface OrderPaymentRecord {
   provider: "stripe";
   payment_status: PaymentStatus;
   refund_status: RefundStatus;
+  refunded_amount_cents: number;
   subtotal_cents: number;
   tax_cents: number | null;
   total_cents: number | null;
@@ -63,7 +64,7 @@ const ORDER_COLUMNS =
   "id, order_number, user_id, client_email, status, service_type, " +
   "item_count, estimated_total_cents, currency, pricing_snapshot";
 const PAYMENT_COLUMNS =
-  "id, order_id, provider, payment_status, refund_status, subtotal_cents, tax_cents, " +
+  "id, order_id, provider, payment_status, refund_status, refunded_amount_cents, subtotal_cents, tax_cents, " +
   "total_cents, currency, stripe_checkout_session_id, stripe_payment_intent_id, " +
   "stripe_livemode, checkout_attempt, checkout_expires_at, paid_at";
 const RETRYABLE_UNPAID_PAYMENT_STATUSES = ["pending", "expired", "failed"];

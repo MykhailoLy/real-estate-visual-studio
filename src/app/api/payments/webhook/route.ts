@@ -24,6 +24,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       verifyEvent: (payload, signature, webhookSecret) =>
         getStripeServerClient().webhooks.constructEvent(payload, signature, webhookSecret),
+      retrieveCharge: (chargeId) =>
+        getStripeServerClient().charges.retrieve(chargeId),
       get repository() {
         repository ??= createSupabaseWebhookRepository(getSupabaseAdminClient());
         return repository;

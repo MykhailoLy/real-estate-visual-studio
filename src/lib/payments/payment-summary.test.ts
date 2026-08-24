@@ -61,6 +61,7 @@ function payment(overrides: Record<string, unknown> = {}) {
     provider: "stripe",
     payment_status: "pending",
     refund_status: "none",
+    refunded_amount_cents: 0,
     subtotal_cents: 1500,
     tax_cents: null,
     total_cents: null,
@@ -131,6 +132,38 @@ test("uses only persisted payment state for processing and Paid", async () => {
   });
   assert.equal(incompletePaidRecord?.state, "payment_required");
   assert.equal(incompletePaidRecord?.paymentStatus, null);
+});
+
+test("reports verified partial and full refunds from persisted payment state", async () => {
+  const paidRecord = {
+    payment_status: "paid",
+    tax_cents: 100,
+    total_cents: 1500,
+    stripe_checkout_session_id: "cs_test_paid",
+    stripe_payment_intent_id: "pi_test_paid",
+    paid_at: "2026-08-24T12:05:00.000Z",
+  };
+  const partiallyRefunded = await getAuthoritativePaymentSummary(orderId, userId, {
+    repository: repository(order(), payment({
+      ...paidRecord,
+      refund_status: "partial",
+      refunded_amount_cents: 500,
+    })) as never,
+    expectedStripeLivemode: false,
+  });
+  const refunded = await getAuthoritativePaymentSummary(orderId, userId, {
+    repository: repository(order(), payment({
+      ...paidRecord,
+      refund_status: "full",
+      refunded_amount_cents: 1500,
+    })) as never,
+    expectedStripeLivemode: false,
+  });
+
+  assert.equal(partiallyRefunded?.state, "partially_refunded");
+  assert.equal(partiallyRefunded?.paymentStatus, "paid");
+  assert.equal(refunded?.state, "refunded");
+  assert.equal(refunded?.paymentStatus, "paid");
 });
 
 test("does not report Paid from a different Stripe environment", async () => {
