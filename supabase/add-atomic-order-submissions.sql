@@ -645,12 +645,12 @@ BEGIN
     -- Normalized draft references use the historical status vocabulary
     -- (there is no "moved" value). Retire those source rows atomically; the
     -- committed order_item_reference_files rows above retain their metadata.
-    UPDATE public.order_draft_item_reference_files AS references
+    UPDATE public.order_draft_item_reference_files AS draft_references
        SET upload_status = 'deleted',
            deleted_at = pg_catalog.now()
-     WHERE references.draft_id = v_submission.source_draft_id
-       AND references.upload_status = 'uploaded'
-       AND references.deleted_at IS NULL;
+     WHERE draft_references.draft_id = v_submission.source_draft_id
+       AND draft_references.upload_status = 'uploaded'
+       AND draft_references.deleted_at IS NULL;
 
     UPDATE public.order_drafts AS drafts
        SET status = 'converted',

@@ -60,6 +60,8 @@ test("one RPC owns order, item, reference, snapshot and draft persistence", () =
   assert.match(body, /INSERT INTO public\.order_item_reference_files/);
   assert.match(body, /order item subtotal does not match authoritative pricing snapshot/);
   assert.match(body, /UPDATE public\.order_draft_files/);
+  assert.match(body, /AS draft_references/);
+  assert.doesNotMatch(body, /\bAS references\b/i);
   assert.match(body, /UPDATE public\.order_drafts/);
   assert.match(body, /SET status = 'converted'/);
 });
