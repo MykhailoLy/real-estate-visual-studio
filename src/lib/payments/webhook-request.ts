@@ -18,6 +18,7 @@ export interface StripeWebhookRequestDependencies extends StripeWebhookServiceDe
     signature: string,
     webhookSecret: string,
   ) => VerifiedStripeWebhookEvent;
+  enqueuePaymentConfirmationEmail?: (orderId: string) => Promise<boolean>;
   dispatchOrderEmailOutbox?: (orderId: string) => Promise<void>;
 }
 
@@ -45,7 +46,7 @@ export async function handleStripeWebhookRequest(
   try {
     const result = await processVerifiedStripeWebhook(event, dependencies);
     if (result.status === 200) {
-      await dispatchPaymentConfirmationIfProcessed(event, dependencies);
+      await enqueueAndDispatchPaymentConfirmationIfProcessed(event, dependencies);
     }
     return result;
   } catch {
@@ -53,12 +54,12 @@ export async function handleStripeWebhookRequest(
   }
 }
 
-async function dispatchPaymentConfirmationIfProcessed(
+async function enqueueAndDispatchPaymentConfirmationIfProcessed(
   event: VerifiedStripeWebhookEvent,
   dependencies: StripeWebhookRequestDependencies,
 ): Promise<void> {
   if (
-    !dependencies.dispatchOrderEmailOutbox ||
+    !dependencies.enqueuePaymentConfirmationEmail ||
     typeof event.id !== "string" ||
     typeof event.type !== "string" ||
     !PAID_CHECKOUT_EVENT_TYPES.has(event.type)
@@ -66,17 +67,27 @@ async function dispatchPaymentConfirmationIfProcessed(
     return;
   }
 
+  const storedEvent = await dependencies.repository.getEvent(event.id);
+  if (
+    storedEvent?.processing_status !== "processed" ||
+    typeof storedEvent.order_id !== "string"
+  ) {
+    return;
+  }
+
+  // Enqueue failure is deliberately allowed to propagate so Stripe receives a
+  // 500 and retries the webhook. Replays are safe because both the event and
+  // delivery rows are idempotent.
+  const enqueued = await dependencies.enqueuePaymentConfirmationEmail(
+    storedEvent.order_id,
+  );
+  if (!enqueued || !dependencies.dispatchOrderEmailOutbox) return;
+
   try {
-    const storedEvent = await dependencies.repository.getEvent(event.id);
-    if (
-      storedEvent?.processing_status === "processed" &&
-      typeof storedEvent.order_id === "string"
-    ) {
-      await dependencies.dispatchOrderEmailOutbox(storedEvent.order_id);
-    }
+    await dependencies.dispatchOrderEmailOutbox(storedEvent.order_id);
   } catch {
-    // Payment state and its durable outbox row are already persisted. Email
-    // delivery is best-effort here and can be retried by the outbox worker.
+    // The durable row already exists. Provider delivery is best-effort in this
+    // request and can be retried later by the existing outbox worker.
     console.error("[payment-confirmation-email] immediate dispatch failed");
   }
 }
