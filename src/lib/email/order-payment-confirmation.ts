@@ -10,7 +10,7 @@ export interface PaymentConfirmationInput {
   clientName: string;
   clientOrderUrl?: string;
   currency: TransactionalCurrency;
-  totalCents: number | null;
+  totalCents: number;
   taxCents: number;
 }
 
