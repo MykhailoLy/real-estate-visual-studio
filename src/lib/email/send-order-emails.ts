@@ -139,7 +139,7 @@ async function dispatchOrderEmailOutboxUnsafe(
 }
 
 function emptyDispatchResult(): DispatchOrderEmailsResult {
-  const result = {
+  return {
     claimed: 0,
     sent: 0,
     failed: 0,
@@ -148,7 +148,6 @@ function emptyDispatchResult(): DispatchOrderEmailsResult {
     adminNotificationSent: false,
     paymentConfirmationSent: false,
   };
-  return result;
 }
 
 async function deliverOne(
@@ -261,18 +260,19 @@ async function buildPersistedEmailPayload(
       return { ok: false, code: "persisted_payment_unavailable" };
     }
     const payment = paymentData as PersistedPayment;
+    const taxCents = payment.tax_cents;
+    const totalCents = payment.total_cents;
     if (
       payment.provider !== "stripe" ||
       payment.payment_status !== "paid" ||
       payment.refund_status !== "none" ||
       payment.refunded_amount_cents !== 0 ||
       payment.currency.toUpperCase() !== order.currency ||
-      !Number.isSafeInteger(payment.subtotal_cents) ||
+      !isSafeNonNegativeInteger(payment.subtotal_cents) ||
       payment.subtotal_cents !== order.estimated_total_cents ||
-      !Number.isSafeInteger(payment.tax_cents) ||
-      (payment.tax_cents ?? -1) < 0 ||
-      !Number.isSafeInteger(payment.total_cents) ||
-      payment.total_cents !== order.estimated_total_cents ||
+      !isSafeNonNegativeInteger(taxCents) ||
+      !isSafeNonNegativeInteger(totalCents) ||
+      totalCents !== order.estimated_total_cents ||
       typeof payment.paid_at !== "string" ||
       payment.paid_at.length === 0
     ) {
@@ -286,8 +286,8 @@ async function buildPersistedEmailPayload(
       clientName: order.client_name,
       clientOrderUrl: absoluteUrl(`/dashboard/jobs/${order.id}`),
       currency: order.currency,
-      totalCents: payment.total_cents,
-      taxCents: payment.tax_cents ?? 0,
+      totalCents,
+      taxCents,
     });
     return { ok: true, value: { from, to: order.client_email, replyTo: admin, ...rendered } };
   }
@@ -383,4 +383,7 @@ function stringOrNull(value: unknown): string | null {
 }
 function numberOrNull(value: unknown): number | null {
   return typeof value === "number" ? value : null;
+}
+function isSafeNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
