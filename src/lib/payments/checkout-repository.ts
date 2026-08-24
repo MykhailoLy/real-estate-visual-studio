@@ -7,11 +7,15 @@ import type { PaymentStatus, RefundStatus } from "./domain.ts";
 export interface OrderPaymentRecord {
   id: string;
   order_id: string;
+  provider: "stripe";
   payment_status: PaymentStatus;
   refund_status: RefundStatus;
   subtotal_cents: number;
+  tax_cents: number | null;
+  total_cents: number | null;
   currency: string;
   stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
   stripe_livemode: boolean | null;
   checkout_attempt: number;
   checkout_expires_at: string | null;
@@ -57,10 +61,11 @@ export class CheckoutRepositoryError extends Error {
 
 const ORDER_COLUMNS =
   "id, order_number, user_id, client_email, status, service_type, " +
-  "estimated_total_cents, currency, pricing_snapshot";
+  "item_count, estimated_total_cents, currency, pricing_snapshot";
 const PAYMENT_COLUMNS =
-  "id, order_id, payment_status, refund_status, subtotal_cents, currency, " +
-  "stripe_checkout_session_id, stripe_livemode, checkout_attempt, checkout_expires_at, paid_at";
+  "id, order_id, provider, payment_status, refund_status, subtotal_cents, tax_cents, " +
+  "total_cents, currency, stripe_checkout_session_id, stripe_payment_intent_id, " +
+  "stripe_livemode, checkout_attempt, checkout_expires_at, paid_at";
 const RETRYABLE_UNPAID_PAYMENT_STATUSES = ["pending", "expired", "failed"];
 
 export function createSupabaseCheckoutRepository(

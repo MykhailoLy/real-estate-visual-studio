@@ -31,6 +31,7 @@ const { handleCheckoutRequest } = await import("./checkout-request.ts");
 const { PRICING_VERSION } = await import("../pricing/catalog.ts");
 
 function validOrder(overrides: Record<string, unknown> = {}) {
+  const currency = typeof overrides.currency === "string" ? overrides.currency : "USD";
   return {
     id: orderId,
     order_number: orderNumber,
@@ -38,11 +39,12 @@ function validOrder(overrides: Record<string, unknown> = {}) {
     client_email: "customer@example.com",
     status: "pending",
     service_type: "virtual-staging",
+    item_count: 1,
     estimated_total_cents: 1350,
-    currency: "USD",
+    currency,
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
-      currency: "USD",
+      currency,
       serviceType: "virtual-staging",
       eligibleUnits: 1,
       baseSubtotalCents: 1350,
@@ -65,11 +67,15 @@ function payment(overrides: Record<string, unknown> = {}) {
   return {
     id: "33333333-3333-4333-8333-333333333333",
     order_id: orderId,
+    provider: "stripe",
     payment_status: "pending",
     refund_status: "none",
     subtotal_cents: 1350,
+    tax_cents: null,
+    total_cents: null,
     currency: "usd",
     stripe_checkout_session_id: null,
+    stripe_payment_intent_id: null,
     stripe_livemode: false,
     checkout_attempt: 0,
     checkout_expires_at: null,
@@ -256,6 +262,7 @@ test("creates a server-authoritative Checkout Session and checkout_open payment"
     mode: "payment",
     payment_method_types: ["card"],
     automatic_tax: { enabled: true },
+    billing_address_collection: "auto",
     allow_promotion_codes: false,
     client_reference_id: orderId,
     customer_email: "customer@example.com",
@@ -276,6 +283,7 @@ test("creates a server-authoritative Checkout Session and checkout_open payment"
       price_data: {
         currency: "usd",
         unit_amount: 1350,
+        tax_behavior: "inclusive",
         product_data: { name: "PicchuSpot order VS-0042" },
       },
     }],
@@ -304,14 +312,42 @@ test("rejects unauthenticated, malformed, extra client price fields, and non-own
   assert.deepEqual(missing, { status: 404, body: { error: "Order not found." } });
 });
 
-test("rejects quote, historical, large, unsupported, completed, non-USD, and mismatched orders", async () => {
+test("creates USD, EUR, and CAD Checkout from the stored snapshot only", async () => {
+  for (const [canonicalCurrency, stripeCurrency] of [
+    ["USD", "usd"],
+    ["EUR", "eur"],
+    ["CAD", "cad"],
+  ] as const) {
+    const repository = new FakeRepository();
+    repository.order = validOrder({ currency: canonicalCurrency });
+    const { stripe, calls } = fakeStripe();
+
+    await createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, stripe),
+    );
+
+    assert.equal(repository.created[0]?.currency, stripeCurrency);
+    const lineItems = calls[0]?.params.line_items as Array<{
+      price_data: { currency: string; unit_amount: number; tax_behavior: string };
+    }>;
+    assert.deepEqual(lineItems[0]?.price_data, {
+      currency: stripeCurrency,
+      unit_amount: 1350,
+      tax_behavior: "inclusive",
+      product_data: { name: "PicchuSpot order VS-0042" },
+    });
+  }
+});
+
+test("rejects quote, historical, large, unsupported, completed, unsupported-currency, and mismatched orders", async () => {
   const cases: Array<[string, Record<string, unknown>]> = [
     ["quote", { pricing_snapshot: { ...validOrder().pricing_snapshot as Record<string, unknown>, customQuote: true } }],
     ["historical", { pricing_snapshot: null }],
     ["large", { pricing_snapshot: { ...validOrder().pricing_snapshot as Record<string, unknown>, eligibleUnits: 50, customQuote: true, totalCents: null, subtotalAfterDiscountCents: null } }],
     ["unsupported", { service_type: "aerial-editing" }],
     ["delivered", { status: "delivered" }],
-    ["currency", { currency: "EUR" }],
+    ["currency", { currency: "GBP" }],
     ["mismatch", { estimated_total_cents: 999 }],
   ];
 
@@ -356,6 +392,65 @@ test("reuses an active open Session and expires then replaces an expired Session
   assert.equal(repository.currentPayment?.payment_status, "checkout_open");
   assert.equal(repository.currentPayment?.checkout_attempt, 2);
   assert.equal(expired.calls.length, 1);
+});
+
+test("a cancelled return safely reuses its still-open Checkout Session", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment({
+    payment_status: "checkout_open",
+    checkout_attempt: 1,
+    stripe_checkout_session_id: "cs_test_cancelled",
+  });
+  const open = fakeStripe({ status: "open" });
+
+  const result = await createCheckoutSession(
+    { orderId, authenticatedUserId: userId },
+    dependencies(repository, open.stripe),
+  );
+
+  assert.equal(result.url, "https://checkout.stripe.com/c/pay/cs_test_123");
+  assert.equal(open.calls.length, 0);
+  assert.equal(repository.currentPayment?.payment_status, "checkout_open");
+});
+
+test("a completed redirect never marks Paid or creates a replacement Session", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment({
+    payment_status: "checkout_open",
+    checkout_attempt: 1,
+    stripe_checkout_session_id: "cs_test_complete",
+  });
+  const complete = fakeStripe({ status: "complete" });
+
+  await assert.rejects(
+    createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, complete.stripe),
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof CheckoutServiceError);
+      assert.equal(error.code, "checkout-processing");
+      return true;
+    },
+  );
+  assert.equal(complete.calls.length, 0);
+  assert.equal(repository.currentPayment?.payment_status, "checkout_open");
+  assert.equal(repository.markedPaid, false);
+
+  const routeResult = await handleCheckoutRequest(
+    { orderId },
+    {
+      ...dependencies(repository, complete.stripe),
+      getAuthenticatedUser: async () => ({ id: userId }),
+    },
+  );
+  assert.deepEqual(routeResult, {
+    status: 409,
+    body: {
+      error: "Payment is being processed.",
+      state: "processing",
+    },
+  });
 });
 
 test("does not create another session for paid payment or a test/live mismatch", async () => {

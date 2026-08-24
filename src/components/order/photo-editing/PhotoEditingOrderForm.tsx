@@ -37,6 +37,7 @@ export default function PhotoEditingOrderForm({
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [orderId, setOrderId] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -85,7 +86,8 @@ export default function PhotoEditingOrderForm({
       jobTitle
     );
 
-    if (result.success && result.orderNumber) {
+    if (result.success && result.orderId && result.orderNumber) {
+      setOrderId(result.orderId);
       setOrderNumber(result.orderNumber);
       setConfirmationEmailSent(result.confirmationEmailSent === true);
       setSubmitted(true);
@@ -104,6 +106,7 @@ export default function PhotoEditingOrderForm({
     setJobTitle("");
     setOrderTerms(emptyOrderTerms);
     setSubmitted(false);
+    setOrderId("");
     setOrderNumber("");
     setSubmitError("");
   };
@@ -126,6 +129,7 @@ export default function PhotoEditingOrderForm({
       <section className="py-16 bg-surface min-h-screen">
         <Container>
           <Confirmation
+            orderId={orderId}
             orderNumber={orderNumber}
             email={clientEmail}
             jobTitle={jobTitle}

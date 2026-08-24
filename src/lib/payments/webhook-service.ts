@@ -271,7 +271,7 @@ async function processPaidEvent(
     total === null ||
     discount !== 0 ||
     shipping !== 0 ||
-    total !== match.subtotalCents + tax
+    total !== match.subtotalCents
   ) {
     throw new PermanentWebhookError("Paid Checkout Session has inconsistent amounts or status.");
   }

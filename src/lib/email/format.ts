@@ -67,6 +67,11 @@ export interface ItemSummaryBlock {
   htmlRows: string[];
 }
 
+export interface ItemSummaryOptions {
+  /** Render the item's fixed monetary subtotal. Defaults to true. */
+  includeSubtotal?: boolean;
+}
+
 type ItemDetails = Record<string, unknown>;
 
 function asString(value: unknown): string {
@@ -135,12 +140,15 @@ export function buildItemSummary(
     referenceFilename: string | null;
     originalDownloadUrl?: string | null;
     referenceDownloadUrl?: string | null;
-  }
+  },
+  options: ItemSummaryOptions = {},
 ): ItemSummaryBlock {
   const headingTitle = headingForItem(serviceType, itemIndex, details);
   const rows: { text: string; html: string }[] = [];
 
-  pushIf(rows, row("Subtotal", formatCents(subtotalCents, currency)));
+  if (options.includeSubtotal !== false) {
+    pushIf(rows, row("Subtotal", formatCents(subtotalCents, currency)));
+  }
 
   switch (serviceType) {
     case "virtual-staging": {

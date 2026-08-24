@@ -7,6 +7,10 @@ import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import { sha256Canonical } from "@/lib/orders/order-submission-fingerprint";
 import { getDedicatedSubServiceLabel } from "@/lib/dedicated-photo-editing";
 import { absoluteUrl } from "@/lib/seo";
+import {
+  CheckoutEligibilityError,
+  getStoredCheckoutPrice,
+} from "@/lib/payments/checkout-eligibility";
 import { renderClientConfirmation, type ClientConfirmationItem } from "./order-client-confirmation";
 import { renderAdminNotification, type AdminOrderItem } from "./order-admin-notification";
 import { getAdminAddress, getFromAddress, getResendClient } from "./resend-client";
@@ -200,6 +204,7 @@ async function buildPersistedEmailPayload(
     estimatedTotalCents: order.estimated_total_cents,
     currency: order.currency,
     pricingSnapshot: snapshot as PricingSnapshot,
+    hasFixedCheckoutPrice: hasFixedCheckoutPrice(order),
   };
 
   if (delivery.delivery_kind === "client_confirmation") {
@@ -207,6 +212,7 @@ async function buildPersistedEmailPayload(
       ...common,
       clientName: order.client_name,
       clientEmail: order.client_email,
+      clientOrderUrl: absoluteUrl(`/dashboard/jobs/${order.id}`),
       items: clientItems,
     });
     return { ok: true, value: { from, to: order.client_email, replyTo: admin, ...rendered } };
@@ -241,6 +247,16 @@ async function buildPersistedEmailPayload(
     items: adminItems,
   });
   return { ok: true, value: { from, to: admin, replyTo: order.client_email, ...rendered } };
+}
+
+function hasFixedCheckoutPrice(order: PersistedOrder): boolean {
+  try {
+    getStoredCheckoutPrice(order);
+    return true;
+  } catch (error) {
+    if (error instanceof CheckoutEligibilityError) return false;
+    throw error;
+  }
 }
 
 async function completeDelivery(

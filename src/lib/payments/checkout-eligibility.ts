@@ -1,7 +1,10 @@
 import { getVolumeDiscount } from "@/lib/pricing/discounts";
 import { PRICING_VERSION } from "@/lib/pricing/catalog";
 import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
-import { STRIPE_LAUNCH_CURRENCY } from "./domain.ts";
+import {
+  toStripeCheckoutCurrency,
+  type StripeCheckoutCurrency,
+} from "./domain.ts";
 
 const SUPPORTED_CHECKOUT_SERVICES = new Set([
   "virtual-staging",
@@ -10,16 +13,20 @@ const SUPPORTED_CHECKOUT_SERVICES = new Set([
   "photo-editing",
 ]);
 
-export interface CheckoutEligibleOrder {
+export interface StoredCheckoutPriceOrder {
+  service_type: string;
+  estimated_total_cents: number;
+  currency: string;
+  pricing_snapshot: unknown;
+}
+
+export interface CheckoutEligibleOrder extends StoredCheckoutPriceOrder {
   id: string;
   order_number: string;
   user_id: string | null;
   client_email: string | null;
   status: string;
-  service_type: string;
-  estimated_total_cents: number;
-  currency: string;
-  pricing_snapshot: unknown;
+  item_count: number;
 }
 
 export class CheckoutEligibilityError extends Error {
@@ -37,7 +44,7 @@ export class CheckoutEligibilityError extends Error {
 
 export interface CheckoutPrice {
   subtotalCents: number;
-  currency: typeof STRIPE_LAUNCH_CURRENCY;
+  currency: StripeCheckoutCurrency;
 }
 
 /**
@@ -53,6 +60,17 @@ export function getCheckoutPrice(order: CheckoutEligibleOrder): CheckoutPrice {
     );
   }
 
+  return getStoredCheckoutPrice(order);
+}
+
+/**
+ * Validates the immutable fixed-price snapshot without applying the mutable
+ * order workflow status gate. Read-only payment summaries use this so a paid
+ * order remains displayable after an administrator advances fulfillment.
+ */
+export function getStoredCheckoutPrice(
+  order: StoredCheckoutPriceOrder,
+): CheckoutPrice {
   if (!SUPPORTED_CHECKOUT_SERVICES.has(order.service_type)) {
     throw new CheckoutEligibilityError(
       "ineligible",
@@ -60,7 +78,8 @@ export function getCheckoutPrice(order: CheckoutEligibleOrder): CheckoutPrice {
     );
   }
 
-  if (order.currency !== "USD") {
+  const stripeCurrency = toStripeCheckoutCurrency(order.currency);
+  if (!stripeCurrency) {
     throw new CheckoutEligibilityError(
       "ineligible",
       "This order is not eligible for automatic Checkout.",
@@ -72,7 +91,7 @@ export function getCheckoutPrice(order: CheckoutEligibleOrder): CheckoutPrice {
     !snapshot ||
     snapshot.pricingVersion !== PRICING_VERSION ||
     snapshot.serviceType !== order.service_type ||
-    snapshot.currency !== "USD"
+    snapshot.currency !== order.currency
   ) {
     throw new CheckoutEligibilityError(
       "ineligible",
@@ -110,5 +129,5 @@ export function getCheckoutPrice(order: CheckoutEligibleOrder): CheckoutPrice {
     );
   }
 
-  return { subtotalCents: totalCents, currency: STRIPE_LAUNCH_CURRENCY };
+  return { subtotalCents: totalCents, currency: stripeCurrency };
 }

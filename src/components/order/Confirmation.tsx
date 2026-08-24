@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { CheckCircle2, Mail } from "lucide-react";
+import OrderPaymentPanel from "@/components/payments/OrderPaymentPanel";
 
 interface ConfirmationProps {
+  orderId: string;
   orderNumber: string;
   email: string;
   /** Order-level Job Title to echo back on the confirmation screen. */
@@ -19,6 +21,7 @@ interface ConfirmationProps {
 }
 
 export default function Confirmation({
+  orderId,
   orderNumber,
   email,
   jobTitle,
@@ -32,12 +35,13 @@ export default function Confirmation({
       </div>
 
       <h2 className="text-2xl font-bold text-foreground mb-2">
-        Thank You! Order {orderNumber} Received.
+        Order received
       </h2>
 
       <p className="text-muted mb-6 leading-relaxed">
-        Your order has been received. We&apos;ll review your files and contact
-        you shortly to confirm the final details.
+        Order <span className="font-semibold text-foreground">{orderNumber}</span>{" "}
+        has been securely recorded. Review the payment status below before
+        leaving this page.
       </p>
 
       {jobTitle?.trim() ? (
@@ -57,16 +61,12 @@ export default function Confirmation({
         </div>
       ) : null}
 
-      <div className="bg-surface border border-border rounded-xl p-5 mb-8 text-left">
-        <h3 className="text-sm font-semibold text-foreground mb-2">
-          What happens next?
-        </h3>
-        <ol className="text-sm text-muted space-y-2 list-decimal list-inside">
-          <li>We review your uploaded files and instructions</li>
-          <li>We confirm the final price and send an invoice</li>
-          <li>Once paid, our team begins work immediately</li>
-          <li>You receive completed files within 24-48 hours</li>
-        </ol>
+      <div className="mb-8">
+        <OrderPaymentPanel
+          orderId={orderId}
+          secondaryHref={`/dashboard/jobs/${encodeURIComponent(orderId)}`}
+          secondaryLabel="View order"
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -77,10 +77,10 @@ export default function Confirmation({
           Place Another Order
         </button>
         <Link
-          href="/"
+          href="/dashboard/jobs"
           className="px-6 py-3 border border-border text-foreground rounded-lg font-semibold text-sm hover:bg-surface transition-colors"
         >
-          Back to Homepage
+          Back to jobs
         </Link>
       </div>
     </div>

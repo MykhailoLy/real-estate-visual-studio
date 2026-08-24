@@ -191,6 +191,7 @@ export default function DayToDuskOrderForm({
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [orderId, setOrderId] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -878,7 +879,8 @@ export default function DayToDuskOrderForm({
         orderTermsRef.current,
         jobTitleRef.current,
       );
-      if (result.success && result.orderNumber) {
+      if (result.success && result.orderId && result.orderNumber) {
+        setOrderId(result.orderId);
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
@@ -913,6 +915,7 @@ export default function DayToDuskOrderForm({
     setOrderTerms(emptyOrderTerms);
     orderTermsRef.current = emptyOrderTerms;
     setSubmitted(false);
+    setOrderId("");
     setOrderNumber("");
     setSubmitError("");
     setDraftId(null);
@@ -977,6 +980,7 @@ export default function DayToDuskOrderForm({
       <section className="py-16 bg-surface">
         <Container>
           <Confirmation
+            orderId={orderId}
             orderNumber={orderNumber}
             email={clientEmail}
             jobTitle={jobTitle}

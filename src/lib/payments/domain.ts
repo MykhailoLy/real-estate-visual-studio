@@ -2,7 +2,24 @@ export const PAYMENT_PROVIDERS = ["stripe"] as const;
 
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 
-export const STRIPE_LAUNCH_CURRENCY = "usd" as const;
+export const STRIPE_CHECKOUT_CURRENCY_MAP = {
+  USD: "usd",
+  EUR: "eur",
+  CAD: "cad",
+} as const;
+
+export type CheckoutCurrency = keyof typeof STRIPE_CHECKOUT_CURRENCY_MAP;
+export type StripeCheckoutCurrency =
+  (typeof STRIPE_CHECKOUT_CURRENCY_MAP)[CheckoutCurrency];
+
+export function toStripeCheckoutCurrency(
+  value: unknown,
+): StripeCheckoutCurrency | null {
+  return typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(STRIPE_CHECKOUT_CURRENCY_MAP, value)
+    ? STRIPE_CHECKOUT_CURRENCY_MAP[value as CheckoutCurrency]
+    : null;
+}
 
 export const PAYMENT_STATUSES = [
   "pending",
@@ -13,6 +30,23 @@ export const PAYMENT_STATUSES = [
 ] as const;
 
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export type CustomerPaymentState =
+  | "payment_required"
+  | "processing"
+  | "paid"
+  | "not_available";
+
+export interface AuthoritativePaymentSummary {
+  orderId: string;
+  orderNumber: string;
+  serviceLabel: string;
+  itemCount: number;
+  finalTotalCents: number | null;
+  currency: CheckoutCurrency | null;
+  paymentStatus: PaymentStatus | null;
+  state: CustomerPaymentState;
+}
 
 export const REFUND_STATUSES = ["none", "partial", "full"] as const;
 

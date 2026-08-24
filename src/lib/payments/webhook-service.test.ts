@@ -60,7 +60,7 @@ function event(
         livemode: false,
         currency: "USD",
         amount_subtotal: 1350,
-        amount_total: 1450,
+        amount_total: 1350,
         payment_status: "paid",
         status: "complete",
         payment_intent: { id: "pi_test_123" },
@@ -326,6 +326,83 @@ test("marks complete paid and async succeeded Sessions as paid, but ignores comp
   }
 });
 
+test("accepts an inclusive Checkout total with no tax", async () => {
+  const repository = new FakeRepository();
+  const result = await processVerifiedStripeWebhook(
+    event("checkout.session.completed", {
+      amount_subtotal: 1350,
+      amount_total: 1350,
+      total_details: {
+        amount_tax: 0,
+        amount_discount: 0,
+        amount_shipping: 0,
+      },
+    }),
+    dependencies(repository),
+  );
+
+  assert.equal(result.status, 200);
+  assert.equal(repository.currentPayment?.payment_status, "paid");
+  assert.equal(repository.currentPayment?.tax_cents, 0);
+  assert.equal(repository.currentPayment?.total_cents, 1350);
+});
+
+test("accepts positive inclusive tax contained within the authoritative total", async () => {
+  const repository = new FakeRepository();
+  const result = await processVerifiedStripeWebhook(
+    event("checkout.session.completed", {
+      amount_subtotal: 1350,
+      amount_total: 1350,
+      total_details: {
+        amount_tax: 100,
+        amount_discount: 0,
+        amount_shipping: 0,
+      },
+    }),
+    dependencies(repository),
+  );
+
+  assert.equal(result.status, 200);
+  assert.equal(repository.currentPayment?.payment_status, "paid");
+  assert.equal(repository.currentPayment?.tax_cents, 100);
+  assert.equal(repository.currentPayment?.total_cents, 1350);
+});
+
+test("rejects total, currency, Session, order, and livemode mismatches", async () => {
+  const mismatches = [
+    { id: "amount", session: { amount_total: 1450 } },
+    { id: "currency", session: { currency: "eur" } },
+    { id: "session", session: { id: "cs_test_other" } },
+    {
+      id: "order",
+      session: {
+        client_reference_id: "33333333-3333-4333-8333-333333333333",
+      },
+    },
+    { id: "livemode", session: { livemode: true } },
+  ] as const;
+
+  for (const mismatch of mismatches) {
+    const repository = new FakeRepository();
+    const candidate = event(
+      "checkout.session.completed",
+      mismatch.session,
+      { id: `evt_mismatch_${mismatch.id}` },
+    );
+    const result = await processVerifiedStripeWebhook(
+      candidate,
+      dependencies(repository),
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(repository.currentPayment?.payment_status, "checkout_open");
+    assert.notEqual(
+      repository.events.get(candidate.id)?.processing_status,
+      "processed",
+    );
+  }
+});
+
 test("failed and expired deliveries cannot regress a matching paid payment", async () => {
   for (const type of ["checkout.session.async_payment_failed", "checkout.session.expired"]) {
     const repository = new FakeRepository();
@@ -333,7 +410,7 @@ test("failed and expired deliveries cannot regress a matching paid payment", asy
       payment_status: "paid",
       stripe_payment_intent_id: "pi_test_123",
       tax_cents: 100,
-      total_cents: 1450,
+      total_cents: 1350,
       paid_at: now.toISOString(),
     });
     const result = await processVerifiedStripeWebhook(
@@ -362,7 +439,7 @@ test("accepts an already-paid replay only when every immutable payment field mat
     stripe_payment_intent_id: "pi_test_123",
     stripe_customer_id: "cus_test_123",
     tax_cents: 100,
-    total_cents: 1450,
+    total_cents: 1350,
     paid_at: now.toISOString(),
   });
   const replay = await processVerifiedStripeWebhook(
@@ -380,7 +457,7 @@ test("accepts an already-paid replay only when every immutable payment field mat
       stripe_payment_intent_id: "pi_test_123",
       stripe_customer_id: "cus_test_123",
       tax_cents: 100,
-      total_cents: 1450,
+      total_cents: 1350,
       paid_at: now.toISOString(),
       ...override,
     });

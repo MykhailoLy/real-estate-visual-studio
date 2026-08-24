@@ -2,6 +2,16 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
+import {
+  AdminPaymentGateError,
+  assertAdminOrderStatusTransitionAllowed,
+  PRODUCTION_ADVANCING_ORDER_STATUSES,
+} from "@/lib/payments/admin-status-gate";
+import type {
+  PaymentStateOrder,
+  PersistedOrderPayment,
+} from "@/lib/payments/payment-state";
+import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 
 // ============================================================
 // POST /api/admin/orders/[orderId]/status
@@ -16,6 +26,7 @@ import { createServerClient } from "@/lib/supabase";
 //   400 { error }                       — invalid status / body
 //   401 { error }                       — not an admin session
 //   404 { error }                       — order not found
+//   409 { error }                       — fixed-price payment not verified
 //   500 { error }                       — DB / config error
 //
 // Security:
@@ -26,6 +37,8 @@ import { createServerClient } from "@/lib/supabase";
 //     line of defence, but we validate before reaching it.
 //   - orderId from the URL is treated as untrusted input and
 //     checked against the DB; a non-existent UUID returns 404.
+//   - Production-advancing statuses require a matching webhook-written
+//     Paid record for orders with a valid fixed-price Checkout snapshot.
 //   - Service role key is used server-side only (createServerClient).
 //     It never reaches the client.
 //   - No other fields (client_email, item_count, pricing, items,
@@ -96,6 +109,63 @@ export async function POST(
     );
   }
 
+  const { data: orderData, error: orderError } = await supabase
+    .from("orders")
+    .select("id, service_type, estimated_total_cents, currency, pricing_snapshot")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (orderError) {
+    console.error("[admin/orders/status] Order lookup error:", orderError.message);
+    return NextResponse.json(
+      { error: "Could not verify the order before updating its status." },
+      { status: 500 },
+    );
+  }
+  if (!orderData) {
+    return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  }
+
+  if (PRODUCTION_ADVANCING_ORDER_STATUSES.some((status) => status === newStatus)) {
+    const { data: paymentData, error: paymentError } = await supabase
+      .from("order_payments")
+      .select(
+        "order_id, provider, payment_status, refund_status, subtotal_cents, tax_cents, total_cents, " +
+          "currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, paid_at",
+      )
+      .eq("order_id", orderId)
+      .maybeSingle();
+
+    if (paymentError) {
+      console.error("[admin/orders/status] Payment lookup error:", paymentError.message);
+      return NextResponse.json(
+        { error: "Could not verify payment before updating the order status." },
+        { status: 500 },
+      );
+    }
+
+    try {
+      assertAdminOrderStatusTransitionAllowed(
+        orderData as unknown as PaymentStateOrder,
+        (paymentData as unknown as PersistedOrderPayment | null) ?? null,
+        newStatus,
+        { getExpectedStripeLivemode },
+      );
+    } catch (error) {
+      if (error instanceof AdminPaymentGateError) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      console.error(
+        "[admin/orders/status] Payment gate failed:",
+        error instanceof Error ? error.name : "UnknownError",
+      );
+      return NextResponse.json(
+        { error: "Could not verify payment before updating the order status." },
+        { status: 500 },
+      );
+    }
+  }
+
   // Only update `status`. `updated_at` is refreshed automatically
   // by the orders_updated_at trigger in the DB schema.
   const { data, error } = await supabase
@@ -113,9 +183,7 @@ export async function POST(
     );
   }
 
-  if (!data) {
-    return NextResponse.json({ error: "Order not found." }, { status: 404 });
-  }
+  if (!data) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
   return NextResponse.json({
     ok: true,
