@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { dispatchOrderEmailOutbox } from "@/lib/email/send-order-emails";
+import {
+  dispatchOrderEmailOutbox,
+  enqueuePaymentConfirmationEmail,
+} from "@/lib/email/send-order-emails";
 import { handleStripeWebhookRequest } from "@/lib/payments/webhook-request";
 import {
   createSupabaseWebhookRepository,
@@ -27,6 +30,11 @@ export async function POST(request: Request): Promise<NextResponse> {
         getStripeServerClient().webhooks.constructEvent(payload, signature, webhookSecret),
       retrieveCharge: (chargeId) =>
         getStripeServerClient().charges.retrieve(chargeId),
+      enqueuePaymentConfirmationEmail: (orderId) =>
+        enqueuePaymentConfirmationEmail({
+          supabase: getSupabaseAdminClient(),
+          orderId,
+        }),
       dispatchOrderEmailOutbox: async (orderId) => {
         await dispatchOrderEmailOutbox({
           supabase: getSupabaseAdminClient(),
