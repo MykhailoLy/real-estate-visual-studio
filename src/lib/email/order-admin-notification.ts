@@ -52,6 +52,7 @@ export interface AdminNotificationInput {
   estimatedTotalCents: number;
   currency: TransactionalCurrency;
   pricingSnapshot: PricingSnapshot;
+  hasFixedCheckoutPrice: boolean;
   termsAcceptance: {
     accepted: boolean;
     version: string;
@@ -81,6 +82,7 @@ export function renderAdminNotification(
     estimatedTotalCents,
     currency,
     pricingSnapshot,
+    hasFixedCheckoutPrice,
     termsAcceptance,
     portfolioPermission,
     items,
@@ -99,6 +101,22 @@ export function renderAdminNotification(
     currency
   );
   const subject = `New Order: ${orderNumber} — ${service}`;
+  const commercialTextLines = hasFixedCheckoutPrice
+    ? [
+        `  Base subtotal: ${baseSubtotal}`,
+        `  Add-ons: ${addOns}`,
+        ...(pricingSnapshot.volumeDiscountPercent > 0
+          ? [
+              `  Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
+            ]
+          : []),
+        `  Final total: ${total} ${currency}`,
+        "  Any applicable tax is included in this amount.",
+      ]
+    : [
+        "  Pricing: Manual review required.",
+        "  Do not request fixed-price Checkout until scope and pricing are confirmed.",
+      ];
 
   const itemBlocks = items.map((item) =>
     buildItemSummary(
@@ -137,15 +155,7 @@ export function renderAdminNotification(
     ...(jobTitle ? [`  Job title: ${jobTitle}`] : []),
     `  Items: ${itemCount}`,
     `  Currency: ${currency}`,
-    `  Base subtotal: ${baseSubtotal}`,
-    `  Add-ons: ${addOns}`,
-    ...(pricingSnapshot.volumeDiscountPercent > 0
-      ? [
-          `  Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
-        ]
-      : []),
-    `  Estimated total before tax: ${total}`,
-    "  Taxes calculated separately where applicable.",
+    ...commercialTextLines,
     "",
     "TERMS",
     `  Accepted: ${termsAcceptance.accepted ? "yes" : "no"}`,
@@ -202,6 +212,20 @@ export function renderAdminNotification(
           formatBytes(totalBytes)
         )}</td></tr>`
       : "";
+  const commercialRowsHtml = hasFixedCheckoutPrice
+    ? `
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
+          ${
+            pricingSnapshot.volumeDiscountPercent > 0
+              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
+              : ""
+          }
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Final total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(total)} ${currency}</td></tr>
+          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Any applicable tax is included in this amount.</td></tr>`
+    : `
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Pricing</td><td style="padding:4px 0;font-weight:600;">Manual review required</td></tr>
+          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Do not request fixed-price Checkout until scope and pricing are confirmed.</td></tr>`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -255,17 +279,7 @@ export function renderAdminNotification(
           }
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Items</td><td style="padding:4px 0;">${itemCount}</td></tr>
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Currency</td><td style="padding:4px 0;">${currency}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
-          ${
-            pricingSnapshot.volumeDiscountPercent > 0
-              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
-              : ""
-          }
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Estimated total before tax</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
-            total
-          )}</td></tr>
-          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Taxes calculated separately where applicable.</td></tr>
+          ${commercialRowsHtml}
           ${totalBytesRow}
         </tbody>
       </table>

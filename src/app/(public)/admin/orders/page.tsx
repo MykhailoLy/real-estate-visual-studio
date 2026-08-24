@@ -6,6 +6,8 @@ import AdminOrdersClient, {
   type AdminOrderRow,
 } from "./AdminOrdersClient";
 import { getOrderServiceLabel } from "@/lib/display/service-labels";
+import { getPersistedOrderPaymentState } from "@/lib/payments/payment-state";
+import type { PersistedOrderPayment } from "@/lib/payments/payment-state";
 
 // ============================================================
 // /admin/orders
@@ -63,7 +65,7 @@ export default async function AdminOrdersPage() {
           "id, order_number, service_type, status, " +
           "client_name, client_email, client_company, " +
           "item_count, estimated_total_cents, currency, job_title, " +
-          "created_at, updated_at",
+          "pricing_snapshot, created_at, updated_at",
           { count: "exact" }
         )
         .order("created_at", { ascending: false });
@@ -84,6 +86,7 @@ export default async function AdminOrdersPage() {
           estimated_total_cents: number;
           currency: string;
           job_title: string | null;
+          pricing_snapshot: unknown;
           created_at: string;
           updated_at: string;
         }>;
@@ -91,21 +94,37 @@ export default async function AdminOrdersPage() {
         // Batched dedicated sub-service lookup (ONE query, not per-order):
         // first item's details.sub_service for every order in this page.
         const subByOrder = new Map<string, string | null>();
+        const paymentByOrder = new Map<string, PersistedOrderPayment>();
         if (rows.length > 0) {
-          const { data: itemRows } = await supabase
-            .from("order_items")
-            .select("order_id, details")
-            .eq("item_index", 0)
-            .in(
-              "order_id",
-              rows.map((r) => r.id)
-            );
+          const orderIds = rows.map((row) => row.id);
+          const [{ data: itemRows }, { data: paymentRows, error: paymentError }] =
+            await Promise.all([
+              supabase
+                .from("order_items")
+                .select("order_id, details")
+                .eq("item_index", 0)
+                .in("order_id", orderIds),
+              supabase
+                .from("order_payments")
+                .select(
+                  "order_id, provider, payment_status, subtotal_cents, tax_cents, total_cents, " +
+                    "currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, paid_at",
+                )
+                .in("order_id", orderIds),
+            ]);
           for (const it of (itemRows ?? []) as Array<{
             order_id: string;
             details: Record<string, unknown> | null;
           }>) {
             const sub = it.details?.sub_service;
             subByOrder.set(it.order_id, typeof sub === "string" ? sub : null);
+          }
+          if (paymentError) {
+            console.error("[admin/orders] Payment fetch error:", paymentError.message);
+          } else {
+            for (const payment of (paymentRows ?? []) as unknown as PersistedOrderPayment[]) {
+              paymentByOrder.set(payment.order_id, payment);
+            }
           }
         }
 
@@ -122,6 +141,10 @@ export default async function AdminOrdersPage() {
           estimated_total_cents:  row.estimated_total_cents,
           currency:               row.currency,
           job_title:              row.job_title ?? null,
+          payment_state:          getPersistedOrderPaymentState(
+            row,
+            paymentByOrder.get(row.id) ?? null,
+          ),
           created_at:             row.created_at,
           updated_at:             row.updated_at,
         }));

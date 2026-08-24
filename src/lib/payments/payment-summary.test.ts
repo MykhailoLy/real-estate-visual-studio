@@ -58,11 +58,15 @@ function payment(overrides: Record<string, unknown> = {}) {
   return {
     id: "33333333-3333-4333-8333-333333333333",
     order_id: orderId,
+    provider: "stripe",
     payment_status: "pending",
     refund_status: "none",
     subtotal_cents: 1500,
+    tax_cents: null,
+    total_cents: null,
     currency: "usd",
     stripe_checkout_session_id: null,
+    stripe_payment_intent_id: null,
     stripe_livemode: false,
     checkout_attempt: 0,
     checkout_expires_at: null,
@@ -106,10 +110,23 @@ test("uses only persisted payment state for processing and Paid", async () => {
   const paid = await getAuthoritativePaymentSummary(orderId, userId, {
     repository: repository(order(), payment({
       payment_status: "paid",
+      tax_cents: 100,
+      total_cents: 1500,
+      stripe_checkout_session_id: "cs_test_paid",
+      stripe_payment_intent_id: "pi_test_paid",
       paid_at: "2026-08-24T12:05:00.000Z",
     })) as never,
   });
   assert.equal(paid?.state, "paid");
+
+  const incompletePaidRecord = await getAuthoritativePaymentSummary(orderId, userId, {
+    repository: repository(order(), payment({
+      payment_status: "paid",
+      paid_at: "2026-08-24T12:05:00.000Z",
+    })) as never,
+  });
+  assert.equal(incompletePaidRecord?.state, "payment_required");
+  assert.equal(incompletePaidRecord?.paymentStatus, null);
 });
 
 test("keeps expired and failed attempts safely retryable", async () => {

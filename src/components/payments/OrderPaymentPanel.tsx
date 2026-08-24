@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { CreditCard, Loader2, ShieldCheck } from "lucide-react";
 import type { AuthoritativePaymentSummary } from "@/lib/payments/domain";
 import { formatStoredMoney } from "@/lib/pricing/format";
+import { getStripeCheckoutRedirectUrl } from "@/lib/payments/client-checkout";
+
+const PROCESSING_POLL_INTERVAL_MS = 2_500;
+const MAX_PROCESSING_POLLS = 8;
 
 interface OrderPaymentPanelProps {
   orderId: string;
@@ -48,6 +52,48 @@ export default function OrderPaymentPanel({
     return () => controller.abort();
   }, [initialSummary, orderId]);
 
+  useEffect(() => {
+    if (summary?.state !== "processing") return;
+
+    let active = true;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let controller: AbortController | null = null;
+
+    const pollPersistedSummary = async () => {
+      attempts += 1;
+      controller = new AbortController();
+      try {
+        const response = await fetch(
+          `/api/payments/summary/${encodeURIComponent(orderId)}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        if (response.ok && active) {
+          const nextSummary = await response.json() as AuthoritativePaymentSummary;
+          if (active) setSummary(nextSummary);
+        }
+      } catch (requestError) {
+        if (
+          !(requestError instanceof DOMException) ||
+          requestError.name !== "AbortError"
+        ) {
+          // A transient poll failure is retried within the same bounded window.
+        }
+      } finally {
+        if (active && attempts < MAX_PROCESSING_POLLS) {
+          timer = setTimeout(pollPersistedSummary, PROCESSING_POLL_INTERVAL_MS);
+        }
+      }
+    };
+
+    timer = setTimeout(pollPersistedSummary, PROCESSING_POLL_INTERVAL_MS);
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      controller?.abort();
+    };
+  }, [orderId, summary?.state]);
+
   const startCheckout = async () => {
     setIsStartingCheckout(true);
     setError("");
@@ -60,15 +106,27 @@ export default function OrderPaymentPanel({
       const body = (await response.json().catch(() => null)) as {
         url?: unknown;
         error?: unknown;
+        state?: unknown;
       } | null;
-      if (!response.ok || typeof body?.url !== "string") {
+      if (!response.ok) {
+        if (response.status === 409 && body?.state === "processing") {
+          setSummary((current) =>
+            current ? { ...current, state: "processing" } : current,
+          );
+          setIsStartingCheckout(false);
+          return;
+        }
         throw new Error(
           typeof body?.error === "string"
             ? body.error
             : "Secure payment could not be opened.",
         );
       }
-      window.location.assign(body.url);
+      const redirectUrl = getStripeCheckoutRedirectUrl(body?.url);
+      if (!redirectUrl) {
+        throw new Error("Secure payment returned an invalid destination.");
+      }
+      window.location.assign(redirectUrl);
     } catch (checkoutError) {
       setError(
         checkoutError instanceof Error

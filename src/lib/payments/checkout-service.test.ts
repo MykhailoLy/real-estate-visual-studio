@@ -67,11 +67,15 @@ function payment(overrides: Record<string, unknown> = {}) {
   return {
     id: "33333333-3333-4333-8333-333333333333",
     order_id: orderId,
+    provider: "stripe",
     payment_status: "pending",
     refund_status: "none",
     subtotal_cents: 1350,
+    tax_cents: null,
+    total_cents: null,
     currency: "usd",
     stripe_checkout_session_id: null,
+    stripe_payment_intent_id: null,
     stripe_livemode: false,
     checkout_attempt: 0,
     checkout_expires_at: null,
@@ -432,6 +436,21 @@ test("a completed redirect never marks Paid or creates a replacement Session", a
   assert.equal(complete.calls.length, 0);
   assert.equal(repository.currentPayment?.payment_status, "checkout_open");
   assert.equal(repository.markedPaid, false);
+
+  const routeResult = await handleCheckoutRequest(
+    { orderId },
+    {
+      ...dependencies(repository, complete.stripe),
+      getAuthenticatedUser: async () => ({ id: userId }),
+    },
+  );
+  assert.deepEqual(routeResult, {
+    status: 409,
+    body: {
+      error: "Payment is being processed.",
+      state: "processing",
+    },
+  });
 });
 
 test("does not create another session for paid payment or a test/live mismatch", async () => {

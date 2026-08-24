@@ -13,17 +13,20 @@ const SUPPORTED_CHECKOUT_SERVICES = new Set([
   "photo-editing",
 ]);
 
-export interface CheckoutEligibleOrder {
+export interface StoredCheckoutPriceOrder {
+  service_type: string;
+  estimated_total_cents: number;
+  currency: string;
+  pricing_snapshot: unknown;
+}
+
+export interface CheckoutEligibleOrder extends StoredCheckoutPriceOrder {
   id: string;
   order_number: string;
   user_id: string | null;
   client_email: string | null;
   status: string;
-  service_type: string;
   item_count: number;
-  estimated_total_cents: number;
-  currency: string;
-  pricing_snapshot: unknown;
 }
 
 export class CheckoutEligibilityError extends Error {
@@ -66,7 +69,7 @@ export function getCheckoutPrice(order: CheckoutEligibleOrder): CheckoutPrice {
  * order remains displayable after an administrator advances fulfillment.
  */
 export function getStoredCheckoutPrice(
-  order: CheckoutEligibleOrder,
+  order: StoredCheckoutPriceOrder,
 ): CheckoutPrice {
   if (!SUPPORTED_CHECKOUT_SERVICES.has(order.service_type)) {
     throw new CheckoutEligibilityError(

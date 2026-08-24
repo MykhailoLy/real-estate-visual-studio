@@ -28,6 +28,7 @@ import AdminOrderStatusControl from "@/components/admin/AdminOrderStatusControl"
 import { formatDateTime } from "@/lib/display/file-format";
 import { getOrderStatusLabel } from "@/lib/display/status-labels";
 import { formatStoredMoney } from "@/lib/pricing/format";
+import type { PersistedOrderPaymentState } from "@/lib/payments/payment-state";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export interface AdminOrderRow {
   estimated_total_cents: number;
   currency: string;
   job_title: string | null;
+  payment_state: PersistedOrderPaymentState;
   created_at: string;
   updated_at: string;
 }
@@ -70,6 +72,13 @@ const STATUS_FILTER_OPTIONS: Array<{ value: OrderStatus | "all"; label: string }
 
 function formatDate(iso: string): string {
   return formatDateTime(iso);
+}
+
+function getPaymentStateLabel(state: PersistedOrderPaymentState): string {
+  if (state === "paid") return "Paid";
+  if (state === "processing") return "Processing";
+  if (state === "payment_required") return "Payment required";
+  return "Manual review";
 }
 
 // ── Component ─────────────────────────────────────────────────
@@ -226,6 +235,7 @@ export default function AdminOrdersClient({
                       "Client",
                       "Service",
                       "Items / Cost",
+                      "Payment",
                       "Status",
                       "Submitted",
                       "Deliverables",
@@ -315,6 +325,24 @@ function OrderRow({
         <p className="text-[11px] text-muted">
           {order.item_count} image{order.item_count !== 1 ? "s" : ""}
         </p>
+      </td>
+
+      {/* Persisted payment state */}
+      <td className="px-4 py-4 whitespace-nowrap">
+        <span
+          className={[
+            "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold",
+            order.payment_state === "paid"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : order.payment_state === "processing"
+                ? "border-blue-200 bg-blue-50 text-blue-700"
+                : order.payment_state === "payment_required"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-slate-200 bg-slate-50 text-slate-600",
+          ].join(" ")}
+        >
+          {getPaymentStateLabel(order.payment_state)}
+        </span>
       </td>
 
       {/* Status — inline control */}

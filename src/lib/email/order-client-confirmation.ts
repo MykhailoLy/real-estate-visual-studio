@@ -33,10 +33,12 @@ export interface ClientConfirmationInput {
   jobTitle?: string;
   clientName: string;
   clientEmail: string;
+  clientOrderUrl?: string;
   itemCount: number;
   estimatedTotalCents: number;
   currency: TransactionalCurrency;
   pricingSnapshot: PricingSnapshot;
+  hasFixedCheckoutPrice: boolean;
   items: ClientConfirmationItem[];
 }
 
@@ -59,6 +61,7 @@ export function renderClientConfirmation(
     estimatedTotalCents,
     currency,
     pricingSnapshot,
+    hasFixedCheckoutPrice,
     items,
   } = input;
 
@@ -75,6 +78,35 @@ export function renderClientConfirmation(
     currency
   );
   const subject = `Order ${orderNumber} Received — PicchuSpot`;
+  const pricingTextLines = hasFixedCheckoutPrice
+    ? [
+        `Base subtotal: ${baseSubtotal}`,
+        `Add-ons: ${addOns}`,
+        ...(pricingSnapshot.volumeDiscountPercent > 0
+          ? [
+              `Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
+            ]
+          : []),
+        `Final total: ${total} ${currency}`,
+        "Any applicable tax is included in this amount.",
+      ]
+    : [
+        "Pricing: Manual review required.",
+        "We’ll review the submitted files and instructions before confirming the commercial next step.",
+      ];
+  const nextStepsText = hasFixedCheckoutPrice
+    ? [
+        "  1. Review the submitted order and files.",
+        "  2. Complete secure payment from the PicchuSpot order page.",
+        "  3. Work begins after payment has been verified.",
+        "  4. Track the order and download completed files from the client portal.",
+      ]
+    : [
+        "  1. We review the submitted order, files, and instructions.",
+        "  2. We contact you to confirm the scope, price, and next step.",
+        "  3. Work begins after the agreed commercial arrangements are complete.",
+        "  4. Track the order and download completed files from the client portal.",
+      ];
 
   // Compact per-item summary: just the heading + 2-3 most-relevant
   // bullets so the client email stays scannable.
@@ -103,23 +135,17 @@ export function renderClientConfirmation(
     `Service: ${service}`,
     ...(jobTitle ? [`Job title: ${jobTitle}`] : []),
     `Items: ${itemCount}`,
-    `Base subtotal: ${baseSubtotal}`,
-    `Add-ons: ${addOns}`,
-    ...(pricingSnapshot.volumeDiscountPercent > 0
+    ...pricingTextLines,
+    ...(input.clientOrderUrl
       ? [
-          `Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
+          `${hasFixedCheckoutPrice ? "View order / Pay securely" : "View order"}: ${input.clientOrderUrl}`,
         ]
       : []),
-    `Estimated total before tax: ${total}`,
-    "Taxes calculated separately where applicable.",
     "",
     "What you ordered:",
     ...itemBlocks.flatMap((block) => [block.heading, ...block.textLines, ""]),
     "What happens next:",
-    "  1. We review your uploaded files and instructions.",
-    "  2. We confirm the final price and send an invoice.",
-    "  3. Once paid, our team begins work immediately.",
-    "  4. You receive completed files within 24-48 hours.",
+    ...nextStepsText,
     "",
     `Questions? Reply to this email or write to ${SUPPORT_EMAIL}.`,
     "",
@@ -140,6 +166,31 @@ export function renderClientConfirmation(
         </div>`
     )
     .join("");
+  const pricingRowsHtml = hasFixedCheckoutPrice
+    ? `
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
+          ${
+            pricingSnapshot.volumeDiscountPercent > 0
+              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
+              : ""
+          }
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Final total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(total)} ${currency}</td></tr>
+          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Any applicable tax is included in this amount.</td></tr>`
+    : `
+          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Pricing</td><td style="padding:4px 0;font-weight:600;">Manual review required</td></tr>
+          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">We’ll review the submitted files and instructions before confirming the commercial next step.</td></tr>`;
+  const nextStepsHtml = hasFixedCheckoutPrice
+    ? `
+        <li>Review the submitted order and files.</li>
+        <li>Complete secure payment from the PicchuSpot order page.</li>
+        <li>Work begins after payment has been verified.</li>
+        <li>Track the order and download completed files from the client portal.</li>`
+    : `
+        <li>We review the submitted order, files, and instructions.</li>
+        <li>We contact you to confirm the scope, price, and next step.</li>
+        <li>Work begins after the agreed commercial arrangements are complete.</li>
+        <li>Track the order and download completed files from the client portal.</li>`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -173,29 +224,22 @@ export function renderClientConfirmation(
               : ""
           }
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Items</td><td style="padding:4px 0;">${itemCount}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
-          ${
-            pricingSnapshot.volumeDiscountPercent > 0
-              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
-              : ""
-          }
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Estimated total before tax</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
-            total
-          )}</td></tr>
-          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Taxes calculated separately where applicable.</td></tr>
+          ${pricingRowsHtml}
         </tbody>
       </table>
+
+      ${
+        input.clientOrderUrl
+          ? `<p style="margin:0 0 24px;"><a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:10px 15px;border-radius:7px;background:#0B1F3A;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;">${hasFixedCheckoutPrice ? "View order / Pay securely" : "View order"}</a></p>`
+          : ""
+      }
 
       <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin-bottom:8px;">What you ordered</div>
       ${itemsHtml}
 
       <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin:24px 0 8px;">What happens next</div>
       <ol style="font-size:14px;line-height:1.6;color:#1a202c;padding-left:18px;margin:0 0 24px;">
-        <li>We review your uploaded files and instructions.</li>
-        <li>We confirm the final price and send an invoice.</li>
-        <li>Once paid, our team begins work immediately.</li>
-        <li>You receive completed files within 24-48 hours.</li>
+        ${nextStepsHtml}
       </ol>
 
       <p style="font-size:14px;line-height:1.6;color:#4a5568;margin:0 0 24px;">

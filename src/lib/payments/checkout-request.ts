@@ -13,7 +13,7 @@ export interface CheckoutRequestDependencies extends CheckoutServiceDependencies
 
 export interface CheckoutRouteResult {
   status: number;
-  body: { url: string } | { error: string };
+  body: { url: string } | { error: string; state?: "processing" };
 }
 
 /** Keeps the App Router handler thin and makes request validation testable. */
@@ -43,7 +43,15 @@ export async function handleCheckoutRequest(
       // details in the response. The error code is intentionally safe enough
       // for minimal server-side diagnostics.
       console.error("[payments/checkout]", error.code);
-      return { status: error.status, body: { error: error.message } };
+      return {
+        status: error.status,
+        body: {
+          error: error.message,
+          ...(error.code === "checkout-processing"
+            ? { state: "processing" as const }
+            : {}),
+        },
+      };
     }
 
     console.error("[payments/checkout] unexpected failure");

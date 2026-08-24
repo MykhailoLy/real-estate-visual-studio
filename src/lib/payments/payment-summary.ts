@@ -7,8 +7,11 @@ import {
 } from "./checkout-eligibility.ts";
 import type {
   CheckoutRepository,
-  OrderPaymentRecord,
 } from "./checkout-repository.ts";
+import {
+  getPersistedOrderPaymentState,
+  paymentRecordMatchesCheckoutSnapshot,
+} from "./payment-state.ts";
 import type {
   AuthoritativePaymentSummary,
   CustomerPaymentState,
@@ -38,18 +41,23 @@ export async function getAuthoritativePaymentSummary(
     if (!(error instanceof CheckoutEligibilityError)) throw error;
   }
 
-  const paymentMatches = Boolean(
-    price &&
-      payment &&
-      payment.subtotal_cents === price.subtotalCents &&
-      payment.currency === price.currency,
-  );
+  const paymentMatches = paymentRecordMatchesCheckoutSnapshot(order, payment);
   const state = deriveCustomerPaymentState({
     orderStatus: order.status,
-    hasFixedPrice: price !== null,
-    payment,
+    persistedState: getPersistedOrderPaymentState(order, payment),
+    paymentExists: payment !== null,
     paymentMatches,
   });
+  const summaryPaymentStatus =
+    paymentMatches &&
+    payment &&
+    (state === "paid" ||
+      state === "processing" ||
+      payment.payment_status === "pending" ||
+      payment.payment_status === "expired" ||
+      payment.payment_status === "failed")
+      ? payment.payment_status
+      : null;
 
   return {
     orderId: order.id,
@@ -60,36 +68,28 @@ export async function getAuthoritativePaymentSummary(
     currency: price
       ? (order.currency as AuthoritativePaymentSummary["currency"])
       : null,
-    paymentStatus: paymentMatches ? payment?.payment_status ?? null : null,
+    paymentStatus: summaryPaymentStatus,
     state,
   };
 }
 
 function deriveCustomerPaymentState({
   orderStatus,
-  hasFixedPrice,
-  payment,
+  persistedState,
+  paymentExists,
   paymentMatches,
 }: {
   orderStatus: string;
-  hasFixedPrice: boolean;
-  payment: OrderPaymentRecord | null;
+  persistedState: ReturnType<typeof getPersistedOrderPaymentState>;
+  paymentExists: boolean;
   paymentMatches: boolean;
 }): CustomerPaymentState {
-  if (
-    paymentMatches &&
-    payment &&
-    (payment.payment_status === "paid" || payment.paid_at !== null)
-  ) {
-    return "paid";
-  }
-  if (paymentMatches && payment?.payment_status === "checkout_open") {
-    return "processing";
-  }
+  if (persistedState === "paid") return "paid";
+  if (persistedState === "processing") return "processing";
   if (
     orderStatus === "pending" &&
-    hasFixedPrice &&
-    (!payment || paymentMatches)
+    persistedState === "payment_required" &&
+    (!paymentExists || paymentMatches)
   ) {
     return "payment_required";
   }
