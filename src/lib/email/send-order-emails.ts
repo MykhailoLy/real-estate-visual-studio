@@ -13,9 +13,10 @@ import {
 } from "@/lib/payments/checkout-eligibility";
 import { renderClientConfirmation, type ClientConfirmationItem } from "./order-client-confirmation";
 import { renderAdminNotification, type AdminOrderItem } from "./order-admin-notification";
+import { renderPaymentConfirmation } from "./order-payment-confirmation";
 import { getAdminAddress, getFromAddress, getResendClient } from "./resend-client";
 
-type DeliveryKind = "client_confirmation" | "admin_notification";
+type DeliveryKind = "client_confirmation" | "admin_notification" | "payment_confirmation";
 interface ClaimedDelivery {
   delivery_id: string;
   order_id: string;
@@ -44,6 +45,15 @@ interface PersistedOrderItem {
   subtotal_cents: number;
   details: Record<string, unknown>;
 }
+interface PersistedPayment {
+  provider: string;
+  payment_status: string;
+  currency: string;
+  subtotal_cents: number;
+  tax_cents: number | null;
+  total_cents: number | null;
+  paid_at: string | null;
+}
 
 export interface DispatchOrderEmailsResult {
   claimed: number;
@@ -52,6 +62,7 @@ export interface DispatchOrderEmailsResult {
   unknown: number;
   clientConfirmationSent: boolean;
   adminNotificationSent: boolean;
+  paymentConfirmationSent: boolean;
 }
 
 interface DispatchOrderEmailsInput {
@@ -60,7 +71,7 @@ interface DispatchOrderEmailsInput {
   orderId?: string;
 }
 
-/** Drain the durable order email outbox strictly after order commit. */
+/** Drain the durable order email outbox strictly after order commit/payment verification. */
 export async function dispatchOrderEmailOutbox(
   input: DispatchOrderEmailsInput,
 ): Promise<DispatchOrderEmailsResult> {
@@ -68,7 +79,7 @@ export async function dispatchOrderEmailOutbox(
     return await dispatchOrderEmailOutboxUnsafe(input);
   } catch (error) {
     console.error(
-      "[order-email-outbox] dispatch threw after order commit:",
+      "[order-email-outbox] dispatch threw after persistence:",
       error instanceof Error ? error.name : "UnknownError",
     );
     return emptyDispatchResult();
@@ -104,6 +115,9 @@ async function dispatchOrderEmailOutboxUnsafe(
     if (outcome === "sent" && delivery.delivery_kind === "admin_notification") {
       result.adminNotificationSent = true;
     }
+    if (outcome === "sent" && delivery.delivery_kind === "payment_confirmation") {
+      result.paymentConfirmationSent = true;
+    }
   }
   return result;
 }
@@ -116,6 +130,7 @@ function emptyDispatchResult(): DispatchOrderEmailsResult {
     unknown: 0,
     clientConfirmationSent: false,
     adminNotificationSent: false,
+    paymentConfirmationSent: false,
   };
   return result;
 }
@@ -168,13 +183,20 @@ async function buildPersistedEmailPayload(
   | { ok: true; value: { from: string; to: string; replyTo: string; subject: string; html: string; text: string } }
   | { ok: false; code: string }
 > {
-  const [{ data: orderData, error: orderError }, { data: itemsData, error: itemsError }] = await Promise.all([
+  const [
+    { data: orderData, error: orderError },
+    { data: itemsData, error: itemsError },
+    { data: paymentData, error: paymentError },
+  ] = await Promise.all([
     supabase.from("orders").select(
       "id,order_number,service_type,job_title,client_name,client_email,client_phone,client_company,item_count,estimated_total_cents,currency,pricing_snapshot",
     ).eq("id", delivery.order_id).maybeSingle(),
     supabase.from("order_items").select(
       "item_index,original_photo_path,reference_image_path,subtotal_cents,details",
     ).eq("order_id", delivery.order_id).order("item_index", { ascending: true }),
+    supabase.from("order_payments").select(
+      "provider,payment_status,currency,subtotal_cents,tax_cents,total_cents,paid_at",
+    ).eq("order_id", delivery.order_id).maybeSingle(),
   ]);
   if (orderError || itemsError || !orderData || !Array.isArray(itemsData)) {
     return { ok: false, code: "persisted_order_unavailable" };
@@ -214,6 +236,40 @@ async function buildPersistedEmailPayload(
       clientEmail: order.client_email,
       clientOrderUrl: absoluteUrl(`/dashboard/jobs/${order.id}`),
       items: clientItems,
+    });
+    return { ok: true, value: { from, to: order.client_email, replyTo: admin, ...rendered } };
+  }
+
+  if (delivery.delivery_kind === "payment_confirmation") {
+    if (paymentError || !paymentData) {
+      return { ok: false, code: "persisted_payment_unavailable" };
+    }
+    const payment = paymentData as PersistedPayment;
+    if (
+      payment.provider !== "stripe" ||
+      payment.payment_status !== "paid" ||
+      payment.currency.toUpperCase() !== order.currency ||
+      !Number.isSafeInteger(payment.subtotal_cents) ||
+      payment.subtotal_cents !== order.estimated_total_cents ||
+      !Number.isSafeInteger(payment.tax_cents) ||
+      (payment.tax_cents ?? -1) < 0 ||
+      !Number.isSafeInteger(payment.total_cents) ||
+      payment.total_cents !== order.estimated_total_cents ||
+      typeof payment.paid_at !== "string" ||
+      payment.paid_at.length === 0
+    ) {
+      return { ok: false, code: "persisted_payment_invalid" };
+    }
+    const rendered = renderPaymentConfirmation({
+      orderNumber: order.order_number,
+      serviceType: order.service_type,
+      serviceLabelOverride,
+      jobTitle: order.job_title,
+      clientName: order.client_name,
+      clientOrderUrl: absoluteUrl(`/dashboard/jobs/${order.id}`),
+      currency: order.currency,
+      totalCents: payment.total_cents,
+      taxCents: payment.tax_cents ?? 0,
     });
     return { ok: true, value: { from, to: order.client_email, replyTo: admin, ...rendered } };
   }
