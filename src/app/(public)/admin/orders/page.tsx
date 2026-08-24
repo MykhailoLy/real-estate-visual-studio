@@ -8,6 +8,7 @@ import AdminOrdersClient, {
 import { getOrderServiceLabel } from "@/lib/display/service-labels";
 import { getPersistedOrderPaymentState } from "@/lib/payments/payment-state";
 import type { PersistedOrderPayment } from "@/lib/payments/payment-state";
+import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 
 // ============================================================
 // /admin/orders
@@ -54,6 +55,12 @@ export default async function AdminOrdersPage() {
   // ── Fetch all orders (newest first) ──────────────────────
   let orders: AdminOrderRow[] = [];
   let totalCount = 0;
+  let expectedStripeLivemode: boolean | null = null;
+  try {
+    expectedStripeLivemode = getExpectedStripeLivemode();
+  } catch {
+    console.error("[admin/orders] Stripe mode is unavailable");
+  }
 
   if (supabaseConfigured) {
     try {
@@ -107,7 +114,7 @@ export default async function AdminOrdersPage() {
               supabase
                 .from("order_payments")
                 .select(
-                  "order_id, provider, payment_status, subtotal_cents, tax_cents, total_cents, " +
+                  "order_id, provider, payment_status, refund_status, subtotal_cents, tax_cents, total_cents, " +
                     "currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, paid_at",
                 )
                 .in("order_id", orderIds),
@@ -144,6 +151,7 @@ export default async function AdminOrdersPage() {
           payment_state:          getPersistedOrderPaymentState(
             row,
             paymentByOrder.get(row.id) ?? null,
+            expectedStripeLivemode,
           ),
           created_at:             row.created_at,
           updated_at:             row.updated_at,

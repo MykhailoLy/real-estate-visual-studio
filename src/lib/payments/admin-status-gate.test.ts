@@ -54,6 +54,7 @@ function payment(overrides: Record<string, unknown> = {}) {
     order_id: orderId,
     provider: "stripe",
     payment_status: "pending",
+    refund_status: "none",
     subtotal_cents: 1500,
     tax_cents: null,
     total_cents: null,
@@ -66,9 +67,23 @@ function payment(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function paymentGate(
+  currentOrder: ReturnType<typeof order>,
+  currentPayment: ReturnType<typeof payment> | null,
+  status: string,
+  expectedStripeLivemode = false,
+) {
+  return assertAdminOrderStatusTransitionAllowed(
+    currentOrder,
+    currentPayment as never,
+    status,
+    { getExpectedStripeLivemode: () => expectedStripeLivemode },
+  );
+}
+
 function assertPaymentGateRejects(status: string): void {
   assert.throws(
-    () => assertAdminOrderStatusTransitionAllowed(order(), null, status),
+    () => paymentGate(order(), null, status),
     (error: unknown) => {
       assert.ok(error instanceof AdminPaymentGateError);
       assert.match(error.message, /matching Paid payment is required/);
@@ -92,7 +107,7 @@ test("unpaid eligible order cannot become delivered", () => {
 test("every persisted unpaid Checkout state remains gated", () => {
   for (const paymentStatus of ["pending", "checkout_open", "expired", "failed"] as const) {
     assert.throws(
-      () => assertAdminOrderStatusTransitionAllowed(
+      () => paymentGate(
         order(),
         payment({ payment_status: paymentStatus }) as never,
         "confirmed",
@@ -113,7 +128,7 @@ test("paid matching eligible order can advance", () => {
 
   for (const status of ["confirmed", "in-progress", "delivered"]) {
     assert.equal(
-      assertAdminOrderStatusTransitionAllowed(order(), paid as never, status),
+      paymentGate(order(), paid, status),
       "paid",
     );
   }
@@ -129,7 +144,7 @@ test("mismatched paid payment cannot advance", () => {
     paid_at: "2026-08-24T12:05:00.000Z",
   });
   assert.throws(
-    () => assertAdminOrderStatusTransitionAllowed(order(), mismatched as never, "confirmed"),
+    () => paymentGate(order(), mismatched, "confirmed"),
     AdminPaymentGateError,
   );
 });
@@ -146,11 +161,11 @@ test("custom-quote and Checkout-ineligible orders preserve manual workflow", () 
     },
   });
   assert.equal(
-    assertAdminOrderStatusTransitionAllowed(customQuote, null, "confirmed"),
+    paymentGate(customQuote, null, "confirmed"),
     "manual_review",
   );
   assert.equal(
-    assertAdminOrderStatusTransitionAllowed(
+    paymentGate(
       order({ service_type: "local-photography" }),
       null,
       "in-progress",
@@ -161,7 +176,57 @@ test("custom-quote and Checkout-ineligible orders preserve manual workflow", () 
 
 test("cancelled remains possible for an unpaid eligible order", () => {
   assert.equal(
-    assertAdminOrderStatusTransitionAllowed(order(), null, "cancelled"),
+    paymentGate(order(), null, "cancelled"),
     "payment_required",
   );
+});
+
+function paidPayment(stripeLivemode: boolean) {
+  return payment({
+    payment_status: "paid",
+    tax_cents: 100,
+    total_cents: 1500,
+    stripe_checkout_session_id: "cs_mode_123",
+    stripe_payment_intent_id: "pi_mode_123",
+    stripe_livemode: stripeLivemode,
+    paid_at: "2026-08-24T12:05:00.000Z",
+  });
+}
+
+test("live expected and live Paid is allowed", () => {
+  assert.equal(paymentGate(order(), paidPayment(true), "confirmed", true), "paid");
+});
+
+test("live expected and test Paid is rejected", () => {
+  assert.throws(
+    () => paymentGate(order(), paidPayment(false), "confirmed", true),
+    AdminPaymentGateError,
+  );
+});
+
+test("test expected and test Paid is allowed", () => {
+  assert.equal(paymentGate(order(), paidPayment(false), "confirmed", false), "paid");
+});
+
+test("test expected and live Paid is rejected", () => {
+  assert.throws(
+    () => paymentGate(order(), paidPayment(true), "confirmed", false),
+    AdminPaymentGateError,
+  );
+});
+
+test("already-persisted partial and full refunds cannot advance", () => {
+  for (const refundStatus of ["partial", "full"] as const) {
+    assert.throws(
+      () => paymentGate(
+        order(),
+        payment({
+          ...paidPayment(false),
+          refund_status: refundStatus,
+        }),
+        "confirmed",
+      ),
+      AdminPaymentGateError,
+    );
+  }
 });

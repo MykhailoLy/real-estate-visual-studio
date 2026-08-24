@@ -18,6 +18,11 @@ export function getStripeApiConfig(): StripeApiConfig {
   return parseStripeApiConfig(process.env);
 }
 
+/** Current server-side Stripe environment, derived from the validated API key. */
+export function getExpectedStripeLivemode(): boolean {
+  return getStripeApiConfig().mode === "live";
+}
+
 /**
  * Reads and validates the webhook signing secret only when verification needs it.
  */

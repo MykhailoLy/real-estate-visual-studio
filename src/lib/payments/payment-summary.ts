@@ -19,6 +19,7 @@ import type {
 
 export interface PaymentSummaryDependencies {
   repository: CheckoutRepository;
+  expectedStripeLivemode: boolean | null;
 }
 
 /**
@@ -41,10 +42,18 @@ export async function getAuthoritativePaymentSummary(
     if (!(error instanceof CheckoutEligibilityError)) throw error;
   }
 
-  const paymentMatches = paymentRecordMatchesCheckoutSnapshot(order, payment);
+  const paymentMatches = paymentRecordMatchesCheckoutSnapshot(
+    order,
+    payment,
+    dependencies.expectedStripeLivemode,
+  );
   const state = deriveCustomerPaymentState({
     orderStatus: order.status,
-    persistedState: getPersistedOrderPaymentState(order, payment),
+    persistedState: getPersistedOrderPaymentState(
+      order,
+      payment,
+      dependencies.expectedStripeLivemode,
+    ),
     paymentExists: payment !== null,
     paymentMatches,
   });

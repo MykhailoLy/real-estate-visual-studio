@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getClientUser } from "@/lib/client-auth";
 import { createSupabaseCheckoutRepository } from "@/lib/payments/checkout-repository";
 import { getAuthoritativePaymentSummary } from "@/lib/payments/payment-summary";
+import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function GET(
   try {
     const summary = await getAuthoritativePaymentSummary(orderId, user.id, {
       repository: createSupabaseCheckoutRepository(getSupabaseAdminClient()),
+      expectedStripeLivemode: getExpectedStripeLivemode(),
     });
     if (!summary) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });

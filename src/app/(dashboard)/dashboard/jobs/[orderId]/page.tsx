@@ -50,6 +50,7 @@ import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
 import { createSupabaseCheckoutRepository } from "@/lib/payments/checkout-repository";
 import { getAuthoritativePaymentSummary } from "@/lib/payments/payment-summary";
+import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export async function generateMetadata({
@@ -184,12 +185,20 @@ export default async function OrderDetailPage({
   const order = await getOrderForClient(orderId, ownership);
   if (!order) notFound();
 
+  let expectedStripeLivemode: boolean | null = null;
+  try {
+    expectedStripeLivemode = getExpectedStripeLivemode();
+  } catch {
+    console.error("[dashboard/order] Stripe mode is unavailable");
+  }
+
   const [allDeliverables, allReviews, sourceFiles, paymentSummary] = await Promise.all([
     getDeliverablesForClient(ownership),
     getReviewsForClient(ownership),
     getClientSourceFilesForOrder(order.id, ownership),
     getAuthoritativePaymentSummary(order.id, user.id, {
       repository: createSupabaseCheckoutRepository(getSupabaseAdminClient()),
+      expectedStripeLivemode,
     }),
   ]);
 

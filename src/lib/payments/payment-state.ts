@@ -3,7 +3,7 @@ import {
   getStoredCheckoutPrice,
   type StoredCheckoutPriceOrder,
 } from "./checkout-eligibility.ts";
-import type { PaymentStatus } from "./domain.ts";
+import type { PaymentStatus, RefundStatus } from "./domain.ts";
 
 export type PersistedOrderPaymentState =
   | "paid"
@@ -19,6 +19,7 @@ export interface PersistedOrderPayment {
   order_id: string;
   provider: string;
   payment_status: PaymentStatus;
+  refund_status: RefundStatus;
   subtotal_cents: number;
   tax_cents: number | null;
   total_cents: number | null;
@@ -32,11 +33,14 @@ export interface PersistedOrderPayment {
 /**
  * Derives an operational payment state from the immutable order snapshot and
  * the webhook-owned payment record. A browser redirect or UI status is never
- * an input. Ineligible and custom-quote orders retain their manual workflow.
+ * an input. Paid also requires the persisted mode to match the current Stripe
+ * environment and requires no already-persisted refund. Ineligible and
+ * custom-quote orders retain their manual workflow.
  */
 export function getPersistedOrderPaymentState(
   order: PaymentStateOrder,
   payment: PersistedOrderPayment | null,
+  expectedStripeLivemode: boolean | null,
 ): PersistedOrderPaymentState {
   let price: ReturnType<typeof getStoredCheckoutPrice>;
   try {
@@ -46,12 +50,18 @@ export function getPersistedOrderPaymentState(
     throw error;
   }
 
-  const matchesCheckoutSnapshot = paymentMatchesPrice(order, payment, price);
+  const matchesCheckoutSnapshot = paymentMatchesPrice(
+    order,
+    payment,
+    price,
+    expectedStripeLivemode,
+  );
 
   if (
     matchesCheckoutSnapshot &&
     payment &&
     payment.payment_status === "paid" &&
+    payment.refund_status === "none" &&
     payment.paid_at !== null &&
     payment.total_cents === price.subtotalCents &&
     payment.tax_cents !== null &&
@@ -77,9 +87,15 @@ export function getPersistedOrderPaymentState(
 export function paymentRecordMatchesCheckoutSnapshot(
   order: PaymentStateOrder,
   payment: PersistedOrderPayment | null,
+  expectedStripeLivemode: boolean | null,
 ): boolean {
   try {
-    return paymentMatchesPrice(order, payment, getStoredCheckoutPrice(order));
+    return paymentMatchesPrice(
+      order,
+      payment,
+      getStoredCheckoutPrice(order),
+      expectedStripeLivemode,
+    );
   } catch (error) {
     if (error instanceof CheckoutEligibilityError) return false;
     throw error;
@@ -90,6 +106,7 @@ function paymentMatchesPrice(
   order: PaymentStateOrder,
   payment: PersistedOrderPayment | null,
   price: ReturnType<typeof getStoredCheckoutPrice>,
+  expectedStripeLivemode: boolean | null,
 ): boolean {
   return Boolean(
     payment &&
@@ -97,6 +114,7 @@ function paymentMatchesPrice(
       payment.provider === "stripe" &&
       payment.subtotal_cents === price.subtotalCents &&
       payment.currency === price.currency &&
-      typeof payment.stripe_livemode === "boolean",
+      expectedStripeLivemode !== null &&
+      payment.stripe_livemode === expectedStripeLivemode,
   );
 }

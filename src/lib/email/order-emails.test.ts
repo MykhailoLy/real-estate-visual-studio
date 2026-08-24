@@ -56,7 +56,14 @@ function clientInput(hasFixedCheckoutPrice: boolean) {
     currency: "USD" as const,
     pricingSnapshot: snapshot(!hasFixedCheckoutPrice),
     hasFixedCheckoutPrice,
-    items: [{ index: 0, details: {}, subtotalCents: hasFixedCheckoutPrice ? 1500 : 0 }],
+    items: [{
+      index: 0,
+      details: {
+        room_name: "Living Room",
+        additional_info: "Keep the fireplace visible",
+      },
+      subtotalCents: hasFixedCheckoutPrice ? 1500 : 0,
+    }],
   };
 }
 
@@ -82,10 +89,13 @@ function adminInput(hasFixedCheckoutPrice: boolean) {
     portfolioPermission: { allowed: false },
     items: [{
       index: 0,
-      details: {},
+      details: {
+        room_name: "Living Room",
+        additional_info: "Keep the fireplace visible",
+      },
       subtotalCents: hasFixedCheckoutPrice ? 1500 : 0,
       files: {
-        originalPath: null,
+        originalPath: "orders/source/living-room.jpg",
         referenceImagePath: null,
         originalFilename: null,
         referenceFilename: null,
@@ -111,6 +121,9 @@ test("fixed-price client email uses the inclusive final total and Checkout next 
   const combined = `${rendered.text}\n${rendered.html}`;
 
   assert.match(rendered.text, /Final total: \$15\.00 USD/);
+  assert.match(rendered.text, /Subtotal: \$15\.00/);
+  assert.match(rendered.html, /Subtotal/);
+  assert.match(rendered.html, /\$15\.00/);
   assert.match(combined, /Any applicable tax is included in this amount\./);
   assert.match(combined, /Complete secure payment from the PicchuSpot order page\./);
   assert.match(combined, /Work begins after payment has been verified\./);
@@ -125,20 +138,37 @@ test("manual-review client email does not advertise a fixed payment", () => {
 
   assert.match(combined, /Manual review required/);
   assert.match(combined, /confirm the scope, price, and next step/);
-  assert.doesNotMatch(combined, /Pay securely/);
-  assert.doesNotMatch(combined, /Final total/);
+  assert.match(combined, /Room: Living Room/);
+  assert.match(combined, /Keep the fireplace visible/);
+  for (const output of [rendered.text, rendered.html]) {
+    assert.doesNotMatch(output, /Subtotal/);
+    assert.doesNotMatch(output, /\$0\.00/);
+    assert.doesNotMatch(output, /Pay securely/);
+    assert.doesNotMatch(output, /Final total/);
+  }
 });
 
 test("admin email calls the stored fixed amount final and inclusive", () => {
   const fixed = renderAdminNotification(adminInput(true));
   const fixedCombined = `${fixed.text}\n${fixed.html}`;
   assert.match(fixed.text, /Final total: \$15\.00 USD/);
+  assert.match(fixed.text, /Subtotal: \$15\.00/);
+  assert.match(fixed.html, /Subtotal/);
+  assert.match(fixed.html, /\$15\.00/);
   assert.match(fixedCombined, /Any applicable tax is included in this amount\./);
   assert.doesNotMatch(fixedCombined, /before tax/i);
 
   const manual = renderAdminNotification(adminInput(false));
   const manualCombined = `${manual.text}\n${manual.html}`;
   assert.match(manualCombined, /Manual review required/);
-  assert.doesNotMatch(manualCombined, /Final total/);
+  assert.match(manualCombined, /Room: Living Room/);
+  assert.match(manualCombined, /Keep the fireplace visible/);
+  assert.match(manualCombined, /orders\/source\/living-room\.jpg/);
   assert.doesNotMatch(manualCombined, /before tax/i);
+  for (const output of [manual.text, manual.html]) {
+    assert.doesNotMatch(output, /Subtotal/);
+    assert.doesNotMatch(output, /\$0\.00/);
+    assert.doesNotMatch(output, /Pay securely/);
+    assert.doesNotMatch(output, /Final total/);
+  }
 });

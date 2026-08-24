@@ -122,7 +122,8 @@ export function renderClientConfirmation(
         referenceImagePath: null,
         originalFilename: null,
         referenceFilename: null,
-      }
+      },
+      { includeSubtotal: hasFixedCheckoutPrice },
     )
   );
 

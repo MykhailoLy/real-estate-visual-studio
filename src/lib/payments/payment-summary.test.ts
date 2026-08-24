@@ -88,6 +88,7 @@ function repository(
 test("returns an authoritative fixed-price payment-required summary", async () => {
   const summary = await getAuthoritativePaymentSummary(orderId, userId, {
     repository: repository(order(), null) as never,
+    expectedStripeLivemode: false,
   });
   assert.deepEqual(summary, {
     orderId,
@@ -104,6 +105,7 @@ test("returns an authoritative fixed-price payment-required summary", async () =
 test("uses only persisted payment state for processing and Paid", async () => {
   const processing = await getAuthoritativePaymentSummary(orderId, userId, {
     repository: repository(order(), payment({ payment_status: "checkout_open" })) as never,
+    expectedStripeLivemode: false,
   });
   assert.equal(processing?.state, "processing");
 
@@ -116,6 +118,7 @@ test("uses only persisted payment state for processing and Paid", async () => {
       stripe_payment_intent_id: "pi_test_paid",
       paid_at: "2026-08-24T12:05:00.000Z",
     })) as never,
+    expectedStripeLivemode: false,
   });
   assert.equal(paid?.state, "paid");
 
@@ -124,15 +127,35 @@ test("uses only persisted payment state for processing and Paid", async () => {
       payment_status: "paid",
       paid_at: "2026-08-24T12:05:00.000Z",
     })) as never,
+    expectedStripeLivemode: false,
   });
   assert.equal(incompletePaidRecord?.state, "payment_required");
   assert.equal(incompletePaidRecord?.paymentStatus, null);
+});
+
+test("does not report Paid from a different Stripe environment", async () => {
+  const summary = await getAuthoritativePaymentSummary(orderId, userId, {
+    repository: repository(order(), payment({
+      payment_status: "paid",
+      tax_cents: 100,
+      total_cents: 1500,
+      stripe_checkout_session_id: "cs_test_paid",
+      stripe_payment_intent_id: "pi_test_paid",
+      stripe_livemode: false,
+      paid_at: "2026-08-24T12:05:00.000Z",
+    })) as never,
+    expectedStripeLivemode: true,
+  });
+
+  assert.equal(summary?.state, "not_available");
+  assert.equal(summary?.paymentStatus, null);
 });
 
 test("keeps expired and failed attempts safely retryable", async () => {
   for (const paymentStatus of ["expired", "failed"] as const) {
     const summary = await getAuthoritativePaymentSummary(orderId, userId, {
       repository: repository(order(), payment({ payment_status: paymentStatus })) as never,
+      expectedStripeLivemode: false,
     });
     assert.equal(summary?.state, "payment_required");
   }
@@ -141,11 +164,13 @@ test("keeps expired and failed attempts safely retryable", async () => {
 test("rejects ownership failure and payment/snapshot mismatches", async () => {
   const wrongOwner = await getAuthoritativePaymentSummary(orderId, "other-user", {
     repository: repository(order(), null) as never,
+    expectedStripeLivemode: false,
   });
   assert.equal(wrongOwner, null);
 
   const mismatched = await getAuthoritativePaymentSummary(orderId, userId, {
     repository: repository(order(), payment({ subtotal_cents: 1 })) as never,
+    expectedStripeLivemode: false,
   });
   assert.equal(mismatched?.state, "not_available");
   assert.equal(mismatched?.paymentStatus, null);
@@ -164,6 +189,7 @@ test("does not invent a total or Checkout CTA for custom-quote orders", async ()
   });
   const summary = await getAuthoritativePaymentSummary(orderId, userId, {
     repository: repository(customQuoteOrder, null) as never,
+    expectedStripeLivemode: false,
   });
   assert.equal(summary?.finalTotalCents, null);
   assert.equal(summary?.currency, null);

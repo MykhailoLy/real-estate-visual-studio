@@ -132,7 +132,8 @@ export function renderAdminNotification(
         referenceFilename: item.files.referenceFilename,
         originalDownloadUrl: item.files.originalDownloadUrl,
         referenceDownloadUrl: item.files.referenceDownloadUrl,
-      }
+      },
+      { includeSubtotal: hasFixedCheckoutPrice },
     )
   );
 
