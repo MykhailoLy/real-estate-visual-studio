@@ -323,7 +323,8 @@ test("already-converted claim returns the converted order id", () => {
 test("source draft ID maps to one production order", () => {
   assert.match(SQL, /ADD COLUMN IF NOT EXISTS source_draft_id uuid NULL/);
   assert.match(SQL, /orders_source_draft_id_unique/);
-  assert.match(ORDER_SERVICE, /orderInsert\.source_draft_id = input\.sourceDraftId/);
+  assert.match(ORDER_SERVICE, /p_source_draft_id: input\.sourceDraftId \?\? null/);
+  assert.match(ORDER_SERVICE, /p_draft_expected_version: input\.draftExpectedVersion \?\? null/);
 });
 
 test("draft state maps to the production Staging item shape", () => {
@@ -549,11 +550,11 @@ test("Single Exposure aerial choices and detail requirements reach final order d
 });
 
 test("final copy cleanup occurs on pre-order failure", () => {
-  assert.match(ORDER_SERVICE, /cleanupAfterFinalizationFailure/);
   assert.match(
     ORDER_SERVICE,
-    /cleanupFinalPaths\(input\.supabase, input\.copiedFinalPaths\)/,
+    /cleanupFinalPaths\(supabase, copiedFinalPaths\)/,
   );
+  assert.match(ORDER_SERVICE, /if \(finalizedReference\.createdFinal\) copiedFinalPaths\.push/);
 });
 
 test("source draft objects are retained until DB success", () => {
@@ -1586,7 +1587,8 @@ test("failed local fallback keeps the draft active", () => {
 
 test("canonical pricing error code survives the /api/order refactor", () => {
   assert.match(ORDER_SERVICE, /code: error\.code/);
-  assert.match(ORDER_ROUTE, /code: result\.code/);
+  assert.match(ORDER_ROUTE, /const responseCode[\s\S]*: result\.code/);
+  assert.match(ORDER_ROUTE, /code: responseCode/);
 });
 
 test("ordinary order success shape remains unchanged", () => {

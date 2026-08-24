@@ -28,7 +28,7 @@ import {
   calculateOrderQuote,
   PricingValidationError,
 } from "@/lib/pricing/calculate";
-import { createPricingSnapshot } from "@/lib/pricing/snapshot";
+import { createPricingSnapshot, parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import type {
   OrderPricingInput,
   OrderQuote,
@@ -39,13 +39,14 @@ import {
   ORDER_FILES_BUCKET,
   buildFinalPath,
   getFileExtension,
+  pendingTokenForSubmissionId,
   type UploadKind,
 } from "@/lib/upload-config";
 import {
   validateDirectPendingDescriptorStructure,
   verifyDirectOrderUploads,
 } from "./direct-upload-verification.ts";
-import { sendOrderEmails } from "@/lib/email/send-order-emails";
+import { dispatchOrderEmailOutbox } from "@/lib/email/send-order-emails";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import {
   getDedicatedSubServiceLabel,
@@ -65,6 +66,11 @@ import {
   DUSK_STYLE_DEFAULT,
 } from "@/lib/day-to-dusk";
 import { getRemovalTaskLabels, isRemovalTaskId } from "@/lib/item-removal";
+import {
+  createAuthoritativeQuoteHash,
+  createOrderIntentHash,
+  ORDER_SUBMISSION_SCHEMA_VERSION,
+} from "./order-submission-fingerprint.ts";
 
 export type ValidatedOrderItem =
   | StagingItem
@@ -107,7 +113,14 @@ export interface FinalizedOrderItemFiles {
   references: FinalizedOrderFile[];
 }
 
+interface StorageObjectIdentity {
+  etag: string;
+  size: number;
+  mimeType: string;
+}
+
 export interface CreateProductionOrderInput {
+  submissionId: string;
   ownerUserId: string;
   clientIdentity: ResolvedClientIdentity;
   serviceType: ServiceType;
@@ -119,6 +132,8 @@ export interface CreateProductionOrderInput {
   termsAcceptance: { accepted: boolean; version: string };
   portfolioPermission?: { allowed: boolean };
   sourceDraftId?: string;
+  draftExpectedVersion?: number;
+  draftFinalizationKey?: string;
   storageMode: StorageFinalizationMode;
 }
 
@@ -128,6 +143,12 @@ export type CreateProductionOrderErrorCode =
   | "custom-quote-required"
   | "storage_error"
   | "database_error"
+  | "in_progress"
+  | "payload_conflict"
+  | "pricing_changed"
+  | "not_found"
+  | "draft_conflict"
+  | "client_upgrade_required"
   | "source_draft_exists"
   | (string & {});
 
@@ -140,6 +161,7 @@ export type CreateProductionOrderResult =
       currency: TransactionalCurrency;
       pricingSnapshot: PricingSnapshot;
       itemCount: number;
+      replayed: boolean;
       emailNotifications: {
         clientConfirmation: boolean;
         adminNotification: boolean;
@@ -151,6 +173,7 @@ export type CreateProductionOrderResult =
       code: CreateProductionOrderErrorCode;
       message: string;
       status: number;
+      currentPricingSnapshot?: PricingSnapshot;
     };
 
 export function validateOrderItemsForService(
@@ -185,7 +208,12 @@ export function validateOrderItemsForService(
 export function validatePendingOrderFileDescriptors(
   serviceType: ServiceType,
   itemFiles: ItemFiles[],
+  submissionId: string,
 ): { ok: true } | { ok: false; error: string } {
+  const expectedPendingToken = pendingTokenForSubmissionId(submissionId);
+  if (!expectedPendingToken) {
+    return { ok: false, error: "submissionId is invalid." };
+  }
   const seenPaths = new Set<string>();
   for (let i = 0; i < itemFiles.length; i++) {
     const slot = itemFiles[i];
@@ -207,6 +235,9 @@ export function validatePendingOrderFileDescriptors(
         error: `Item ${i + 1} original file descriptor is missing or invalid.`,
       };
     }
+    if (original.data.pendingToken !== expectedPendingToken) {
+      return { ok: false, error: "Upload namespace does not match submissionId." };
+    }
     if (slot.reference) {
       const reference = validateDirectPendingDescriptorStructure({
         descriptor: slot.reference,
@@ -219,6 +250,9 @@ export function validatePendingOrderFileDescriptors(
           ok: false,
           error: `Item ${i + 1} reference file descriptor is invalid.`,
         };
+      }
+      if (reference.data.pendingToken !== expectedPendingToken) {
+        return { ok: false, error: "Upload namespace does not match submissionId." };
       }
     }
     for (const descriptor of slot.references ?? []) {
@@ -234,83 +268,14 @@ export function validatePendingOrderFileDescriptors(
           error: `Item ${i + 1} reference file descriptor is invalid.`,
         };
       }
+      if (reference.data.pendingToken !== expectedPendingToken) {
+        return { ok: false, error: "Upload namespace does not match submissionId." };
+      }
     }
   }
 
   void serviceType;
   return { ok: true };
-}
-
-interface SuccessfulDirectMove {
-  sourcePath: string;
-  finalPath: string;
-}
-
-function isSuccessfulDirectMove(
-  value: SuccessfulDirectMove | null | undefined,
-): value is SuccessfulDirectMove {
-  return Boolean(value);
-}
-
-async function cleanupAfterFinalizationFailure(input: {
-  supabase: SupabaseClient;
-  mode: StorageFinalizationMode;
-  copiedFinalPaths: string[];
-  movedDirectFiles: SuccessfulDirectMove[];
-  scope: string;
-}): Promise<void> {
-  if (input.mode === "move") {
-    await rollbackDirectMoves(
-      input.supabase,
-      input.movedDirectFiles,
-      input.scope,
-    );
-  } else {
-    await cleanupFinalPaths(input.supabase, input.copiedFinalPaths);
-  }
-}
-
-async function cleanupAfterDatabaseFailure(input: {
-  supabase: SupabaseClient;
-  mode: StorageFinalizationMode;
-  finalizedItemFiles: FinalizedOrderItemFiles[];
-  movedDirectFiles: SuccessfulDirectMove[];
-  scope: string;
-}): Promise<void> {
-  if (input.mode === "move") {
-    await rollbackDirectMoves(
-      input.supabase,
-      input.movedDirectFiles,
-      input.scope,
-    );
-  } else {
-    await cleanupFinalizedFiles(input.supabase, input.finalizedItemFiles);
-  }
-}
-
-async function rollbackDirectMoves(
-  supabase: SupabaseClient,
-  movedFiles: SuccessfulDirectMove[],
-  scope: string,
-): Promise<void> {
-  for (const moved of [...movedFiles].reverse()) {
-    try {
-      const { error } = await supabase.storage
-        .from(ORDER_FILES_BUCKET)
-        .move(moved.finalPath, moved.sourcePath);
-      if (error) {
-        console.error("[orders] direct storage rollback returned error:", {
-          scope,
-          reason: getSafeStorageErrorLabel(error),
-        });
-      }
-    } catch (error) {
-      console.error("[orders] direct storage rollback threw:", {
-        scope,
-        reason: getSafeStorageErrorLabel(error),
-      });
-    }
-  }
 }
 
 function getSafeStorageErrorLabel(error: unknown): string {
@@ -328,20 +293,6 @@ function getSafeStorageErrorLabel(error: unknown): string {
     }
   }
   return "StorageError";
-}
-
-function directStorageFinalizationError(): {
-  ok: false;
-  code: "storage_error";
-  message: string;
-  status: 500;
-} {
-  return {
-    ok: false,
-    code: "storage_error",
-    message: "Could not finalize uploaded files. Please refresh and upload again.",
-    status: 500,
-  };
 }
 
 export async function createProductionOrder(
@@ -387,10 +338,53 @@ export async function createProductionOrder(
     };
   }
 
-  const pricingSnapshot = createPricingSnapshot(quote);
-  const itemSubtotals = quote.items.map((item) => item.lineSubtotalCents);
-  const estimatedTotalCents = quote.totalCents;
   const supabase = getSupabaseAdminClient();
+  const requestHash = createOrderIntentHash(input);
+  const quoteHash = createAuthoritativeQuoteHash(quote);
+  const proposedSnapshot = createPricingSnapshot(quote);
+  const leaseToken = crypto.randomUUID();
+  const { data: claimData, error: claimError } = await supabase.rpc(
+    "claim_order_submission",
+    {
+      p_user_id: input.ownerUserId,
+      p_submission_id: input.submissionId,
+      p_request_hash: requestHash,
+      p_request_schema_version: ORDER_SUBMISSION_SCHEMA_VERSION,
+      p_service_type: input.serviceType,
+      p_source_draft_id: input.sourceDraftId ?? null,
+      p_lease_token: leaseToken,
+      p_currency: input.currency,
+      p_pricing_version: quote.pricingVersion,
+      p_quote_hash: quoteHash,
+      p_estimated_total_cents: quote.totalCents,
+      p_pricing_snapshot: proposedSnapshot,
+    },
+  );
+  if (claimError) {
+    console.error("[orders] submission claim failed:", claimError.message);
+    return databaseAmbiguityError();
+  }
+  const claim = firstRpcRow<OrderSubmissionClaimRow>(claimData);
+  if (!claim) return databaseAmbiguityError();
+  if (claim.result_code === "committed") {
+    return committedResultFromClaim(claim, input.items.length);
+  }
+  const claimFailure = mapClaimFailure(claim.result_code, proposedSnapshot);
+  if (claimFailure) return claimFailure;
+  if (
+    claim.result_code !== "claimed" ||
+    claim.lease_token !== leaseToken ||
+    !claim.reserved_order_number
+  ) {
+    return databaseAmbiguityError();
+  }
+
+  const pricingSnapshot = parsePricingSnapshot(claim.pricing_snapshot);
+  if (!pricingSnapshot || pricingSnapshot.totalCents === null) {
+    await releaseSubmissionBestEffort(supabase, input, leaseToken, "invalid_snapshot");
+    return databaseAmbiguityError();
+  }
+  const itemSubtotals = pricingSnapshot.items.map((item) => item.lineSubtotalCents);
   const itemFiles =
     input.storageMode === "move"
       ? await verifyDirectOrderUploads({
@@ -405,6 +399,7 @@ export async function createProductionOrder(
       : { ok: true as const, data: input.itemFiles };
 
   if (!itemFiles.ok) {
+    await releaseSubmissionBestEffort(supabase, input, leaseToken, itemFiles.code);
     return {
       ok: false,
       code: itemFiles.code,
@@ -412,25 +407,10 @@ export async function createProductionOrder(
       status: itemFiles.status,
     };
   }
-
-  const { data: orderNumber, error: rpcError } = await supabase.rpc(
-    "generate_order_number",
-    { p_service_type: input.serviceType },
-  );
-
-  if (rpcError || !orderNumber) {
-    console.error("[orders] failed to generate order number:", rpcError?.message);
-    return {
-      ok: false,
-      code: "database_error",
-      message: "Failed to generate order number. Please try again.",
-      status: 500,
-    };
-  }
+  const orderNumber = claim.reserved_order_number;
 
   const finalizedItemFiles: FinalizedOrderItemFiles[] = [];
   const copiedFinalPaths: string[] = [];
-  const movedDirectFiles: SuccessfulDirectMove[] = [];
 
   for (let i = 0; i < itemFiles.data.length; i++) {
     const slot = itemFiles.data[i];
@@ -443,19 +423,11 @@ export async function createProductionOrder(
       mode: input.storageMode,
     });
     if (!original.ok) {
-      await cleanupAfterFinalizationFailure({
-        supabase,
-        mode: input.storageMode,
-        copiedFinalPaths,
-        movedDirectFiles,
-        scope: "original finalization failure",
-      });
+      await cleanupFinalPaths(supabase, copiedFinalPaths);
+      await releaseSubmissionBestEffort(supabase, input, leaseToken, original.code);
       return original;
     }
-    if (input.storageMode === "copy") copiedFinalPaths.push(original.file.finalPath);
-    if (isSuccessfulDirectMove(original.directMove)) {
-      movedDirectFiles.push(original.directMove);
-    }
+    if (original.createdFinal) copiedFinalPaths.push(original.file.finalPath);
 
     let reference: FinalizedOrderFile | null = null;
     if (slot.reference) {
@@ -469,22 +441,12 @@ export async function createProductionOrder(
         referenceId: slot.reference.referenceId,
       });
       if (!finalizedReference.ok) {
-        await cleanupAfterFinalizationFailure({
-          supabase,
-          mode: input.storageMode,
-          copiedFinalPaths,
-          movedDirectFiles,
-          scope: "reference finalization failure",
-        });
+        await cleanupFinalPaths(supabase, copiedFinalPaths);
+        await releaseSubmissionBestEffort(supabase, input, leaseToken, finalizedReference.code);
         return finalizedReference;
       }
       reference = finalizedReference.file;
-      if (input.storageMode === "copy") {
-        copiedFinalPaths.push(finalizedReference.file.finalPath);
-      }
-      if (isSuccessfulDirectMove(finalizedReference.directMove)) {
-        movedDirectFiles.push(finalizedReference.directMove);
-      }
+      if (finalizedReference.createdFinal) copiedFinalPaths.push(finalizedReference.file.finalPath);
     }
 
     const references: FinalizedOrderFile[] = [];
@@ -501,22 +463,12 @@ export async function createProductionOrder(
         referencePosition: trustedReference.position,
       });
       if (!finalizedReference.ok) {
-        await cleanupAfterFinalizationFailure({
-          supabase,
-          mode: input.storageMode,
-          copiedFinalPaths,
-          movedDirectFiles,
-          scope: "multi-reference finalization failure",
-        });
+        await cleanupFinalPaths(supabase, copiedFinalPaths);
+        await releaseSubmissionBestEffort(supabase, input, leaseToken, finalizedReference.code);
         return finalizedReference;
       }
       references.push(finalizedReference.file);
-      if (input.storageMode === "copy") {
-        copiedFinalPaths.push(finalizedReference.file.finalPath);
-      }
-      if (isSuccessfulDirectMove(finalizedReference.directMove)) {
-        movedDirectFiles.push(finalizedReference.directMove);
-      }
+      if (finalizedReference.createdFinal) copiedFinalPaths.push(finalizedReference.file.finalPath);
     }
 
     if (!reference && references.length > 0) reference = references[0];
@@ -536,50 +488,6 @@ export async function createProductionOrder(
     });
   }
 
-  const orderInsert: Record<string, unknown> = {
-    order_number: orderNumber,
-    service_type: input.serviceType,
-    status: "pending",
-    job_title: input.jobTitle.trim(),
-    user_id: input.ownerUserId,
-    client_name: input.clientIdentity.name,
-    client_email: input.clientIdentity.email,
-    client_phone: input.clientIdentity.phone,
-    client_company: input.clientIdentity.company,
-    item_count: input.items.length,
-    estimated_total_cents: estimatedTotalCents,
-    currency: input.currency,
-    pricing_snapshot: pricingSnapshot,
-  };
-  if (input.sourceDraftId) {
-    orderInsert.source_draft_id = input.sourceDraftId;
-  }
-
-  const { data: orderData, error: orderError } = await supabase
-    .from("orders")
-    .insert(orderInsert)
-    .select("id")
-    .single();
-
-  if (orderError || !orderData) {
-    console.error("[orders] failed to insert order:", orderError?.message);
-    await cleanupAfterDatabaseFailure({
-      supabase,
-      mode: input.storageMode,
-      finalizedItemFiles,
-      movedDirectFiles,
-      scope: "order insert failure",
-    });
-    return {
-      ok: false,
-      code: isUniqueSourceDraftError(orderError) ?
-        "source_draft_exists" :
-        "database_error",
-      message: "Failed to save order. Please try again.",
-      status: 500,
-    };
-  }
-
   const trustedTermsAcceptance = {
     accepted: input.termsAcceptance.accepted,
     version: input.termsAcceptance.version || "unspecified",
@@ -590,12 +498,10 @@ export async function createProductionOrder(
   };
 
   const orderItemsPayload = input.items.map((item, i) => ({
-    id: crypto.randomUUID(),
-    order_id: orderData.id,
-    item_index: i,
-    original_photo_path: finalizedItemFiles[i].original.finalPath,
-    reference_image_path: finalizedItemFiles[i].reference?.finalPath ?? null,
-    subtotal_cents: itemSubtotals[i],
+    itemIndex: i,
+    originalPhotoPath: finalizedItemFiles[i].original.finalPath,
+    referenceImagePath: finalizedItemFiles[i].reference?.finalPath ?? null,
+    subtotalCents: itemSubtotals[i],
     details: {
       ...buildItemDetails(input.serviceType, item),
       pricing: pricingSnapshot.items[i],
@@ -613,121 +519,241 @@ export async function createProductionOrder(
         references: getTrustedReferenceFiles(itemFiles.data[i]).map(serializeUploadedFile),
       },
     },
+    references: finalizedItemFiles[i].references.map((reference, position) => ({
+      referenceId: reference.referenceId ?? crypto.randomUUID(),
+      position: reference.position ?? position,
+      bucket: ORDER_FILES_BUCKET,
+      storagePath: reference.finalPath,
+      originalFilename: reference.originalFilename,
+      fileSize: reference.size,
+      mimeType: reference.mimeType,
+    })),
   }));
 
-  const { error: itemsError } = await supabase
-    .from("order_items")
-    .insert(orderItemsPayload);
+  const movedDraftFiles = input.sourceDraftId
+    ? finalizedItemFiles.flatMap((slot) => [slot.original, ...slot.references])
+        .filter((file) => file.draftFileId)
+        .map((file) => ({ fileId: file.draftFileId!, finalPath: file.finalPath }))
+    : null;
+  const { data: commitData, error: commitError } = await supabase.rpc(
+    "commit_order_submission",
+    {
+      p_user_id: input.ownerUserId,
+      p_submission_id: input.submissionId,
+      p_request_hash: requestHash,
+      p_lease_token: leaseToken,
+      p_client_name: input.clientIdentity.name,
+      p_client_email: input.clientIdentity.email,
+      p_client_phone: input.clientIdentity.phone,
+      p_client_company: input.clientIdentity.company,
+      p_job_title: input.jobTitle,
+      p_items: orderItemsPayload,
+      p_draft_expected_version: input.draftExpectedVersion ?? null,
+      p_draft_finalization_key: input.draftFinalizationKey ?? null,
+      p_draft_moved_files: movedDraftFiles,
+    },
+  );
 
-  if (itemsError) {
-    console.error(
-      "[orders] failed to insert order items:",
-      itemsError.message,
-    );
-    await supabase.from("orders").delete().eq("id", orderData.id);
-    await cleanupAfterDatabaseFailure({
+  let commit = firstRpcRow<OrderSubmissionCommitRow>(commitData);
+  if (commitError || !commit) {
+    console.error("[orders] atomic commit outcome is ambiguous:", commitError?.message);
+    commit = await recoverCommittedSubmission(supabase, input);
+    if (!commit) return databaseAmbiguityError();
+  }
+  if (commit.result_code !== "created" && commit.result_code !== "replayed") {
+    await cleanupFinalPaths(supabase, copiedFinalPaths);
+    await releaseSubmissionBestEffort(supabase, input, leaseToken, commit.result_code);
+    return mapCommitFailure(commit.result_code);
+  }
+
+  await removeSourcePathsBestEffort(
+    supabase,
+    finalizedItemFiles.flatMap((slot) => [slot.original, ...slot.references])
+      .map((file) => file.sourcePath)
+      .filter((path, index, all) => path && all.indexOf(path) === index),
+  );
+
+  let emailNotifications = { clientConfirmation: false, adminNotification: false };
+  if (commit.result_code === "created") {
+    const emailResult = await dispatchOrderEmailOutbox({
       supabase,
-      mode: input.storageMode,
-      finalizedItemFiles,
-      movedDirectFiles,
-      scope: "order items insert failure",
+      limit: 2,
+      orderId: commit.order_id,
     });
-    return {
-      ok: false,
-      code: "database_error",
-      message: "Failed to save order items. Please try again.",
-      status: 500,
+    emailNotifications = {
+      clientConfirmation: emailResult.clientConfirmationSent,
+      adminNotification: emailResult.adminNotificationSent,
     };
   }
 
-  const insertedItemIds = new Map<number, string>();
-  for (const row of orderItemsPayload) {
-    insertedItemIds.set(Number(row.item_index), String(row.id));
-  }
-  const normalizedReferences = finalizedItemFiles.flatMap((slot, itemIndex) => {
-    const orderItemId = insertedItemIds.get(itemIndex);
-    if (!orderItemId) return [];
-    return slot.references.map((reference, position) => ({
-      order_item_id: orderItemId,
-      reference_id: reference.referenceId ?? crypto.randomUUID(),
-      position: reference.position ?? position,
-      bucket: ORDER_FILES_BUCKET,
-      storage_path: reference.finalPath,
-      original_filename: reference.originalFilename,
-      file_size: reference.size,
-      mime_type: reference.mimeType,
-    }));
-  });
-  if (normalizedReferences.length > 0) {
-    const { error: referencesError } = await supabase
-      .from("order_item_reference_files")
-      .insert(normalizedReferences);
-    if (referencesError) {
-      console.error("[orders] failed to insert reference files:", referencesError.message);
-      await supabase.from("orders").delete().eq("id", orderData.id);
-      await cleanupAfterDatabaseFailure({
-        supabase,
-        mode: input.storageMode,
-        finalizedItemFiles,
-        movedDirectFiles,
-        scope: "reference metadata insert failure",
-      });
-      return {
-        ok: false,
-        code: "database_error",
-        message: "Failed to save reference files. Please try again.",
-        status: 500,
-      };
-    }
-  }
-
-  const emailResult = await sendOrderEmails({
-    supabase,
-    orderNumber,
-    serviceType: input.serviceType,
-    jobTitle: input.jobTitle.trim(),
-    client: {
-      name: input.clientIdentity.name,
-      email: input.clientIdentity.email,
-      phone: input.clientIdentity.phone,
-      company: input.clientIdentity.company,
-    },
-    itemCount: input.items.length,
-    estimatedTotalCents,
-    currency: input.currency,
-    pricingSnapshot,
-    termsAcceptance: trustedTermsAcceptance,
-    portfolioPermission: trustedPortfolioPermission,
-    items: input.items.map((item, i) => ({
-      index: i,
-      subtotalCents: itemSubtotals[i],
-      details: orderItemsPayload[i].details as Record<string, unknown>,
-      files: {
-        originalPath: finalizedItemFiles[i].original.finalPath,
-        referenceImagePath: finalizedItemFiles[i].reference?.finalPath ?? null,
-        originalFilename: itemFiles.data[i].original.originalFilename,
-        referenceFilename:
-          itemFiles.data[i].reference?.originalFilename ?? null,
-        originalSizeBytes: itemFiles.data[i].original.size,
-        referenceSizeBytes: itemFiles.data[i].reference?.size ?? null,
-      },
-    })),
-  });
-
   return {
     ok: true,
-    orderId: String(orderData.id),
-    orderNumber,
-    estimatedTotalCents,
-    currency: input.currency,
-    pricingSnapshot,
-    itemCount: input.items.length,
-    emailNotifications: {
-      clientConfirmation: emailResult.client.sent,
-      adminNotification: emailResult.admin.sent,
-    },
+    orderId: commit.order_id,
+    orderNumber: commit.order_number,
+    estimatedTotalCents: commit.estimated_total_cents,
+    currency: commit.currency as TransactionalCurrency,
+    pricingSnapshot: parsePricingSnapshot(commit.pricing_snapshot) ?? pricingSnapshot,
+    itemCount: commit.item_count,
+    replayed: commit.result_code === "replayed",
+    emailNotifications,
     finalizedItemFiles,
   };
+}
+interface OrderSubmissionClaimRow {
+  result_code: string;
+  lease_token: string | null;
+  reserved_order_id: string | null;
+  reserved_order_number: string | null;
+  order_id: string | null;
+  estimated_total_cents: number;
+  currency: string;
+  pricing_snapshot: unknown;
+}
+
+interface OrderSubmissionCommitRow {
+  result_code: string;
+  created: boolean;
+  order_id: string;
+  order_number: string;
+  estimated_total_cents: number;
+  currency: string;
+  pricing_snapshot: unknown;
+  item_count: number;
+}
+
+function firstRpcRow<T>(data: unknown): T | null {
+  if (Array.isArray(data)) return (data[0] as T | undefined) ?? null;
+  return data && typeof data === "object" ? data as T : null;
+}
+
+function mapClaimFailure(
+  code: string,
+  currentPricingSnapshot: PricingSnapshot,
+): CreateProductionOrderResult | null {
+  switch (code) {
+    case "in_progress":
+      return orderConflict("in_progress", "This order submission is still processing.");
+    case "payload_conflict":
+      return orderConflict("payload_conflict", "submissionId was already used for different order details.");
+    case "pricing_changed":
+      return {
+        ok: false,
+        code: "pricing_changed",
+        message: "Pricing changed before the order was committed. Review and confirm the new price.",
+        status: 409,
+        currentPricingSnapshot,
+      };
+    case "not_found":
+      return { ok: false, code: "not_found", message: "Order submission was not found.", status: 404 };
+    default:
+      return null;
+  }
+}
+
+function mapCommitFailure(code: string): CreateProductionOrderResult {
+  if (code === "not_found") {
+    return { ok: false, code: "not_found", message: "Order submission was not found.", status: 404 };
+  }
+  if (code === "payload_conflict") {
+    return orderConflict("payload_conflict", "submissionId was already used for different order details.");
+  }
+  if (code === "draft_conflict") {
+    return orderConflict("draft_conflict", "The saved draft changed or is no longer available for conversion.");
+  }
+  if (code === "lease_conflict") {
+    return orderConflict("in_progress", "This order submission is still processing.");
+  }
+  return databaseAmbiguityError();
+}
+
+function orderConflict(code: CreateProductionOrderErrorCode, message: string): CreateProductionOrderResult {
+  return { ok: false, code, message, status: 409 };
+}
+
+function databaseAmbiguityError(): CreateProductionOrderResult {
+  return {
+    ok: false,
+    code: "database_error",
+    message: "Order outcome could not be confirmed. Retry with the same submissionId.",
+    status: 500,
+  };
+}
+
+function committedResultFromClaim(
+  claim: OrderSubmissionClaimRow,
+  itemCount: number,
+): CreateProductionOrderResult {
+  const snapshot = parsePricingSnapshot(claim.pricing_snapshot);
+  if (!claim.order_id || !claim.reserved_order_number || !snapshot || snapshot.totalCents === null) {
+    return databaseAmbiguityError();
+  }
+  return {
+    ok: true,
+    orderId: claim.order_id,
+    orderNumber: claim.reserved_order_number,
+    estimatedTotalCents: snapshot.totalCents,
+    currency: snapshot.currency,
+    pricingSnapshot: snapshot,
+    itemCount,
+    replayed: true,
+    emailNotifications: { clientConfirmation: false, adminNotification: false },
+    finalizedItemFiles: [],
+  };
+}
+
+async function releaseSubmissionBestEffort(
+  supabase: SupabaseClient,
+  input: CreateProductionOrderInput,
+  leaseToken: string,
+  errorCode: string,
+): Promise<void> {
+  try {
+    const { error } = await supabase.rpc("release_order_submission", {
+      p_user_id: input.ownerUserId,
+      p_submission_id: input.submissionId,
+      p_lease_token: leaseToken,
+      p_error_code: errorCode,
+    });
+    if (error) console.error("[orders] claim release failed:", error.message);
+  } catch {
+    console.error("[orders] claim release threw");
+  }
+}
+
+async function recoverCommittedSubmission(
+  supabase: SupabaseClient,
+  input: CreateProductionOrderInput,
+): Promise<OrderSubmissionCommitRow | null> {
+  const { data, error } = await supabase
+    .from("order_submissions")
+    .select("status,order_id,reserved_order_number,estimated_total_cents,currency,pricing_snapshot")
+    .eq("submission_id", input.submissionId)
+    .eq("user_id", input.ownerUserId)
+    .maybeSingle();
+  if (error || !data || data.status !== "committed" || !data.order_id) return null;
+  return {
+    result_code: "replayed",
+    created: false,
+    order_id: String(data.order_id),
+    order_number: String(data.reserved_order_number),
+    estimated_total_cents: Number(data.estimated_total_cents),
+    currency: String(data.currency),
+    pricing_snapshot: data.pricing_snapshot,
+    item_count: input.items.length,
+  };
+}
+
+async function removeSourcePathsBestEffort(
+  supabase: SupabaseClient,
+  paths: string[],
+): Promise<void> {
+  if (paths.length === 0) return;
+  try {
+    const { error } = await supabase.storage.from(ORDER_FILES_BUCKET).remove(paths);
+    if (error) console.error("[orders] committed source cleanup failed:", error.message);
+  } catch {
+    console.error("[orders] committed source cleanup threw");
+  }
 }
 
 function calculateServerQuote(
@@ -957,7 +983,7 @@ async function finalizeFileToOrderPath(input: {
   | {
       ok: true;
       file: FinalizedOrderFile;
-      directMove?: SuccessfulDirectMove;
+      createdFinal: boolean;
     }
   | {
       ok: false;
@@ -978,51 +1004,125 @@ async function finalizeFileToOrderPath(input: {
     input.referenceId,
   );
 
-  if (input.uploaded.path !== finalPath) {
-    if (input.mode === "move") {
-      const { error } = await input.supabase.storage
-        .from(ORDER_FILES_BUCKET)
-        .move(input.uploaded.path, finalPath);
+  // Supabase Storage's server-read object ETag is the preparation proof for
+  // this copy attempt. Size and MIME remain validation attributes, but are not
+  // sufficient identity on their own.
+  const sourceIdentity = await getStorageObjectIdentity(
+    input.supabase,
+    input.uploaded.path,
+  );
+  if (!sourceIdentity || !storageIdentityMatchesDescriptor(sourceIdentity, input.uploaded)) {
+    console.warn("[orders] storage source identity could not be verified:", {
+      itemIndex: input.itemIndex,
+      kind: input.kind,
+    });
+    return storagePreparationError();
+  }
 
-      if (error) {
-        console.warn("[orders] direct storage move failed:", {
-          itemIndex: input.itemIndex,
-          kind: input.kind,
-          reason: getSafeStorageErrorLabel(error),
-        });
-        return directStorageFinalizationError();
-      }
+  if (input.uploaded.path === finalPath) {
+    return { ok: true, file: buildFinalizedFile(input, finalPath), createdFinal: false };
+  }
 
-      return {
-        ok: true,
-        file: buildFinalizedFile(input, finalPath),
-        directMove: {
-          sourcePath: input.uploaded.path,
-          finalPath,
-        },
-      };
-    } else {
-      const { error } = await input.supabase.storage
-        .from(ORDER_FILES_BUCKET)
-        .copy(input.uploaded.path, finalPath);
-
-      if (error) {
-        console.warn(
-          `[orders] storage copy failed for draft source ${input.uploaded.draftFileId ?? "unknown"}: ${error.message}`,
-        );
-        return {
-          ok: false,
-          code: "storage_error",
-          message: "Could not copy draft files into the order.",
-          status: 500,
-        };
-      }
+  // Storage cannot participate in the PostgreSQL transaction. Always copy so
+  // the pending source survives until the DB commit is confirmed.
+  const { error } = await input.supabase.storage
+    .from(ORDER_FILES_BUCKET)
+    .copy(input.uploaded.path, finalPath);
+  if (error) {
+    const existingIdentity = await getStorageObjectIdentity(
+      input.supabase,
+      finalPath,
+    );
+    if (!existingIdentity || !storageIdentitiesMatch(sourceIdentity, existingIdentity)) {
+      console.warn("[orders] storage final copy failed:", {
+        itemIndex: input.itemIndex,
+        kind: input.kind,
+        reason: getSafeStorageErrorLabel(error),
+      });
+      return storagePreparationError();
     }
+    return { ok: true, file: buildFinalizedFile(input, finalPath), createdFinal: false };
+  }
+
+  const copiedIdentity = await getStorageObjectIdentity(input.supabase, finalPath);
+  if (!copiedIdentity || !storageIdentitiesMatch(sourceIdentity, copiedIdentity)) {
+    // The copy call itself succeeded, so this path was created by this attempt
+    // and may be removed before the DB transaction. The pending source remains.
+    await cleanupFinalPaths(input.supabase, [finalPath]);
+    console.warn("[orders] copied final identity did not match its source:", {
+      itemIndex: input.itemIndex,
+      kind: input.kind,
+    });
+    return storagePreparationError();
   }
 
   return {
     ok: true,
     file: buildFinalizedFile(input, finalPath),
+    createdFinal: true,
+  };
+}
+
+async function getStorageObjectIdentity(
+  supabase: SupabaseClient,
+  path: string,
+): Promise<StorageObjectIdentity | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(ORDER_FILES_BUCKET)
+      .info(path);
+    if (error || !data || typeof data !== "object") return null;
+    const record = data as Record<string, unknown>;
+    const size = Number(record.size);
+    const mimeType = String(
+      record.contentType ??
+      record.content_type ??
+      "",
+    ).toLowerCase();
+    // Only the object-info endpoint's system field is accepted. Custom object
+    // metadata is intentionally not an identity source.
+    const etag = normalizeStorageEtag(record.etag);
+    if (!Number.isFinite(size) || size < 1 || !mimeType || !etag) return null;
+    return { etag, size, mimeType };
+  } catch {
+    return null;
+  }
+}
+
+function storageIdentityMatchesDescriptor(
+  identity: StorageObjectIdentity,
+  descriptor: TrustedOrderFileDescriptor,
+): boolean {
+  return identity.size === descriptor.size &&
+    identity.mimeType === descriptor.mimeType.toLowerCase();
+}
+
+function storageIdentitiesMatch(
+  source: StorageObjectIdentity,
+  destination: StorageObjectIdentity,
+): boolean {
+  return source.etag === destination.etag &&
+    source.size === destination.size &&
+    source.mimeType === destination.mimeType;
+}
+
+function normalizeStorageEtag(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== ""
+    ? value.trim()
+    : null;
+}
+
+function storagePreparationError(): {
+  ok: false;
+  code: "storage_error";
+  message: string;
+  status: 500;
+} {
+  return {
+    ok: false,
+    code: "storage_error",
+    message: "Could not prepare uploaded files for the order.",
+    status: 500,
   };
 }
 
@@ -1075,18 +1175,6 @@ function getTrustedReferenceFiles(
   });
 }
 
-async function cleanupFinalizedFiles(
-  supabase: SupabaseClient,
-  finalized: FinalizedOrderItemFiles[],
-): Promise<void> {
-  const paths: string[] = [];
-  for (const slot of finalized) {
-    paths.push(slot.original.finalPath);
-    for (const reference of slot.references) paths.push(reference.finalPath);
-  }
-  await cleanupFinalPaths(supabase, paths);
-}
-
 async function cleanupFinalPaths(
   supabase: SupabaseClient,
   paths: string[],
@@ -1103,12 +1191,4 @@ async function cleanupFinalPaths(
   } catch (error) {
     console.error("[orders] storage cleanup failed:", error);
   }
-}
-
-function isUniqueSourceDraftError(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false;
-  return (
-    error.code === "23505" &&
-    (error.message ?? "").includes("orders_source_draft_id_unique")
-  );
 }

@@ -517,6 +517,7 @@ export const ItemFilesSchema = z
 // and points to files already uploaded to Supabase Storage. The API
 // route enforces this length match and refuses orders without it.
 export const OrderMetadataSchema = z.object({
+  submissionId: z.string().uuid(),
   serviceType: ServiceTypeSchema,
   currency: TransactionalCurrencySchema,
   // Required order-level Job Title. Trimmed, 3–120 chars. Persisted to
