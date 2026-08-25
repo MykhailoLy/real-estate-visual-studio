@@ -26,12 +26,15 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
 
 /**
  * Floor plan source files may also be PDFs and CAD-style drawings.
- * `application/octet-stream` is allowed because some browsers don't have
- * a registered MIME for DXF/DWG/FBX and fall back to that.
+ * Browsers may report DXF/DWG using their registered MIME or fall back to
+ * `application/octet-stream`; both cases are verified against file bytes
+ * before an order is committed.
  */
 export const ALLOWED_FLOOR_PLAN_MIME_TYPES = [
   ...ALLOWED_IMAGE_MIME_TYPES,
   "application/pdf",
+  "application/dxf",
+  "application/dwg",
   "application/octet-stream",
 ] as const;
 
