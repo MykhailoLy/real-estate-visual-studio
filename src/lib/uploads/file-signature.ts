@@ -108,9 +108,11 @@ export async function verifyStoredUploadContent(input: {
     return invalidUpload();
   }
 
-  // Signed upload URLs can be reused. The conditional read, response ETag, and
-  // a second authoritative object-info read all bind the inspected prefix to
-  // the identity subsequently checked again immediately before order copy.
+  // Supabase's signed-object renderer currently forwards Range but not
+  // If-Match to its storage backend. Binding therefore relies on the response
+  // ETag comparison plus authoritative object-info reads before and after the
+  // prefix read. The returned identity is checked again immediately before
+  // production copy; If-Match below is defense-in-depth only.
   const after = await getStorageObjectIdentity(input.supabase, input.file.path);
   if (!after) return storageError();
   if (!storageIdentitiesMatch(before, after)) return invalidUpload();
@@ -139,6 +141,8 @@ async function readStoredObjectPrefix(input: {
       const response = await fetch(data.signedUrl, {
         headers: {
           Range: `bytes=0-${FILE_SIGNATURE_PREFIX_BYTES - 1}`,
+          // Best-effort and future-compatible only: the current Supabase
+          // signed-object renderer does not forward If-Match to its backend.
           "If-Match": input.identity.etag,
         },
         cache: "no-store",

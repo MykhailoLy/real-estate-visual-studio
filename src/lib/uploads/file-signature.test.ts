@@ -237,7 +237,7 @@ for (const [name, bytes, mimeType, extension] of [
   });
 }
 
-test("requests exactly 512 bytes and binds the read to the authoritative ETag", async () => {
+test("requests exactly 512 bytes and binds identity without relying on If-Match", async () => {
   const object = storedObject();
   const mock = new MockStorage(object);
   mock.installFetch();
