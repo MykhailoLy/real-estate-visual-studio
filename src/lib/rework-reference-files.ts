@@ -27,6 +27,7 @@ import {
   ORDER_FILES_BUCKET,
   buildReworkReferencePath,
 } from "@/lib/upload-config";
+import { verifyStoredUploadContent } from "@/lib/uploads/file-signature";
 import {
   REWORK_REFERENCES_MAX_FILES,
   REWORK_REFERENCE_MAX_BYTES,
@@ -56,7 +57,12 @@ type SlotOk = { ok: true; signedUrl: string; file: ReworkReferenceFile };
 type SlotFail = { ok: false; error: string; status: number };
 
 type CompleteOk = { ok: true; file: ReworkReferenceFile };
-type CompleteFail = { ok: false; error: string; status: number };
+type CompleteFail = {
+  ok: false;
+  error: string;
+  status: number;
+  code?: "invalid_upload" | "storage_error";
+};
 
 type ListOk = { ok: true; files: ReworkReferenceFile[] };
 type ListFail = { ok: false; error: string; status: number };
@@ -139,12 +145,15 @@ async function getOwnedReview(
  * Check whether a storage object actually exists in the order-files
  * bucket by listing the containing folder and matching the filename.
  */
-async function storageObjectExists(storagePath: string): Promise<boolean> {
+async function storageObjectExists(storagePath: string): Promise<
+  | { ok: true; exists: boolean }
+  | { ok: false }
+> {
   let supabase;
   try {
     supabase = createServerClient();
   } catch {
-    return false;
+    return { ok: false };
   }
 
   // Path format: rework/<reviewId>/<ts>-<filename>
@@ -156,8 +165,8 @@ async function storageObjectExists(storagePath: string): Promise<boolean> {
     .from(ORDER_FILES_BUCKET)
     .list(folder, { search: filename });
 
-  if (error || !data) return false;
-  return data.some((f) => f.name === filename);
+  if (error || !data) return { ok: false };
+  return { ok: true, exists: data.some((f) => f.name === filename) };
 }
 
 // ── Public API ────────────────────────────────────────────────
@@ -368,12 +377,38 @@ export async function markReworkReferenceUploaded(
 
     // ── Verify object exists in storage ──────────────────
 
-    const exists = await storageObjectExists(row.storage_path);
-    if (!exists) {
+    const storageObject = await storageObjectExists(row.storage_path);
+    if (!storageObject.ok) {
+      return {
+        ok: false,
+        error: "Could not verify uploaded reference.",
+        status: 500,
+        code: "storage_error",
+      };
+    }
+    if (!storageObject.exists) {
       return {
         ok: false,
         error: "Upload not found in storage. Please try uploading again.",
         status: 409,
+      };
+    }
+
+    const contentVerification = await verifyStoredUploadContent({
+      supabase,
+      file: {
+        path: row.storage_path,
+        originalFilename: row.filename,
+        size: row.file_size,
+        mimeType: row.mime_type,
+      },
+    });
+    if (!contentVerification.ok) {
+      return {
+        ok: false,
+        error: contentVerification.message,
+        status: contentVerification.status,
+        code: contentVerification.code,
       };
     }
 

@@ -13,5 +13,10 @@ export async function POST(_request: Request, { params }: Context) {
   const result = await completeDraftReferenceForUser(user.id, draftId, referenceId);
   return result.ok
     ? Response.json({ data: result.data })
-    : Response.json({ error: result.message }, { status: result.status });
+    : Response.json(
+      result.code
+        ? { error: result.message, code: result.code }
+        : { error: result.message },
+      { status: result.status },
+    );
 }

@@ -28,6 +28,7 @@ export type OrderDraftFilePublicErrorCode =
   | "item_not_found"
   | "file_too_large"
   | "file_type_not_allowed"
+  | "invalid_upload"
   | "storage_error"
   | "upload_not_found"
   | "upload_mismatch"

@@ -106,6 +106,17 @@ test("file type errors map to a safe public status", async () => {
   assert.equal((await responseJson(response)).code, "file_type_not_allowed");
 });
 
+test("invalid uploaded content maps to the explicit invalid_upload client error", async () => {
+  const response = draftFileResultToResponse({
+    ok: false,
+    code: "invalid_upload",
+    message: "Uploaded file contents do not match the expected file type.",
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal((await responseJson(response)).code, "invalid_upload");
+});
+
 test("upload mismatch maps to conflict without exposing paths", async () => {
   const response = draftFileResultToResponse({
     ok: false,

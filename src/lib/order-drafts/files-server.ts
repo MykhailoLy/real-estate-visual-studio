@@ -5,6 +5,7 @@ import {
   SupabaseAdminConfigurationError,
 } from "../supabase-admin.ts";
 import { ORDER_FILES_BUCKET } from "../upload-config.ts";
+import { verifyStoredUploadContent } from "../uploads/file-signature.ts";
 import {
   ORDER_DRAFT_FILE_SELECT,
   mapOrderDraftFileDatabaseRow,
@@ -211,6 +212,28 @@ export async function completeOrderDraftFileUploadForUser(
       storedObject.data,
     );
     if (!verification.ok) return verification;
+
+    const contentVerification = await verifyStoredUploadContent({
+      supabase,
+      file: {
+        path: pendingResult.data.storagePath,
+        originalFilename: pendingResult.data.originalFilename,
+        size: pendingResult.data.fileSize,
+        mimeType: pendingResult.data.mimeType,
+      },
+    });
+    if (!contentVerification.ok) {
+      if (contentVerification.code === "invalid_upload") {
+        const markedFailed = await markDraftFileFailedBestEffort(draftId, fileId);
+        if (markedFailed) {
+          await removeStorageObjectsBestEffort(
+            [pendingResult.data.storagePath],
+            "remove invalid pending draft file",
+          );
+        }
+      }
+      return draftFileError(contentVerification.code, contentVerification.message);
+    }
 
     const { data: rpcData, error: rpcError } = await supabase.rpc(
       "complete_order_draft_file_upload",
@@ -540,21 +563,26 @@ function getStringMetadata(
 async function markDraftFileFailedBestEffort(
   draftId: string,
   fileId: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const supabase = getSupabaseAdminClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("order_draft_files")
       .update({ upload_status: "failed" })
       .eq("id", fileId)
       .eq("draft_id", draftId)
       .is("deleted_at", null)
-      .eq("upload_status", "pending");
+      .eq("upload_status", "pending")
+      .select("id")
+      .maybeSingle();
     if (error) {
       console.warn("[order-draft-files] mark failed returned error:", error.message);
+      return false;
     }
+    return Boolean(data);
   } catch (error) {
     console.warn("[order-draft-files] mark failed threw:", error);
+    return false;
   }
 }
 

@@ -56,7 +56,12 @@ export async function POST(
   const result = await markReworkReferenceUploaded(reviewId, fileId, toOrderOwnership(user));
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      result.code
+        ? { error: result.error, code: result.code }
+        : { error: result.error },
+      { status: result.status },
+    );
   }
 
   // storage_path is NOT included in result.file

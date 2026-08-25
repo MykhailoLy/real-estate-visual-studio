@@ -51,7 +51,7 @@ import {
   storageIdentitiesMatch,
   verifyOrderFileSignatures,
   type StorageObjectIdentity,
-} from "./file-signature-verification.ts";
+} from "../uploads/file-signature.ts";
 import { dispatchOrderEmailOutbox } from "@/lib/email/send-order-emails";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import {
@@ -619,7 +619,6 @@ export async function createProductionOrder(
     finalizedItemFiles,
   };
 }
-
 interface OrderSubmissionClaimRow {
   result_code: string;
   lease_token: string | null;

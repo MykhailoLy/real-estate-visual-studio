@@ -19,6 +19,7 @@ const FILE_ERROR_STATUS: Record<OrderDraftFilePublicErrorCode, number> = {
   item_not_found: 422,
   file_too_large: 413,
   file_type_not_allowed: 400,
+  invalid_upload: 400,
   storage_error: 500,
   upload_not_found: 404,
   upload_mismatch: 409,
