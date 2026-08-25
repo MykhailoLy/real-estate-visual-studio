@@ -19,6 +19,7 @@ const SECOND_USER_ID = "22222222-2222-4222-8222-222222222222";
 const TOKEN = "aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa";
 const SECOND_TOKEN = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const SUBMISSION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const REFERENCE_ID = "77777777-7777-4777-8777-777777777777";
 const ORDER_NUMBER = "VS-0001";
 const SUBMIT_ORDER_SOURCE = readFileSync("src/lib/submit-order.ts", "utf8");
 const DRAFT_STORAGE_PATHS_SOURCE = readFileSync(
@@ -121,6 +122,7 @@ interface FileDescriptorForTest {
 interface ItemFilesForTest {
   original: FileDescriptorForTest;
   reference?: FileDescriptorForTest | null;
+  references?: Array<FileDescriptorForTest & { referenceId: string; position: number }>;
 }
 
 interface ProductionOrderInputForTest {
@@ -213,6 +215,7 @@ type DirectOrderTestGlobals = typeof globalThis & {
 
 interface StoredObjectForTest {
   metadata: Record<string, unknown> | null;
+  bytes: Uint8Array;
 }
 
 interface StorageOperationForTest {
@@ -249,12 +252,23 @@ interface MockSupabaseOptions {
   listFailures?: string[];
   moveFailures?: string[];
   copyFailures?: string[];
+  signedReadFailures?: string[];
+  prefixReadFailures?: string[];
+  malformedRangeResponses?: string[];
+  mutateOnInfoCall?: {
+    path: string;
+    callNumber: number;
+    metadata: Record<string, unknown>;
+    bytes?: Uint8Array;
+  };
   emailResult?: EmailMockResult;
 }
 
 class MockSupabase {
   readonly objects = new Map<string, StoredObjectForTest>();
   readonly infoCalls: string[] = [];
+  readonly signedReadPaths: string[] = [];
+  readonly prefixReadCalls: Array<{ path: string; range: string | null; ifMatch: string | null }> = [];
   readonly listCalls: ListOperationForTest[] = [];
   readonly moves: StorageOperationForTest[] = [];
   readonly copies: StorageOperationForTest[] = [];
@@ -266,12 +280,22 @@ class MockSupabase {
   private readonly listFailures: Set<string>;
   private readonly moveFailures: Set<string>;
   private readonly copyFailures: Set<string>;
+  private readonly signedReadFailures: Set<string>;
+  private readonly prefixReadFailures: Set<string>;
+  private readonly malformedRangeResponses: Set<string>;
   private readonly options: MockSupabaseOptions;
 
   readonly storage = {
     from: (bucket: string) => ({
       info: async (path: string) => {
         this.infoCalls.push(path);
+        const mutation = this.options.mutateOnInfoCall;
+        if (
+          mutation?.path === path &&
+          this.infoCalls.filter((candidate) => candidate === path).length === mutation.callNumber
+        ) {
+          this.addObject(path, mutation.metadata, mutation.bytes);
+        }
         const object = this.objects.get(path);
         if (!object?.metadata) {
           return { data: null, error: storageError("NotFound") };
@@ -283,6 +307,16 @@ class MockSupabase {
             etag: object.metadata.eTag,
             metadata: object.metadata,
           },
+          error: null,
+        };
+      },
+      createSignedUrl: async (path: string) => {
+        this.signedReadPaths.push(path);
+        if (this.signedReadFailures.has(path)) {
+          return { data: null, error: storageError("SignedReadFailed") };
+        }
+        return {
+          data: { signedUrl: `https://storage.example/read/${encodeURIComponent(path)}` },
           error: null,
         };
       },
@@ -331,7 +365,10 @@ class MockSupabase {
         }
         const object = this.objects.get(sourcePath);
         if (!object) return { data: null, error: storageError("NotFound") };
-        this.objects.set(finalPath, { metadata: object.metadata });
+        this.objects.set(finalPath, {
+          metadata: object.metadata,
+          bytes: object.bytes,
+        });
         return { data: { path: finalPath }, error: null };
       },
       remove: async (paths: string[]) => {
@@ -347,10 +384,51 @@ class MockSupabase {
     this.listFailures = new Set(options.listFailures ?? []);
     this.moveFailures = new Set(options.moveFailures ?? []);
     this.copyFailures = new Set(options.copyFailures ?? []);
+    this.signedReadFailures = new Set(options.signedReadFailures ?? []);
+    this.prefixReadFailures = new Set(options.prefixReadFailures ?? []);
+    this.malformedRangeResponses = new Set(options.malformedRangeResponses ?? []);
   }
 
-  addObject(path: string, metadata: Record<string, unknown> | null): void {
-    this.objects.set(path, { metadata });
+  addObject(
+    path: string,
+    metadata: Record<string, unknown> | null,
+    bytes = defaultSignatureForMime(String(metadata?.mimetype ?? "")),
+  ): void {
+    this.objects.set(path, { metadata, bytes });
+  }
+
+  async readSignedObject(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const url = new URL(typeof input === "string" ? input : input.toString());
+    const path = decodeURIComponent(url.pathname.slice("/read/".length));
+    const headers = new Headers(init?.headers);
+    this.prefixReadCalls.push({
+      path,
+      range: headers.get("range"),
+      ifMatch: headers.get("if-match"),
+    });
+
+    if (this.prefixReadFailures.has(path)) {
+      return new Response("Storage unavailable", { status: 503 });
+    }
+
+    const object = this.objects.get(path);
+    if (!object?.metadata) return new Response("Missing", { status: 404 });
+
+    const objectSize = Number(object.metadata.size);
+    const prefixLength = Math.min(512, objectSize);
+    const prefix = new Uint8Array(prefixLength);
+    prefix.set(object.bytes.subarray(0, prefixLength));
+
+    const responseHeaders: Record<string, string> = {
+      "content-range": this.malformedRangeResponses.has(path)
+        ? `bytes 1-${prefixLength}/${objectSize}`
+        : `bytes 0-${prefixLength - 1}/${objectSize}`,
+    };
+    if (typeof object.metadata.eTag === "string") {
+      responseHeaders.etag = object.metadata.eTag;
+    }
+
+    return new Response(prefix, { status: 206, headers: responseHeaders });
   }
 
   async rpc(name: string, params: unknown) {
@@ -594,6 +672,23 @@ function metadata(
   return { size, mimetype: mimeType, eTag: etag };
 }
 
+function defaultSignatureForMime(mimeType: string): Uint8Array {
+  switch (mimeType.toLowerCase()) {
+    case "image/jpeg":
+      return Uint8Array.of(0xff, 0xd8, 0xff, 0xe0);
+    case "image/png":
+      return Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+    case "image/gif":
+      return new TextEncoder().encode("GIF89a");
+    case "image/webp":
+      return new TextEncoder().encode("RIFF\u0018\u0000\u0000\u0000WEBPVP8 ");
+    case "application/pdf":
+      return new TextEncoder().encode("%PDF-1.7\n");
+    default:
+      return Uint8Array.of(0xff, 0xd8, 0xff, 0xe0);
+  }
+}
+
 function descriptor(
   path: string,
   overrides: Partial<FileDescriptorForTest> = {},
@@ -667,6 +762,12 @@ function addStoredObjects(
         metadata(slot.reference.size, slot.reference.mimeType),
       );
     }
+    for (const reference of slot.references ?? []) {
+      supabase.addObject(
+        reference.path,
+        metadata(reference.size, reference.mimeType),
+      );
+    }
   }
 }
 
@@ -677,6 +778,8 @@ function installSupabaseMock(supabase: MockSupabase): void {
     supabase.emailCalls.push(args);
     return supabase.emailResult;
   };
+  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) =>
+    supabase.readSignedObject(input, init);
 }
 
 function installUploadRouteMock(input: {
@@ -1492,6 +1595,184 @@ test("atomic direct creation copies first, commits once, then removes pending so
   const commitItems = (commitCall?.params as { p_items: Array<{ subtotalCents: number }> }).p_items;
   assert.equal(commitItems[0].subtotalCents, result.ok ? result.pricingSnapshot.items[0].lineSubtotalCents : -1);
   assert.equal(supabase.emailCalls.length, 1);
+  assert.deepEqual(supabase.prefixReadCalls, [{
+    path: directPath(0, "original"),
+    range: "bytes=0-511",
+    ifMatch: '"etag-1234-image/jpeg"',
+  }]);
+});
+
+for (const [name, extension, mimeType, bytes] of [
+  ["HTML disguised as JPEG", "jpg", "image/jpeg", new TextEncoder().encode("<html><script>alert(1)</script>")],
+  ["PNG bytes declared JPEG", "jpg", "image/jpeg", defaultSignatureForMime("image/png")],
+  ["JPEG bytes declared PNG", "png", "image/png", defaultSignatureForMime("image/jpeg")],
+  ["unsupported random bytes", "jpg", "image/jpeg", Uint8Array.of(0x01, 0x02, 0x03, 0x04)],
+] as const) {
+  test(`direct order rejects ${name} before copying or atomic commit`, async () => {
+    const path = directPath(0, "original", extension);
+    const original = descriptor(path, { mimeType });
+    const supabase = new MockSupabase();
+    supabase.addObject(path, metadata(original.size, mimeType), bytes);
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+
+    const result = await createProductionOrder(orderInput({ itemFiles: [{ original }] }));
+
+    assertFailure(result, "invalid_upload");
+    assert.equal(result.ok ? 0 : result.status, 400);
+    assert.equal(supabase.copies.length, 0);
+    assert.equal(supabase.objects.has(path), true);
+    assert.equal(supabase.removes.length, 0);
+    assert.equal(
+      supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+      false,
+    );
+    assert.equal(
+      supabase.rpcCalls.some((call) => call.name === "release_order_submission"),
+      true,
+    );
+  });
+}
+
+for (const [name, option] of [
+  ["signed prefix URL cannot be created", "signedReadFailures"],
+  ["Storage prefix read fails", "prefixReadFailures"],
+  ["Range response is malformed", "malformedRangeResponses"],
+] as const) {
+  test(`direct order fails closed when ${name}`, async () => {
+    const path = directPath(0, "original");
+    const supabase = new MockSupabase({ [option]: [path] });
+    addStoredObjects(supabase, itemFilesForDirectOrder());
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+
+    const result = await createProductionOrder(orderInput());
+
+    assertFailure(result, "storage_error");
+    assert.equal(result.ok ? 0 : result.status, 500);
+    assert.equal(supabase.objects.has(path), true);
+    assert.equal(supabase.copies.length, 0);
+    assert.equal(
+      supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+      false,
+    );
+  });
+}
+
+test("direct order verifies every multi-reference file, including allowed PDFs", async () => {
+  const referencePath =
+    `pending/${USER_ID}/${TOKEN}/0-reference-0-${REFERENCE_ID}.pdf`;
+  const itemFiles: ItemFilesForTest[] = [{
+    original: descriptor(directPath(0, "original")),
+    references: [{
+      ...descriptor(referencePath, {
+        originalFilename: "notes.pdf",
+        mimeType: "application/pdf",
+      }),
+      referenceId: REFERENCE_ID,
+      position: 0,
+    }],
+  }];
+  const supabase = new MockSupabase();
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    supabase.prefixReadCalls.map((call) => call.path).sort(),
+    [directPath(0, "original"), referencePath].sort(),
+  );
+  assert.equal(supabase.copies.length, 2);
+});
+
+test("invalid multi-reference bytes prevent the complete order commit", async () => {
+  const referencePath =
+    `pending/${USER_ID}/${TOKEN}/0-reference-0-${REFERENCE_ID}.pdf`;
+  const itemFiles: ItemFilesForTest[] = [{
+    original: descriptor(directPath(0, "original")),
+    references: [{
+      ...descriptor(referencePath, {
+        originalFilename: "notes.pdf",
+        mimeType: "application/pdf",
+      }),
+      referenceId: REFERENCE_ID,
+      position: 0,
+    }],
+  }];
+  const supabase = new MockSupabase();
+  addStoredObjects(supabase, itemFiles);
+  supabase.addObject(
+    referencePath,
+    metadata(1234, "application/pdf"),
+    new TextEncoder().encode("%PDF-not-a-version"),
+  );
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    false,
+  );
+});
+
+test("an object replaced after signature verification cannot reach copy or commit", async () => {
+  const path = directPath(0, "original");
+  const supabase = new MockSupabase({
+    mutateOnInfoCall: {
+      path,
+      callNumber: 3,
+      metadata: metadata(1234, "image/jpeg", '"replaced-after-verification"'),
+    },
+  });
+  addStoredObjects(supabase, itemFilesForDirectOrder());
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput());
+
+  assertFailure(result, "storage_error");
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    false,
+  );
+});
+
+test("draft finalization re-verifies source bytes instead of trusting uploaded draft state", async () => {
+  const draftId = "88888888-8888-4888-8888-888888888888";
+  const sourcePath = `drafts/${USER_ID}/${draftId}/${REFERENCE_ID}/room.jpg`;
+  const original = descriptor(sourcePath, {
+    originalFilename: "room.jpg",
+    draftFileId: REFERENCE_ID,
+  });
+  const supabase = new MockSupabase();
+  supabase.addObject(
+    sourcePath,
+    metadata(original.size, original.mimeType),
+    new TextEncoder().encode("<html>replaced after draft completion</html>"),
+  );
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({
+    sourceDraftId: draftId,
+    storageMode: "copy",
+    itemFiles: [{ original }],
+  }));
+
+  assertFailure(result, "invalid_upload");
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    false,
+  );
 });
 
 test("exact committed replay returns original result without Storage or email work", async () => {

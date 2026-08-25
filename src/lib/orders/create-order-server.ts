@@ -46,6 +46,12 @@ import {
   validateDirectPendingDescriptorStructure,
   verifyDirectOrderUploads,
 } from "./direct-upload-verification.ts";
+import {
+  getStorageObjectIdentity,
+  storageIdentitiesMatch,
+  verifyOrderFileSignatures,
+  type StorageObjectIdentity,
+} from "../uploads/file-signature.ts";
 import { dispatchOrderEmailOutbox } from "@/lib/email/send-order-emails";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import {
@@ -111,12 +117,6 @@ export interface FinalizedOrderItemFiles {
   original: FinalizedOrderFile;
   reference: FinalizedOrderFile | null;
   references: FinalizedOrderFile[];
-}
-
-interface StorageObjectIdentity {
-  etag: string;
-  size: number;
-  mimeType: string;
 }
 
 export interface CreateProductionOrderInput {
@@ -407,8 +407,25 @@ export async function createProductionOrder(
       status: itemFiles.status,
     };
   }
-  const orderNumber = claim.reserved_order_number;
 
+  const signatureVerification = await verifyOrderFileSignatures({
+    supabase,
+    files: itemFiles.data.flatMap((slot) => [
+      slot.original,
+      ...getTrustedReferenceFiles(slot),
+    ]),
+  });
+  if (!signatureVerification.ok) {
+    await releaseSubmissionBestEffort(
+      supabase,
+      input,
+      leaseToken,
+      signatureVerification.code,
+    );
+    return signatureVerification;
+  }
+
+  const orderNumber = claim.reserved_order_number;
   const finalizedItemFiles: FinalizedOrderItemFiles[] = [];
   const copiedFinalPaths: string[] = [];
 
@@ -421,6 +438,7 @@ export async function createProductionOrder(
       itemIndex: i,
       kind: "original",
       mode: input.storageMode,
+      verifiedIdentities: signatureVerification.identities,
     });
     if (!original.ok) {
       await cleanupFinalPaths(supabase, copiedFinalPaths);
@@ -439,6 +457,7 @@ export async function createProductionOrder(
         kind: "reference",
         mode: input.storageMode,
         referenceId: slot.reference.referenceId,
+        verifiedIdentities: signatureVerification.identities,
       });
       if (!finalizedReference.ok) {
         await cleanupFinalPaths(supabase, copiedFinalPaths);
@@ -461,6 +480,7 @@ export async function createProductionOrder(
         mode: input.storageMode,
         referenceId: trustedReference.referenceId,
         referencePosition: trustedReference.position,
+        verifiedIdentities: signatureVerification.identities,
       });
       if (!finalizedReference.ok) {
         await cleanupFinalPaths(supabase, copiedFinalPaths);
@@ -977,6 +997,7 @@ async function finalizeFileToOrderPath(input: {
   itemIndex: number;
   kind: UploadKind;
   mode: StorageFinalizationMode;
+  verifiedIdentities: ReadonlyMap<string, StorageObjectIdentity>;
   referenceId?: string;
   referencePosition?: number;
 }): Promise<
@@ -1004,14 +1025,20 @@ async function finalizeFileToOrderPath(input: {
     input.referenceId,
   );
 
-  // Supabase Storage's server-read object ETag is the preparation proof for
-  // this copy attempt. Size and MIME remain validation attributes, but are not
-  // sufficient identity on their own.
+  // Bind the copy to the exact ETag that passed byte-signature verification.
+  // A reusable signed upload token cannot swap in a same-size/same-MIME object
+  // between verification and finalization without changing this identity.
+  const verifiedIdentity = input.verifiedIdentities.get(input.uploaded.path);
   const sourceIdentity = await getStorageObjectIdentity(
     input.supabase,
     input.uploaded.path,
   );
-  if (!sourceIdentity || !storageIdentityMatchesDescriptor(sourceIdentity, input.uploaded)) {
+  if (
+    !verifiedIdentity ||
+    !sourceIdentity ||
+    !storageIdentitiesMatch(verifiedIdentity, sourceIdentity) ||
+    !storageIdentityMatchesDescriptor(sourceIdentity, input.uploaded)
+  ) {
     console.warn("[orders] storage source identity could not be verified:", {
       itemIndex: input.itemIndex,
       kind: input.kind,
@@ -1063,53 +1090,12 @@ async function finalizeFileToOrderPath(input: {
   };
 }
 
-async function getStorageObjectIdentity(
-  supabase: SupabaseClient,
-  path: string,
-): Promise<StorageObjectIdentity | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from(ORDER_FILES_BUCKET)
-      .info(path);
-    if (error || !data || typeof data !== "object") return null;
-    const record = data as Record<string, unknown>;
-    const size = Number(record.size);
-    const mimeType = String(
-      record.contentType ??
-      record.content_type ??
-      "",
-    ).toLowerCase();
-    // Only the object-info endpoint's system field is accepted. Custom object
-    // metadata is intentionally not an identity source.
-    const etag = normalizeStorageEtag(record.etag);
-    if (!Number.isFinite(size) || size < 1 || !mimeType || !etag) return null;
-    return { etag, size, mimeType };
-  } catch {
-    return null;
-  }
-}
-
 function storageIdentityMatchesDescriptor(
   identity: StorageObjectIdentity,
   descriptor: TrustedOrderFileDescriptor,
 ): boolean {
   return identity.size === descriptor.size &&
     identity.mimeType === descriptor.mimeType.toLowerCase();
-}
-
-function storageIdentitiesMatch(
-  source: StorageObjectIdentity,
-  destination: StorageObjectIdentity,
-): boolean {
-  return source.etag === destination.etag &&
-    source.size === destination.size &&
-    source.mimeType === destination.mimeType;
-}
-
-function normalizeStorageEtag(value: unknown): string | null {
-  return typeof value === "string" && value.trim() !== ""
-    ? value.trim()
-    : null;
 }
 
 function storagePreparationError(): {

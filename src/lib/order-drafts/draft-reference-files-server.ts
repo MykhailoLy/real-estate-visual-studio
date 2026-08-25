@@ -2,6 +2,7 @@ import "server-only";
 
 import { getSupabaseAdminClient } from "../supabase-admin.ts";
 import { ORDER_FILES_BUCKET } from "../upload-config.ts";
+import { verifyStoredUploadContent } from "../uploads/file-signature.ts";
 import {
   MAX_REFERENCE_FILES,
   MAX_REFERENCE_TOTAL_SIZE_BYTES,
@@ -18,7 +19,12 @@ import { UuidSchema } from "./schema.ts";
 
 type Result<T> =
   | { ok: true; data: T }
-  | { ok: false; status: number; message: string };
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      code?: "invalid_upload" | "storage_error";
+    };
 
 const SELECT =
   "id, draft_id, item_client_id, item_index, reference_id, position, bucket, storage_path, original_filename, file_size, mime_type, upload_status, deleted_at, created_at, updated_at";
@@ -196,7 +202,10 @@ async function loadOwnedReference(userId: string, draftId: string, referenceId: 
   return { ok: true as const, data: data as Record<string, unknown> };
 }
 
-async function storageObjectMatches(row: Record<string, unknown>): Promise<boolean> {
+async function storageObjectMatches(row: Record<string, unknown>): Promise<
+  | { ok: true; matches: boolean }
+  | { ok: false }
+> {
   const path = String(row.storage_path);
   const slash = path.lastIndexOf("/");
   const directory = path.slice(0, slash);
@@ -204,12 +213,16 @@ async function storageObjectMatches(row: Record<string, unknown>): Promise<boole
   const { data, error } = await getSupabaseAdminClient().storage
     .from(ORDER_FILES_BUCKET)
     .list(directory, { search: basename, limit: 10 });
-  if (error) return false;
+  if (error) return { ok: false };
   const object = (data ?? []).find((entry) => entry.name === basename);
   const metadata = object?.metadata as Record<string, unknown> | undefined;
   const size = Number(metadata?.size ?? metadata?.contentLength);
   const mime = String(metadata?.mimetype ?? metadata?.mimeType ?? "").toLowerCase();
-  return size === Number(row.file_size) && mime === String(row.mime_type).toLowerCase();
+  return {
+    ok: true,
+    matches: size === Number(row.file_size) &&
+      mime === String(row.mime_type).toLowerCase(),
+  };
 }
 
 export async function completeDraftReferenceForUser(
@@ -220,8 +233,47 @@ export async function completeDraftReferenceForUser(
   const loaded = await loadOwnedReference(userId, draftId, referenceId);
   if (!loaded.ok) return loaded;
   if (loaded.data.upload_status !== "pending") return invalid("Draft reference upload is not pending.");
-  if (!await storageObjectMatches(loaded.data)) return { ok: false, status: 409, message: "Uploaded reference could not be verified." };
+
+  const metadataVerification = await storageObjectMatches(loaded.data);
+  if (!metadataVerification.ok) {
+    return {
+      ok: false,
+      status: 500,
+      message: "Could not verify uploaded reference.",
+      code: "storage_error",
+    };
+  }
+  if (!metadataVerification.matches) {
+    return { ok: false, status: 409, message: "Uploaded reference could not be verified." };
+  }
+
   const supabase = getSupabaseAdminClient();
+
+  const contentVerification = await verifyStoredUploadContent({
+    supabase,
+    file: {
+      path: String(loaded.data.storage_path),
+      originalFilename: String(loaded.data.original_filename),
+      size: Number(loaded.data.file_size),
+      mimeType: String(loaded.data.mime_type),
+    },
+  });
+  if (!contentVerification.ok) {
+    if (contentVerification.code === "invalid_upload") {
+      await removeInvalidPendingDraftReferenceBestEffort({
+        draftId,
+        referenceId,
+        storagePath: String(loaded.data.storage_path),
+      });
+    }
+    return {
+      ok: false,
+      status: contentVerification.status,
+      message: contentVerification.message,
+      code: contentVerification.code,
+    };
+  }
+
   const { data, error } = await supabase
     .from("order_draft_item_reference_files")
     .update({ upload_status: "uploaded" })
@@ -235,6 +287,38 @@ export async function completeDraftReferenceForUser(
     ok: true,
     data: mapSummary(data as Record<string, unknown>, await signedPreview(String(data.storage_path))),
   };
+}
+
+async function removeInvalidPendingDraftReferenceBestEffort(input: {
+  draftId: string;
+  referenceId: string;
+  storagePath: string;
+}): Promise<void> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("order_draft_item_reference_files")
+      .update({ upload_status: "failed" })
+      .eq("id", input.referenceId)
+      .eq("draft_id", input.draftId)
+      .eq("storage_path", input.storagePath)
+      .eq("upload_status", "pending")
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) return;
+
+    const { error: removeError } = await supabase.storage
+      .from(ORDER_FILES_BUCKET)
+      .remove([input.storagePath]);
+    if (removeError) {
+      console.warn("[draft-reference-files] invalid object removal failed:", {
+        reason: removeError.name,
+      });
+    }
+  } catch (error) {
+    console.warn("[draft-reference-files] invalid reference cleanup failed:", error);
+  }
 }
 
 export async function deleteDraftReferenceForUser(
