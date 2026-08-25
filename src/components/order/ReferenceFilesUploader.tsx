@@ -67,7 +67,7 @@ export default function ReferenceFilesUploader({
   };
 
   return (
-    <section className="space-y-3" aria-labelledby={`${inputId}-label`}>
+    <section className="relative space-y-3" aria-labelledby={`${inputId}-label`}>
       <div>
         <p
           id={`${inputId}-label`}

@@ -51,6 +51,11 @@ test("the uploader exposes required copy, status and accessible removal", () => 
   assert.match(uploader, /aria-live="polite"/);
 });
 
+test("the uploader anchors its focusable file input to the local scroll context", () => {
+  assert.match(uploader, /<section className="relative space-y-3"/);
+  assert.match(uploader, /className="peer sr-only"/);
+});
+
 test("image references use thumbnails and PDFs use a file icon", () => {
   assert.match(uploader, /ReferenceFileThumbnail/);
   assert.match(review, /ReferenceFileThumbnail/);
