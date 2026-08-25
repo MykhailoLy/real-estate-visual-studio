@@ -1,6 +1,6 @@
 "use client";
 
-import { getSupabaseBrowser } from "../supabase.ts";
+import { createBrowserSupabaseClient } from "../supabase/browser.ts";
 import { ORDER_FILES_BUCKET } from "../upload-config.ts";
 import type {
   DraftReferenceFileSummary,
@@ -65,7 +65,7 @@ export async function uploadPreparedDraftReferenceFile(
     return { ok: false, status: 400, message: "Draft reference target was invalid." };
   }
   try {
-    const { error } = await getSupabaseBrowser().storage
+    const { error } = await createBrowserSupabaseClient().storage
       .from(ORDER_FILES_BUCKET)
       .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, file, {
         contentType: file.type,

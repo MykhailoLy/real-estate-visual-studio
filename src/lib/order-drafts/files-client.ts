@@ -6,7 +6,7 @@ import type {
   PreparedOrderDraftFileUpload,
   DeletedOrderDraftFileSummary,
 } from "./files.ts";
-import { getSupabaseBrowser } from "../supabase.ts";
+import { createBrowserSupabaseClient } from "../supabase/browser.ts";
 import { ORDER_FILES_BUCKET } from "../upload-config.ts";
 
 export type OrderDraftFileClientErrorCode =
@@ -173,7 +173,7 @@ export async function uploadPreparedOrderDraftFile(
   }
 
   try {
-    const supabase = getSupabaseBrowser();
+    const supabase = createBrowserSupabaseClient();
     const { error } = await supabase.storage
       .from(ORDER_FILES_BUCKET)
       .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, file, {

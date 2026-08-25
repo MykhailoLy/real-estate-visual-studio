@@ -53,7 +53,7 @@ import type {
   PropertySocialCardFactKey,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
-import { getSupabaseBrowser } from "@/lib/supabase";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 interface PropertyMarketingConfiguratorProps {
   propertyId: string;
@@ -269,7 +269,7 @@ export default function PropertyMarketingConfigurator({
     if (!signed.path || !signed.token || signed.bucket !== SITE_MEDIA_BUCKET) {
       throw new Error("Could not prepare the flyer upload.");
     }
-    const supabase = getSupabaseBrowser();
+    const supabase = createBrowserSupabaseClient();
     const { error } = await supabase.storage.from(SITE_MEDIA_BUCKET).uploadToSignedUrl(
       signed.path,
       signed.token,

@@ -72,7 +72,7 @@ import type {
   PropertySocialCardFactKey,
 } from "@/features/property-showcase/types";
 import { SITE_MEDIA_BUCKET } from "@/lib/site-media";
-import { getSupabaseBrowser } from "@/lib/supabase";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
 const MAX_SOURCE_MB = MAX_SOURCE_BYTES / (1024 * 1024);
@@ -206,7 +206,7 @@ async function uploadPropertyFile(
     throw new Error("Upload returned the wrong storage bucket.");
   }
 
-  const supabase = getSupabaseBrowser();
+  const supabase = createBrowserSupabaseClient();
   const { error } = await supabase.storage
     .from(SITE_MEDIA_BUCKET)
     .uploadToSignedUrl(signed.path, signed.token, file, {
