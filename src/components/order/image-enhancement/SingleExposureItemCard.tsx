@@ -39,6 +39,7 @@ import DaySkyStyleSelector from "./DaySkyStyleSelector";
 import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
 import {
   mergeReferenceFiles,
+  resolveReferenceFileSelection,
   type ReferenceFileValue,
 } from "@/lib/reference-files";
 
@@ -266,20 +267,19 @@ export default function SingleExposureItemCard({
         <ReferenceFilesUploader
           files={displayedReferenceFiles}
           onChange={(referenceFiles) => {
-            const retainedLegacy = referenceFiles.some(
-              (reference) => reference.id === persistedReference?.id,
+            const selection = resolveReferenceFileSelection(
+              referenceFiles,
+              data.referenceFiles,
+              persistedReference,
             );
-            if (!retainedLegacy && persistedReference) {
+            if (selection.removeLegacy) {
               onRemovePersistedReference?.();
             }
-            const normalized = referenceFiles.filter(
-              (reference) => reference.id !== persistedReference?.id,
-            );
-            if (onReferenceFilesChange) onReferenceFilesChange(normalized);
+            if (onReferenceFilesChange) onReferenceFilesChange(selection.references);
             else {
               onChange({
                 ...data,
-                referenceFiles: normalized,
+                referenceFiles: selection.references,
                 referenceFile: null,
                 referenceFilename: null,
               });

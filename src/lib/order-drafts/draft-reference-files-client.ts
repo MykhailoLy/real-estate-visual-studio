@@ -10,7 +10,7 @@ import type {
 
 type ClientResult<T> =
   | { ok: true; data: T }
-  | { ok: false; message: string; status: number };
+  | { ok: false; message: string; status: number; code?: string };
 
 async function request<T>(url: string, init?: RequestInit): Promise<ClientResult<T>> {
   try {
@@ -25,12 +25,14 @@ async function request<T>(url: string, init?: RequestInit): Promise<ClientResult
     const payload = await response.json().catch(() => ({})) as {
       data?: T;
       error?: string;
+      code?: string;
     };
     if (!response.ok || payload.data === undefined) {
       return {
         ok: false,
         status: response.status,
         message: payload.error ?? "Draft reference request failed.",
+        ...(typeof payload.code === "string" ? { code: payload.code } : {}),
       };
     }
     return { ok: true, data: payload.data };

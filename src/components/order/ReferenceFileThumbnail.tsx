@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { FileText } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import {
@@ -38,12 +37,12 @@ export default function ReferenceFileThumbnail({
       className={`relative flex flex-none items-center justify-center overflow-hidden bg-surface ${className}`}
     >
       {isImageReference(reference) && previewUrl ? (
-        <Image
+        // Local object URLs and private signed draft URLs must bypass next/image.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={previewUrl}
           alt=""
-          fill
-          unoptimized
-          className="object-cover"
+          className="absolute inset-0 h-full w-full object-cover"
         />
       ) : (
         <FileText className={`${iconClassName} text-muted`} aria-hidden />
