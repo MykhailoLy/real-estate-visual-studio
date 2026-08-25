@@ -29,7 +29,7 @@ import {
   summarizeImageOptimizations,
   type OptimizedClientImage,
 } from "@/lib/client-image-optimizer";
-import { getSupabaseBrowser } from "@/lib/supabase";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 // ============================================================
 // PortfolioAdminClient
@@ -627,7 +627,7 @@ function PortfolioEditor({
       };
     }
     try {
-      const supabase = getSupabaseBrowser();
+      const supabase = createBrowserSupabaseClient();
       const { error } = await supabase.storage
         .from(PORTFOLIO_BUCKET)
         .uploadToSignedUrl(info.path, info.token, file, {

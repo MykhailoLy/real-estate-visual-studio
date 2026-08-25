@@ -3,7 +3,7 @@
 import type { DeliveryPreferencesData } from "@/components/order/DeliveryPreferences";
 import type { OrderTermsData } from "@/components/order/OrderTermsBlock";
 import { TERMS_VERSION } from "@/lib/order-terms";
-import { getSupabaseBrowser } from "@/lib/supabase";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { readBrowserCurrency } from "@/lib/currency";
 import {
   ORDER_FILES_BUCKET,
@@ -198,7 +198,7 @@ async function uploadOneFile(args: {
   token: string;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   const { file, path, token } = args;
-  const supabase = getSupabaseBrowser();
+  const supabase = createBrowserSupabaseClient();
   const { error } = await supabase.storage
     .from(ORDER_FILES_BUCKET)
     .uploadToSignedUrl(path, token, file, {

@@ -7,7 +7,7 @@
 // stores the session in cookies (not localStorage) so the proxy
 // and server components can read it on every request.
 //
-// Singleton — safe to call from any "use client" component.
+// Singleton shared by browser authentication and signed Storage uploads.
 // ============================================================
 
 import { createBrowserClient as _createBrowserClient } from "@supabase/ssr";
