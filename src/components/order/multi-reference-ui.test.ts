@@ -85,7 +85,11 @@ test("invalid signature remains inline and rejected references leave client stat
   );
   assert.match(
     virtualForm,
-    /The file contents do not match the selected file type\. Please upload a valid image\./,
+    /The file contents do not match its file type\. Please upload a valid JPG, PNG, WebP, or PDF file\./,
+  );
+  assert.match(
+    virtualForm,
+    /El contenido del archivo no coincide con su tipo\. Sube un archivo JPG, PNG, WebP o PDF válido\./,
   );
   assert.match(
     virtualForm,

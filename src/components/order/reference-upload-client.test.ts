@@ -174,7 +174,7 @@ test("duplicate filenames render once per stable server reference ID", () => {
 test("rehydrated card hides the legacy mirror while retaining inline invalid_upload errors", () => {
   const reference = uploadedReference("normalized-reference-id", "saved.png");
   const error =
-    "The file contents do not match the selected file type. Please upload a valid image.";
+    "The file contents do not match its file type. Please upload a valid JPG, PNG, WebP, or PDF file.";
   const markup = renderToStaticMarkup(
     createElement(StagingItemCard, {
       index: 0,

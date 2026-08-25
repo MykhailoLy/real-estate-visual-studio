@@ -304,7 +304,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     fileDeleting: "Deleting...",
     fileOperationFailed: "Could not save this file with the draft.",
     invalidReferenceUpload:
-      "The file contents do not match the selected file type. Please upload a valid image.",
+      "The file contents do not match its file type. Please upload a valid JPG, PNG, WebP, or PDF file.",
     previousSavedFileAvailable: "The previous saved file is still available.",
     itemFilesCouldNotDelete:
       "Saved files for this image could not be deleted. The image was kept in the draft.",
@@ -382,7 +382,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     fileDeleting: "Eliminando...",
     fileOperationFailed: "No se pudo guardar este archivo con el borrador.",
     invalidReferenceUpload:
-      "El contenido del archivo no coincide con el tipo seleccionado. Sube una imagen válida.",
+      "El contenido del archivo no coincide con su tipo. Sube un archivo JPG, PNG, WebP o PDF válido.",
     previousSavedFileAvailable:
       "El archivo guardado anterior sigue disponible.",
     itemFilesCouldNotDelete:
