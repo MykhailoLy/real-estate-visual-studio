@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Plus, RotateCcw } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
@@ -488,7 +488,6 @@ export default function VirtualStagingOrderForm({
   orderRoute,
   exampleMediaByKey,
 }: VirtualStagingOrderFormProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedDraftId = searchParams.get("draft");
@@ -1020,18 +1019,18 @@ export default function VirtualStagingOrderForm({
   const replaceDraftUrl = useCallback(
     (nextSearch: string) => {
       const suffix = nextSearch ? `?${nextSearch}` : "";
-      router.replace(`${pathname}${suffix}`, { scroll: false });
+      window.history.replaceState(null, "", `${pathname}${suffix}`);
     },
-    [pathname, router],
+    [pathname],
   );
 
   const setDraftQueryParam = useCallback(
     (nextDraftId: string) => {
       const next = new URLSearchParams(searchParams.toString());
       next.set("draft", nextDraftId);
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      replaceDraftUrl(next.toString());
     },
-    [pathname, router, searchParams],
+    [replaceDraftUrl, searchParams],
   );
 
   const startNewVirtualStagingOrder = useCallback(() => {
