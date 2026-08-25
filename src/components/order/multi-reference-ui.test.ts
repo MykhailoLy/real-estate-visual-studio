@@ -18,6 +18,10 @@ const virtualCard = readFileSync(
   "src/components/order/virtual-staging/StagingItemCard.tsx",
   "utf8",
 );
+const virtualForm = readFileSync(
+  "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
+  "utf8",
+);
 const singleCard = readFileSync(
   "src/components/order/image-enhancement/SingleExposureItemCard.tsx",
   "utf8",
@@ -53,6 +57,52 @@ test("image references use thumbnails and PDFs use a file icon", () => {
   assert.match(thumbnail, /isImageReference\(reference\) && previewUrl/);
   assert.match(thumbnail, /<FileText/);
   assert.match(thumbnail, /URL\.revokeObjectURL\(objectUrl\)/);
+});
+
+test("runtime blob and private signed previews bypass next/image", () => {
+  assert.match(thumbnail, /<img[\s\S]+src=\{previewUrl\}/);
+  assert.doesNotMatch(thumbnail, /from ["']next\/image["']/);
+});
+
+test("reference rows use stable server IDs instead of duplicate filenames", () => {
+  assert.match(uploader, /key=\{reference\.id\}/);
+  assert.doesNotMatch(uploader, /key=\{reference\.filename\}/);
+});
+
+test("legacy mirrors are reconciled without deleting normalized references", () => {
+  for (const card of [virtualCard, singleCard]) {
+    assert.match(card, /resolveReferenceFileSelection/);
+    assert.match(card, /selection\.removeLegacy/);
+    assert.match(card, /selection\.references/);
+  }
+});
+
+test("invalid signature remains inline and rejected references leave client state", () => {
+  assert.match(virtualForm, /completed\.code === "invalid_upload"/);
+  assert.match(
+    virtualForm,
+    /working = working\.filter\(\(candidate\) => candidate\.id !== reference\.id\)/,
+  );
+  assert.match(
+    virtualForm,
+    /The file contents do not match its file type\. Please upload a valid JPG, PNG, WebP, or PDF file\./,
+  );
+  assert.match(
+    virtualForm,
+    /El contenido del archivo no coincide con su tipo\. Sube un archivo JPG, PNG, WebP o PDF válido\./,
+  );
+  assert.match(
+    virtualForm,
+    /status: "error",[\s\S]+error: operationError \?\? copy\.fileOperationFailed/,
+  );
+});
+
+test("reference completions guard stale sessions and await final draft persistence", () => {
+  assert.match(virtualForm, /shouldApplyDraftFileOperation\(slotKey, session\)/);
+  assert.match(
+    virtualForm,
+    /const persisted = await enqueueDraftSave\(buildDraftSourceSnapshot\(committed\)/,
+  );
 });
 
 test("all three photo cards use one shared reference section", () => {

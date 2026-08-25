@@ -31,6 +31,7 @@ import type { ServiceOptionMedia } from "@/lib/site-media";
 import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
 import {
   mergeReferenceFiles,
+  resolveReferenceFileSelection,
   type ReferenceFileValue,
 } from "@/lib/reference-files";
 
@@ -423,15 +424,14 @@ export default function StagingItemCard({
         <ReferenceFilesUploader
           files={displayedReferenceFiles}
           onChange={(files) => {
-            const keptLegacy = files.some(
-              (reference) => reference.id === uploadedReferenceFile?.id,
+            const selection = resolveReferenceFileSelection(
+              files,
+              data.referenceFiles,
+              uploadedReferenceFile,
             );
-            if (!keptLegacy && uploadedReferenceFile) onRemoveUploadedReference?.();
-            const normalized = files.filter(
-              (reference) => reference.id !== uploadedReferenceFile?.id,
-            );
-            if (onReferenceFilesChange) onReferenceFilesChange(normalized);
-            else onChange({ ...data, referenceFiles: normalized });
+            if (selection.removeLegacy) onRemoveUploadedReference?.();
+            if (onReferenceFilesChange) onReferenceFilesChange(selection.references);
+            else onChange({ ...data, referenceFiles: selection.references });
           }}
           disabled={referenceDisabled}
           operationStatus={referenceOperationStatusText}

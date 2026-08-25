@@ -199,6 +199,7 @@ type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
   fileUploading: string;
   fileDeleting: string;
   fileOperationFailed: string;
+  invalidReferenceUpload: string;
   previousSavedFileAvailable: string;
   itemFilesCouldNotDelete: string;
   incompleteFields: (count: number) => string;
@@ -302,6 +303,8 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     fileUploading: "Uploading...",
     fileDeleting: "Deleting...",
     fileOperationFailed: "Could not save this file with the draft.",
+    invalidReferenceUpload:
+      "The file contents do not match its file type. Please upload a valid JPG, PNG, WebP, or PDF file.",
     previousSavedFileAvailable: "The previous saved file is still available.",
     itemFilesCouldNotDelete:
       "Saved files for this image could not be deleted. The image was kept in the draft.",
@@ -378,6 +381,8 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     fileUploading: "Subiendo...",
     fileDeleting: "Eliminando...",
     fileOperationFailed: "No se pudo guardar este archivo con el borrador.",
+    invalidReferenceUpload:
+      "El contenido del archivo no coincide con su tipo. Sube un archivo JPG, PNG, WebP o PDF válido.",
     previousSavedFileAvailable:
       "El archivo guardado anterior sigue disponible.",
     itemFilesCouldNotDelete:
@@ -1607,6 +1612,10 @@ export default function VirtualStagingOrderForm({
       const generation = nextVirtualStagingDraftFileOperationGeneration(
         draftFileOperationsRef.current[slotKey],
       );
+      const session = {
+        draftSession: draftSessionRef.current,
+        generation,
+      };
       setDraftFileOperation(slotKey, {
         status: "saving_draft",
         generation,
@@ -1616,6 +1625,7 @@ export default function VirtualStagingOrderForm({
       const saved = await enqueueDraftSave(buildDraftSourceSnapshot(nextItems), {
         force: true,
       });
+      if (!shouldApplyDraftFileOperation(slotKey, session)) return;
       if (!saved.ok) {
         setDraftFileOperation(slotKey, {
           status: "error",
@@ -1626,8 +1636,10 @@ export default function VirtualStagingOrderForm({
         return;
       }
       let working = nextReferences;
+      let operationError: string | null = null;
       for (const reference of removed) {
         const deleted = await deleteDraftReferenceFile(saved.draftId, reference.id);
+        if (!shouldApplyDraftFileOperation(slotKey, session)) return;
         if (!deleted.ok) setDraftError(deleted.message);
       }
       for (const reference of additions) {
@@ -1641,20 +1653,32 @@ export default function VirtualStagingOrderForm({
           fileSize: reference.fileSize,
           mimeType: reference.mimeType as "image/jpeg" | "image/png" | "image/webp" | "application/pdf",
         });
+        if (!shouldApplyDraftFileOperation(slotKey, session)) return;
         if (!prepared.ok) {
-          setDraftError(prepared.message);
+          working = working.filter((candidate) => candidate.id !== reference.id);
+          operationError ??= prepared.message;
           continue;
         }
         const uploaded = await uploadPreparedDraftReferenceFile(prepared.data, reference.file);
+        if (!shouldApplyDraftFileOperation(slotKey, session)) return;
         if (!uploaded.ok) {
-          setDraftError(uploaded.message);
+          working = working.filter((candidate) => candidate.id !== reference.id);
+          operationError ??= uploaded.message;
           await deleteDraftReferenceFile(saved.draftId, reference.id);
+          if (!shouldApplyDraftFileOperation(slotKey, session)) return;
           continue;
         }
         const completed = await completeDraftReferenceFile(saved.draftId, reference.id);
+        if (!shouldApplyDraftFileOperation(slotKey, session)) return;
         if (!completed.ok) {
-          setDraftError(completed.message);
-          await deleteDraftReferenceFile(saved.draftId, reference.id);
+          working = working.filter((candidate) => candidate.id !== reference.id);
+          operationError ??= completed.code === "invalid_upload"
+            ? copy.invalidReferenceUpload
+            : completed.message;
+          if (completed.code !== "invalid_upload") {
+            await deleteDraftReferenceFile(saved.draftId, reference.id);
+            if (!shouldApplyDraftFileOperation(slotKey, session)) return;
+          }
           continue;
         }
         working = working.map((candidate) =>
@@ -1667,7 +1691,19 @@ export default function VirtualStagingOrderForm({
           : candidate,
       );
       commitItems(committed);
-      void enqueueDraftSave(buildDraftSourceSnapshot(committed), { force: true });
+      const persisted = await enqueueDraftSave(buildDraftSourceSnapshot(committed), {
+        force: true,
+      });
+      if (!shouldApplyDraftFileOperation(slotKey, session)) return;
+      if (operationError || !persisted.ok) {
+        setDraftFileOperation(slotKey, {
+          status: "error",
+          generation,
+          error: operationError ?? copy.fileOperationFailed,
+          pendingFileId: null,
+        });
+        return;
+      }
       clearDraftFileOperation(slotKey, generation);
     },
     [
@@ -1675,9 +1711,11 @@ export default function VirtualStagingOrderForm({
       clearDraftFileOperation,
       commitItems,
       copy.fileOperationFailed,
+      copy.invalidReferenceUpload,
       enqueueDraftSave,
       isSubmitting,
       setDraftFileOperation,
+      shouldApplyDraftFileOperation,
     ],
   );
 

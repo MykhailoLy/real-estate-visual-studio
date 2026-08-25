@@ -32,7 +32,7 @@
     "test:virtual-staging-drafts": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging.test.ts",
     "test:virtual-staging-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/virtual-staging-files.test.ts",
     "test:single-exposure": "node --experimental-strip-types --test src/components/order/image-enhancement/single-exposure-review.test.ts src/components/order/image-enhancement/single-exposure-ui-structure.test.ts src/lib/image-enhancement.test.ts src/lib/order-drafts/single-exposure.test.ts src/lib/single-exposure-validation.test.ts",
-    "test:multi-reference": "node --experimental-strip-types --test src/lib/reference-files.test.ts src/lib/order-drafts/multi-reference-migration.test.ts src/lib/order-drafts/reference-shape-migration.test.ts src/lib/order-drafts/day-to-dusk.test.ts src/components/order/multi-reference-ui.test.ts",
+    "test:multi-reference": "node --experimental-strip-types --test src/lib/reference-files.test.ts src/lib/order-drafts/draft-reference-files-client.test.ts src/lib/order-drafts/multi-reference-migration.test.ts src/lib/order-drafts/reference-shape-migration.test.ts src/lib/order-drafts/day-to-dusk.test.ts src/components/order/multi-reference-ui.test.ts src/components/order/reference-upload-client.test.ts",
     "test:day-to-dusk-ui": "node --experimental-strip-types --test src/components/order/day-to-dusk/day-to-dusk-ui-structure.test.ts",
     "test:admin-media-presets": "node --experimental-strip-types --test src/lib/admin-media-presets.test.ts",
     "test:admin-image-uploads": "node --experimental-strip-types --test src/lib/admin-image-upload-flow.test.ts",

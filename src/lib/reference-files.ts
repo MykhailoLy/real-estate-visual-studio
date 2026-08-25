@@ -184,7 +184,11 @@ export function mergeReferenceFiles(
   const ids = new Set<string>();
   const paths = new Set<string>();
 
-  for (const file of [...primary, ...legacy]) {
+  // Legacy rows mirror the first normalized reference under a separate ID.
+  // Their private storage paths are intentionally absent from client DTOs.
+  const authoritative = primary.length > 0 ? primary : legacy;
+
+  for (const file of authoritative) {
     const path = file.storagePath?.trim() ?? "";
     if (ids.has(file.id) || (path && paths.has(path))) continue;
     result.push(file);
@@ -192,6 +196,21 @@ export function mergeReferenceFiles(
     if (path) paths.add(path);
   }
   return result.slice(0, MAX_REFERENCE_FILES);
+}
+
+export function resolveReferenceFileSelection(
+  selected: ReferenceFileValue[],
+  primary: ReferenceFileValue[],
+  legacy: Pick<ReferenceFileValue, "id"> | null | undefined,
+): { references: ReferenceFileValue[]; removeLegacy: boolean } {
+  if (primary.length > 0 || !legacy) {
+    return { references: selected, removeLegacy: false };
+  }
+
+  return {
+    references: selected.filter((reference) => reference.id !== legacy.id),
+    removeLegacy: !selected.some((reference) => reference.id === legacy.id),
+  };
 }
 
 export function normalizeReferenceLink(value: string): string | null {

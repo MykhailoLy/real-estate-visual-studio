@@ -7,6 +7,7 @@ import {
   appendReferenceFiles,
   mergeReferenceFiles,
   normalizeReferenceLink,
+  resolveReferenceFileSelection,
   validateReferenceFiles,
   type ReferenceFileValue,
 } from "./reference-files.ts";
@@ -79,6 +80,20 @@ test("duplicate accidental additions are rejected", () => {
   assert.deepEqual(second.errors, [REFERENCE_FILE_ERRORS.duplicate]);
 });
 
+test("different files with the same filename retain stable unique identities", () => {
+  const selected = appendReferenceFiles([], [
+    file("same.png", 1024, "image/png", 1),
+    file("same.png", 2048, "image/png", 2),
+  ]);
+
+  assert.equal(selected.accepted.length, 2);
+  assert.deepEqual(selected.accepted.map((reference) => reference.filename), [
+    "same.png",
+    "same.png",
+  ]);
+  assert.notEqual(selected.accepted[0].id, selected.accepted[1].id);
+});
+
 test("count, per-file, combined-size and supported-type limits are enforced", () => {
   const ten = Array.from({ length: 10 }, (_, index) => value(String(index)));
   assert.deepEqual(appendReferenceFiles(ten, [file("extra.jpg")]).errors, [REFERENCE_FILE_ERRORS.count]);
@@ -139,6 +154,69 @@ test("dual read de-duplicates the legacy fallback by storage path", () => {
   const primary = value("new", { storagePath: "order/reference.jpg" });
   const legacy = value("legacy", { storagePath: "order/reference.jpg" });
   assert.deepEqual(mergeReferenceFiles([primary], [legacy]), [primary]);
+});
+
+test("restored normalized references suppress their pathless legacy mirror", () => {
+  const primary = value("normalized-id", {
+    filename: "reference.png",
+    fileSize: 2048,
+    mimeType: "image/png",
+    storagePath: null,
+    previewUrl: "https://storage.example/object/sign/order-files/reference.png?token=one",
+  });
+  const legacyMirror = value("legacy-id", {
+    filename: "reference.png",
+    fileSize: 2048,
+    mimeType: "image/png",
+    previewUrl: "https://storage.example/object/sign/order-files/reference.png?token=two",
+  });
+
+  assert.deepEqual(mergeReferenceFiles([primary], [legacyMirror]), [primary]);
+});
+
+test("same-filename normalized uploads survive rehydration without a mirror row", () => {
+  const first = value("first-id", { filename: "same.png", mimeType: "image/png" });
+  const second = value("second-id", { filename: "same.png", mimeType: "image/png" });
+  const legacyMirror = value("legacy-id", {
+    filename: "same.png",
+    mimeType: "image/png",
+  });
+
+  assert.deepEqual(mergeReferenceFiles([first, second], [legacyMirror]), [
+    first,
+    second,
+  ]);
+});
+
+test("legacy references remain visible when normalized references are absent", () => {
+  const legacy = value("legacy-id", { filename: "old-reference.png" });
+
+  assert.deepEqual(mergeReferenceFiles([], [legacy]), [legacy]);
+});
+
+test("editing normalized references never removes the hidden legacy mirror", () => {
+  const persisted = value("normalized-id", { filename: "saved.png" });
+  const added = value("next-id", { filename: "new.png" });
+  const legacy = value("legacy-id", { filename: "saved.png" });
+
+  assert.deepEqual(
+    resolveReferenceFileSelection([persisted, added], [persisted], legacy),
+    { references: [persisted, added], removeLegacy: false },
+  );
+});
+
+test("editing historical legacy-only references preserves explicit remove semantics", () => {
+  const legacy = value("legacy-id", { filename: "historical.png" });
+  const added = value("next-id", { filename: "new.png" });
+
+  assert.deepEqual(resolveReferenceFileSelection([legacy, added], [], legacy), {
+    references: [added],
+    removeLegacy: false,
+  });
+  assert.deepEqual(resolveReferenceFileSelection([], [], legacy), {
+    references: [],
+    removeLegacy: true,
+  });
 });
 
 test("reference links accept only credential-free HTTP and HTTPS URLs", () => {
