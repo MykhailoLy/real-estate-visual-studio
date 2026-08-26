@@ -19,8 +19,11 @@ import {
   RENOVATION_STYLE_OPTIONS,
   STAGING_FILE_ACCEPT,
 } from "@/data/order-options";
+import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 
 export interface RenovationItemData {
+  clientItemId: string;
   file: File | null;
   selectedInternal: string[];
   selectedExternal: string[];
@@ -33,9 +36,12 @@ export interface RenovationItemData {
   referenceLink: string;
   referenceFile: File | null;
   additionalInfo: string;
+  originalFilename: string | null;
+  referenceFilename: string | null;
 }
 
 export const emptyRenovationItem = (): RenovationItemData => ({
+  clientItemId: createDraftClientItemId(),
   file: null,
   selectedInternal: [],
   selectedExternal: [],
@@ -45,6 +51,8 @@ export const emptyRenovationItem = (): RenovationItemData => ({
   referenceLink: "",
   referenceFile: null,
   additionalInfo: "",
+  originalFilename: null,
+  referenceFilename: null,
 });
 
 interface RenovationItemCardProps {
@@ -53,6 +61,19 @@ interface RenovationItemCardProps {
   onChange: (data: RenovationItemData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  persistedOriginal?: OrderDraftUploadedFileSummary | null;
+  persistedReference?: OrderDraftUploadedFileSummary | null;
+  onOriginalFileChange: (file: File | null) => void;
+  onReferenceFileChange: (file: File | null) => void;
+  onRemovePersistedOriginal: () => void;
+  onRemovePersistedReference: () => void;
+  originalOperationStatus?: string;
+  originalOperationError?: string;
+  referenceOperationStatus?: string;
+  referenceOperationError?: string;
+  onRetryOriginal?: () => void;
+  onRetryReference?: () => void;
+  fileOperationDisabled?: boolean;
 }
 
 export default function RenovationItemCard({
@@ -61,6 +82,19 @@ export default function RenovationItemCard({
   onChange,
   onRemove,
   canRemove,
+  persistedOriginal,
+  persistedReference,
+  onOriginalFileChange,
+  onReferenceFileChange,
+  onRemovePersistedOriginal,
+  onRemovePersistedReference,
+  originalOperationStatus,
+  originalOperationError,
+  referenceOperationStatus,
+  referenceOperationError,
+  onRetryOriginal,
+  onRetryReference,
+  fileOperationDisabled = false,
 }: RenovationItemCardProps) {
   const currency = useDisplayCurrency();
   const toggleInternal = (id: string) => {
@@ -108,9 +142,27 @@ export default function RenovationItemCard({
           viewerVariant="photo"
           label="Upload Original Photo"
           file={data.file}
-          onFileChange={(file) => onChange({ ...data, file })}
+          onFileChange={onOriginalFileChange}
           accept={STAGING_FILE_ACCEPT}
           required
+          persistedFile={
+            persistedOriginal
+              ? {
+                  id: persistedOriginal.id,
+                  filename: persistedOriginal.originalFilename,
+                  fileSize: persistedOriginal.fileSize,
+                  previewUrl: persistedOriginal.previewUrl ?? null,
+                  previewExpiresAt: persistedOriginal.previewExpiresAt ?? null,
+                }
+              : null
+          }
+          operationStatusText={originalOperationStatus}
+          operationErrorText={originalOperationError}
+          onRetry={onRetryOriginal}
+          onRemovePersisted={onRemovePersistedOriginal}
+          disabled={fileOperationDisabled}
+          retryDisabled={fileOperationDisabled}
+          removeDisabled={fileOperationDisabled}
         />
 
         {/* Internal Renovations */}
@@ -244,7 +296,26 @@ export default function RenovationItemCard({
           viewerVariant="photo"
           label="Reference Image (optional)"
           file={data.referenceFile}
-          onFileChange={(file) => onChange({ ...data, referenceFile: file })}
+          onFileChange={onReferenceFileChange}
+          accept={STAGING_FILE_ACCEPT}
+          persistedFile={
+            persistedReference
+              ? {
+                  id: persistedReference.id,
+                  filename: persistedReference.originalFilename,
+                  fileSize: persistedReference.fileSize,
+                  previewUrl: persistedReference.previewUrl ?? null,
+                  previewExpiresAt: persistedReference.previewExpiresAt ?? null,
+                }
+              : null
+          }
+          operationStatusText={referenceOperationStatus}
+          operationErrorText={referenceOperationError}
+          onRetry={onRetryReference}
+          onRemovePersisted={onRemovePersistedReference}
+          disabled={fileOperationDisabled}
+          retryDisabled={fileOperationDisabled}
+          removeDisabled={fileOperationDisabled}
         />
 
         {/* Additional Info */}

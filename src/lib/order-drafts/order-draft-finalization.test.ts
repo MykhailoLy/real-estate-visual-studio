@@ -1948,7 +1948,7 @@ test("Virtual Renovation claim migration changes only the additional allowlist b
   assert.equal(migratedClaim.replace(virtualRenovationBranch, ""), previousClaim);
 });
 
-test("Virtual Renovation claim preserves security and does not enable its application finalizer", () => {
+test("Virtual Renovation claim preserves security and enables only its canonical application finalizer", () => {
   const claimSql = sourceSlice(
     SQL_VIRTUAL_RENOVATION_COMPATIBILITY,
     "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
@@ -1978,5 +1978,8 @@ test("Virtual Renovation claim preserves security and does not enable its applic
   );
   assert.match(enabledServices, /return "virtual-staging"/);
   assert.match(enabledServices, /return "photo-editing"/);
-  assert.doesNotMatch(enabledServices, /virtual-renovation/);
+  assert.match(
+    enabledServices,
+    /draft\.serviceType === "virtual-renovation"[\s\S]+draft\.subService === null[\s\S]+draft\.route === VIRTUAL_RENOVATION_DRAFT_ROUTE[\s\S]+return "virtual-renovation"/,
+  );
 });
