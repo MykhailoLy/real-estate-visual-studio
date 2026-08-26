@@ -7,6 +7,10 @@ const PHOTO_EDITING_COMPATIBILITY_SQL = readFileSync(
   "supabase/allow-photo-editing-draft-finalization.sql",
   "utf8",
 );
+const VIRTUAL_RENOVATION_COMPATIBILITY_SQL = readFileSync(
+  "supabase/allow-virtual-renovation-draft-finalization.sql",
+  "utf8",
+);
 const EMAIL_WORKER = readFileSync("src/lib/email/send-order-emails.ts", "utf8");
 const WORKER_ROUTE = readFileSync("src/app/api/internal/order-email-outbox/route.ts", "utf8");
 const CLIENT_SUBMIT = readFileSync("src/lib/submit-order.ts", "utf8");
@@ -299,5 +303,166 @@ test("draft compatibility commit leaves replay, moved files, email outbox and un
   assert.doesNotMatch(
     PHOTO_EDITING_COMPATIBILITY_SQL,
     /orders_source_draft_id_unique/,
+  );
+});
+
+test("Virtual Renovation commit guard binds the draft service to exactly three canonical routes", () => {
+  const commitSql = sqlSegment(
+    VIRTUAL_RENOVATION_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  );
+  assert.match(
+    commitSql,
+    /v_draft\.service_type IS DISTINCT FROM v_submission\.service_type/,
+  );
+  const pairs = parsedDraftServiceRoutePairs(commitSql);
+  assert.deepEqual(pairs, [
+    {
+      serviceType: "virtual-staging",
+      route: "/dashboard/orders/new/virtual-staging",
+    },
+    {
+      serviceType: "photo-editing",
+      route: "/dashboard/orders/new/photo-editing",
+    },
+    {
+      serviceType: "virtual-renovation",
+      route: "/dashboard/orders/new/virtual-renovation",
+    },
+  ]);
+
+  const compatible = (
+    draftService: string,
+    draftRoute: string,
+    submissionService: string,
+  ) =>
+    draftService === submissionService &&
+    pairs.some(
+      (pair) =>
+        pair.serviceType === draftService && pair.route === draftRoute,
+    );
+  assert.equal(
+    compatible(
+      "virtual-staging",
+      "/dashboard/orders/new/virtual-staging",
+      "virtual-staging",
+    ),
+    true,
+  );
+  assert.equal(
+    compatible(
+      "photo-editing",
+      "/dashboard/orders/new/photo-editing",
+      "photo-editing",
+    ),
+    true,
+  );
+  assert.equal(
+    compatible(
+      "virtual-renovation",
+      "/dashboard/orders/new/virtual-renovation",
+      "virtual-renovation",
+    ),
+    true,
+  );
+  assert.equal(
+    compatible(
+      "virtual-renovation",
+      "/dashboard/orders/new/virtual-renovation",
+      "photo-editing",
+    ),
+    false,
+  );
+  assert.equal(
+    compatible(
+      "virtual-renovation",
+      "/dashboard/orders/new/photo-editing",
+      "virtual-renovation",
+    ),
+    false,
+  );
+  assert.equal(
+    compatible(
+      "photo-editing",
+      "/dashboard/orders/new/virtual-renovation",
+      "photo-editing",
+    ),
+    false,
+  );
+  assert.equal(
+    compatible(
+      "virtual-staging",
+      "/dashboard/orders/new/virtual-renovation",
+      "virtual-staging",
+    ),
+    false,
+  );
+});
+
+test("Virtual Renovation commit migration changes only the additional allowlist branch", () => {
+  const previousCommit = sqlSegment(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  );
+  const migratedCommit = sqlSegment(
+    VIRTUAL_RENOVATION_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  );
+  const virtualRenovationBranch = `
+         OR
+         (
+           v_draft.service_type = 'virtual-renovation'
+           AND v_draft.route = '/dashboard/orders/new/virtual-renovation'
+         )`;
+  assert.equal(migratedCommit.replace(virtualRenovationBranch, ""), previousCommit);
+});
+
+test("Virtual Renovation commit preserves security and atomic submission invariants", () => {
+  const commitSql = sqlSegment(
+    VIRTUAL_RENOVATION_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  );
+  assert.match(
+    commitSql,
+    /LANGUAGE plpgsql\s+SECURITY INVOKER\s+SET search_path = pg_catalog, public/,
+  );
+  assert.doesNotMatch(commitSql, /SECURITY DEFINER/);
+  assert.match(
+    VIRTUAL_RENOVATION_COMPATIBILITY_SQL,
+    /REVOKE EXECUTE ON FUNCTION public\.commit_order_submission\([\s\S]+FROM PUBLIC, anon, authenticated/,
+  );
+  assert.match(
+    VIRTUAL_RENOVATION_COMPATIBILITY_SQL,
+    /GRANT EXECUTE ON FUNCTION public\.commit_order_submission\([\s\S]+TO service_role/,
+  );
+  assert.doesNotMatch(
+    VIRTUAL_RENOVATION_COMPATIBILITY_SQL,
+    /GRANT EXECUTE ON FUNCTION public\.commit_order_submission\([\s\S]+TO (?:PUBLIC|anon|authenticated)/,
+  );
+  assert.match(
+    commitSql,
+    /stored authoritative pricing snapshot is inconsistent/,
+  );
+  assert.match(
+    commitSql,
+    /v_submission\.status = 'committed'[\s\S]*'replayed'::TEXT/,
+  );
+  assert.match(commitSql, /v_draft\.finalization_key IS DISTINCT FROM p_draft_finalization_key/);
+  assert.match(
+    commitSql,
+    /UPDATE public\.order_draft_files AS files[\s\S]*upload_status = 'moved'/,
+  );
+  assert.match(commitSql, /UPDATE public\.order_draft_item_reference_files AS draft_references/);
+  assert.match(commitSql, /SET status = 'converted'/);
+  assert.match(commitSql, /source_draft_id/);
+  assert.match(commitSql, /INSERT INTO public\.order_email_deliveries/);
+  assert.match(commitSql, /'client_confirmation'[\s\S]*'admin_notification'/);
+  assert.doesNotMatch(
+    VIRTUAL_RENOVATION_COMPATIBILITY_SQL,
+    /\b(CREATE|DROP)\s+(UNIQUE\s+)?INDEX\b/i,
   );
 });

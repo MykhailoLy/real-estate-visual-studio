@@ -49,6 +49,14 @@ const SQL_PHOTO_EDITING_COMPATIBILITY = readFileSync(
   "supabase/allow-photo-editing-draft-finalization.sql",
   "utf8",
 );
+const SQL_VIRTUAL_RENOVATION_COMPATIBILITY = readFileSync(
+  "supabase/allow-virtual-renovation-draft-finalization.sql",
+  "utf8",
+);
+const VIRTUAL_RENOVATION_PAGE = readFileSync(
+  "src/app/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
+  "utf8",
+);
 const ORDER_ROUTE = readFileSync("src/app/(public)/api/order/route.ts", "utf8");
 const VIRTUAL_STAGING_FORM = readFileSync(
   "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
@@ -1805,4 +1813,170 @@ test("claim compatibility migration preserves service-role-only security", () =>
     /GRANT EXECUTE ON FUNCTION public\.claim_order_draft_finalization\([\s\S]+TO service_role/,
   );
   assert.doesNotMatch(claimSql, /GRANT EXECUTE[\s\S]+TO (?:PUBLIC|anon|authenticated)/);
+});
+
+test("Virtual Renovation compatibility migration replaces only the two approved RPCs", () => {
+  const replacedFunctions = Array.from(
+    SQL_VIRTUAL_RENOVATION_COMPATIBILITY.matchAll(
+      /CREATE OR REPLACE FUNCTION public\.([a-z_]+)\(/g,
+    ),
+    (match) => match[1],
+  );
+  assert.deepEqual(replacedFunctions, [
+    "claim_order_draft_finalization",
+    "commit_order_submission",
+  ]);
+
+  let outsideFunctions = SQL_VIRTUAL_RENOVATION_COMPATIBILITY.replace(
+    /\r\n/g,
+    "\n",
+  );
+  for (const functionName of replacedFunctions) {
+    const start = outsideFunctions.indexOf(
+      `CREATE OR REPLACE FUNCTION public.${functionName}`,
+    );
+    assert.ok(start >= 0, `${functionName} must exist`);
+    const end = outsideFunctions.indexOf("$$;", start);
+    assert.ok(end > start, `${functionName} must terminate`);
+    outsideFunctions =
+      outsideFunctions.slice(0, start) + outsideFunctions.slice(end + 3);
+  }
+
+  assert.doesNotMatch(
+    outsideFunctions,
+    /\b(CREATE|ALTER|DROP)\s+(TABLE|INDEX|TRIGGER|POLICY|SCHEMA)\b/i,
+  );
+  assert.doesNotMatch(outsideFunctions, /\bENABLE ROW LEVEL SECURITY\b/i);
+  assert.doesNotMatch(
+    outsideFunctions,
+    /\b(INSERT INTO|UPDATE|DELETE FROM)\s+public\./i,
+  );
+});
+
+test("Virtual Renovation canonical route is proven by the current dashboard page", () => {
+  assert.match(
+    VIRTUAL_RENOVATION_PAGE,
+    /const ORDER_ROUTE = "\/dashboard\/orders\/new\/virtual-renovation"/,
+  );
+  assert.match(
+    VIRTUAL_RENOVATION_PAGE,
+    /<VirtualRenovationOrderForm clientEmail=\{email\} orderRoute=\{ORDER_ROUTE\} \/>/,
+  );
+});
+
+test("claim compatibility allowlist accepts exactly three canonical service-route pairs", () => {
+  const claimSql = sourceSlice(
+    SQL_VIRTUAL_RENOVATION_COMPATIBILITY,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+  );
+  const pairs = parsedDraftServiceRoutePairs(claimSql);
+  assert.deepEqual(pairs, [
+    {
+      serviceType: "virtual-staging",
+      route: "/dashboard/orders/new/virtual-staging",
+    },
+    {
+      serviceType: "photo-editing",
+      route: "/dashboard/orders/new/photo-editing",
+    },
+    {
+      serviceType: "virtual-renovation",
+      route: "/dashboard/orders/new/virtual-renovation",
+    },
+  ]);
+
+  const allowed = (serviceType: string, route: string) =>
+    pairs.some(
+      (pair) => pair.serviceType === serviceType && pair.route === route,
+    );
+  assert.equal(
+    allowed("virtual-staging", "/dashboard/orders/new/virtual-staging"),
+    true,
+  );
+  assert.equal(
+    allowed("photo-editing", "/dashboard/orders/new/photo-editing"),
+    true,
+  );
+  assert.equal(
+    allowed("virtual-renovation", "/dashboard/orders/new/virtual-renovation"),
+    true,
+  );
+  assert.equal(
+    allowed("virtual-renovation", "/dashboard/orders/new/virtual-staging"),
+    false,
+  );
+  assert.equal(
+    allowed("virtual-renovation", "/dashboard/orders/new/photo-editing"),
+    false,
+  );
+  assert.equal(
+    allowed("virtual-staging", "/dashboard/orders/new/virtual-renovation"),
+    false,
+  );
+  assert.equal(
+    allowed("photo-editing", "/dashboard/orders/new/virtual-renovation"),
+    false,
+  );
+  assert.equal(
+    allowed("unsupported", "/dashboard/orders/new/virtual-renovation"),
+    false,
+  );
+  assert.match(
+    claimSql,
+    /IF NOT \([\s\S]+\) THEN\s+RETURN QUERY SELECT 'invalid_status'::text/,
+  );
+});
+
+test("Virtual Renovation claim migration changes only the additional allowlist branch", () => {
+  const previousClaim = sourceSlice(
+    SQL_PHOTO_EDITING_COMPATIBILITY,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+  );
+  const migratedClaim = sourceSlice(
+    SQL_VIRTUAL_RENOVATION_COMPATIBILITY,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+  );
+  const virtualRenovationBranch = `
+    OR
+    (
+      v_draft.service_type = 'virtual-renovation'
+      AND v_draft.route = '/dashboard/orders/new/virtual-renovation'
+    )`;
+  assert.equal(migratedClaim.replace(virtualRenovationBranch, ""), previousClaim);
+});
+
+test("Virtual Renovation claim preserves security and does not enable its application finalizer", () => {
+  const claimSql = sourceSlice(
+    SQL_VIRTUAL_RENOVATION_COMPATIBILITY,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+  );
+  assert.match(
+    claimSql,
+    /LANGUAGE plpgsql\s+SECURITY DEFINER\s+SET search_path = pg_catalog, public/,
+  );
+  assert.match(
+    claimSql,
+    /REVOKE ALL ON FUNCTION public\.claim_order_draft_finalization\([\s\S]+FROM PUBLIC, anon, authenticated/,
+  );
+  assert.match(
+    claimSql,
+    /GRANT EXECUTE ON FUNCTION public\.claim_order_draft_finalization\([\s\S]+TO service_role/,
+  );
+  assert.doesNotMatch(
+    claimSql,
+    /GRANT EXECUTE[\s\S]+TO (?:PUBLIC|anon|authenticated)/,
+  );
+
+  const enabledServices = sourceSlice(
+    FINALIZATION_SERVER,
+    "function getEnabledDraftFinalizationService(",
+    "function buildTrustedDraftFinalizationContext(",
+  );
+  assert.match(enabledServices, /return "virtual-staging"/);
+  assert.match(enabledServices, /return "photo-editing"/);
+  assert.doesNotMatch(enabledServices, /virtual-renovation/);
 });
