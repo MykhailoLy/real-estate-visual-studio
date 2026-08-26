@@ -26,17 +26,21 @@ import {
 import {
   buildTrustedFinalPathForDraftFile,
   buildPhotoEditingFinalizationItemFiles,
+  buildVirtualRenovationFinalizationItemFiles,
   buildVirtualStagingFinalizationItemFiles,
   finalizationError,
   mapClaimCodeToPublicError,
   mapPhotoEditingDraftStateToProductionItems,
+  mapVirtualRenovationDraftStateToProductionItems,
   mapVirtualStagingDraftStateToProductionItems,
   parseReleaseFinalizationRpcResult,
   parseStrictClaimFinalizationRpcResult,
   parseStrictCompleteFinalizationRpcResult,
   validateAndMatchPhotoEditingDraftFiles,
+  validateAndMatchVirtualRenovationDraftFiles,
   validateAndMatchVirtualStagingDraftFiles,
   validatePhotoEditingDraftForFinalization,
+  validateVirtualRenovationDraftForFinalization,
   validateVirtualStagingDraftForFinalization,
   type DraftFinalizationClaimResultCode,
   type DraftFinalizationCompleteResultCode,
@@ -47,6 +51,7 @@ import {
 } from "./finalization.ts";
 import type { ServiceType } from "../server-validation.ts";
 import { PHOTO_EDITING_DRAFT_ROUTE } from "./photo-editing.ts";
+import { VIRTUAL_RENOVATION_DRAFT_ROUTE } from "./virtual-renovation.ts";
 import { VIRTUAL_STAGING_DRAFT_ROUTE } from "./virtual-staging.ts";
 import { UuidSchema } from "./schema.ts";
 import type {
@@ -75,7 +80,10 @@ export interface SubmitOrderDraftSuccess {
 export type SubmitVirtualStagingDraftSuccess = SubmitOrderDraftSuccess;
 
 interface TrustedDraftFinalizationContext {
-  serviceType: Extract<ServiceType, "virtual-staging" | "photo-editing">;
+  serviceType: Extract<
+    ServiceType,
+    "virtual-staging" | "photo-editing" | "virtual-renovation"
+  >;
   jobTitle: string;
   itemCount: number;
   termsUi: { accepted: boolean; allowPortfolio: boolean };
@@ -355,6 +363,13 @@ function getEnabledDraftFinalizationService(
   ) {
     return "photo-editing";
   }
+  if (
+    draft.serviceType === "virtual-renovation" &&
+    draft.subService === null &&
+    draft.route === VIRTUAL_RENOVATION_DRAFT_ROUTE
+  ) {
+    return "virtual-renovation";
+  }
   return null;
 }
 
@@ -413,6 +428,34 @@ function buildTrustedDraftFinalizationContext(
           data: buildPhotoEditingFinalizationItemFiles(
             slots.map((slot) => ({ ...slot, reference: null })),
           ),
+        }),
+      },
+    };
+  }
+
+  if (draft.serviceType === "virtual-renovation") {
+    const state = validateVirtualRenovationDraftForFinalization(draft);
+    if (!state.ok) return state;
+    const items = mapVirtualRenovationDraftStateToProductionItems(state.data);
+    if (!items.ok) return items;
+    return {
+      ok: true,
+      data: {
+        serviceType: "virtual-renovation",
+        jobTitle: state.data.jobTitle,
+        itemCount: state.data.items.length,
+        termsUi: state.data.termsUi,
+        items: items.data,
+        matchFiles: (files) =>
+          validateAndMatchVirtualRenovationDraftFiles({
+            verifiedUserId: input.userId,
+            draftId: input.draftId,
+            state: state.data,
+            files,
+          }),
+        buildItemFiles: async (slots) => ({
+          ok: true,
+          data: buildVirtualRenovationFinalizationItemFiles(slots),
         }),
       },
     };

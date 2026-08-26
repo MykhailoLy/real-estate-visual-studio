@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
   PhotoEditItemSchema,
+  RenovationItemSchema,
   StagingItemSchema,
   type PhotoEditItem,
+  type RenovationItem,
   type StagingItem,
 } from "../server-validation.ts";
 import {
@@ -23,6 +25,12 @@ import {
   VirtualStagingDraftStateSchema,
   type VirtualStagingDraftState,
 } from "./virtual-staging.ts";
+import {
+  VIRTUAL_RENOVATION_DRAFT_ROUTE,
+  VIRTUAL_RENOVATION_DRAFT_STATE_SCHEMA_VERSION,
+  VirtualRenovationDraftStateSchema,
+  type VirtualRenovationDraftState,
+} from "./virtual-renovation.ts";
 import { UuidSchema } from "./schema.ts";
 import type {
   JsonObject,
@@ -149,6 +157,7 @@ export type DraftFinalizationSlot = VirtualStagingFinalizationSlot;
 export type PhotoEditingFinalizationSlot = DraftFinalizationSlot & {
   reference: null;
 };
+export type VirtualRenovationFinalizationSlot = DraftFinalizationSlot;
 
 export interface VirtualStagingFinalizationFileDescriptor {
   draftFileId: string;
@@ -462,6 +471,57 @@ export function validatePhotoEditingDraftForFinalization(
   return { ok: true, data: parsed.data };
 }
 
+export function validateVirtualRenovationDraftForFinalization(
+  draft: Pick<
+    OrderDraftRow,
+    | "serviceType"
+    | "subService"
+    | "route"
+    | "state"
+    | "stateSchemaVersion"
+    | "currency"
+    | "status"
+  >,
+): DraftFinalizationResult<VirtualRenovationDraftState> {
+  if (draft.serviceType !== "virtual-renovation" || draft.subService !== null) {
+    return finalizationError(
+      "invalid_status",
+      "Draft is not the generic Virtual Renovation draft.",
+    );
+  }
+  if (draft.route !== VIRTUAL_RENOVATION_DRAFT_ROUTE) {
+    return finalizationError(
+      "invalid_status",
+      "Draft belongs to a different route.",
+    );
+  }
+  if (
+    draft.stateSchemaVersion !==
+    VIRTUAL_RENOVATION_DRAFT_STATE_SCHEMA_VERSION
+  ) {
+    return finalizationError(
+      "invalid_status",
+      "Draft schema version is not supported.",
+    );
+  }
+  if (draft.status !== "converting" && draft.status !== "converted") {
+    return finalizationError("invalid_status", "Draft is not claimed.");
+  }
+
+  const parsed = VirtualRenovationDraftStateSchema.safeParse(draft.state);
+  if (!parsed.success) {
+    return finalizationError("invalid_status", "Draft state is invalid.");
+  }
+  if (!parsed.data.termsUi.accepted) {
+    return finalizationError(
+      "invalid_status",
+      "Terms must be accepted before finalization.",
+    );
+  }
+
+  return { ok: true, data: parsed.data };
+}
+
 export function mapVirtualStagingDraftStateToProductionItems(
   state: VirtualStagingDraftState,
 ): DraftFinalizationResult<StagingItem[]> {
@@ -502,6 +562,32 @@ export function mapPhotoEditingDraftStateToProductionItems(
       return finalizationError(
         "invalid_status",
         "Photo Editing draft item is not ready for order submission.",
+      );
+    }
+    items.push(parsed.data);
+  }
+  return { ok: true, data: items };
+}
+
+export function mapVirtualRenovationDraftStateToProductionItems(
+  state: VirtualRenovationDraftState,
+): DraftFinalizationResult<RenovationItem[]> {
+  const items: RenovationItem[] = [];
+  for (const item of state.items) {
+    const parsed = RenovationItemSchema.safeParse({
+      selectedInternal: item.state.selectedInternal,
+      selectedExternal: item.state.selectedExternal,
+      room: item.state.room,
+      presentationStyle: item.state.presentationStyle,
+      fileSizeLimit: item.state.fileSizeLimit,
+      disclaimerText: item.state.disclaimerText,
+      referenceLink: item.state.referenceLink,
+      additionalInfo: item.state.additionalInfo,
+    });
+    if (!parsed.success) {
+      return finalizationError(
+        "invalid_status",
+        "Virtual Renovation draft item is not ready for order submission.",
       );
     }
     items.push(parsed.data);
@@ -665,6 +751,94 @@ export function validateAndMatchPhotoEditingDraftFiles(input: {
   return { ok: true, data: matched };
 }
 
+export function validateAndMatchVirtualRenovationDraftFiles(input: {
+  verifiedUserId: string;
+  draftId: string;
+  state: VirtualRenovationDraftState;
+  files: OrderDraftFileRow[];
+}): DraftFinalizationResult<VirtualRenovationFinalizationSlot[]> {
+  const itemIndexByClientId = new Map<string, number>();
+  input.state.items.forEach((item, index) => {
+    itemIndexByClientId.set(item.clientItemId, index);
+  });
+
+  const slots = new Map<
+    string,
+    { original: OrderDraftFileRow | null; reference: OrderDraftFileRow | null }
+  >();
+
+  for (const file of input.files) {
+    if (file.uploadStatus !== "uploaded" || file.deletedAt !== null) {
+      return finalizationError(
+        "file_mismatch",
+        "Virtual Renovation draft contains a non-live uploaded file.",
+      );
+    }
+    if (
+      file.bucket !== ORDER_FILES_BUCKET ||
+      !itemIndexByClientId.has(file.itemClientId) ||
+      !isExactDraftStoragePathForFile({
+        path: file.storagePath,
+        verifiedUserId: input.verifiedUserId,
+        draftId: input.draftId,
+        fileId: file.id,
+      })
+    ) {
+      return finalizationError(
+        "file_mismatch",
+        "Virtual Renovation draft contains an invalid file slot.",
+      );
+    }
+
+    const current = slots.get(file.itemClientId) ?? {
+      original: null,
+      reference: null,
+    };
+    if (file.kind === "original") {
+      if (current.original) {
+        return finalizationError(
+          "file_mismatch",
+          "Virtual Renovation draft contains duplicate original files.",
+        );
+      }
+      current.original = file;
+    } else if (file.kind === "reference") {
+      if (current.reference) {
+        return finalizationError(
+          "file_mismatch",
+          "Virtual Renovation draft contains duplicate reference files.",
+        );
+      }
+      current.reference = file;
+    } else {
+      return finalizationError(
+        "file_mismatch",
+        "Virtual Renovation draft file kind is invalid.",
+      );
+    }
+    slots.set(file.itemClientId, current);
+  }
+
+  const matched: VirtualRenovationFinalizationSlot[] = [];
+  for (const item of input.state.items) {
+    const slot = slots.get(item.clientItemId);
+    if (!slot?.original) {
+      return finalizationError(
+        "missing_original",
+        "Each Virtual Renovation item needs one saved original image.",
+      );
+    }
+    matched.push({
+      clientItemId: item.clientItemId,
+      itemIndex: itemIndexByClientId.get(item.clientItemId) ?? 0,
+      original: slot.original,
+      reference: slot.reference,
+    });
+  }
+
+  return { ok: true, data: matched };
+}
+
 export function buildVirtualStagingFinalizationItemFiles(
   slots: VirtualStagingFinalizationSlot[],
 ): VirtualStagingFinalizationItemFiles[] {
@@ -682,6 +856,16 @@ export function buildPhotoEditingFinalizationItemFiles(
     clientItemId: slot.clientItemId,
     original: mapDraftFileDescriptor(slot.original),
     reference: null,
+  }));
+}
+
+export function buildVirtualRenovationFinalizationItemFiles(
+  slots: VirtualRenovationFinalizationSlot[],
+): DraftFinalizationItemFiles[] {
+  return slots.map((slot) => ({
+    clientItemId: slot.clientItemId,
+    original: mapDraftFileDescriptor(slot.original),
+    reference: slot.reference ? mapDraftFileDescriptor(slot.reference) : null,
   }));
 }
 
