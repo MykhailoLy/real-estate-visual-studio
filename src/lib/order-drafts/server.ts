@@ -35,6 +35,8 @@ import type {
   UpdateOrderDraftInput,
 } from "./types.ts";
 import type { DraftFinalizationStatusDto } from "./finalization.ts";
+import { PHOTO_EDITING_DRAFT_ROUTE } from "./photo-editing.ts";
+import { VIRTUAL_STAGING_DRAFT_ROUTE } from "./virtual-staging.ts";
 
 interface ListActiveDraftOptions {
   limit?: number;
@@ -244,10 +246,16 @@ export async function getOrderDraftFinalizationStatusForUser(
     if (!data) return { ok: true, data: notFoundFinalizationStatus(draftId) };
 
     const draft = mapOrderDraftDatabaseRow(data);
+    const supportsFinalizationStatus =
+      (draft.serviceType === "virtual-staging" &&
+        draft.route === VIRTUAL_STAGING_DRAFT_ROUTE) ||
+      (draft.serviceType === "photo-editing" &&
+        draft.subService === null &&
+        draft.route === PHOTO_EDITING_DRAFT_ROUTE);
     if (
       draft.deletedAt !== null ||
       draft.expiresAt <= new Date().toISOString() ||
-      draft.serviceType !== "virtual-staging"
+      !supportsFinalizationStatus
     ) {
       return { ok: true, data: notFoundFinalizationStatus(draftId) };
     }

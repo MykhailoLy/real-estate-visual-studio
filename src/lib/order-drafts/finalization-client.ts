@@ -3,7 +3,7 @@ import type {
   DraftFinalizationPublicErrorCode,
 } from "./finalization.ts";
 
-export interface SubmitVirtualStagingDraftSuccess {
+export interface SubmitOrderDraftSuccess {
   orderNumber: string;
   orderId: string;
   draftId: string;
@@ -11,13 +11,15 @@ export interface SubmitVirtualStagingDraftSuccess {
   confirmationEmailSent: boolean;
 }
 
+export type SubmitVirtualStagingDraftSuccess = SubmitOrderDraftSuccess;
+
 export type DraftFinalizationClientErrorCode =
   | DraftFinalizationPublicErrorCode
   | "invalid_json"
   | "network_error";
 
 export type DraftFinalizationClientResult =
-  | { ok: true; data: SubmitVirtualStagingDraftSuccess }
+  | { ok: true; data: SubmitOrderDraftSuccess }
   | {
       ok: false;
       status: number;
@@ -46,7 +48,7 @@ interface ApiError {
   details?: unknown;
 }
 
-export async function submitVirtualStagingDraft(
+export async function submitOrderDraft(
   draftId: string,
   expectedVersion: number,
   finalizationKey: string,
@@ -88,7 +90,7 @@ export async function submitVirtualStagingDraft(
     };
   }
 
-  const successPayload = (payload ?? {}) as ApiSuccess<SubmitVirtualStagingDraftSuccess>;
+  const successPayload = (payload ?? {}) as ApiSuccess<SubmitOrderDraftSuccess>;
   if (!successPayload.data?.orderNumber || !successPayload.data.orderId) {
     return {
       ok: false,
@@ -101,7 +103,9 @@ export async function submitVirtualStagingDraft(
   return { ok: true, data: successPayload.data };
 }
 
-export async function getVirtualStagingDraftFinalizationStatus(
+export const submitVirtualStagingDraft = submitOrderDraft;
+
+export async function getOrderDraftFinalizationStatus(
   draftId: string,
   signal?: AbortSignal,
 ): Promise<DraftFinalizationStatusClientResult> {
@@ -152,6 +156,9 @@ export async function getVirtualStagingDraftFinalizationStatus(
 
   return { ok: true, data };
 }
+
+export const getVirtualStagingDraftFinalizationStatus =
+  getOrderDraftFinalizationStatus;
 
 function isDraftFinalizationStatusDto(
   data: unknown,

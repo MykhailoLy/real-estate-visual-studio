@@ -1,11 +1,22 @@
 import { z } from "zod";
-import { StagingItemSchema, type StagingItem } from "../server-validation.ts";
+import {
+  PhotoEditItemSchema,
+  StagingItemSchema,
+  type PhotoEditItem,
+  type StagingItem,
+} from "../server-validation.ts";
 import {
   ORDER_FILES_BUCKET,
   buildFinalPath,
   getFileExtension,
   type UploadKind,
 } from "../upload-config.ts";
+import {
+  PHOTO_EDITING_DRAFT_ROUTE,
+  PHOTO_EDITING_DRAFT_STATE_SCHEMA_VERSION,
+  PhotoEditingDraftStateSchema,
+  type PhotoEditingDraftState,
+} from "./photo-editing.ts";
 import {
   VIRTUAL_STAGING_DRAFT_ROUTE,
   VIRTUAL_STAGING_DRAFT_STATE_SCHEMA_VERSION,
@@ -134,6 +145,11 @@ export interface VirtualStagingFinalizationSlot {
   reference: OrderDraftFileRow | null;
 }
 
+export type DraftFinalizationSlot = VirtualStagingFinalizationSlot;
+export type PhotoEditingFinalizationSlot = DraftFinalizationSlot & {
+  reference: null;
+};
+
 export interface VirtualStagingFinalizationFileDescriptor {
   draftFileId: string;
   bucket: typeof ORDER_FILES_BUCKET;
@@ -149,6 +165,10 @@ export interface VirtualStagingFinalizationItemFiles {
   reference: VirtualStagingFinalizationFileDescriptor | null;
 }
 
+export type DraftFinalizationFileDescriptor =
+  VirtualStagingFinalizationFileDescriptor;
+export type DraftFinalizationItemFiles = VirtualStagingFinalizationItemFiles;
+
 export interface TrustedMovedDraftFile {
   fileId: string;
   finalPath: string;
@@ -159,6 +179,9 @@ export interface VirtualStagingFinalizationRetryContext {
   expectedVersion: number;
   finalizationKey: string;
 }
+
+export type DraftFinalizationRetryContext =
+  VirtualStagingFinalizationRetryContext;
 
 export type DraftFinalizationStatusCode =
   | "active"
@@ -183,6 +206,8 @@ export type DraftFinalizationStatusDto =
 
 export const VIRTUAL_STAGING_FINALIZATION_RETRY_STORAGE_PREFIX =
   "picchuspot:virtual-staging-finalization:";
+export const ORDER_DRAFT_FINALIZATION_RETRY_STORAGE_PREFIX =
+  "picchuspot:order-draft-finalization:";
 
 const CLAIM_CODES = [
   "claimed",
@@ -224,6 +249,12 @@ export function buildVirtualStagingFinalizationRetryStorageKey(
   return `${VIRTUAL_STAGING_FINALIZATION_RETRY_STORAGE_PREFIX}${draftId}`;
 }
 
+export function buildOrderDraftFinalizationRetryStorageKey(
+  draftId: string,
+): string {
+  return `${ORDER_DRAFT_FINALIZATION_RETRY_STORAGE_PREFIX}${draftId}`;
+}
+
 export function serializeVirtualStagingFinalizationRetryContext(
   context: VirtualStagingFinalizationRetryContext,
 ): string {
@@ -233,6 +264,9 @@ export function serializeVirtualStagingFinalizationRetryContext(
     finalizationKey: context.finalizationKey,
   });
 }
+
+export const serializeDraftFinalizationRetryContext =
+  serializeVirtualStagingFinalizationRetryContext;
 
 export function parseVirtualStagingFinalizationRetryContext(
   value: string,
@@ -280,6 +314,9 @@ export function parseVirtualStagingFinalizationRetryContext(
     finalizationKey: record.finalizationKey,
   };
 }
+
+export const parseDraftFinalizationRetryContext =
+  parseVirtualStagingFinalizationRetryContext;
 
 export function parseStrictClaimFinalizationRpcResult(
   data: unknown,
@@ -377,6 +414,54 @@ export function validateVirtualStagingDraftForFinalization(
   return { ok: true, data: parsed.data };
 }
 
+export function validatePhotoEditingDraftForFinalization(
+  draft: Pick<
+    OrderDraftRow,
+    | "serviceType"
+    | "subService"
+    | "route"
+    | "state"
+    | "stateSchemaVersion"
+    | "currency"
+    | "status"
+  >,
+): DraftFinalizationResult<PhotoEditingDraftState> {
+  if (draft.serviceType !== "photo-editing" || draft.subService !== null) {
+    return finalizationError(
+      "invalid_status",
+      "Draft is not the generic Photo Editing draft.",
+    );
+  }
+  if (draft.route !== PHOTO_EDITING_DRAFT_ROUTE) {
+    return finalizationError(
+      "invalid_status",
+      "Draft belongs to a different route.",
+    );
+  }
+  if (draft.stateSchemaVersion !== PHOTO_EDITING_DRAFT_STATE_SCHEMA_VERSION) {
+    return finalizationError(
+      "invalid_status",
+      "Draft schema version is not supported.",
+    );
+  }
+  if (draft.status !== "converting" && draft.status !== "converted") {
+    return finalizationError("invalid_status", "Draft is not claimed.");
+  }
+
+  const parsed = PhotoEditingDraftStateSchema.safeParse(draft.state);
+  if (!parsed.success) {
+    return finalizationError("invalid_status", "Draft state is invalid.");
+  }
+  if (!parsed.data.termsUi.accepted) {
+    return finalizationError(
+      "invalid_status",
+      "Terms must be accepted before finalization.",
+    );
+  }
+
+  return { ok: true, data: parsed.data };
+}
+
 export function mapVirtualStagingDraftStateToProductionItems(
   state: VirtualStagingDraftState,
 ): DraftFinalizationResult<StagingItem[]> {
@@ -395,6 +480,28 @@ export function mapVirtualStagingDraftStateToProductionItems(
       return finalizationError(
         "invalid_status",
         "Draft item is not ready for order submission.",
+      );
+    }
+    items.push(parsed.data);
+  }
+  return { ok: true, data: items };
+}
+
+export function mapPhotoEditingDraftStateToProductionItems(
+  state: PhotoEditingDraftState,
+): DraftFinalizationResult<PhotoEditItem[]> {
+  const items: PhotoEditItem[] = [];
+  for (const item of state.items) {
+    const parsed = PhotoEditItemSchema.safeParse({
+      selectedOptions: item.state.selectedOptions,
+      fileSizeLimit: item.state.fileSizeLimit,
+      disclaimerText: item.state.disclaimerText,
+      additionalInfo: item.state.additionalInfo,
+    });
+    if (!parsed.success) {
+      return finalizationError(
+        "invalid_status",
+        "Photo Editing draft item is not ready for order submission.",
       );
     }
     items.push(parsed.data);
@@ -494,6 +601,70 @@ export function validateAndMatchVirtualStagingDraftFiles(input: {
   return { ok: true, data: matched };
 }
 
+export function validateAndMatchPhotoEditingDraftFiles(input: {
+  verifiedUserId: string;
+  draftId: string;
+  state: PhotoEditingDraftState;
+  files: OrderDraftFileRow[];
+}): DraftFinalizationResult<PhotoEditingFinalizationSlot[]> {
+  const itemIndexByClientId = new Map<string, number>();
+  input.state.items.forEach((item, index) => {
+    itemIndexByClientId.set(item.clientItemId, index);
+  });
+
+  const originals = new Map<string, OrderDraftFileRow>();
+  for (const file of input.files) {
+    if (file.uploadStatus !== "uploaded" || file.deletedAt !== null) {
+      return finalizationError(
+        "file_mismatch",
+        "Draft contains a non-live uploaded file.",
+      );
+    }
+    if (
+      file.kind !== "original" ||
+      file.bucket !== ORDER_FILES_BUCKET ||
+      !itemIndexByClientId.has(file.itemClientId) ||
+      !isExactDraftStoragePathForFile({
+        path: file.storagePath,
+        verifiedUserId: input.verifiedUserId,
+        draftId: input.draftId,
+        fileId: file.id,
+      })
+    ) {
+      return finalizationError(
+        "file_mismatch",
+        "Photo Editing draft contains an invalid file slot.",
+      );
+    }
+    if (originals.has(file.itemClientId)) {
+      return finalizationError(
+        "file_mismatch",
+        "Photo Editing draft contains duplicate original files.",
+      );
+    }
+    originals.set(file.itemClientId, file);
+  }
+
+  const matched: PhotoEditingFinalizationSlot[] = [];
+  for (const item of input.state.items) {
+    const original = originals.get(item.clientItemId);
+    if (!original) {
+      return finalizationError(
+        "missing_original",
+        "Each Photo Editing item needs one saved original image.",
+      );
+    }
+    matched.push({
+      clientItemId: item.clientItemId,
+      itemIndex: itemIndexByClientId.get(item.clientItemId) ?? 0,
+      original,
+      reference: null,
+    });
+  }
+
+  return { ok: true, data: matched };
+}
+
 export function buildVirtualStagingFinalizationItemFiles(
   slots: VirtualStagingFinalizationSlot[],
 ): VirtualStagingFinalizationItemFiles[] {
@@ -501,6 +672,16 @@ export function buildVirtualStagingFinalizationItemFiles(
     clientItemId: slot.clientItemId,
     original: mapDraftFileDescriptor(slot.original),
     reference: slot.reference ? mapDraftFileDescriptor(slot.reference) : null,
+  }));
+}
+
+export function buildPhotoEditingFinalizationItemFiles(
+  slots: PhotoEditingFinalizationSlot[],
+): DraftFinalizationItemFiles[] {
+  return slots.map((slot) => ({
+    clientItemId: slot.clientItemId,
+    original: mapDraftFileDescriptor(slot.original),
+    reference: null,
   }));
 }
 
@@ -647,6 +828,9 @@ export function shouldPreserveVirtualStagingFinalizationKeyAfterFailure(input: {
     input.status >= 500
   );
 }
+
+export const shouldPreserveDraftFinalizationKeyAfterFailure =
+  shouldPreserveVirtualStagingFinalizationKeyAfterFailure;
 
 export function resetVirtualStagingFinalizationIdentity(): {
   finalizationKey: null;
