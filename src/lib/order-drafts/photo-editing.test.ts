@@ -337,7 +337,21 @@ test("Photo Editing form uses durable APIs and navigation-free URL sync", () => 
     ),
     "utf8",
   );
-  assert.match(form, /window\.history\.replaceState/);
+  const urlSyncStart = form.indexOf("const replaceDraftUrl = useCallback(");
+  const urlSyncEnd = form.indexOf("const persistDraft = useCallback(", urlSyncStart);
+  assert.ok(urlSyncStart >= 0);
+  assert.ok(urlSyncEnd > urlSyncStart);
+  const urlSyncSource = form.slice(urlSyncStart, urlSyncEnd);
+
+  assert.match(
+    urlSyncSource,
+    /window\.history\.replaceState\(\s*null,\s*"",\s*`\$\{pathname\}\$\{suffix\}\$\{window\.location\.hash\}`,?\s*\)/,
+  );
+  assert.match(urlSyncSource, /new URLSearchParams\(window\.location\.search\)/);
+  assert.match(urlSyncSource, /next\.set\("draft", nextDraftId\)/);
+  assert.match(urlSyncSource, /next\.delete\("draft"\)/);
+  assert.match(urlSyncSource, /replaceDraftUrl\(next\.toString\(\)\)/);
+  assert.doesNotMatch(form, /replaceState\(\s*window\.history\.state/);
   assert.doesNotMatch(form, /router\.replace|useRouter/);
   assert.doesNotMatch(form, /submitOrder\(|\/api\/order["'`]/);
   assert.match(form, /prepareOrderDraftFileUpload/);
@@ -347,6 +361,69 @@ test("Photo Editing form uses durable APIs and navigation-free URL sync", () => 
   assert.match(form, /key=\{item\.clientItemId\}/);
   assert.match(form, /draftSessionRef\.current \+= 1/);
   assert.doesNotMatch(form, /scrollIntoView|scrollTo\(/);
+});
+
+test("first draft URL sync preserves restore guards without an RSC navigation", () => {
+  const form = readFileSync(
+    new URL(
+      "../../components/order/photo-editing/PhotoEditingOrderForm.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const createStart = form.indexOf("if (!currentId) {");
+  const createEnd = form.indexOf(
+    "const currentVersion = draftVersionRef.current;",
+    createStart,
+  );
+  assert.ok(createStart >= 0);
+  assert.ok(createEnd > createStart);
+
+  const createSource = form.slice(createStart, createEnd);
+  const draftRef = createSource.indexOf("draftIdRef.current = result.data.id;");
+  const fingerprint = createSource.indexOf("savedFingerprintRef.current = fingerprint;");
+  const updateUrl = createSource.indexOf("setDraftQueryParam(result.data.id);");
+  assert.ok(draftRef >= 0);
+  assert.ok(fingerprint > draftRef);
+  assert.ok(updateUrl > fingerprint);
+  assert.match(form, /const searchParams = useSearchParams\(\)/);
+  assert.match(form, /const requestedDraftId = searchParams\.get\("draft"\)/);
+  assert.match(
+    form,
+    /requestedDraftId === draftIdRef\.current\s*&&\s*savedFingerprintRef\.current !== null/,
+  );
+  assert.match(form, /getOrderDraft\(requestedDraftId, controller\.signal\)/);
+  assert.match(form, /listOrderDraftFiles\(result\.data\.id, controller\.signal\)/);
+  assert.doesNotMatch(form, /router\.replace|router\.refresh|useRouter/);
+});
+
+test("Start New and browser history keep the draft query synchronized", () => {
+  const form = readFileSync(
+    new URL(
+      "../../components/order/photo-editing/PhotoEditingOrderForm.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const resetStart = form.indexOf("const startNewOrder = useCallback(");
+  const resetEnd = form.indexOf(
+    "const hasActiveFileOperation =",
+    resetStart,
+  );
+  assert.ok(resetStart >= 0);
+  assert.ok(resetEnd > resetStart);
+  const resetSource = form.slice(resetStart, resetEnd);
+
+  assert.match(
+    resetSource,
+    /resetPhotoEditingDraftIdentity\(window\.location\.search\)/,
+  );
+  assert.match(resetSource, /replaceDraftUrl\(reset\.nextSearch\)/);
+  assert.match(
+    form,
+    /commitUploadedFiles,\s*requestedDraftId,\s*requestedDraftIsValid,\s*setRegion,/,
+  );
+  assert.doesNotMatch(form, /window\.onpopstate|addEventListener\("popstate"/);
 });
 
 test("Photo Editing form keeps the complete durable original-file lifecycle", () => {

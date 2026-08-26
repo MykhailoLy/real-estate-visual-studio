@@ -232,7 +232,7 @@ export default function PhotoEditingOrderForm({
     (nextSearch: string) => {
       const suffix = nextSearch ? `?${nextSearch}` : "";
       window.history.replaceState(
-        window.history.state,
+        null,
         "",
         `${pathname}${suffix}${window.location.hash}`,
       );
