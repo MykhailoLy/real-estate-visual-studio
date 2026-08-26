@@ -1069,6 +1069,8 @@ export default function PhotoEditingOrderForm({
     saveStatus !== "conflict" &&
     resumeState === "ready";
   const editsDisabled = isSubmitting || finalizationRetryContext !== null;
+  const startNewDisabled =
+    editsDisabled || hasActiveFileOperation || saveStatus === "saving";
   const summaryItems: SummaryItem[] = items.map((_, index) => ({
     label: `Photo #${index + 1}`,
   }));
@@ -1218,17 +1220,29 @@ export default function PhotoEditingOrderForm({
         </div>
       ) : null}
 
-      <p className="min-h-5 text-xs text-muted" aria-live="polite">
-        {saveStatus === "saving"
-          ? "Saving draft..."
-          : saveStatus === "saved"
-            ? "Draft saved"
-            : saveStatus === "save_failed"
-              ? "Draft not saved"
-              : saveStatus === "conflict"
-                ? "Draft conflict"
-                : ""}
-      </p>
+      <div className="flex min-h-5 flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted" aria-live="polite">
+          {saveStatus === "saving"
+            ? "Saving draft..."
+            : saveStatus === "saved"
+              ? "Draft saved"
+              : saveStatus === "save_failed"
+                ? "Draft not saved"
+                : saveStatus === "conflict"
+                  ? "Draft conflict"
+                  : ""}
+        </p>
+        {draftId !== null ? (
+          <button
+            type="button"
+            onClick={startNewOrder}
+            disabled={startNewDisabled}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Start New
+          </button>
+        ) : null}
+      </div>
 
       <fieldset disabled={editsDisabled} className="contents">
         <OrderJobTitleField

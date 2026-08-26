@@ -416,7 +416,10 @@ test("form uses durable APIs, two file slots, and navigation-free URL sync", () 
   const urlEnd = form.indexOf("const persistDraft = useCallback(", urlStart);
   assert.ok(urlStart >= 0 && urlEnd > urlStart);
   const urlSource = form.slice(urlStart, urlEnd);
-  assert.match(urlSource, /window\.history\.replaceState\(\s*null,/);
+  assert.match(
+    urlSource,
+    /window\.history\.replaceState\(\s*null,\s*"",\s*`\$\{pathname\}\$\{suffix\}\$\{window\.location\.hash\}`,?\s*\)/,
+  );
   assert.doesNotMatch(form, /replaceState\(\s*window\.history\.state/);
   assert.doesNotMatch(form, /router\.replace|router\.refresh|useRouter/);
   assert.doesNotMatch(form, /submitOrder\(|\/api\/order["'`]/);
@@ -434,6 +437,52 @@ test("form uses durable APIs, two file slots, and navigation-free URL sync", () 
   assert.doesNotMatch(form, /scrollIntoView|scrollTo\(/);
   assert.match(card, /persistedOriginal/);
   assert.match(card, /persistedReference/);
+});
+
+test("normal ready state renders a guarded Start New only for an active draft", () => {
+  const form = readFileSync(
+    new URL(
+      "../../components/order/virtual-renovation/VirtualRenovationOrderForm.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const orderLayout = form.indexOf("<OrderLayout");
+  const readyReturn = form.lastIndexOf("return (", orderLayout);
+  const readyFieldset = form.indexOf("<fieldset", readyReturn);
+
+  assert.ok(orderLayout >= 0);
+  assert.ok(readyReturn >= 0);
+  assert.ok(readyFieldset > orderLayout);
+  assert.ok(readyReturn > form.indexOf('if (resumeState === "error")'));
+
+  const readyHeader = form.slice(readyReturn, readyFieldset);
+  assert.match(
+    readyHeader,
+    /className="flex min-h-5 flex-wrap items-center justify-between gap-3"/,
+  );
+  assert.match(
+    readyHeader,
+    /\{draftId !== null \? \([\s\S]*onClick=\{startNewOrder\}[\s\S]*Start New[\s\S]*\) : null\}/,
+  );
+  assert.match(readyHeader, /disabled=\{startNewDisabled\}/);
+  assert.doesNotMatch(readyHeader, /<fieldset/);
+  assert.match(
+    form,
+    /const editsDisabled = isSubmitting \|\| finalizationRetryContext !== null;/,
+  );
+  assert.match(
+    form,
+    /const startNewDisabled =\s*editsDisabled \|\| hasActiveFileOperation \|\| saveStatus === "saving";/,
+  );
+
+  const resetStart = form.indexOf("const startNewOrder = useCallback(");
+  const resetEnd = form.indexOf("const hasActiveFileOperation =", resetStart);
+  const resetSource = form.slice(resetStart, resetEnd);
+  assert.match(resetSource, /draftSessionRef\.current \+= 1/);
+  assert.match(resetSource, /setDraftId\(reset\.draftId\)/);
+  assert.match(resetSource, /draftIdRef\.current = reset\.draftId/);
+  assert.match(resetSource, /replaceDraftUrl\(reset\.nextSearch\)/);
 });
 
 test("trusted server dispatch derives Virtual Renovation only from loaded draft", () => {
