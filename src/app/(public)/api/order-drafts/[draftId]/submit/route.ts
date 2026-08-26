@@ -1,7 +1,7 @@
 import { getClientUser } from "@/lib/client-auth";
 import { getClientProfile } from "@/lib/client-profile";
 import { resolveClientIdentity } from "@/lib/profile-completion";
-import { submitVirtualStagingDraftForUser } from "@/lib/order-drafts/finalization-server";
+import { submitOrderDraftForUser } from "@/lib/order-drafts/finalization-server";
 import { DraftFinalizationBodySchema } from "@/lib/order-drafts/finalization";
 import {
   draftFinalizationBodyValidationResponse,
@@ -47,7 +47,7 @@ export async function POST(
     if (validationResponse) return validationResponse;
 
     const parsed = DraftFinalizationBodySchema.parse(body.data);
-    const result = await submitVirtualStagingDraftForUser({
+    const result = await submitOrderDraftForUser({
       userId: sessionUser.id,
       draftId,
       expectedVersion: parsed.expectedVersion,

@@ -7,7 +7,11 @@ import {
 import type { ResolvedClientIdentity } from "../profile-completion.ts";
 import { TERMS_VERSION } from "../order-terms.ts";
 import { ORDER_FILES_BUCKET } from "../upload-config.ts";
-import { createProductionOrder } from "../orders/create-order-server.ts";
+import {
+  createProductionOrder,
+  type TrustedOrderItemFiles,
+  type ValidatedOrderItem,
+} from "../orders/create-order-server.ts";
 import {
   ORDER_DRAFT_FILE_SELECT,
   ORDER_DRAFT_SELECT,
@@ -21,29 +25,36 @@ import {
 } from "./files.ts";
 import {
   buildTrustedFinalPathForDraftFile,
+  buildPhotoEditingFinalizationItemFiles,
   buildVirtualStagingFinalizationItemFiles,
   finalizationError,
   mapClaimCodeToPublicError,
+  mapPhotoEditingDraftStateToProductionItems,
   mapVirtualStagingDraftStateToProductionItems,
   parseReleaseFinalizationRpcResult,
   parseStrictClaimFinalizationRpcResult,
   parseStrictCompleteFinalizationRpcResult,
+  validateAndMatchPhotoEditingDraftFiles,
   validateAndMatchVirtualStagingDraftFiles,
+  validatePhotoEditingDraftForFinalization,
   validateVirtualStagingDraftForFinalization,
   type DraftFinalizationClaimResultCode,
   type DraftFinalizationCompleteResultCode,
+  type DraftFinalizationSlot,
   type DraftFinalizationResult,
   type ParsedFinalizationRpcResult,
   type TrustedMovedDraftFile,
-  type VirtualStagingFinalizationSlot,
 } from "./finalization.ts";
+import type { ServiceType } from "../server-validation.ts";
+import { PHOTO_EDITING_DRAFT_ROUTE } from "./photo-editing.ts";
+import { VIRTUAL_STAGING_DRAFT_ROUTE } from "./virtual-staging.ts";
 import { UuidSchema } from "./schema.ts";
 import type {
   OrderDraftFileRow,
   OrderDraftRow,
 } from "./types.ts";
 
-export interface SubmitVirtualStagingDraftInput {
+export interface SubmitOrderDraftInput {
   userId: string;
   draftId: string;
   expectedVersion: number;
@@ -51,12 +62,30 @@ export interface SubmitVirtualStagingDraftInput {
   clientIdentity: ResolvedClientIdentity;
 }
 
-export interface SubmitVirtualStagingDraftSuccess {
+export type SubmitVirtualStagingDraftInput = SubmitOrderDraftInput;
+
+export interface SubmitOrderDraftSuccess {
   orderNumber: string;
   orderId: string;
   draftId: string;
   alreadyFinalized: boolean;
   confirmationEmailSent: boolean;
+}
+
+export type SubmitVirtualStagingDraftSuccess = SubmitOrderDraftSuccess;
+
+interface TrustedDraftFinalizationContext {
+  serviceType: Extract<ServiceType, "virtual-staging" | "photo-editing">;
+  jobTitle: string;
+  itemCount: number;
+  termsUi: { accepted: boolean; allowPortfolio: boolean };
+  items: ValidatedOrderItem[];
+  matchFiles: (
+    files: OrderDraftFileRow[],
+  ) => DraftFinalizationResult<DraftFinalizationSlot[]>;
+  buildItemFiles: (
+    slots: DraftFinalizationSlot[],
+  ) => Promise<DraftFinalizationResult<TrustedOrderItemFiles[]>>;
 }
 
 interface ProductionOrderLookup {
@@ -97,6 +126,19 @@ type CompleteDraftFinalizationResult =
 export async function submitVirtualStagingDraftForUser(
   input: SubmitVirtualStagingDraftInput,
 ): Promise<DraftFinalizationResult<SubmitVirtualStagingDraftSuccess>> {
+  return submitTrustedOrderDraftForUser(input, "virtual-staging");
+}
+
+export async function submitOrderDraftForUser(
+  input: SubmitOrderDraftInput,
+): Promise<DraftFinalizationResult<SubmitOrderDraftSuccess>> {
+  return submitTrustedOrderDraftForUser(input);
+}
+
+async function submitTrustedOrderDraftForUser(
+  input: SubmitOrderDraftInput,
+  expectedServiceType?: TrustedDraftFinalizationContext["serviceType"],
+): Promise<DraftFinalizationResult<SubmitOrderDraftSuccess>> {
   if (
     !UuidSchema.safeParse(input.userId).success ||
     !UuidSchema.safeParse(input.draftId).success ||
@@ -106,6 +148,24 @@ export async function submitVirtualStagingDraftForUser(
   }
 
   try {
+    const trustedDraft = await loadClaimedDraft(input.userId, input.draftId);
+    if (!trustedDraft) {
+      return finalizationError("not_found", "Draft was not found.");
+    }
+    const trustedServiceType = getEnabledDraftFinalizationService(trustedDraft);
+    if (!trustedServiceType) {
+      return finalizationError(
+        "invalid_status",
+        "Draft service is not enabled for durable finalization.",
+      );
+    }
+    if (expectedServiceType && trustedServiceType !== expectedServiceType) {
+      return finalizationError(
+        "invalid_status",
+        "Draft belongs to a different order service.",
+      );
+    }
+
     const claim = await claimDraftFinalization(input);
     if (claim.code === "database_error") {
       return finalizationError(
@@ -122,11 +182,39 @@ export async function submitVirtualStagingDraftForUser(
       );
     }
 
+    const draft = await loadClaimedDraft(input.userId, input.draftId);
+    if (!draft) {
+      await releaseClaimBestEffort(input);
+      return finalizationError("not_found", "Draft was not found.");
+    }
+
+    const contextResult = buildTrustedDraftFinalizationContext(input, draft);
+    if (!contextResult.ok) {
+      await releaseClaimBestEffort(input);
+      return contextResult;
+    }
+    const context = contextResult.data;
+    if (expectedServiceType && context.serviceType !== expectedServiceType) {
+      await releaseClaimBestEffort(input);
+      return finalizationError(
+        "invalid_status",
+        "Draft belongs to a different order service.",
+      );
+    }
+
     if (claim.code === "already_converted") {
       const existing = claim.convertedOrderId
         ? await loadProductionOrderById(input.userId, claim.convertedOrderId)
         : await loadProductionOrderBySourceDraft(input.userId, input.draftId);
-      if (!existing || !isProductionOrderForDraft(existing, input.draftId)) {
+      if (
+        !existing ||
+        !isProductionOrderForDraft(
+          existing,
+          input.draftId,
+          context.serviceType,
+        ) ||
+        existing.itemCount !== context.itemCount
+      ) {
         return finalizationError(
           "finalization_incomplete",
           "Draft conversion needs to be reconciled.",
@@ -144,45 +232,12 @@ export async function submitVirtualStagingDraftForUser(
       };
     }
 
-    const draft = await loadClaimedDraft(input.userId, input.draftId);
-    if (!draft) {
-      await releaseClaimBestEffort(input);
-      return finalizationError("not_found", "Draft was not found.");
-    }
-
-    const stateResult = validateVirtualStagingDraftForFinalization(draft);
-    if (!stateResult.ok) {
-      await releaseClaimBestEffort(input);
-      return stateResult;
-    }
-
     const existingOrder = claim.convertedOrderId
       ? await loadProductionOrderById(input.userId, claim.convertedOrderId)
       : await loadProductionOrderBySourceDraft(input.userId, input.draftId);
 
-    if (existingOrder) {
-      const reconciled = await reconcileExistingDraftOrder({
-        input,
-        draft,
-        order: existingOrder,
-      });
-      return reconciled;
-    }
-
-    const productionItems =
-      mapVirtualStagingDraftStateToProductionItems(stateResult.data);
-    if (!productionItems.ok) {
-      await releaseClaimBestEffort(input);
-      return productionItems;
-    }
-
     const files = await loadLiveUploadedDraftFiles(input.draftId);
-    const slots = validateAndMatchVirtualStagingDraftFiles({
-      verifiedUserId: input.userId,
-      draftId: input.draftId,
-      state: stateResult.data,
-      files,
-    });
+    const slots = context.matchFiles(files);
     if (!slots.ok) {
       await releaseClaimBestEffort(input);
       return slots;
@@ -194,58 +249,36 @@ export async function submitVirtualStagingDraftForUser(
       return storageVerification;
     }
 
-    const normalizedReferences = await loadLiveDraftReferenceFiles(input.draftId);
-    const referenceVerification = await verifyNormalizedDraftReferenceObjects(
-      normalizedReferences,
-    );
-    if (!referenceVerification.ok) {
-      await releaseClaimBestEffort(input);
-      return referenceVerification;
+    if (existingOrder) {
+      return reconcileExistingDraftOrder({
+        input,
+        draft,
+        order: existingOrder,
+        context,
+        slots: slots.data,
+      });
     }
 
-    const itemFiles = buildVirtualStagingFinalizationItemFiles(slots.data).map(
-      (slot) => {
-        const itemReferences = normalizedReferences.filter(
-          (reference) => reference.itemClientId === slot.clientItemId,
-        );
-        const mirroredReference = itemReferences.find(
-          (reference) => reference.storagePath === slot.reference?.path,
-        );
-        return {
-          ...slot,
-          reference:
-            slot.reference && mirroredReference
-              ? { ...slot.reference, referenceId: mirroredReference.referenceId }
-              : slot.reference,
-          references: itemReferences
-            .filter((reference) => reference.storagePath !== slot.reference?.path)
-            .map((reference) => ({
-              bucket: ORDER_FILES_BUCKET,
-              path: reference.storagePath,
-              originalFilename: reference.originalFilename,
-              size: reference.fileSize,
-              mimeType: reference.mimeType,
-              referenceId: reference.referenceId,
-              position: reference.position,
-            })),
-        };
-      },
-    );
+    const itemFiles = await context.buildItemFiles(slots.data);
+    if (!itemFiles.ok) {
+      await releaseClaimBestEffort(input);
+      return itemFiles;
+    }
     const orderResult = await createProductionOrder({
       submissionId: input.draftId,
       ownerUserId: input.userId,
       clientIdentity: input.clientIdentity,
-      serviceType: "virtual-staging",
-      jobTitle: stateResult.data.jobTitle,
+      serviceType: context.serviceType,
+      jobTitle: context.jobTitle,
       currency: draft.currency,
-      items: productionItems.data,
-      itemFiles,
+      items: context.items,
+      itemFiles: itemFiles.data,
       termsAcceptance: {
-        accepted: stateResult.data.termsUi.accepted,
+        accepted: context.termsUi.accepted,
         version: TERMS_VERSION,
       },
       portfolioPermission: {
-        allowed: stateResult.data.termsUi.allowPortfolio,
+        allowed: context.termsUi.allowPortfolio,
       },
       sourceDraftId: input.draftId,
       draftExpectedVersion: input.expectedVersion,
@@ -264,6 +297,7 @@ export async function submitVirtualStagingDraftForUser(
             input,
             draft,
             order: sourceOrder,
+            context,
             slots: slots.data,
           });
         }
@@ -303,6 +337,132 @@ export async function submitVirtualStagingDraftForUser(
       "Draft finalization failed. Please try again.",
     );
   }
+}
+
+function getEnabledDraftFinalizationService(
+  draft: OrderDraftRow,
+): TrustedDraftFinalizationContext["serviceType"] | null {
+  if (
+    draft.serviceType === "virtual-staging" &&
+    draft.route === VIRTUAL_STAGING_DRAFT_ROUTE
+  ) {
+    return "virtual-staging";
+  }
+  if (
+    draft.serviceType === "photo-editing" &&
+    draft.subService === null &&
+    draft.route === PHOTO_EDITING_DRAFT_ROUTE
+  ) {
+    return "photo-editing";
+  }
+  return null;
+}
+
+function buildTrustedDraftFinalizationContext(
+  input: SubmitOrderDraftInput,
+  draft: OrderDraftRow,
+): DraftFinalizationResult<TrustedDraftFinalizationContext> {
+  if (draft.serviceType === "virtual-staging") {
+    const state = validateVirtualStagingDraftForFinalization(draft);
+    if (!state.ok) return state;
+    const items = mapVirtualStagingDraftStateToProductionItems(state.data);
+    if (!items.ok) return items;
+    return {
+      ok: true,
+      data: {
+        serviceType: "virtual-staging",
+        jobTitle: state.data.jobTitle,
+        itemCount: state.data.items.length,
+        termsUi: state.data.termsUi,
+        items: items.data,
+        matchFiles: (files) =>
+          validateAndMatchVirtualStagingDraftFiles({
+            verifiedUserId: input.userId,
+            draftId: input.draftId,
+            state: state.data,
+            files,
+          }),
+        buildItemFiles: (slots) =>
+          buildVirtualStagingTrustedItemFiles(input.draftId, slots),
+      },
+    };
+  }
+
+  if (draft.serviceType === "photo-editing") {
+    const state = validatePhotoEditingDraftForFinalization(draft);
+    if (!state.ok) return state;
+    const items = mapPhotoEditingDraftStateToProductionItems(state.data);
+    if (!items.ok) return items;
+    return {
+      ok: true,
+      data: {
+        serviceType: "photo-editing",
+        jobTitle: state.data.jobTitle,
+        itemCount: state.data.items.length,
+        termsUi: state.data.termsUi,
+        items: items.data,
+        matchFiles: (files) =>
+          validateAndMatchPhotoEditingDraftFiles({
+            verifiedUserId: input.userId,
+            draftId: input.draftId,
+            state: state.data,
+            files,
+          }),
+        buildItemFiles: async (slots) => ({
+          ok: true,
+          data: buildPhotoEditingFinalizationItemFiles(
+            slots.map((slot) => ({ ...slot, reference: null })),
+          ),
+        }),
+      },
+    };
+  }
+
+  return finalizationError(
+    "invalid_status",
+    "Draft service is not enabled for durable finalization.",
+  );
+}
+
+async function buildVirtualStagingTrustedItemFiles(
+  draftId: string,
+  slots: DraftFinalizationSlot[],
+): Promise<DraftFinalizationResult<TrustedOrderItemFiles[]>> {
+  const normalizedReferences = await loadLiveDraftReferenceFiles(draftId);
+  const referenceVerification = await verifyNormalizedDraftReferenceObjects(
+    normalizedReferences,
+  );
+  if (!referenceVerification.ok) return referenceVerification;
+
+  return {
+    ok: true,
+    data: buildVirtualStagingFinalizationItemFiles(slots).map((slot) => {
+      const itemReferences = normalizedReferences.filter(
+        (reference) => reference.itemClientId === slot.clientItemId,
+      );
+      const mirroredReference = itemReferences.find(
+        (reference) => reference.storagePath === slot.reference?.path,
+      );
+      return {
+        ...slot,
+        reference:
+          slot.reference && mirroredReference
+            ? { ...slot.reference, referenceId: mirroredReference.referenceId }
+            : slot.reference,
+        references: itemReferences
+          .filter((reference) => reference.storagePath !== slot.reference?.path)
+          .map((reference) => ({
+            bucket: ORDER_FILES_BUCKET,
+            path: reference.storagePath,
+            originalFilename: reference.originalFilename,
+            size: reference.fileSize,
+            mimeType: reference.mimeType,
+            referenceId: reference.referenceId,
+            position: reference.position,
+          })),
+      };
+    }),
+  };
 }
 
 async function claimDraftFinalization(
@@ -588,17 +748,19 @@ async function loadProductionOrderItemPaths(
 }
 
 async function reconcileExistingDraftOrder(input: {
-  input: SubmitVirtualStagingDraftInput;
+  input: SubmitOrderDraftInput;
   draft: OrderDraftRow;
   order: ProductionOrderLookup;
-  slots?: VirtualStagingFinalizationSlot[];
-}): Promise<DraftFinalizationResult<SubmitVirtualStagingDraftSuccess>> {
-  const stateResult = validateVirtualStagingDraftForFinalization(input.draft);
-  if (!stateResult.ok) return stateResult;
-
+  context: TrustedDraftFinalizationContext;
+  slots?: DraftFinalizationSlot[];
+}): Promise<DraftFinalizationResult<SubmitOrderDraftSuccess>> {
   if (
-    !isProductionOrderForDraft(input.order, input.input.draftId) ||
-    input.order.itemCount !== stateResult.data.items.length
+    !isProductionOrderForDraft(
+      input.order,
+      input.input.draftId,
+      input.context.serviceType,
+    ) ||
+    input.order.itemCount !== input.context.itemCount
   ) {
     return finalizationError(
       "finalization_incomplete",
@@ -608,12 +770,9 @@ async function reconcileExistingDraftOrder(input: {
 
   const slotsResult = input.slots
     ? { ok: true as const, data: input.slots }
-    : validateAndMatchVirtualStagingDraftFiles({
-        verifiedUserId: input.input.userId,
-        draftId: input.input.draftId,
-        state: stateResult.data,
-        files: await loadLiveUploadedDraftFiles(input.input.draftId),
-      });
+    : input.context.matchFiles(
+        await loadLiveUploadedDraftFiles(input.input.draftId),
+      );
   if (!slotsResult.ok) {
     return finalizationError(
       "finalization_incomplete",
@@ -622,7 +781,7 @@ async function reconcileExistingDraftOrder(input: {
   }
 
   const itemPaths = await loadProductionOrderItemPaths(input.order.id);
-  if (!hasCompleteUniqueItemIndexes(itemPaths, stateResult.data.items.length)) {
+  if (!hasCompleteUniqueItemIndexes(itemPaths, input.context.itemCount)) {
     return finalizationError(
       "finalization_incomplete",
       "Existing order items could not be verified.",
@@ -734,10 +893,11 @@ async function reconcileExistingDraftOrder(input: {
 function isProductionOrderForDraft(
   order: ProductionOrderLookup,
   draftId: string,
+  serviceType: TrustedDraftFinalizationContext["serviceType"],
 ): boolean {
   return (
     order.sourceDraftId === draftId &&
-    order.serviceType === "virtual-staging"
+    order.serviceType === serviceType
   );
 }
 

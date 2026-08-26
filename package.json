@@ -11,7 +11,7 @@
     "e2e:smoke:headed": "playwright test --headed",
     "test:pricing": "node --experimental-strip-types --test src/lib/pricing/catalog.test.ts src/lib/pricing/calculate.test.ts src/lib/pricing/local-catalog.test.ts",
     "test:drafts-page": "node --experimental-strip-types --test src/lib/order-drafts/drafts-page.test.ts",
-    "test:order-drafts": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts.test.ts",
+    "test:order-drafts": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts.test.ts src/lib/order-drafts/photo-editing.test.ts",
     "test:order-drafts-api": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts-api.test.ts",
     "test:order-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files.test.ts src/lib/order-drafts/order-draft-file-signatures.test.ts",
     "test:order-draft-files-api": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files-api.test.ts",

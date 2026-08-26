@@ -1617,12 +1617,12 @@ test("ordinary order success shape remains unchanged", () => {
 test("existing-order reconciliation requires matching source draft", () => {
   assert.match(
     FINALIZATION_SERVER,
-    /order\.sourceDraftId === draftId[\s\S]+order\.serviceType === "virtual-staging"/,
+    /order\.sourceDraftId === draftId[\s\S]+order\.serviceType === serviceType/,
   );
 });
 
 test("existing-order reconciliation requires exact item count and indexes", () => {
-  assert.match(FINALIZATION_SERVER, /input\.order\.itemCount !== stateResult\.data\.items\.length/);
+  assert.match(FINALIZATION_SERVER, /input\.order\.itemCount !== input\.context\.itemCount/);
   assert.match(FINALIZATION_SERVER, /hasCompleteUniqueItemIndexes/);
 });
 

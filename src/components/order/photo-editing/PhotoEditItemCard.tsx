@@ -13,8 +13,11 @@ import {
 import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { PHOTO_EDIT_OPTIONS, PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
+import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 
 export interface PhotoEditItemData {
+  clientItemId: string;
   file: File | null;
   selectedOptions: string[];
   /** Per-item file size limit (one of FILE_SIZE_LIMIT_OPTIONS or "") */
@@ -22,13 +25,16 @@ export interface PhotoEditItemData {
   /** Per-item optional disclaimer text */
   disclaimerText: string;
   additionalInfo: string;
+  originalFilename: string | null;
 }
 
 export const emptyPhotoEditItem = (): PhotoEditItemData => ({
+  clientItemId: createDraftClientItemId(),
   file: null,
   selectedOptions: [],
   ...emptyItemDeliveryFields,
   additionalInfo: "",
+  originalFilename: null,
 });
 
 interface PhotoEditItemCardProps {
@@ -39,6 +45,13 @@ interface PhotoEditItemCardProps {
   canRemove: boolean;
   onApplyToAll?: () => void;
   showApplyToAll: boolean;
+  persistedOriginal?: OrderDraftUploadedFileSummary | null;
+  onOriginalFileChange: (file: File | null) => void;
+  onRemovePersistedOriginal: () => void;
+  originalOperationStatus?: string;
+  originalOperationError?: string;
+  onRetryOriginal?: () => void;
+  fileOperationDisabled?: boolean;
 }
 
 export default function PhotoEditItemCard({
@@ -49,6 +62,13 @@ export default function PhotoEditItemCard({
   canRemove,
   onApplyToAll,
   showApplyToAll,
+  persistedOriginal,
+  onOriginalFileChange,
+  onRemovePersistedOriginal,
+  originalOperationStatus,
+  originalOperationError,
+  onRetryOriginal,
+  fileOperationDisabled = false,
 }: PhotoEditItemCardProps) {
   const currency = useDisplayCurrency();
   const toggleOption = (id: string) => {
@@ -85,9 +105,27 @@ export default function PhotoEditItemCard({
           viewerVariant="photo"
           label="Upload Original Photo"
           file={data.file}
-          onFileChange={(file) => onChange({ ...data, file })}
+          onFileChange={onOriginalFileChange}
           accept={PHOTO_EDIT_FILE_ACCEPT}
           required
+          persistedFile={
+            persistedOriginal
+              ? {
+                  id: persistedOriginal.id,
+                  filename: persistedOriginal.originalFilename,
+                  fileSize: persistedOriginal.fileSize,
+                  previewUrl: persistedOriginal.previewUrl ?? null,
+                  previewExpiresAt: persistedOriginal.previewExpiresAt ?? null,
+                }
+              : null
+          }
+          operationStatusText={originalOperationStatus}
+          operationErrorText={originalOperationError}
+          onRetry={onRetryOriginal}
+          onRemovePersisted={onRemovePersistedOriginal}
+          disabled={fileOperationDisabled}
+          retryDisabled={fileOperationDisabled}
+          removeDisabled={fileOperationDisabled}
         />
 
         {/* Editing Options */}
