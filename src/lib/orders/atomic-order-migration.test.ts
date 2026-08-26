@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const SQL = readFileSync("supabase/add-atomic-order-submissions.sql", "utf8");
+const PHOTO_EDITING_COMPATIBILITY_SQL = readFileSync(
+  "supabase/allow-photo-editing-draft-finalization.sql",
+  "utf8",
+);
 const EMAIL_WORKER = readFileSync("src/lib/email/send-order-emails.ts", "utf8");
 const WORKER_ROUTE = readFileSync("src/app/api/internal/order-email-outbox/route.ts", "utf8");
 const CLIENT_SUBMIT = readFileSync("src/lib/submit-order.ts", "utf8");
@@ -11,6 +15,31 @@ const RECOVERY_ROUTE = readFileSync(
   "src/app/(public)/api/order/submissions/[submissionId]/route.ts",
   "utf8",
 );
+
+function sqlSegment(
+  sql: string,
+  startMarker: string,
+  endMarker: string,
+): string {
+  const normalized = sql.replace(/\r\n/g, "\n");
+  const start = normalized.indexOf(startMarker);
+  assert.ok(start >= 0, `Missing SQL marker: ${startMarker}`);
+  const end = normalized.indexOf(endMarker, start);
+  assert.ok(end > start, `Missing SQL marker: ${endMarker}`);
+  return normalized.slice(start, end);
+}
+
+function parsedDraftServiceRoutePairs(sql: string): Array<{
+  serviceType: string;
+  route: string;
+}> {
+  return Array.from(
+    sql.matchAll(
+      /v_draft\.service_type = '([^']+)'\s+AND v_draft\.route = '([^']+)'/g,
+    ),
+    (match) => ({ serviceType: match[1], route: match[2] }),
+  );
+}
 
 test("migration is additive and creates a durable submission ledger", () => {
   assert.match(SQL, /CREATE TABLE IF NOT EXISTS public\.order_submissions/);
@@ -126,4 +155,149 @@ test("API has explicit create, replay, conflict, upgrade and owned recovery cont
   assert.match(RECOVERY_ROUTE, /status: "unavailable"/);
   assert.match(RECOVERY_ROUTE, /status: 404/);
   assert.doesNotMatch(RECOVERY_ROUTE, /storage_path|original_photo_path|reference_image_path/);
+});
+
+test("draft compatibility commit guard binds source draft service to submission service", () => {
+  const commitSql = sqlSegment(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  );
+  assert.match(
+    commitSql,
+    /v_draft\.service_type IS DISTINCT FROM v_submission\.service_type/,
+  );
+  const pairs = parsedDraftServiceRoutePairs(commitSql);
+  assert.deepEqual(pairs, [
+    {
+      serviceType: "virtual-staging",
+      route: "/dashboard/orders/new/virtual-staging",
+    },
+    {
+      serviceType: "photo-editing",
+      route: "/dashboard/orders/new/photo-editing",
+    },
+  ]);
+
+  const compatible = (
+    draftService: string,
+    draftRoute: string,
+    submissionService: string,
+  ) =>
+    draftService === submissionService &&
+    pairs.some(
+      (pair) =>
+        pair.serviceType === draftService && pair.route === draftRoute,
+    );
+  assert.equal(
+    compatible(
+      "virtual-staging",
+      "/dashboard/orders/new/virtual-staging",
+      "virtual-staging",
+    ),
+    true,
+  );
+  assert.equal(
+    compatible(
+      "photo-editing",
+      "/dashboard/orders/new/photo-editing",
+      "photo-editing",
+    ),
+    true,
+  );
+  assert.equal(
+    compatible(
+      "photo-editing",
+      "/dashboard/orders/new/photo-editing",
+      "virtual-staging",
+    ),
+    false,
+  );
+  assert.equal(
+    compatible(
+      "photo-editing",
+      "/dashboard/orders/new/virtual-staging",
+      "photo-editing",
+    ),
+    false,
+  );
+});
+
+test("draft compatibility migration preserves the existing atomic commit implementation", () => {
+  const historical = sqlSegment(
+    SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "CREATE OR REPLACE FUNCTION public.claim_order_email_deliveries(",
+  ).trim();
+  const migrated = sqlSegment(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  ).trim();
+  const widenedGuard = `    IF NOT FOUND
+       OR v_draft.user_id IS DISTINCT FROM p_user_id
+       OR v_draft.service_type IS DISTINCT FROM v_submission.service_type
+       OR NOT (
+         (
+           v_draft.service_type = 'virtual-staging'
+           AND v_draft.route = '/dashboard/orders/new/virtual-staging'
+         )
+         OR
+         (
+           v_draft.service_type = 'photo-editing'
+           AND v_draft.route = '/dashboard/orders/new/photo-editing'
+         )
+       )
+       OR v_draft.version IS DISTINCT FROM p_draft_expected_version`;
+  const historicalGuard = `    IF NOT FOUND
+       OR v_draft.user_id IS DISTINCT FROM p_user_id
+       OR v_draft.service_type IS DISTINCT FROM 'virtual-staging'
+       OR v_draft.route IS DISTINCT FROM '/dashboard/orders/new/virtual-staging'
+       OR v_draft.version IS DISTINCT FROM p_draft_expected_version`;
+  assert.equal(migrated.replace(widenedGuard, historicalGuard), historical);
+});
+
+test("draft compatibility commit keeps invoker security and service-role-only grants", () => {
+  const commitSql = sqlSegment(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  );
+  assert.match(
+    commitSql,
+    /LANGUAGE plpgsql\s+SECURITY INVOKER\s+SET search_path = pg_catalog, public/,
+  );
+  assert.doesNotMatch(commitSql, /SECURITY DEFINER/);
+  assert.match(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    /REVOKE EXECUTE ON FUNCTION public\.commit_order_submission\([\s\S]+FROM PUBLIC, anon, authenticated/,
+  );
+  assert.match(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    /GRANT EXECUTE ON FUNCTION public\.commit_order_submission\([\s\S]+TO service_role/,
+  );
+  assert.doesNotMatch(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    /GRANT EXECUTE ON FUNCTION public\.commit_order_submission\([\s\S]+TO (?:PUBLIC|anon|authenticated)/,
+  );
+});
+
+test("draft compatibility commit leaves replay, moved files, email outbox and uniqueness contracts untouched", () => {
+  const commitSql = sqlSegment(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+    "REVOKE EXECUTE ON FUNCTION public.commit_order_submission(",
+  );
+  assert.match(commitSql, /v_submission\.status = 'committed'[\s\S]*'replayed'::TEXT/);
+  assert.match(commitSql, /UPDATE public\.order_draft_files AS files[\s\S]*upload_status = 'moved'/);
+  assert.match(commitSql, /INSERT INTO public\.order_email_deliveries/);
+  assert.match(commitSql, /'client_confirmation'[\s\S]*'admin_notification'/);
+  assert.doesNotMatch(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    /\b(CREATE|DROP)\s+(UNIQUE\s+)?INDEX\b/i,
+  );
+  assert.doesNotMatch(
+    PHOTO_EDITING_COMPATIBILITY_SQL,
+    /orders_source_draft_id_unique/,
+  );
 });
