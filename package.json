@@ -15,7 +15,7 @@
     "test:order-drafts-api": "node --experimental-strip-types --test src/lib/order-drafts/order-drafts-api.test.ts",
     "test:order-draft-files": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files.test.ts src/lib/order-drafts/order-draft-file-signatures.test.ts",
     "test:order-draft-files-api": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-files-api.test.ts",
-    "test:order-draft-finalization": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-finalization.test.ts",
+    "test:order-draft-finalization": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-finalization.test.ts src/lib/order-drafts/floor-plan-finalization-migration.test.ts",
     "test:order-draft-finalization-api": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-finalization-api.test.ts",
     "test:saved-drafts": "node --experimental-strip-types --test src/lib/order-drafts/saved-drafts.test.ts",
     "test:supabase-browser": "node --experimental-strip-types --test src/lib/supabase/browser-client.test.ts",
