@@ -35,6 +35,7 @@ import type {
   UpdateOrderDraftInput,
 } from "./types.ts";
 import type { DraftFinalizationStatusDto } from "./finalization.ts";
+import { FLOOR_PLANS_DRAFT_ROUTE } from "./floor-plans.ts";
 import { PHOTO_EDITING_DRAFT_ROUTE } from "./photo-editing.ts";
 import { VIRTUAL_RENOVATION_DRAFT_ROUTE } from "./virtual-renovation.ts";
 import { VIRTUAL_STAGING_DRAFT_ROUTE } from "./virtual-staging.ts";
@@ -255,7 +256,10 @@ export async function getOrderDraftFinalizationStatusForUser(
         draft.route === PHOTO_EDITING_DRAFT_ROUTE) ||
       (draft.serviceType === "virtual-renovation" &&
         draft.subService === null &&
-        draft.route === VIRTUAL_RENOVATION_DRAFT_ROUTE);
+        draft.route === VIRTUAL_RENOVATION_DRAFT_ROUTE) ||
+      (draft.serviceType === "3d-floor-plans" &&
+        draft.subService === null &&
+        draft.route === FLOOR_PLANS_DRAFT_ROUTE);
     if (
       draft.deletedAt !== null ||
       draft.expiresAt <= new Date().toISOString() ||
