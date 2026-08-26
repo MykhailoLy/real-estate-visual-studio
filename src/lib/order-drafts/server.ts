@@ -36,6 +36,7 @@ import type {
 } from "./types.ts";
 import type { DraftFinalizationStatusDto } from "./finalization.ts";
 import { PHOTO_EDITING_DRAFT_ROUTE } from "./photo-editing.ts";
+import { VIRTUAL_RENOVATION_DRAFT_ROUTE } from "./virtual-renovation.ts";
 import { VIRTUAL_STAGING_DRAFT_ROUTE } from "./virtual-staging.ts";
 
 interface ListActiveDraftOptions {
@@ -251,7 +252,10 @@ export async function getOrderDraftFinalizationStatusForUser(
         draft.route === VIRTUAL_STAGING_DRAFT_ROUTE) ||
       (draft.serviceType === "photo-editing" &&
         draft.subService === null &&
-        draft.route === PHOTO_EDITING_DRAFT_ROUTE);
+        draft.route === PHOTO_EDITING_DRAFT_ROUTE) ||
+      (draft.serviceType === "virtual-renovation" &&
+        draft.subService === null &&
+        draft.route === VIRTUAL_RENOVATION_DRAFT_ROUTE);
     if (
       draft.deletedAt !== null ||
       draft.expiresAt <= new Date().toISOString() ||

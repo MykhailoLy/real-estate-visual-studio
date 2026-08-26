@@ -1039,11 +1039,29 @@ test("finalization-status API requires auth and validates the draft UUID", () =>
   );
 });
 
-test("finalization-status lookup exposes owned reconciliation states only", () => {
+test("finalization-status lookup supports only canonical recovery pairs and owned states", () => {
   const lookup = sourceSlice(
     DRAFT_SERVER,
     "export async function getOrderDraftFinalizationStatusForUser",
     "async function listOwnedFinishingDraftsForUser",
+  );
+  const supportGuard = sourceSlice(
+    lookup,
+    "const supportsFinalizationStatus =",
+    "if (",
+  );
+
+  assert.match(
+    DRAFT_SERVER,
+    /import \{ VIRTUAL_RENOVATION_DRAFT_ROUTE \} from "\.\/virtual-renovation\.ts"/,
+  );
+  assert.equal(
+    supportGuard.replace(/\s+/g, " ").trim(),
+    `const supportsFinalizationStatus = (draft.serviceType === "virtual-staging" && draft.route === VIRTUAL_STAGING_DRAFT_ROUTE) || (draft.serviceType === "photo-editing" && draft.subService === null && draft.route === PHOTO_EDITING_DRAFT_ROUTE) || (draft.serviceType === "virtual-renovation" && draft.subService === null && draft.route === VIRTUAL_RENOVATION_DRAFT_ROUTE);`,
+  );
+  assert.doesNotMatch(
+    supportGuard,
+    /\/dashboard\/orders\/new\/virtual-renovation/,
   );
 
   assert.match(lookup, /\.eq\("user_id", userId\)/);
