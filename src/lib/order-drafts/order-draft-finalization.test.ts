@@ -45,6 +45,10 @@ const SQL_COMPLETE_AMBIGUITY_PATCH = readFileSync(
   "supabase/fix-order-draft-finalization-complete-ambiguity.sql",
   "utf8",
 );
+const SQL_PHOTO_EDITING_COMPATIBILITY = readFileSync(
+  "supabase/allow-photo-editing-draft-finalization.sql",
+  "utf8",
+);
 const ORDER_ROUTE = readFileSync("src/app/(public)/api/order/route.ts", "utf8");
 const VIRTUAL_STAGING_FORM = readFileSync(
   "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
@@ -217,6 +221,18 @@ function sqlFunctionBody(sql: string, functionName: string): string {
   assert.ok(start >= 0, `${functionName} was not found`);
   const end = sql.indexOf("\n-- ------------------------------------------------------------", start + 1);
   return end >= 0 ? sql.slice(start, end) : sql.slice(start);
+}
+
+function parsedDraftServiceRoutePairs(sql: string): Array<{
+  serviceType: string;
+  route: string;
+}> {
+  return Array.from(
+    sql.matchAll(
+      /v_draft\.service_type = '([^']+)'\s+AND v_draft\.route = '([^']+)'/g,
+    ),
+    (match) => ({ serviceType: match[1], route: match[2] }),
+  );
 }
 
 test("finalization body validation accepts expected version and UUID key", () => {
@@ -1649,4 +1665,144 @@ test("complete RPC validation failure performs no partial mutation", () => {
 test("duplicate final paths are rejected", () => {
   assert.match(SQL, /v_final_path = ANY\(v_moved_paths\)/);
   assert.match(SQL, /'duplicate_moved_files'::text/);
+});
+
+test("photo-editing compatibility migration replaces only the two approved RPCs", () => {
+  const replacedFunctions = Array.from(
+    SQL_PHOTO_EDITING_COMPATIBILITY.matchAll(
+      /CREATE OR REPLACE FUNCTION public\.([a-z_]+)\(/g,
+    ),
+    (match) => match[1],
+  );
+  assert.deepEqual(replacedFunctions, [
+    "claim_order_draft_finalization",
+    "commit_order_submission",
+  ]);
+
+  let outsideFunctions = SQL_PHOTO_EDITING_COMPATIBILITY.replace(/\r\n/g, "\n");
+  for (const functionName of replacedFunctions) {
+    const start = outsideFunctions.indexOf(
+      `CREATE OR REPLACE FUNCTION public.${functionName}`,
+    );
+    assert.ok(start >= 0, `${functionName} must exist`);
+    const end = outsideFunctions.indexOf("$$;", start);
+    assert.ok(end > start, `${functionName} must terminate`);
+    outsideFunctions =
+      outsideFunctions.slice(0, start) + outsideFunctions.slice(end + 3);
+  }
+
+  assert.doesNotMatch(
+    outsideFunctions,
+    /\b(CREATE|ALTER|DROP)\s+(TABLE|INDEX|TRIGGER|POLICY|SCHEMA)\b/i,
+  );
+  assert.doesNotMatch(outsideFunctions, /\bENABLE ROW LEVEL SECURITY\b/i);
+  assert.doesNotMatch(
+    outsideFunctions,
+    /\b(INSERT INTO|UPDATE|DELETE FROM)\s+public\./i,
+  );
+});
+
+test("claim compatibility allowlist accepts only Virtual Staging and Photo Editing route pairs", () => {
+  const claimSql = sourceSlice(
+    SQL_PHOTO_EDITING_COMPATIBILITY,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+  );
+  const pairs = parsedDraftServiceRoutePairs(claimSql);
+  assert.deepEqual(pairs, [
+    {
+      serviceType: "virtual-staging",
+      route: "/dashboard/orders/new/virtual-staging",
+    },
+    {
+      serviceType: "photo-editing",
+      route: "/dashboard/orders/new/photo-editing",
+    },
+  ]);
+
+  const allowed = (serviceType: string, route: string) =>
+    pairs.some(
+      (pair) => pair.serviceType === serviceType && pair.route === route,
+    );
+  assert.equal(
+    allowed("virtual-staging", "/dashboard/orders/new/virtual-staging"),
+    true,
+  );
+  assert.equal(
+    allowed("photo-editing", "/dashboard/orders/new/photo-editing"),
+    true,
+  );
+  assert.equal(
+    allowed("photo-editing", "/dashboard/orders/new/virtual-staging"),
+    false,
+  );
+  assert.equal(
+    allowed("virtual-staging", "/dashboard/orders/new/photo-editing"),
+    false,
+  );
+  assert.equal(
+    allowed("virtual-renovation", "/dashboard/orders/new/virtual-renovation"),
+    false,
+  );
+  assert.match(claimSql, /IF NOT \([\s\S]+\) THEN\s+RETURN QUERY SELECT 'invalid_status'::text/);
+});
+
+test("claim compatibility migration preserves the existing claim implementation", () => {
+  const historical = sourceSlice(
+    SQL,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "-- ------------------------------------------------------------\n-- Release finalization",
+  ).trim();
+  const migrated = sourceSlice(
+    SQL_PHOTO_EDITING_COMPATIBILITY,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+  ).trim();
+  const widenedGuard = `  IF NOT (
+    (
+      v_draft.service_type = 'virtual-staging'
+      AND v_draft.route = '/dashboard/orders/new/virtual-staging'
+    )
+    OR
+    (
+      v_draft.service_type = 'photo-editing'
+      AND v_draft.route = '/dashboard/orders/new/photo-editing'
+    )
+  ) THEN
+    RETURN QUERY SELECT 'invalid_status'::text, v_draft.id, NULL::uuid;
+    RETURN;
+  END IF;`;
+  const historicalGuard = `  IF v_draft.service_type <> 'virtual-staging'
+     OR v_draft.route <> '/dashboard/orders/new/virtual-staging' THEN
+    RETURN QUERY SELECT 'invalid_status'::text, v_draft.id, NULL::uuid;
+    RETURN;
+  END IF;`;
+  const normalizedMigrated = migrated
+    .replace(widenedGuard, historicalGuard)
+    .replace(
+      "Locks and claims an owned active allowlisted order draft",
+      "Locks and claims an owned active Virtual Staging draft",
+    );
+  assert.equal(normalizedMigrated, historical);
+});
+
+test("claim compatibility migration preserves service-role-only security", () => {
+  const claimSql = sourceSlice(
+    SQL_PHOTO_EDITING_COMPATIBILITY,
+    "CREATE OR REPLACE FUNCTION public.claim_order_draft_finalization(",
+    "CREATE OR REPLACE FUNCTION public.commit_order_submission(",
+  );
+  assert.match(
+    claimSql,
+    /LANGUAGE plpgsql\s+SECURITY DEFINER\s+SET search_path = pg_catalog, public/,
+  );
+  assert.match(
+    claimSql,
+    /REVOKE ALL ON FUNCTION public\.claim_order_draft_finalization\([\s\S]+FROM PUBLIC, anon, authenticated/,
+  );
+  assert.match(
+    claimSql,
+    /GRANT EXECUTE ON FUNCTION public\.claim_order_draft_finalization\([\s\S]+TO service_role/,
+  );
+  assert.doesNotMatch(claimSql, /GRANT EXECUTE[\s\S]+TO (?:PUBLIC|anon|authenticated)/);
 });
