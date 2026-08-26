@@ -6,6 +6,7 @@ import CategoryServiceList, {
   type CategoryServiceItem,
 } from "@/components/home/CategoryServiceList";
 import CtaSection from "@/components/sections/CtaSection";
+import { absoluteUrl } from "@/lib/seo";
 
 // ============================================================
 // /online-retail — Online Retail Visuals
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
   title: "Online Retail — Product Visuals",
   description:
     "Product photo editing, background removal, lifestyle compositing, color variations, and marketplace-ready images.",
+  alternates: {
+    canonical: absoluteUrl("/online-retail"),
+  },
 };
 
 const ITEMS: CategoryServiceItem[] = [

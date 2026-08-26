@@ -9,7 +9,7 @@ import { absoluteUrl } from "@/lib/seo";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
 export const metadata: Metadata = {
-  title: "Item Removal & Virtual Cleaning",
+  title: "Item Removal & Virtual Cleaning for Real Estate Photos",
   description:
     "Remove distracting items, clutter, and imperfections from property photos for cleaner, more listing-ready images.",
   alternates: localizedAlternates({

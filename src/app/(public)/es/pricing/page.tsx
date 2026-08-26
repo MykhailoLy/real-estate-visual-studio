@@ -13,6 +13,7 @@ import {
   getLocalPricingPresentation,
   type LocalPricingServiceId,
 } from "@/lib/pricing/local-catalog";
+import type { SpanishLocalizedPath } from "@/lib/seo";
 import type { PriceKey } from "@/lib/pricing/types";
 
 export const metadata = spanishMetadata({
@@ -30,6 +31,11 @@ type PricingRow = {
   unit?: string;
 };
 
+type ServiceLink = {
+  label: string;
+  href: SpanishLocalizedPath;
+};
+
 const digitalSections: Array<{
   id: string;
   title: string;
@@ -37,6 +43,7 @@ const digitalSections: Array<{
   cta: string;
   href: string;
   rows: PricingRow[];
+  serviceLinks: ServiceLink[];
 }> = [
   {
     id: "home-staging-virtual",
@@ -44,6 +51,16 @@ const digitalSections: Array<{
     subtitle: "Precio base por imagen, con extras opcionales.",
     cta: "Pedir home staging",
     href: "/order/virtual-staging",
+    serviceLinks: [
+      {
+        label: "Home staging virtual",
+        href: "/es/pricing/virtual-staging",
+      },
+      {
+        label: "Virtual Staging 360°",
+        href: "/es/pricing/360-virtual-staging",
+      },
+    ],
     rows: [
       {
         label: "Home staging virtual",
@@ -73,6 +90,12 @@ const digitalSections: Array<{
     subtitle: "Selecciona solo las opciones necesarias para cada imagen.",
     cta: "Pedir renovación virtual",
     href: "/order/virtual-renovation",
+    serviceLinks: [
+      {
+        label: "Renovación virtual",
+        href: "/es/pricing/virtual-renovation",
+      },
+    ],
     rows: [
       {
         label: "Cambiar suelo",
@@ -98,6 +121,16 @@ const digitalSections: Array<{
     subtitle: "Precio por planta según el tipo de plano.",
     cta: "Pedir planos",
     href: "/order/3d-floor-plans",
+    serviceLinks: [
+      {
+        label: "Planos 2D y 3D",
+        href: "/es/pricing/floor-plans",
+      },
+      {
+        label: "Planos de emplazamiento para promociones",
+        href: "/es/pricing/development-site-plans",
+      },
+    ],
     rows: [
       {
         label: "Plano 2D en blanco y negro",
@@ -127,6 +160,28 @@ const digitalSections: Array<{
     subtitle: "Combina opciones según lo que necesite cada foto.",
     cta: "Pedir retoque",
     href: "/order/photo-editing",
+    serviceLinks: [
+      {
+        label: "Eliminación de objetos y limpieza virtual",
+        href: "/es/pricing/photo-editing",
+      },
+      {
+        label: "Mejora de imagen",
+        href: "/es/pricing/image-enhancement",
+      },
+      {
+        label: "Edición Day to Dusk",
+        href: "/es/pricing/day-to-dusk",
+      },
+      {
+        label: "Mejora de imagen 360°",
+        href: "/es/pricing/360-image-enhancement",
+      },
+      {
+        label: "Edición aérea",
+        href: "/es/pricing/aerial-editing",
+      },
+    ],
     rows: [
       {
         label: "Mejora de imagen inmobiliaria",
@@ -254,6 +309,26 @@ export default function SpanishPricingPage() {
                     {section.subtitle}
                   </p>
                   <PricingTable rows={section.rows} />
+                  <div className="mt-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                      Ver servicios en detalle
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                      {section.serviceLinks.map((serviceLink) => (
+                        <TrackedLink
+                          key={serviceLink.href}
+                          href={serviceLink.href}
+                          analyticsLabel={`Ver servicio: ${serviceLink.label}`}
+                          analyticsLocation="pricing_card"
+                          analyticsEvent="pricing_cta"
+                          className="inline-flex items-center gap-1 text-sm font-semibold text-primary underline decoration-primary/25 underline-offset-4 transition-colors hover:text-secondary-dark hover:decoration-secondary-dark"
+                        >
+                          {serviceLink.label}
+                          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                        </TrackedLink>
+                      ))}
+                    </div>
+                  </div>
                   <TrackedLink
                     href={section.href}
                     analyticsLabel={section.cta}

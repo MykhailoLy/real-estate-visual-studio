@@ -59,7 +59,7 @@ import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 // ============================================================
 
 export const metadata: Metadata = {
-  title: "Floor Plans",
+  title: "2D & 3D Floor Plans for Real Estate",
   description:
     "Professional 2D and 3D floor plans. Send a sketch, scan, PDF, or measurements and receive clean, listing-ready floor plans in JPG and PDF.",
   alternates: localizedAlternates({
