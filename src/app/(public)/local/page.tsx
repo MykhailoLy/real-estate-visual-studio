@@ -17,6 +17,7 @@ import {
   getLocalPricingPresentation,
   type LocalPricingServiceId,
 } from "@/lib/pricing/local-catalog";
+import { absoluteUrl } from "@/lib/seo";
 
 // ============================================================
 // /local — Local Real Estate Media (Alicante & Costa Blanca)
@@ -30,6 +31,9 @@ export const metadata: Metadata = {
   title: "Local Real Estate Media — Alicante & Costa Blanca",
   description:
     "On-location real estate photography, video tours, 360 tours, drone media, and full listing packages across Alicante and Costa Blanca.",
+  alternates: {
+    canonical: absoluteUrl("/local"),
+  },
 };
 
 const ITEMS: CategoryServiceItem[] = [

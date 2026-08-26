@@ -56,7 +56,7 @@ const digitalServices: Service[] = [
       "Ideal para obra nueva, venta y alquiler",
       "Opciones de mejora de imagen y limpieza visual",
     ],
-    pricingHref: "/es/pricing#home-staging-virtual",
+    pricingHref: "/es/pricing/virtual-staging",
     orderHref: "/order/virtual-staging",
   },
   {
@@ -70,7 +70,7 @@ const digitalServices: Service[] = [
       "Eliminación de objetos y limpieza virtual",
       "Instrucciones específicas por imagen",
     ],
-    pricingHref: "/es/pricing#renovacion-virtual",
+    pricingHref: "/es/pricing/virtual-renovation",
     orderHref: "/order/virtual-renovation",
   },
   {
@@ -86,7 +86,7 @@ const digitalServices: Service[] = [
       "Planos 3D para explicar mejor la distribución",
       "Paquetes 2D + 3D",
     ],
-    pricingHref: "/es/pricing#planos",
+    pricingHref: "/es/pricing/floor-plans",
     orderHref: "/order/3d-floor-plans",
   },
   {
@@ -102,7 +102,7 @@ const digitalServices: Service[] = [
       "Día a atardecer",
       "Eliminación de objetos y cambios de color",
     ],
-    pricingHref: "/es/pricing#retoque-fotografico",
+    pricingHref: "/es/pricing/photo-editing",
     orderHref: "/order/photo-editing",
   },
 ];
@@ -241,7 +241,7 @@ export default function SpanishServicesPage() {
                       href={service.pricingHref}
                       className="flex-1 inline-flex items-center justify-center px-5 py-3 border border-stone-300 text-foreground text-sm font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors"
                     >
-                      Ver precios
+                      Ver servicio
                     </Link>
                     {service.orderHref && (
                       <Link
