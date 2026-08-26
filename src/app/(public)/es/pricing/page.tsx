@@ -320,7 +320,6 @@ export default function SpanishPricingPage() {
                           href={serviceLink.href}
                           analyticsLabel={`Ver servicio: ${serviceLink.label}`}
                           analyticsLocation="pricing_card"
-                          analyticsEvent="pricing_cta"
                           className="inline-flex items-center gap-1 text-sm font-semibold text-primary underline decoration-primary/25 underline-offset-4 transition-colors hover:text-secondary-dark hover:decoration-secondary-dark"
                         >
                           {serviceLink.label}
