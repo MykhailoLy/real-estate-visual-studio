@@ -426,6 +426,52 @@ test("Start New and browser history keep the draft query synchronized", () => {
   assert.doesNotMatch(form, /window\.onpopstate|addEventListener\("popstate"/);
 });
 
+test("normal ready state renders a guarded Start New only for an active draft", () => {
+  const form = readFileSync(
+    new URL(
+      "../../components/order/photo-editing/PhotoEditingOrderForm.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const orderLayout = form.indexOf("<OrderLayout");
+  const readyReturn = form.lastIndexOf("return (", orderLayout);
+  const readyFieldset = form.indexOf("<fieldset", readyReturn);
+
+  assert.ok(orderLayout >= 0);
+  assert.ok(readyReturn >= 0);
+  assert.ok(readyFieldset > orderLayout);
+  assert.ok(readyReturn > form.indexOf('if (resumeState === "error")'));
+
+  const readyHeader = form.slice(readyReturn, readyFieldset);
+  assert.match(
+    readyHeader,
+    /className="flex min-h-5 flex-wrap items-center justify-between gap-3"/,
+  );
+  assert.match(
+    readyHeader,
+    /\{draftId !== null \? \([\s\S]*onClick=\{startNewOrder\}[\s\S]*Start New[\s\S]*\) : null\}/,
+  );
+  assert.match(readyHeader, /disabled=\{startNewDisabled\}/);
+  assert.doesNotMatch(readyHeader, /<fieldset/);
+  assert.match(
+    form,
+    /const editsDisabled = isSubmitting \|\| finalizationRetryContext !== null;/,
+  );
+  assert.match(
+    form,
+    /const startNewDisabled =\s*editsDisabled \|\| hasActiveFileOperation \|\| saveStatus === "saving";/,
+  );
+
+  const resetStart = form.indexOf("const startNewOrder = useCallback(");
+  const resetEnd = form.indexOf("const hasActiveFileOperation =", resetStart);
+  const resetSource = form.slice(resetStart, resetEnd);
+  assert.match(resetSource, /draftSessionRef\.current \+= 1/);
+  assert.match(resetSource, /setDraftId\(reset\.draftId\)/);
+  assert.match(resetSource, /draftIdRef\.current = reset\.draftId/);
+  assert.match(resetSource, /replaceDraftUrl\(reset\.nextSearch\)/);
+});
+
 test("Photo Editing form keeps the complete durable original-file lifecycle", () => {
   const form = readFileSync(
     new URL(
