@@ -236,6 +236,29 @@ test("floor-plan quantities are priced per floor and discounted by floors", () =
   assert.equal(quote.totalCents, 13_300);
 });
 
+test("floor-plan pricing accepts only integer quantities from 1 through 20", () => {
+  for (const numberOfFloors of [1, 20]) {
+    const quote = calculateOrderQuote({
+      serviceType: "3d-floor-plans",
+      currency: "USD",
+      items: [{ planType: "3d", numberOfFloors }],
+    });
+    assert.equal(quote.items[0]?.quantity, numberOfFloors);
+  }
+
+  for (const numberOfFloors of [0, 21, 1.5, Number.NaN]) {
+    assert.throws(
+      () =>
+        calculateOrderQuote({
+          serviceType: "3d-floor-plans",
+          currency: "USD",
+          items: [{ planType: "3d", numberOfFloors }],
+        }),
+      /Floor quantity must be an integer between 1 and 20/,
+    );
+  }
+});
+
 test("unknown and duplicate option IDs fail clearly", () => {
   assert.throws(
     () =>

@@ -177,7 +177,7 @@ export async function uploadPreparedOrderDraftFile(
     const { error } = await supabase.storage
       .from(ORDER_FILES_BUCKET)
       .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, file, {
-        contentType: file.type || "application/octet-stream",
+        contentType: prepared.file.mimeType,
         upsert: false,
       });
 

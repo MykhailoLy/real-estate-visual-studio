@@ -25,20 +25,24 @@ import {
 } from "./files.ts";
 import {
   buildTrustedFinalPathForDraftFile,
+  buildFloorPlansFinalizationItemFiles,
   buildPhotoEditingFinalizationItemFiles,
   buildVirtualRenovationFinalizationItemFiles,
   buildVirtualStagingFinalizationItemFiles,
   finalizationError,
   mapClaimCodeToPublicError,
+  mapFloorPlansDraftStateToProductionItems,
   mapPhotoEditingDraftStateToProductionItems,
   mapVirtualRenovationDraftStateToProductionItems,
   mapVirtualStagingDraftStateToProductionItems,
   parseReleaseFinalizationRpcResult,
   parseStrictClaimFinalizationRpcResult,
   parseStrictCompleteFinalizationRpcResult,
+  validateAndMatchFloorPlansDraftFiles,
   validateAndMatchPhotoEditingDraftFiles,
   validateAndMatchVirtualRenovationDraftFiles,
   validateAndMatchVirtualStagingDraftFiles,
+  validateFloorPlansDraftForFinalization,
   validatePhotoEditingDraftForFinalization,
   validateVirtualRenovationDraftForFinalization,
   validateVirtualStagingDraftForFinalization,
@@ -51,6 +55,7 @@ import {
 } from "./finalization.ts";
 import type { ServiceType } from "../server-validation.ts";
 import { PHOTO_EDITING_DRAFT_ROUTE } from "./photo-editing.ts";
+import { FLOOR_PLANS_DRAFT_ROUTE } from "./floor-plans.ts";
 import { VIRTUAL_RENOVATION_DRAFT_ROUTE } from "./virtual-renovation.ts";
 import { VIRTUAL_STAGING_DRAFT_ROUTE } from "./virtual-staging.ts";
 import { UuidSchema } from "./schema.ts";
@@ -82,7 +87,10 @@ export type SubmitVirtualStagingDraftSuccess = SubmitOrderDraftSuccess;
 interface TrustedDraftFinalizationContext {
   serviceType: Extract<
     ServiceType,
-    "virtual-staging" | "photo-editing" | "virtual-renovation"
+    | "virtual-staging"
+    | "photo-editing"
+    | "virtual-renovation"
+    | "3d-floor-plans"
   >;
   jobTitle: string;
   itemCount: number;
@@ -370,6 +378,13 @@ function getEnabledDraftFinalizationService(
   ) {
     return "virtual-renovation";
   }
+  if (
+    draft.serviceType === "3d-floor-plans" &&
+    draft.subService === null &&
+    draft.route === FLOOR_PLANS_DRAFT_ROUTE
+  ) {
+    return "3d-floor-plans";
+  }
   return null;
 }
 
@@ -456,6 +471,34 @@ function buildTrustedDraftFinalizationContext(
         buildItemFiles: async (slots) => ({
           ok: true,
           data: buildVirtualRenovationFinalizationItemFiles(slots),
+        }),
+      },
+    };
+  }
+
+  if (draft.serviceType === "3d-floor-plans") {
+    const state = validateFloorPlansDraftForFinalization(draft);
+    if (!state.ok) return state;
+    const items = mapFloorPlansDraftStateToProductionItems(state.data);
+    if (!items.ok) return items;
+    return {
+      ok: true,
+      data: {
+        serviceType: "3d-floor-plans",
+        jobTitle: state.data.jobTitle,
+        itemCount: state.data.items.length,
+        termsUi: state.data.termsUi,
+        items: items.data,
+        matchFiles: (files) =>
+          validateAndMatchFloorPlansDraftFiles({
+            verifiedUserId: input.userId,
+            draftId: input.draftId,
+            state: state.data,
+            files,
+          }),
+        buildItemFiles: async (slots) => ({
+          ok: true,
+          data: buildFloorPlansFinalizationItemFiles(slots),
         }),
       },
     };

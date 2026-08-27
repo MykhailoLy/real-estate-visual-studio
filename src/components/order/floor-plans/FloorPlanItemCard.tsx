@@ -22,8 +22,16 @@ import {
   FLOOR_PLAN_DISCLAIMER_OPTIONS,
   FLOOR_PLAN_FILE_ACCEPT,
 } from "@/data/order-options";
+import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import {
+  FLOOR_PLAN_MAX_FLOORS,
+  FLOOR_PLAN_MIN_FLOORS,
+  parseFloorPlanFloorCountInput,
+} from "@/lib/order-drafts/floor-plans";
+import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 
 export interface FloorPlanItemData {
+  clientItemId: string;
   file: File | null;
   planType: string;
   numberOfFloors: number;
@@ -45,12 +53,15 @@ export interface FloorPlanItemData {
   referenceLink: string;
   referenceFile: File | null;
   additionalInfo: string;
+  originalFilename: string | null;
+  referenceFilename: string | null;
 }
 
 export const emptyFloorPlanItem = (): FloorPlanItemData => ({
+  clientItemId: createDraftClientItemId(),
   file: null,
   planType: "",
-  numberOfFloors: 1,
+  numberOfFloors: FLOOR_PLAN_MIN_FLOORS,
   ...emptyItemDeliveryFields,
   style3d: "",
   planView3d: "",
@@ -66,6 +77,8 @@ export const emptyFloorPlanItem = (): FloorPlanItemData => ({
   referenceLink: "",
   referenceFile: null,
   additionalInfo: "",
+  originalFilename: null,
+  referenceFilename: null,
 });
 
 interface FloorPlanItemCardProps {
@@ -74,6 +87,19 @@ interface FloorPlanItemCardProps {
   onChange: (data: FloorPlanItemData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  persistedOriginal?: OrderDraftUploadedFileSummary | null;
+  persistedReference?: OrderDraftUploadedFileSummary | null;
+  onOriginalFileChange: (file: File | null) => void;
+  onReferenceFileChange: (file: File | null) => void;
+  onRemovePersistedOriginal: () => void;
+  onRemovePersistedReference: () => void;
+  originalOperationStatus?: string;
+  originalOperationError?: string;
+  referenceOperationStatus?: string;
+  referenceOperationError?: string;
+  onRetryOriginal?: () => void;
+  onRetryReference?: () => void;
+  fileOperationDisabled?: boolean;
 }
 
 export default function FloorPlanItemCard({
@@ -82,6 +108,19 @@ export default function FloorPlanItemCard({
   onChange,
   onRemove,
   canRemove,
+  persistedOriginal,
+  persistedReference,
+  onOriginalFileChange,
+  onReferenceFileChange,
+  onRemovePersistedOriginal,
+  onRemovePersistedReference,
+  originalOperationStatus,
+  originalOperationError,
+  referenceOperationStatus,
+  referenceOperationError,
+  onRetryOriginal,
+  onRetryReference,
+  fileOperationDisabled = false,
 }: FloorPlanItemCardProps) {
   const currency = useDisplayCurrency();
   const formatCents = useRegionalCentsFormatter();
@@ -125,10 +164,28 @@ export default function FloorPlanItemCard({
           viewerVariant="plan"
           label="Upload Files"
           file={data.file}
-          onFileChange={(file) => onChange({ ...data, file })}
+          onFileChange={onOriginalFileChange}
           accept={FLOOR_PLAN_FILE_ACCEPT}
           required
           helperText="Upload your floor plan, sketch, measurements, reference photos, or existing plan. The clearer the files, the more accurate the result."
+          persistedFile={
+            persistedOriginal
+              ? {
+                  id: persistedOriginal.id,
+                  filename: persistedOriginal.originalFilename,
+                  fileSize: persistedOriginal.fileSize,
+                  previewUrl: persistedOriginal.previewUrl ?? null,
+                  previewExpiresAt: persistedOriginal.previewExpiresAt ?? null,
+                }
+              : null
+          }
+          operationStatusText={originalOperationStatus}
+          operationErrorText={originalOperationError}
+          onRetry={onRetryOriginal}
+          onRemovePersisted={onRemovePersistedOriginal}
+          disabled={fileOperationDisabled}
+          retryDisabled={fileOperationDisabled}
+          removeDisabled={fileOperationDisabled}
         />
 
         {/* Plan Type & Floors */}
@@ -157,15 +214,17 @@ export default function FloorPlanItemCard({
             </label>
             <input
               type="number"
-              min={1}
-              max={20}
+              min={FLOOR_PLAN_MIN_FLOORS}
+              max={FLOOR_PLAN_MAX_FLOORS}
+              step={1}
               value={data.numberOfFloors}
-              onChange={(e) =>
-                onChange({
-                  ...data,
-                  numberOfFloors: Math.max(1, parseInt(e.target.value) || 1),
-                })
-              }
+              onChange={(event) => {
+                const numberOfFloors = parseFloorPlanFloorCountInput(
+                  event.target.value,
+                );
+                if (numberOfFloors === null) return;
+                onChange({ ...data, numberOfFloors });
+              }}
               className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
@@ -397,7 +456,25 @@ export default function FloorPlanItemCard({
           viewerVariant="plan"
           label="Reference Image / Sample (optional)"
           file={data.referenceFile}
-          onFileChange={(file) => onChange({ ...data, referenceFile: file })}
+          onFileChange={onReferenceFileChange}
+          persistedFile={
+            persistedReference
+              ? {
+                  id: persistedReference.id,
+                  filename: persistedReference.originalFilename,
+                  fileSize: persistedReference.fileSize,
+                  previewUrl: persistedReference.previewUrl ?? null,
+                  previewExpiresAt: persistedReference.previewExpiresAt ?? null,
+                }
+              : null
+          }
+          operationStatusText={referenceOperationStatus}
+          operationErrorText={referenceOperationError}
+          onRetry={onRetryReference}
+          onRemovePersisted={onRemovePersistedReference}
+          disabled={fileOperationDisabled}
+          retryDisabled={fileOperationDisabled}
+          removeDisabled={fileOperationDisabled}
         />
 
         {/* Additional Info */}

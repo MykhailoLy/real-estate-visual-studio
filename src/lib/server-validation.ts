@@ -27,6 +27,8 @@ import {
 import { DUSK_STYLE_ID_VALUES } from "./day-to-dusk.ts";
 import { REMOVAL_TASK_ID_VALUES } from "./item-removal.ts";
 import {
+  FLOOR_PLAN_MAX_FLOORS,
+  FLOOR_PLAN_MIN_FLOORS,
   FLOOR_PLAN_TYPE_IDS,
   PHOTO_EDIT_OPTION_IDS,
   RENOVATION_EXTERNAL_IDS,
@@ -153,7 +155,11 @@ export const RenovationItemSchema = z
 // --- 3D Floor Plans Item ---
 export const FloorPlanItemSchema = z.object({
   planType: z.enum(FLOOR_PLAN_TYPE_IDS as [string, ...string[]]),
-  numberOfFloors: z.number().int().min(1).max(20),
+  numberOfFloors: z
+    .number()
+    .int()
+    .min(FLOOR_PLAN_MIN_FLOORS)
+    .max(FLOOR_PLAN_MAX_FLOORS),
   style3d: z.string().optional().default(""),
   planView3d: z.string().optional().default(""),
   pageOrientation: z.string().min(1, "Page orientation is required"),

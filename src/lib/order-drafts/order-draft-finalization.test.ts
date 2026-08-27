@@ -1055,9 +1055,13 @@ test("finalization-status lookup supports only canonical recovery pairs and owne
     DRAFT_SERVER,
     /import \{ VIRTUAL_RENOVATION_DRAFT_ROUTE \} from "\.\/virtual-renovation\.ts"/,
   );
+  assert.match(
+    DRAFT_SERVER,
+    /import \{ FLOOR_PLANS_DRAFT_ROUTE \} from "\.\/floor-plans\.ts"/,
+  );
   assert.equal(
     supportGuard.replace(/\s+/g, " ").trim(),
-    `const supportsFinalizationStatus = (draft.serviceType === "virtual-staging" && draft.route === VIRTUAL_STAGING_DRAFT_ROUTE) || (draft.serviceType === "photo-editing" && draft.subService === null && draft.route === PHOTO_EDITING_DRAFT_ROUTE) || (draft.serviceType === "virtual-renovation" && draft.subService === null && draft.route === VIRTUAL_RENOVATION_DRAFT_ROUTE);`,
+    `const supportsFinalizationStatus = (draft.serviceType === "virtual-staging" && draft.route === VIRTUAL_STAGING_DRAFT_ROUTE) || (draft.serviceType === "photo-editing" && draft.subService === null && draft.route === PHOTO_EDITING_DRAFT_ROUTE) || (draft.serviceType === "virtual-renovation" && draft.subService === null && draft.route === VIRTUAL_RENOVATION_DRAFT_ROUTE) || (draft.serviceType === "3d-floor-plans" && draft.subService === null && draft.route === FLOOR_PLANS_DRAFT_ROUTE);`,
   );
   assert.doesNotMatch(
     supportGuard,

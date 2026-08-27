@@ -1,4 +1,6 @@
 import {
+  FLOOR_PLAN_MAX_FLOORS,
+  FLOOR_PLAN_MIN_FLOORS,
   FLOOR_PLAN_PRICE_KEYS,
   PHOTO_EDIT_PRICE_KEYS,
   PRICING_VERSION,
@@ -149,11 +151,11 @@ function calculateFloorPlanItems(
   return input.items.map((item, itemIndex) => {
     if (
       !Number.isInteger(item.numberOfFloors) ||
-      item.numberOfFloors < 1 ||
-      item.numberOfFloors > 20
+      item.numberOfFloors < FLOOR_PLAN_MIN_FLOORS ||
+      item.numberOfFloors > FLOOR_PLAN_MAX_FLOORS
     ) {
       throw new PricingValidationError(
-        "Floor quantity must be an integer between 1 and 20.",
+        `Floor quantity must be an integer between ${FLOOR_PLAN_MIN_FLOORS} and ${FLOOR_PLAN_MAX_FLOORS}.`,
         "invalid-quantity"
       );
     }
