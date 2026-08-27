@@ -1,10 +1,11 @@
 export interface AuthenticatedSubjectClaims extends Record<string, unknown> {
   sub: string;
+  role: "authenticated";
 }
 
 /**
- * Accept only claims with a non-empty subject. Callers must pass claims that
- * have already been signature-verified by Supabase Auth's getClaims().
+ * Accept only authenticated-role claims with a non-empty subject. Callers
+ * must pass claims already signature-verified by Supabase Auth's getClaims().
  */
 export function hasVerifiedAuthenticatedSubject(
   claims: unknown,
@@ -13,6 +14,11 @@ export function hasVerifiedAuthenticatedSubject(
     return false;
   }
 
-  const subject = (claims as Record<string, unknown>).sub;
-  return typeof subject === "string" && subject.trim().length > 0;
+  const claimRecord = claims as Record<string, unknown>;
+  const subject = claimRecord.sub;
+  return (
+    typeof subject === "string" &&
+    subject.trim().length > 0 &&
+    claimRecord.role === "authenticated"
+  );
 }

@@ -13,14 +13,43 @@ function source(path: string): string {
   return readFileSync(join(SOURCE_DIRECTORY, path), "utf8");
 }
 
-test("verified auth claims require a non-empty subject", () => {
+test("verified auth claims require an authenticated role and non-empty subject", () => {
   assert.equal(hasVerifiedAuthenticatedSubject(null), false);
   assert.equal(hasVerifiedAuthenticatedSubject({}), false);
-  assert.equal(hasVerifiedAuthenticatedSubject({ sub: "" }), false);
-  assert.equal(hasVerifiedAuthenticatedSubject({ sub: "   " }), false);
   assert.equal(
-    hasVerifiedAuthenticatedSubject({ sub: "11111111-1111-4111-8111-111111111111" }),
+    hasVerifiedAuthenticatedSubject({
+      sub: "11111111-1111-4111-8111-111111111111",
+      role: "authenticated",
+    }),
     true,
+  );
+  assert.equal(
+    hasVerifiedAuthenticatedSubject({
+      sub: "11111111-1111-4111-8111-111111111111",
+    }),
+    false,
+  );
+  assert.equal(
+    hasVerifiedAuthenticatedSubject({
+      sub: "11111111-1111-4111-8111-111111111111",
+      role: "anon",
+    }),
+    false,
+  );
+  assert.equal(
+    hasVerifiedAuthenticatedSubject({
+      sub: "11111111-1111-4111-8111-111111111111",
+      role: "service_role",
+    }),
+    false,
+  );
+  assert.equal(
+    hasVerifiedAuthenticatedSubject({ sub: "", role: "authenticated" }),
+    false,
+  );
+  assert.equal(
+    hasVerifiedAuthenticatedSubject({ sub: "   ", role: "authenticated" }),
+    false,
   );
 });
 
@@ -28,6 +57,7 @@ test("dashboard claims identity maps safe presentation fields", () => {
   assert.deepEqual(
     mapDashboardClientUserFromClaims({
       sub: "11111111-1111-4111-8111-111111111111",
+      role: "authenticated",
       email: "alex@example.com",
       user_metadata: {
         full_name: "  Alex Rivera  ",
@@ -46,6 +76,7 @@ test("dashboard claims identity maps safe presentation fields", () => {
   assert.equal(
     mapDashboardClientUserFromClaims({
       sub: "22222222-2222-4222-8222-222222222222",
+      role: "authenticated",
       user_metadata: { picture: "javascript:alert(1)" },
     })?.avatarUrl,
     null,
@@ -54,6 +85,7 @@ test("dashboard claims identity maps safe presentation fields", () => {
   assert.deepEqual(
     mapDashboardClientUserFromClaims({
       sub: "33333333-3333-4333-8333-333333333333",
+      role: "authenticated",
       email: "fallback@example.com",
     }),
     {
@@ -65,10 +97,17 @@ test("dashboard claims identity maps safe presentation fields", () => {
     },
   );
 
-  assert.equal(mapDashboardClientUserFromClaims({ email: "no-sub@example.com" }), null);
+  assert.equal(
+    mapDashboardClientUserFromClaims({
+      role: "authenticated",
+      email: "no-sub@example.com",
+    }),
+    null,
+  );
   assert.equal(
     mapDashboardClientUserFromClaims({
       sub: "44444444-4444-4444-8444-444444444444",
+      role: "authenticated",
     })?.displayName,
     "Client",
   );
