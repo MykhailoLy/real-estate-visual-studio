@@ -95,7 +95,10 @@ registerHooks({
   },
 });
 
-const { completeOrderDraftFileUploadForUser } = await import("./files-server.ts");
+const {
+  completeOrderDraftFileUploadForUser,
+  listUploadedOrderDraftFilesForUser,
+} = await import("./files-server.ts");
 const { completeDraftReferenceForUser } = await import(
   "./draft-reference-files-server.ts"
 );
@@ -119,6 +122,8 @@ interface StoredObject {
 interface FlowMockOptions {
   listFailure?: boolean;
   signedReadFailure?: boolean;
+  previewSigningFailure?: boolean;
+  previewSigningThrows?: boolean;
   fetchFailure?: boolean;
   failInvalidationUpdate?: boolean;
 }
@@ -130,6 +135,7 @@ class FlowSupabaseMock {
   readonly updates: Array<{ table: string; values: TableRow }> = [];
   readonly removedPaths: string[][] = [];
   readonly prefixReads: string[] = [];
+  readonly signedUrlTtls: number[] = [];
   readonly options: FlowMockOptions;
 
   constructor(options: FlowMockOptions = {}) {
@@ -171,13 +177,19 @@ class FlowSupabaseMock {
           error: null,
         };
       },
-      createSignedUrl: async (path: string) =>
-        this.options.signedReadFailure
+      createSignedUrl: async (path: string, expiresIn: number) => {
+        this.signedUrlTtls.push(expiresIn);
+        if (this.options.previewSigningThrows && expiresIn === 600) {
+          throw new Error("Preview signing connection failed");
+        }
+        return this.options.signedReadFailure ||
+          (this.options.previewSigningFailure && expiresIn === 600)
           ? { data: null, error: { name: "SignedReadFailed" } }
           : {
               data: { signedUrl: `https://storage.example/${encodeURIComponent(path)}` },
               error: null,
-            },
+            };
+      },
       remove: async (paths: string[]) => {
         this.removedPaths.push([...paths]);
         for (const path of paths) this.objects.delete(path);
@@ -448,9 +460,101 @@ test("valid draft bytes are verified before the pending row becomes uploaded", a
   const result = await completeOrderDraftFileUploadForUser(USER_ID, DRAFT_ID, FILE_ID);
 
   assert.equal(result.ok, true);
+  if (!result.ok) return;
   assert.equal(row.upload_status, "uploaded");
   assert.deepEqual(mock.rpcCalls, ["complete_order_draft_file_upload"]);
   assert.deepEqual(mock.prefixReads, [row.storage_path]);
+  assert.deepEqual(mock.signedUrlTtls, [60, 600]);
+  assert.equal(
+    result.data.previewUrl,
+    `https://storage.example/${encodeURIComponent(String(row.storage_path))}`,
+  );
+  assert.match(result.data.previewExpiresAt ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  for (const privateField of [
+    "storagePath",
+    "bucket",
+    "path",
+    "token",
+    "signedUrl",
+  ]) {
+    assert.equal(privateField in result.data, false);
+  }
+});
+
+test("completion and list share successful preview enrichment semantics", async () => {
+  const row = draftFileRow();
+  const mock = new FlowSupabaseMock();
+  mock.setRows("order_draft_files", [row]);
+  mock.addObject(String(row.storage_path), JPEG, "image/jpeg");
+  mock.install();
+
+  const completed = await completeOrderDraftFileUploadForUser(
+    USER_ID,
+    DRAFT_ID,
+    FILE_ID,
+  );
+  const listed = await listUploadedOrderDraftFilesForUser(USER_ID, DRAFT_ID);
+
+  assert.equal(completed.ok, true);
+  assert.equal(listed.ok, true);
+  if (!completed.ok || !listed.ok) return;
+  assert.equal(listed.data.length, 1);
+  assert.equal(listed.data[0]?.id, completed.data.id);
+  assert.equal(listed.data[0]?.previewUrl, completed.data.previewUrl);
+  assert.match(listed.data[0]?.previewExpiresAt ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  assert.deepEqual(mock.signedUrlTtls, [60, 600, 600]);
+});
+
+test("preview signing failure never fails completion and matches list fallback", async () => {
+  const row = draftFileRow();
+  const mock = new FlowSupabaseMock({ previewSigningFailure: true });
+  mock.setRows("order_draft_files", [row]);
+  mock.addObject(String(row.storage_path), JPEG, "image/jpeg");
+  mock.install();
+
+  const completed = await completeOrderDraftFileUploadForUser(
+    USER_ID,
+    DRAFT_ID,
+    FILE_ID,
+  );
+  const listed = await listUploadedOrderDraftFilesForUser(USER_ID, DRAFT_ID);
+
+  assert.equal(completed.ok, true);
+  assert.equal(listed.ok, true);
+  if (!completed.ok || !listed.ok) return;
+  assert.equal(row.upload_status, "uploaded");
+  assert.deepEqual(mock.rpcCalls, ["complete_order_draft_file_upload"]);
+  assert.deepEqual(mock.prefixReads, [row.storage_path]);
+  assert.equal("previewUrl" in completed.data, false);
+  assert.equal("previewExpiresAt" in completed.data, false);
+  assert.equal(listed.data.length, 1);
+  assert.equal("previewUrl" in (listed.data[0] ?? {}), false);
+  assert.equal("previewExpiresAt" in (listed.data[0] ?? {}), false);
+  assert.deepEqual(mock.signedUrlTtls, [60, 600, 600]);
+  assert.deepEqual(mock.removedPaths, []);
+});
+
+test("thrown preview signing errors cannot invalidate a completed upload", async () => {
+  const row = draftFileRow();
+  const mock = new FlowSupabaseMock({ previewSigningThrows: true });
+  mock.setRows("order_draft_files", [row]);
+  mock.addObject(String(row.storage_path), JPEG, "image/jpeg");
+  mock.install();
+
+  const completed = await completeOrderDraftFileUploadForUser(
+    USER_ID,
+    DRAFT_ID,
+    FILE_ID,
+  );
+
+  assert.equal(completed.ok, true);
+  if (!completed.ok) return;
+  assert.equal(row.upload_status, "uploaded");
+  assert.deepEqual(mock.rpcCalls, ["complete_order_draft_file_upload"]);
+  assert.deepEqual(mock.prefixReads, [row.storage_path]);
+  assert.equal("previewUrl" in completed.data, false);
+  assert.deepEqual(mock.signedUrlTtls, [60, 600]);
+  assert.deepEqual(mock.removedPaths, []);
 });
 
 test("invalid draft bytes mark only the pending candidate failed and remove only its object", async () => {

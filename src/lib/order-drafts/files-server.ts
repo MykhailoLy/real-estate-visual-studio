@@ -265,7 +265,7 @@ export async function completeOrderDraftFileUploadForUser(
 
     return {
       ok: true,
-      data: mapUploadedOrderDraftFileSummary(completedResult.data),
+      data: await attachPreviewUrlToUploadedFile(completedResult.data),
     };
   } catch (error) {
     return handleDraftFileException("complete", error);
@@ -419,19 +419,28 @@ async function attachPreviewUrlsToUploadedFiles(
 ): Promise<OrderDraftUploadedFileSummary[]> {
   const summaries: OrderDraftUploadedFileSummary[] = [];
   for (const row of rows) {
-    const summary = mapUploadedOrderDraftFileSummary(row);
-    const preview = await createSignedDraftFilePreview(row.storagePath);
-    summaries.push(
-      preview.ok
-        ? {
-            ...summary,
-            previewUrl: preview.data.previewUrl,
-            previewExpiresAt: preview.data.previewExpiresAt,
-          }
-        : summary,
-    );
+    summaries.push(await attachPreviewUrlToUploadedFile(row));
   }
   return summaries;
+}
+
+async function attachPreviewUrlToUploadedFile(
+  row: OrderDraftFileRow,
+): Promise<OrderDraftUploadedFileSummary> {
+  const summary = mapUploadedOrderDraftFileSummary(row);
+  try {
+    const preview = await createSignedDraftFilePreview(row.storagePath);
+    return preview.ok
+      ? {
+          ...summary,
+          previewUrl: preview.data.previewUrl,
+          previewExpiresAt: preview.data.previewExpiresAt,
+        }
+      : summary;
+  } catch (error) {
+    console.warn("[order-draft-files] preview enrichment threw:", error);
+    return summary;
+  }
 }
 
 function isPreviewableDraftRow(row: unknown): boolean {

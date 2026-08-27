@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { OrderDraftUploadedFileSummary } from "../../../lib/order-drafts/files.ts";
 import { calculateOrderQuote } from "../../../lib/pricing/calculate.ts";
 import {
   buildPhotoEditingReviewRows,
@@ -109,4 +110,31 @@ test("persisted original display survives without a browser File", () => {
     "filename",
     "previewUrl",
   ]);
+});
+
+test("immediate review consumes the completed durable-upload summary without a browser File", () => {
+  const clientItemId = "77777777-7777-4777-8777-777777777777";
+  const completedUpload: OrderDraftUploadedFileSummary = {
+    id: "88888888-8888-4888-8888-888888888888",
+    itemClientId: clientItemId,
+    itemIndex: 0,
+    kind: "original",
+    originalFilename: "immediate-review.png",
+    fileSize: 768,
+    mimeType: "image/png",
+    uploadStatus: "uploaded",
+    createdAt: "2026-08-27T10:00:00.000Z",
+    updatedAt: "2026-08-27T10:00:01.000Z",
+    previewUrl: "https://example.test/immediate-preview",
+    previewExpiresAt: "2026-08-27T10:10:01.000Z",
+  };
+
+  assert.deepEqual(
+    findPhotoEditingReviewFileDisplay(clientItemId, [completedUpload]),
+    {
+      filename: "immediate-review.png",
+      fileSize: 768,
+      previewUrl: "https://example.test/immediate-preview",
+    },
+  );
 });
