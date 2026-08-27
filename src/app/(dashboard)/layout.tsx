@@ -11,7 +11,7 @@
 // pages like /dashboard/jobs can pass their own statusFilter state.
 
 import type { Metadata } from "next";
-import { getClientUser } from "@/lib/client-auth";
+import { getDashboardClientUserFromClaims } from "@/lib/dashboard-client-auth";
 import { getClientProfile } from "@/lib/client-profile";
 import DashboardDocumentScrollLock from "@/components/dashboard/DashboardDocumentScrollLock";
 import { DashboardUserProvider } from "@/components/dashboard/DashboardUserContext";
@@ -26,10 +26,12 @@ export default async function DashboardGroupLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const rawUser = await getClientUser();
-
-  // Fetch profile in parallel-ish — only if we have a user
-  const profile = rawUser ? await getClientProfile() : null;
+  // These reads are independent. The profile query remains scoped by the
+  // authenticated cookie and protected by client_profiles RLS.
+  const [rawUser, profile] = await Promise.all([
+    getDashboardClientUserFromClaims(),
+    getClientProfile(),
+  ]);
 
   const user: DashboardUser | null = rawUser
     ? {
