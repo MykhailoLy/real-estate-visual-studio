@@ -44,6 +44,40 @@ test("success responses use the data envelope and no-store cache header", async 
   assert.deepEqual(await responseJson(response), { data: { id: FILE_ID } });
 });
 
+test("completed upload responses expose preview metadata without private storage fields", async () => {
+  const response = orderDraftFileSuccessResponse({
+    id: FILE_ID,
+    itemClientId: ITEM_ID,
+    itemIndex: 0,
+    kind: "original",
+    originalFilename: "room.jpg",
+    fileSize: 123456,
+    mimeType: "image/jpeg",
+    uploadStatus: "uploaded",
+    createdAt: "2026-08-27T10:00:00.000Z",
+    updatedAt: "2026-08-27T10:00:01.000Z",
+    previewUrl: "https://signed.example/preview",
+    previewExpiresAt: "2026-08-27T10:10:01.000Z",
+  });
+  const body = await responseJson(response);
+  const serialized = JSON.stringify(body);
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    (body.data as Record<string, unknown>).previewUrl,
+    "https://signed.example/preview",
+  );
+  for (const privateField of [
+    "storagePath",
+    "bucket",
+    "path",
+    "token",
+    "signedUrl",
+  ]) {
+    assert.equal(serialized.includes(`\"${privateField}\"`), false);
+  }
+});
+
 test("unauthenticated routes map to 401", async () => {
   const response = unauthenticatedDraftFileResponse();
   assert.equal(response.status, 401);
