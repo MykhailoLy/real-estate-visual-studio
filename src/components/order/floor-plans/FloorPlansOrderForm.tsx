@@ -52,6 +52,8 @@ import {
   buildFloorPlansDraftFingerprint,
   buildFloorPlansUpdateDraftInput,
   hasMeaningfulFloorPlansDraftChange,
+  isCanonicalFloorPlanType,
+  isValidFloorPlanFloorCount,
   resetFloorPlansDraftIdentity,
   resolveFloorPlansDraftRegion,
   shouldApplyFloorPlansAsyncResult,
@@ -1134,8 +1136,8 @@ export default function FloorPlansOrderForm({
     (item) =>
       item.file === null &&
       item.referenceFile === null &&
-      item.planType !== "" &&
-      item.numberOfFloors >= 1 &&
+      isCanonicalFloorPlanType(item.planType) &&
+      isValidFloorPlanFloorCount(item.numberOfFloors) &&
       item.pageOrientation !== "" &&
       item.planOrientation !== "" &&
       uploadedFilesBySlot.has(fileSlotKey(item.clientItemId, "original")),

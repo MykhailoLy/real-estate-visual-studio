@@ -6,6 +6,11 @@ import {
   type RegionCode,
 } from "../currency.ts";
 import { calculateOrderQuote } from "../pricing/calculate.ts";
+import {
+  FLOOR_PLAN_MAX_FLOORS,
+  FLOOR_PLAN_MIN_FLOORS,
+  FLOOR_PLAN_TYPE_IDS,
+} from "../pricing/catalog.ts";
 import type { TransactionalCurrency } from "../pricing/types.ts";
 import {
   ALLOWED_FLOOR_PLAN_MIME_TYPES,
@@ -25,6 +30,7 @@ import type {
 export const FLOOR_PLANS_DRAFT_STATE_SCHEMA_VERSION = 1;
 export const FLOOR_PLANS_DRAFT_ROUTE = "/dashboard/orders/new/3d-floor-plans";
 export const FLOOR_PLANS_DRAFT_STEP = "configure";
+export { FLOOR_PLAN_MAX_FLOORS, FLOOR_PLAN_MIN_FLOORS };
 
 export type FloorPlansAutosaveStatus =
   | "not_saved"
@@ -114,11 +120,35 @@ export interface FloorPlanResumedFormItem
 const STRING_FIELD_MAX = 5000;
 const SHORT_FIELD_MAX = 200;
 const DEFAULT_DISCLAIMER_OPTION = "Do not show disclaimer";
+const FLOOR_PLAN_TYPE_ID_SET = new Set<string>(FLOOR_PLAN_TYPE_IDS);
+const FloorPlanTypeDraftSchema = z.union([
+  z.literal(""),
+  z.enum(FLOOR_PLAN_TYPE_IDS as [string, ...string[]]),
+]);
+const FloorPlanFloorCountSchema = z
+  .number()
+  .int()
+  .min(FLOOR_PLAN_MIN_FLOORS)
+  .max(FLOOR_PLAN_MAX_FLOORS);
+
+export function isCanonicalFloorPlanType(value: string): boolean {
+  return FLOOR_PLAN_TYPE_ID_SET.has(value);
+}
+
+export function isValidFloorPlanFloorCount(value: number): boolean {
+  return FloorPlanFloorCountSchema.safeParse(value).success;
+}
+
+export function parseFloorPlanFloorCountInput(value: string): number | null {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return isValidFloorPlanFloorCount(parsed) ? parsed : null;
+}
 
 const FloorPlanDraftItemStateSchema = z
   .object({
-    planType: z.string().max(SHORT_FIELD_MAX).default(""),
-    numberOfFloors: z.number().int().min(1).max(20).default(1),
+    planType: FloorPlanTypeDraftSchema.default(""),
+    numberOfFloors: FloorPlanFloorCountSchema.default(FLOOR_PLAN_MIN_FLOORS),
     fileSizeLimit: z.string().max(SHORT_FIELD_MAX).default(""),
     disclaimerText: z.string().max(2000).default(""),
     style3d: z.string().max(SHORT_FIELD_MAX).default(""),
@@ -204,7 +234,7 @@ export function createFloorPlanFormItem(): FloorPlanResumedFormItem {
     file: null,
     referenceFile: null,
     planType: "",
-    numberOfFloors: 1,
+    numberOfFloors: FLOOR_PLAN_MIN_FLOORS,
     fileSizeLimit: "",
     disclaimerText: "",
     style3d: "",
@@ -228,15 +258,15 @@ export function createFloorPlanFormItem(): FloorPlanResumedFormItem {
 export function mapFloorPlansFormToDraftState(
   source: FloorPlansFormDraftSource,
 ): FloorPlansDraftState {
-  return {
+  const state = {
     schemaVersion: FLOOR_PLANS_DRAFT_STATE_SCHEMA_VERSION,
     jobTitle: trim(source.jobTitle, 120),
     currentStep: FLOOR_PLANS_DRAFT_STEP,
     items: source.items.map((item) => ({
       clientItemId: item.clientItemId ?? createDraftClientItemId(),
       state: {
-        planType: trim(item.planType, SHORT_FIELD_MAX),
-        numberOfFloors: Math.min(20, Math.max(1, Math.trunc(item.numberOfFloors || 1))),
+        planType: item.planType,
+        numberOfFloors: item.numberOfFloors,
         fileSizeLimit: trim(item.fileSizeLimit, SHORT_FIELD_MAX),
         disclaimerText: trim(item.disclaimerText, 2000),
         style3d: trim(item.style3d, SHORT_FIELD_MAX),
@@ -267,6 +297,8 @@ export function mapFloorPlansFormToDraftState(
     },
     metadata: { service: "3d-floor-plans" },
   };
+
+  return FloorPlansDraftStateSchema.parse(state);
 }
 
 export function mapFloorPlansDraftToFormState(state: unknown): {

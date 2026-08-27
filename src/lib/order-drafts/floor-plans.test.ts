@@ -10,17 +10,23 @@ import {
   validateFloorPlansDraftForFinalization,
 } from "./finalization.ts";
 import {
+  FLOOR_PLAN_MAX_FLOORS,
+  FLOOR_PLAN_MIN_FLOORS,
   FLOOR_PLANS_DRAFT_ROUTE,
   FLOOR_PLANS_DRAFT_STATE_SCHEMA_VERSION,
   FloorPlansDraftStateSchema,
   buildFloorPlansCreateDraftInput,
   buildFloorPlansDraftFingerprint,
+  buildFloorPlansPricingPreview,
   buildFloorPlansUpdateDraftInput,
   createFloorPlanFormItem,
   getFloorPlanDraftUploadContentType,
   hasMeaningfulFloorPlansDraftChange,
+  isCanonicalFloorPlanType,
+  isValidFloorPlanFloorCount,
   mapFloorPlansDraftToFormState,
   mapFloorPlansFormToDraftState,
+  parseFloorPlanFloorCountInput,
   resetFloorPlansDraftIdentity,
   shouldApplyFloorPlansAsyncResult,
   validateFloorPlansDraftForResume,
@@ -165,6 +171,49 @@ test("an untouched Floor Plans form remains local", () => {
   );
 });
 
+test("Floor Plans quantity input accepts only canonical integers from 1 through 20", () => {
+  const inputCases = [
+    ["0", null],
+    ["1", FLOOR_PLAN_MIN_FLOORS],
+    ["20", FLOOR_PLAN_MAX_FLOORS],
+    ["21", null],
+    ["1.5", null],
+    ["not-a-number", null],
+    ["", null],
+  ] as const;
+
+  for (const [input, expected] of inputCases) {
+    assert.equal(parseFloorPlanFloorCountInput(input), expected);
+  }
+
+  assert.equal(isValidFloorPlanFloorCount(0), false);
+  assert.equal(isValidFloorPlanFloorCount(1), true);
+  assert.equal(isValidFloorPlanFloorCount(20), true);
+  assert.equal(isValidFloorPlanFloorCount(21), false);
+  assert.equal(isValidFloorPlanFloorCount(1.5), false);
+  assert.equal(isValidFloorPlanFloorCount(Number.NaN), false);
+});
+
+test("draft serialization rejects invalid pricing fields instead of normalizing them", () => {
+  for (const numberOfFloors of [0, 21, 1.5, Number.NaN]) {
+    const input = source();
+    input.items[0] = { ...input.items[0]!, numberOfFloors };
+    assert.equal(buildFloorPlansPricingPreview(input), null);
+    assert.throws(() => mapFloorPlansFormToDraftState(input));
+    assert.throws(() => buildFloorPlansCreateDraftInput(input));
+  }
+
+  const nonCanonicalType = source();
+  nonCanonicalType.items[0] = {
+    ...nonCanonicalType.items[0]!,
+    planType: " 3d ",
+  };
+  assert.equal(isCanonicalFloorPlanType("3d"), true);
+  assert.equal(isCanonicalFloorPlanType(" 3d "), false);
+  assert.equal(buildFloorPlansPricingPreview(nonCanonicalType), null);
+  assert.throws(() => mapFloorPlansFormToDraftState(nonCanonicalType));
+});
+
 test("all Floor Plans fields, stable IDs, terms, and filenames round-trip", () => {
   const state = mapFloorPlansFormToDraftState(source());
   const restored = mapFloorPlansDraftToFormState(state);
@@ -277,6 +326,39 @@ test("pricing preview matches the catalog but remains explicitly non-authoritati
   assert.equal("pricingPreview" in create.state, false);
 });
 
+test("pricing, saved draft, and final production quantities cannot diverge", () => {
+  for (const numberOfFloors of [FLOOR_PLAN_MIN_FLOORS, FLOOR_PLAN_MAX_FLOORS]) {
+    const input = source();
+    input.items = [{ ...input.items[0]!, numberOfFloors }];
+    const create = buildFloorPlansCreateDraftInput(input);
+    const priced = calculateOrderQuote({
+      serviceType: "3d-floor-plans",
+      currency: input.currency,
+      items: input.items.map((item) => ({
+        planType: item.planType,
+        numberOfFloors: item.numberOfFloors,
+      })),
+    });
+    const production = mapFloorPlansDraftStateToProductionItems(create.state);
+    assert.equal(production.ok, true);
+    if (!production.ok) continue;
+
+    assert.deepEqual(
+      {
+        pricingQuantity: priced.items[0]?.quantity,
+        savedDraftQuantity: create.state.items[0]?.state.numberOfFloors,
+        productionQuantity: production.data[0]?.numberOfFloors,
+      },
+      {
+        pricingQuantity: numberOfFloors,
+        savedDraftQuantity: numberOfFloors,
+        productionQuantity: numberOfFloors,
+      },
+    );
+    assert.equal(create.pricingPreview?.preview.totalCents, priced.totalCents);
+  }
+});
+
 test("FloorPlanItemSchema is the authoritative production validation gate", () => {
   const state = mapFloorPlansFormToDraftState(source());
   assert.equal(
@@ -298,6 +380,20 @@ test("FloorPlanItemSchema is the authoritative production validation gate", () =
     assert.equal(mapped.data[0]?.numberOfFloors, 2);
     assert.equal(mapped.data[0]?.referenceLink, "https://example.com/reference");
   }
+
+  for (const numberOfFloors of [0, 21, 1.5, Number.NaN]) {
+    const invalidQuantityState = mapFloorPlansFormToDraftState(source());
+    invalidQuantityState.items[0]!.state.numberOfFloors = numberOfFloors;
+    assert.equal(
+      FloorPlansDraftStateSchema.safeParse(invalidQuantityState).success,
+      false,
+    );
+    assert.equal(
+      mapFloorPlansDraftStateToProductionItems(invalidQuantityState).ok,
+      false,
+    );
+  }
+
   state.items[0]!.state.planType = "tampered-price-label";
   assert.equal(mapFloorPlansDraftStateToProductionItems(state).ok, false);
 });
@@ -465,6 +561,14 @@ test("Floor Plans form uses the durable file lifecycle and atomic finalization A
     ),
     "utf8",
   );
+  const itemCard = readFileSync(
+    new URL(
+      "../../components/order/floor-plans/FloorPlanItemCard.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const model = readFileSync(new URL("./floor-plans.ts", import.meta.url), "utf8");
   assert.match(form, /window\.history\.replaceState/);
   assert.doesNotMatch(form, /router\.replace|useRouter|submitOrder\(/);
   assert.match(form, /prepareOrderDraftFileUpload/);
@@ -477,6 +581,12 @@ test("Floor Plans form uses the durable file lifecycle and atomic finalization A
   assert.match(form, /draftSessionRef\.current \+= 1/);
   assert.match(form, /submissionInFlightRef\.current/);
   assert.match(form, /finalizationRetryContextRef\.current/);
+  assert.match(form, /isCanonicalFloorPlanType\(item\.planType\)/);
+  assert.match(form, /isValidFloorPlanFloorCount\(item\.numberOfFloors\)/);
+  assert.match(itemCard, /parseFloorPlanFloorCountInput/);
+  assert.doesNotMatch(itemCard, /Math\.max\(1|parseInt\(e\.target\.value/);
+  assert.match(model, /numberOfFloors: item\.numberOfFloors/);
+  assert.doesNotMatch(model, /Math\.min\(20|planType: trim\(item\.planType/);
   assert.match(
     form,
     /operation\.pendingFileId[\s\S]+deleteOrderDraftFile\(previousDraftId, operation\.pendingFileId\)/,
