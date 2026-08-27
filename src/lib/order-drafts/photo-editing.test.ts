@@ -10,6 +10,7 @@ import {
 import {
   PHOTO_EDITING_DRAFT_ROUTE,
   PHOTO_EDITING_DRAFT_STATE_SCHEMA_VERSION,
+  PHOTO_EDITING_DRAFT_STEP,
   PhotoEditingDraftStateSchema,
   buildPhotoEditingCreateDraftInput,
   buildPhotoEditingDraftFingerprint,
@@ -95,6 +96,8 @@ test("meaningful Photo Editing edits create the generic draft payload", () => {
   assert.equal(create.subService, undefined);
   assert.equal(create.route, PHOTO_EDITING_DRAFT_ROUTE);
   assert.equal(create.state.schemaVersion, PHOTO_EDITING_DRAFT_STATE_SCHEMA_VERSION);
+  assert.equal(create.currentStep, PHOTO_EDITING_DRAFT_STEP);
+  assert.equal(create.state.currentStep, "configure");
   assert.equal(create.currency, "USD");
   assert.equal(create.region, "US");
 });
