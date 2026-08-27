@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { hasVerifiedAuthenticatedSubject } from "@/lib/supabase/auth-claims";
 import { createProxySupabaseClient } from "@/lib/supabase/proxy-client";
 
 // ============================================================
 // Next.js Proxy (middleware replacement in Next.js 16+)
 //
 // Protects /dashboard and all sub-routes using @supabase/ssr.
-// supabase.auth.getUser() validates the session against Supabase
-// — no manual JWT decoding, no localStorage, no infinite loops.
+// supabase.auth.getClaims() verifies the access-token signature and
+// subject — no manual JWT decoding and no browser-controlled identity.
 //
 // The SSR client reads the session from the HTTP cookie that
 // createBrowserClient writes after login, and rotates refresh
@@ -39,10 +40,11 @@ export async function proxy(req: NextRequest) {
   let authenticated = false;
   if (supabase) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      authenticated = user !== null;
+      const { data, error } = await supabase.auth.getClaims();
+      authenticated =
+        !error && hasVerifiedAuthenticatedSubject(data?.claims);
     } catch {
-      // Network error or invalid session — treat as unauthenticated
+      // Verification error or invalid session — treat as unauthenticated
       authenticated = false;
     }
   }

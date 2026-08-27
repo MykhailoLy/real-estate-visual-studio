@@ -248,6 +248,7 @@ export default function PublicAccountMenu({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   role="menuitem"
                   onClick={close}
                   className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"

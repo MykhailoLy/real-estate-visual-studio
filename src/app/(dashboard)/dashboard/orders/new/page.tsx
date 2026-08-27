@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
-import OrderServiceCard from "@/components/dashboard/OrderServiceCard";
+import OrderServiceGrid from "@/components/dashboard/OrderServiceGrid";
 import SavedDraftsSection from "@/components/dashboard/SavedDraftsSection";
-import { getOrderServiceCards } from "@/lib/order-services";
+import {
+  getOrderServiceCards,
+  type OrderServiceCard,
+} from "@/lib/order-services";
 import { getOrderCardImages } from "@/lib/order-card-media";
 import { getOrderServiceExamples } from "@/lib/order-card-examples";
 
@@ -30,14 +34,28 @@ export const metadata: Metadata = {
 // server-side — never one query per card.
 // ============================================================
 
-export default async function NewOrderHubPage() {
-  const services = getOrderServiceCards();
-
+async function EnrichedOrderServiceGrid({
+  services,
+}: {
+  services: readonly OrderServiceCard[];
+}) {
   // Two batched reads for the whole hub (no per-card queries).
   const [images, examples] = await Promise.all([
     getOrderCardImages(),
     getOrderServiceExamples(),
   ]);
+
+  return (
+    <OrderServiceGrid
+      services={services}
+      images={images}
+      examples={examples}
+    />
+  );
+}
+
+export default function NewOrderHubPage() {
+  const services = getOrderServiceCards();
 
   return (
     <ClientDashboardLayout contentClassName="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8 2xl:px-10">
@@ -56,28 +74,9 @@ export default async function NewOrderHubPage() {
 
       <SavedDraftsSection />
 
-      <ul
-        role="list"
-        className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-      >
-        {services.map((service) => (
-          <li key={service.slug} className="flex">
-            <OrderServiceCard
-              slug={service.slug}
-              examples={
-                service.portfolioServiceSlug
-                  ? examples.get(service.portfolioServiceSlug) ?? []
-                  : []
-              }
-              cardImage={
-                service.mediaServiceSlug
-                  ? images.get(service.mediaServiceSlug) ?? null
-                  : null
-              }
-            />
-          </li>
-        ))}
-      </ul>
+      <Suspense fallback={<OrderServiceGrid services={services} />}>
+        <EnrichedOrderServiceGrid services={services} />
+      </Suspense>
     </ClientDashboardLayout>
   );
 }
