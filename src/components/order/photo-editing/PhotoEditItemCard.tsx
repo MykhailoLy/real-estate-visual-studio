@@ -37,6 +37,10 @@ export const emptyPhotoEditItem = (): PhotoEditItemData => ({
   originalFilename: null,
 });
 
+export function photoEditItemDomId(clientItemId: string): string {
+  return `photo-edit-item-${clientItemId}`;
+}
+
 interface PhotoEditItemCardProps {
   index: number;
   data: PhotoEditItemData;
@@ -81,7 +85,10 @@ export default function PhotoEditItemCard({
   const subtotal = calculatePhotoEditItemTotal(data.selectedOptions, currency);
 
   return (
-    <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+    <div
+      id={photoEditItemDomId(data.clientItemId)}
+      className="bg-white border border-border rounded-xl p-5 shadow-sm"
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-sm font-semibold text-foreground">

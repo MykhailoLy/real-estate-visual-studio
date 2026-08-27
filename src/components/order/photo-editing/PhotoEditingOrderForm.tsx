@@ -5,7 +5,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Info, Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
-import OrderTermsBlock, {
+import OrderStepIndicator, {
+  type OrderStep,
+} from "@/components/order/OrderStepIndicator";
+import {
   type OrderTermsData,
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
@@ -16,10 +19,17 @@ import OrderJobTitleField, {
 import PhotoEditItemCard, {
   type PhotoEditItemData,
   emptyPhotoEditItem,
+  photoEditItemDomId,
 } from "@/components/order/photo-editing/PhotoEditItemCard";
+import PhotoEditingReview from "@/components/order/photo-editing/PhotoEditingReview";
 import { useDisplayRegion } from "@/components/pricing/currency-client";
 import Container from "@/components/layout/Container";
+import { PHOTO_EDIT_OPTIONS } from "@/data/order-options";
 import { currencyForRegion } from "@/lib/currency";
+import {
+  scrollDashboardToTop,
+  scrollElementIntoViewWithinDashboard,
+} from "@/lib/dashboard-scroll";
 import {
   createOrderDraft,
   getOrderDraft,
@@ -72,6 +82,7 @@ interface DraftSaveOutcome {
 }
 
 type ResumeState = "loading" | "ready" | "error" | "finalization_recovery";
+type PhotoEditingFormStep = "configure" | "review";
 type FileOperationPhase =
   | "saving"
   | "preparing"
@@ -105,6 +116,13 @@ type FinalizationRecovery =
     };
 
 const AUTOSAVE_DELAY_MS = 900;
+const STEPS: OrderStep[] = [
+  { id: "configure", label: "Configure" },
+  { id: "review", label: "Review & Submit" },
+];
+const PHOTO_EDIT_OPTION_IDS = new Set(
+  PHOTO_EDIT_OPTIONS.map((option) => option.id),
+);
 
 function originalSlotKey(clientItemId: string): string {
   return `${clientItemId}:original`;
@@ -127,6 +145,7 @@ export default function PhotoEditingOrderForm({
   ]);
   const [jobTitle, setJobTitle] = useState("");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
+  const [step, setStep] = useState<PhotoEditingFormStep>("configure");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [orderId, setOrderId] = useState("");
@@ -173,6 +192,11 @@ export default function PhotoEditingOrderForm({
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const finalizationRetryContextRef =
     useRef<DraftFinalizationRetryContext | null>(null);
+  const pendingScrollRef = useRef<
+    | { type: "top" }
+    | { type: "item"; clientItemId: string }
+    | null
+  >(null);
   const submissionInFlightRef = useRef(false);
 
   const commitItems = useCallback((next: PhotoEditItemData[]) => {
@@ -206,6 +230,22 @@ export default function PhotoEditingOrderForm({
   useEffect(() => {
     orderTermsRef.current = orderTerms;
   }, [orderTerms]);
+
+  useEffect(() => {
+    const pending = pendingScrollRef.current;
+    if (!pending) return;
+    pendingScrollRef.current = null;
+    const frame = requestAnimationFrame(() => {
+      if (pending.type === "item") {
+        scrollElementIntoViewWithinDashboard(
+          photoEditItemDomId(pending.clientItemId),
+        );
+      } else {
+        scrollDashboardToTop();
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [step]);
 
   const uploadedFilesBySlot = useMemo(() => {
     const indexed = new Map<string, OrderDraftUploadedFileSummary>();
@@ -428,8 +468,14 @@ export default function PhotoEditingOrderForm({
     const controller = new AbortController();
     const startedSession = ++draftSessionRef.current;
     saveQueueRef.current = Promise.resolve();
+    finalizationRetryContextRef.current = null;
+    setFinalizationRetryContext(null);
+    setFinalizationRecovery(null);
+    setStep("configure");
+    pendingScrollRef.current = { type: "top" };
     setResumeState("loading");
     setDraftError("");
+    setSubmitError("");
 
     void getOrderDraft(requestedDraftId, controller.signal).then(
       async (result) => {
@@ -518,6 +564,10 @@ export default function PhotoEditingOrderForm({
           readStoredFinalizationRetryContext(result.data.id);
         finalizationRetryContextRef.current = storedFinalization;
         setFinalizationRetryContext(storedFinalization);
+        if (storedFinalization) {
+          pendingScrollRef.current = { type: "top" };
+          setStep("review");
+        }
         setSaveStatus("saved");
         setResumeState("ready");
       },
@@ -958,11 +1008,58 @@ export default function PhotoEditingOrderForm({
     [applyFinalizationResult],
   );
 
+  const goToReview = () => {
+    if (!canReview) {
+      setSubmitError(
+        reviewBlockedMessage ||
+          "Complete every required Photo Editing detail before review.",
+      );
+      return;
+    }
+    setSubmitError("");
+    pendingScrollRef.current = { type: "top" };
+    setStep("review");
+  };
+
+  const goToConfigureTop = () => {
+    if (isSubmitting || finalizationRetryContextRef.current) return;
+    pendingScrollRef.current = { type: "top" };
+    setStep("configure");
+  };
+
+  const handleEditItem = (clientItemId: string) => {
+    if (isSubmitting || finalizationRetryContextRef.current) return;
+    if (
+      !itemsRef.current.some((item) => item.clientItemId === clientItemId)
+    ) {
+      return;
+    }
+    pendingScrollRef.current = { type: "item", clientItemId };
+    setStep("configure");
+  };
+
   const handleSubmit = async () => {
-    if (submissionInFlightRef.current) return;
+    if (
+      step !== "review" ||
+      submissionInFlightRef.current ||
+      isSubmitting ||
+      hasActiveFileOperation ||
+      saveStatus === "conflict" ||
+      resumeState !== "ready"
+    ) {
+      return;
+    }
     const retry = finalizationRetryContextRef.current;
     if (retry) {
       await submitWithContext(retry);
+      return;
+    }
+    if (!canSubmit) {
+      setSubmitError(
+        orderTermsRef.current.accepted
+          ? "Review every required order detail before submitting."
+          : "Accept the terms before submitting the order.",
+      );
       return;
     }
     const saved = await enqueueDraftSave(buildDraftSource(), true);
@@ -1027,6 +1124,8 @@ export default function PhotoEditingOrderForm({
     jobTitleRef.current = "";
     setOrderTerms(emptyOrderTerms);
     orderTermsRef.current = emptyOrderTerms;
+    setStep("configure");
+    pendingScrollRef.current = { type: "top" };
     setIsSubmitting(false);
     setSubmitted(false);
     setOrderId("");
@@ -1054,20 +1153,52 @@ export default function PhotoEditingOrderForm({
   const hasActiveFileOperation = Object.values(fileOperations).some(
     (operation) => operation.phase !== "error",
   );
-  const allItemsValid = items.every(
+  const allItemsReviewable = items.every(
     (item) =>
       item.file === null &&
       item.selectedOptions.length > 0 &&
+      item.selectedOptions.every((optionId) =>
+        PHOTO_EDIT_OPTION_IDS.has(optionId),
+      ) &&
       uploadedFilesBySlot.has(originalSlotKey(item.clientItemId)),
   );
-  const canSubmit =
+  const hasValidConfiguration =
     items.length > 0 &&
-    allItemsValid &&
-    orderTerms.accepted &&
-    isJobTitleValid(jobTitle) &&
+    allItemsReviewable &&
+    isJobTitleValid(jobTitle);
+  const hasFinalizationRetryContext = finalizationRetryContext !== null;
+  const isReview = step === "review";
+  const canReview =
+    hasValidConfiguration &&
     !hasActiveFileOperation &&
+    !isSubmitting &&
+    !hasFinalizationRetryContext &&
+    finalizationRecovery === null &&
     saveStatus !== "conflict" &&
     resumeState === "ready";
+  const canSubmit =
+    isReview &&
+    !hasActiveFileOperation &&
+    !isSubmitting &&
+    saveStatus !== "conflict" &&
+    resumeState === "ready" &&
+    (hasFinalizationRetryContext ||
+      (hasValidConfiguration && orderTerms.accepted));
+  const reviewBlockedMessage = hasActiveFileOperation
+    ? "Wait for every image operation to finish before review."
+    : saveStatus === "conflict"
+      ? "Reload the latest draft before review."
+      : !isJobTitleValid(jobTitle)
+        ? "Add a valid Job Title before review."
+        : items.length === 0
+          ? "Add at least one photo before review."
+          : !allItemsReviewable
+            ? "Every photo needs a saved original and at least one valid editing option."
+            : hasFinalizationRetryContext
+              ? "Finish the existing submission before editing this draft."
+              : resumeState !== "ready"
+                ? "Wait for the draft to finish restoring before review."
+                : "";
   const editsDisabled = isSubmitting || finalizationRetryContext !== null;
   const startNewDisabled =
     editsDisabled || hasActiveFileOperation || saveStatus === "saving";
@@ -1180,27 +1311,66 @@ export default function PhotoEditingOrderForm({
     <OrderLayout
       title="Real Estate Photo Editing"
       subtitle="Select editing options for each photo. Price is based on your selections."
+      header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={
-        <OrderSummary
-          serviceName="Photo Editing"
-          items={summaryItems}
-          pricingInput={{
-            serviceType: "photo-editing",
-            items: items.map((item) => ({
-              selectedOptions: item.selectedOptions,
-            })),
-          }}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          canSubmit={canSubmit || finalizationRetryContext !== null}
-          submitLabel={
-            finalizationRetryContext ? "Retry submission" : undefined
-          }
-        />
+        isReview ? (
+          <OrderSummary
+            serviceName="Photo Editing"
+            items={summaryItems}
+            pricingInput={{
+              serviceType: "photo-editing",
+              items: items.map((item) => ({
+                selectedOptions: item.selectedOptions,
+              })),
+            }}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+            canSubmit={canSubmit}
+            submitLabel={
+              hasFinalizationRetryContext ? "Retry submission" : undefined
+            }
+            submittingLabel={
+              hasFinalizationRetryContext ? "Retrying submission..." : undefined
+            }
+            submitHelper={
+              hasActiveFileOperation ? (
+                <p role="status">Wait for every image operation to finish.</p>
+              ) : saveStatus === "conflict" ? (
+                <p role="status">Reload the latest draft before submitting.</p>
+              ) : !hasFinalizationRetryContext && !orderTerms.accepted ? (
+                <p role="status">Accept the terms before submitting.</p>
+              ) : null
+            }
+          />
+        ) : (
+          <OrderSummary
+            serviceName="Photo Editing"
+            items={summaryItems}
+            pricingInput={{
+              serviceType: "photo-editing",
+              items: items.map((item) => ({
+                selectedOptions: item.selectedOptions,
+              })),
+            }}
+            onSubmit={goToReview}
+            isSubmitting={false}
+            canSubmit={canReview}
+            submitLabel="Review Order"
+            footerNote="No payment now. You'll confirm your order on the next step."
+            submitHelper={
+              reviewBlockedMessage ? (
+                <p role="status">{reviewBlockedMessage}</p>
+              ) : null
+            }
+          />
+        )
       }
     >
-      {submitError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+      {!isReview && submitError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+        >
           {submitError}
         </div>
       ) : null}
@@ -1244,6 +1414,22 @@ export default function PhotoEditingOrderForm({
         ) : null}
       </div>
 
+      {isReview ? (
+        <PhotoEditingReview
+          jobTitle={jobTitle}
+          items={items}
+          uploadedFiles={uploadedDraftFiles}
+          orderTerms={orderTerms}
+          onTermsChange={(next) => {
+            orderTermsRef.current = next;
+            setOrderTerms(next);
+          }}
+          onEditItem={handleEditItem}
+          onBack={goToConfigureTop}
+          submitError={submitError}
+          disabled={editsDisabled}
+        />
+      ) : (
       <fieldset disabled={editsDisabled} className="contents">
         <OrderJobTitleField
           value={jobTitle}
@@ -1310,15 +1496,8 @@ export default function PhotoEditingOrderForm({
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add Another Photo
         </button>
-
-        <OrderTermsBlock
-          data={orderTerms}
-          onChange={(next) => {
-            orderTermsRef.current = next;
-            setOrderTerms(next);
-          }}
-        />
       </fieldset>
+      )}
     </OrderLayout>
   );
 }
