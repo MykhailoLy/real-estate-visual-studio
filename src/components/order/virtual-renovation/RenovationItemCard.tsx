@@ -398,6 +398,7 @@ export default function RenovationItemCard({
           previewMedia?.description?.trim() || previewOption.description
         }
         media={previewMedia}
+        showMissingMediaPlaceholder
       />
     ) : null}
     </>

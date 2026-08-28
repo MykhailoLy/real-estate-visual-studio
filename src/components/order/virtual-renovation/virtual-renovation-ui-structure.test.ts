@@ -209,6 +209,7 @@ test("every renovation option has presentation metadata and one Info action", ()
     /aria-label={`View \$\{option\.label\} information and example`}/,
   );
   assert.match(itemCardSource, /<ExampleDialog/);
+  assert.match(itemCardSource, /showMissingMediaPlaceholder/);
 });
 
 test("each item keeps existing uploads and hierarchy without nested scrolling", () => {
