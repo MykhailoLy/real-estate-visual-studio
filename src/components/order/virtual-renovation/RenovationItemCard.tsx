@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo, useEffect } from "react";
 import { Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
@@ -117,11 +119,28 @@ export default function RenovationItemCard({
     currency
   );
 
+  const localPreviewUrl = useMemo(() => {
+    if (data.file && data.file.type.startsWith("image/")) {
+      return URL.createObjectURL(data.file);
+    }
+    return null;
+  }, [data.file]);
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    };
+  }, [localPreviewUrl]);
+
+  const currentPreviewUrl = localPreviewUrl ?? persistedOriginal?.previewUrl ?? null;
+  const currentPreviewFilename = data.file?.name ?? persistedOriginal?.originalFilename ?? null;
+  const hasCurrentPhotoPreview = currentPreviewUrl !== null && currentPreviewFilename !== null;
+
   return (
-    <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+    <div className="bg-white border border-border rounded-xl p-6 shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-foreground">
+      <div className="flex items-center justify-between mb-6">
+        <h4 className="text-[20px] font-bold text-foreground">
           Image #{index + 1}
         </h4>
         {canRemove && (
@@ -131,107 +150,134 @@ export default function RenovationItemCard({
             className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
             aria-label={`Remove image ${index + 1}`}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-5 h-5" />
           </button>
         )}
       </div>
 
-      <div className="space-y-5">
-        {/* File Upload */}
-        <FileUpload
-          viewerVariant="photo"
-          label="Upload Original Photo"
-          file={data.file}
-          onFileChange={onOriginalFileChange}
-          accept={STAGING_FILE_ACCEPT}
-          required
-          persistedFile={
-            persistedOriginal
-              ? {
-                  id: persistedOriginal.id,
-                  filename: persistedOriginal.originalFilename,
-                  fileSize: persistedOriginal.fileSize,
-                  previewUrl: persistedOriginal.previewUrl ?? null,
-                  previewExpiresAt: persistedOriginal.previewExpiresAt ?? null,
-                }
-              : null
-          }
-          operationStatusText={originalOperationStatus}
-          operationErrorText={originalOperationError}
-          onRetry={onRetryOriginal}
-          onRemovePersisted={onRemovePersistedOriginal}
-          disabled={fileOperationDisabled}
-          retryDisabled={fileOperationDisabled}
-          removeDisabled={fileOperationDisabled}
-        />
-
-        {/* Internal Renovations */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Internal Renovations
-          </label>
-          <div className="space-y-1.5 max-h-64 overflow-y-auto border border-border rounded-lg p-3">
-            {RENOVATION_INTERNAL_OPTIONS.map((opt) => (
-              <label
-                key={opt.id}
-                className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-surface cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={data.selectedInternal.includes(opt.id)}
-                    onChange={() => toggleInternal(opt.id)}
-                    className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
-                  />
-                  <span className="text-sm text-foreground">{opt.label}</span>
-                </div>
-                <span className="text-xs font-medium text-muted flex-shrink-0 ml-2">
-                  <RegionalCentsText
-                    cents={getCatalogPrice(opt.priceKey, currency)}
-                  />
-                </span>
-              </label>
-            ))}
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-7",
+          hasCurrentPhotoPreview &&
+            "2xl:grid-cols-[minmax(0,1fr)_300px] 2xl:gap-x-10 2xl:gap-y-0",
+        )}
+      >
+        {hasCurrentPhotoPreview ? (
+          <div className="min-w-0 2xl:col-start-2 2xl:row-span-2 2xl:row-start-1">
+            <div className="2xl:sticky 2xl:top-8">
+              <CurrentPhotoPreview
+                key={currentPreviewUrl}
+                previewUrl={currentPreviewUrl}
+                filename={currentPreviewFilename}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        {/* External Renovations */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
-            External Renovations
-          </label>
-          <div className="space-y-1.5 max-h-64 overflow-y-auto border border-border rounded-lg p-3">
-            {RENOVATION_EXTERNAL_OPTIONS.map((opt) => (
-              <label
-                key={opt.id}
-                className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-surface cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={data.selectedExternal.includes(opt.id)}
-                    onChange={() => toggleExternal(opt.id)}
-                    className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
-                  />
-                  <span className="text-sm text-foreground">{opt.label}</span>
-                </div>
-                <span className="text-xs font-medium text-muted flex-shrink-0 ml-2">
-                  <RegionalCentsText
-                    cents={getCatalogPrice(opt.priceKey, currency)}
-                  />
-                </span>
+        <div className={cn("min-w-0 space-y-7 2xl:col-start-1 2xl:row-start-1", hasCurrentPhotoPreview && "2xl:row-span-2")}>
+          {/* File Upload */}
+          <FileUpload
+            viewerVariant="photo"
+            label="Upload Original Photo"
+            file={data.file}
+            onFileChange={onOriginalFileChange}
+            accept={STAGING_FILE_ACCEPT}
+            required
+            persistedFile={
+              persistedOriginal
+                ? {
+                    id: persistedOriginal.id,
+                    filename: persistedOriginal.originalFilename,
+                    fileSize: persistedOriginal.fileSize,
+                    previewUrl: persistedOriginal.previewUrl ?? null,
+                    previewExpiresAt: persistedOriginal.previewExpiresAt ?? null,
+                  }
+                : null
+            }
+            operationStatusText={originalOperationStatus}
+            operationErrorText={originalOperationError}
+            onRetry={onRetryOriginal}
+            onRemovePersisted={onRemovePersistedOriginal}
+            disabled={fileOperationDisabled}
+            retryDisabled={fileOperationDisabled}
+            removeDisabled={fileOperationDisabled}
+            presentationVariant="workspace"
+            comfortable
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Internal Renovations */}
+            <div>
+              <label className="block text-[17px] font-semibold text-primary mb-3">
+                Internal Renovations
               </label>
-            ))}
-          </div>
-        </div>
+              <div className="space-y-1.5 border border-border rounded-xl p-4">
+                {RENOVATION_INTERNAL_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.id}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-surface cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={data.selectedInternal.includes(opt.id)}
+                        onChange={() => toggleInternal(opt.id)}
+                        className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+                      />
+                      <span className="text-[15px] text-foreground font-medium">{opt.label}</span>
+                    </div>
+                    <span className="text-sm font-medium text-muted flex-shrink-0 ml-2">
+                      <RegionalCentsText
+                        cents={getCatalogPrice(opt.priceKey, currency)}
+                      />
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        {/* Room / Area & Presentation Style */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Room / Area <span className="text-red-500">*</span>
-            </label>
-            <select
+            {/* External Renovations */}
+            <div>
+              <label className="block text-[17px] font-semibold text-primary mb-3">
+                External Renovations
+              </label>
+              <div className="space-y-1.5 border border-border rounded-xl p-4">
+                {RENOVATION_EXTERNAL_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.id}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-surface cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={data.selectedExternal.includes(opt.id)}
+                        onChange={() => toggleExternal(opt.id)}
+                        className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+                      />
+                      <span className="text-[15px] text-foreground font-medium">{opt.label}</span>
+                    </div>
+                    <span className="text-sm font-medium text-muted flex-shrink-0 ml-2">
+                      <RegionalCentsText
+                        cents={getCatalogPrice(opt.priceKey, currency)}
+                      />
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Room / Area & Presentation Style */}
+          <div className="pt-7 border-t border-border">
+            <h5 className="text-[17px] font-semibold text-primary mb-5">
+              Renovation Details
+            </h5>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-[15px] font-medium text-foreground mb-2">
+                  Room / Area <span className="text-red-500">*</span>
+                </label>
+                <select
               value={data.room}
               onChange={(e) => onChange({ ...data, room: e.target.value })}
               className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -263,80 +309,127 @@ export default function RenovationItemCard({
               ))}
             </select>
           </div>
-        </div>
+            </div>
+          </div>
 
-        {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
-        <ItemDeliveryFields
-          idPrefix={`renovation-item-${index}`}
-          data={{
-            fileSizeLimit: data.fileSizeLimit,
-            disclaimerText: data.disclaimerText,
-          }}
-          onChange={(prefs) => onChange({ ...data, ...prefs })}
-        />
+          {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
+          <div className="pt-2">
+            <ItemDeliveryFields
+              idPrefix={`renovation-item-${index}`}
+              data={{
+                fileSizeLimit: data.fileSizeLimit,
+                disclaimerText: data.disclaimerText,
+              }}
+              onChange={(prefs) => onChange({ ...data, ...prefs })}
+            />
+          </div>
 
-        {/* Reference Link */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Reference Link
-          </label>
-          <input
-            type="url"
-            value={data.referenceLink}
-            onChange={(e) =>
-              onChange({ ...data, referenceLink: e.target.value })
-            }
-            placeholder="https://example.com/inspiration"
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
-        </div>
+          <div className="pt-7 border-t border-border">
+            <h5 className="text-[17px] font-semibold text-primary mb-5">
+              References
+            </h5>
+            
+            <div className="space-y-6">
+              {/* Reference Link */}
+              <div>
+                <label className="block text-[15px] font-medium text-foreground mb-2">
+                  Reference Link
+                </label>
+                <input
+                  type="url"
+                  value={data.referenceLink}
+                  onChange={(e) =>
+                    onChange({ ...data, referenceLink: e.target.value })
+                  }
+                  placeholder="https://example.com/inspiration"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
 
-        {/* Reference Image */}
-        <FileUpload
-          viewerVariant="photo"
-          label="Reference Image (optional)"
-          file={data.referenceFile}
-          onFileChange={onReferenceFileChange}
-          accept={STAGING_FILE_ACCEPT}
-          persistedFile={
-            persistedReference
-              ? {
-                  id: persistedReference.id,
-                  filename: persistedReference.originalFilename,
-                  fileSize: persistedReference.fileSize,
-                  previewUrl: persistedReference.previewUrl ?? null,
-                  previewExpiresAt: persistedReference.previewExpiresAt ?? null,
+              {/* Reference Image */}
+              <FileUpload
+                viewerVariant="photo"
+                label="Reference Image (optional)"
+                file={data.referenceFile}
+                onFileChange={onReferenceFileChange}
+                accept={STAGING_FILE_ACCEPT}
+                persistedFile={
+                  persistedReference
+                    ? {
+                        id: persistedReference.id,
+                        filename: persistedReference.originalFilename,
+                        fileSize: persistedReference.fileSize,
+                        previewUrl: persistedReference.previewUrl ?? null,
+                        previewExpiresAt: persistedReference.previewExpiresAt ?? null,
+                      }
+                    : null
                 }
-              : null
-          }
-          operationStatusText={referenceOperationStatus}
-          operationErrorText={referenceOperationError}
-          onRetry={onRetryReference}
-          onRemovePersisted={onRemovePersistedReference}
-          disabled={fileOperationDisabled}
-          retryDisabled={fileOperationDisabled}
-          removeDisabled={fileOperationDisabled}
-        />
+                operationStatusText={referenceOperationStatus}
+                operationErrorText={referenceOperationError}
+                onRetry={onRetryReference}
+                onRemovePersisted={onRemovePersistedReference}
+                disabled={fileOperationDisabled}
+                retryDisabled={fileOperationDisabled}
+                removeDisabled={fileOperationDisabled}
+                presentationVariant="workspace"
+                comfortable
+              />
+            </div>
+          </div>
 
-        {/* Additional Info */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Additional Information
-          </label>
-          <textarea
-            value={data.additionalInfo}
-            onChange={(e) =>
-              onChange({ ...data, additionalInfo: e.target.value })
-            }
-            placeholder="Describe any specific renovation details..."
-            rows={3}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
-        </div>
+          {/* Additional Info */}
+          <div className="pt-7 border-t border-border">
+            <label className="block text-[15px] font-medium text-foreground mb-2">
+              Additional Information
+            </label>
+            <textarea
+              value={data.additionalInfo}
+              onChange={(e) =>
+                onChange({ ...data, additionalInfo: e.target.value })
+              }
+              placeholder="Describe any specific renovation details..."
+              rows={3}
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
 
         {/* Subtotal */}
         <ItemSubtotal totalCents={subtotal} />
+        </div>
       </div>
     </div>
+  );
+}
+
+function CurrentPhotoPreview({
+  previewUrl,
+  filename,
+}: {
+  previewUrl: string;
+  filename: string;
+}) {
+  return (
+    <figure className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-surface/70 xl:max-w-none">
+      <div className="relative aspect-[3/2] w-full overflow-hidden bg-white p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt={`Current original preview: ${filename}`}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-contain object-center"
+        />
+      </div>
+      <figcaption className="flex min-w-0 flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+            Current original
+          </p>
+          <p className="mt-1 truncate text-sm text-muted" title={filename}>
+            {filename}
+          </p>
+        </div>
+      </figcaption>
+    </figure>
   );
 }
