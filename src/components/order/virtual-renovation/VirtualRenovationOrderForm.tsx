@@ -1451,27 +1451,27 @@ export default function VirtualRenovationOrderForm({
             setOrderTerms(next);
           }}
         />
-
-        <div className="pt-6">
-          <OrderSummary
-            serviceName="Virtual Renovation"
-            items={summaryItems}
-            pricingInput={{
-              serviceType: "virtual-renovation",
-              items: items.map((item) => ({
-                selectedInternal: item.selectedInternal,
-                selectedExternal: item.selectedExternal,
-              })),
-            }}
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-            canSubmit={canSubmit || finalizationRetryContext !== null}
-            submitLabel={
-              finalizationRetryContext ? "Retry submission" : undefined
-            }
-          />
-        </div>
       </fieldset>
+
+      <div className="pt-6">
+        <OrderSummary
+          serviceName="Virtual Renovation"
+          items={summaryItems}
+          pricingInput={{
+            serviceType: "virtual-renovation",
+            items: items.map((item) => ({
+              selectedInternal: item.selectedInternal,
+              selectedExternal: item.selectedExternal,
+            })),
+          }}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          canSubmit={canSubmit || finalizationRetryContext !== null}
+          submitLabel={
+            finalizationRetryContext ? "Retry submission" : undefined
+          }
+        />
+      </div>
     </OrderLayout>
   );
 }

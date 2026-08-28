@@ -19,10 +19,19 @@ test("configure uses the wide guided workspace", () => {
   assert.match(orderFormSource, /WHAT WE NEED/);
 });
 
-test("OrderSummary remains the only submit owner", () => {
+test("OrderSummary remains the only submit owner and is outside the disabled fieldset", () => {
   const summaryMatches = orderFormSource.match(/<OrderSummary/g);
-  assert.equal(summaryMatches?.length, 1);
-  assert.doesNotMatch(orderFormSource, /sidebar=\{/);
+  assert.equal(summaryMatches?.length, 1, "OrderSummary must be rendered exactly once");
+  assert.doesNotMatch(orderFormSource, /sidebar=\{/, "OrderSummary must not be passed as OrderLayout sidebar");
+  
+  // Ensure </fieldset> comes before OrderSummary
+  const fieldsetEndIndex = orderFormSource.lastIndexOf("</fieldset>");
+  const orderSummaryIndex = orderFormSource.indexOf("<OrderSummary");
+  assert.ok(fieldsetEndIndex < orderSummaryIndex, "OrderSummary must be outside the disabled fieldset");
+
+  // Ensure it still receives the existing retry-submit conditions
+  assert.match(orderFormSource, /canSubmit=\{canSubmit \|\| finalizationRetryContext !== null\}/);
+  assert.match(orderFormSource, /submitLabel=\{[\s\S]*finalizationRetryContext \? "Retry submission" : undefined[\s\S]*\}/);
 });
 
 test("Internal and External option scrollbars are removed", () => {
@@ -51,5 +60,5 @@ test("each image owns its original preview without introducing form image state"
   assert.match(itemSource, /persistedOriginal\?\.previewUrl/);
   assert.match(itemSource, /presentationVariant="workspace"/);
   assert.match(itemSource, /function CurrentPhotoPreview/);
-  assert.match(itemSource, /min-\[1600px\]:grid-cols/);
+  assert.match(itemSource, /min-\[1700px\]:grid-cols/);
 });

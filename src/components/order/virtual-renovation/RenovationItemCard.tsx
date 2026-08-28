@@ -159,12 +159,12 @@ export default function RenovationItemCard({
         className={cn(
           "grid grid-cols-1 gap-7",
           hasCurrentPhotoPreview &&
-            "min-[1600px]:grid-cols-[minmax(0,1fr)_300px] min-[1600px]:gap-x-10 min-[1600px]:gap-y-0",
+            "min-[1700px]:grid-cols-[minmax(0,1fr)_300px] min-[1700px]:gap-x-10 min-[1700px]:gap-y-0",
         )}
       >
         {hasCurrentPhotoPreview ? (
-          <div className="min-w-0 min-[1600px]:col-start-2 min-[1600px]:row-span-2 min-[1600px]:row-start-1">
-            <div className="min-[1600px]:sticky min-[1600px]:top-8">
+          <div className="min-w-0 min-[1700px]:col-start-2 min-[1700px]:row-span-2 min-[1700px]:row-start-1">
+            <div className="min-[1700px]:sticky min-[1700px]:top-8">
               <CurrentPhotoPreview
                 key={currentPreviewUrl}
                 previewUrl={currentPreviewUrl}
@@ -174,7 +174,7 @@ export default function RenovationItemCard({
           </div>
         ) : null}
 
-        <div className={cn("min-w-0 space-y-7 min-[1600px]:col-start-1 min-[1600px]:row-start-1", hasCurrentPhotoPreview && "min-[1600px]:row-span-2")}>
+        <div className={cn("min-w-0 space-y-7 min-[1700px]:col-start-1 min-[1700px]:row-start-1", hasCurrentPhotoPreview && "min-[1700px]:row-span-2")}>
           {/* File Upload */}
           <FileUpload
             viewerVariant="photo"
