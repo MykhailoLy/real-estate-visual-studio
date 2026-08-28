@@ -1402,6 +1402,14 @@ export default function VirtualRenovationOrderForm({
     );
   }
 
+  const requirementsRail = !isReview ? (
+    <VirtualRenovationRequirements />
+  ) : undefined;
+
+  const compactRequirements = !isReview ? (
+    <VirtualRenovationRequirements compact />
+  ) : undefined;
+
   return (
     <OrderLayout
       title="Virtual Renovation"
@@ -1438,12 +1446,10 @@ export default function VirtualRenovationOrderForm({
               ) : null
             }
           />
-        ) : (
-          <div className="hidden xl:block">
-            <VirtualRenovationRequirements />
-          </div>
-        )
+        ) : undefined
       }
+      leadingRail={requirementsRail}
+      compactLeadingRail={compactRequirements}
       editorial={!isReview}
       workspaceVariant={isReview ? undefined : "wide"}
     >
@@ -1464,10 +1470,6 @@ export default function VirtualRenovationOrderForm({
         />
       ) : (
         <>
-          <div className="xl:hidden">
-            <VirtualRenovationRequirements compact />
-          </div>
-
           {submitError ? (
             <div
               role="alert"
