@@ -49,6 +49,24 @@ function source(): VirtualRenovationFormDraftSource {
         fileSizeLimit: "Under 10 MB",
         disclaimerText: "Standard disclaimer",
         referenceLink: "https://example.com/inspiration",
+        referenceFiles: [
+          {
+            id: "88888888-8888-4888-8888-888888888888",
+            file: null,
+            filename: "materials.webp",
+            fileSize: 1024,
+            mimeType: "image/webp",
+            lastModified: null,
+          },
+          {
+            id: "99999999-9999-4999-8999-999999999999",
+            file: null,
+            filename: "brief.pdf",
+            fileSize: 2048,
+            mimeType: "application/pdf",
+            lastModified: null,
+          },
+        ],
         additionalInfo: "Keep the existing windows",
         originalFilename: null,
         referenceFilename: null,
@@ -64,6 +82,7 @@ function source(): VirtualRenovationFormDraftSource {
         fileSizeLimit: "",
         disclaimerText: "",
         referenceLink: "",
+        referenceFiles: [],
         additionalInfo: "Native plants",
         originalFilename: "garden.jpg",
         referenceFilename: null,
@@ -144,16 +163,49 @@ test("all Virtual Renovation fields, stable IDs, and filenames round-trip", () =
   assert.equal(restored.items[0]?.room, "Kitchen");
   assert.equal(restored.items[0]?.presentationStyle, "Modern");
   assert.equal(restored.items[0]?.referenceLink, "https://example.com/inspiration");
+  assert.deepEqual(
+    restored.items[0]?.referenceFiles.map((reference) => reference.filename),
+    ["materials.webp", "brief.pdf"],
+  );
+  assert.equal(
+    restored.items[0]?.referenceFiles.every(
+      (reference) => reference.file === null,
+    ),
+    true,
+  );
   assert.equal(restored.items[0]?.originalFilename, "kitchen.jpg");
   assert.equal(restored.items[0]?.referenceFilename, "reference.png");
   assert.equal(restored.items.every((item) => item.file === null), true);
   assert.equal(restored.items.every((item) => item.referenceFile === null), true);
 });
 
+test("version-1 Renovation drafts restore missing and singular reference shapes", () => {
+  const state = mapVirtualRenovationFormToDraftState(source()) as unknown as {
+    items: Array<{ state: Record<string, unknown> }>;
+  };
+  delete state.items[0]!.state.referenceFiles;
+  state.items[0]!.state.referenceImage = {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    name: "legacy-reference.png",
+    size: 4096,
+    type: "image/png",
+  };
+  delete state.items[1]!.state.referenceFiles;
+
+  const restored = mapVirtualRenovationDraftToFormState(state);
+  assert.equal(restored.items[0]?.referenceFiles.length, 1);
+  assert.equal(
+    restored.items[0]?.referenceFiles[0]?.filename,
+    "legacy-reference.png",
+  );
+  assert.deepEqual(restored.items[1]?.referenceFiles, []);
+});
+
 test("draft fingerprint serializes filenames but never browser File data", () => {
   const fingerprint = buildVirtualRenovationDraftFingerprint(source());
   assert.doesNotMatch(fingerprint, /blob:/);
-  assert.doesNotMatch(fingerprint, /lastModified/);
+  assert.doesNotMatch(fingerprint, /storagePath|previewUrl|draftFileId/);
+  assert.match(fingerprint, /materials\.webp/);
   assert.match(fingerprint, /originalFilename/);
   assert.match(fingerprint, /referenceFilename/);
 });
@@ -498,6 +550,9 @@ test("trusted server dispatch derives Virtual Renovation only from loaded draft"
   assert.match(server, /mapVirtualRenovationDraftStateToProductionItems/);
   assert.match(server, /validateAndMatchVirtualRenovationDraftFiles/);
   assert.match(server, /buildVirtualRenovationFinalizationItemFiles/);
+  assert.match(server, /buildVirtualRenovationTrustedItemFiles/);
+  assert.match(server, /buildTrustedItemFilesWithNormalizedReferences/);
+  assert.match(server, /loadLiveDraftReferenceFiles/);
   assert.match(server, /storageMode: "copy"/);
   assert.doesNotMatch(server, /input\.serviceType|body\.serviceType/);
 });

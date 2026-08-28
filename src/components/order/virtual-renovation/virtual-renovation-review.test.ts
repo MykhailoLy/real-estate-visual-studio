@@ -42,7 +42,6 @@ test("review rows preserve every customer-facing Renovation choice", () => {
   assert.equal(values["Presentation Style"], "Modern");
   assert.equal(values["File Size Limit"], "MLS");
   assert.equal(values["Disclaimer Text"], "Concept visualisation only.");
-  assert.equal(values["Reference Link"], "https://example.com/reference");
   assert.equal(values["Additional Information"], "Use warm timber finishes.");
 });
 
@@ -66,6 +65,5 @@ test("review rows use explicit empty-state labels", () => {
   assert.equal(values["Presentation Style"], "None");
   assert.equal(values["File Size Limit"], "Not specified");
   assert.equal(values["Disclaimer Text"], "None");
-  assert.equal(values["Reference Link"], "None");
   assert.equal(values["Additional Information"], "None");
 });

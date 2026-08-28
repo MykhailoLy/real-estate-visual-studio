@@ -77,7 +77,6 @@ export function buildVirtualRenovationReviewRows(
     },
     { label: "File Size Limit", value: fileSizeLabel(item.fileSizeLimit) },
     { label: "Disclaimer Text", value: textOrNone(item.disclaimerText) },
-    { label: "Reference Link", value: textOrNone(item.referenceLink) },
     {
       label: "Additional Information",
       value: textOrNone(item.additionalInfo),

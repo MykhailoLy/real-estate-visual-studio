@@ -468,10 +468,8 @@ function buildTrustedDraftFinalizationContext(
             state: state.data,
             files,
           }),
-        buildItemFiles: async (slots) => ({
-          ok: true,
-          data: buildVirtualRenovationFinalizationItemFiles(slots),
-        }),
+        buildItemFiles: (slots) =>
+          buildVirtualRenovationTrustedItemFiles(input.draftId, slots),
       },
     };
   }
@@ -514,6 +512,26 @@ async function buildVirtualStagingTrustedItemFiles(
   draftId: string,
   slots: DraftFinalizationSlot[],
 ): Promise<DraftFinalizationResult<TrustedOrderItemFiles[]>> {
+  return buildTrustedItemFilesWithNormalizedReferences(
+    draftId,
+    buildVirtualStagingFinalizationItemFiles(slots),
+  );
+}
+
+async function buildVirtualRenovationTrustedItemFiles(
+  draftId: string,
+  slots: DraftFinalizationSlot[],
+): Promise<DraftFinalizationResult<TrustedOrderItemFiles[]>> {
+  return buildTrustedItemFilesWithNormalizedReferences(
+    draftId,
+    buildVirtualRenovationFinalizationItemFiles(slots),
+  );
+}
+
+async function buildTrustedItemFilesWithNormalizedReferences(
+  draftId: string,
+  itemFiles: Array<TrustedOrderItemFiles & { clientItemId: string }>,
+): Promise<DraftFinalizationResult<TrustedOrderItemFiles[]>> {
   const normalizedReferences = await loadLiveDraftReferenceFiles(draftId);
   const referenceVerification = await verifyNormalizedDraftReferenceObjects(
     normalizedReferences,
@@ -522,7 +540,7 @@ async function buildVirtualStagingTrustedItemFiles(
 
   return {
     ok: true,
-    data: buildVirtualStagingFinalizationItemFiles(slots).map((slot) => {
+    data: itemFiles.map((slot) => {
       const itemReferences = normalizedReferences.filter(
         (reference) => reference.itemClientId === slot.clientItemId,
       );
