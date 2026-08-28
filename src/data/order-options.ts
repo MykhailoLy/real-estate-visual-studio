@@ -477,11 +477,6 @@ export const VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS = [
   ...RENOVATION_EXTERNAL_OPTIONS.map((option) => option.mediaKey),
 ];
 
-export const VIRTUAL_RENOVATION_MEDIA_KEYS = [
-  ...VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS,
-  ...VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS,
-];
-
 export const RENOVATION_ROOM_OPTIONS = [
   "Kitchen",
   "Bathroom",
@@ -508,6 +503,18 @@ export const RENOVATION_STYLE_OPTIONS = [
   "Match Reference",
   "Let Us Decide",
 ] as const;
+
+/** Staging examples reused by Renovation when the persisted labels overlap. */
+export const VIRTUAL_RENOVATION_STYLE_MEDIA_KEYS = STAGING_STYLE_CARDS.filter(
+  (style) =>
+    (RENOVATION_STYLE_OPTIONS as readonly string[]).includes(style.label),
+).map((style) => style.mediaKey);
+
+export const VIRTUAL_RENOVATION_MEDIA_KEYS = [
+  ...VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS,
+  ...VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS,
+  ...VIRTUAL_RENOVATION_STYLE_MEDIA_KEYS,
+];
 
 // --- Floor Plans ---
 

@@ -45,6 +45,14 @@ import {
 } from "@/lib/order-drafts/files-client";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import {
+  completeDraftReferenceFile,
+  deleteDraftReferenceFile,
+  listDraftReferenceFiles,
+  prepareDraftReferenceFile,
+  uploadPreparedDraftReferenceFile,
+} from "@/lib/order-drafts/draft-reference-files-client";
+import type { ReferenceFileValue } from "@/lib/reference-files";
+import {
   getOrderDraftFinalizationStatus,
   submitOrderDraft,
   type DraftFinalizationClientResult,
@@ -527,7 +535,10 @@ export default function VirtualRenovationOrderForm({
           return;
         }
         const restoredRegion = resolveVirtualRenovationDraftRegion(result.data);
-        const files = await listOrderDraftFiles(result.data.id, controller.signal);
+        const [files, restoredReferences] = await Promise.all([
+          listOrderDraftFiles(result.data.id, controller.signal),
+          listDraftReferenceFiles(result.data.id),
+        ]);
         if (
           !shouldApplyVirtualRenovationAsyncResult(
             startedSession,
@@ -539,6 +550,11 @@ export default function VirtualRenovationOrderForm({
         if (!files.ok) {
           setResumeState("error");
           setDraftError(files.message);
+          return;
+        }
+        if (!restoredReferences.ok) {
+          setResumeState("error");
+          setDraftError(restoredReferences.message);
           return;
         }
 
@@ -555,6 +571,10 @@ export default function VirtualRenovationOrderForm({
           );
           return {
             ...item,
+            referenceFiles: restoredReferences.data.filter(
+              (candidate) =>
+                candidate.itemClientId === item.clientItemId,
+            ),
             originalFilename: original?.originalFilename ?? null,
             referenceFilename: reference?.originalFilename ?? null,
           } as RenovationItemData;
@@ -941,6 +961,284 @@ export default function VirtualRenovationOrderForm({
     else cancelLocalCandidate(clientItemId, kind);
   };
 
+  const handleReferenceFilesChange = useCallback(
+    async (clientItemId: string, nextReferences: ReferenceFileValue[]) => {
+      if (isSubmitting || finalizationRetryContextRef.current) return;
+      const item = itemsRef.current.find(
+        (candidate) => candidate.clientItemId === clientItemId,
+      );
+      if (!item) return;
+
+      const previous = item.referenceFiles;
+      const nextItems = itemsRef.current.map((candidate) =>
+        candidate.clientItemId === clientItemId
+          ? { ...candidate, referenceFiles: nextReferences }
+          : candidate,
+      );
+      commitItems(nextItems);
+
+      const removed = previous.filter(
+        (reference) =>
+          reference.draftFileId &&
+          !nextReferences.some((candidate) => candidate.id === reference.id),
+      );
+      const additions = nextReferences.filter(
+        (reference) =>
+          reference.file &&
+          !previous.some((candidate) => candidate.id === reference.id),
+      );
+      if (removed.length === 0 && additions.length === 0) return;
+
+      const slotKey = fileSlotKey(clientItemId, "reference");
+      const generation =
+        (fileOperationsRef.current[slotKey]?.generation ?? 0) + 1;
+      const startedSession = draftSessionRef.current;
+      commitFileOperation(slotKey, {
+        generation,
+        phase: "saving",
+        message: "Saving reference files...",
+        error: "",
+        pendingFileId: null,
+        retryFile: null,
+        retryRemove: false,
+      });
+
+      const saved = await enqueueDraftSave(buildDraftSource(nextItems), true);
+      if (
+        !isCurrentFileOperation(
+          startedSession,
+          slotKey,
+          generation,
+          clientItemId,
+        )
+      ) {
+        return;
+      }
+      if (!saved) {
+        setOperationError(
+          slotKey,
+          generation,
+          "Draft must be saved before uploading reference files.",
+          null,
+        );
+        return;
+      }
+
+      let working = nextReferences;
+      let operationError = "";
+
+      for (const reference of removed) {
+        commitFileOperation(slotKey, {
+          generation,
+          phase: "removing",
+          message: `Removing ${reference.filename}...`,
+          error: "",
+          pendingFileId: null,
+          retryFile: null,
+          retryRemove: false,
+        });
+        const deleted = await deleteDraftReferenceFile(
+          saved.draftId,
+          reference.id,
+        );
+        if (
+          !isCurrentFileOperation(
+            startedSession,
+            slotKey,
+            generation,
+            clientItemId,
+          )
+        ) {
+          return;
+        }
+        if (!deleted.ok) {
+          operationError ||= deleted.message;
+          const originalPosition = previous.findIndex(
+            (candidate) => candidate.id === reference.id,
+          );
+          const restored = [...working];
+          restored.splice(
+            Math.min(Math.max(originalPosition, 0), restored.length),
+            0,
+            reference,
+          );
+          working = restored;
+        }
+      }
+
+      for (const [additionIndex, reference] of additions.entries()) {
+        if (!reference.file) continue;
+        const position = working.findIndex(
+          (candidate) => candidate.id === reference.id,
+        );
+        commitFileOperation(slotKey, {
+          generation,
+          phase: "preparing",
+          message: `Preparing reference ${additionIndex + 1} of ${additions.length}...`,
+          error: "",
+          pendingFileId: null,
+          retryFile: null,
+          retryRemove: false,
+        });
+        const prepared = await prepareDraftReferenceFile(saved.draftId, {
+          itemClientId: clientItemId,
+          referenceId: reference.id,
+          position,
+          filename: reference.filename,
+          fileSize: reference.fileSize,
+          mimeType: reference.mimeType as
+            | "image/jpeg"
+            | "image/png"
+            | "image/webp"
+            | "application/pdf",
+        });
+        if (
+          !isCurrentFileOperation(
+            startedSession,
+            slotKey,
+            generation,
+            clientItemId,
+          )
+        ) {
+          return;
+        }
+        if (!prepared.ok) {
+          working = working.filter(
+            (candidate) => candidate.id !== reference.id,
+          );
+          operationError ||= prepared.message;
+          continue;
+        }
+
+        commitFileOperation(slotKey, {
+          generation,
+          phase: "uploading",
+          message: `Uploading reference ${additionIndex + 1} of ${additions.length}...`,
+          error: "",
+          pendingFileId: reference.id,
+          retryFile: null,
+          retryRemove: false,
+        });
+        const uploaded = await uploadPreparedDraftReferenceFile(
+          prepared.data,
+          reference.file,
+        );
+        if (
+          !isCurrentFileOperation(
+            startedSession,
+            slotKey,
+            generation,
+            clientItemId,
+          )
+        ) {
+          return;
+        }
+        if (!uploaded.ok) {
+          working = working.filter(
+            (candidate) => candidate.id !== reference.id,
+          );
+          operationError ||= uploaded.message;
+          await deleteDraftReferenceFile(saved.draftId, reference.id);
+          if (
+            !isCurrentFileOperation(
+              startedSession,
+              slotKey,
+              generation,
+              clientItemId,
+            )
+          ) {
+            return;
+          }
+          continue;
+        }
+
+        commitFileOperation(slotKey, {
+          generation,
+          phase: "verifying",
+          message: `Verifying reference ${additionIndex + 1} of ${additions.length}...`,
+          error: "",
+          pendingFileId: reference.id,
+          retryFile: null,
+          retryRemove: false,
+        });
+        const completed = await completeDraftReferenceFile(
+          saved.draftId,
+          reference.id,
+        );
+        if (
+          !isCurrentFileOperation(
+            startedSession,
+            slotKey,
+            generation,
+            clientItemId,
+          )
+        ) {
+          return;
+        }
+        if (!completed.ok) {
+          working = working.filter(
+            (candidate) => candidate.id !== reference.id,
+          );
+          operationError ||= completed.message;
+          if (completed.code !== "invalid_upload") {
+            await deleteDraftReferenceFile(saved.draftId, reference.id);
+            if (
+              !isCurrentFileOperation(
+                startedSession,
+                slotKey,
+                generation,
+                clientItemId,
+              )
+            ) {
+              return;
+            }
+          }
+          continue;
+        }
+        working = working.map((candidate) =>
+          candidate.id === reference.id ? completed.data : candidate,
+        );
+      }
+
+      const committed = itemsRef.current.map((candidate) =>
+        candidate.clientItemId === clientItemId
+          ? { ...candidate, referenceFiles: working }
+          : candidate,
+      );
+      commitItems(committed);
+      const persisted = await enqueueDraftSave(
+        buildDraftSource(committed),
+        true,
+      );
+      if (
+        !isCurrentFileOperation(
+          startedSession,
+          slotKey,
+          generation,
+          clientItemId,
+        )
+      ) {
+        return;
+      }
+      if (operationError || !persisted) {
+        const message = operationError || "Reference files could not be saved.";
+        setOperationError(slotKey, generation, message, null);
+        return;
+      }
+      commitFileOperation(slotKey, null);
+      setDraftError("");
+    },
+    [
+      buildDraftSource,
+      commitFileOperation,
+      commitItems,
+      enqueueDraftSave,
+      isCurrentFileOperation,
+      isSubmitting,
+      setOperationError,
+    ],
+  );
+
   const handleRemovePersistedFile = async (
     clientItemId: string,
     kind: "original" | "reference",
@@ -962,6 +1260,10 @@ export default function VirtualRenovationOrderForm({
   };
 
   const handleRemoveItem = async (clientItemId: string) => {
+    const itemToRemove = itemsRef.current.find(
+      (item) => item.clientItemId === clientItemId,
+    );
+    if (!itemToRemove) return;
     const kinds = ["original", "reference"] as const;
     const operations = kinds.map(
       (kind) => fileOperationsRef.current[fileSlotKey(clientItemId, kind)],
@@ -993,8 +1295,65 @@ export default function VirtualRenovationOrderForm({
     }
     const originalRemoved = await removePersistedFile(clientItemId, "original");
     if (!originalRemoved) return;
-    const referenceRemoved = await removePersistedFile(clientItemId, "reference");
-    if (!referenceRemoved) return;
+    const normalizedReferences = itemToRemove.referenceFiles.filter(
+      (reference) => reference.draftFileId,
+    );
+    if (normalizedReferences.length > 0) {
+      if (!currentDraftId) return;
+      const referenceSlotKey = fileSlotKey(clientItemId, "reference");
+      const generation =
+        (fileOperationsRef.current[referenceSlotKey]?.generation ?? 0) + 1;
+      const startedSession = draftSessionRef.current;
+      for (const reference of normalizedReferences) {
+        commitFileOperation(referenceSlotKey, {
+          generation,
+          phase: "removing",
+          message: `Removing ${reference.filename}...`,
+          error: "",
+          pendingFileId: null,
+          retryFile: null,
+          retryRemove: false,
+        });
+        const removed = await deleteDraftReferenceFile(
+          currentDraftId,
+          reference.id,
+        );
+        if (
+          !isCurrentFileOperation(
+            startedSession,
+            referenceSlotKey,
+            generation,
+            clientItemId,
+          )
+        ) {
+          return;
+        }
+        if (!removed.ok) {
+          setOperationError(
+            referenceSlotKey,
+            generation,
+            removed.message,
+            null,
+          );
+          return;
+        }
+      }
+      commitUploadedFiles(
+        uploadedDraftFilesRef.current.filter(
+          (file) =>
+            !(
+              file.itemClientId === clientItemId && file.kind === "reference"
+            ),
+        ),
+      );
+      commitFileOperation(referenceSlotKey, null);
+    } else {
+      const referenceRemoved = await removePersistedFile(
+        clientItemId,
+        "reference",
+      );
+      if (!referenceRemoved) return;
+    }
     const nextItems = itemsRef.current.filter(
       (item) => item.clientItemId !== clientItemId,
     );
@@ -1101,12 +1460,27 @@ export default function VirtualRenovationOrderForm({
       setSubmitError("Save the draft successfully before submitting the order.");
       return;
     }
-    const files = await listOrderDraftFiles(saved.draftId);
+    const [files, references] = await Promise.all([
+      listOrderDraftFiles(saved.draftId),
+      listDraftReferenceFiles(saved.draftId),
+    ]);
     if (!files.ok) {
       setSubmitError(files.message);
       return;
     }
+    if (!references.ok) {
+      setSubmitError(references.message);
+      return;
+    }
     commitUploadedFiles(files.data);
+    commitItems(
+      itemsRef.current.map((item) => ({
+        ...item,
+        referenceFiles: references.data.filter(
+          (reference) => reference.itemClientId === item.clientItemId,
+        ),
+      })),
+    );
     const allOriginalsPersisted = itemsRef.current.every((item) =>
       files.data.some(
         (file) =>
@@ -1192,6 +1566,7 @@ export default function VirtualRenovationOrderForm({
     (item) =>
       item.file === null &&
       item.referenceFile === null &&
+      item.referenceFiles.every((reference) => reference.file === null) &&
       item.room !== "" &&
       (item.selectedInternal.length > 0 || item.selectedExternal.length > 0) &&
       uploadedFilesBySlot.has(fileSlotKey(item.clientItemId, "original")),
@@ -1240,6 +1615,7 @@ export default function VirtualRenovationOrderForm({
       (item) =>
         item.file !== null ||
         item.referenceFile !== null ||
+        item.referenceFiles.some((reference) => reference.file !== null) ||
         item.room === "" ||
         (item.selectedInternal.length === 0 &&
           item.selectedExternal.length === 0) ||
@@ -1532,7 +1908,7 @@ export default function VirtualRenovationOrderForm({
               comfortable
             />
 
-            <div className="space-y-5">
+            <div className="space-y-7">
               {items.map((item, index) => {
                 const originalKey = fileSlotKey(item.clientItemId, "original");
                 const referenceKey = fileSlotKey(item.clientItemId, "reference");
@@ -1553,8 +1929,11 @@ export default function VirtualRenovationOrderForm({
                     onOriginalFileChange={(file) =>
                       handleFileChange(item.clientItemId, "original", file)
                     }
-                    onReferenceFileChange={(file) =>
-                      handleFileChange(item.clientItemId, "reference", file)
+                    onReferenceFilesChange={(referenceFiles) =>
+                      void handleReferenceFilesChange(
+                        item.clientItemId,
+                        referenceFiles,
+                      )
                     }
                     onRemovePersistedOriginal={() =>
                       void handleRemovePersistedFile(
@@ -1590,12 +1969,6 @@ export default function VirtualRenovationOrderForm({
                             handleRetryFile(item.clientItemId, "original")
                         : undefined
                     }
-                    onRetryReference={
-                      referenceOperation?.error
-                        ? () =>
-                            handleRetryFile(item.clientItemId, "reference")
-                        : undefined
-                    }
                     fileOperationDisabled={
                       editsDisabled ||
                       (Boolean(originalOperation) &&
@@ -1620,8 +1993,8 @@ export default function VirtualRenovationOrderForm({
             </button>
           </fieldset>
 
-          <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 text-sm leading-6 text-muted">
+          <div className="flex flex-col gap-4 border-t border-border pt-7 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 max-w-2xl text-sm leading-6 text-muted">
               {configurationError ? (
                 <p role="alert" className="font-medium text-red-700">
                   {configurationError}

@@ -7,6 +7,7 @@ import {
   VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS,
   VIRTUAL_RENOVATION_MEDIA_KEYS,
   VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS,
+  VIRTUAL_RENOVATION_STYLE_MEDIA_KEYS,
 } from "../../../data/order-options.ts";
 import {
   VIRTUAL_RENOVATION_DRAFT_STATE_SCHEMA_VERSION,
@@ -32,6 +33,10 @@ const requirementsSource = readFileSync(
 );
 const reviewSource = readFileSync(
   new URL("./VirtualRenovationReview.tsx", import.meta.url),
+  "utf8",
+);
+const reviewRowsSource = readFileSync(
+  new URL("./virtual-renovation-review.ts", import.meta.url),
   "utf8",
 );
 const pageSource = readFileSync(
@@ -95,7 +100,9 @@ test("a fresh order opens the overview while draft URLs restore Configure", () =
 test("guide and option metadata use one server-side media batch", () => {
   assert.equal(VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS.length, 6);
   assert.equal(VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS.length, 27);
-  assert.equal(VIRTUAL_RENOVATION_MEDIA_KEYS.length, 33);
+  assert.equal(VIRTUAL_RENOVATION_STYLE_MEDIA_KEYS.length, 8);
+  assert.equal(VIRTUAL_RENOVATION_MEDIA_KEYS.length, 41);
+  assert.equal(new Set(VIRTUAL_RENOVATION_MEDIA_KEYS).size, 41);
   assert.match(
     pageSource,
     /getServiceOptionMediaByKeys\(VIRTUAL_RENOVATION_MEDIA_KEYS\)/,
@@ -139,7 +146,14 @@ test("Configure uses the canonical leading requirements rails", () => {
   assert.doesNotMatch(formSource, /className="xl:hidden"/);
   assert.match(requirementsSource, /<details/);
   assert.match(requirementsSource, /Preparation requirements/);
-  assert.match(requirementsSource, /JPG, JPEG or PNG/);
+  assert.match(
+    requirementsSource,
+    /Original photo<\/dt>\s*<dd>JPG, JPEG or PNG\.<\/dd>/,
+  );
+  assert.match(
+    requirementsSource,
+    /Reference files<\/dt>\s*<dd>JPG, JPEG, PNG, WebP or PDF\.<\/dd>/,
+  );
 });
 
 test("Review alone owns the unchanged Order Summary sidebar", () => {
@@ -151,11 +165,22 @@ test("Review alone owns the unchanged Order Summary sidebar", () => {
   assert.match(formSource, /<VirtualRenovationReview/);
   assert.match(reviewSource, /<OrderReviewHeader/);
   assert.match(reviewSource, /<OrderReviewItem/);
+  assert.match(reviewSource, /<ReferenceFilesReview/);
   assert.match(reviewSource, /<OrderTermsBlock/);
   assert.doesNotMatch(reviewSource, /<OrderSummary|Submit Order|handleSubmit/);
   assert.match(formSource, /onSubmit=\{handleSubmit\}/);
   assert.match(formSource, /screen !== "review"/);
   assert.equal(formSource.match(/onSubmit=\{handleSubmit\}/g)?.length, 1);
+});
+
+test("ReferenceFilesReview exclusively owns Renovation links and files", () => {
+  assert.equal(reviewSource.match(/<ReferenceFilesReview/g)?.length, 1);
+  assert.equal(
+    reviewSource.match(/referenceLink=\{item\.referenceLink\}/g)?.length,
+    1,
+  );
+  assert.doesNotMatch(reviewRowsSource, /label:\s*"Reference Link"/);
+  assert.doesNotMatch(reviewRowsSource, /label:\s*"Reference Files"/);
 });
 
 test("Review Order persists the draft and never invokes final submission", () => {
@@ -238,11 +263,31 @@ test("each item keeps existing uploads and hierarchy without nested scrolling", 
   assert.ok(references > details);
   assert.ok(additionalInformation > references);
   assert.ok(subtotal > additionalInformation);
-  assert.equal(itemCardSource.match(/<FileUpload/g)?.length, 2);
+  assert.equal(itemCardSource.match(/<FileUpload/g)?.length, 1);
+  assert.match(itemCardSource, /<ReferenceFilesUploader/);
+  assert.match(itemCardSource, /files=\{displayedReferenceFiles\}/);
   assert.doesNotMatch(itemCardSource, /max-h-64|overflow-y-auto/);
   assert.doesNotMatch(
     itemCardSource,
     /URL\.createObjectURL|CurrentPhotoPreview|activePhoto|activePreview/,
+  );
+});
+
+test("renovation rows and style choices use the compact shared visual language", () => {
+  assert.match(itemCardSource, /min-h-11/);
+  assert.match(itemCardSource, /@min-\[42rem\]:grid-cols-2/);
+  assert.doesNotMatch(itemCardSource, /min-h-16/);
+  assert.match(itemCardSource, /<StyleSelector/);
+  assert.match(itemCardSource, /cards=\{RENOVATION_VISUAL_STYLE_CARDS\}/);
+  assert.match(itemCardSource, /compact/);
+  assert.match(itemCardSource, /STAGING_STYLE_CARDS\.find/);
+  assert.match(
+    formSource,
+    /<div className="space-y-7">[\s\S]*?<RenovationItemCard/,
+  );
+  assert.match(
+    formSource,
+    /className="flex flex-col gap-4 border-t border-border pt-7/,
   );
 });
 

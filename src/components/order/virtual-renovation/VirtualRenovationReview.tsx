@@ -5,6 +5,7 @@ import OrderReviewHeader from "@/components/order/OrderReviewHeader";
 import OrderReviewItem, {
   type ReviewFileDisplay,
 } from "@/components/order/OrderReviewItem";
+import ReferenceFilesReview from "@/components/order/ReferenceFilesReview";
 import OrderTermsBlock, {
   type OrderTermsData,
 } from "@/components/order/OrderTermsBlock";
@@ -12,6 +13,7 @@ import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { calculateRenovationItemTotal } from "@/lib/pricing";
 import { calculateOrderQuote } from "@/lib/pricing/calculate";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
+import { mergeReferenceFiles } from "@/lib/reference-files";
 import type { RenovationItemData } from "./RenovationItemCard";
 import { buildVirtualRenovationReviewRows } from "./virtual-renovation-review";
 
@@ -95,9 +97,10 @@ export default function VirtualRenovationReview({
           const persistedOriginal = toReviewFileDisplay(
             uploadedFilesBySlot.get(`${item.clientItemId}:original`),
           );
-          const persistedReference = toReviewFileDisplay(
-            uploadedFilesBySlot.get(`${item.clientItemId}:reference`),
+          const uploadedReference = uploadedFilesBySlot.get(
+            `${item.clientItemId}:reference`,
           );
+          const persistedReference = toReviewFileDisplay(uploadedReference);
           const subtotalCents =
             quote.items[index]?.lineSubtotalCents ??
             calculateRenovationItemTotal(
@@ -105,23 +108,39 @@ export default function VirtualRenovationReview({
               item.selectedExternal,
               currency,
             );
+          const reviewReferences = mergeReferenceFiles(
+            item.referenceFiles,
+            persistedReference
+              ? [
+                  {
+                    id: uploadedReference?.id ?? persistedReference.filename,
+                    file: null,
+                    filename: persistedReference.filename,
+                    fileSize: persistedReference.fileSize,
+                    mimeType: uploadedReference?.mimeType ?? "image/jpeg",
+                    lastModified: null,
+                    previewUrl: persistedReference.previewUrl,
+                  },
+                ]
+              : [],
+          );
 
           return (
-            <OrderReviewItem
-              key={item.clientItemId}
-              index={index}
-              file={item.file}
-              persistedFile={item.file ? null : persistedOriginal}
-              secondaryFile={item.referenceFile}
-              secondaryLabel="Reference image"
-              persistedSecondaryFile={
-                item.referenceFile ? null : persistedReference
-              }
-              rows={buildVirtualRenovationReviewRows(item, currency)}
-              subtotalCents={subtotalCents}
-              onEdit={() => onEditItem(index)}
-              wrapFileNames
-            />
+            <div key={item.clientItemId} className="space-y-2">
+              <OrderReviewItem
+                index={index}
+                file={item.file}
+                persistedFile={item.file ? null : persistedOriginal}
+                rows={buildVirtualRenovationReviewRows(item, currency)}
+                subtotalCents={subtotalCents}
+                onEdit={() => onEditItem(index)}
+                wrapFileNames
+              />
+              <ReferenceFilesReview
+                referenceLink={item.referenceLink}
+                files={reviewReferences}
+              />
+            </div>
           );
         })}
       </div>

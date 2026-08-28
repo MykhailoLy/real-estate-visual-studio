@@ -5,43 +5,55 @@ import { useState } from "react";
 import { Check, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ServiceOptionMedia } from "@/lib/site-media";
-import {
-  STAGING_STYLE_CARDS,
-  type StagingStyleCard,
-} from "@/data/order-options";
+import { STAGING_STYLE_CARDS } from "@/data/order-options";
 import ExampleDialog from "@/components/order/ExampleDialog";
 import {
   hasExampleMedia,
   resolveFurnitureStyleThumbnail,
 } from "./virtual-staging-style-state";
 
+export interface VisualStyleCard {
+  label: string;
+  imageSrc?: string | null;
+  mediaKey?: string | null;
+  description: string;
+}
+
 interface StyleSelectorProps {
   value: string;
   onChange: (label: string) => void;
   mediaByKey: Record<string, ServiceOptionMedia>;
+  cards?: readonly VisualStyleCard[];
   groupName?: string;
   ariaLabelledBy?: string;
   ariaDescribedBy?: string;
+  ariaLabel?: string;
   ariaInvalid?: boolean;
   disabled?: boolean;
+  compact?: boolean;
+  previewTitle?: (card: VisualStyleCard) => string;
+  imageAlt?: (card: VisualStyleCard) => string;
 }
 
-/** Global visual selector used once for the complete Virtual Staging order. */
+/** Shared visual selector used by staging and compatible service style fields. */
 export default function StyleSelector({
   value,
   onChange,
   mediaByKey,
+  cards = STAGING_STYLE_CARDS,
   groupName,
   ariaLabelledBy,
   ariaDescribedBy,
+  ariaLabel = "Furniture style for entire order",
   ariaInvalid = false,
   disabled = false,
+  compact = false,
+  previewTitle = (card) => `${card.label} furniture style`,
+  imageAlt = (card) => `${card.label} furniture example`,
 }: StyleSelectorProps) {
-  const [previewMediaKey, setPreviewMediaKey] = useState<string | null>(null);
-  const previewCard = STAGING_STYLE_CARDS.find(
-    (card) => card.mediaKey === previewMediaKey,
-  );
-  const previewMedia = previewCard
+  const [previewLabel, setPreviewLabel] = useState<string | null>(null);
+  const previewCard = cards.find((card) => card.label === previewLabel);
+  const previewMedia = previewCard?.mediaKey
     ? mediaByKey[previewCard.mediaKey] ?? null
     : null;
 
@@ -50,33 +62,38 @@ export default function StyleSelector({
       <div
         role="radiogroup"
         aria-labelledby={ariaLabelledBy}
-        aria-label={ariaLabelledBy ? undefined : "Furniture style for entire order"}
+        aria-label={ariaLabelledBy ? undefined : ariaLabel}
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid || undefined}
-        className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 min-[1600px]:grid-cols-5"
+        className={cn(
+          "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 min-[1600px]:grid-cols-5",
+          compact ? "gap-2" : "gap-3",
+        )}
       >
-        {STAGING_STYLE_CARDS.map((card, index) => (
+        {cards.map((card, index) => (
           <StyleCard
             key={card.label}
             card={card}
-            media={mediaByKey[card.mediaKey] ?? null}
+            media={card.mediaKey ? mediaByKey[card.mediaKey] ?? null : null}
             selected={value === card.label}
             onSelect={() => onChange(card.label)}
-            onPreview={() => setPreviewMediaKey(card.mediaKey)}
+            onPreview={() => setPreviewLabel(card.label)}
             groupName={groupName}
             disabled={disabled}
             validationControl={index === 0}
+            compact={compact}
+            imageAlt={imageAlt(card)}
           />
         ))}
       </div>
 
       {previewCard ? (
         <ExampleDialog
-          open={Boolean(previewMediaKey)}
+          open={Boolean(previewLabel)}
           onOpenChange={(open) => {
-            if (!open) setPreviewMediaKey(null);
+            if (!open) setPreviewLabel(null);
           }}
-          title={`${previewCard.label} furniture style`}
+          title={previewTitle(previewCard)}
           description={
             previewMedia?.description?.trim() || previewCard.description
           }
@@ -96,8 +113,10 @@ function StyleCard({
   groupName,
   disabled,
   validationControl,
+  compact,
+  imageAlt,
 }: {
-  card: StagingStyleCard;
+  card: VisualStyleCard;
   media: ServiceOptionMedia | null;
   selected: boolean;
   onSelect: () => void;
@@ -105,11 +124,14 @@ function StyleCard({
   groupName?: string;
   disabled: boolean;
   validationControl: boolean;
+  compact: boolean;
+  imageAlt: string;
 }) {
   const [adminImageFailed, setAdminImageFailed] = useState(false);
   const [staticImageFailed, setStaticImageFailed] = useState(false);
   const adminThumbnailUrl = resolveFurnitureStyleThumbnail(media, null);
   const hasPreview = hasExampleMedia(media);
+  const hasVisual = Boolean(card.mediaKey || card.imageSrc);
 
   return (
     <div
@@ -134,42 +156,56 @@ function StyleCard({
         onClick={onSelect}
         className="flex h-full w-full flex-col text-left focus-visible:outline-none disabled:cursor-not-allowed"
       >
-        <span className="relative block aspect-[3/2] w-full bg-stone-100">
-          {adminThumbnailUrl && !adminImageFailed ? (
-            <Image
-              src={adminThumbnailUrl}
-              alt={media?.altText?.trim() || `${card.label} furniture example`}
-              fill
-              loading="lazy"
-              sizes="(min-width: 1600px) 14vw, (min-width: 1024px) 19vw, (min-width: 768px) 29vw, 46vw"
-              onError={() => setAdminImageFailed(true)}
-              className="object-cover"
-            />
-          ) : !staticImageFailed ? (
-            // The legacy public path remains a graceful fallback. These files
-            // are optional, so a failed request becomes a named placeholder.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={card.imageSrc}
-              alt={card.label}
-              loading="lazy"
-              onError={() => setStaticImageFailed(true)}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <span className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200">
-              <span className="px-2 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground/75">
-                {card.label}
+        {hasVisual ? (
+          <span
+            className={cn(
+              "relative block w-full bg-stone-100",
+              compact ? "aspect-[2/1]" : "aspect-[3/2]",
+            )}
+          >
+            {adminThumbnailUrl && !adminImageFailed ? (
+              <Image
+                src={adminThumbnailUrl}
+                alt={media?.altText?.trim() || imageAlt}
+                fill
+                loading="lazy"
+                sizes="(min-width: 1600px) 14vw, (min-width: 1024px) 19vw, (min-width: 768px) 29vw, 46vw"
+                onError={() => setAdminImageFailed(true)}
+                className="object-cover"
+              />
+            ) : card.imageSrc && !staticImageFailed ? (
+              // The legacy public path remains a graceful fallback. These files
+              // are optional, so a failed request becomes a named placeholder.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={card.imageSrc}
+                alt={card.label}
+                loading="lazy"
+                onError={() => setStaticImageFailed(true)}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <span className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200">
+                <span className="px-2 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground/75">
+                  {card.label}
+                </span>
               </span>
-            </span>
-          )}
-        </span>
+            )}
+          </span>
+        ) : null}
         <span
           className={cn(
-            "flex min-h-12 w-full flex-1 items-center border-t px-3 py-2 pr-11 text-sm font-medium leading-5",
+            "flex w-full flex-1 items-center px-3 pr-11 font-medium leading-5",
+            compact
+              ? hasVisual
+                ? "min-h-10 border-t py-1.5 text-xs"
+                : "min-h-20 py-3 text-sm"
+              : "min-h-12 border-t py-2 text-sm",
             selected
               ? "border-primary/30 bg-primary/5 text-primary"
-              : "border-border text-foreground",
+              : hasVisual
+                ? "border-border text-foreground"
+                : "text-foreground",
           )}
         >
           {card.label}
@@ -182,7 +218,10 @@ function StyleCard({
         disabled={!hasPreview}
         aria-label={`View ${card.label} style example`}
         title={hasPreview ? `View ${card.label} style example` : "Example not available yet"}
-        className="absolute bottom-0.5 right-0.5 grid h-11 w-11 place-items-center rounded-full border border-border bg-white/95 text-primary shadow-sm transition hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40"
+        className={cn(
+          "absolute bottom-0.5 right-0.5 grid place-items-center rounded-full border border-border bg-white/95 text-primary shadow-sm transition hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40",
+          compact ? "h-10 w-10" : "h-11 w-11",
+        )}
       >
         <Eye className="h-4 w-4" aria-hidden="true" />
       </button>

@@ -67,8 +67,8 @@ function RequirementsContent({ idPrefix }: { idPrefix: string }) {
             <dd>JPG, JPEG or PNG.</dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">Reference image</dt>
-            <dd>JPG, JPEG or PNG.</dd>
+            <dt className="font-semibold text-foreground">Reference files</dt>
+            <dd>JPG, JPEG, PNG, WebP or PDF.</dd>
           </div>
         </dl>
       </section>

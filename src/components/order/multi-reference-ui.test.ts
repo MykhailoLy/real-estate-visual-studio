@@ -22,6 +22,18 @@ const virtualForm = readFileSync(
   "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
   "utf8",
 );
+const renovationCard = readFileSync(
+  "src/components/order/virtual-renovation/RenovationItemCard.tsx",
+  "utf8",
+);
+const renovationForm = readFileSync(
+  "src/components/order/virtual-renovation/VirtualRenovationOrderForm.tsx",
+  "utf8",
+);
+const renovationReview = readFileSync(
+  "src/components/order/virtual-renovation/VirtualRenovationReview.tsx",
+  "utf8",
+);
 const singleCard = readFileSync(
   "src/components/order/image-enhancement/SingleExposureItemCard.tsx",
   "utf8",
@@ -75,7 +87,7 @@ test("reference rows use stable server IDs instead of duplicate filenames", () =
 });
 
 test("legacy mirrors are reconciled without deleting normalized references", () => {
-  for (const card of [virtualCard, singleCard]) {
+  for (const card of [virtualCard, singleCard, renovationCard]) {
     assert.match(card, /resolveReferenceFileSelection/);
     assert.match(card, /selection\.removeLegacy/);
     assert.match(card, /selection\.references/);
@@ -110,13 +122,24 @@ test("reference completions guard stale sessions and await final draft persisten
   );
 });
 
-test("all three photo cards use one shared reference section", () => {
-  for (const card of [virtualCard, singleCard, dayCard]) {
+test("all four photo cards use one shared reference section", () => {
+  for (const card of [virtualCard, singleCard, dayCard, renovationCard]) {
     assert.match(card, /ReferenceFilesUploader/);
     assert.match(card, /Reference Link \(optional\)/);
   }
   assert.doesNotMatch(singleCard, /Aerial Reference Image/);
   assert.doesNotMatch(singleCard, /Brand Assets/);
+});
+
+test("Virtual Renovation persists, restores and reviews normalized references", () => {
+  assert.match(renovationForm, /listDraftReferenceFiles/);
+  assert.match(renovationForm, /prepareDraftReferenceFile/);
+  assert.match(renovationForm, /uploadPreparedDraftReferenceFile/);
+  assert.match(renovationForm, /completeDraftReferenceFile/);
+  assert.match(renovationForm, /deleteDraftReferenceFile/);
+  assert.match(renovationForm, /handleReferenceFilesChange/);
+  assert.match(renovationReview, /<ReferenceFilesReview/);
+  assert.match(renovationReview, /mergeReferenceFiles/);
 });
 
 test("Day to Dusk only submits from Review and persists draft references", () => {

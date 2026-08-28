@@ -5,6 +5,10 @@ import { Info, Trash2 } from "lucide-react";
 import ExampleDialog from "@/components/order/ExampleDialog";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
+import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
+import StyleSelector, {
+  type VisualStyleCard,
+} from "@/components/order/virtual-staging/StyleSelector";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
@@ -19,6 +23,7 @@ import {
   RENOVATION_EXTERNAL_OPTIONS,
   RENOVATION_ROOM_OPTIONS,
   RENOVATION_STYLE_OPTIONS,
+  STAGING_STYLE_CARDS,
   STAGING_FILE_ACCEPT,
   type RenovationOption,
 } from "@/data/order-options";
@@ -26,6 +31,11 @@ import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 import type { ServiceOptionMedia } from "@/lib/site-media";
 import type { TransactionalCurrency } from "@/lib/pricing/types";
+import {
+  mergeReferenceFiles,
+  resolveReferenceFileSelection,
+  type ReferenceFileValue,
+} from "@/lib/reference-files";
 
 export interface RenovationItemData {
   clientItemId: string;
@@ -39,6 +49,8 @@ export interface RenovationItemData {
   /** Per-item optional disclaimer text */
   disclaimerText: string;
   referenceLink: string;
+  referenceFiles: ReferenceFileValue[];
+  /** Legacy singular draft shape retained for backward restoration. */
   referenceFile: File | null;
   additionalInfo: string;
   originalFilename: string | null;
@@ -54,6 +66,7 @@ export const emptyRenovationItem = (): RenovationItemData => ({
   presentationStyle: "",
   ...emptyItemDeliveryFields,
   referenceLink: "",
+  referenceFiles: [],
   referenceFile: null,
   additionalInfo: "",
   originalFilename: null,
@@ -64,6 +77,28 @@ export function renovationItemDomId(clientItemId: string): string {
   return `virtual-renovation-item-${clientItemId}`;
 }
 
+const RENOVATION_VISUAL_STYLE_CARDS: VisualStyleCard[] =
+  RENOVATION_STYLE_OPTIONS.map((label) => {
+    const stagingCard = STAGING_STYLE_CARDS.find(
+      (candidate) => candidate.label === label,
+    );
+    if (stagingCard) return stagingCard;
+    const descriptions: Record<string, string> = {
+      Commercial:
+        "A practical commercial direction for offices, retail, hospitality or shared spaces.",
+      "Match Reference":
+        "Use the supplied reference files or link as the primary design direction.",
+      "Let Us Decide":
+        "Let the PicchuSpot team choose a cohesive direction suited to the property.",
+    };
+    return {
+      label,
+      imageSrc: null,
+      mediaKey: null,
+      description: descriptions[label] ?? label,
+    };
+  });
+
 interface RenovationItemCardProps {
   index: number;
   data: RenovationItemData;
@@ -73,7 +108,7 @@ interface RenovationItemCardProps {
   persistedOriginal?: OrderDraftUploadedFileSummary | null;
   persistedReference?: OrderDraftUploadedFileSummary | null;
   onOriginalFileChange: (file: File | null) => void;
-  onReferenceFileChange: (file: File | null) => void;
+  onReferenceFilesChange: (files: ReferenceFileValue[]) => void;
   onRemovePersistedOriginal: () => void;
   onRemovePersistedReference: () => void;
   originalOperationStatus?: string;
@@ -81,7 +116,6 @@ interface RenovationItemCardProps {
   referenceOperationStatus?: string;
   referenceOperationError?: string;
   onRetryOriginal?: () => void;
-  onRetryReference?: () => void;
   fileOperationDisabled?: boolean;
   exampleMediaByKey: Record<string, ServiceOptionMedia>;
 }
@@ -95,7 +129,7 @@ export default function RenovationItemCard({
   persistedOriginal,
   persistedReference,
   onOriginalFileChange,
-  onReferenceFileChange,
+  onReferenceFilesChange,
   onRemovePersistedOriginal,
   onRemovePersistedReference,
   originalOperationStatus,
@@ -103,7 +137,6 @@ export default function RenovationItemCard({
   referenceOperationStatus,
   referenceOperationError,
   onRetryOriginal,
-  onRetryReference,
   fileOperationDisabled = false,
   exampleMediaByKey,
 }: RenovationItemCardProps) {
@@ -136,15 +169,33 @@ export default function RenovationItemCard({
   const previewMedia = previewOption
     ? exampleMediaByKey[previewOption.mediaKey] ?? null
     : null;
+  const displayedReferenceFiles = mergeReferenceFiles(
+    data.referenceFiles,
+    persistedReference
+      ? [
+          {
+            id: persistedReference.id,
+            file: null,
+            filename: persistedReference.originalFilename,
+            fileSize: persistedReference.fileSize,
+            mimeType: persistedReference.mimeType,
+            lastModified: null,
+            previewUrl: persistedReference.previewUrl,
+            previewExpiresAt: persistedReference.previewExpiresAt,
+            draftFileId: persistedReference.id,
+          },
+        ]
+      : [],
+  );
 
   return (
     <>
     <article
       id={renovationItemDomId(data.clientItemId)}
-      className="@container scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6"
+      className="@container scroll-mt-4 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5"
     >
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-5 flex items-center justify-between gap-4">
         <h2 className="text-xl font-semibold leading-tight text-primary">
           Image #{index + 1}
         </h2>
@@ -160,7 +211,7 @@ export default function RenovationItemCard({
         )}
       </div>
 
-      <div className="space-y-7">
+      <div className="space-y-5">
         {/* File Upload */}
         <FileUpload
           viewerVariant="photo"
@@ -192,7 +243,7 @@ export default function RenovationItemCard({
 
         <section
           aria-labelledby={`${itemIdPrefix}-selection-title`}
-          className="border-t border-border pt-7"
+          className="border-t border-border pt-5"
         >
           <h3
             id={`${itemIdPrefix}-selection-title`}
@@ -201,7 +252,7 @@ export default function RenovationItemCard({
             Renovation Selection
           </h3>
 
-          <div className="mt-5 grid gap-x-8 gap-y-7 @min-[58rem]:grid-cols-2">
+          <div className="mt-4 grid gap-5 @min-[42rem]:grid-cols-2 @min-[42rem]:gap-6">
             <RenovationOptionGroup
               title="Internal Renovations"
               options={RENOVATION_INTERNAL_OPTIONS}
@@ -224,7 +275,7 @@ export default function RenovationItemCard({
 
         <section
           aria-labelledby={`${itemIdPrefix}-details-title`}
-          className="border-t border-border pt-7"
+          className="border-t border-border pt-5"
         >
           <h3
             id={`${itemIdPrefix}-details-title`}
@@ -233,9 +284,8 @@ export default function RenovationItemCard({
             Renovation Details
           </h3>
 
-          {/* Room / Area & Presentation Style */}
-          <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div>
+          <div className="mt-4 space-y-5">
+            <div className="max-w-xl">
               <label
                 htmlFor={`${itemIdPrefix}-room`}
                 className="mb-2 block text-base font-medium text-foreground"
@@ -257,32 +307,46 @@ export default function RenovationItemCard({
               </select>
             </div>
             <div>
-              <label
-                htmlFor={`${itemIdPrefix}-presentation-style`}
-                className="mb-2 block text-base font-medium text-foreground"
+              <p
+                id={`${itemIdPrefix}-presentation-style-label`}
+                className="text-base font-medium text-foreground"
               >
-                Presentation Style
-              </label>
-              <select
-                id={`${itemIdPrefix}-presentation-style`}
+                Presentation Style / Choose a Style
+              </p>
+              <p
+                id={`${itemIdPrefix}-presentation-style-helper`}
+                className="mb-3 mt-1 text-sm leading-5 text-muted"
+              >
+                Choose a direction, match your references, or let us decide.
+              </p>
+              <StyleSelector
                 value={data.presentationStyle}
-                onChange={(e) =>
-                  onChange({ ...data, presentationStyle: e.target.value })
+                onChange={(presentationStyle) =>
+                  onChange({ ...data, presentationStyle })
                 }
-                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">Select style...</option>
-                {RENOVATION_STYLE_OPTIONS.map((style) => (
-                  <option key={style} value={style}>
-                    {style}
-                  </option>
-                ))}
-              </select>
+                mediaByKey={exampleMediaByKey}
+                cards={RENOVATION_VISUAL_STYLE_CARDS}
+                groupName={`${itemIdPrefix}-presentation-style`}
+                ariaLabelledBy={`${itemIdPrefix}-presentation-style-label`}
+                ariaDescribedBy={`${itemIdPrefix}-presentation-style-helper`}
+                compact
+                previewTitle={(card) => `${card.label} renovation style`}
+                imageAlt={(card) => `${card.label} renovation style example`}
+              />
+              {data.presentationStyle ? (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...data, presentationStyle: "" })}
+                  className="mt-2 min-h-10 rounded-md px-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                >
+                  Clear style selection
+                </button>
+              ) : null}
             </div>
           </div>
 
           {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
-          <div className="mt-6 border-t border-border pt-5">
+          <div className="mt-5 border-t border-border pt-4">
             <h4 className="mb-4 text-[15px] font-semibold text-foreground">
               Delivery Preferences
             </h4>
@@ -301,7 +365,7 @@ export default function RenovationItemCard({
 
         <section
           aria-labelledby={`${itemIdPrefix}-references-title`}
-          className="border-t border-border pt-7"
+          className="border-t border-border pt-5"
         >
           <h3
             id={`${itemIdPrefix}-references-title`}
@@ -310,14 +374,14 @@ export default function RenovationItemCard({
             References
           </h3>
 
-          <div className="mt-5 space-y-6">
+          <div className="mt-4 space-y-4">
             {/* Reference Link */}
             <div>
               <label
                 htmlFor={`${itemIdPrefix}-reference-link`}
                 className="mb-2 block text-base font-medium text-foreground"
               >
-                Reference Link
+                Reference Link (optional)
               </label>
               <input
                 id={`${itemIdPrefix}-reference-link`}
@@ -331,39 +395,30 @@ export default function RenovationItemCard({
               />
             </div>
 
-            {/* Reference Image */}
-            <FileUpload
-              viewerVariant="photo"
-              label="Reference Image (optional)"
-              file={data.referenceFile}
-              onFileChange={onReferenceFileChange}
-              accept={STAGING_FILE_ACCEPT}
-              persistedFile={
-                persistedReference
-                  ? {
-                      id: persistedReference.id,
-                      filename: persistedReference.originalFilename,
-                      fileSize: persistedReference.fileSize,
-                      previewUrl: persistedReference.previewUrl ?? null,
-                      previewExpiresAt:
-                        persistedReference.previewExpiresAt ?? null,
-                    }
-                  : null
-              }
-              operationStatusText={referenceOperationStatus}
-              operationErrorText={referenceOperationError}
-              onRetry={onRetryReference}
-              onRemovePersisted={onRemovePersistedReference}
+            <ReferenceFilesUploader
+              files={displayedReferenceFiles}
+              onChange={(files) => {
+                const selection = resolveReferenceFileSelection(
+                  files,
+                  data.referenceFiles,
+                  persistedReference,
+                );
+                if (selection.removeLegacy) onRemovePersistedReference();
+                onReferenceFilesChange(selection.references);
+              }}
               disabled={fileOperationDisabled}
-              retryDisabled={fileOperationDisabled}
-              removeDisabled={fileOperationDisabled}
-              comfortable
+              operationStatus={referenceOperationStatus}
             />
+            {referenceOperationError ? (
+              <p className="text-sm font-medium text-red-700" role="alert">
+                {referenceOperationError}
+              </p>
+            ) : null}
           </div>
         </section>
 
         {/* Additional Info */}
-        <div className="border-t border-border pt-7">
+        <div className="border-t border-border pt-5">
           <label
             htmlFor={`${itemIdPrefix}-additional-information`}
             className="mb-2 block text-base font-medium text-foreground"
@@ -377,7 +432,7 @@ export default function RenovationItemCard({
               onChange({ ...data, additionalInfo: e.target.value })
             }
             placeholder="Describe any specific renovation details..."
-            rows={4}
+            rows={3}
             className="w-full resize-y rounded-lg border border-border px-3 py-2.5 text-base leading-6 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -422,41 +477,43 @@ function RenovationOptionGroup({
 }) {
   return (
     <div className="min-w-0">
-      <h4 className="text-base font-semibold text-foreground">{title}</h4>
-      <div className="mt-3 grid gap-2.5">
+      <h4 className="text-sm font-semibold uppercase tracking-[0.06em] text-foreground">
+        {title}
+      </h4>
+      <div className="mt-2 grid gap-1.5">
         {options.map((option) => {
           const selected = selectedIds.includes(option.id);
           return (
             <div
               key={option.id}
-              className={`grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-primary/30 focus-within:ring-offset-1 ${
+              className={`grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-md border px-2 py-0.5 transition-colors focus-within:ring-2 focus-within:ring-primary/30 focus-within:ring-offset-1 ${
                 selected
                   ? "border-primary/60 bg-primary/5"
                   : "border-border hover:border-primary/30 hover:bg-surface"
               }`}
             >
-              <label className="flex min-w-0 cursor-pointer items-center gap-2.5 py-1">
+              <label className="grid min-h-10 min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 py-1">
                 <input
                   type="checkbox"
                   checked={selected}
                   onChange={() => onToggle(option.id)}
                   className="h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-primary"
                 />
-                <span className="min-w-0 text-[15px] leading-5 text-foreground">
+                <span className="min-w-0 text-sm leading-5 text-foreground">
                   {option.label}
                 </span>
-              </label>
-              <div className="flex shrink-0 items-center gap-1">
-                <span className="whitespace-nowrap text-[15px] font-medium text-foreground/75">
+                <span className="whitespace-nowrap text-sm font-medium text-foreground/75">
                   <RegionalCentsText
                     cents={getCatalogPrice(option.priceKey, currency)}
                   />
                 </span>
+              </label>
+              <div className="flex shrink-0 items-center">
                 <button
                   type="button"
                   onClick={() => onPreview(option.id)}
                   aria-label={`View ${option.label} information and example`}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 >
                   <Info className="h-4 w-4" aria-hidden="true" />
                 </button>

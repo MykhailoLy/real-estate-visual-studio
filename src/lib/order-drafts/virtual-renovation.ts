@@ -11,6 +11,7 @@ import {
 } from "../pricing/catalog.ts";
 import { calculateOrderQuote } from "../pricing/calculate.ts";
 import type { TransactionalCurrency } from "../pricing/types.ts";
+import type { ReferenceFileValue } from "../reference-files.ts";
 import { stableStringifyJson } from "./serialization.ts";
 import { createDraftClientItemId } from "./utils.ts";
 import type {
@@ -41,6 +42,13 @@ export interface VirtualRenovationDraftItemState extends JsonObject {
   fileSizeLimit: string;
   disclaimerText: string;
   referenceLink: string;
+  referenceFiles: Array<{
+    id: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    lastModified: number | null;
+  } & JsonObject>;
   additionalInfo: string;
   originalFilename: string | null;
   referenceFilename: string | null;
@@ -71,6 +79,7 @@ export interface VirtualRenovationFormItemDraftSource {
   fileSizeLimit: string;
   disclaimerText: string;
   referenceLink: string;
+  referenceFiles?: ReferenceFileValue[];
   additionalInfo: string;
   originalFilename?: string | null;
   referenceFilename?: string | null;
@@ -89,6 +98,7 @@ export interface VirtualRenovationResumedFormItem
   clientItemId: string;
   file: null;
   referenceFile: null;
+  referenceFiles: ReferenceFileValue[];
   originalFilename: string | null;
   referenceFilename: string | null;
 }
@@ -106,6 +116,20 @@ const VirtualRenovationDraftItemStateSchema = z
     fileSizeLimit: z.string().max(200).default(""),
     disclaimerText: z.string().max(STRING_FIELD_MAX).default(""),
     referenceLink: z.string().max(STRING_FIELD_MAX).default(""),
+    referenceFiles: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(100),
+            filename: z.string().min(1).max(255),
+            fileSize: z.number().int().min(0).max(20 * 1024 * 1024),
+            mimeType: z.string().min(1).max(255),
+            lastModified: z.number().int().nonnegative().nullable().default(null),
+          })
+          .strict(),
+      )
+      .max(10)
+      .default([]),
     additionalInfo: z.string().max(STRING_FIELD_MAX).default(""),
     originalFilename: z.string().min(1).max(255).nullable().default(null),
     referenceFilename: z.string().min(1).max(255).nullable().default(null),
@@ -177,6 +201,7 @@ export function createVirtualRenovationFormItem(): VirtualRenovationResumedFormI
     fileSizeLimit: "",
     disclaimerText: "",
     referenceLink: "",
+    referenceFiles: [],
     additionalInfo: "",
     originalFilename: null,
     referenceFilename: null,
@@ -200,6 +225,13 @@ export function mapVirtualRenovationFormToDraftState(
         fileSizeLimit: trim(item.fileSizeLimit, 200),
         disclaimerText: trim(item.disclaimerText),
         referenceLink: trim(item.referenceLink),
+        referenceFiles: (item.referenceFiles ?? []).map((reference) => ({
+          id: reference.id,
+          filename: reference.filename,
+          fileSize: reference.fileSize,
+          mimeType: reference.mimeType,
+          lastModified: reference.lastModified,
+        })),
         additionalInfo: trim(item.additionalInfo),
         originalFilename:
           filename(item.file) ?? item.originalFilename?.trim() ?? null,
@@ -220,7 +252,9 @@ export function mapVirtualRenovationDraftToFormState(state: unknown): {
   items: VirtualRenovationResumedFormItem[];
   orderTerms: { accepted: boolean; allowPortfolio: boolean };
 } {
-  const parsed = VirtualRenovationDraftStateSchema.parse(state);
+  const parsed = VirtualRenovationDraftStateSchema.parse(
+    normalizeLegacyVirtualRenovationDraftState(state),
+  );
   return {
     jobTitle: parsed.jobTitle,
     items: parsed.items.map((item) => ({
@@ -228,10 +262,90 @@ export function mapVirtualRenovationDraftToFormState(state: unknown): {
       file: null,
       referenceFile: null,
       ...item.state,
+      referenceFiles: item.state.referenceFiles.map((reference) => ({
+        ...reference,
+        file: null,
+      })),
       selectedInternal: [...item.state.selectedInternal],
       selectedExternal: [...item.state.selectedExternal],
     })),
     orderTerms: { ...parsed.termsUi },
+  };
+}
+
+/**
+ * Version-1 drafts predate normalized multi-reference metadata. Keep that
+ * version readable and defensively absorb the shared legacy singular shape.
+ */
+export function normalizeLegacyVirtualRenovationDraftState(
+  state: unknown,
+): unknown {
+  if (!state || typeof state !== "object" || Array.isArray(state)) return state;
+  const root = state as Record<string, unknown>;
+  if (!Array.isArray(root.items)) return state;
+
+  return {
+    ...root,
+    items: root.items.map((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return entry;
+      }
+      const envelope = entry as Record<string, unknown>;
+      const rawItem = envelope.state;
+      if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
+        return entry;
+      }
+      const item = rawItem as Record<string, unknown>;
+      const existing = Array.isArray(item.referenceFiles)
+        ? item.referenceFiles
+        : [];
+      const legacy = item.referenceImage ?? item.referenceFile;
+      let referenceFiles = existing;
+
+      if (existing.length === 0 && legacy && typeof legacy === "object") {
+        const file = legacy as Record<string, unknown>;
+        const fallbackId = `legacy-${String(
+          envelope.clientItemId ?? "reference",
+        )}`.slice(0, 100);
+        referenceFiles = [
+          {
+            id:
+              typeof file.id === "string" && file.id.trim()
+                ? file.id.slice(0, 100)
+                : fallbackId,
+            filename:
+              typeof file.filename === "string"
+                ? file.filename
+                : typeof file.name === "string"
+                  ? file.name
+                  : "reference.jpg",
+            fileSize:
+              typeof file.fileSize === "number"
+                ? file.fileSize
+                : typeof file.size === "number"
+                  ? file.size
+                  : 0,
+            mimeType:
+              typeof file.mimeType === "string"
+                ? file.mimeType
+                : typeof file.type === "string"
+                  ? file.type
+                  : "image/jpeg",
+            lastModified:
+              typeof file.lastModified === "number" ? file.lastModified : null,
+          },
+        ];
+      }
+
+      const {
+        referenceImage: _legacyImage,
+        referenceFile: _legacyFile,
+        ...rest
+      } = item;
+      void _legacyImage;
+      void _legacyFile;
+      return { ...envelope, state: { ...rest, referenceFiles } };
+    }),
   };
 }
 
@@ -260,6 +374,7 @@ export function hasMeaningfulVirtualRenovationDraftChange(
     (item) =>
       item.file != null ||
       item.referenceFile != null ||
+      (item.referenceFiles?.length ?? 0) > 0 ||
       item.originalFilename != null ||
       item.referenceFilename != null ||
       item.selectedInternal.length > 0 ||
@@ -355,7 +470,9 @@ export function validateVirtualRenovationDraftForResume(
   if (draft.stateSchemaVersion !== VIRTUAL_RENOVATION_DRAFT_STATE_SCHEMA_VERSION) {
     return { ok: false, message: "This draft version is no longer supported." };
   }
-  const parsed = VirtualRenovationDraftStateSchema.safeParse(draft.state);
+  const parsed = VirtualRenovationDraftStateSchema.safeParse(
+    normalizeLegacyVirtualRenovationDraftState(draft.state),
+  );
   if (!parsed.success) {
     return { ok: false, message: "This draft could not be restored safely." };
   }

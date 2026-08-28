@@ -37,6 +37,7 @@ import {
   VIRTUAL_RENOVATION_DRAFT_ROUTE,
   VIRTUAL_RENOVATION_DRAFT_STATE_SCHEMA_VERSION,
   VirtualRenovationDraftStateSchema,
+  normalizeLegacyVirtualRenovationDraftState,
   type VirtualRenovationDraftState,
 } from "./virtual-renovation.ts";
 import { UuidSchema } from "./schema.ts";
@@ -517,7 +518,9 @@ export function validateVirtualRenovationDraftForFinalization(
     return finalizationError("invalid_status", "Draft is not claimed.");
   }
 
-  const parsed = VirtualRenovationDraftStateSchema.safeParse(draft.state);
+  const parsed = VirtualRenovationDraftStateSchema.safeParse(
+    normalizeLegacyVirtualRenovationDraftState(draft.state),
+  );
   if (!parsed.success) {
     return finalizationError("invalid_status", "Draft state is invalid.");
   }
