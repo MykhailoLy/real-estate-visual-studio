@@ -35,6 +35,10 @@ const reviewSource = readFileSync(
   new URL("./VirtualRenovationReview.tsx", import.meta.url),
   "utf8",
 );
+const reviewRowsSource = readFileSync(
+  new URL("./virtual-renovation-review.ts", import.meta.url),
+  "utf8",
+);
 const pageSource = readFileSync(
   new URL(
     "../../../app/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
@@ -142,7 +146,14 @@ test("Configure uses the canonical leading requirements rails", () => {
   assert.doesNotMatch(formSource, /className="xl:hidden"/);
   assert.match(requirementsSource, /<details/);
   assert.match(requirementsSource, /Preparation requirements/);
-  assert.match(requirementsSource, /JPG, JPEG or PNG/);
+  assert.match(
+    requirementsSource,
+    /Original photo<\/dt>\s*<dd>JPG, JPEG or PNG\.<\/dd>/,
+  );
+  assert.match(
+    requirementsSource,
+    /Reference files<\/dt>\s*<dd>JPG, JPEG, PNG, WebP or PDF\.<\/dd>/,
+  );
 });
 
 test("Review alone owns the unchanged Order Summary sidebar", () => {
@@ -160,6 +171,16 @@ test("Review alone owns the unchanged Order Summary sidebar", () => {
   assert.match(formSource, /onSubmit=\{handleSubmit\}/);
   assert.match(formSource, /screen !== "review"/);
   assert.equal(formSource.match(/onSubmit=\{handleSubmit\}/g)?.length, 1);
+});
+
+test("ReferenceFilesReview exclusively owns Renovation links and files", () => {
+  assert.equal(reviewSource.match(/<ReferenceFilesReview/g)?.length, 1);
+  assert.equal(
+    reviewSource.match(/referenceLink=\{item\.referenceLink\}/g)?.length,
+    1,
+  );
+  assert.doesNotMatch(reviewRowsSource, /label:\s*"Reference Link"/);
+  assert.doesNotMatch(reviewRowsSource, /label:\s*"Reference Files"/);
 });
 
 test("Review Order persists the draft and never invokes final submission", () => {
