@@ -121,20 +121,33 @@ test("Configure and Review use the shared two-step order language", () => {
   );
 });
 
-test("Configure owns requirements but no Order Summary", () => {
-  assert.match(formSource, /isReview \? \([\s\S]*?<OrderSummary/);
+test("Configure uses the canonical leading requirements rails", () => {
   assert.match(
     formSource,
-    /\) : \(\s*<div className="hidden xl:block">\s*<VirtualRenovationRequirements/,
+    /const requirementsRail = !isReview \? \(\s*<VirtualRenovationRequirements \/>\s*\) : undefined/,
   );
-  assert.match(formSource, /<VirtualRenovationRequirements compact/);
+  assert.match(
+    formSource,
+    /const compactRequirements = !isReview \? \(\s*<VirtualRenovationRequirements compact \/>\s*\) : undefined/,
+  );
+  assert.match(formSource, /leadingRail=\{requirementsRail\}/);
+  assert.match(formSource, /compactLeadingRail=\{compactRequirements\}/);
+  assert.doesNotMatch(
+    formSource,
+    /sidebar=\{[\s\S]*?VirtualRenovationRequirements/,
+  );
+  assert.doesNotMatch(formSource, /className="xl:hidden"/);
   assert.match(requirementsSource, /<details/);
   assert.match(requirementsSource, /Preparation requirements/);
   assert.match(requirementsSource, /JPG, JPEG or PNG/);
-  assert.equal(formSource.match(/<OrderSummary/g)?.length, 1);
 });
 
-test("Review alone owns terms and the one final submission summary", () => {
+test("Review alone owns the unchanged Order Summary sidebar", () => {
+  assert.match(
+    formSource,
+    /sidebar=\{\s*isReview \? \([\s\S]*?<OrderSummary[\s\S]*?\) : undefined\s*\}/,
+  );
+  assert.equal(formSource.match(/<OrderSummary/g)?.length, 1);
   assert.match(formSource, /<VirtualRenovationReview/);
   assert.match(reviewSource, /<OrderReviewHeader/);
   assert.match(reviewSource, /<OrderReviewItem/);
