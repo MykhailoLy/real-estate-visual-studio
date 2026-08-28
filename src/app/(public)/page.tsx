@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
-import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import BeforeAfterShowcase, {
@@ -72,44 +71,13 @@ export const metadata: Metadata = publicPageMetadata({
 //     and Testimonials stay "use client" for interactivity.
 // ============================================================
 
-async function AboutPicchuSpotWithMedia() {
-  const collageRows = await getCachedAboutCollageItems();
-
-  const collageTiles: AboutCollageTile[] = collageRows
-    .map<AboutCollageTile | null>((row) => {
-      const pairAlt = getBeforeAfterAlt({
-        sharedAlt: row.alt_text,
-        title: row.title,
-        description: row.description,
-        serviceSlug: row.service_slug,
-      });
-      const singleAlt = row.alt_text || row.title || "About PicchuSpot";
-      const selected = [
-        { url: getSiteMediaPublicUrl(row.image_path), alt: singleAlt },
-        { url: getSiteMediaPublicUrl(row.after_image_path), alt: pairAlt.afterAlt },
-        { url: getSiteMediaPublicUrl(row.before_image_path), alt: pairAlt.beforeAlt },
-        { url: getSiteMediaPublicUrl(row.poster_image_path), alt: singleAlt },
-        { url: getSiteMediaPublicUrl(row.panorama_image_path), alt: singleAlt },
-      ].find((candidate) => candidate.url);
-      if (!selected?.url) return null;
-      return {
-        kind: "image",
-        id: row.id,
-        url: selected.url,
-        alt: selected.alt,
-      };
-    })
-    .filter((tile): tile is AboutCollageTile => tile !== null);
-
-  return <AboutPicchuSpot tiles={collageTiles} />;
-}
-
 export default async function HomePage() {
-  // The hero media is part of the critical rendering path, but its
-  // published rows are stable marketing content. Cache the database
-  // result so normal homepage requests do not wait on Supabase before
-  // the browser can discover the LCP images.
-  const sliderRows = await getCachedHomepageSliderItems();
+  // Load admin media in parallel. Both helpers return [] on
+  // misconfigured / unreachable Supabase, so neither will throw.
+  const [sliderRows, collageRows] = await Promise.all([
+    getCachedHomepageSliderItems(),
+    getCachedAboutCollageItems(),
+  ]);
 
   const sliderSlides: ShowcaseSlide[] = sliderRows
     .map<ShowcaseSlide | null>((row) => {
@@ -135,6 +103,36 @@ export default async function HomePage() {
       };
     })
     .filter((s): s is ShowcaseSlide => s !== null);
+
+  const collageTiles: AboutCollageTile[] = collageRows
+    .map<AboutCollageTile | null>((row) => {
+      // Pick the most representative image for this row. About
+      // collage items are usually plain "image" media_type, but
+      // we tolerate other shapes (e.g. an admin reuses a
+      // before/after item by surfacing only the after frame).
+      const pairAlt = getBeforeAfterAlt({
+        sharedAlt: row.alt_text,
+        title: row.title,
+        description: row.description,
+        serviceSlug: row.service_slug,
+      });
+      const singleAlt = row.alt_text || row.title || "About PicchuSpot";
+      const selected = [
+        { url: getSiteMediaPublicUrl(row.image_path), alt: singleAlt },
+        { url: getSiteMediaPublicUrl(row.after_image_path), alt: pairAlt.afterAlt },
+        { url: getSiteMediaPublicUrl(row.before_image_path), alt: pairAlt.beforeAlt },
+        { url: getSiteMediaPublicUrl(row.poster_image_path), alt: singleAlt },
+        { url: getSiteMediaPublicUrl(row.panorama_image_path), alt: singleAlt },
+      ].find((candidate) => candidate.url);
+      if (!selected?.url) return null;
+      return {
+        kind: "image",
+        id: row.id,
+        url: selected.url,
+        alt: selected.alt,
+      };
+    })
+    .filter((t): t is AboutCollageTile => t !== null);
 
   return (
     <>
@@ -211,12 +209,8 @@ export default async function HomePage() {
       {/* 6. How It Works. */}
       <HowItWorksDetailed />
 
-      {/* 7. About PicchuSpot — collage + narrative. The media query is
-          intentionally streamed behind a stable, same-size fallback so it
-          cannot delay the hero HTML or create layout shift. */}
-      <Suspense fallback={<AboutPicchuSpot />}>
-        <AboutPicchuSpotWithMedia />
-      </Suspense>
+      {/* 7. About PicchuSpot — collage + narrative. */}
+      <AboutPicchuSpot tiles={collageTiles} />
 
       {/* 8. Testimonials carousel. */}
       <Testimonials />
