@@ -5,15 +5,8 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Briefcase,
   ChevronDown,
-  FileClock,
-  FolderOpen,
-  LayoutDashboard,
-  LifeBuoy,
   Menu,
-  PlusCircle,
-  Receipt,
   User,
   X,
 } from "lucide-react";
@@ -28,56 +21,34 @@ import {
   writeLanguagePreference,
   type SiteLanguage,
 } from "@/components/layout/Header";
-import { useSupportChat } from "@/components/support/SupportChatProvider";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
 import SignOutButton from "./SignOutButton";
 import ClientPortalLink from "./ClientPortalLink";
-
-export interface DashboardNavItem {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-  exact?: boolean;
-}
-
-export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/dashboard/orders/new", label: "New Order", icon: PlusCircle },
-  { href: "/dashboard/drafts", label: "Drafts", icon: FileClock },
-  { href: "/dashboard/files", label: "Files", icon: FolderOpen },
-  { href: "/dashboard/invoices", label: "Invoices", icon: Receipt },
-  { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
-];
+import ClientDashboardMobileNav from "./ClientDashboardMobileNav";
+import { DASHBOARD_NAV_ITEMS } from "./dashboard-nav-items";
 
 const accountMenuItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/dashboard/orders/new", label: "New Order", icon: PlusCircle },
-  { href: "/dashboard/drafts", label: "Drafts", icon: FileClock },
   { href: "/dashboard/profile", label: "My Account", icon: User },
-  { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
 ] as const;
 
 interface PanelPosition {
-  top?: number;
-  bottom?: number;
+  top: number;
   right: number;
   width: number;
   maxHeight: number;
 }
 
 interface DashboardAccountMenuProps {
-  placement?: "bottom" | "top";
-  variant?: "header" | "mobile-bottom";
   className?: string;
 }
 
 export default function ClientDashboardTopNav() {
   const pathname = usePathname() ?? "/dashboard";
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
 
   useEffect(() => {
@@ -88,10 +59,11 @@ export default function ClientDashboardTopNav() {
     writeLanguagePreference(nextLanguage);
     setSavedLanguage(nextLanguage);
   };
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   return (
     <header className="sticky top-0 z-40 flex-shrink-0 border-b border-border bg-white shadow-sm">
-      <div className="flex h-14 min-w-0 items-center gap-1.5 px-3 sm:h-16 sm:gap-2 sm:px-6 lg:px-8">
+      <div className="flex h-14 min-w-0 items-center gap-2 px-4 sm:h-16 sm:px-6 lg:px-8">
         <Link
           href={getLocaleAwareHref("/", language)}
           aria-label="Open the PicchuSpot public homepage"
@@ -107,9 +79,8 @@ export default function ClientDashboardTopNav() {
           <BrandWordmark theme="light" className="min-w-0 text-sm sm:text-lg" />
         </Link>
 
-        <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto hidden min-w-0 items-center gap-2 lg:flex">
           <PublicResourcesMenu language={language} />
-          <DashboardAccountMenu className="hidden md:block" />
           <MarketLanguageSelector
             pathname={pathname}
             currentLanguage={language}
@@ -119,25 +90,37 @@ export default function ClientDashboardTopNav() {
             getLanguageOptionHref={() => pathname}
             analyticsLocation="dashboard_header"
           />
+          <DashboardAccountMenu />
         </div>
+
+        <button
+          ref={mobileMenuButtonRef}
+          type="button"
+          onClick={() => setMobileMenuOpen((value) => !value)}
+          aria-label={mobileMenuOpen ? "Close dashboard menu" : "Open dashboard menu"}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="client-dashboard-mobile-menu"
+          className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+        >
+          {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
+        </button>
       </div>
 
       <DashboardNavigationRow pathname={pathname} />
+      <ClientDashboardMobileNav
+        open={mobileMenuOpen}
+        onClose={closeMobileMenu}
+        triggerRef={mobileMenuButtonRef}
+        language={language}
+        onLanguageChange={setLanguage}
+      />
     </header>
   );
 }
 
 function DashboardNavigationRow({ pathname }: { pathname: string }) {
-  const {
-    open: supportChatOpen,
-    liveSupportActive,
-    launcherMode,
-    openSupportChat,
-  } = useSupportChat();
-  const supportButtonRef = useRef<HTMLButtonElement | null>(null);
-
   return (
-    <div className="border-t border-border bg-primary">
+    <div className="hidden border-t border-border bg-primary lg:block">
       <nav
         aria-label="Dashboard navigation"
         className="flex h-12 items-center gap-1 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] sm:px-6 lg:px-8 [&::-webkit-scrollbar]:hidden"
@@ -147,45 +130,23 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
             ? pathname === item.href
             : pathname.startsWith(item.href);
           const isNewOrder = item.href === "/dashboard/orders/new";
-          const isSupport = item.href === "/dashboard/support";
-
           const itemClassName = cn(
             "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
-            isSupport && "hidden md:inline-flex",
             isNewOrder
-              ? "bg-secondary text-primary-dark shadow-sm hover:bg-secondary-light"
+              ? cn(
+                  "bg-secondary text-primary-dark shadow-sm hover:bg-secondary-light",
+                  active && "ring-2 ring-inset ring-white/80",
+                )
               : active
                 ? "bg-white/18 text-white"
                 : "text-white/70 hover:bg-white/10 hover:text-white"
           );
 
-          if (isSupport) {
-            if (launcherMode !== "dashboard") return null;
-
-            return (
-              <button
-                key={item.href}
-                ref={supportButtonRef}
-                type="button"
-                onClick={() => openSupportChat(supportButtonRef.current)}
-                aria-label="Open PicchuSpot Assistant"
-                aria-expanded={liveSupportActive ? undefined : supportChatOpen}
-                aria-controls={
-                  liveSupportActive ? undefined : "support-chat-widget"
-                }
-                className={itemClassName}
-              >
-                <item.icon className="h-3.5 w-3.5" aria-hidden />
-                {item.label}
-              </button>
-            );
-          }
-
           return (
             <ClientPortalLink
               key={item.href}
               href={item.href}
-              aria-current={active && !isNewOrder ? "page" : undefined}
+              aria-current={active ? "page" : undefined}
               className={itemClassName}
             >
               <item.icon className="h-3.5 w-3.5" aria-hidden />
@@ -349,8 +310,6 @@ function DashboardAccountAvatar({
 }
 
 export function DashboardAccountMenu({
-  placement = "bottom",
-  variant = "header",
   className,
 }: DashboardAccountMenuProps) {
   const pathname = usePathname() ?? "/dashboard";
@@ -365,7 +324,6 @@ export function DashboardAccountMenu({
     user?.profileName || user?.firstName || displayName.split(" ")[0];
   const initials = getInitials(displayName);
   const open = openPath === pathname;
-  const mobileBottom = variant === "mobile-bottom";
 
   const updatePanelPosition = useCallback(() => {
     if (!buttonRef.current) return;
@@ -381,17 +339,6 @@ export function DashboardAccountMenu({
       )
     );
 
-    if (placement === "top") {
-      const bottom = Math.max(gutter, window.innerHeight - rect.top + panelGap);
-      setPanelPos({
-        bottom,
-        right,
-        width,
-        maxHeight: Math.max(160, window.innerHeight - bottom - gutter),
-      });
-      return;
-    }
-
     const top = rect.bottom + panelGap;
     setPanelPos({
       top,
@@ -399,7 +346,7 @@ export function DashboardAccountMenu({
       width,
       maxHeight: Math.max(160, window.innerHeight - top - gutter),
     });
-  }, [placement]);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -433,7 +380,6 @@ export function DashboardAccountMenu({
     <div
       className={cn(
         "relative min-w-0 flex-shrink-0",
-        mobileBottom && "w-full",
         className
       )}
     >
@@ -449,9 +395,7 @@ export function DashboardAccountMenu({
         aria-label={`Account menu for ${firstName}`}
         className={cn(
           "inline-flex min-w-0 items-center transition-colors focus:outline-none focus-visible:ring-2",
-          mobileBottom
-            ? "h-[calc(3.5rem+env(safe-area-inset-bottom))] w-full justify-center gap-2 bg-primary px-4 pb-[env(safe-area-inset-bottom)] text-white hover:bg-primary-light focus-visible:ring-inset focus-visible:ring-white"
-            : "h-9 flex-shrink-0 gap-1 rounded-lg border border-stone-200 bg-white px-1.5 text-primary shadow-sm hover:border-primary/30 hover:bg-surface focus-visible:ring-primary sm:gap-1.5 sm:pr-2"
+          "h-9 flex-shrink-0 gap-1 rounded-lg border border-stone-200 bg-white px-1.5 text-primary shadow-sm hover:border-primary/30 hover:bg-surface focus-visible:ring-primary sm:gap-1.5 sm:pr-2"
         )}
       >
         <DashboardAccountAvatar
@@ -461,9 +405,7 @@ export function DashboardAccountMenu({
         <span
           className={cn(
             "min-w-0 truncate font-semibold",
-            mobileBottom
-              ? "max-w-[7.5rem] flex-1 text-left text-sm"
-              : "hidden max-w-24 text-xs sm:block"
+            "hidden max-w-24 text-xs sm:block"
           )}
         >
           {firstName}
@@ -471,7 +413,7 @@ export function DashboardAccountMenu({
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 flex-shrink-0 transition-transform",
-            mobileBottom ? "text-white/75" : "text-primary/60",
+            "text-primary/60",
             open && "rotate-180"
           )}
           aria-hidden
@@ -489,7 +431,6 @@ export function DashboardAccountMenu({
             style={{
               position: "fixed",
               top: panelPos.top,
-              bottom: panelPos.bottom,
               right: panelPos.right,
               width: panelPos.width,
               maxHeight: panelPos.maxHeight,

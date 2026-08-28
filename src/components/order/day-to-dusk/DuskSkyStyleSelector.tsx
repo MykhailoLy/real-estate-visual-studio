@@ -69,7 +69,7 @@ export default function DuskSkyStyleSelector({
         role="radiogroup"
         aria-labelledby={`${idPrefix}-dusk-style-title`}
         aria-disabled={disabled || undefined}
-        className={`grid grid-cols-1 gap-5 sm:grid-cols-2 min-[1400px]:grid-cols-3 min-[1400px]:gap-6 ${
+        className={`grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 ${
           disabled ? "opacity-60" : ""
         }`}
       >
@@ -106,20 +106,20 @@ export default function DuskSkyStyleSelector({
                 <SelectorMediaTile
                   url={media?.url ?? null}
                   alt={media?.alt ?? `${style.label} dusk sky example`}
-                  sizes="(min-width: 1400px) 20vw, (min-width: 1280px) 26vw, (min-width: 1024px) 34vw, (min-width: 640px) 44vw, 92vw"
+                  sizes="(min-width: 1440px) 17vw, (min-width: 1024px) 22vw, (min-width: 768px) 45vw, 92vw"
                   rounded="rounded-none"
                 />
 
                 {selected && (
                   <span
-                    className="absolute left-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-white shadow"
+                    className="absolute left-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-white shadow"
                     aria-hidden
                   >
                     <Check className="h-4 w-4" strokeWidth={3} />
                   </span>
                 )}
 
-                <span className="flex flex-1 flex-col gap-1 px-4 py-4">
+                <span className="flex flex-1 flex-col gap-1 px-4 py-3.5">
                   <span
                     className={`text-base font-semibold leading-tight ${
                       selected ? "text-secondary-dark" : "text-foreground/90"
@@ -127,7 +127,7 @@ export default function DuskSkyStyleSelector({
                   >
                     {style.label}
                   </span>
-                  <span className="text-sm leading-5 text-muted">
+                  <span className="line-clamp-2 text-sm leading-5 text-muted">
                     {style.supportingText}
                   </span>
                 </span>
@@ -138,7 +138,7 @@ export default function DuskSkyStyleSelector({
                   type="button"
                   onClick={() => setActiveStyle(style)}
                   aria-label={`View ${style.label} example larger`}
-                  className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full border border-white/60 bg-primary/90 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+                  className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-white/60 bg-primary/90 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                 >
                   <Maximize2 className="h-4 w-4" aria-hidden />
                 </button>

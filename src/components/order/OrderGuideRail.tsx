@@ -12,6 +12,8 @@ interface OrderGuideRailProps {
   information?: React.ReactNode;
   /** Hide secondary information until very wide screens when space is tight. */
   deferInformation?: boolean;
+  /** Horizontal, lightweight presentation for tablet widths. */
+  variant?: "rail" | "compact";
 }
 
 /**
@@ -26,7 +28,47 @@ export default function OrderGuideRail({
   informationTitle = "Useful information",
   information,
   deferInformation = false,
+  variant = "rail",
 }: OrderGuideRailProps) {
+  if (variant === "compact") {
+    return (
+      <section
+        aria-label="Order guide"
+        className="border-y border-border bg-white/70 px-4 py-5 text-foreground sm:px-5"
+      >
+        <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+          {title}
+        </h2>
+        <ol className="mt-4 grid grid-cols-3 gap-4">
+          {steps.map((step, index) => (
+            <li key={`${step.title}-${index}`} className="min-w-0">
+              <span className="text-sm font-bold tabular-nums text-secondary-dark">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <h3 className="mt-1 text-sm font-bold uppercase tracking-[0.06em] text-primary">
+                {step.title}
+              </h3>
+              <p className="mt-1 text-sm leading-5 text-muted">
+                {step.description}
+              </p>
+            </li>
+          ))}
+        </ol>
+
+        {information != null && (
+          <details className="mt-4 border-t border-border pt-3">
+            <summary className="cursor-pointer text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+              {informationTitle}
+            </summary>
+            <div className="mt-3 space-y-2 text-sm leading-5 text-muted">
+              {information}
+            </div>
+          </details>
+        )}
+      </section>
+    );
+  }
+
   return (
     <aside aria-label="Order guide" className="text-foreground">
       <h2 className="text-[12px] font-bold uppercase tracking-[0.18em] text-primary">

@@ -70,9 +70,13 @@ test("configure uses the guide and local Review action while Review keeps one su
   assert.match(form, /if \(submittingRef\.current \|\| step !== "review"\) return/);
 });
 
-test("the reusable guide consumes no tablet or mobile width", () => {
-  assert.match(layout, /hidden min-w-0 xl:block/);
-  assert.match(layout, /minmax\(220px,260px\)/);
+test("the reusable guide uses a desktop rail and compact tablet block", () => {
+  assert.match(layout, /hidden min-w-0 lg:block/);
+  assert.match(layout, /hidden md:block lg:hidden/);
+  assert.match(layout, /minmax\(210px,230px\)/);
+  assert.match(form, /compactLeadingRail=\{compactGuide\}/);
+  assert.match(guide, /variant === "compact"/);
+  assert.match(guide, /<details/);
   assert.match(guide, /hidden min-\[1400px\]:block/);
 });
 
@@ -80,13 +84,13 @@ test("configure opts into the wide dashboard workspace while Review stays defaul
   assert.match(form, /workspaceVariant=\{isReview \? undefined : "wide"\}/);
   assert.match(layout, /workspaceVariant\?: "wide"/);
   assert.match(layout, /max-w-\[1800px\]/);
-  assert.match(layout, /minmax\(240px,270px\)/);
+  assert.match(layout, /minmax\(220px,240px\)/);
   assert.match(page, /max-w-\[1800px\]/);
 });
 
 test("each uploaded photo keeps one item-local responsive preview", () => {
   assert.match(itemCard, /presentationVariant="workspace"/);
-  assert.match(itemCard, /min-\[1700px\]:grid-cols-/);
+  assert.match(itemCard, /min-\[1440px\]:grid-cols-/);
   assert.match(itemCard, /Current photo/);
   assert.match(itemCard, /object-contain/);
   assert.match(itemCard, /loading="lazy"/);
@@ -96,7 +100,7 @@ test("each uploaded photo keeps one item-local responsive preview", () => {
 });
 
 test("wide configuration controls use intentional desktop grids", () => {
-  assert.match(itemCard, /min-\[1280px\]:grid-cols-3/);
+  assert.match(itemCard, /min-\[1180px\]:grid-cols-3/);
   assert.match(itemCard, /layoutVariant="desktop-columns"/);
   assert.match(deliveryFields, /lg:grid-cols-2/);
 });
@@ -104,8 +108,9 @@ test("wide configuration controls use intentional desktop grids", () => {
 test("sky cards are responsive and the zoom control is separate from selection", () => {
   assert.match(
     selector,
-    /grid-cols-1 gap-5 sm:grid-cols-2 min-\[1400px\]:grid-cols-3/,
+    /grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3/,
   );
+  assert.match(selector, /line-clamp-2/);
   assert.match(selector, /aria-label=\{`View \$\{style\.label\} example larger`\}/);
   assert.match(selector, /<ImageLightbox/);
   assert.match(selector, /variant="photo"/);

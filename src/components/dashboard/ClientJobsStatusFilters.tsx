@@ -7,21 +7,30 @@ import {
   type DashboardJobStatusFilter,
 } from "./job-status-filters";
 
-interface ClientDashboardMobileStatusFiltersProps {
+interface ClientJobsStatusFiltersProps {
   activeStatusFilter: DashboardJobStatusFilter;
   onStatusFilter: (status: DashboardJobStatusFilter) => void;
 }
 
-export default function ClientDashboardMobileStatusFilters({
+export default function ClientJobsStatusFilters({
   activeStatusFilter,
   onStatusFilter,
-}: ClientDashboardMobileStatusFiltersProps) {
+}: ClientJobsStatusFiltersProps) {
   return (
-    <div className="border-b border-border bg-white lg:hidden">
+    <section
+      aria-labelledby="jobs-status-filters-title"
+      className="mb-5 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4"
+    >
+      <h2
+        id="jobs-status-filters-title"
+        className="mb-2 px-1 text-xs font-bold uppercase tracking-[0.14em] text-primary"
+      >
+        Filter jobs by status
+      </h2>
       <div
         role="group"
         aria-label="Filter jobs by status"
-        className="flex gap-2 overflow-x-auto overscroll-x-contain px-4 py-3 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden"
+        className="flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {JOB_STATUS_FILTERS.map((filter) => {
           const active = activeStatusFilter === filter.value;
@@ -34,16 +43,16 @@ export default function ClientDashboardMobileStatusFilters({
               aria-pressed={active}
               onClick={() => onStatusFilter(filter.value)}
               className={cn(
-                "inline-flex min-h-9 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                "inline-flex min-h-10 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                 active
                   ? "border-primary bg-primary text-white shadow-sm"
-                  : "border-border bg-white text-foreground/70 hover:border-primary/40 hover:text-primary"
+                  : "border-border bg-white text-foreground/70 hover:border-primary/40 hover:text-primary",
               )}
             >
               <span
                 className={cn(
                   "h-2 w-2 flex-shrink-0 rounded-full",
-                  active ? "bg-white" : JOB_STATUS_DOT_CLASSES[filter.value]
+                  active ? "bg-white" : JOB_STATUS_DOT_CLASSES[filter.value],
                 )}
                 aria-hidden
               />
@@ -52,6 +61,6 @@ export default function ClientDashboardMobileStatusFilters({
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }
