@@ -14,8 +14,6 @@ interface OrderGuideRailProps {
   deferInformation?: boolean;
   /** Horizontal, lightweight presentation for tablet widths. */
   variant?: "rail" | "compact";
-  /** Whether to show numbers for steps. Defaults to true. */
-  numbered?: boolean;
 }
 
 /**
@@ -31,10 +29,8 @@ export default function OrderGuideRail({
   information,
   deferInformation = false,
   variant = "rail",
-  numbered = true,
 }: OrderGuideRailProps) {
   if (variant === "compact") {
-    const ListComponent = numbered ? "ol" : "ul";
     return (
       <section
         aria-label="Order guide"
@@ -43,29 +39,21 @@ export default function OrderGuideRail({
         <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
           {title}
         </h2>
-        <ListComponent className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <ol className="mt-4 grid grid-cols-3 gap-4">
           {steps.map((step, index) => (
-            <li key={`${step.title}-${index}`} className={cn("min-w-0", !numbered && "flex items-start gap-2")}>
-              {numbered ? (
-                <span className="text-sm font-bold tabular-nums text-secondary-dark">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-              ) : (
-                <span className="pt-2 text-primary shrink-0 flex justify-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary block" />
-                </span>
-              )}
-              <div>
-                <h3 className={cn("text-sm font-bold uppercase tracking-[0.06em] text-primary", numbered && "mt-1")}>
-                  {step.title}
-                </h3>
-                <p className="mt-1 text-sm leading-5 text-muted">
-                  {step.description}
-                </p>
-              </div>
+            <li key={`${step.title}-${index}`} className="min-w-0">
+              <span className="text-sm font-bold tabular-nums text-secondary-dark">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <h3 className="mt-1 text-sm font-bold uppercase tracking-[0.06em] text-primary">
+                {step.title}
+              </h3>
+              <p className="mt-1 text-sm leading-5 text-muted">
+                {step.description}
+              </p>
             </li>
           ))}
-        </ListComponent>
+        </ol>
 
         {information != null && (
           <details className="mt-4 border-t border-border pt-3">
@@ -81,32 +69,21 @@ export default function OrderGuideRail({
     );
   }
 
-  const ListComponent = numbered ? "ol" : "ul";
-
   return (
     <aside aria-label="Order guide" className="text-foreground">
       <h2 className="text-[12px] font-bold uppercase tracking-[0.18em] text-primary">
         {title}
       </h2>
 
-      <ListComponent className="mt-6 space-y-7">
+      <ol className="mt-6 space-y-7">
         {steps.map((step, index) => (
           <li key={`${step.title}-${index}`} className="grid grid-cols-[2rem_1fr] gap-3">
-            {numbered ? (
-              <span
-                aria-hidden
-                className="pt-0.5 text-sm font-bold tabular-nums text-secondary-dark"
-              >
-                {String(index + 1).padStart(2, "0")}
-              </span>
-            ) : (
-              <span
-                aria-hidden
-                className="pt-2.5 text-primary flex justify-center"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-primary block" />
-              </span>
-            )}
+            <span
+              aria-hidden
+              className="pt-0.5 text-sm font-bold tabular-nums text-secondary-dark"
+            >
+              {String(index + 1).padStart(2, "0")}
+            </span>
             <div className="min-w-0">
               <h3 className="text-sm font-bold uppercase tracking-[0.08em] text-primary">
                 {step.title}
@@ -117,7 +94,7 @@ export default function OrderGuideRail({
             </div>
           </li>
         ))}
-      </ListComponent>
+      </ol>
 
       {information != null && (
         <section
