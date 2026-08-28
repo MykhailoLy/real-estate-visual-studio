@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
-import { X } from "lucide-react";
+import { ImageIcon, X } from "lucide-react";
 import type { ServiceOptionMedia } from "@/lib/site-media";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
@@ -12,6 +12,8 @@ interface ExampleDialogProps {
   title: string;
   description: string;
   media?: ServiceOptionMedia | null;
+  /** Opt-in fallback for new flows whose admin media may not be populated yet. */
+  showMissingMediaPlaceholder?: boolean;
 }
 
 function PreviewImage({
@@ -43,13 +45,14 @@ function PreviewImage({
   );
 }
 
-/** Shared informational image dialog for furniture styles and add-ons. */
+/** Shared informational image dialog for order styles and options. */
 export default function ExampleDialog({
   open,
   onOpenChange,
   title,
   description,
   media,
+  showMissingMediaPlaceholder = false,
 }: ExampleDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -146,6 +149,13 @@ export default function ExampleDialog({
                 src={singleUrl}
                 alt={media?.altText?.trim() || `${title} example`}
               />
+            </div>
+          ) : showMissingMediaPlaceholder ? (
+            <div className="mx-auto flex aspect-[4/3] max-w-3xl flex-col items-center justify-center gap-2 rounded-xl border border-border bg-gradient-to-br from-primary/10 via-surface to-secondary/10 px-6 text-center text-muted-light">
+              <ImageIcon className="h-8 w-8" aria-hidden="true" />
+              <p className="text-xs font-semibold uppercase tracking-[0.14em]">
+                Example media coming soon
+              </p>
             </div>
           ) : null}
         </div>

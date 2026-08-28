@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Info, Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
+import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
-import OrderTermsBlock, {
+import {
   type OrderTermsData,
   emptyOrderTerms,
 } from "@/components/order/OrderTermsBlock";
@@ -16,7 +17,16 @@ import OrderJobTitleField, {
 import RenovationItemCard, {
   type RenovationItemData,
   emptyRenovationItem,
+  renovationItemDomId,
 } from "@/components/order/virtual-renovation/RenovationItemCard";
+import VirtualRenovationOverview from "@/components/order/virtual-renovation/VirtualRenovationOverview";
+import VirtualRenovationRequirements from "@/components/order/virtual-renovation/VirtualRenovationRequirements";
+import VirtualRenovationReview from "@/components/order/virtual-renovation/VirtualRenovationReview";
+import { useVirtualRenovationMedia } from "@/components/order/virtual-renovation/VirtualRenovationMediaContext";
+import {
+  getInitialVirtualRenovationScreen,
+  type VirtualRenovationScreen,
+} from "@/components/order/virtual-renovation/virtual-renovation-flow";
 import { useDisplayRegion } from "@/components/pricing/currency-client";
 import Container from "@/components/layout/Container";
 import { currencyForRegion } from "@/lib/currency";
@@ -60,6 +70,10 @@ import {
   type VirtualRenovationFormDraftSource,
 } from "@/lib/order-drafts/virtual-renovation";
 import { UuidSchema } from "@/lib/order-drafts/schema";
+import {
+  scrollDashboardToTop,
+  scrollElementIntoViewWithinDashboard,
+} from "@/lib/dashboard-scroll";
 
 interface VirtualRenovationOrderFormProps {
   clientEmail: string;
@@ -106,22 +120,12 @@ type FinalizationRecovery =
 
 const AUTOSAVE_DELAY_MS = 900;
 
-const PREPARATION_ITEMS = [
-  {
-    title: "Original photo",
-    description: "Use the highest-quality source image available.",
-  },
-  {
-    title: "Renovation brief",
-    description:
-      "Select the required renovation work and describe any specific changes.",
-  },
-  {
-    title: "References",
-    description:
-      "Add a reference image or link when it helps communicate materials, finishes or design direction.",
-  },
-] as const;
+const STEPS = [
+  { id: "configure", label: "Configure Order" },
+  { id: "review", label: "Review & Submit" },
+];
+
+const JOB_TITLE_CONTAINER_ID = "virtual-renovation-job-title";
 
 function fileSlotKey(
   clientItemId: string,
@@ -134,6 +138,7 @@ export default function VirtualRenovationOrderForm({
   clientEmail,
   orderRoute,
 }: VirtualRenovationOrderFormProps) {
+  const mediaByKey = useVirtualRenovationMedia();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedDraftId = searchParams.get("draft");
@@ -141,6 +146,10 @@ export default function VirtualRenovationOrderForm({
     !requestedDraftId || UuidSchema.safeParse(requestedDraftId).success;
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
+  const [screen, setScreen] = useState<VirtualRenovationScreen>(() =>
+    getInitialVirtualRenovationScreen(requestedDraftId),
+  );
+  const [configurationError, setConfigurationError] = useState("");
 
   const [items, setItems] = useState<RenovationItemData[]>([
     emptyRenovationItem(),
@@ -194,6 +203,11 @@ export default function VirtualRenovationOrderForm({
   const finalizationRetryContextRef =
     useRef<DraftFinalizationRetryContext | null>(null);
   const submissionInFlightRef = useRef(false);
+  const pendingScrollRef = useRef<
+    | { type: "top" }
+    | { type: "item"; clientItemId: string }
+    | null
+  >(null);
 
   const commitItems = useCallback((next: RenovationItemData[]) => {
     itemsRef.current = next;
@@ -226,6 +240,22 @@ export default function VirtualRenovationOrderForm({
   useEffect(() => {
     orderTermsRef.current = orderTerms;
   }, [orderTerms]);
+
+  useEffect(() => {
+    const pending = pendingScrollRef.current;
+    if (!pending) return;
+    pendingScrollRef.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      if (pending.type === "item") {
+        scrollElementIntoViewWithinDashboard(
+          renovationItemDomId(pending.clientItemId),
+        );
+      } else {
+        scrollDashboardToTop();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [screen]);
 
   const uploadedFilesBySlot = useMemo(() => {
     const indexed = new Map<string, OrderDraftUploadedFileSummary>();
@@ -552,6 +582,7 @@ export default function VirtualRenovationOrderForm({
           readStoredFinalizationRetryContext(result.data.id);
         finalizationRetryContextRef.current = storedFinalization;
         setFinalizationRetryContext(storedFinalization);
+        setScreen(storedFinalization ? "review" : "configure");
         setSaveStatus("saved");
         setResumeState("ready");
       },
@@ -1044,10 +1075,25 @@ export default function VirtualRenovationOrderForm({
   );
 
   const handleSubmit = async () => {
-    if (submissionInFlightRef.current) return;
+    if (
+      screen !== "review" ||
+      submissionInFlightRef.current ||
+      isSubmitting ||
+      hasActiveFileOperation
+    ) {
+      return;
+    }
     const retry = finalizationRetryContextRef.current;
     if (retry) {
       await submitWithContext(retry);
+      return;
+    }
+    if (!configurationValid) {
+      setSubmitError("Return to Edit and complete every required order field.");
+      return;
+    }
+    if (!orderTermsRef.current.accepted) {
+      setSubmitError("Accept the terms before submitting your order.");
       return;
     }
     const saved = await enqueueDraftSave(buildDraftSource(), true);
@@ -1118,6 +1164,7 @@ export default function VirtualRenovationOrderForm({
     setOrderNumber("");
     setConfirmationEmailSent(false);
     setSubmitError("");
+    setConfigurationError("");
     setDraftError("");
     setFinalizationRecovery(null);
     setDraftId(reset.draftId);
@@ -1128,6 +1175,8 @@ export default function VirtualRenovationOrderForm({
     failedFingerprintRef.current = null;
     setSaveStatus(reset.saveStatus);
     setResumeState("ready");
+    pendingScrollRef.current = { type: "top" };
+    setScreen("overview");
     replaceDraftUrl(reset.nextSearch);
   }, [
     clearFinalizationRetryContext,
@@ -1147,20 +1196,101 @@ export default function VirtualRenovationOrderForm({
       (item.selectedInternal.length > 0 || item.selectedExternal.length > 0) &&
       uploadedFilesBySlot.has(fileSlotKey(item.clientItemId, "original")),
   );
-  const canSubmit =
+  const isReview = screen === "review";
+  const hasFinalizationRetryContext = finalizationRetryContext !== null;
+  const configurationValid =
     items.length > 0 &&
     allItemsValid &&
-    orderTerms.accepted &&
     isJobTitleValid(jobTitle) &&
     !hasActiveFileOperation &&
     saveStatus !== "conflict" &&
     resumeState === "ready";
+  const canReview =
+    !hasActiveFileOperation &&
+    !isSubmitting &&
+    !hasFinalizationRetryContext &&
+    saveStatus !== "conflict" &&
+    resumeState === "ready";
+  const canSubmit =
+    isReview &&
+    !hasActiveFileOperation &&
+    !isSubmitting &&
+    (hasFinalizationRetryContext ||
+      (configurationValid && orderTerms.accepted));
   const editsDisabled = isSubmitting || finalizationRetryContext !== null;
   const startNewDisabled =
     editsDisabled || hasActiveFileOperation || saveStatus === "saving";
   const summaryItems: SummaryItem[] = items.map((item, index) => ({
     label: item.room || `Image #${index + 1}`,
   }));
+
+  const goToReview = async () => {
+    if (!canReview) return;
+    setSubmitError("");
+
+    if (!isJobTitleValid(jobTitle)) {
+      setConfigurationError("Add a valid Job Title before reviewing the order.");
+      window.requestAnimationFrame(() =>
+        scrollElementIntoViewWithinDashboard(JOB_TITLE_CONTAINER_ID),
+      );
+      return;
+    }
+
+    const incompleteItem = items.find(
+      (item) =>
+        item.file !== null ||
+        item.referenceFile !== null ||
+        item.room === "" ||
+        (item.selectedInternal.length === 0 &&
+          item.selectedExternal.length === 0) ||
+        !uploadedFilesBySlot.has(fileSlotKey(item.clientItemId, "original")),
+    );
+    if (incompleteItem) {
+      setConfigurationError(
+        "For every image, finish saving the original photo, choose a room and select at least one renovation option.",
+      );
+      window.requestAnimationFrame(() =>
+        scrollElementIntoViewWithinDashboard(
+          renovationItemDomId(incompleteItem.clientItemId),
+        ),
+      );
+      return;
+    }
+
+    setConfigurationError("");
+    const saved = await enqueueDraftSave(buildDraftSource(), true);
+    if (!saved) {
+      setSubmitError("Save the draft successfully before reviewing the order.");
+      return;
+    }
+
+    pendingScrollRef.current = { type: "top" };
+    setScreen("review");
+  };
+
+  const goToConfigureTop = () => {
+    if (isSubmitting || hasFinalizationRetryContext) return;
+    setConfigurationError("");
+    pendingScrollRef.current = { type: "top" };
+    setScreen("configure");
+  };
+
+  const handleEditItem = (index: number) => {
+    if (isSubmitting || hasFinalizationRetryContext) return;
+    const item = itemsRef.current[index];
+    if (!item) return;
+    setConfigurationError("");
+    pendingScrollRef.current = {
+      type: "item",
+      clientItemId: item.clientItemId,
+    };
+    setScreen("configure");
+  };
+
+  const handleStartFromOverview = () => {
+    pendingScrollRef.current = { type: "top" };
+    setScreen("configure");
+  };
 
   if (submitted) {
     return (
@@ -1263,205 +1393,257 @@ export default function VirtualRenovationOrderForm({
     );
   }
 
+  if (screen === "overview") {
+    return (
+      <VirtualRenovationOverview
+        mediaByKey={mediaByKey}
+        onStart={handleStartFromOverview}
+      />
+    );
+  }
+
   return (
     <OrderLayout
       title="Virtual Renovation"
-      subtitle="Select renovation options for each image. Price is calculated based on your selections."
+      subtitle="Select the renovation work required for each image and provide clear instructions or references."
+      header={<OrderStepIndicator steps={STEPS} currentStepId={screen} />}
       sidebar={
-        <OrderSummary
-          serviceName="Virtual Renovation"
-          items={summaryItems}
-          pricingInput={{
-            serviceType: "virtual-renovation",
-            items: items.map((item) => ({
-              selectedInternal: item.selectedInternal,
-              selectedExternal: item.selectedExternal,
-            })),
-          }}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          canSubmit={canSubmit || finalizationRetryContext !== null}
-          submitLabel={
-            finalizationRetryContext ? "Retry submission" : undefined
-          }
-        />
+        isReview ? (
+          <OrderSummary
+            serviceName="Virtual Renovation"
+            items={summaryItems}
+            pricingInput={{
+              serviceType: "virtual-renovation",
+              items: items.map((item) => ({
+                selectedInternal: item.selectedInternal,
+                selectedExternal: item.selectedExternal,
+              })),
+            }}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+            canSubmit={canSubmit}
+            submitLabel={
+              hasFinalizationRetryContext ? "Retry submission" : undefined
+            }
+            submittingLabel={
+              hasFinalizationRetryContext
+                ? "Retrying submission..."
+                : "Creating order..."
+            }
+            submitHelper={
+              hasActiveFileOperation ? (
+                <p role="status">Wait for file operations to finish.</p>
+              ) : !orderTerms.accepted && !hasFinalizationRetryContext ? (
+                <p role="status">Accept the terms before submitting.</p>
+              ) : null
+            }
+          />
+        ) : (
+          <div className="hidden xl:block">
+            <VirtualRenovationRequirements />
+          </div>
+        )
       }
-      editorial
-      workspaceVariant="wide"
+      editorial={!isReview}
+      workspaceVariant={isReview ? undefined : "wide"}
     >
-      {submitError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {submitError}
-        </div>
-      ) : null}
-
-      {draftError ? (
-        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {draftError}
-          {saveStatus === "conflict" ? (
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="ml-2 font-semibold underline"
-            >
-              Reload latest
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="flex min-h-5 flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted" aria-live="polite">
-          {saveStatus === "saving"
-            ? "Saving draft..."
-            : saveStatus === "saved"
-              ? "Draft saved"
-              : saveStatus === "save_failed"
-                ? "Draft not saved"
-                : saveStatus === "conflict"
-                  ? "Draft conflict"
-                  : ""}
-        </p>
-        {draftId !== null ? (
-          <button
-            type="button"
-            onClick={startNewOrder}
-            disabled={startNewDisabled}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Start New
-          </button>
-        ) : null}
-      </div>
-
-      <fieldset disabled={editsDisabled} className="contents">
-        <OrderJobTitleField
-          value={jobTitle}
-          onChange={(value) => {
-            jobTitleRef.current = value;
-            setJobTitle(value);
-          }}
-          comfortable
-        />
-
-        <PreparationInformation />
-
-        <div className="flex gap-3 rounded-xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-sm leading-6 text-amber-900">
-          <Info className="mt-1 h-4 w-4 flex-shrink-0" aria-hidden="true" />
-          <p className="max-w-4xl">
-            Some renovation edits may require custom review if the image involves
-            major reconstruction or unclear source material. We will confirm the
-            final price before starting.
-          </p>
-        </div>
-
-        <div className="space-y-5">
-        {items.map((item, index) => {
-          const originalKey = fileSlotKey(item.clientItemId, "original");
-          const referenceKey = fileSlotKey(item.clientItemId, "reference");
-          const originalOperation = fileOperations[originalKey];
-          const referenceOperation = fileOperations[referenceKey];
-          return (
-            <RenovationItemCard
-              key={item.clientItemId}
-              index={index}
-              data={item}
-              onChange={(data) => handleItemChange(item.clientItemId, data)}
-              onRemove={() => void handleRemoveItem(item.clientItemId)}
-              canRemove={items.length > 1}
-              persistedOriginal={uploadedFilesBySlot.get(originalKey)}
-              persistedReference={uploadedFilesBySlot.get(referenceKey)}
-              onOriginalFileChange={(file) =>
-                handleFileChange(item.clientItemId, "original", file)
-              }
-              onReferenceFileChange={(file) =>
-                handleFileChange(item.clientItemId, "reference", file)
-              }
-              onRemovePersistedOriginal={() =>
-                void handleRemovePersistedFile(item.clientItemId, "original")
-              }
-              onRemovePersistedReference={() =>
-                void handleRemovePersistedFile(item.clientItemId, "reference")
-              }
-              originalOperationStatus={
-                originalOperation?.phase !== "error"
-                  ? originalOperation?.message
-                  : undefined
-              }
-              originalOperationError={originalOperation?.error || undefined}
-              referenceOperationStatus={
-                referenceOperation?.phase !== "error"
-                  ? referenceOperation?.message
-                  : undefined
-              }
-              referenceOperationError={referenceOperation?.error || undefined}
-              onRetryOriginal={
-                originalOperation?.error
-                  ? () => handleRetryFile(item.clientItemId, "original")
-                  : undefined
-              }
-              onRetryReference={
-                referenceOperation?.error
-                  ? () => handleRetryFile(item.clientItemId, "reference")
-                  : undefined
-              }
-              fileOperationDisabled={
-                editsDisabled ||
-                (Boolean(originalOperation) && originalOperation?.phase !== "error") ||
-                (Boolean(referenceOperation) && referenceOperation?.phase !== "error")
-              }
-            />
-          );
-        })}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleAddItem}
-          disabled={hasActiveFileOperation || editsDisabled}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-base font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus className="h-5 w-5" aria-hidden="true" />
-          Add Another Image
-        </button>
-
-        <OrderTermsBlock
-          data={orderTerms}
-          onChange={(next) => {
+      {isReview ? (
+        <VirtualRenovationReview
+          jobTitle={jobTitle}
+          items={items}
+          uploadedFilesBySlot={uploadedFilesBySlot}
+          orderTerms={orderTerms}
+          onTermsChange={(next) => {
             orderTermsRef.current = next;
             setOrderTerms(next);
           }}
+          onEditItem={handleEditItem}
+          onBack={goToConfigureTop}
+          submitError={submitError}
+          disabled={editsDisabled}
         />
-      </fieldset>
-    </OrderLayout>
-  );
-}
-
-function PreparationInformation() {
-  return (
-    <section
-      aria-labelledby="virtual-renovation-preparation-title"
-      className="rounded-xl border border-border bg-white/70 px-4 py-4 sm:px-5"
-    >
-      <h2
-        id="virtual-renovation-preparation-title"
-        className="text-xs font-semibold uppercase tracking-[0.14em] text-primary"
-      >
-        What we need
-      </h2>
-      <div className="mt-4 grid gap-4 lg:grid-cols-3 lg:divide-x lg:divide-border">
-        {PREPARATION_ITEMS.map((item) => (
-          <div key={item.title} className="min-w-0 lg:px-5 lg:first:pl-0 lg:last:pr-0">
-            <h3 className="text-[15px] font-semibold text-foreground">
-              {item.title}
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted">
-              {item.description}
-            </p>
+      ) : (
+        <>
+          <div className="xl:hidden">
+            <VirtualRenovationRequirements compact />
           </div>
-        ))}
-      </div>
-    </section>
+
+          {submitError ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            >
+              {submitError}
+            </div>
+          ) : null}
+
+          {draftError ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+            >
+              {draftError}
+              {saveStatus === "conflict" ? (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="ml-2 font-semibold underline"
+                >
+                  Reload latest
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex min-h-5 flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted" aria-live="polite">
+              {saveStatus === "saving"
+                ? "Saving draft..."
+                : saveStatus === "saved"
+                  ? "Draft saved"
+                  : saveStatus === "save_failed"
+                    ? "Draft not saved"
+                    : saveStatus === "conflict"
+                      ? "Draft conflict"
+                      : ""}
+            </p>
+            {draftId !== null ? (
+              <button
+                type="button"
+                onClick={startNewOrder}
+                disabled={startNewDisabled}
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Start New
+              </button>
+            ) : null}
+          </div>
+
+          <fieldset disabled={editsDisabled} className="contents">
+            <OrderJobTitleField
+              value={jobTitle}
+              onChange={(value) => {
+                jobTitleRef.current = value;
+                setJobTitle(value);
+              }}
+              containerId={JOB_TITLE_CONTAINER_ID}
+              comfortable
+            />
+
+            <div className="space-y-5">
+              {items.map((item, index) => {
+                const originalKey = fileSlotKey(item.clientItemId, "original");
+                const referenceKey = fileSlotKey(item.clientItemId, "reference");
+                const originalOperation = fileOperations[originalKey];
+                const referenceOperation = fileOperations[referenceKey];
+                return (
+                  <RenovationItemCard
+                    key={item.clientItemId}
+                    index={index}
+                    data={item}
+                    onChange={(data) =>
+                      handleItemChange(item.clientItemId, data)
+                    }
+                    onRemove={() => void handleRemoveItem(item.clientItemId)}
+                    canRemove={items.length > 1}
+                    persistedOriginal={uploadedFilesBySlot.get(originalKey)}
+                    persistedReference={uploadedFilesBySlot.get(referenceKey)}
+                    onOriginalFileChange={(file) =>
+                      handleFileChange(item.clientItemId, "original", file)
+                    }
+                    onReferenceFileChange={(file) =>
+                      handleFileChange(item.clientItemId, "reference", file)
+                    }
+                    onRemovePersistedOriginal={() =>
+                      void handleRemovePersistedFile(
+                        item.clientItemId,
+                        "original",
+                      )
+                    }
+                    onRemovePersistedReference={() =>
+                      void handleRemovePersistedFile(
+                        item.clientItemId,
+                        "reference",
+                      )
+                    }
+                    originalOperationStatus={
+                      originalOperation?.phase !== "error"
+                        ? originalOperation?.message
+                        : undefined
+                    }
+                    originalOperationError={
+                      originalOperation?.error || undefined
+                    }
+                    referenceOperationStatus={
+                      referenceOperation?.phase !== "error"
+                        ? referenceOperation?.message
+                        : undefined
+                    }
+                    referenceOperationError={
+                      referenceOperation?.error || undefined
+                    }
+                    onRetryOriginal={
+                      originalOperation?.error
+                        ? () =>
+                            handleRetryFile(item.clientItemId, "original")
+                        : undefined
+                    }
+                    onRetryReference={
+                      referenceOperation?.error
+                        ? () =>
+                            handleRetryFile(item.clientItemId, "reference")
+                        : undefined
+                    }
+                    fileOperationDisabled={
+                      editsDisabled ||
+                      (Boolean(originalOperation) &&
+                        originalOperation?.phase !== "error") ||
+                      (Boolean(referenceOperation) &&
+                        referenceOperation?.phase !== "error")
+                    }
+                    exampleMediaByKey={mediaByKey}
+                  />
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddItem}
+              disabled={hasActiveFileOperation || editsDisabled}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-base font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-5 w-5" aria-hidden="true" />
+              Add Another Image
+            </button>
+          </fieldset>
+
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 text-sm leading-6 text-muted">
+              {configurationError ? (
+                <p role="alert" className="font-medium text-red-700">
+                  {configurationError}
+                </p>
+              ) : (
+                <p>
+                  Next, review every image, selection and the full estimated
+                  order total before submitting.
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => void goToReview()}
+              disabled={!canReview}
+              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
+            >
+              Review Order
+              <ArrowRight className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+        </>
+      )}
+    </OrderLayout>
   );
 }
 

@@ -6,7 +6,7 @@ import {
   type DaySkyStyleId,
 } from "@/lib/image-enhancement";
 import type { ServiceOptionMedia } from "@/lib/site-media";
-import SelectorMediaTile from "./SelectorMediaTile";
+import SelectorMediaTile from "@/components/order/SelectorMediaTile";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
 // ============================================================

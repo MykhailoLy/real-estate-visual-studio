@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Info, Trash2 } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
-import ExampleDialog from "@/components/order/virtual-staging/ExampleDialog";
+import ExampleDialog from "@/components/order/ExampleDialog";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";

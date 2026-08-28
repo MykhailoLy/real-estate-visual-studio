@@ -3,7 +3,7 @@ import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import Container from "@/components/layout/Container";
 import { IMAGE_ENHANCEMENT_TYPES } from "@/lib/image-enhancement";
 import { getServiceOptionImagesByKeys } from "@/lib/site-media";
-import SelectorMediaTile from "./SelectorMediaTile";
+import SelectorMediaTile from "@/components/order/SelectorMediaTile";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
 
 // ============================================================

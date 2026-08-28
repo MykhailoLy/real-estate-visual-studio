@@ -10,8 +10,12 @@ const stagingItemSource = readFileSync(
   new URL("./StagingItemCard.tsx", import.meta.url),
   "utf8",
 );
+const singleExposureItemSource = readFileSync(
+  new URL("../image-enhancement/SingleExposureItemCard.tsx", import.meta.url),
+  "utf8",
+);
 const exampleDialogSource = readFileSync(
-  new URL("./ExampleDialog.tsx", import.meta.url),
+  new URL("../ExampleDialog.tsx", import.meta.url),
   "utf8",
 );
 const orderFormSource = readFileSync(
@@ -55,6 +59,20 @@ test("closing the shared informational dialog has no form mutation contract", ()
     /selectedAddons|furnitureStyle|onSelect|onFormChange/,
   );
   assert.match(exampleDialogSource, /const close = \(\) => onOpenChange\(false\)/);
+});
+
+test("existing Virtual Staging dialogs keep the pre-extraction no-media behavior", () => {
+  assert.match(
+    exampleDialogSource,
+    /showMissingMediaPlaceholder = false/,
+  );
+  assert.match(
+    exampleDialogSource,
+    /\) : showMissingMediaPlaceholder \? \([\s\S]*?Example media coming soon[\s\S]*?\) : null\}/,
+  );
+  assert.doesNotMatch(styleSelectorSource, /showMissingMediaPlaceholder/);
+  assert.doesNotMatch(stagingItemSource, /showMissingMediaPlaceholder/);
+  assert.doesNotMatch(singleExposureItemSource, /showMissingMediaPlaceholder/);
 });
 
 test("Review Order transitions steps while final Submit Order owns submission", () => {
