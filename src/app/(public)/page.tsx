@@ -211,7 +211,10 @@ export default async function HomePage() {
       {/* 6. How It Works. */}
       <HowItWorksDetailed />
 
-      {/* 7. About PicchuSpot — collage + narrative. The media query is\n          intentionally streamed behind a stable, same-size fallback so it\n          cannot delay the hero HTML or create layout shift. */}\n      <Suspense fallback={<AboutPicchuSpot />}>
+      {/* 7. About PicchuSpot — collage + narrative. The media query is
+          intentionally streamed behind a stable, same-size fallback so it
+          cannot delay the hero HTML or create layout shift. */}
+      <Suspense fallback={<AboutPicchuSpot />}>
         <AboutPicchuSpotWithMedia />
       </Suspense>
 
