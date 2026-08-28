@@ -106,6 +106,23 @@ type FinalizationRecovery =
 
 const AUTOSAVE_DELAY_MS = 900;
 
+const PREPARATION_ITEMS = [
+  {
+    title: "Original photo",
+    description: "Use the highest-quality source image available.",
+  },
+  {
+    title: "Renovation brief",
+    description:
+      "Select the required renovation work and describe any specific changes.",
+  },
+  {
+    title: "References",
+    description:
+      "Add a reference image or link when it helps communicate materials, finishes or design direction.",
+  },
+] as const;
+
 function fileSlotKey(
   clientItemId: string,
   kind: "original" | "reference",
@@ -1269,6 +1286,8 @@ export default function VirtualRenovationOrderForm({
           }
         />
       }
+      editorial
+      workspaceVariant="wide"
     >
       {submitError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -1322,11 +1341,14 @@ export default function VirtualRenovationOrderForm({
             jobTitleRef.current = value;
             setJobTitle(value);
           }}
+          comfortable
         />
 
-        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <Info className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
-          <p>
+        <PreparationInformation />
+
+        <div className="flex gap-3 rounded-xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-sm leading-6 text-amber-900">
+          <Info className="mt-1 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <p className="max-w-4xl">
             Some renovation edits may require custom review if the image involves
             major reconstruction or unclear source material. We will confirm the
             final price before starting.
@@ -1397,9 +1419,9 @@ export default function VirtualRenovationOrderForm({
           type="button"
           onClick={handleAddItem}
           disabled={hasActiveFileOperation || editsDisabled}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-3 text-sm font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-base font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Plus className="h-4 w-4" aria-hidden="true" />
+          <Plus className="h-5 w-5" aria-hidden="true" />
           Add Another Image
         </button>
 
@@ -1412,6 +1434,34 @@ export default function VirtualRenovationOrderForm({
         />
       </fieldset>
     </OrderLayout>
+  );
+}
+
+function PreparationInformation() {
+  return (
+    <section
+      aria-labelledby="virtual-renovation-preparation-title"
+      className="rounded-xl border border-border bg-white/70 px-4 py-4 sm:px-5"
+    >
+      <h2
+        id="virtual-renovation-preparation-title"
+        className="text-xs font-semibold uppercase tracking-[0.14em] text-primary"
+      >
+        What we need
+      </h2>
+      <div className="mt-4 grid gap-4 lg:grid-cols-3 lg:divide-x lg:divide-border">
+        {PREPARATION_ITEMS.map((item) => (
+          <div key={item.title} className="min-w-0 lg:px-5 lg:first:pl-0 lg:last:pr-0">
+            <h3 className="text-[15px] font-semibold text-foreground">
+              {item.title}
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              {item.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

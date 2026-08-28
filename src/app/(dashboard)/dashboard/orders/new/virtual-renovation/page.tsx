@@ -15,7 +15,7 @@ const ORDER_ROUTE = "/dashboard/orders/new/virtual-renovation";
 export default async function NewVirtualRenovationOrderPage() {
   const { email } = await requireOrderingClient(ORDER_ROUTE);
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
       <VirtualRenovationOrderForm clientEmail={email} orderRoute={ORDER_ROUTE} />
     </ClientDashboardLayout>
   );
