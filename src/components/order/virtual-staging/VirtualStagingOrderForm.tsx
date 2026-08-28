@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Plus, RotateCcw } from "lucide-react";
+import { ArrowRight, Plus, RotateCcw } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
+import OrderGuideRail, {
+  type OrderGuideStep,
+} from "@/components/order/OrderGuideRail";
 import OrderStepIndicator, {
   type OrderStep,
 } from "@/components/order/OrderStepIndicator";
@@ -248,6 +251,23 @@ type VirtualStagingFormStep = "configure" | "review";
 const STEPS: OrderStep[] = [
   { id: "configure", label: "Configure Order" },
   { id: "review", label: "Review & Submit" },
+];
+
+const VIRTUAL_STAGING_GUIDE_STEPS: OrderGuideStep[] = [
+  {
+    title: "Upload",
+    description: "Upload the original photo for each empty or furnished room.",
+  },
+  {
+    title: "Configure",
+    description:
+      "Choose one order-wide furniture style, then adjust each image as needed.",
+  },
+  {
+    title: "Review",
+    description:
+      "Review every image, selection and estimated total before submitting.",
+  },
 ];
 
 const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
@@ -2808,6 +2828,38 @@ export default function VirtualStagingOrderForm({
     );
   }
 
+  const guideInformation = (
+    <>
+      <p>
+        Upload the highest-quality original available for the most realistic
+        result.
+      </p>
+      <p>
+        Choose one furniture style for the order, then use per-image overrides
+        only where a room needs a different direction.
+      </p>
+      <p>
+        Reference links and files are optional. Add them when they clarify the
+        layout, furniture or visual direction you want.
+      </p>
+    </>
+  );
+
+  const guide = !isReview ? (
+    <OrderGuideRail
+      steps={VIRTUAL_STAGING_GUIDE_STEPS}
+      information={guideInformation}
+    />
+  ) : undefined;
+
+  const compactGuide = !isReview ? (
+    <OrderGuideRail
+      steps={VIRTUAL_STAGING_GUIDE_STEPS}
+      information={guideInformation}
+      variant="compact"
+    />
+  ) : undefined;
+
   return (
     <OrderLayout
       title="Virtual Staging"
@@ -2853,56 +2905,12 @@ export default function VirtualStagingOrderForm({
               ) : null
             }
           />
-        ) : (
-          <OrderSummary
-            serviceName="Virtual Staging"
-            items={summaryItems}
-            pricingInput={{
-              serviceType: "virtual-staging",
-              items: items.map((item) => ({
-                selectedAddons: item.selectedAddons,
-              })),
-            }}
-            onSubmit={goToReview}
-            isSubmitting={false}
-            canSubmit={canReview}
-            submitLabel="Review Order"
-            footerNote="No payment now. You'll confirm your order on the next step."
-            submitHelper={
-              hasActiveDraftFileOperation ? (
-                <p role="status">{copy.waitForImages}</p>
-              ) : validationAttempted &&
-                configurationMissingRequiredFields.length > 0 ? (
-                <div aria-live="polite">
-                  <p className="font-medium text-foreground">
-                    {copy.incompleteFields(
-                      configurationMissingRequiredFields.length,
-                    )}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5">
-                    {configurationMissingRequiredFields.map((field, index) => (
-                      <span key={`${field.kind}-${field.clientItemId ?? "order"}`}>
-                        {index > 0 && (
-                          <span className="mr-1" aria-hidden>
-                            {"\u00b7"}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => focusRequiredField(field.targetId)}
-                          className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 hover:text-primary-light"
-                        >
-                          {field.summaryLabel}
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null
-            }
-          />
-        )
+        ) : undefined
       }
+      leadingRail={guide}
+      compactLeadingRail={compactGuide}
+      editorial={!isReview}
+      workspaceVariant={isReview ? undefined : "wide"}
     >
       {isReview ? (
         <VirtualStagingReview
@@ -3029,19 +3037,20 @@ export default function VirtualStagingOrderForm({
         containerId={JOB_TITLE_REQUIRED_FIELD_ID}
         errorMessage={copy.jobTitleRequired}
         disabled={hasFinalizationRetryContext || isSubmitting}
+        comfortable
       />
 
-      <section className="rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+      <section className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
         <h2
           id={globalStyleLabelId}
-          className="text-sm font-semibold text-foreground"
+          className="text-lg font-semibold text-primary sm:text-xl"
         >
           Furniture Style for Entire Order{" "}
           <span className="text-red-500">*</span>
         </h2>
         <p
           id={globalStyleHelperId}
-          className="mb-4 mt-1 text-xs leading-5 text-muted"
+          className="mb-5 mt-2 text-sm leading-6 text-muted"
         >
           Select a default style for all images. You can override it for an
           individual image below.
@@ -3057,7 +3066,7 @@ export default function VirtualStagingOrderForm({
         />
       </section>
 
-      <div className="space-y-5">
+      <div className="space-y-7">
         {items.map((item, index) => {
           const originalSlotKey = buildVirtualStagingDraftFileSlotKey(
             item.clientItemId,
@@ -3176,11 +3185,60 @@ export default function VirtualStagingOrderForm({
         type="button"
         onClick={handleAddItem}
         disabled={hasFinalizationRetryContext || isSubmitting}
-        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted hover:text-primary hover:border-primary/40 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-base font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Plus className="w-4 h-4" />
+        <Plus className="h-5 w-5" aria-hidden />
         Add Another Image
       </button>
+
+      <div className="flex flex-col gap-4 border-t border-border pt-7 sm:flex-row sm:items-start sm:justify-between">
+        <div className="max-w-2xl text-sm leading-6 text-muted">
+          {hasActiveDraftFileOperation ? (
+            <p role="status">{copy.waitForImages}</p>
+          ) : validationAttempted &&
+            configurationMissingRequiredFields.length > 0 ? (
+            <div aria-live="polite">
+              <p className="font-medium text-foreground">
+                {copy.incompleteFields(
+                  configurationMissingRequiredFields.length,
+                )}
+              </p>
+              <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5">
+                {configurationMissingRequiredFields.map((field, index) => (
+                  <span key={`${field.kind}-${field.clientItemId ?? "order"}`}>
+                    {index > 0 && (
+                      <span className="mr-1" aria-hidden>
+                        {"\u00b7"}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => focusRequiredField(field.targetId)}
+                      className="font-semibold text-primary underline decoration-primary/30 underline-offset-2 hover:text-primary-light"
+                    >
+                      {field.summaryLabel}
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p>
+              Next, review every image, selection and the full estimated order
+              total before submitting.
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={goToReview}
+          disabled={!canReview}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
+        >
+          Review Order
+          <ArrowRight className="h-5 w-5" aria-hidden />
+        </button>
+      </div>
         </>
       )}
       <ApplyStyleConfirmationDialog

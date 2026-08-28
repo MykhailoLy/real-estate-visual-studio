@@ -58,14 +58,55 @@ test("closing the shared informational dialog has no form mutation contract", ()
 });
 
 test("Review Order transitions steps while final Submit Order owns submission", () => {
-  const reviewAction = orderFormSource.indexOf("onSubmit={goToReview}");
-  const reviewLabel = orderFormSource.indexOf('submitLabel="Review Order"');
+  const reviewAction = orderFormSource.indexOf("onClick={goToReview}");
+  const reviewLabel = orderFormSource.indexOf("Review Order", reviewAction);
   const finalAction = orderFormSource.indexOf("onSubmit={handleSubmit}");
 
   assert.ok(reviewAction > -1);
   assert.ok(reviewLabel > reviewAction);
   assert.ok(finalAction > -1);
   assert.notEqual(reviewAction, finalAction);
+});
+
+test("configure uses the wide guided workspace without an order summary", () => {
+  assert.match(orderFormSource, /leadingRail=\{guide\}/);
+  assert.match(orderFormSource, /compactLeadingRail=\{compactGuide\}/);
+  assert.match(
+    orderFormSource,
+    /workspaceVariant=\{isReview \? undefined : "wide"\}/,
+  );
+  assert.match(orderFormSource, /sidebar=\{\s*isReview \? \(/);
+  assert.match(orderFormSource, /editorial=\{!isReview\}/);
+  assert.doesNotMatch(orderFormSource, /onSubmit=\{goToReview\}/);
+  assert.equal(orderFormSource.match(/<OrderSummary/g)?.length, 1);
+});
+
+test("style selector uses compact responsive cards and preserves media behavior", () => {
+  assert.match(styleSelectorSource, /grid-cols-2/);
+  assert.match(styleSelectorSource, /md:grid-cols-3/);
+  assert.match(styleSelectorSource, /lg:grid-cols-4/);
+  assert.match(styleSelectorSource, /min-\[1600px\]:grid-cols-5/);
+  assert.match(styleSelectorSource, /aspect-\[3\/2\]/);
+  assert.match(styleSelectorSource, /loading="lazy"/);
+  assert.match(styleSelectorSource, /<ExampleDialog/);
+});
+
+test("each image owns its original preview without introducing form image state", () => {
+  assert.match(stagingItemSource, /URL\.createObjectURL\(data\.file\)/);
+  assert.match(stagingItemSource, /uploadedOriginalFile\?\.previewUrl/);
+  assert.match(stagingItemSource, /presentationVariant="workspace"/);
+  assert.match(stagingItemSource, /inputId=\{uploadInputId\}/);
+  assert.match(stagingItemSource, /min-\[1600px\]:grid-cols/);
+  assert.doesNotMatch(orderFormSource, /activeImage|activePreview/);
+});
+
+test("comfortable fields and compact wide add-ons remain item-local", () => {
+  assert.match(stagingItemSource, /layoutVariant="desktop-columns"/);
+  assert.match(stagingItemSource, /<ReferenceFilesUploader[\s\S]*?comfortable/);
+  assert.match(stagingItemSource, /rows=\{3\}/);
+  assert.match(stagingItemSource, /grid gap-3 xl:grid-cols-2/);
+  assert.match(stagingItemSource, /calculateStagingItemTotal/);
+  assert.match(stagingItemSource, /getCatalogPrice\(addon\.priceKey, currency\)/);
 });
 
 test("draft query changes synchronize through Next-compatible native history", () => {

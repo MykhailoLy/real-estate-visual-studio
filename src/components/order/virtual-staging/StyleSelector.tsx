@@ -53,7 +53,7 @@ export default function StyleSelector({
         aria-label={ariaLabelledBy ? undefined : "Furniture style for entire order"}
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid || undefined}
-        className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-5"
+        className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 min-[1600px]:grid-cols-5"
       >
         {STAGING_STYLE_CARDS.map((card, index) => (
           <StyleCard
@@ -134,14 +134,14 @@ function StyleCard({
         onClick={onSelect}
         className="flex h-full w-full flex-col text-left focus-visible:outline-none disabled:cursor-not-allowed"
       >
-        <span className="relative block aspect-[4/3] w-full bg-stone-100">
+        <span className="relative block aspect-[3/2] w-full bg-stone-100">
           {adminThumbnailUrl && !adminImageFailed ? (
             <Image
               src={adminThumbnailUrl}
               alt={media?.altText?.trim() || `${card.label} furniture example`}
               fill
               loading="lazy"
-              sizes="(min-width: 1280px) 18vw, (min-width: 768px) 30vw, 48vw"
+              sizes="(min-width: 1600px) 14vw, (min-width: 1024px) 19vw, (min-width: 768px) 29vw, 46vw"
               onError={() => setAdminImageFailed(true)}
               className="object-cover"
             />
@@ -166,7 +166,7 @@ function StyleCard({
         </span>
         <span
           className={cn(
-            "flex min-h-12 w-full flex-1 items-center border-t px-2.5 py-2 pr-10 text-xs font-medium",
+            "flex min-h-12 w-full flex-1 items-center border-t px-3 py-2 pr-11 text-sm font-medium leading-5",
             selected
               ? "border-primary/30 bg-primary/5 text-primary"
               : "border-border text-foreground",

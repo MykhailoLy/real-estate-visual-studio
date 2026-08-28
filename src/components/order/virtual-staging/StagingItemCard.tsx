@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Info, Trash2 } from "lucide-react";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
@@ -34,6 +34,7 @@ import {
   resolveReferenceFileSelection,
   type ReferenceFileValue,
 } from "@/lib/reference-files";
+import { cn } from "@/lib/utils";
 
 export interface StagingItemData {
   clientItemId: string;
@@ -130,6 +131,14 @@ const DEFAULT_DRAFT_COPY = {
     `Saved draft reference: ${filename}. It will be used when you submit.`,
 };
 
+const PREVIEWABLE_PHOTO_EXTENSION = /\.(?:jpe?g|png)$/i;
+
+function isPreviewablePhoto(filename: string, mimeType: string): boolean {
+  return (
+    mimeType.startsWith("image/") || PREVIEWABLE_PHOTO_EXTENSION.test(filename)
+  );
+}
+
 export default function StagingItemCard({
   index,
   data,
@@ -183,6 +192,34 @@ export default function StagingItemCard({
   const styleErrorId = `${styleValidationId}-error`;
   const originalDisabled = disabled || originalBusy;
   const referenceDisabled = disabled || referenceBusy;
+  const uploadInputId = `${fieldIdPrefix}-original-upload`;
+  const localPreviewUrl = useMemo(() => {
+    if (!data.file || !isPreviewablePhoto(data.file.name, data.file.type)) {
+      return null;
+    }
+    return URL.createObjectURL(data.file);
+  }, [data.file]);
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    };
+  }, [localPreviewUrl]);
+
+  const persistedPreviewUrl =
+    !data.file &&
+    uploadedOriginalFile?.previewUrl &&
+    isPreviewablePhoto(
+      uploadedOriginalFile.originalFilename,
+      uploadedOriginalFile.mimeType,
+    )
+      ? uploadedOriginalFile.previewUrl
+      : null;
+  const currentPreviewUrl = localPreviewUrl ?? persistedPreviewUrl;
+  const currentPreviewFilename =
+    data.file?.name ?? uploadedOriginalFile?.originalFilename ?? null;
+  const hasCurrentPhotoPreview =
+    currentPreviewUrl !== null && currentPreviewFilename !== null;
   const displayedReferenceFiles = mergeReferenceFiles(
     data.referenceFiles,
     uploadedReferenceFile
@@ -219,19 +256,19 @@ export default function StagingItemCard({
   return (
     <div
       id={stagingItemDomId(data.clientItemId)}
-      className="bg-white border border-border rounded-xl p-5 shadow-sm"
+      className="scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-foreground">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-xl font-semibold leading-tight text-primary sm:text-[22px]">
           Image #{index + 1}
-        </h4>
+        </h2>
         {canRemove && (
           <button
             type="button"
             onClick={onRemove}
             disabled={disabled || removeDisabled}
-            className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Remove image ${index + 1}`}
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />
@@ -239,63 +276,90 @@ export default function StagingItemCard({
         )}
       </div>
 
-      <div className="space-y-4">
+      <div
+        className={cn(
+          "grid min-w-0 gap-7",
+          hasCurrentPhotoPreview &&
+            "min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] min-[1600px]:items-start min-[1600px]:gap-x-8",
+        )}
+      >
         {/* File Upload */}
-        <FileUpload
-          viewerVariant="photo"
-          label="Upload Original Photo"
-          file={data.file}
-          onFileChange={(file) => {
-            if (onOriginalFileSelected) {
-              onOriginalFileSelected(file);
-              return;
+        <div className="min-w-0">
+          <FileUpload
+            viewerVariant="photo"
+            label="Upload Original Photo"
+            file={data.file}
+            onFileChange={(file) => {
+              if (onOriginalFileSelected) {
+                onOriginalFileSelected(file);
+                return;
+              }
+              onChange({
+                ...data,
+                file,
+                ...updateOriginalFileDraftMetadata(data, file),
+              });
+            }}
+            accept={STAGING_FILE_ACCEPT}
+            required
+            helperText={
+              data.needsOriginalFileReselection && data.originalFilename
+                ? draftCopy.savedOriginalFile(data.originalFilename)
+                : undefined
             }
-            onChange({
-              ...data,
-              file,
-              ...updateOriginalFileDraftMetadata(data, file),
-            });
-          }}
-          accept={STAGING_FILE_ACCEPT}
-          required
-          helperText={
-            data.needsOriginalFileReselection && data.originalFilename
-              ? draftCopy.savedOriginalFile(data.originalFilename)
-              : undefined
-          }
-          persistedFile={
-            !data.file && uploadedOriginalFile
-              ? {
-                  id: uploadedOriginalFile.id,
-                  filename: uploadedOriginalFile.originalFilename,
-                  fileSize: uploadedOriginalFile.fileSize,
-                  statusLabel: savedInDraftLabel,
-                  previewUrl: uploadedOriginalFile.previewUrl ?? null,
-                  previewExpiresAt:
-                    uploadedOriginalFile.previewExpiresAt ?? null,
-                }
-              : null
-          }
-          operationStatusText={originalOperationStatusText}
-          operationErrorText={originalOperationErrorText}
-          disabled={originalDisabled}
-          retryDisabled={originalDisabled}
-          removeDisabled={originalDisabled}
-          onRetry={onRetryOriginalUpload}
-          onRemovePersisted={onRemoveUploadedOriginal}
-          retryLabel={retryUploadLabel}
-          replaceLabel={replaceFileLabel}
-          removePersistedLabel={removeSavedFileLabel}
-          validationFieldId={originalValidationId}
-          validationError={validationErrors.original}
-        />
+            persistedFile={
+              !data.file && uploadedOriginalFile
+                ? {
+                    id: uploadedOriginalFile.id,
+                    filename: uploadedOriginalFile.originalFilename,
+                    fileSize: uploadedOriginalFile.fileSize,
+                    statusLabel: savedInDraftLabel,
+                    previewUrl: uploadedOriginalFile.previewUrl ?? null,
+                    previewExpiresAt:
+                      uploadedOriginalFile.previewExpiresAt ?? null,
+                  }
+                : null
+            }
+            operationStatusText={originalOperationStatusText}
+            operationErrorText={originalOperationErrorText}
+            disabled={originalDisabled}
+            retryDisabled={originalDisabled}
+            removeDisabled={originalDisabled}
+            onRetry={onRetryOriginalUpload}
+            onRemovePersisted={onRemoveUploadedOriginal}
+            retryLabel={retryUploadLabel}
+            replaceLabel={replaceFileLabel}
+            removePersistedLabel={removeSavedFileLabel}
+            validationFieldId={originalValidationId}
+            validationError={validationErrors.original}
+            inputId={uploadInputId}
+            presentationVariant="workspace"
+            comfortable
+          />
+        </div>
+
+        {currentPreviewUrl && currentPreviewFilename ? (
+          <div className="min-w-0 min-[1600px]:col-start-2 min-[1600px]:row-span-2 min-[1600px]:row-start-1">
+            <div className="min-[1600px]:sticky min-[1600px]:top-8">
+              <CurrentPhotoPreview
+                key={currentPreviewUrl}
+                previewUrl={currentPreviewUrl}
+                filename={currentPreviewFilename}
+                inputId={uploadInputId}
+                disabled={originalDisabled}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="min-w-0 space-y-7 min-[1600px]:col-start-1 min-[1600px]:row-start-2">
 
         {/* Room & Style */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div id={roomValidationId}>
             <label
               htmlFor={roomNameId}
-              className="block text-sm font-medium text-foreground mb-1.5"
+              className="mb-2 block text-base font-medium text-foreground"
             >
               Room Name / Area <span className="text-red-500">*</span>
             </label>
@@ -310,7 +374,7 @@ export default function StagingItemCard({
                 validationErrors.room ? roomErrorId : undefined
               }
               onChange={(e) => onChange({ ...data, roomName: e.target.value })}
-              className={`w-full px-3 py-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60 ${
+              className={`w-full rounded-lg border bg-white px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 ${
                 validationErrors.room ? "border-red-300" : "border-border"
               }`}
             >
@@ -325,7 +389,7 @@ export default function StagingItemCard({
               <p
                 id={roomErrorId}
                 role="alert"
-                className="mt-1.5 text-xs text-red-600"
+                className="mt-1.5 text-sm text-red-600"
               >
                 {validationErrors.room}
               </p>
@@ -334,7 +398,7 @@ export default function StagingItemCard({
           <div id={styleValidationId}>
             <label
               htmlFor={furnitureStyleId}
-              className="block text-sm font-medium text-foreground mb-1.5"
+              className="mb-2 block text-base font-medium text-foreground"
             >
               Furniture Style <span className="text-red-500">*</span>
             </label>
@@ -354,7 +418,7 @@ export default function StagingItemCard({
               onChange={(e) =>
                 onChange({ ...data, furnitureStyle: e.target.value })
               }
-              className={`w-full px-3 py-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60 ${
+              className={`w-full rounded-lg border bg-white px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 ${
                 validationErrors["furniture-style"]
                   ? "border-red-300"
                   : "border-border"
@@ -368,7 +432,7 @@ export default function StagingItemCard({
               ))}
             </select>
             {data.furnitureStyle ? (
-              <p className="mt-1 text-[11px] font-medium text-muted">
+              <p className="mt-1.5 text-sm font-medium text-muted">
                 {data.furnitureStyle === defaultFurnitureStyle
                   ? "Order default"
                   : "Individual selection"}
@@ -378,7 +442,7 @@ export default function StagingItemCard({
               <p
                 id={styleErrorId}
                 role="alert"
-                className="mt-1.5 text-xs text-red-600"
+                className="mt-1.5 text-sm text-red-600"
               >
                 {validationErrors["furniture-style"]}
               </p>
@@ -395,13 +459,15 @@ export default function StagingItemCard({
           }}
           onChange={(prefs) => onChange({ ...data, ...prefs })}
           disabled={disabled}
+          layoutVariant="desktop-columns"
+          comfortable
         />
 
         {/* Reference Link */}
         <div>
           <label
             htmlFor={referenceLinkId}
-            className="block text-sm font-medium text-foreground mb-1.5"
+            className="mb-2 block text-base font-medium text-foreground"
           >
             Reference Link (optional)
           </label>
@@ -414,9 +480,9 @@ export default function StagingItemCard({
               onChange({ ...data, referenceLink: e.target.value })
             }
             placeholder="https://example.com/inspiration"
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg border border-border px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
           />
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-2 text-sm leading-6 text-muted">
             Add a link to an online example, brand guide or shared reference.
           </p>
         </div>
@@ -435,9 +501,10 @@ export default function StagingItemCard({
           }}
           disabled={referenceDisabled}
           operationStatus={referenceOperationStatusText}
+          comfortable
         />
         {referenceOperationErrorText ? (
-          <p className="text-xs font-medium text-red-700" role="alert">
+          <p className="text-sm font-medium text-red-700" role="alert">
             {referenceOperationErrorText}
           </p>
         ) : null}
@@ -446,7 +513,7 @@ export default function StagingItemCard({
         <div>
           <label
             htmlFor={additionalInfoId}
-            className="block text-sm font-medium text-foreground mb-1.5"
+            className="mb-2 block text-base font-medium text-foreground"
           >
             Additional Information
           </label>
@@ -458,21 +525,21 @@ export default function StagingItemCard({
               onChange({ ...data, additionalInfo: e.target.value })
             }
             placeholder="Any specific requirements for this image..."
-            rows={2}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+            rows={3}
+            className="w-full resize-none rounded-lg border border-border px-3 py-3 text-base leading-6 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
           />
         </div>
 
         {/* Add-ons */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
+          <p className="mb-3 text-base font-medium text-foreground">
             Optional Add-ons
-          </label>
-          <div className="space-y-2">
+          </p>
+          <div className="grid gap-3 xl:grid-cols-2">
             {STAGING_ADDONS.map((addon) => (
               <div
                 key={addon.id}
-                className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border p-2.5 transition-colors hover:bg-surface"
+                className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-surface"
               >
                 <label
                   className={`flex min-w-0 items-center gap-2.5 py-1 ${
@@ -488,12 +555,12 @@ export default function StagingItemCard({
                     onChange={() => toggleAddon(addon.id)}
                     className="w-4 h-4 rounded text-primary border-border focus:ring-primary disabled:cursor-not-allowed"
                   />
-                  <span className="min-w-0 text-sm leading-5 text-foreground">
+                  <span className="min-w-0 text-[15px] leading-5 text-foreground">
                     {addon.label}
                   </span>
                 </label>
                 <div className="flex items-center gap-1">
-                  <span className="whitespace-nowrap text-sm font-medium text-foreground/75">
+                  <span className="whitespace-nowrap text-[15px] font-medium text-foreground/75">
                     +<RegionalCentsText
                       cents={getCatalogPrice(addon.priceKey, currency)}
                     />
@@ -514,6 +581,7 @@ export default function StagingItemCard({
 
         {/* Subtotal */}
         <ItemSubtotal totalCents={subtotal} />
+        </div>
       </div>
 
       {previewAddon ? (
@@ -530,5 +598,51 @@ export default function StagingItemCard({
         />
       ) : null}
     </div>
+  );
+}
+
+function CurrentPhotoPreview({
+  previewUrl,
+  filename,
+  inputId,
+  disabled,
+}: {
+  previewUrl: string;
+  filename: string;
+  inputId: string;
+  disabled: boolean;
+}) {
+  return (
+    <figure className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-surface/70 min-[1600px]:max-w-none">
+      <div className="relative aspect-[3/2] w-full overflow-hidden bg-white p-3">
+        {/* Signed draft URLs and local blob URLs intentionally bypass next/image. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt={`Current original preview: ${filename}`}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-contain object-center"
+        />
+      </div>
+      <figcaption className="flex min-w-0 flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+            Current original
+          </p>
+          <p className="mt-1 truncate text-sm text-muted" title={filename}>
+            {filename}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => document.getElementById(inputId)?.click()}
+          disabled={disabled}
+          className="shrink-0 self-start rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
+        >
+          Change photo
+        </button>
+      </figcaption>
+    </figure>
   );
 }
