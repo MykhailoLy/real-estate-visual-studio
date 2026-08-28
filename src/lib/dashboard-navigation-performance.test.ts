@@ -12,7 +12,6 @@ import {
   safeDashboardRequestPath,
 } from "./dashboard-request-path.ts";
 import { getOrderServiceCatalog } from "./order-service-catalog.ts";
-import { hasVerifiedAuthenticatedSubject } from "./supabase/auth-claims.ts";
 
 const SOURCE_DIRECTORY = fileURLToPath(new URL("../", import.meta.url));
 
@@ -39,33 +38,28 @@ function sourceFilesUnder(path: string): string[] {
   return files;
 }
 
-test("authenticated claims helper remains strict for login-page convenience redirects", () => {
-  assert.equal(hasVerifiedAuthenticatedSubject(null), false);
-  assert.equal(hasVerifiedAuthenticatedSubject({}), false);
-  assert.equal(
-    hasVerifiedAuthenticatedSubject({
-      sub: "11111111-1111-4111-8111-111111111111",
-      role: "authenticated",
-    }),
-    true,
+test("proxy matcher and pass-through exclude public auth pages from Supabase work", () => {
+  const proxySource = source("proxy.ts");
+  const matcherStart = proxySource.indexOf("export const config");
+  const matcherSource = proxySource.slice(matcherStart);
+  const passThroughStart = proxySource.indexOf("if (!isDashboard) {");
+  const clientCreationStart = proxySource.indexOf(
+    "createProxySupabaseClient(req",
   );
-  assert.equal(
-    hasVerifiedAuthenticatedSubject({
-      sub: "11111111-1111-4111-8111-111111111111",
-      role: "anon",
-    }),
-    false,
+
+  assert.ok(matcherStart >= 0);
+  assert.match(matcherSource, /matcher: \["\/dashboard\/:path\*"\]/);
+  assert.doesNotMatch(matcherSource, /\/login|\/signup/);
+  assert.ok(
+    passThroughStart >= 0 && clientCreationStart > passThroughStart,
   );
-  assert.equal(
-    hasVerifiedAuthenticatedSubject({
-      sub: "11111111-1111-4111-8111-111111111111",
-      role: "service_role",
-    }),
-    false,
+  assert.match(
+    proxySource.slice(passThroughStart, clientCreationStart),
+    /return NextResponse\.next\(\);/,
   );
-  assert.equal(
-    hasVerifiedAuthenticatedSubject({ sub: "", role: "authenticated" }),
-    false,
+  assert.doesNotMatch(
+    proxySource,
+    /getClaims|hasVerifiedAuthenticatedSubject|isAuthPage/,
   );
 });
 
@@ -101,17 +95,22 @@ test("dashboard redirect recovery rejects external, malicious, and out-of-scope 
   assert.equal(safeDashboardRequestPath(null), "/dashboard");
 });
 
-test("dashboard proxy refreshes cookies without authorizing from getSession or getClaims", () => {
+test("dashboard proxy refreshes cookies without authorizing from getSession", () => {
   const proxySource = source("proxy.ts");
-  const dashboardBranchStart = proxySource.indexOf("if (isDashboard) {");
-  const authPageBranchStart = proxySource.indexOf("let authenticated = false;");
+  const dashboardBranchStart = proxySource.indexOf(
+    "// Dashboard proxy work is refresh-only.",
+  );
+  const dashboardBranchEnd = proxySource.indexOf(
+    "export const config",
+    dashboardBranchStart,
+  );
   const dashboardBranch = proxySource.slice(
     dashboardBranchStart,
-    authPageBranchStart,
+    dashboardBranchEnd,
   );
 
   assert.ok(
-    dashboardBranchStart >= 0 && authPageBranchStart > dashboardBranchStart,
+    dashboardBranchStart >= 0 && dashboardBranchEnd > dashboardBranchStart,
   );
   assert.match(dashboardBranch, /await supabase\.auth\.getSession\(\);/);
   assert.doesNotMatch(
@@ -119,10 +118,7 @@ test("dashboard proxy refreshes cookies without authorizing from getSession or g
     /\.auth\.(?:getClaims|getUser)\(|authenticated\s*=/,
   );
   assert.match(dashboardBranch, /return getResponse\(\);/);
-  assert.ok(
-    proxySource.indexOf("await supabase.auth.getClaims()") >
-      authPageBranchStart,
-  );
+  assert.doesNotMatch(proxySource, /\.auth\.(?:getClaims|getUser)\(/);
   assert.doesNotMatch(
     proxySource,
     /(?:const|let)\s+\{[^}]*session[^}]*\}\s*=\s*await supabase\.auth\.getSession/,
@@ -135,7 +131,7 @@ test("proxy overwrites browser redirect metadata and preserves refreshed cookies
 
   assert.match(
     proxySource,
-    /safeDashboardRequestPath\(`\$\{pathname\}\$\{req\.nextUrl\.search\}`\)/,
+    /safeDashboardRequestPath\(\s*`\$\{pathname\}\$\{req\.nextUrl\.search\}`,?\s*\)/,
   );
   assert.match(
     proxySource,

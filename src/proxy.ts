@@ -3,7 +3,6 @@ import {
   DASHBOARD_REQUEST_PATH_HEADER,
   safeDashboardRequestPath,
 } from "@/lib/dashboard-request-path";
-import { hasVerifiedAuthenticatedSubject } from "@/lib/supabase/auth-claims";
 import { createProxySupabaseClient } from "@/lib/supabase/proxy-client";
 
 // ============================================================
@@ -25,15 +24,14 @@ export async function proxy(req: NextRequest) {
   // Pass through non-protected routes immediately (avoid
   // creating a Supabase client on every static asset request).
   const isDashboard = pathname.startsWith("/dashboard");
-  const isAuthPage  = pathname === "/login" || pathname === "/signup";
 
-  if (!isDashboard && !isAuthPage) {
+  if (!isDashboard) {
     return NextResponse.next();
   }
 
-  const dashboardDestination = isDashboard
-    ? safeDashboardRequestPath(`${pathname}${req.nextUrl.search}`)
-    : null;
+  const dashboardDestination = safeDashboardRequestPath(
+    `${pathname}${req.nextUrl.search}`,
+  );
   const { supabase, getResponse } = createProxySupabaseClient(req, {
     // Always overwrite or remove a browser-supplied copy. This is redirect
     // metadata only and is never used as identity.
@@ -42,47 +40,16 @@ export async function proxy(req: NextRequest) {
 
   // Dashboard proxy work is refresh-only. getSession may rotate an expiring
   // token, but its unverified user/session data is deliberately ignored.
-  if (isDashboard) {
-    if (supabase) {
-      try {
-        await supabase.auth.getSession();
-      } catch {
-        // The server layout's getUser() check remains the fail-closed gate.
-      }
-    }
-    return getResponse();
-  }
-
-  // Preserve the existing login/signup convenience redirect without putting
-  // getClaims/JWKS in the normal dashboard request path.
-  let authenticated = false;
   if (supabase) {
     try {
-      const { data, error } = await supabase.auth.getClaims();
-      authenticated =
-        !error && hasVerifiedAuthenticatedSubject(data?.claims);
+      await supabase.auth.getSession();
     } catch {
-      // Verification error or invalid session — treat as unauthenticated
-      authenticated = false;
+      // The server layout's getUser() check remains the fail-closed gate.
     }
   }
-
-  // ── /login + /signup — redirect authenticated users away ──
-  if (isAuthPage && authenticated) {
-    const dashboardUrl = req.nextUrl.clone();
-    dashboardUrl.pathname = "/dashboard";
-    dashboardUrl.search = "";
-    return NextResponse.redirect(dashboardUrl);
-  }
-
-  // Pass through with any updated session cookies on the response
   return getResponse();
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/login",
-    "/signup",
-  ],
+  matcher: ["/dashboard/:path*"],
 };
