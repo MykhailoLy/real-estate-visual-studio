@@ -17,6 +17,7 @@ interface OrderReviewHeaderProps {
   serviceName: string;
   photoCount: number;
   quote: OrderQuote;
+  addOnLabel?: string;
 }
 
 export default function OrderReviewHeader({
@@ -24,6 +25,7 @@ export default function OrderReviewHeader({
   serviceName,
   photoCount,
   quote,
+  addOnLabel = "Add-ons",
 }: OrderReviewHeaderProps) {
   return (
     <div className="bg-white border border-border rounded-xl p-5 sm:p-6">
@@ -61,7 +63,7 @@ export default function OrderReviewHeader({
             {formatMoney(quote.baseSubtotalCents, quote.currency)}
           </dd>
           <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
-            Add-ons
+            {addOnLabel}
           </dt>
           <dd className="text-right font-medium text-foreground">
             {formatMoney(quote.addOnSubtotalCents, quote.currency)}

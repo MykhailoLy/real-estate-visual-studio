@@ -198,39 +198,288 @@ export interface RenovationOption {
   id: string;
   label: string;
   priceKey: import("@/lib/pricing/types").PriceKey;
+  mediaKey: string;
+  description: string;
 }
 
 export const RENOVATION_INTERNAL_OPTIONS: RenovationOption[] = [
-  { id: "replace-flooring", label: "Replace Flooring", priceKey: "renovation-replace-flooring" },
-  { id: "replace-walls", label: "Replace Walls", priceKey: "renovation-replace-walls" },
-  { id: "replace-ceiling", label: "Replace Ceiling", priceKey: "renovation-replace-ceiling" },
-  { id: "item-removal-cleaning", label: "Item Removal & Virtual Cleaning", priceKey: "renovation-item-removal-cleaning" },
-  { id: "add-remove-walls", label: "Add / Remove Walls", priceKey: "renovation-add-remove-walls" },
-  { id: "kitchen-fit-out", label: "Add or Complete Kitchen Fit Out", priceKey: "renovation-kitchen-fit-out" },
-  { id: "bathroom-fit-out", label: "Add or Complete Bathroom Fit Out", priceKey: "renovation-bathroom-fit-out" },
-  { id: "add-fixtures", label: "Add Fixtures", priceKey: "renovation-add-fixtures" },
-  { id: "staging-residential", label: "Virtual Staging Residential", priceKey: "renovation-staging-residential" },
-  { id: "staging-commercial-office", label: "Virtual Staging Commercial - Office", priceKey: "renovation-staging-commercial-office" },
-  { id: "staging-commercial-non-office", label: "Virtual Staging Commercial - Non-office", priceKey: "renovation-staging-commercial-non-office" },
-  { id: "color-change-interior", label: "Color Change of Walls, Ceiling and/or Doors", priceKey: "renovation-colour-change-interior" },
+  {
+    id: "replace-flooring",
+    label: "Replace Flooring",
+    priceKey: "renovation-replace-flooring",
+    mediaKey: "virtual-renovation-option-replace-flooring",
+    description:
+      "Changes the visible flooring to the requested material, colour or finish.",
+  },
+  {
+    id: "replace-walls",
+    label: "Replace Walls",
+    priceKey: "renovation-replace-walls",
+    mediaKey: "virtual-renovation-option-replace-walls",
+    description:
+      "Changes visible wall surfaces using the supplied material, finish or design direction.",
+  },
+  {
+    id: "replace-ceiling",
+    label: "Replace Ceiling",
+    priceKey: "renovation-replace-ceiling",
+    mediaKey: "virtual-renovation-option-replace-ceiling",
+    description:
+      "Changes the visible ceiling using the supplied material, finish or design direction.",
+  },
+  {
+    id: "item-removal-cleaning",
+    label: "Item Removal & Virtual Cleaning",
+    priceKey: "renovation-item-removal-cleaning",
+    mediaKey: "virtual-renovation-option-item-removal-cleaning",
+    description:
+      "Removes specified visible items and tidies the affected area based on clear instructions.",
+  },
+  {
+    id: "add-remove-walls",
+    label: "Add / Remove Walls",
+    priceKey: "renovation-add-remove-walls",
+    mediaKey: "virtual-renovation-option-add-remove-walls",
+    description:
+      "Visualises requested wall additions or removals based on clear instructions or marked references.",
+  },
+  {
+    id: "kitchen-fit-out",
+    label: "Add or Complete Kitchen Fit Out",
+    priceKey: "renovation-kitchen-fit-out",
+    mediaKey: "virtual-renovation-option-kitchen-fit-out",
+    description:
+      "Visualises a proposed kitchen fit-out using the supplied layout, style and finish direction.",
+  },
+  {
+    id: "bathroom-fit-out",
+    label: "Add or Complete Bathroom Fit Out",
+    priceKey: "renovation-bathroom-fit-out",
+    mediaKey: "virtual-renovation-option-bathroom-fit-out",
+    description:
+      "Visualises a proposed bathroom fit-out using the supplied layout, fixture and finish direction.",
+  },
+  {
+    id: "add-fixtures",
+    label: "Add Fixtures",
+    priceKey: "renovation-add-fixtures",
+    mediaKey: "virtual-renovation-option-add-fixtures",
+    description:
+      "Adds specified visible fixtures in the requested position and style.",
+  },
+  {
+    id: "staging-residential",
+    label: "Virtual Staging Residential",
+    priceKey: "renovation-staging-residential",
+    mediaKey: "virtual-renovation-option-staging-residential",
+    description:
+      "Adds residential furniture and decor using the supplied room and style direction.",
+  },
+  {
+    id: "staging-commercial-office",
+    label: "Virtual Staging Commercial - Office",
+    priceKey: "renovation-staging-commercial-office",
+    mediaKey: "virtual-renovation-option-staging-commercial-office",
+    description:
+      "Adds office furniture and decor using the supplied commercial style direction.",
+  },
+  {
+    id: "staging-commercial-non-office",
+    label: "Virtual Staging Commercial - Non-office",
+    priceKey: "renovation-staging-commercial-non-office",
+    mediaKey: "virtual-renovation-option-staging-commercial-non-office",
+    description:
+      "Adds furniture and decor for a non-office commercial space using the supplied direction.",
+  },
+  {
+    id: "color-change-interior",
+    label: "Color Change of Walls, Ceiling and/or Doors",
+    priceKey: "renovation-colour-change-interior",
+    mediaKey: "virtual-renovation-option-color-change-interior",
+    description:
+      "Changes requested colours on visible interior walls, ceilings or doors.",
+  },
 ];
 
 export const RENOVATION_EXTERNAL_OPTIONS: RenovationOption[] = [
-  { id: "add-pool", label: "Add Pool Only", priceKey: "renovation-add-pool" },
-  { id: "add-pool-surrounds", label: "Add Pool Surrounds", priceKey: "renovation-pool-surrounds" },
-  { id: "remove-pool-cover", label: "Remove Pool Cover", priceKey: "renovation-remove-pool-cover" },
-  { id: "add-leaves", label: "Add Leaves", priceKey: "renovation-add-leaves" },
-  { id: "basic-landscaping", label: "Add Basic Landscaping", priceKey: "renovation-basic-landscaping" },
-  { id: "full-landscaping", label: "Add Full Landscaping", priceKey: "renovation-full-landscaping" },
-  { id: "season-change-landscaping", label: "Season Change with Full Landscaping", priceKey: "renovation-season-change-landscaping" },
-  { id: "ext-staging", label: "Virtual Staging Residential or Commercial", priceKey: "renovation-exterior-staging" },
-  { id: "ext-item-removal", label: "Item Removal & Virtual Cleaning", priceKey: "renovation-item-removal-cleaning" },
-  { id: "ext-add-fixtures", label: "Add Fixtures", priceKey: "renovation-add-fixtures" },
-  { id: "replace-driveway", label: "Replace Driveway", priceKey: "renovation-replace-driveway" },
-  { id: "replace-roof", label: "Replace Roof", priceKey: "renovation-replace-roof" },
-  { id: "replace-exterior-walls", label: "Replace Exterior Walls", priceKey: "renovation-replace-exterior-walls" },
-  { id: "add-patio-balcony", label: "Add or Complete Patio, Balcony, Pergola, Veranda and/or Decking", priceKey: "renovation-add-patio-balcony" },
-  { id: "color-change-exterior", label: "Color Change Exterior Features", priceKey: "renovation-colour-change-exterior" },
+  {
+    id: "add-pool",
+    label: "Add Pool Only",
+    priceKey: "renovation-add-pool",
+    mediaKey: "virtual-renovation-option-add-pool",
+    description:
+      "Visualises a proposed pool in the requested area based on the supplied placement and design direction.",
+  },
+  {
+    id: "add-pool-surrounds",
+    label: "Add Pool Surrounds",
+    priceKey: "renovation-pool-surrounds",
+    mediaKey: "virtual-renovation-option-add-pool-surrounds",
+    description:
+      "Adds the requested visible paving, decking or landscaping around a pool area.",
+  },
+  {
+    id: "remove-pool-cover",
+    label: "Remove Pool Cover",
+    priceKey: "renovation-remove-pool-cover",
+    mediaKey: "virtual-renovation-option-remove-pool-cover",
+    description:
+      "Removes a visible pool cover to show the pool area beneath it.",
+  },
+  {
+    id: "add-leaves",
+    label: "Add Leaves",
+    priceKey: "renovation-add-leaves",
+    mediaKey: "virtual-renovation-option-add-leaves",
+    description:
+      "Adds foliage to specified visible trees or plants using the supplied direction.",
+  },
+  {
+    id: "basic-landscaping",
+    label: "Add Basic Landscaping",
+    priceKey: "renovation-basic-landscaping",
+    mediaKey: "virtual-renovation-option-basic-landscaping",
+    description:
+      "Adds a limited set of requested landscaping elements to the visible exterior.",
+  },
+  {
+    id: "full-landscaping",
+    label: "Add Full Landscaping",
+    priceKey: "renovation-full-landscaping",
+    mediaKey: "virtual-renovation-option-full-landscaping",
+    description:
+      "Visualises a broader landscaping concept using the supplied planting and finish direction.",
+  },
+  {
+    id: "season-change-landscaping",
+    label: "Season Change with Full Landscaping",
+    priceKey: "renovation-season-change-landscaping",
+    mediaKey: "virtual-renovation-option-season-change-landscaping",
+    description:
+      "Changes the visible season while applying the supplied full landscaping direction.",
+  },
+  {
+    id: "ext-staging",
+    label: "Virtual Staging Residential or Commercial",
+    priceKey: "renovation-exterior-staging",
+    mediaKey: "virtual-renovation-option-ext-staging",
+    description:
+      "Adds suitable outdoor furniture and decor using the supplied residential or commercial direction.",
+  },
+  {
+    id: "ext-item-removal",
+    label: "Item Removal & Virtual Cleaning",
+    priceKey: "renovation-item-removal-cleaning",
+    mediaKey: "virtual-renovation-option-ext-item-removal",
+    description:
+      "Removes specified visible exterior items and tidies the affected area based on clear instructions.",
+  },
+  {
+    id: "ext-add-fixtures",
+    label: "Add Fixtures",
+    priceKey: "renovation-add-fixtures",
+    mediaKey: "virtual-renovation-option-ext-add-fixtures",
+    description:
+      "Adds specified visible exterior fixtures in the requested position and style.",
+  },
+  {
+    id: "replace-driveway",
+    label: "Replace Driveway",
+    priceKey: "renovation-replace-driveway",
+    mediaKey: "virtual-renovation-option-replace-driveway",
+    description:
+      "Changes the visible driveway to the requested material, colour or finish.",
+  },
+  {
+    id: "replace-roof",
+    label: "Replace Roof",
+    priceKey: "renovation-replace-roof",
+    mediaKey: "virtual-renovation-option-replace-roof",
+    description:
+      "Changes the visible roof to the requested material, colour or finish.",
+  },
+  {
+    id: "replace-exterior-walls",
+    label: "Replace Exterior Walls",
+    priceKey: "renovation-replace-exterior-walls",
+    mediaKey: "virtual-renovation-option-replace-exterior-walls",
+    description:
+      "Changes visible exterior wall surfaces using the supplied material and finish direction.",
+  },
+  {
+    id: "add-patio-balcony",
+    label: "Add or Complete Patio, Balcony, Pergola, Veranda and/or Decking",
+    priceKey: "renovation-add-patio-balcony",
+    mediaKey: "virtual-renovation-option-add-patio-balcony",
+    description:
+      "Visualises the requested outdoor structure using clear placement, layout and finish direction.",
+  },
+  {
+    id: "color-change-exterior",
+    label: "Color Change Exterior Features",
+    priceKey: "renovation-colour-change-exterior",
+    mediaKey: "virtual-renovation-option-color-change-exterior",
+    description:
+      "Changes requested colours on specified visible exterior features.",
+  },
+];
+
+export const VIRTUAL_RENOVATION_GUIDE_ITEMS = [
+  {
+    group: "external",
+    mediaKey: "virtual-renovation-guide-external-source",
+    title: "Original Photo",
+    description:
+      "Upload a clear, high-resolution photo of the existing exterior.",
+  },
+  {
+    group: "external",
+    mediaKey: "virtual-renovation-guide-external-reference",
+    title: "Design Brief / Reference",
+    description:
+      "Show the materials, finishes, landscaping or design direction you want.",
+  },
+  {
+    group: "external",
+    mediaKey: "virtual-renovation-guide-external-sketch",
+    title: "Mark-up / Sketch",
+    description:
+      "Use a marked image or sketch when the requested change needs precise placement.",
+  },
+  {
+    group: "internal",
+    mediaKey: "virtual-renovation-guide-internal-source",
+    title: "Original Photo",
+    description:
+      "Upload a clear, high-resolution photo of the existing room.",
+  },
+  {
+    group: "internal",
+    mediaKey: "virtual-renovation-guide-internal-reference",
+    title: "Design Brief / Reference",
+    description:
+      "Show the style, materials, fixtures or furniture direction you want.",
+  },
+  {
+    group: "internal",
+    mediaKey: "virtual-renovation-guide-internal-sketch",
+    title: "Mark-up / Sketch",
+    description:
+      "Use a marked image, plan or sketch to clarify structural or layout changes.",
+  },
+] as const;
+
+export const VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS =
+  VIRTUAL_RENOVATION_GUIDE_ITEMS.map((item) => item.mediaKey);
+
+export const VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS = [
+  ...RENOVATION_INTERNAL_OPTIONS.map((option) => option.mediaKey),
+  ...RENOVATION_EXTERNAL_OPTIONS.map((option) => option.mediaKey),
+];
+
+export const VIRTUAL_RENOVATION_MEDIA_KEYS = [
+  ...VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS,
+  ...VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS,
 ];
 
 export const RENOVATION_ROOM_OPTIONS = [

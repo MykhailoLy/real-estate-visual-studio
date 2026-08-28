@@ -11,7 +11,7 @@ const stagingItemSource = readFileSync(
   "utf8",
 );
 const exampleDialogSource = readFileSync(
-  new URL("./ExampleDialog.tsx", import.meta.url),
+  new URL("../ExampleDialog.tsx", import.meta.url),
   "utf8",
 );
 const orderFormSource = readFileSync(

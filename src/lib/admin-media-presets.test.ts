@@ -5,9 +5,15 @@ import {
   DAY_TO_DUSK_SKY_STYLE_MEDIA_PRESETS,
   ORDER_OPTION_MEDIA_PRESET_KEYS,
   SERVICE_OPTION_MEDIA_PRESET_GROUPS,
+  VIRTUAL_RENOVATION_GUIDE_MEDIA_PRESETS,
+  VIRTUAL_RENOVATION_OPTION_MEDIA_PRESETS,
   VIRTUAL_STAGING_ADDON_MEDIA_PRESETS,
   getServiceOptionMediaPresetDefaults,
 } from "./admin-media-presets.ts";
+import {
+  VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS,
+  VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS,
+} from "../data/order-options.ts";
 
 const adminClient = readFileSync(
   "src/app/(public)/admin/media/MediaAdminClient.tsx",
@@ -55,6 +61,29 @@ test("selecting any Day to Dusk preset fills Image, title and media key defaults
       mediaType: "image",
       serviceSlug: mediaKey,
       title,
+    });
+  }
+});
+
+test("Virtual Renovation exposes all guide and option media keys to the existing admin editor", () => {
+  assert.deepEqual(
+    VIRTUAL_RENOVATION_GUIDE_MEDIA_PRESETS.map((preset) => preset.mediaKey),
+    VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS,
+  );
+  assert.deepEqual(
+    VIRTUAL_RENOVATION_OPTION_MEDIA_PRESETS.map((preset) => preset.mediaKey),
+    VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS,
+  );
+  assert.equal(VIRTUAL_RENOVATION_GUIDE_MEDIA_PRESETS.length, 6);
+  assert.equal(VIRTUAL_RENOVATION_OPTION_MEDIA_PRESETS.length, 27);
+  for (const preset of [
+    ...VIRTUAL_RENOVATION_GUIDE_MEDIA_PRESETS,
+    ...VIRTUAL_RENOVATION_OPTION_MEDIA_PRESETS,
+  ]) {
+    assert.deepEqual(getServiceOptionMediaPresetDefaults(preset.mediaKey), {
+      mediaType: "image",
+      serviceSlug: preset.mediaKey,
+      title: preset.label,
     });
   }
 });

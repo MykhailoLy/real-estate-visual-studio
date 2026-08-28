@@ -8,7 +8,7 @@ import {
   type DuskStyleId,
 } from "@/lib/day-to-dusk";
 import type { ServiceOptionImage } from "@/lib/site-media";
-import SelectorMediaTile from "@/components/order/image-enhancement/SelectorMediaTile";
+import SelectorMediaTile from "@/components/order/SelectorMediaTile";
 import ImageLightbox from "@/components/pricing/ImageLightbox";
 
 // ============================================================

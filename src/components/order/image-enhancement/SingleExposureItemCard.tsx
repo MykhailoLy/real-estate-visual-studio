@@ -7,7 +7,7 @@ import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
 } from "@/components/order/ItemDeliveryFields";
-import ExampleDialog from "@/components/order/virtual-staging/ExampleDialog";
+import ExampleDialog from "@/components/order/ExampleDialog";
 import {
   RegionalCentsText,
   useDisplayCurrency,

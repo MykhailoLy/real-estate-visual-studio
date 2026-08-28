@@ -1,6 +1,8 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Info, Trash2 } from "lucide-react";
+import ExampleDialog from "@/components/order/ExampleDialog";
 import FileUpload from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
@@ -18,9 +20,12 @@ import {
   RENOVATION_ROOM_OPTIONS,
   RENOVATION_STYLE_OPTIONS,
   STAGING_FILE_ACCEPT,
+  type RenovationOption,
 } from "@/data/order-options";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
+import type { ServiceOptionMedia } from "@/lib/site-media";
+import type { TransactionalCurrency } from "@/lib/pricing/types";
 
 export interface RenovationItemData {
   clientItemId: string;
@@ -55,6 +60,10 @@ export const emptyRenovationItem = (): RenovationItemData => ({
   referenceFilename: null,
 });
 
+export function renovationItemDomId(clientItemId: string): string {
+  return `virtual-renovation-item-${clientItemId}`;
+}
+
 interface RenovationItemCardProps {
   index: number;
   data: RenovationItemData;
@@ -74,6 +83,7 @@ interface RenovationItemCardProps {
   onRetryOriginal?: () => void;
   onRetryReference?: () => void;
   fileOperationDisabled?: boolean;
+  exampleMediaByKey: Record<string, ServiceOptionMedia>;
 }
 
 export default function RenovationItemCard({
@@ -95,8 +105,10 @@ export default function RenovationItemCard({
   onRetryOriginal,
   onRetryReference,
   fileOperationDisabled = false,
+  exampleMediaByKey,
 }: RenovationItemCardProps) {
   const currency = useDisplayCurrency();
+  const [previewOptionId, setPreviewOptionId] = useState<string | null>(null);
   const itemIdPrefix = `renovation-item-${data.clientItemId}`;
   const toggleInternal = (id: string) => {
     const updated = data.selectedInternal.includes(id)
@@ -117,9 +129,20 @@ export default function RenovationItemCard({
     data.selectedExternal,
     currency
   );
+  const previewOption = [
+    ...RENOVATION_INTERNAL_OPTIONS,
+    ...RENOVATION_EXTERNAL_OPTIONS,
+  ].find((option) => option.id === previewOptionId);
+  const previewMedia = previewOption
+    ? exampleMediaByKey[previewOption.mediaKey] ?? null
+    : null;
 
   return (
-    <article className="@container rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
+    <>
+    <article
+      id={renovationItemDomId(data.clientItemId)}
+      className="@container scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6"
+    >
       {/* Header */}
       <div className="mb-6 flex items-center justify-between gap-4">
         <h2 className="text-xl font-semibold leading-tight text-primary">
@@ -179,69 +202,23 @@ export default function RenovationItemCard({
           </h3>
 
           <div className="mt-5 grid gap-x-8 gap-y-7 @min-[58rem]:grid-cols-2">
-            {/* Internal Renovations */}
-            <div className="min-w-0">
-              <h4 className="text-base font-semibold text-foreground">
-                Internal Renovations
-              </h4>
-              <div className="mt-3 divide-y divide-border border-y border-border">
-                {RENOVATION_INTERNAL_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.id}
-                    className="flex min-h-11 cursor-pointer items-start justify-between gap-4 px-1 py-2.5 transition-colors hover:bg-surface/70"
-                  >
-                    <span className="flex min-w-0 items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={data.selectedInternal.includes(opt.id)}
-                        onChange={() => toggleInternal(opt.id)}
-                        className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span className="min-w-0 text-[15px] leading-5 text-foreground">
-                        {opt.label}
-                      </span>
-                    </span>
-                    <span className="flex-shrink-0 text-sm font-medium leading-5 text-muted">
-                      <RegionalCentsText
-                        cents={getCatalogPrice(opt.priceKey, currency)}
-                      />
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <RenovationOptionGroup
+              title="Internal Renovations"
+              options={RENOVATION_INTERNAL_OPTIONS}
+              selectedIds={data.selectedInternal}
+              onToggle={toggleInternal}
+              onPreview={setPreviewOptionId}
+              currency={currency}
+            />
 
-            {/* External Renovations */}
-            <div className="min-w-0">
-              <h4 className="text-base font-semibold text-foreground">
-                External Renovations
-              </h4>
-              <div className="mt-3 divide-y divide-border border-y border-border">
-                {RENOVATION_EXTERNAL_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.id}
-                    className="flex min-h-11 cursor-pointer items-start justify-between gap-4 px-1 py-2.5 transition-colors hover:bg-surface/70"
-                  >
-                    <span className="flex min-w-0 items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={data.selectedExternal.includes(opt.id)}
-                        onChange={() => toggleExternal(opt.id)}
-                        className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span className="min-w-0 text-[15px] leading-5 text-foreground">
-                        {opt.label}
-                      </span>
-                    </span>
-                    <span className="flex-shrink-0 text-sm font-medium leading-5 text-muted">
-                      <RegionalCentsText
-                        cents={getCatalogPrice(opt.priceKey, currency)}
-                      />
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <RenovationOptionGroup
+              title="External Renovations"
+              options={RENOVATION_EXTERNAL_OPTIONS}
+              selectedIds={data.selectedExternal}
+              onToggle={toggleExternal}
+              onPreview={setPreviewOptionId}
+              currency={currency}
+            />
           </div>
         </section>
 
@@ -409,5 +386,84 @@ export default function RenovationItemCard({
         <ItemSubtotal totalCents={subtotal} />
       </div>
     </article>
+
+    {previewOption ? (
+      <ExampleDialog
+        open={Boolean(previewOptionId)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewOptionId(null);
+        }}
+        title={previewOption.label}
+        description={
+          previewMedia?.description?.trim() || previewOption.description
+        }
+        media={previewMedia}
+      />
+    ) : null}
+    </>
+  );
+}
+
+function RenovationOptionGroup({
+  title,
+  options,
+  selectedIds,
+  onToggle,
+  onPreview,
+  currency,
+}: {
+  title: string;
+  options: RenovationOption[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  onPreview: (id: string) => void;
+  currency: TransactionalCurrency;
+}) {
+  return (
+    <div className="min-w-0">
+      <h4 className="text-base font-semibold text-foreground">{title}</h4>
+      <div className="mt-3 grid gap-2.5">
+        {options.map((option) => {
+          const selected = selectedIds.includes(option.id);
+          return (
+            <div
+              key={option.id}
+              className={`grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-primary/30 focus-within:ring-offset-1 ${
+                selected
+                  ? "border-primary/60 bg-primary/5"
+                  : "border-border hover:border-primary/30 hover:bg-surface"
+              }`}
+            >
+              <label className="flex min-w-0 cursor-pointer items-center gap-2.5 py-1">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => onToggle(option.id)}
+                  className="h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="min-w-0 text-[15px] leading-5 text-foreground">
+                  {option.label}
+                </span>
+              </label>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="whitespace-nowrap text-[15px] font-medium text-foreground/75">
+                  <RegionalCentsText
+                    cents={getCatalogPrice(option.priceKey, currency)}
+                  />
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onPreview(option.id)}
+                  aria-label={`View ${option.label} information and example`}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                >
+                  <Info className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

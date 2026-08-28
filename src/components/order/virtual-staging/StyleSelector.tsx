@@ -9,7 +9,7 @@ import {
   STAGING_STYLE_CARDS,
   type StagingStyleCard,
 } from "@/data/order-options";
-import ExampleDialog from "./ExampleDialog";
+import ExampleDialog from "@/components/order/ExampleDialog";
 import {
   hasExampleMedia,
   resolveFurnitureStyleThumbnail,

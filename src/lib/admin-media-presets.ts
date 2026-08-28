@@ -1,6 +1,9 @@
 import {
   STAGING_ADDONS,
   STAGING_STYLE_CARDS,
+  RENOVATION_EXTERNAL_OPTIONS,
+  RENOVATION_INTERNAL_OPTIONS,
+  VIRTUAL_RENOVATION_GUIDE_ITEMS,
   VIRTUAL_STAGING_MEDIA_KEYS,
 } from "../data/order-options.ts";
 import { DUSK_STYLES } from "./day-to-dusk.ts";
@@ -37,6 +40,28 @@ export const DAY_TO_DUSK_SKY_STYLE_MEDIA_PRESETS: ServiceOptionMediaPreset[] =
     mediaKey: style.mediaKey,
   }));
 
+export const VIRTUAL_RENOVATION_GUIDE_MEDIA_PRESETS: ServiceOptionMediaPreset[] =
+  VIRTUAL_RENOVATION_GUIDE_ITEMS.map((item) => ({
+    label: `Virtual Renovation Guide — ${
+      item.group === "external" ? "External" : "Internal"
+    } ${item.title}`,
+    mediaKey: item.mediaKey,
+  }));
+
+export const VIRTUAL_RENOVATION_OPTION_MEDIA_PRESETS: ServiceOptionMediaPreset[] =
+  [
+    ...RENOVATION_INTERNAL_OPTIONS.map((option) => ({
+      label: `Virtual Renovation — ${option.label}`,
+      mediaKey: option.mediaKey,
+    })),
+    ...RENOVATION_EXTERNAL_OPTIONS.map((option) => ({
+      label: `Virtual Renovation — ${
+        option.id.startsWith("ext-") ? "Exterior " : ""
+      }${option.label}`,
+      mediaKey: option.mediaKey,
+    })),
+  ];
+
 export const SERVICE_OPTION_MEDIA_PRESET_GROUPS: ServiceOptionMediaPresetGroup[] =
   [
     {
@@ -61,6 +86,14 @@ export const SERVICE_OPTION_MEDIA_PRESET_GROUPS: ServiceOptionMediaPresetGroup[]
           ? [{ label: option.label, mediaKey: option.mediaKey }]
           : [],
       ),
+    },
+    {
+      label: "Virtual Renovation — Guide",
+      presets: VIRTUAL_RENOVATION_GUIDE_MEDIA_PRESETS,
+    },
+    {
+      label: "Virtual Renovation — Options",
+      presets: VIRTUAL_RENOVATION_OPTION_MEDIA_PRESETS,
     },
   ];
 
