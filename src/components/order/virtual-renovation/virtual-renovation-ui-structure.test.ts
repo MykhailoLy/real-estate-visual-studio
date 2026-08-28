@@ -22,7 +22,7 @@ test("configure uses the wide guided workspace", () => {
 test("OrderSummary remains the only submit owner", () => {
   const summaryMatches = orderFormSource.match(/<OrderSummary/g);
   assert.equal(summaryMatches?.length, 1);
-  assert.match(orderFormSource, /sidebar=\{\s*<OrderSummary/);
+  assert.doesNotMatch(orderFormSource, /sidebar=\{/);
 });
 
 test("Internal and External option scrollbars are removed", () => {
@@ -51,5 +51,5 @@ test("each image owns its original preview without introducing form image state"
   assert.match(itemSource, /persistedOriginal\?\.previewUrl/);
   assert.match(itemSource, /presentationVariant="workspace"/);
   assert.match(itemSource, /function CurrentPhotoPreview/);
-  assert.match(itemSource, /2xl:grid-cols/);
+  assert.match(itemSource, /min-\[1600px\]:grid-cols/);
 });

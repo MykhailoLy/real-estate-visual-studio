@@ -159,12 +159,12 @@ export default function RenovationItemCard({
         className={cn(
           "grid grid-cols-1 gap-7",
           hasCurrentPhotoPreview &&
-            "2xl:grid-cols-[minmax(0,1fr)_300px] 2xl:gap-x-10 2xl:gap-y-0",
+            "min-[1600px]:grid-cols-[minmax(0,1fr)_300px] min-[1600px]:gap-x-10 min-[1600px]:gap-y-0",
         )}
       >
         {hasCurrentPhotoPreview ? (
-          <div className="min-w-0 2xl:col-start-2 2xl:row-span-2 2xl:row-start-1">
-            <div className="2xl:sticky 2xl:top-8">
+          <div className="min-w-0 min-[1600px]:col-start-2 min-[1600px]:row-span-2 min-[1600px]:row-start-1">
+            <div className="min-[1600px]:sticky min-[1600px]:top-8">
               <CurrentPhotoPreview
                 key={currentPreviewUrl}
                 previewUrl={currentPreviewUrl}
@@ -174,7 +174,7 @@ export default function RenovationItemCard({
           </div>
         ) : null}
 
-        <div className={cn("min-w-0 space-y-7 2xl:col-start-1 2xl:row-start-1", hasCurrentPhotoPreview && "2xl:row-span-2")}>
+        <div className={cn("min-w-0 space-y-7 min-[1600px]:col-start-1 min-[1600px]:row-start-1", hasCurrentPhotoPreview && "min-[1600px]:row-span-2")}>
           {/* File Upload */}
           <FileUpload
             viewerVariant="photo"
@@ -205,7 +205,7 @@ export default function RenovationItemCard({
             comfortable
           />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             {/* Internal Renovations */}
             <div>
               <label className="block text-[17px] font-semibold text-primary mb-3">
@@ -278,37 +278,37 @@ export default function RenovationItemCard({
                   Room / Area <span className="text-red-500">*</span>
                 </label>
                 <select
-              value={data.room}
-              onChange={(e) => onChange({ ...data, room: e.target.value })}
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="">Select room...</option>
-              {RENOVATION_ROOM_OPTIONS.map((room) => (
-                <option key={room} value={room}>
-                  {room}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Presentation Style
-            </label>
-            <select
-              value={data.presentationStyle}
-              onChange={(e) =>
-                onChange({ ...data, presentationStyle: e.target.value })
-              }
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="">Select style...</option>
-              {RENOVATION_STYLE_OPTIONS.map((style) => (
-                <option key={style} value={style}>
-                  {style}
-                </option>
-              ))}
-            </select>
-          </div>
+                  value={data.room}
+                  onChange={(e) => onChange({ ...data, room: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">Select room...</option>
+                  {RENOVATION_ROOM_OPTIONS.map((room) => (
+                    <option key={room} value={room}>
+                      {room}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[15px] font-medium text-foreground mb-2">
+                  Presentation Style
+                </label>
+                <select
+                  value={data.presentationStyle}
+                  onChange={(e) =>
+                    onChange({ ...data, presentationStyle: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">Select style...</option>
+                  {RENOVATION_STYLE_OPTIONS.map((style) => (
+                    <option key={style} value={style}>
+                      {style}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -342,7 +342,7 @@ export default function RenovationItemCard({
                     onChange({ ...data, referenceLink: e.target.value })
                   }
                   placeholder="https://example.com/inspiration"
-                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
@@ -389,7 +389,7 @@ export default function RenovationItemCard({
               }
               placeholder="Describe any specific renovation details..."
               rows={3}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
 

@@ -1310,25 +1310,6 @@ export default function VirtualRenovationOrderForm({
           }
         />
       }
-      sidebar={
-        <OrderSummary
-          serviceName="Virtual Renovation"
-          items={summaryItems}
-          pricingInput={{
-            serviceType: "virtual-renovation",
-            items: items.map((item) => ({
-              selectedInternal: item.selectedInternal,
-              selectedExternal: item.selectedExternal,
-            })),
-          }}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          canSubmit={canSubmit || finalizationRetryContext !== null}
-          submitLabel={
-            finalizationRetryContext ? "Retry submission" : undefined
-          }
-        />
-      }
     >
       {submitError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -1470,6 +1451,26 @@ export default function VirtualRenovationOrderForm({
             setOrderTerms(next);
           }}
         />
+
+        <div className="pt-6">
+          <OrderSummary
+            serviceName="Virtual Renovation"
+            items={summaryItems}
+            pricingInput={{
+              serviceType: "virtual-renovation",
+              items: items.map((item) => ({
+                selectedInternal: item.selectedInternal,
+                selectedExternal: item.selectedExternal,
+              })),
+            }}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+            canSubmit={canSubmit || finalizationRetryContext !== null}
+            submitLabel={
+              finalizationRetryContext ? "Retry submission" : undefined
+            }
+          />
+        </div>
       </fieldset>
     </OrderLayout>
   );

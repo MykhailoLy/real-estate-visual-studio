@@ -34,6 +34,7 @@ export default function OrderGuideRail({
   numbered = true,
 }: OrderGuideRailProps) {
   if (variant === "compact") {
+    const ListComponent = numbered ? "ol" : "ul";
     return (
       <section
         aria-label="Order guide"
@@ -42,7 +43,7 @@ export default function OrderGuideRail({
         <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
           {title}
         </h2>
-        <ol className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <ListComponent className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
           {steps.map((step, index) => (
             <li key={`${step.title}-${index}`} className={cn("min-w-0", !numbered && "flex items-start gap-2")}>
               {numbered ? (
@@ -51,7 +52,7 @@ export default function OrderGuideRail({
                 </span>
               ) : (
                 <span className="pt-2 text-primary shrink-0 flex justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary block" />
                 </span>
               )}
               <div>
@@ -64,7 +65,7 @@ export default function OrderGuideRail({
               </div>
             </li>
           ))}
-        </ol>
+        </ListComponent>
 
         {information != null && (
           <details className="mt-4 border-t border-border pt-3">
@@ -80,13 +81,15 @@ export default function OrderGuideRail({
     );
   }
 
+  const ListComponent = numbered ? "ol" : "ul";
+
   return (
     <aside aria-label="Order guide" className="text-foreground">
       <h2 className="text-[12px] font-bold uppercase tracking-[0.18em] text-primary">
         {title}
       </h2>
 
-      <ol className="mt-6 space-y-7">
+      <ListComponent className="mt-6 space-y-7">
         {steps.map((step, index) => (
           <li key={`${step.title}-${index}`} className="grid grid-cols-[2rem_1fr] gap-3">
             {numbered ? (
@@ -101,7 +104,7 @@ export default function OrderGuideRail({
                 aria-hidden
                 className="pt-2.5 text-primary flex justify-center"
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary block" />
               </span>
             )}
             <div className="min-w-0">
@@ -114,7 +117,7 @@ export default function OrderGuideRail({
             </div>
           </li>
         ))}
-      </ol>
+      </ListComponent>
 
       {information != null && (
         <section
