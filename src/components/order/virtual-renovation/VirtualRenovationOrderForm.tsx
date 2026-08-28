@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Info, Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
-import OrderGuideRail from "@/components/order/OrderGuideRail";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderTermsBlock, {
   type OrderTermsData,
@@ -1251,62 +1250,22 @@ export default function VirtualRenovationOrderForm({
     <OrderLayout
       title="Virtual Renovation"
       subtitle="Select renovation options for each image. Price is calculated based on your selections."
-      workspaceVariant="wide"
-      editorial
-      leadingRail={
-        <OrderGuideRail
-          title="WHAT WE NEED"
-          numbered={false}
-          steps={[
-            {
-              title: "Original Photo",
-              description: "A high-quality original property image.",
-            },
-            {
-              title: "Renovation details",
-              description: "A clear description of the renovation changes required.",
-            },
-            {
-              title: "References",
-              description: "Reference images, links or sketches where they help explain materials, finishes, layout or design direction.",
-            },
-          ]}
-          informationTitle="USEFUL INFORMATION"
-          information={
-            <ul className="list-disc pl-4 space-y-2">
-              <li>Select only the renovation work required for each image.</li>
-              <li>A reference image or link can help communicate materials, finishes or design direction.</li>
-              <li>Major reconstruction or unclear source material may require custom review before work begins.</li>
-            </ul>
-          }
-        />
-      }
-      compactLeadingRail={
-        <OrderGuideRail
-          variant="compact"
-          title="WHAT WE NEED"
-          numbered={false}
-          steps={[
-            {
-              title: "Original Photo",
-              description: "A high-quality original property image.",
-            },
-            {
-              title: "Renovation details",
-              description: "A clear description of the renovation changes required.",
-            },
-            {
-              title: "References",
-              description: "Reference images, links or sketches where they help explain materials, finishes, layout or design direction.",
-            },
-          ]}
-          informationTitle="USEFUL INFORMATION"
-          information={
-            <ul className="list-disc pl-4 space-y-2">
-              <li>Select only the renovation work required for each image.</li>
-              <li>A reference image or link can help communicate materials, finishes or design direction.</li>
-              <li>Major reconstruction or unclear source material may require custom review before work begins.</li>
-            </ul>
+      sidebar={
+        <OrderSummary
+          serviceName="Virtual Renovation"
+          items={summaryItems}
+          pricingInput={{
+            serviceType: "virtual-renovation",
+            items: items.map((item) => ({
+              selectedInternal: item.selectedInternal,
+              selectedExternal: item.selectedExternal,
+            })),
+          }}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          canSubmit={canSubmit || finalizationRetryContext !== null}
+          submitLabel={
+            finalizationRetryContext ? "Retry submission" : undefined
           }
         />
       }
@@ -1452,26 +1411,6 @@ export default function VirtualRenovationOrderForm({
           }}
         />
       </fieldset>
-
-      <div className="pt-6">
-        <OrderSummary
-          serviceName="Virtual Renovation"
-          items={summaryItems}
-          pricingInput={{
-            serviceType: "virtual-renovation",
-            items: items.map((item) => ({
-              selectedInternal: item.selectedInternal,
-              selectedExternal: item.selectedExternal,
-            })),
-          }}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          canSubmit={canSubmit || finalizationRetryContext !== null}
-          submitLabel={
-            finalizationRetryContext ? "Retry submission" : undefined
-          }
-        />
-      </div>
     </OrderLayout>
   );
 }
