@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import BeforeAfterShowcase, {
@@ -21,6 +22,20 @@ import { publicPageMetadata } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
+
+export const revalidate = 300;
+
+const getCachedHomepageSliderItems = unstable_cache(
+  getHomepageSliderItems,
+  ["homepage-slider-items-v1"],
+  { revalidate: 300 },
+);
+
+const getCachedAboutCollageItems = unstable_cache(
+  getAboutCollageItems,
+  ["homepage-about-collage-items-v1"],
+  { revalidate: 300 },
+);
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Real Estate Photo Editing & Virtual Staging",
@@ -60,8 +75,8 @@ export default async function HomePage() {
   // Load admin media in parallel. Both helpers return [] on
   // misconfigured / unreachable Supabase, so neither will throw.
   const [sliderRows, collageRows] = await Promise.all([
-    getHomepageSliderItems(),
-    getAboutCollageItems(),
+    getCachedHomepageSliderItems(),
+    getCachedAboutCollageItems(),
   ]);
 
   const sliderSlides: ShowcaseSlide[] = sliderRows

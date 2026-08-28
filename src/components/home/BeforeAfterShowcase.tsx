@@ -83,6 +83,11 @@ const SWIPE_MIN_X = 40;
  *  diagonal drags from triggering a slide change. */
 const SWIPE_MAX_RATIO = 1.2;
 
+// Match the actual homepage wrapper padding so high-DPR mobile browsers
+// do not select a wider Next Image candidate than either half can render.
+const HERO_HALF_SIZES =
+  "(min-width: 1024px) calc(50vw - 8px), (min-width: 640px) calc(50vw - 16px), calc(50vw - 12px)";
+
 export default function BeforeAfterShowcase({ slides }: Props) {
   const effective: ShowcaseSlide[] =
     slides && slides.length > 0 ? slides : FALLBACK_SLIDES;
@@ -341,9 +346,9 @@ function ImageBeforeAfter({
           alt={beforeAlt}
           fill
           // Each half is ~50% of the banner width at every breakpoint.
-          sizes="50vw"
+          sizes={HERO_HALF_SIZES}
           className="object-cover"
-          priority={eager}
+          preload={eager}
         />
       </div>
       <div className="relative w-1/2 overflow-hidden bg-stone-200">
@@ -351,9 +356,9 @@ function ImageBeforeAfter({
           src={afterUrl}
           alt={afterAlt}
           fill
-          sizes="50vw"
+          sizes={HERO_HALF_SIZES}
           className="object-cover"
-          priority={eager}
+          preload={eager}
         />
       </div>
       <div
