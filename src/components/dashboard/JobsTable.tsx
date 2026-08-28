@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ClientPortalLink from "./ClientPortalLink";
 import { useState } from "react";
 import { Search, SlidersHorizontal, FileX } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -234,7 +234,7 @@ export default function JobsTable({
                   >
                     {/* Job title + reference — links to the detail page */}
                     <td className="px-4 py-3.5">
-                      <Link
+                      <ClientPortalLink
                         href={`/dashboard/jobs/${job.id}`}
                         className="block group/link"
                       >
@@ -254,7 +254,7 @@ export default function JobsTable({
                             {job.imageCount} image{job.imageCount !== 1 ? "s" : ""}
                           </span>
                         </div>
-                      </Link>
+                      </ClientPortalLink>
                     </td>
                     {/* Service */}
                     <td className="px-4 py-3.5 hidden md:table-cell">
@@ -294,13 +294,13 @@ export default function JobsTable({
 
       {limit && filtered.length > limit && (
         <div className="text-center pt-1">
-          <Link
+          <ClientPortalLink
             href="/dashboard/jobs"
             className="text-sm font-semibold text-primary hover:text-primary-light transition-colors inline-flex items-center gap-1"
           >
             View all {filtered.length} jobs
             <span aria-hidden>→</span>
-          </Link>
+          </ClientPortalLink>
         </div>
       )}
     </div>

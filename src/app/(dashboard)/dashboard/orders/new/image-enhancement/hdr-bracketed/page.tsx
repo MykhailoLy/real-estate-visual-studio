@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { ArrowLeft, Clock, Layers, Info } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import Container from "@/components/layout/Container";
@@ -38,13 +38,13 @@ export default async function HdrBracketedComingSoonPage() {
       <section className="py-10 lg:py-16 bg-surface min-h-screen">
         <Container>
           <div className="mb-6">
-            <Link
+            <ClientPortalLink
               href="/dashboard/orders/new/image-enhancement"
               className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-primary transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
               Back to Image Enhancement types
-            </Link>
+            </ClientPortalLink>
           </div>
 
           <div className="max-w-2xl">
@@ -86,24 +86,24 @@ export default async function HdrBracketedComingSoonPage() {
               <Info className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden />
               <p className="leading-relaxed">
                 Need standard listing photos enhanced now? Use{" "}
-                <Link
+                <ClientPortalLink
                   href="/dashboard/orders/new/image-enhancement/single-exposure"
                   className="font-semibold underline underline-offset-2 hover:text-blue-900"
                 >
                   Image Enhancement — Single Exposure
-                </Link>{" "}
+                </ClientPortalLink>{" "}
                 (US$2 per image).
               </p>
             </div>
 
             <div className="mt-8">
-              <Link
+              <ClientPortalLink
                 href="/dashboard/orders/new/image-enhancement"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2.5 text-[13px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
               >
                 <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
                 Back to options
-              </Link>
+              </ClientPortalLink>
             </div>
           </div>
         </Container>

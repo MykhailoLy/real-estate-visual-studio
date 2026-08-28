@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ClientPortalLink from "./ClientPortalLink";
 import { usePathname, useRouter } from "next/navigation";
 import { Clock3, FileText, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -413,12 +413,12 @@ export default function ClientDraftsPage() {
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
             {copy.emptyMessage}
           </p>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="mt-5 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {copy.startOrder}
-          </Link>
+          </ClientPortalLink>
         </div>
       )}
 
@@ -593,12 +593,12 @@ function DraftCard({
           <div className="mt-auto pt-4">
             <div className="flex flex-wrap gap-2">
               {resumeUrl && (
-                <Link
+                <ClientPortalLink
                   href={resumeUrl}
                   className="inline-flex items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   {actionLabel}
-                </Link>
+                </ClientPortalLink>
               )}
               {!isFinishing && (
                 <button

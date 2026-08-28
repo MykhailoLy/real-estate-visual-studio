@@ -15,7 +15,8 @@ import {
   UserCircle,
 } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
-import { getClientUser } from "@/lib/client-auth";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
+import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
@@ -52,13 +53,13 @@ function SupportCard({
           <p className="text-sm text-muted leading-relaxed mt-1">{body}</p>
         </div>
       </div>
-      <Link
+      <ClientPortalLink
         href={href}
         className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-primary-light transition-colors"
       >
         {cta}
         <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-      </Link>
+      </ClientPortalLink>
     </article>
   );
 }
@@ -90,7 +91,7 @@ function FaqCard({
 }
 
 export default async function DashboardSupportPage() {
-  const user = await getClientUser();
+  const user = await getDashboardRequestUser();
 
   return (
     <ClientDashboardLayout>
@@ -133,13 +134,13 @@ export default async function DashboardSupportPage() {
               </p>
             </div>
           </div>
-          <Link
+          <ClientPortalLink
             href="/dashboard/jobs"
             className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] font-semibold text-foreground/75 hover:border-primary/40 hover:text-primary transition-colors"
           >
             Need help with a specific order?
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
+          </ClientPortalLink>
         </div>
       ) : (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">

@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { CheckCircle2, Mail } from "lucide-react";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import OrderPaymentPanel from "@/components/payments/OrderPaymentPanel";
 
 interface ConfirmationProps {
@@ -76,12 +76,12 @@ export default function Confirmation({
         >
           Place Another Order
         </button>
-        <Link
+        <ClientPortalLink
           href="/dashboard/jobs"
           className="px-6 py-3 border border-border text-foreground rounded-lg font-semibold text-sm hover:bg-surface transition-colors"
         >
           Back to jobs
-        </Link>
+        </ClientPortalLink>
       </div>
     </div>
   );

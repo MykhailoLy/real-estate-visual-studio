@@ -12,7 +12,7 @@
 // ============================================================
 
 import { useState } from "react";
-import Link from "next/link";
+import ClientPortalLink from "./ClientPortalLink";
 import { PlusCircle, PackageOpen } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import JobsTable from "@/components/dashboard/JobsTable";
@@ -47,13 +47,13 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
             Track every order from production through delivery.
           </p>
         </div>
-        <Link
+        <ClientPortalLink
           href="/dashboard/orders/new"
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0"
         >
           <PlusCircle className="w-4 h-4" aria-hidden />
           New Order
-        </Link>
+        </ClientPortalLink>
       </div>
 
       {hasJobs ? (
@@ -108,13 +108,13 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
             Place your first order and it will appear here with delivery,
             revision, and file status updates.
           </p>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             Place your first order
-          </Link>
+          </ClientPortalLink>
         </div>
       )}
     </ClientDashboardLayout>

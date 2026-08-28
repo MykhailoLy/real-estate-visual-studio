@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ClientPortalLink from "./ClientPortalLink";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { DASHBOARD_NAV_ITEMS } from "./ClientDashboardTopNav";
@@ -39,7 +39,7 @@ export default function ClientDashboardSidebar({
             const active = isActive(item.href, item.exact);
             const isNewOrder = item.href === "/dashboard/orders/new";
             return (
-              <Link
+              <ClientPortalLink
                 key={item.href}
                 href={item.href}
                 aria-current={active && !isNewOrder ? "page" : undefined}
@@ -68,7 +68,7 @@ export default function ClientDashboardSidebar({
                 {active && !isNewOrder && (
                   <span className="sr-only">(current page)</span>
                 )}
-              </Link>
+              </ClientPortalLink>
             );
           })}
         </div>

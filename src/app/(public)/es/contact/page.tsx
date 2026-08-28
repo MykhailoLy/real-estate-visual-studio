@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import TrackedLink from "@/components/analytics/TrackedLink";
 import TrackedOutboundLink from "@/components/analytics/TrackedOutboundLink";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import Container from "@/components/layout/Container";
 import { spanishMetadata } from "../seo";
 
@@ -84,12 +85,12 @@ export default function SpanishContactPage() {
               >
                 Ver precios
               </Link>
-              <Link
+              <ClientPortalLink
                 href="/dashboard/jobs"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
               >
                 Área de cliente
-              </Link>
+              </ClientPortalLink>
             </div>
           </div>
 
@@ -153,13 +154,13 @@ export default function SpanishContactPage() {
               ¿Buscas archivos entregados o el estado de un pedido?
             </h2>
           </div>
-          <Link
+          <ClientPortalLink
             href="/dashboard/jobs"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-primary-dark rounded-xl text-sm font-bold hover:bg-secondary-light transition-colors"
           >
             Abrir área de cliente
             <ArrowRight className="w-4 h-4" aria-hidden />
-          </Link>
+          </ClientPortalLink>
         </div>
       </Container>
     </section>

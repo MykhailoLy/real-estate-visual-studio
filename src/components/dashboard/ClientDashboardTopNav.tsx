@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
 import SignOutButton from "./SignOutButton";
+import ClientPortalLink from "./ClientPortalLink";
 
 export interface DashboardNavItem {
   href: string;
@@ -181,7 +182,7 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
           }
 
           return (
-            <Link
+            <ClientPortalLink
               key={item.href}
               href={item.href}
               aria-current={active && !isNewOrder ? "page" : undefined}
@@ -189,7 +190,7 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
             >
               <item.icon className="h-3.5 w-3.5" aria-hidden />
               {item.label}
-            </Link>
+            </ClientPortalLink>
           );
         })}
       </nav>
@@ -516,7 +517,7 @@ export function DashboardAccountMenu({
 
             <div className="py-1">
               {accountMenuItems.map((item) => (
-                <Link
+                <ClientPortalLink
                   key={item.href}
                   href={item.href}
                   role="menuitem"
@@ -525,7 +526,7 @@ export function DashboardAccountMenu({
                 >
                   <item.icon className="h-4 w-4 text-muted" aria-hidden />
                   {item.label}
-                </Link>
+                </ClientPortalLink>
               ))}
             </div>
 

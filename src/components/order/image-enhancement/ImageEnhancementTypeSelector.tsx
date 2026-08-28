@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import Container from "@/components/layout/Container";
 import { IMAGE_ENHANCEMENT_TYPES } from "@/lib/image-enhancement";
 import { getServiceOptionImagesByKeys } from "@/lib/site-media";
@@ -118,7 +118,7 @@ export default async function ImageEnhancementTypeSelector() {
 
             if (isActive) {
               return (
-                <Link
+                <ClientPortalLink
                   key={type.id}
                   href={type.route}
                   role="listitem"
@@ -126,7 +126,7 @@ export default async function ImageEnhancementTypeSelector() {
                   className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition-all hover:border-primary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   {cardInner}
-                </Link>
+                </ClientPortalLink>
               );
             }
 

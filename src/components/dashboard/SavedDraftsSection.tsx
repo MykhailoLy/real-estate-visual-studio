@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ClientPortalLink from "./ClientPortalLink";
 import { usePathname } from "next/navigation";
 import { Clock3, FileText, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -155,12 +155,12 @@ export default function SavedDraftsSection() {
           <p className="text-sm text-muted">{copy.helper}</p>
         </div>
         {loadState === "success" && drafts.length > 0 && (
-          <Link
+          <ClientPortalLink
             href="/dashboard/drafts"
             className="inline-flex w-fit items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {copy.viewAll}
-          </Link>
+          </ClientPortalLink>
         )}
       </div>
 
@@ -246,12 +246,12 @@ export default function SavedDraftsSection() {
                         <span>{updatedAt}</span>
                       </p>
                       {resumeUrl && (
-                        <Link
+                        <ClientPortalLink
                           href={resumeUrl}
                           className="mt-4 inline-flex w-fit items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                         >
                           {actionLabel}
-                        </Link>
+                        </ClientPortalLink>
                       )}
                     </div>
                   </div>

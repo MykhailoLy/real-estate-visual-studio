@@ -13,6 +13,7 @@ import {
 } from "./job-status-filters";
 import { useDashboardUser } from "./DashboardUserContext";
 import SignOutButton from "./SignOutButton";
+import ClientPortalLink from "./ClientPortalLink";
 
 interface ClientDashboardMobileNavProps {
   open: boolean;
@@ -102,7 +103,7 @@ export default function ClientDashboardMobileNav({
               const active = isActive(item.href, item.exact);
               const isNewOrder = item.href === "/dashboard/orders/new";
               return (
-                <Link
+                <ClientPortalLink
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
@@ -124,7 +125,7 @@ export default function ClientDashboardMobileNav({
                     aria-hidden
                   />
                   {item.label}
-                </Link>
+                </ClientPortalLink>
               );
             })}
           </nav>

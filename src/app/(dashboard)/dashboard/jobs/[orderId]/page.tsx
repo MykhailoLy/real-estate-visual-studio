@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowLeft,
   Building2,
@@ -21,7 +21,7 @@ import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewAc
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import FilePreviewCard from "@/components/FilePreviewCard";
 import OrderPaymentPanel from "@/components/payments/OrderPaymentPanel";
-import { getClientUser } from "@/lib/client-auth";
+import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 import { getDeliverablesForClient } from "@/lib/client-deliverables";
 import {
   getCurrentDeliverableRows,
@@ -178,7 +178,7 @@ export default async function OrderDetailPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = await params;
-  const user = await getClientUser();
+  const user = await getDashboardRequestUser();
   if (!user) notFound();
 
   const ownership = toOrderOwnership(user);
@@ -221,13 +221,13 @@ export default async function OrderDetailPage({
   return (
     <ClientDashboardLayout>
       <div className="mb-6">
-        <Link
+        <ClientPortalLink
           href="/dashboard/jobs"
           className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
           Back to jobs
-        </Link>
+        </ClientPortalLink>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-7">
@@ -251,20 +251,20 @@ export default async function OrderDetailPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
-          <Link
+          <ClientPortalLink
             href="/dashboard/support"
             className="inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-lg text-[12px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary bg-white transition-colors"
           >
             <LifeBuoy className="w-3.5 h-3.5" aria-hidden />
             Contact support
-          </Link>
-          <Link
+          </ClientPortalLink>
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             New order
-          </Link>
+          </ClientPortalLink>
         </div>
       </div>
 
@@ -524,20 +524,20 @@ export default async function OrderDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
+          <ClientPortalLink
             href="/dashboard/jobs"
             className="inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-lg text-[12px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary bg-white transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
             All jobs
-          </Link>
-          <Link
+          </ClientPortalLink>
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             Place another order
-          </Link>
+          </ClientPortalLink>
         </div>
       </div>
     </ClientDashboardLayout>
