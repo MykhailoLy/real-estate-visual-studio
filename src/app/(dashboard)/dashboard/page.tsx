@@ -11,7 +11,7 @@
 // ============================================================
 
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   Briefcase,
   Clock,
@@ -28,8 +28,10 @@ import DashboardStatCard from "@/components/dashboard/DashboardStatCard";
 import JobsTable from "@/components/dashboard/JobsTable";
 import { getDashboardStats } from "@/lib/client-dashboard/mock-data";
 import type { DashboardJob } from "@/lib/client-dashboard/mock-data";
-import { getClientUser } from "@/lib/client-auth";
-import { getClientProfile } from "@/lib/client-profile";
+import {
+  getDashboardRequestProfile,
+  getDashboardRequestUser,
+} from "@/lib/dashboard-request-context";
 import {
   getOrdersForClient,
   mapOrdersToDashboardJobs,
@@ -95,8 +97,8 @@ function getNextSteps(jobs: DashboardJob[]) {
 export default async function DashboardPage() {
   // Validated SSR session — email never comes from the client
   const [user, profile] = await Promise.all([
-    getClientUser(),
-    getClientProfile(),
+    getDashboardRequestUser(),
+    getDashboardRequestProfile(),
   ]);
 
   // Onboarding gate (from PR #33): no profile row → redirect to onboarding
@@ -149,13 +151,13 @@ export default async function DashboardPage() {
               </p>
             )}
           </div>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             New Order
-          </Link>
+          </ClientPortalLink>
         </div>
       </div>
 
@@ -228,12 +230,12 @@ export default async function DashboardPage() {
                           {step.reference}
                         </span>
                       </div>
-                      <Link
+                      <ClientPortalLink
                         href={step.ctaHref}
                         className="flex-shrink-0 text-[11px] font-bold text-primary hover:text-primary-light transition-colors whitespace-nowrap"
                       >
                         {step.cta} →
-                      </Link>
+                      </ClientPortalLink>
                     </div>
                   ))}
                 </div>
@@ -243,13 +245,13 @@ export default async function DashboardPage() {
             <section className={nextSteps.length > 0 ? "xl:col-span-2" : "xl:col-span-3"}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-foreground">Recent Jobs</h2>
-                <Link
+                <ClientPortalLink
                   href="/dashboard/jobs"
                   className="text-[12px] font-bold text-primary hover:text-primary-light transition-colors flex items-center gap-1"
                 >
                   View all
                   <ArrowRight className="w-3 h-3" aria-hidden />
-                </Link>
+                </ClientPortalLink>
               </div>
               <JobsTable jobs={recentJobs} limit={5} showProgress={false} />
             </section>
@@ -270,13 +272,13 @@ export default async function DashboardPage() {
               day-to-dusk, image enhancement and more — delivered within 24–48 hours.
             </p>
           </div>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             Place your first order
-          </Link>
+          </ClientPortalLink>
         </div>
       )}
 
@@ -296,13 +298,13 @@ export default async function DashboardPage() {
             delivered within 24–48 hours.
           </p>
         </div>
-        <Link
+        <ClientPortalLink
           href="/dashboard/orders/new"
           className="relative inline-flex items-center gap-2 px-6 py-3 bg-secondary text-primary-dark font-bold rounded-xl hover:bg-secondary-light transition-colors text-sm whitespace-nowrap flex-shrink-0 shadow-sm"
         >
           <PlusCircle className="w-4 h-4" aria-hidden />
           Create a New Order
-        </Link>
+        </ClientPortalLink>
       </div>
 
     </ClientDashboardLayout>

@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CreditCard, Loader2, ShieldCheck } from "lucide-react";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import type { AuthoritativePaymentSummary } from "@/lib/payments/domain";
 import { formatStoredMoney } from "@/lib/pricing/format";
 import { getStripeCheckoutRedirectUrl } from "@/lib/payments/client-checkout";
@@ -153,12 +153,12 @@ export default function OrderPaymentPanel({
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-left">
         <p className="text-sm text-amber-900">{error}</p>
         {secondaryHref ? (
-          <Link
+          <ClientPortalLink
             href={secondaryHref}
             className="mt-4 inline-flex text-sm font-semibold text-primary hover:text-primary-light"
           >
             {secondaryLabel}
-          </Link>
+          </ClientPortalLink>
         ) : null}
       </div>
     );
@@ -271,12 +271,12 @@ export default function OrderPaymentPanel({
           </button>
         ) : null}
         {secondaryHref ? (
-          <Link
+          <ClientPortalLink
             href={secondaryHref}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-white px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
           >
             {secondaryLabel}
-          </Link>
+          </ClientPortalLink>
         ) : null}
       </div>
     </div>

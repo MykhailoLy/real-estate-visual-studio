@@ -13,35 +13,57 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+type RequestHeaderOverrides = Readonly<Record<string, string | null>>;
+
+function getForwardedRequestHeaders(
+  req: NextRequest,
+  overrides: RequestHeaderOverrides,
+): Headers {
+  const headers = new Headers(req.headers);
+  for (const [name, value] of Object.entries(overrides)) {
+    headers.delete(name);
+    if (value !== null) headers.set(name, value);
+  }
+  return headers;
+}
+
 export function createProxySupabaseClient(
   req: NextRequest,
-  res: NextResponse
+  requestHeaderOverrides: RequestHeaderOverrides = {},
 ) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+  let response = NextResponse.next({
+    request: { headers: getForwardedRequestHeaders(req, requestHeaderOverrides) },
+  });
+
   if (!url || !anonKey) {
-    // Env vars absent in build/sandbox — return a no-op sentinel
-    // The proxy will treat this as unauthenticated.
-    return null;
+    return { supabase: null, getResponse: () => response };
   }
 
-  return createServerClient(url, anonKey, {
+  const supabase = createServerClient(url, anonKey, {
     cookies: {
       getAll() {
         return req.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        // Write refreshed tokens onto both the request (so the
-        // SSR client inside the route sees them) and the response
-        // (so the browser stores the updated cookie).
+        // Recreate the forwarded response after mutating the request cookie,
+        // matching @supabase/ssr's required refresh propagation pattern.
         cookiesToSet.forEach(({ name, value }) =>
           req.cookies.set(name, value)
         );
+        response = NextResponse.next({
+          request: {
+            headers: getForwardedRequestHeaders(req, requestHeaderOverrides),
+          },
+        });
         cookiesToSet.forEach(({ name, value, options }) =>
-          res.cookies.set(name, value, options)
+          response.cookies.set(name, value, options)
         );
       },
     },
   });
+
+  return { supabase, getResponse: () => response };
 }

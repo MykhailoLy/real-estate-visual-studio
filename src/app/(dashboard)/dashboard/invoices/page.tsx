@@ -9,9 +9,9 @@ import {
   PlusCircle,
   Receipt,
 } from "lucide-react";
-import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
-import { getClientUser } from "@/lib/client-auth";
+import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 import {
   getOrdersForClient,
   type ClientOrder,
@@ -153,13 +153,13 @@ function InvoiceOrderCard({ order }: { order: ClientOrder }) {
             </p>
           </div>
 
-          <Link
+          <ClientPortalLink
             href={`/dashboard/jobs/${order.id}`}
             className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-white hover:bg-primary-light transition-colors"
           >
             View order
             <ArrowRight className="w-3.5 h-3.5" aria-hidden />
-          </Link>
+          </ClientPortalLink>
 
           <button
             type="button"
@@ -178,7 +178,7 @@ function InvoiceOrderCard({ order }: { order: ClientOrder }) {
 }
 
 export default async function DashboardInvoicesPage() {
-  const user = await getClientUser();
+  const user = await getDashboardRequestUser();
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
@@ -222,13 +222,13 @@ export default async function DashboardInvoicesPage() {
               Official downloadable invoices will be available here later.
             </p>
           </div>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             New Order
-          </Link>
+          </ClientPortalLink>
         </div>
       </div>
 
@@ -307,13 +307,13 @@ export default async function DashboardInvoicesPage() {
             Billing summaries will appear here after orders are placed. They are
             read-only summaries for now, not official tax invoices.
           </p>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             Place an order
-          </Link>
+          </ClientPortalLink>
         </div>
       )}
 

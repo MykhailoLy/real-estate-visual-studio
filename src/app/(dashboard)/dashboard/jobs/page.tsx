@@ -9,7 +9,7 @@
 // params, query strings, cookies, or any client input.
 // ============================================================
 
-import { getClientUser } from "@/lib/client-auth";
+import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 import {
   getOrdersForClient,
   mapOrdersToDashboardJobs,
@@ -24,7 +24,7 @@ export const metadata = {
 
 export default async function DashboardJobsPage() {
   // Validate session server-side — identity never comes from the client
-  const user = await getClientUser();
+  const user = await getDashboardRequestUser();
 
   // Fetch real orders. Ownership comes exclusively from the verified
   // session. Returns [] when SUPABASE_SERVICE_ROLE_KEY is absent or on

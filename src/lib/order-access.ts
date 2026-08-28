@@ -15,8 +15,10 @@
 
 import "server-only";
 import { redirect } from "next/navigation";
-import { getClientUser } from "@/lib/client-auth";
-import { getClientProfile } from "@/lib/client-profile";
+import {
+  getDashboardRequestProfile,
+  getDashboardRequestUser,
+} from "@/lib/dashboard-request-context";
 import { isProfileComplete } from "@/lib/profile-completion";
 
 export interface OrderingClient {
@@ -32,12 +34,12 @@ export interface OrderingClient {
 export async function requireOrderingClient(
   orderRoute: string,
 ): Promise<OrderingClient> {
-  const user = await getClientUser();
+  const user = await getDashboardRequestUser();
   if (!user) {
     redirect(`/login?redirectTo=${encodeURIComponent(orderRoute)}`);
   }
 
-  const profile = await getClientProfile();
+  const profile = await getDashboardRequestProfile();
   if (!isProfileComplete(profile)) {
     redirect(
       `/dashboard/profile?onboarding=1&next=${encodeURIComponent(orderRoute)}`,

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   ArrowRight,
   Building2,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react";
 import TrackedLink from "@/components/analytics/TrackedLink";
 import TrackedOutboundLink from "@/components/analytics/TrackedOutboundLink";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import Container from "@/components/layout/Container";
 import { publicPageMetadata } from "@/lib/seo";
 
@@ -86,12 +86,12 @@ export default function ContactPage() {
               >
                 View pricing
               </TrackedLink>
-              <Link
+              <ClientPortalLink
                 href="/dashboard/jobs"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
               >
                 Client dashboard
-              </Link>
+              </ClientPortalLink>
             </div>
           </div>
 
@@ -156,13 +156,13 @@ export default function ContactPage() {
               Looking for delivered files or order updates?
             </h2>
           </div>
-          <Link
+          <ClientPortalLink
             href="/dashboard/jobs"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-primary-dark rounded-xl text-sm font-bold hover:bg-secondary-light transition-colors"
           >
             Open dashboard
             <ArrowRight className="w-4 h-4" aria-hidden />
-          </Link>
+          </ClientPortalLink>
         </div>
       </Container>
     </section>

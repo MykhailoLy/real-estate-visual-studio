@@ -1,13 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  DASHBOARD_REQUEST_PATH_HEADER,
+  safeDashboardRequestPath,
+} from "@/lib/dashboard-request-path";
 import { hasVerifiedAuthenticatedSubject } from "@/lib/supabase/auth-claims";
 import { createProxySupabaseClient } from "@/lib/supabase/proxy-client";
 
 // ============================================================
 // Next.js Proxy (middleware replacement in Next.js 16+)
 //
-// Protects /dashboard and all sub-routes using @supabase/ssr.
-// supabase.auth.getClaims() verifies the access-token signature and
-// subject — no manual JWT decoding and no browser-controlled identity.
+// Refreshes /dashboard session cookies using @supabase/ssr. Dashboard
+// authorization happens once in the server layout via getClientUser().
 //
 // The SSR client reads the session from the HTTP cookie that
 // createBrowserClient writes after login, and rotates refresh
@@ -28,15 +31,30 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Build a mutable response that the SSR client can write
-  // refreshed session cookies onto.
-  const res = NextResponse.next({ request: req });
+  const dashboardDestination = isDashboard
+    ? safeDashboardRequestPath(`${pathname}${req.nextUrl.search}`)
+    : null;
+  const { supabase, getResponse } = createProxySupabaseClient(req, {
+    // Always overwrite or remove a browser-supplied copy. This is redirect
+    // metadata only and is never used as identity.
+    [DASHBOARD_REQUEST_PATH_HEADER]: dashboardDestination,
+  });
 
-  // Create the SSR-aware Supabase client.
-  // Returns null when env vars are absent (build time / sandbox).
-  const supabase = createProxySupabaseClient(req, res);
+  // Dashboard proxy work is refresh-only. getSession may rotate an expiring
+  // token, but its unverified user/session data is deliberately ignored.
+  if (isDashboard) {
+    if (supabase) {
+      try {
+        await supabase.auth.getSession();
+      } catch {
+        // The server layout's getUser() check remains the fail-closed gate.
+      }
+    }
+    return getResponse();
+  }
 
-  // ── Determine auth state ──────────────────────────────────
+  // Preserve the existing login/signup convenience redirect without putting
+  // getClaims/JWKS in the normal dashboard request path.
   let authenticated = false;
   if (supabase) {
     try {
@@ -49,14 +67,6 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  // ── /dashboard/* — require auth ───────────────────────────
-  if (isDashboard && !authenticated) {
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
   // ── /login + /signup — redirect authenticated users away ──
   if (isAuthPage && authenticated) {
     const dashboardUrl = req.nextUrl.clone();
@@ -66,7 +76,7 @@ export async function proxy(req: NextRequest) {
   }
 
   // Pass through with any updated session cookies on the response
-  return res;
+  return getResponse();
 }
 
 export const config = {

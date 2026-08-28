@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import ClientPortalLink from "./ClientPortalLink";
 import Image from "next/image";
 import { ArrowRight, Clock, Images, Lock } from "lucide-react";
 import {
@@ -21,7 +21,7 @@ import { PORTFOLIO_VIEWER_VARIANTS } from "@/components/media/static-image-varia
 // OrderServiceCard — one service tile in the New Order hub.
 //
 // The shell is a NON-interactive <article> (not a Link), so the
-// nested "View Examples" <button> and "Start Order" <Link> are both
+// nested "View Examples" <button> and "Start Order" portal link are both
 // valid and never conflict. Active services get a clickable Start
 // Order link; inactive services get a disabled Coming Soon / Custom
 // Quote pill and never navigate. Any service with complete Portfolio
@@ -203,13 +203,13 @@ export default function OrderServiceCard({
           </div>
 
           {isActive ? (
-            <Link
+            <ClientPortalLink
               href={service.route as string}
               className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Start Order
               <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
+            </ClientPortalLink>
           ) : (
             <span
               className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-stone-100 px-3.5 py-2 text-sm font-semibold text-muted"

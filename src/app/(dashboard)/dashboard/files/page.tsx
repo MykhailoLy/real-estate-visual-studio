@@ -1,4 +1,4 @@
-import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   AlertCircle,
   ArrowRight,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import FilePreviewCard from "@/components/FilePreviewCard";
-import { getClientUser } from "@/lib/client-auth";
+import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 import {
   getClientFilesHubData,
   type ClientDeliveredFileHubItem,
@@ -68,13 +68,13 @@ function SummaryCard({
 
 function ViewOrderAction({ orderId }: { orderId: string }) {
   return (
-    <Link
+    <ClientPortalLink
       href={`/dashboard/jobs/${orderId}`}
       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[12px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
     >
       View order
       <ArrowRight className="w-3.5 h-3.5" aria-hidden />
-    </Link>
+    </ClientPortalLink>
   );
 }
 
@@ -180,7 +180,7 @@ function SectionEmptyState({
 }
 
 export default async function DashboardFilesPage() {
-  const user = await getClientUser();
+  const user = await getDashboardRequestUser();
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
@@ -221,13 +221,13 @@ export default async function DashboardFilesPage() {
               Access your uploaded originals and delivered files across all orders.
             </p>
           </div>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             New Order
-          </Link>
+          </ClientPortalLink>
         </div>
       </div>
 
@@ -300,13 +300,13 @@ export default async function DashboardFilesPage() {
             Files will appear here after you place an order or receive completed
             deliverables from the PicchuSpot team.
           </p>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             Place an order
-          </Link>
+          </ClientPortalLink>
         </div>
       ) : (
         <div className="space-y-7 mb-7">
@@ -394,13 +394,13 @@ export default async function DashboardFilesPage() {
             Place a new order and your uploaded files and delivered results will
             appear in this hub.
           </p>
-          <Link
+          <ClientPortalLink
             href="/dashboard/orders/new"
             className="inline-flex items-center gap-1.5 text-[12px] font-bold text-primary hover:text-primary-light transition-colors"
           >
             Create a new order
             <ArrowRight className="w-3.5 h-3.5" aria-hidden />
-          </Link>
+          </ClientPortalLink>
         </div>
       </div>
     </ClientDashboardLayout>

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -245,17 +245,16 @@ export default function PublicAccountMenu({
 
             <div className="py-1">
               {accountMenuItems.map((item) => (
-                <Link
+                <ClientPortalLink
                   key={item.href}
                   href={item.href}
-                  prefetch={false}
                   role="menuitem"
                   onClick={close}
                   className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"
                 >
                   <item.icon className="h-4 w-4 text-muted" aria-hidden />
                   {item.label}
-                </Link>
+                </ClientPortalLink>
               ))}
             </div>
 

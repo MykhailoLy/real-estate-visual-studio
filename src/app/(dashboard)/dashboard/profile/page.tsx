@@ -1,5 +1,7 @@
-import { getClientUser } from "@/lib/client-auth";
-import { getClientProfile } from "@/lib/client-profile";
+import {
+  getDashboardRequestProfile,
+  getDashboardRequestUser,
+} from "@/lib/dashboard-request-context";
 import { safeInternalPath } from "@/lib/safe-redirect";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import ClientProfileForm from "@/components/dashboard/ClientProfileForm";
@@ -20,8 +22,8 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
   const nextPath = next ? safeInternalPath(next) : null;
 
   const [user, profile] = await Promise.all([
-    getClientUser(),
-    getClientProfile(),
+    getDashboardRequestUser(),
+    getDashboardRequestProfile(),
   ]);
 
   const authEmail = user?.email ?? "";

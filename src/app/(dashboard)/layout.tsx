@@ -11,8 +11,16 @@
 // pages like /dashboard/jobs can pass their own statusFilter state.
 
 import type { Metadata } from "next";
-import { getDashboardClientUserFromClaims } from "@/lib/dashboard-client-auth";
-import { getClientProfile } from "@/lib/client-profile";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import {
+  getDashboardRequestProfile,
+  getDashboardRequestUser,
+} from "@/lib/dashboard-request-context";
+import {
+  DASHBOARD_REQUEST_PATH_HEADER,
+  safeDashboardRequestPath,
+} from "@/lib/dashboard-request-path";
 import DashboardDocumentScrollLock from "@/components/dashboard/DashboardDocumentScrollLock";
 import { DashboardUserProvider } from "@/components/dashboard/DashboardUserContext";
 import type { DashboardUser } from "@/components/dashboard/DashboardUserContext";
@@ -21,17 +29,27 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const preferredRegion = "dub1";
+
 export default async function DashboardGroupLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // These reads are independent. The profile query remains scoped by the
-  // authenticated cookie and protected by client_profiles RLS.
+  // The verified user and RLS-scoped profile reads are independent. React
+  // cache shares them with any page helper in this same server render only.
   const [rawUser, profile] = await Promise.all([
-    getDashboardClientUserFromClaims(),
-    getClientProfile(),
+    getDashboardRequestUser(),
+    getDashboardRequestProfile(),
   ]);
+
+  if (!rawUser) {
+    const requestHeaders = await headers();
+    const destination = safeDashboardRequestPath(
+      requestHeaders.get(DASHBOARD_REQUEST_PATH_HEADER),
+    );
+    redirect(`/login?redirectTo=${encodeURIComponent(destination)}`);
+  }
 
   const user: DashboardUser | null = rawUser
     ? {

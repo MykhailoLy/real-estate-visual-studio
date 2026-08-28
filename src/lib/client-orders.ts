@@ -25,6 +25,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { DashboardJob, DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 import type { ReviewStatus } from "@/lib/client-reviews";
+import { enrichOrderSubServices } from "@/lib/client-order-enrichment";
 import { getServiceLabel as getDisplayServiceLabel, getOrderServiceLabel } from "@/lib/display/service-labels";
 import {
   isOrderOwned,
@@ -434,33 +435,24 @@ export async function getOrdersForClient(
         sub_service: null,
       }));
 
-    // Batched sub-service lookup (ONE query, not per-order). Reads the
-    // first item's details.sub_service for each owned order so dedicated
-    // photo-editing orders can show their dedicated label.
-    const orderIds = orders.map((o) => o.id);
-    if (orderIds.length > 0) {
-      const { data: itemRows, error: itemErr } = await supabase
+    // Cosmetic label enrichment is bounded independently. A slow or failed
+    // order_items request must never discard the already-owned summaries.
+    await enrichOrderSubServices(orders, async (orderIds, signal) => {
+      const { data, error: itemError } = await supabase
         .from("order_items")
         .select("order_id, details")
         .eq("item_index", 0)
-        .in("order_id", orderIds);
+        .in("order_id", orderIds)
+        .abortSignal(signal);
 
-      if (itemErr) {
-        console.warn("[client-orders] sub_service lookup failed:", itemErr.message);
-      } else {
-        const byOrder = new Map<string, string | null>();
-        for (const row of (itemRows ?? []) as Array<{
+      return {
+        rows: (data ?? []) as Array<{
           order_id: string;
           details: Record<string, unknown> | null;
-        }>) {
-          const sub = row.details?.sub_service;
-          byOrder.set(row.order_id, typeof sub === "string" ? sub : null);
-        }
-        for (const order of orders) {
-          order.sub_service = byOrder.get(order.id) ?? null;
-        }
-      }
-    }
+        }>,
+        errorMessage: itemError?.message ?? null,
+      };
+    });
 
     return orders;
   } catch (err) {
