@@ -16,6 +16,8 @@ interface JobsTableProps {
   jobs: DashboardJob[];
   /** If true, shows search + status filter controls above the table. */
   showControls?: boolean;
+  /** Keep the status select when another page-level status toolbar is absent. */
+  showStatusControl?: boolean;
   /** Limit rows (used on the overview page to show "recent" only). */
   limit?: number;
   /**
@@ -85,6 +87,7 @@ function ProgressBar({ value, status }: { value: number; status: DashboardJobSta
 export default function JobsTable({
   jobs,
   showControls = false,
+  showStatusControl = true,
   limit,
   externalStatusFilter,
   onStatusFilterChange,
@@ -145,7 +148,7 @@ export default function JobsTable({
           </div>
 
           {/* Status filter */}
-          <div className="relative flex-shrink-0">
+          {showStatusControl && <div className="relative flex-shrink-0">
             <SlidersHorizontal
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-light pointer-events-none"
               aria-hidden
@@ -165,7 +168,7 @@ export default function JobsTable({
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
         </div>
       )}
 

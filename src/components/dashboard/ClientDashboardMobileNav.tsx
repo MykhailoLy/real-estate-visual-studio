@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, ArrowUpRight } from "lucide-react";
+import { useEffect, useRef, type RefObject } from "react";
+import { ArrowUpRight, User, X } from "lucide-react";
+import {
+  MarketLanguageSelector,
+  type SiteLanguage,
+} from "@/components/layout/Header";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
-import { DASHBOARD_NAV_ITEMS } from "./ClientDashboardTopNav";
-import type { DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
-import {
-  JOB_STATUS_DOT_CLASSES,
-  JOB_STATUS_FILTERS,
-} from "./job-status-filters";
+import { DASHBOARD_NAV_ITEMS } from "./dashboard-nav-items";
 import { useDashboardUser } from "./DashboardUserContext";
 import SignOutButton from "./SignOutButton";
 import ClientPortalLink from "./ClientPortalLink";
@@ -18,18 +18,64 @@ import ClientPortalLink from "./ClientPortalLink";
 interface ClientDashboardMobileNavProps {
   open: boolean;
   onClose: () => void;
-  activeStatusFilter?: DashboardJobStatus | "all";
-  onStatusFilter?: (status: DashboardJobStatus | "all") => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  language: SiteLanguage;
+  onLanguageChange: (language: SiteLanguage) => void;
 }
 
 export default function ClientDashboardMobileNav({
   open,
   onClose,
-  activeStatusFilter = "all",
-  onStatusFilter,
+  triggerRef,
+  language,
+  onLanguageChange,
 }: ClientDashboardMobileNavProps) {
   const pathname = usePathname() ?? "/dashboard";
   const user = useDashboardUser();
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const trigger = triggerRef.current;
+    document.body.style.overflow = "hidden";
+    window.queueMicrotask(() => closeButtonRef.current?.focus());
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !drawerRef.current) return;
+      const focusable = Array.from(
+        drawerRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("hidden"));
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      trigger?.focus();
+    };
+  }, [onClose, open, triggerRef]);
 
   if (!open) return null;
 
@@ -46,19 +92,21 @@ export default function ClientDashboardMobileNav({
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
         onClick={onClose}
         aria-hidden
       />
 
       <div
+        id="client-dashboard-mobile-menu"
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-label="Dashboard navigation menu"
-        className="fixed inset-y-0 left-0 w-[17rem] bg-white z-50 lg:hidden flex flex-col shadow-2xl"
+        className="fixed inset-y-0 right-0 z-50 flex w-[min(21rem,calc(100vw-2rem))] flex-col bg-white shadow-2xl lg:hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 h-14 bg-primary flex-shrink-0 border-b border-primary-dark/40">
+        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-primary-dark/40 bg-primary px-4">
           <div className="flex items-center gap-2">
             <span className="text-white font-bold text-[15px] tracking-tight">PicchuSpot</span>
             <span className="inline-flex items-center px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-secondary text-[9px] font-bold uppercase tracking-[0.18em]">
@@ -66,23 +114,24 @@ export default function ClientDashboardMobileNav({
             </span>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="p-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            className="rounded-md p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <X className="w-5 h-5" aria-hidden />
           </button>
         </div>
 
         {/* Identity strip */}
-        <div className="px-4 py-3 bg-surface border-b border-border flex items-center gap-3">
+        <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
             <span className="text-[10px] font-bold text-white">{initials}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-foreground truncate leading-tight">{user?.profileName || displayName}</p>
-            <p className="text-[11px] text-muted truncate">{email || "Not signed in"}</p>
+            <p className="truncate text-sm font-bold leading-tight text-foreground">{user?.profileName || displayName}</p>
+            <p className="truncate text-xs text-muted">{email || "Not signed in"}</p>
           </div>
           {isLiveUser ? (
             <span className="ml-auto flex-shrink-0 inline-flex items-center px-1.5 py-0.5 bg-emerald-50 border border-emerald-200/60 rounded text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-700">
@@ -96,9 +145,8 @@ export default function ClientDashboardMobileNav({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Nav links */}
-          <nav aria-label="Dashboard pages" className="px-2 py-3 space-y-0.5">
-            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">Menu</p>
+          <nav aria-label="Dashboard navigation" className="space-y-0.5 px-2 py-3">
+            <p className="mb-1.5 select-none px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light">Menu</p>
             {DASHBOARD_NAV_ITEMS.map((item) => {
               const active = isActive(item.href, item.exact);
               const isNewOrder = item.href === "/dashboard/orders/new";
@@ -107,11 +155,14 @@ export default function ClientDashboardMobileNav({
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
-                  aria-current={active && !isNewOrder ? "page" : undefined}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150",
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     isNewOrder
-                      ? "bg-secondary/10 text-secondary-dark hover:bg-secondary/18 border border-secondary/25 mt-1"
+                      ? cn(
+                          "mt-1 border border-secondary/35 bg-secondary/15 text-secondary-dark hover:bg-secondary/25",
+                          active && "ring-2 ring-primary/30",
+                        )
                       : active
                       ? "bg-primary text-white shadow-sm"
                       : "text-foreground/65 hover:text-foreground hover:bg-surface"
@@ -125,58 +176,50 @@ export default function ClientDashboardMobileNav({
                     aria-hidden
                   />
                   {item.label}
+                  {active && <span className="sr-only">(current page)</span>}
                 </ClientPortalLink>
               );
             })}
           </nav>
 
-          {/* Status filters */}
-          {onStatusFilter && (
-            <>
-              <div className="mx-4 border-t border-border" />
-              <div className="px-2 py-3">
-                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light select-none">Filter jobs</p>
-                <div className="space-y-0.5">
-                  {JOB_STATUS_FILTERS.map((f) => {
-                    const active = activeStatusFilter === f.value;
-                    return (
-                      <button
-                        key={f.value}
-                        type="button"
-                        onClick={() => { onStatusFilter(f.value); onClose(); }}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 text-left",
-                          active
-                            ? "bg-primary/8 text-primary font-semibold"
-                            : "text-foreground/60 hover:text-foreground hover:bg-surface font-medium"
-                        )}
-                      >
-                        <span
-                          className={cn("w-2 h-2 rounded-full flex-shrink-0", active ? JOB_STATUS_DOT_CLASSES[f.value] : "bg-border")}
-                          aria-hidden
-                        />
-                        {f.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
+          <div className="mx-4 border-t border-border" />
+          <div className="px-4 py-4">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light">
+              Market, currency & language
+            </p>
+            <MarketLanguageSelector
+              pathname={pathname}
+              currentLanguage={language}
+              placement="panel"
+              className="w-full"
+              onNavigate={onClose}
+              onLanguageChange={onLanguageChange}
+              getLanguageOptionHref={() => pathname}
+              analyticsLocation="dashboard_mobile_menu"
+            />
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 border-t border-border px-2 py-2 space-y-0.5">
+        <div className="flex-shrink-0 space-y-0.5 border-t border-border px-2 py-2">
+          <ClientPortalLink
+            href="/dashboard/profile"
+            onClick={onClose}
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <User className="h-4 w-4 flex-shrink-0" aria-hidden />
+            My Account
+          </ClientPortalLink>
           <Link
             href="/"
             onClick={onClose}
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-muted hover:text-primary hover:bg-surface transition-colors"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ArrowUpRight className="w-4 h-4 flex-shrink-0" aria-hidden />
             Back to website
           </Link>
           <SignOutButton
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-muted hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
+            className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
           />
         </div>
       </div>

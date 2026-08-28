@@ -1012,12 +1012,8 @@ export default function DayToDuskOrderForm({
     />
   ) : undefined;
 
-  const guide = !isReview ? (
-    <OrderGuideRail
-      steps={DAY_TO_DUSK_GUIDE_STEPS}
-      deferInformation
-      information={
-        <>
+  const guideInformation = (
+    <>
           <p className="font-semibold text-foreground">Important</p>
           <p>
             For the best result, upload the highest-quality daytime exterior
@@ -1034,8 +1030,22 @@ export default function DayToDuskOrderForm({
             Reference files: JPG, JPEG, PNG, WebP or PDF. Up to 10 files, 20 MB
             each and 100 MB total.
           </p>
-        </>
-      }
+    </>
+  );
+
+  const guide = !isReview ? (
+    <OrderGuideRail
+      steps={DAY_TO_DUSK_GUIDE_STEPS}
+      deferInformation
+      information={guideInformation}
+    />
+  ) : undefined;
+
+  const compactGuide = !isReview ? (
+    <OrderGuideRail
+      steps={DAY_TO_DUSK_GUIDE_STEPS}
+      information={guideInformation}
+      variant="compact"
     />
   ) : undefined;
 
@@ -1046,6 +1056,7 @@ export default function DayToDuskOrderForm({
       header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={sidebar}
       leadingRail={guide}
+      compactLeadingRail={compactGuide}
       editorial
       workspaceVariant={isReview ? undefined : "wide"}
     >
@@ -1098,7 +1109,7 @@ export default function DayToDuskOrderForm({
             comfortable
           />
 
-          <div className="space-y-8">
+          <div className="space-y-7">
             {items.map((item, index) => (
               <DayToDuskItemCard
                 key={item.clientItemId}

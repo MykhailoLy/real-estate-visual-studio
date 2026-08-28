@@ -15,8 +15,8 @@ import { useState } from "react";
 import ClientPortalLink from "./ClientPortalLink";
 import { PlusCircle, PackageOpen } from "lucide-react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
+import ClientJobsStatusFilters from "@/components/dashboard/ClientJobsStatusFilters";
 import JobsTable from "@/components/dashboard/JobsTable";
-import { getDashboardStats } from "@/lib/client-dashboard/mock-data";
 import type { DashboardJob, DashboardJobStatus } from "@/lib/client-dashboard/mock-data";
 
 interface ClientJobsShellProps {
@@ -26,14 +26,10 @@ interface ClientJobsShellProps {
 export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
   const [statusFilter, setStatusFilter] = useState<DashboardJobStatus | "all">("all");
 
-  const stats    = getDashboardStats(jobs);
   const hasJobs  = jobs.length > 0;
 
   return (
-    <ClientDashboardLayout
-      statusFilter={statusFilter}
-      onStatusFilterChange={setStatusFilter}
-    >
+    <ClientDashboardLayout>
       {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
@@ -58,40 +54,16 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
 
       {hasJobs ? (
         <>
-          {/* ── Status summary chips ── */}
-          <div className="flex flex-wrap gap-2 mb-5">
-            {[
-              { value: "all" as const,                 label: `All (${jobs.length})` },
-              { value: "in-progress" as const,         label: `Active (${stats.activeJobs})` },
-              { value: "awaiting-submission" as const, label: `Awaiting (${stats.awaitingSubmission})` },
-              { value: "completed" as const,           label: `Completed (${stats.completedJobs})` },
-            ]
-              // Always show "All"; only show other chips when count > 0
-              .filter((c) => c.value === "all" ||
-                (c.value === "in-progress"         && stats.activeJobs > 0)         ||
-                (c.value === "awaiting-submission" && stats.awaitingSubmission > 0) ||
-                (c.value === "completed"           && stats.completedJobs > 0)
-              )
-              .map((chip) => (
-                <button
-                  key={chip.value}
-                  type="button"
-                  onClick={() => setStatusFilter(chip.value)}
-                  className={
-                    statusFilter === chip.value
-                      ? "inline-flex items-center px-3 py-1.5 rounded-full text-[12px] font-bold bg-primary text-white shadow-sm transition-all"
-                      : "inline-flex items-center px-3 py-1.5 rounded-full text-[12px] font-semibold bg-white border border-border text-foreground/70 hover:border-primary/40 hover:text-primary transition-all"
-                  }
-                >
-                  {chip.label}
-                </button>
-              ))}
-          </div>
+          <ClientJobsStatusFilters
+            activeStatusFilter={statusFilter}
+            onStatusFilter={setStatusFilter}
+          />
 
           {/* ── Jobs table with search + filter ── */}
           <JobsTable
             jobs={jobs}
             showControls
+            showStatusControl={false}
             externalStatusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
             showProgress

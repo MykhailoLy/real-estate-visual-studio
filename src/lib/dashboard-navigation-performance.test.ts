@@ -231,12 +231,63 @@ test("all dashboard navigation shells use the no-prefetch portal link", () => {
 
   for (const shellPath of [
     "components/dashboard/ClientDashboardTopNav.tsx",
-    "components/dashboard/ClientDashboardSidebar.tsx",
     "components/dashboard/ClientDashboardMobileNav.tsx",
     "components/auth/PublicAccountMenu.tsx",
   ]) {
     assert.match(source(shellPath), /<ClientPortalLink/, shellPath);
   }
+});
+
+test("dashboard shell uses one desktop nav and one accessible mobile drawer", () => {
+  const layoutSource = source("components/dashboard/ClientDashboardLayout.tsx");
+  const topNavSource = source("components/dashboard/ClientDashboardTopNav.tsx");
+  const mobileNavSource = source("components/dashboard/ClientDashboardMobileNav.tsx");
+  const jobsSource = source("components/dashboard/ClientJobsShell.tsx");
+
+  assert.doesNotMatch(layoutSource, /ClientDashboardSidebar/);
+  assert.doesNotMatch(layoutSource, /ClientDashboardMobileBottomBar/);
+  assert.doesNotMatch(layoutSource, /pb-\[calc\(3\.5rem/);
+  assert.match(topNavSource, /hidden border-t border-border bg-primary lg:block/);
+  assert.match(topNavSource, /aria-controls="client-dashboard-mobile-menu"/);
+  assert.match(topNavSource, /aria-expanded=\{mobileMenuOpen\}/);
+  assert.match(mobileNavSource, /id="client-dashboard-mobile-menu"/);
+  assert.match(mobileNavSource, /event\.key === "Escape"/);
+  assert.match(mobileNavSource, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(mobileNavSource, /trigger\?\.focus\(\)/);
+  assert.match(jobsSource, /<ClientJobsStatusFilters/);
+  assert.match(jobsSource, /activeStatusFilter=\{statusFilter\}/);
+  assert.match(jobsSource, /onStatusFilter=\{setStatusFilter\}/);
+  assert.match(jobsSource, /showStatusControl=\{false\}/);
+  assert.match(
+    source("components/dashboard/ClientJobsStatusFilters.tsx"),
+    /JOB_STATUS_FILTERS\.map/,
+  );
+});
+
+test("every primary client portal route keeps the shared width-aware shell", () => {
+  for (const path of [
+    "app/(dashboard)/dashboard/page.tsx",
+    "app/(dashboard)/dashboard/orders/new/page.tsx",
+    "app/(dashboard)/dashboard/drafts/page.tsx",
+    "app/(dashboard)/dashboard/files/page.tsx",
+    "app/(dashboard)/dashboard/invoices/page.tsx",
+    "app/(dashboard)/dashboard/support/page.tsx",
+  ]) {
+    const pageSource = source(path);
+    assert.match(pageSource, /ClientDashboardLayout/, path);
+  }
+  assert.match(
+    source("app/(dashboard)/dashboard/jobs/page.tsx"),
+    /ClientJobsShell/,
+  );
+  assert.match(
+    source("components/dashboard/ClientJobsShell.tsx"),
+    /ClientDashboardLayout/,
+  );
+
+  const layoutSource = source("components/dashboard/ClientDashboardLayout.tsx");
+  assert.match(layoutSource, /max-w-6xl mx-auto px-4 sm:px-6 lg:px-8/);
+  assert.match(layoutSource, /className="min-h-0 w-full flex-1/);
 });
 
 test("visible job details and service cards never auto-prefetch", () => {

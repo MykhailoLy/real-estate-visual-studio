@@ -157,9 +157,9 @@ export default function DayToDuskItemCard({
   return (
     <div
       id={dayToDuskItemDomId(index)}
-      className="scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-7"
+      className="scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6"
     >
-      <div className="mb-7 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-semibold leading-tight text-primary sm:text-[22px]">
           Photo #{index + 1}
         </h2>
@@ -177,9 +177,9 @@ export default function DayToDuskItemCard({
 
       <div
         className={cn(
-          "grid min-w-0 gap-9",
+          "grid min-w-0 gap-7",
           hasCurrentPhotoPreview &&
-            "min-[1700px]:grid-cols-[minmax(0,1fr)_minmax(300px,340px)] min-[1700px]:items-start min-[1700px]:gap-x-8",
+            "min-[1440px]:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] min-[1440px]:items-start min-[1440px]:gap-x-7",
         )}
       >
         {/* 1. Upload Daytime Exterior Photo (always editable) */}
@@ -217,8 +217,8 @@ export default function DayToDuskItemCard({
         </div>
 
         {currentPreviewUrl && currentPreviewFilename && (
-          <div className="min-w-0 min-[1700px]:col-start-2 min-[1700px]:row-span-2 min-[1700px]:row-start-1">
-            <div className="min-[1700px]:sticky min-[1700px]:top-8">
+          <div className="min-w-0 min-[1440px]:col-start-2 min-[1440px]:row-span-2 min-[1440px]:row-start-1">
+            <div className="min-[1440px]:sticky min-[1440px]:top-8">
               <CurrentPhotoPreview
                 key={currentPreviewUrl}
                 previewUrl={currentPreviewUrl}
@@ -230,7 +230,7 @@ export default function DayToDuskItemCard({
           </div>
         )}
 
-        <div className="min-w-0 space-y-9 min-[1700px]:col-start-1 min-[1700px]:row-start-2">
+        <div className="min-w-0 space-y-7 min-[1440px]:col-start-1 min-[1440px]:row-start-2">
 
         <div>
           <label
@@ -284,7 +284,7 @@ export default function DayToDuskItemCard({
 
         {/* 3. Lighting Preferences (shared) */}
         <section
-          className="space-y-5 rounded-xl bg-surface/60 p-5 sm:p-6"
+          className="space-y-4 rounded-xl bg-surface/60 p-5"
           aria-labelledby={`${idPrefix}-lighting-title`}
         >
           <h3
@@ -293,7 +293,7 @@ export default function DayToDuskItemCard({
           >
             Lighting Preferences
           </h3>
-          <div className="grid gap-5 min-[1280px]:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 min-[1180px]:grid-cols-3">
             {DUSK_LIGHTING_PREFERENCES.map((pref) => (
               <LightingPreferenceToggle
                 key={pref.field}
@@ -360,7 +360,7 @@ function CurrentPhotoPreview({
   disabled: boolean;
 }) {
   return (
-    <figure className="w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-surface/70 min-[1700px]:max-w-none">
+    <figure className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-surface/70 min-[1440px]:max-w-none">
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-white p-3">
         {/* Signed draft URLs and local blob URLs intentionally bypass next/image. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
