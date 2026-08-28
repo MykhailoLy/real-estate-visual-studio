@@ -20,7 +20,7 @@ export default async function NewVirtualStagingOrderPage() {
     await getServiceOptionMediaByKeys(VIRTUAL_STAGING_MEDIA_KEYS),
   );
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
       <VirtualStagingOrderForm
         clientEmail={email}
         orderRoute={ORDER_ROUTE}
