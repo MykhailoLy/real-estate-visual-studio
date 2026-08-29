@@ -29,7 +29,7 @@ test("early-performance copy preserves the approved service-law meaning in Engli
   assert.equal(EARLY_PERFORMANCE_VERSION, "2026-08-29");
   assert.equal(
     EARLY_PERFORMANCE_COPY.en,
-    "I request PicchuSpot to start work as soon as payment is confirmed, including during any applicable 14-day withdrawal period. I understand that, where consumer withdrawal rights apply, I may have to pay a proportionate amount for work already performed if I withdraw after work has started, and I will lose the right of withdrawal once the service has been fully performed.",
+    "I expressly request PicchuSpot to start work as soon as payment is confirmed, including during any applicable 14-day withdrawal period. I understand that, where consumer withdrawal rights apply, I may have to pay a proportionate amount for work already performed if I withdraw after work has started, and I will lose the right of withdrawal once the service has been fully performed.",
   );
   assert.equal(
     EARLY_PERFORMANCE_COPY.es,

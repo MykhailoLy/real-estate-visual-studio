@@ -82,7 +82,7 @@ export function renderClientConfirmation(
   );
   const subject = `Order ${orderNumber} Received — PicchuSpot`;
   const earlyStartConfirmation =
-    "You asked PicchuSpot to begin work as soon as payment is confirmed, including during any applicable 14-day withdrawal period. Where consumer withdrawal rights apply, you acknowledged the consequences described in the order confirmation.";
+    "You expressly asked PicchuSpot to begin work as soon as payment is confirmed, including during any applicable 14-day withdrawal period. Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed.";
   const pricingTextLines = hasFixedCheckoutPrice
     ? [
         `Base subtotal: ${baseSubtotal}`,
