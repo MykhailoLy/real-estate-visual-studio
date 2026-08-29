@@ -57,7 +57,7 @@ export default function FloatingSiteActions() {
       {!liveSupportActive && !(showPublicLauncher && chatOpen) && (
         <div
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 grid border-t border-primary/15 shadow-[0_-8px_24px_rgba(26,54,93,0.16)] lg:hidden",
+            "fixed inset-x-0 bottom-0 z-40 grid border-t border-primary/15 shadow-[0_-8px_24px_rgba(7,26,43,0.16)] lg:hidden",
             showPublicLauncher ? "grid-cols-2" : "grid-cols-1"
           )}
         >
