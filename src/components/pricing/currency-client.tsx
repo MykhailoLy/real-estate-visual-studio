@@ -333,7 +333,7 @@ export function RegionFlag({ code }: { code: RegionCode }) {
     return (
       <span
         aria-hidden
-        className="relative inline-flex h-4 w-5 shrink-0 overflow-hidden rounded-[3px] border border-stone-200 bg-white shadow-sm"
+        className="relative inline-flex h-4 w-5 shrink-0 overflow-hidden rounded-[3px] border border-stone-200 bg-[#fff] shadow-sm"
       >
         <span className="h-full w-[28%] bg-red-600" />
         <svg
@@ -380,18 +380,18 @@ export function RegionFlag({ code }: { code: RegionCode }) {
   return (
     <span
       aria-hidden
-      className="inline-flex h-4 w-5 shrink-0 overflow-hidden rounded-[3px] border border-stone-200 bg-white shadow-sm"
+      className="inline-flex h-4 w-5 shrink-0 overflow-hidden rounded-[3px] border border-stone-200 bg-[#fff] shadow-sm"
     >
       <span className="relative h-full w-[42%] bg-[#244b9b]">
-        <span className="absolute left-[3px] top-[3px] h-1 w-1 rounded-full bg-white/95" />
-        <span className="absolute left-[9px] top-[3px] h-1 w-1 rounded-full bg-white/95" />
-        <span className="absolute left-[6px] top-[8px] h-1 w-1 rounded-full bg-white/95" />
+        <span className="absolute left-[3px] top-[3px] h-1 w-1 rounded-full bg-[#fff]/95" />
+        <span className="absolute left-[9px] top-[3px] h-1 w-1 rounded-full bg-[#fff]/95" />
+        <span className="absolute left-[6px] top-[8px] h-1 w-1 rounded-full bg-[#fff]/95" />
       </span>
       <span className="flex flex-1 flex-col">
         {Array.from({ length: 7 }, (_, index) => (
           <span
             key={index}
-            className={cn("flex-1", index % 2 === 0 ? "bg-red-600" : "bg-white")}
+            className={cn("flex-1", index % 2 === 0 ? "bg-red-600" : "bg-[#fff]")}
           />
         ))}
       </span>
