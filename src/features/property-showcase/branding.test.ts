@@ -28,8 +28,8 @@ test("custom branding is parsed safely and retains the existing agent contact mo
     brandName: "Costa Blanca Luxury Homes",
     logoUrl: "/property-demo/terrace.svg",
     websiteUrl: "https://example.com/listings",
-    primaryColor: "#0B1F3A",
-    accentColor: "#B88A44",
+    primaryColor: "#071A2B",
+    accentColor: "#C7A94E",
     showPicchuSpotCredit: false,
   };
 
@@ -42,8 +42,8 @@ test("custom branding is parsed safely and retains the existing agent contact mo
     brandName: "Costa Blanca Luxury Homes",
     logoUrl: "/property-demo/terrace.svg",
     websiteUrl: "https://example.com/listings",
-    primaryColor: "#0B1F3A",
-    accentColor: "#B88A44",
+    primaryColor: "#071A2B",
+    accentColor: "#C7A94E",
     showPicchuSpotCredit: false,
   });
   assert.equal(parsed.data.agent.agentName, "Costa Blanca Property Team");
@@ -72,8 +72,8 @@ test("branding rejects arbitrary CSS, unsafe websites, and untrusted logo URLs",
   property.branding = {
     enabled: true,
     brandName: "Safe Brand",
-    primaryColor: "#0B1F3A",
-    accentColor: "#B88A44",
+    primaryColor: "#071A2B",
+    accentColor: "#C7A94E",
     websiteUrl: "https://example.com",
     logoUrl: "https://evil.example/logo.png",
   };
