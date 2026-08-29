@@ -36,7 +36,9 @@ test("PicchuSpot brand tokens stay fixed", () => {
 
   const expected = [
     "--color-primary: #071a2b;",
-    "--color-background: #f4efe8;",
+    "--color-ivory: #f4efe8;",
+    "--color-background: #ffffff;",
+    "--color-white: #ffffff;",
     "--color-secondary: #c7a94e;",
     "--color-border: #ded3c6;",
   ];
