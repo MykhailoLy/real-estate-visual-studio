@@ -45,58 +45,59 @@
   --color-border-strong: #7e848a;
 
   /* Harmonise Tailwind neutral utilities with the same system.
-     stone-400+ are safe for normal text on Warm Ivory. */
+     200 is the stronger control border; 300+ are safe for normal text
+     on Warm Ivory. */
   --color-stone-50: #f4efe8;
   --color-stone-100: #f0e9e1;
-  --color-stone-200: #ded3c6;
-  --color-stone-300: #7e848a;
-  --color-stone-400: #636d75;
-  --color-stone-500: #5a656d;
-  --color-stone-600: #4e5a64;
+  --color-stone-200: #7e848a;
+  --color-stone-300: #636d75;
+  --color-stone-400: #5a656d;
+  --color-stone-500: #4e5a64;
+  --color-stone-600: #424f5a;
   --color-stone-700: #364551;
   --color-stone-800: #1f2f3e;
   --color-stone-900: #071a2b;
 
   --color-gray-50: #f4efe8;
   --color-gray-100: #f0e9e1;
-  --color-gray-200: #ded3c6;
-  --color-gray-300: #7e848a;
-  --color-gray-400: #636d75;
-  --color-gray-500: #5a656d;
-  --color-gray-600: #4e5a64;
+  --color-gray-200: #7e848a;
+  --color-gray-300: #636d75;
+  --color-gray-400: #5a656d;
+  --color-gray-500: #4e5a64;
+  --color-gray-600: #424f5a;
   --color-gray-700: #364551;
   --color-gray-800: #1f2f3e;
   --color-gray-900: #071a2b;
 
   --color-slate-50: #f4efe8;
   --color-slate-100: #f0e9e1;
-  --color-slate-200: #ded3c6;
-  --color-slate-300: #7e848a;
-  --color-slate-400: #636d75;
-  --color-slate-500: #5a656d;
-  --color-slate-600: #4e5a64;
+  --color-slate-200: #7e848a;
+  --color-slate-300: #636d75;
+  --color-slate-400: #5a656d;
+  --color-slate-500: #4e5a64;
+  --color-slate-600: #424f5a;
   --color-slate-700: #364551;
   --color-slate-800: #1f2f3e;
   --color-slate-900: #071a2b;
 
   --color-zinc-50: #f4efe8;
   --color-zinc-100: #f0e9e1;
-  --color-zinc-200: #ded3c6;
-  --color-zinc-300: #7e848a;
-  --color-zinc-400: #636d75;
-  --color-zinc-500: #5a656d;
-  --color-zinc-600: #4e5a64;
+  --color-zinc-200: #7e848a;
+  --color-zinc-300: #636d75;
+  --color-zinc-400: #5a656d;
+  --color-zinc-500: #4e5a64;
+  --color-zinc-600: #424f5a;
   --color-zinc-700: #364551;
   --color-zinc-800: #1f2f3e;
   --color-zinc-900: #071a2b;
 
   --color-neutral-50: #f4efe8;
   --color-neutral-100: #f0e9e1;
-  --color-neutral-200: #ded3c6;
-  --color-neutral-300: #7e848a;
-  --color-neutral-400: #636d75;
-  --color-neutral-500: #5a656d;
-  --color-neutral-600: #4e5a64;
+  --color-neutral-200: #7e848a;
+  --color-neutral-300: #636d75;
+  --color-neutral-400: #5a656d;
+  --color-neutral-500: #4e5a64;
+  --color-neutral-600: #424f5a;
   --color-neutral-700: #364551;
   --color-neutral-800: #1f2f3e;
   --color-neutral-900: #071a2b;
