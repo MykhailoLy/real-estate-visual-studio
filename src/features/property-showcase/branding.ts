@@ -22,8 +22,8 @@ export interface PropertyBrandPalette {
 }
 
 export const PROPERTY_BRAND_DEFAULTS = {
-  primary: "#0B1F3A",
-  accent: "#B88A44",
+  primary: "#071A2B",
+  accent: "#C7A94E",
 } as const;
 
 function hasEncodedPathControl(value: string): boolean {
