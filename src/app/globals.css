@@ -27,14 +27,17 @@
   --color-secondary-light: #d2bb75;
   --color-secondary-dark: #67623d;
 
-  /* Light / dark aliases so existing utilities inherit the brand */
-  --color-white: #f4efe8;
+  /* Core light/dark aliases.
+     Keep Tailwind white literal white: Warm Ivory is a selective brand
+     surface, not the global page background. */
+  --color-white: #ffffff;
   --color-black: #071a2b;
+  --color-ivory: #f4efe8;
 
   /* Semantic surfaces and readable text */
-  --color-background: #f4efe8;
+  --color-background: #ffffff;
   --color-foreground: #071a2b;
-  --color-surface: #f0e9e1;
+  --color-surface: #ffffff;
   --color-muted: #5a656d;
   --color-muted-light: #636d75;
 
@@ -44,11 +47,11 @@
   --color-line: #ded3c6;
   --color-border-strong: #7e848a;
 
-  /* Harmonise Tailwind neutral utilities with the same system.
-     200 stays Soft Line for decorative borders; 300+ are readable
-     neutral steps for copy and stronger UI states. */
-  --color-stone-50: #f4efe8;
-  --color-stone-100: #f0e9e1;
+  /* Harmonise Tailwind neutral utilities without washing the whole UI
+     in Ivory. 50/100 remain clean neutral surfaces; 200 stays Soft Line;
+     300+ are readable neutral steps for copy and stronger UI states. */
+  --color-stone-50: #ffffff;
+  --color-stone-100: #f7f7f6;
   --color-stone-200: #ded3c6;
   --color-stone-300: #636d75;
   --color-stone-400: #5a656d;
@@ -58,8 +61,8 @@
   --color-stone-800: #1f2f3e;
   --color-stone-900: #071a2b;
 
-  --color-gray-50: #f4efe8;
-  --color-gray-100: #f0e9e1;
+  --color-gray-50: #ffffff;
+  --color-gray-100: #f7f7f6;
   --color-gray-200: #ded3c6;
   --color-gray-300: #636d75;
   --color-gray-400: #5a656d;
@@ -69,8 +72,8 @@
   --color-gray-800: #1f2f3e;
   --color-gray-900: #071a2b;
 
-  --color-slate-50: #f4efe8;
-  --color-slate-100: #f0e9e1;
+  --color-slate-50: #ffffff;
+  --color-slate-100: #f7f7f6;
   --color-slate-200: #ded3c6;
   --color-slate-300: #636d75;
   --color-slate-400: #5a656d;
@@ -80,8 +83,8 @@
   --color-slate-800: #1f2f3e;
   --color-slate-900: #071a2b;
 
-  --color-zinc-50: #f4efe8;
-  --color-zinc-100: #f0e9e1;
+  --color-zinc-50: #ffffff;
+  --color-zinc-100: #f7f7f6;
   --color-zinc-200: #ded3c6;
   --color-zinc-300: #636d75;
   --color-zinc-400: #5a656d;
@@ -91,8 +94,8 @@
   --color-zinc-800: #1f2f3e;
   --color-zinc-900: #071a2b;
 
-  --color-neutral-50: #f4efe8;
-  --color-neutral-100: #f0e9e1;
+  --color-neutral-50: #ffffff;
+  --color-neutral-100: #f7f7f6;
   --color-neutral-200: #ded3c6;
   --color-neutral-300: #636d75;
   --color-neutral-400: #5a656d;
@@ -118,7 +121,7 @@ body {
 }
 
 /* Soft Line stays decorative. Form controls need a stronger visible
-   boundary against Warm Ivory to satisfy non-text contrast expectations.
+   boundary against light surfaces to satisfy non-text contrast expectations.
    This only upgrades controls that already opt into the shared border token;
    decorative cards/dividers keep Soft Line. */
 :where(input, select, textarea) {
