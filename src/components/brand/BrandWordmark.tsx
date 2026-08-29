@@ -1,22 +1,10 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
-
-// ─────────────────────────────────────────────────────────────
-// BrandWordmark — renders "PicchuSpot" with brand-colored spans
-//
-// On light backgrounds:  Picchu = Deep Navy, Spot = PicchuSpot Gold
-// On dark backgrounds:   Picchu = Warm Ivory, Spot = PicchuSpot Gold
-//
-// The two spans render without a gap so the word reads as one unified brand name.
-// The outer span is exposed as a single graphic label: this is a brand mark,
-// not body copy that should be recolored to satisfy normal-text contrast.
-// ─────────────────────────────────────────────────────────────
 
 export type WordmarkTheme = "light" | "dark";
 
 interface BrandWordmarkProps {
-  /** "light" for light backgrounds (navy+gold), "dark" for dark backgrounds (white+gold) */
   theme?: WordmarkTheme;
-  /** Additional className applied to the outer span */
   className?: string;
 }
 
@@ -28,15 +16,21 @@ export default function BrandWordmark({
     <span
       role="img"
       aria-label="PicchuSpot"
-      className={cn("font-bold tracking-tight leading-none", className)}
+      className={cn("inline-flex items-center leading-none", className)}
     >
-      <span
+      <Image
+        src={
+          theme === "dark"
+            ? "/brand/picchuspot-wordmark-dark.svg"
+            : "/brand/picchuspot-wordmark.svg"
+        }
+        alt=""
         aria-hidden="true"
-        className={theme === "dark" ? "text-white" : "text-primary"}
-      >
-        Picchu
-      </span>
-      <span aria-hidden="true" className="text-secondary">Spot</span>
+        width={1565}
+        height={255}
+        unoptimized
+        className="h-[0.82em] w-auto"
+      />
     </span>
   );
 }
