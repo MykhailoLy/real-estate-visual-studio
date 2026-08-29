@@ -56,7 +56,11 @@ function source(): PhotoEditingFormDraftSource {
         originalFilename: "exterior.png",
       },
     ],
-    orderTerms: { accepted: true, allowPortfolio: false },
+    orderTerms: {
+      accepted: true,
+      earlyPerformanceRequested: true,
+      allowPortfolio: false,
+    },
     currency: "USD",
     region: "US",
   };
@@ -107,12 +111,26 @@ test("empty Photo Editing form stays local until it has a meaningful edit", () =
     hasMeaningfulPhotoEditingDraftChange({
       jobTitle: "",
       items: [createPhotoEditingFormItem()],
-      orderTerms: { accepted: false, allowPortfolio: false },
+      orderTerms: {
+        accepted: false,
+        earlyPerformanceRequested: false,
+        allowPortfolio: false,
+      },
       currency: "USD",
       region: "US",
     }),
     false,
   );
+});
+
+test("legacy Photo Editing drafts restore a missing early-performance request as false", () => {
+  const legacy = mapPhotoEditingFormToDraftState(source()) as unknown as {
+    termsUi: Record<string, unknown>;
+  };
+  delete legacy.termsUi.earlyPerformanceRequested;
+
+  const restored = mapPhotoEditingDraftToFormState(legacy);
+  assert.equal(restored.orderTerms.earlyPerformanceRequested, false);
 });
 
 test("job title, options, multiple items, terms, and filenames restore", () => {
@@ -129,6 +147,7 @@ test("job title, options, multiple items, terms, and filenames restore", () => {
   assert.equal(restored.items[1]?.originalFilename, "exterior.png");
   assert.deepEqual(restored.orderTerms, {
     accepted: true,
+    earlyPerformanceRequested: true,
     allowPortfolio: false,
   });
   assert.equal(restored.items.every((item) => item.file === null), true);

@@ -13,6 +13,7 @@ import {
   type UploadKind,
 } from "../upload-config.ts";
 import { LEGAL_VERSION as TERMS_VERSION } from "../legal.ts";
+import { EARLY_PERFORMANCE_VERSION } from "../early-performance.ts";
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -144,6 +145,13 @@ interface ProductionOrderInputForTest {
     accepted: boolean;
     version?: string;
     acceptedAt?: string;
+  };
+  earlyPerformanceRequest: {
+    requested: boolean;
+    version?: string;
+    requestedAt?: string;
+    acknowledged_loss_after_full_performance?: boolean;
+    acknowledged_proportionate_payment?: boolean;
   };
   portfolioPermission: { allowed: boolean };
   sourceDraftId?: string;
@@ -750,6 +758,10 @@ function orderInput(
     items: stagingItems(itemFiles.length),
     itemFiles,
     termsAcceptance: { accepted: true, version: TERMS_VERSION },
+    earlyPerformanceRequest: {
+      requested: true,
+      version: EARLY_PERFORMANCE_VERSION,
+    },
     portfolioPermission: { allowed: false },
     storageMode: "move",
     ...overrides,
@@ -822,7 +834,7 @@ async function loadOrderModule(): Promise<CreateOrderModuleForTest> {
 }
 
 async function loadOrderFingerprintModule(): Promise<OrderFingerprintModuleForTest> {
-  return import("./order-submission-fingerprint.ts") as Promise<
+  return import("./order-submission-fingerprint.ts") as unknown as Promise<
     OrderFingerprintModuleForTest
   >;
 }
@@ -1599,12 +1611,20 @@ test("atomic direct creation copies first, commits once, then removes pending so
   const { createOrderIntentHash } = await loadOrderFingerprintModule();
 
   const tamperedAcceptedAt = "2000-01-01T00:00:00.000Z";
+  const tamperedRequestedAt = "1999-01-01T00:00:00.000Z";
   const browserInput = orderInput({
     itemFiles,
     termsAcceptance: {
       accepted: true,
       version: TERMS_VERSION,
       acceptedAt: tamperedAcceptedAt,
+    },
+    earlyPerformanceRequest: {
+      requested: true,
+      version: EARLY_PERFORMANCE_VERSION,
+      requestedAt: tamperedRequestedAt,
+      acknowledged_loss_after_full_performance: false,
+      acknowledged_proportionate_payment: false,
     },
   });
   const beforeSubmit = Date.now();
@@ -1621,6 +1641,12 @@ test("atomic direct creation copies first, commits once, then removes pending so
     termsAcceptance: {
       accepted: true,
       version: TERMS_VERSION,
+    },
+    earlyPerformanceRequest: {
+      requested: true,
+      acknowledged_loss_after_full_performance: true,
+      acknowledged_proportionate_payment: true,
+      version: EARLY_PERFORMANCE_VERSION,
     },
   }));
 
@@ -1641,6 +1667,13 @@ test("atomic direct creation copies first, commits once, then removes pending so
           version: string;
           accepted_at: string;
         };
+        early_performance_request: {
+          requested: boolean;
+          acknowledged_loss_after_full_performance: boolean;
+          acknowledged_proportionate_payment: boolean;
+          version: string;
+          requested_at: string;
+        };
       };
     }>;
   }).p_items;
@@ -1651,6 +1684,28 @@ test("atomic direct creation copies first, commits once, then removes pending so
   assert.notEqual(persistedTerms.accepted_at, tamperedAcceptedAt);
   assert.ok(Date.parse(persistedTerms.accepted_at) >= beforeSubmit);
   assert.ok(Date.parse(persistedTerms.accepted_at) <= afterSubmit);
+  const persistedEarlyPerformance =
+    commitItems[0].details.early_performance_request;
+  assert.equal(persistedEarlyPerformance.requested, true);
+  assert.equal(
+    persistedEarlyPerformance.acknowledged_loss_after_full_performance,
+    true,
+  );
+  assert.equal(
+    persistedEarlyPerformance.acknowledged_proportionate_payment,
+    true,
+  );
+  assert.equal(persistedEarlyPerformance.version, EARLY_PERFORMANCE_VERSION);
+  assert.notEqual(
+    persistedEarlyPerformance.requested_at,
+    tamperedRequestedAt,
+  );
+  assert.ok(
+    Date.parse(persistedEarlyPerformance.requested_at) >= beforeSubmit,
+  );
+  assert.ok(
+    Date.parse(persistedEarlyPerformance.requested_at) <= afterSubmit,
+  );
   assert.equal(supabase.emailCalls.length, 1);
   assert.deepEqual(supabase.prefixReadCalls, [{
     path: directPath(0, "original"),
@@ -1695,6 +1750,56 @@ test("direct order still rejects unaccepted Terms before any side effect", async
 
   const result = await createProductionOrder(orderInput({
     termsAcceptance: { accepted: false, version: TERMS_VERSION },
+  }));
+
+  assertFailure(result, "invalid_input");
+  assert.equal(result.ok ? 0 : result.status, 400);
+  assert.equal(supabase.rpcCalls.length, 0);
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.moves.length, 0);
+  assert.equal(supabase.removes.length, 0);
+  assert.equal(supabase.emailCalls.length, 0);
+});
+
+for (const [name, version] of [
+  ["a tampered early-performance version", "attacker-controlled-version"],
+  ["a stale early-performance version", "2026-08"],
+  ["an unspecified early-performance version", "unspecified"],
+  ["a missing early-performance version", undefined],
+] as const) {
+  test(`direct order rejects ${name} before claim, file finalization, commit, or email`, async () => {
+    const supabase = new MockSupabase();
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+
+    const result = await createProductionOrder(orderInput({
+      earlyPerformanceRequest: { requested: true, version },
+    }));
+
+    assertFailure(result, "client_upgrade_required");
+    assert.equal(result.ok ? 0 : result.status, 409);
+    assert.equal(
+      result.ok ? "" : result.message,
+      "The order confirmation requirements have changed. Please review the current information and submit again.",
+    );
+    assert.equal(supabase.rpcCalls.length, 0);
+    assert.equal(supabase.copies.length, 0);
+    assert.equal(supabase.moves.length, 0);
+    assert.equal(supabase.removes.length, 0);
+    assert.equal(supabase.emailCalls.length, 0);
+  });
+}
+
+test("direct order rejects a false early-performance request before any side effect", async () => {
+  const supabase = new MockSupabase();
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({
+    earlyPerformanceRequest: {
+      requested: false,
+      version: EARLY_PERFORMANCE_VERSION,
+    },
   }));
 
   assertFailure(result, "invalid_input");

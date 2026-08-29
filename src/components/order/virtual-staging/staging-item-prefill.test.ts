@@ -47,6 +47,7 @@ function draftSource(
     items: [sourceItem()],
     orderTerms: {
       accepted: false,
+      earlyPerformanceRequested: false,
       allowPortfolio: false,
     },
     ...overrides,
@@ -246,7 +247,11 @@ test("accepted terms or portfolio selection make the state meaningful", () => {
   assert.equal(
     isVirtualStagingSupportPrefillOnlyState(
       draftSource({
-        orderTerms: { accepted: true, allowPortfolio: false },
+        orderTerms: {
+          accepted: true,
+          earlyPerformanceRequested: true,
+          allowPortfolio: false,
+        },
       }),
       RECOMMENDED_ADD_ON_IDS,
     ),
@@ -255,7 +260,11 @@ test("accepted terms or portfolio selection make the state meaningful", () => {
   assert.equal(
     isVirtualStagingSupportPrefillOnlyState(
       draftSource({
-        orderTerms: { accepted: false, allowPortfolio: true },
+        orderTerms: {
+          accepted: false,
+          earlyPerformanceRequested: false,
+          allowPortfolio: true,
+        },
       }),
       RECOMMENDED_ADD_ON_IDS,
     ),

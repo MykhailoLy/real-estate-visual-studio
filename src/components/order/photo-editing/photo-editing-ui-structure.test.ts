@@ -45,7 +45,7 @@ test("production finalization fails closed outside the Review step", () => {
   assert.match(submitSource, /await submitWithContext/);
 });
 
-test("terms gate final Submit but do not gate entry to Review", () => {
+test("required confirmations gate final Submit but do not gate entry to Review", () => {
   const reviewStart = formSource.indexOf("const canReview =");
   const reviewEnd = formSource.indexOf("const canSubmit =", reviewStart);
   const submitEnd = formSource.indexOf(
@@ -57,6 +57,7 @@ test("terms gate final Submit but do not gate entry to Review", () => {
 
   assert.doesNotMatch(canReviewSource, /orderTerms/);
   assert.match(canSubmitSource, /orderTerms\.accepted/);
+  assert.match(canSubmitSource, /orderTerms\.earlyPerformanceRequested/);
   assert.match(reviewSource, /<OrderTermsBlock/);
   assert.doesNotMatch(
     formSource.slice(formSource.indexOf("<fieldset"), formSource.indexOf("</fieldset>")),
@@ -114,7 +115,7 @@ test("restored finalization retry context remains reachable on Review", () => {
   assert.match(formSource, /hasFinalizationRetryContext \? "Retry submission"/);
   assert.match(
     formSource,
-    /hasFinalizationRetryContext \|\|\s*\(hasValidConfiguration && orderTerms\.accepted\)/,
+    /hasFinalizationRetryContext \|\|\s*\(hasValidConfiguration &&\s*orderTerms\.accepted &&\s*orderTerms\.earlyPerformanceRequested\)/,
   );
 });
 

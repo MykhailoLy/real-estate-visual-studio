@@ -48,7 +48,11 @@ export interface PhotoEditingDraftState extends JsonObject {
   jobTitle: string;
   currentStep: typeof PHOTO_EDITING_DRAFT_STEP;
   items: PhotoEditingDraftItemEnvelope[];
-  termsUi: { accepted: boolean; allowPortfolio: boolean } & JsonObject;
+  termsUi: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  } & JsonObject;
   metadata: { service: "photo-editing" } & JsonObject;
 }
 
@@ -65,7 +69,11 @@ export interface PhotoEditingFormItemDraftSource {
 export interface PhotoEditingFormDraftSource {
   jobTitle: string;
   items: PhotoEditingFormItemDraftSource[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
   currency: TransactionalCurrency;
   region?: RegionCode | null;
 }
@@ -111,6 +119,7 @@ export const PhotoEditingDraftStateSchema = z
     termsUi: z
       .object({
         accepted: z.boolean().default(false),
+        earlyPerformanceRequested: z.boolean().default(false),
         allowPortfolio: z.boolean().default(false),
       })
       .strict(),
@@ -177,6 +186,8 @@ export function mapPhotoEditingFormToDraftState(
     })),
     termsUi: {
       accepted: source.orderTerms.accepted === true,
+      earlyPerformanceRequested:
+        source.orderTerms.earlyPerformanceRequested === true,
       allowPortfolio: source.orderTerms.allowPortfolio === true,
     },
     metadata: { service: "photo-editing" },
@@ -186,7 +197,11 @@ export function mapPhotoEditingFormToDraftState(
 export function mapPhotoEditingDraftToFormState(state: unknown): {
   jobTitle: string;
   items: PhotoEditingResumedFormItem[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
 } {
   const parsed = PhotoEditingDraftStateSchema.parse(state);
   return {
@@ -220,6 +235,7 @@ export function hasMeaningfulPhotoEditingDraftChange(
   if (
     source.jobTitle.trim() ||
     source.orderTerms.accepted ||
+    source.orderTerms.earlyPerformanceRequested ||
     source.orderTerms.allowPortfolio ||
     source.items.length > 1
   ) {

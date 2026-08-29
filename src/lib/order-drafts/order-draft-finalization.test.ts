@@ -142,6 +142,7 @@ function draftState(overrides: Partial<VirtualStagingDraftState> = {}): VirtualS
     defaultFurnitureStyle: "Modern",
     termsUi: {
       accepted: true,
+      earlyPerformanceRequested: true,
       allowPortfolio: true,
     },
     metadata: {
@@ -260,6 +261,15 @@ test("finalization body rejects browser-supplied Terms authority", () => {
       termsAcceptance: {
         accepted: true,
         version: "attacker-controlled-version",
+      },
+    },
+    { earlyPerformanceVersion: "attacker-controlled-version" },
+    { earlyPerformanceRequestedAt: "2000-01-01T00:00:00.000Z" },
+    {
+      earlyPerformanceRequest: {
+        requested: true,
+        version: "attacker-controlled-version",
+        requestedAt: "2000-01-01T00:00:00.000Z",
       },
     },
   ]) {
@@ -419,13 +429,38 @@ test("terms must be accepted", () => {
   const result = validateVirtualStagingDraftForFinalization(
     draftRow({
       state: draftState({
-        termsUi: { accepted: false, allowPortfolio: false },
+        termsUi: {
+          accepted: false,
+          earlyPerformanceRequested: true,
+          allowPortfolio: false,
+        },
       }),
     }),
   );
   assert.equal(result.ok, false);
   if (result.ok) return;
   assert.equal(result.code, "invalid_status");
+});
+
+test("early performance must be explicitly requested before draft finalization", () => {
+  const result = validateVirtualStagingDraftForFinalization(
+    draftRow({
+      state: draftState({
+        termsUi: {
+          accepted: true,
+          earlyPerformanceRequested: false,
+          allowPortfolio: false,
+        },
+      }),
+    }),
+  );
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.code, "invalid_status");
+  assert.equal(
+    result.message,
+    "The start-of-service request is required before finalization.",
+  );
 });
 
 test("draft finalization supplies the current server Terms version", () => {
@@ -439,6 +474,22 @@ test("draft finalization supplies the current server Terms version", () => {
     /termsAcceptance: \{\s+accepted: context\.termsUi\.accepted,\s+version: TERMS_VERSION,\s+\}/,
   );
   assert.doesNotMatch(createOrderCall, /version: (?:draft|state|input)\./);
+});
+
+test("draft finalization supplies trusted early-performance authority", () => {
+  const createOrderCall = sourceSlice(
+    FINALIZATION_SERVER,
+    "const orderResult = await createProductionOrder({",
+    "if (!orderResult.ok)",
+  );
+  assert.match(
+    createOrderCall,
+    /earlyPerformanceRequest: \{\s+requested: context\.termsUi\.earlyPerformanceRequested,\s+version: EARLY_PERFORMANCE_VERSION,\s+\}/,
+  );
+  assert.doesNotMatch(
+    createOrderCall,
+    /earlyPerformanceRequest:[\s\S]{0,180}(?:requestedAt|requested_at)/,
+  );
 });
 
 test("pricing preview is ignored for final pricing", () => {
@@ -1486,7 +1537,11 @@ test("required fields expose inline errors plus scroll and focus guidance", () =
   assert.match(STAGING_ITEM_CARD, /aria-invalid=\{Boolean\(validationErrors\.room\)/);
   assert.match(STAGING_ITEM_CARD, /aria-describedby=/);
   assert.match(ORDER_JOB_TITLE_FIELD, /aria-invalid=\{displayError/);
-  assert.match(ORDER_TERMS_BLOCK, /aria-invalid=\{displayError/);
+  assert.match(ORDER_TERMS_BLOCK, /aria-invalid=\{displayTermsError/);
+  assert.match(
+    ORDER_TERMS_BLOCK,
+    /aria-invalid=\{displayEarlyPerformanceError/,
+  );
 });
 
 test("active image operations disable submit and explain the wait", () => {
@@ -1543,10 +1598,10 @@ test("Spanish required-field guidance remains valid UTF-8 copy", () => {
       "Espera a que tus imágenes terminen de subirse.",
       "Introduce un título para el pedido.",
       "Imagen #1: selecciona una habitación o zona.",
-      "Acepta los términos antes de enviar.",
+      "Completa las dos confirmaciones obligatorias antes de enviar.",
       "Título del pedido",
       "Imagen #1 habitación",
-      "Términos",
+      "Confirmaciones del pedido",
     ],
   );
   assert.doesNotMatch(

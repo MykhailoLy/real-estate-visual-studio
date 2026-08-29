@@ -711,7 +711,10 @@ export default function SingleExposureOrderForm({
     });
   const fileOperationActive = Object.keys(fileOperationStatus).length > 0;
   const reviewValid =
-    configureValid && orderTerms.accepted && !fileOperationActive;
+    configureValid &&
+    orderTerms.accepted &&
+    orderTerms.earlyPerformanceRequested &&
+    !fileOperationActive;
 
   const goToReview = () => {
     setValidationAttempted(true);

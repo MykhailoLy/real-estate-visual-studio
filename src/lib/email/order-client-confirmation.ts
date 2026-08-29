@@ -39,6 +39,9 @@ export interface ClientConfirmationInput {
   currency: TransactionalCurrency;
   pricingSnapshot: PricingSnapshot;
   hasFixedCheckoutPrice: boolean;
+  earlyPerformanceRequest: {
+    requested: boolean;
+  };
   items: ClientConfirmationItem[];
 }
 
@@ -78,6 +81,8 @@ export function renderClientConfirmation(
     currency
   );
   const subject = `Order ${orderNumber} Received — PicchuSpot`;
+  const earlyStartConfirmation =
+    "You expressly asked PicchuSpot to begin work as soon as payment is confirmed, including during any applicable 14-day withdrawal period. Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed.";
   const pricingTextLines = hasFixedCheckoutPrice
     ? [
         `Base subtotal: ${baseSubtotal}`,
@@ -145,6 +150,9 @@ export function renderClientConfirmation(
     "",
     "What you ordered:",
     ...itemBlocks.flatMap((block) => [block.heading, ...block.textLines, ""]),
+    ...(input.earlyPerformanceRequest.requested
+      ? ["Start of service", earlyStartConfirmation, ""]
+      : []),
     "What happens next:",
     ...nextStepsText,
     "",
@@ -237,6 +245,15 @@ export function renderClientConfirmation(
 
       <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin-bottom:8px;">What you ordered</div>
       ${itemsHtml}
+
+      ${
+        input.earlyPerformanceRequest.requested
+          ? `<div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin:24px 0 8px;">Start of service</div>
+      <p style="font-size:14px;line-height:1.6;color:#4a5568;margin:0 0 24px;">${escapeHtml(
+        earlyStartConfirmation,
+      )}</p>`
+          : ""
+      }
 
       <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin:24px 0 8px;">What happens next</div>
       <ol style="font-size:14px;line-height:1.6;color:#1a202c;padding-left:18px;margin:0 0 24px;">

@@ -71,7 +71,11 @@ export interface FloorPlansDraftState extends JsonObject {
   jobTitle: string;
   currentStep: typeof FLOOR_PLANS_DRAFT_STEP;
   items: FloorPlanDraftItemEnvelope[];
-  termsUi: { accepted: boolean; allowPortfolio: boolean } & JsonObject;
+  termsUi: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  } & JsonObject;
   metadata: { service: "3d-floor-plans" } & JsonObject;
 }
 
@@ -103,7 +107,11 @@ export interface FloorPlanFormItemDraftSource {
 export interface FloorPlansFormDraftSource {
   jobTitle: string;
   items: FloorPlanFormItemDraftSource[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
   currency: TransactionalCurrency;
   region?: RegionCode | null;
 }
@@ -188,6 +196,7 @@ export const FloorPlansDraftStateSchema = z
     termsUi: z
       .object({
         accepted: z.boolean().default(false),
+        earlyPerformanceRequested: z.boolean().default(false),
         allowPortfolio: z.boolean().default(false),
       })
       .strict(),
@@ -293,6 +302,8 @@ export function mapFloorPlansFormToDraftState(
     })),
     termsUi: {
       accepted: source.orderTerms.accepted === true,
+      earlyPerformanceRequested:
+        source.orderTerms.earlyPerformanceRequested === true,
       allowPortfolio: source.orderTerms.allowPortfolio === true,
     },
     metadata: { service: "3d-floor-plans" },
@@ -304,7 +315,11 @@ export function mapFloorPlansFormToDraftState(
 export function mapFloorPlansDraftToFormState(state: unknown): {
   jobTitle: string;
   items: FloorPlanResumedFormItem[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
 } {
   const parsed = FloorPlansDraftStateSchema.parse(state);
   return {
@@ -336,6 +351,7 @@ export function hasMeaningfulFloorPlansDraftChange(
   if (
     source.jobTitle.trim() ||
     source.orderTerms.accepted ||
+    source.orderTerms.earlyPerformanceRequested ||
     source.orderTerms.allowPortfolio ||
     source.items.length > 1
   ) {

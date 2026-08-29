@@ -22,7 +22,11 @@ function source(): DayToDuskFormDraftSource {
     shareEnabled: true,
     currency: "EUR",
     region: "EU",
-    orderTerms: { accepted: true, allowPortfolio: false },
+    orderTerms: {
+      accepted: true,
+      earlyPerformanceRequested: true,
+      allowPortfolio: false,
+    },
     items: [
       {
         clientItemId: ITEM_ID,

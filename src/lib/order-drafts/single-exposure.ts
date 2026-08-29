@@ -88,7 +88,11 @@ export interface SingleExposureDraftState extends JsonObject {
   jobTitle: string;
   currentStep: SingleExposureFormStep;
   items: SingleExposureDraftItemEnvelope[];
-  termsUi: { accepted: boolean; allowPortfolio: boolean } & JsonObject;
+  termsUi: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  } & JsonObject;
   metadata: {
     service: "image-enhancement-single-exposure";
   } & JsonObject;
@@ -120,7 +124,11 @@ export interface SingleExposureFormDraftSource {
   jobTitle: string;
   step: SingleExposureFormStep;
   items: SingleExposureFormItemDraftSource[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
   currency: TransactionalCurrency;
   region?: RegionCode | null;
 }
@@ -199,6 +207,7 @@ export const SingleExposureDraftStateSchema = z
     termsUi: z
       .object({
         accepted: z.boolean().default(false),
+        earlyPerformanceRequested: z.boolean().default(false),
         allowPortfolio: z.boolean().default(false),
       })
       .strict(),
@@ -234,6 +243,8 @@ export function mapSingleExposureFormToDraftState(
     currentStep: source.step,
     termsUi: {
       accepted: source.orderTerms.accepted === true,
+      earlyPerformanceRequested:
+        source.orderTerms.earlyPerformanceRequested === true,
       allowPortfolio: source.orderTerms.allowPortfolio === true,
     },
     metadata: { service: "image-enhancement-single-exposure" },
@@ -274,7 +285,11 @@ export function mapSingleExposureDraftToFormState(state: unknown): {
   jobTitle: string;
   step: SingleExposureFormStep;
   items: SingleExposureResumedFormItem[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
 } {
   const parsed = SingleExposureDraftStateSchema.parse(
     normalizeLegacySingleExposureDraftState(state),
@@ -324,7 +339,12 @@ export function buildSingleExposureDraftFingerprint(
 export function hasMeaningfulSingleExposureDraftChange(
   source: SingleExposureFormDraftSource,
 ): boolean {
-  if (source.jobTitle.trim() || source.orderTerms.accepted || source.orderTerms.allowPortfolio) {
+  if (
+    source.jobTitle.trim() ||
+    source.orderTerms.accepted ||
+    source.orderTerms.earlyPerformanceRequested ||
+    source.orderTerms.allowPortfolio
+  ) {
     return true;
   }
   return source.items.some(

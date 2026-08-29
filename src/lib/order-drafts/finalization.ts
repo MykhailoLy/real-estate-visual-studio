@@ -429,6 +429,12 @@ export function validateVirtualStagingDraftForFinalization(
       "Terms must be accepted before finalization.",
     );
   }
+  if (!parsed.data.termsUi.earlyPerformanceRequested) {
+    return finalizationError(
+      "invalid_status",
+      "The start-of-service request is required before finalization.",
+    );
+  }
 
   return { ok: true, data: parsed.data };
 }
@@ -475,6 +481,12 @@ export function validatePhotoEditingDraftForFinalization(
     return finalizationError(
       "invalid_status",
       "Terms must be accepted before finalization.",
+    );
+  }
+  if (!parsed.data.termsUi.earlyPerformanceRequested) {
+    return finalizationError(
+      "invalid_status",
+      "The start-of-service request is required before finalization.",
     );
   }
 
@@ -530,6 +542,12 @@ export function validateVirtualRenovationDraftForFinalization(
       "Terms must be accepted before finalization.",
     );
   }
+  if (!parsed.data.termsUi.earlyPerformanceRequested) {
+    return finalizationError(
+      "invalid_status",
+      "The start-of-service request is required before finalization.",
+    );
+  }
 
   return { ok: true, data: parsed.data };
 }
@@ -576,6 +594,12 @@ export function validateFloorPlansDraftForFinalization(
     return finalizationError(
       "invalid_status",
       "Terms must be accepted before finalization.",
+    );
+  }
+  if (!parsed.data.termsUi.earlyPerformanceRequested) {
+    return finalizationError(
+      "invalid_status",
+      "The start-of-service request is required before finalization.",
     );
   }
 

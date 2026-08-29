@@ -394,6 +394,21 @@ export const TermsAcceptanceSchema = z.object({
   acceptedAt: z.string().datetime().optional(),
 });
 
+// --- Order-level Early Performance Request ---
+// This is a separate legal act from Terms acceptance. `requested` MUST be
+// true, while `version` is only a browser-to-server handshake. Any browser
+// timestamp is accepted for rollout compatibility but is never authoritative:
+// the order service creates the persisted timestamp from server time.
+export const EarlyPerformanceRequestSchema = z
+  .object({
+    requested: z.literal(true, {
+      message: "Request to start work after payment confirmation is required",
+    }),
+    version: z.string().min(1).max(50).optional().default("unspecified"),
+    requestedAt: z.string().datetime().optional(),
+  })
+  .strict();
+
 // --- Order-level Portfolio Permission (optional) ---
 export const PortfolioPermissionSchema = z.object({
   allowed: z.boolean(),
@@ -542,6 +557,7 @@ export const OrderMetadataSchema = z.object({
   // (ContactSchema is retained as a type export for legacy references.)
   deliveryPreferences: DeliveryPreferencesSchema.optional(),
   termsAcceptance: TermsAcceptanceSchema,
+  earlyPerformanceRequest: EarlyPerformanceRequestSchema,
   portfolioPermission: PortfolioPermissionSchema.optional(),
   items: z.array(z.unknown()).min(1, "At least one item is required").max(50, "Maximum 50 items per order"),
   itemFiles: z
@@ -558,6 +574,9 @@ export type TransactionalOrderCurrency = z.infer<
 export type ContactData = z.infer<typeof ContactSchema>;
 export type DeliveryPreferences = z.infer<typeof DeliveryPreferencesSchema>;
 export type TermsAcceptance = z.infer<typeof TermsAcceptanceSchema>;
+export type EarlyPerformanceRequest = z.infer<
+  typeof EarlyPerformanceRequestSchema
+>;
 export type PortfolioPermission = z.infer<typeof PortfolioPermissionSchema>;
 export type StagingItem = z.infer<typeof StagingItemSchema>;
 export type RenovationItem = z.infer<typeof RenovationItemSchema>;

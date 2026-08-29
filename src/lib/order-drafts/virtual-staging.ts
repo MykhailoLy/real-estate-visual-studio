@@ -88,6 +88,7 @@ export interface VirtualStagingDraftItem {
 
 export interface VirtualStagingDraftTermsUi extends JsonObject {
   accepted: boolean;
+  earlyPerformanceRequested: boolean;
   allowPortfolio: boolean;
 }
 
@@ -151,6 +152,7 @@ export interface VirtualStagingFormDraftSource {
   items: VirtualStagingFormItemDraftSource[];
   orderTerms: {
     accepted: boolean;
+    earlyPerformanceRequested: boolean;
     allowPortfolio: boolean;
   };
   currency: TransactionalCurrency;
@@ -166,6 +168,7 @@ export interface VirtualStagingResumeResult {
     items: VirtualStagingResumedFormItem[];
     orderTerms: {
       accepted: boolean;
+      earlyPerformanceRequested: boolean;
       allowPortfolio: boolean;
     };
   };
@@ -247,6 +250,7 @@ export const VirtualStagingDraftStateSchema = z
     termsUi: z
       .object({
         accepted: z.boolean().default(false),
+        earlyPerformanceRequested: z.boolean().default(false),
         allowPortfolio: z.boolean().default(false),
       })
       .strict(),
@@ -286,6 +290,8 @@ export function mapVirtualStagingFormToDraftState(
     ),
     termsUi: {
       accepted: source.orderTerms.accepted === true,
+      earlyPerformanceRequested:
+        source.orderTerms.earlyPerformanceRequested === true,
       allowPortfolio: source.orderTerms.allowPortfolio === true,
     },
     metadata: {
@@ -362,6 +368,7 @@ export function mapVirtualStagingDraftToFormState(
     ),
     orderTerms: {
       accepted: parsed.termsUi.accepted,
+      earlyPerformanceRequested: parsed.termsUi.earlyPerformanceRequested,
       allowPortfolio: parsed.termsUi.allowPortfolio,
     },
     items,
@@ -372,7 +379,13 @@ export function hasMeaningfulVirtualStagingDraftChange(
   source: VirtualStagingFormDraftSource,
 ): boolean {
   if (source.jobTitle.trim().length > 0) return true;
-  if (source.orderTerms.accepted || source.orderTerms.allowPortfolio) return true;
+  if (
+    source.orderTerms.accepted ||
+    source.orderTerms.earlyPerformanceRequested ||
+    source.orderTerms.allowPortfolio
+  ) {
+    return true;
+  }
   return source.items.some((item) => {
     return (
       item.file != null ||

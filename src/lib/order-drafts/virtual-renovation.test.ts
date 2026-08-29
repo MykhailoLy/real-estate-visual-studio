@@ -88,7 +88,11 @@ function source(): VirtualRenovationFormDraftSource {
         referenceFilename: null,
       },
     ],
-    orderTerms: { accepted: true, allowPortfolio: false },
+    orderTerms: {
+      accepted: true,
+      earlyPerformanceRequested: true,
+      allowPortfolio: false,
+    },
     currency: "USD",
     region: "US",
   };
@@ -143,7 +147,11 @@ test("empty Virtual Renovation form stays local until a meaningful edit", () => 
     hasMeaningfulVirtualRenovationDraftChange({
       jobTitle: "",
       items: [createVirtualRenovationFormItem()],
-      orderTerms: { accepted: false, allowPortfolio: false },
+      orderTerms: {
+        accepted: false,
+        earlyPerformanceRequested: false,
+        allowPortfolio: false,
+      },
       currency: "USD",
       region: "US",
     }),
@@ -177,6 +185,16 @@ test("all Virtual Renovation fields, stable IDs, and filenames round-trip", () =
   assert.equal(restored.items[0]?.referenceFilename, "reference.png");
   assert.equal(restored.items.every((item) => item.file === null), true);
   assert.equal(restored.items.every((item) => item.referenceFile === null), true);
+});
+
+test("legacy Virtual Renovation drafts restore a missing early-performance request as false", () => {
+  const legacy = mapVirtualRenovationFormToDraftState(source()) as unknown as {
+    termsUi: Record<string, unknown>;
+  };
+  delete legacy.termsUi.earlyPerformanceRequested;
+
+  const restored = mapVirtualRenovationDraftToFormState(legacy);
+  assert.equal(restored.orderTerms.earlyPerformanceRequested, false);
 });
 
 test("version-1 Renovation drafts restore missing and singular reference shapes", () => {

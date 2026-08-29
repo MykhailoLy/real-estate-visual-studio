@@ -943,7 +943,11 @@ export default function DayToDuskOrderForm({
     ) &&
     isJobTitleValid(jobTitle);
   const fileOperationActive = Object.keys(fileOperationStatus).length > 0;
-  const reviewValid = configureValid && orderTerms.accepted && !fileOperationActive;
+  const reviewValid =
+    configureValid &&
+    orderTerms.accepted &&
+    orderTerms.earlyPerformanceRequested &&
+    !fileOperationActive;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((_, i) => ({
