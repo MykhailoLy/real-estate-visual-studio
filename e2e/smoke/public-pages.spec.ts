@@ -97,6 +97,7 @@ for (const { route, heading } of legalRoutes) {
 const LEGAL_VIEWPORTS = [
   { width: 360, height: 800 },
   { width: 390, height: 844 },
+  { width: 412, height: 915 },
   { width: 768, height: 900 },
   { width: 1024, height: 900 },
   { width: 1440, height: 1000 },
