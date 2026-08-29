@@ -7,6 +7,8 @@ export const localizedRoutes = [
   { englishPath: "/faq", spanishPath: "/es/faq", priority: 0.6 },
   { englishPath: "/terms", spanishPath: "/es/terms", priority: 0.4 },
   { englishPath: "/privacy", spanishPath: "/es/privacy", priority: 0.4 },
+  { englishPath: "/cookies", spanishPath: "/es/cookies", priority: 0.4 },
+  { englishPath: "/refunds", spanishPath: "/es/refunds", priority: 0.4 },
   {
     englishPath: "/login",
     spanishPath: "/es/login",

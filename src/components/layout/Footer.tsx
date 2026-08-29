@@ -39,7 +39,9 @@ const footerCopy = {
     ],
     legal: [
       { href: "/privacy", label: "Privacy Policy" },
+      { href: "/cookies", label: "Cookie Policy" },
       { href: "/terms", label: "Terms & Conditions" },
+      { href: "/refunds", label: "Refunds & Cancellations" },
     ],
   },
   es: {
@@ -68,7 +70,9 @@ const footerCopy = {
     ],
     legal: [
       { href: "/es/privacy", label: "Política de privacidad" },
+      { href: "/es/cookies", label: "Política de cookies" },
       { href: "/es/terms", label: "Términos y condiciones" },
+      { href: "/es/refunds", label: "Reembolsos y cancelaciones" },
     ],
   },
 } satisfies Record<
