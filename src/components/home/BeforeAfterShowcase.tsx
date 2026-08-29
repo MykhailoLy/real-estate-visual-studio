@@ -353,7 +353,8 @@ function ImageBeforeAfter({
           // Each half is ~50% of the banner width at every breakpoint.
           sizes={HERO_HALF_SIZES}
           className="object-cover"
-          preload={eager}
+          loading={eager ? "eager" : undefined}
+          fetchPriority={eager ? "high" : undefined}
         />
       </div>
       <div className="relative w-1/2 overflow-hidden bg-stone-200">
@@ -363,7 +364,6 @@ function ImageBeforeAfter({
           fill
           sizes={HERO_HALF_SIZES}
           className="object-cover"
-          preload={eager}
         />
       </div>
       <div
