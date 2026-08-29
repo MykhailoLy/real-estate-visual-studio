@@ -288,7 +288,7 @@ export default function ServicePageSlider({
       {/* ── Dot indicator ── */}
       {showNav && (
         <div
-          className="mt-4 lg:mt-5 flex items-center justify-center gap-2.5"
+          className="mt-1 lg:mt-2 flex items-center justify-center gap-0"
           role="tablist"
           aria-label="Slide indicators"
         >
@@ -302,13 +302,18 @@ export default function ServicePageSlider({
                 aria-selected={isActive}
                 aria-label={`Show slide ${i + 1} of ${total}`}
                 onClick={() => goTo(i)}
-                className={cn(
-                  "h-2.5 rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
-                  isActive
-                    ? "w-9 bg-primary"
-                    : "w-2.5 bg-stone-300 hover:bg-stone-400"
-                )}
-              />
+                className="group flex h-11 w-11 items-center justify-center rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-2.5 rounded-full transition-all duration-200",
+                    isActive
+                      ? "w-9 bg-primary"
+                      : "w-2.5 bg-stone-300 group-hover:bg-stone-400"
+                  )}
+                />
+              </button>
             );
           })}
         </div>
