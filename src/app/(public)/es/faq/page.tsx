@@ -67,7 +67,7 @@ const faqs = [
   {
     question: "¿Ofrecéis descuentos por volumen?",
     answer:
-      "Sí. Los descuentos se aplican automáticamente al subtotal del servicio base: 1–4 unidades elegibles mantienen el precio estándar, 5–9 reciben un 5%, 10–19 un 10%, 20–49 un 15% y 50+ requieren un presupuesto personalizado. Los extras no reciben descuento por volumen. Los precios no incluyen los impuestos aplicables. Los impuestos se calculan por separado cuando corresponda.",
+      "Sí. Los descuentos se aplican automáticamente al subtotal del servicio base: 1–4 unidades elegibles mantienen el precio estándar, 5–9 reciben un 5%, 10–19 un 10%, 20–49 un 15% y 50+ requieren un presupuesto personalizado. Los extras no reciben descuento por volumen. Para los pedidos online elegibles con precio fijo, el importe que muestra Stripe Checkout incluye los impuestos cuando corresponda, y Stripe identifica el impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.",
   },
   {
     question: "¿Cómo contacto con soporte?",
