@@ -6,26 +6,106 @@
    ============================================================ */
 
 @theme inline {
-  /* Brand Colors */
-  --color-primary: #1a365d;         /* Deep navy blue */
-  --color-primary-light: #2c5282;
-  --color-primary-dark: #0f2440;
-  --color-secondary: #c7a94e;       /* Gold accent */
-  --color-secondary-light: #d4bc6a;
-  --color-secondary-dark: #a88b3a;
-  --color-accent: #38a169;          /* Success green */
+  /* ==========================================================
+     PicchuSpot brand palette — fixed source of truth
+     Deep Navy:       #071A2B
+     Warm Ivory:      #F4EFE8
+     PicchuSpot Gold: #C7A94E
+     Soft Line:       #DED3C6
 
-  /* Neutrals */
-  --color-background: #ffffff;
-  --color-foreground: #1a202c;
-  --color-muted: #718096;
-  --color-muted-light: #a0aec0;
-  --color-border: #e2e8f0;
-  --color-surface: #f7fafc;
+     Brand colors stay exact. Supporting neutrals below are
+     accessibility-safe derivatives used for readable secondary
+     copy and UI states; red/green/amber remain semantic status
+     colors rather than part of the brand palette.
+     ========================================================== */
+
+  /* Brand */
+  --color-primary: #071a2b;
+  --color-primary-dark: #071a2b;
+  --color-primary-light: #1f2f3e;
+  --color-secondary: #c7a94e;
+  --color-secondary-light: #d2bb75;
+  --color-secondary-dark: #67623d;
+
+  /* Light / dark aliases so existing utilities inherit the brand */
+  --color-white: #f4efe8;
+  --color-black: #071a2b;
+
+  /* Semantic surfaces and readable text */
+  --color-background: #f4efe8;
+  --color-foreground: #071a2b;
+  --color-surface: #f0e9e1;
+  --color-muted: #5a656d;
+  --color-muted-light: #636d75;
+
+  /* Soft Line is decorative. border-strong is for controls where
+     a visible boundary needs more contrast. */
+  --color-border: #ded3c6;
+  --color-line: #ded3c6;
+  --color-border-strong: #7e848a;
+
+  /* Harmonise Tailwind neutral utilities with the same system.
+     stone-400+ are safe for normal text on Warm Ivory. */
+  --color-stone-50: #f4efe8;
+  --color-stone-100: #f0e9e1;
+  --color-stone-200: #ded3c6;
+  --color-stone-300: #7e848a;
+  --color-stone-400: #636d75;
+  --color-stone-500: #5a656d;
+  --color-stone-600: #4e5a64;
+  --color-stone-700: #364551;
+  --color-stone-800: #1f2f3e;
+  --color-stone-900: #071a2b;
+
+  --color-gray-50: #f4efe8;
+  --color-gray-100: #f0e9e1;
+  --color-gray-200: #ded3c6;
+  --color-gray-300: #7e848a;
+  --color-gray-400: #636d75;
+  --color-gray-500: #5a656d;
+  --color-gray-600: #4e5a64;
+  --color-gray-700: #364551;
+  --color-gray-800: #1f2f3e;
+  --color-gray-900: #071a2b;
+
+  --color-slate-50: #f4efe8;
+  --color-slate-100: #f0e9e1;
+  --color-slate-200: #ded3c6;
+  --color-slate-300: #7e848a;
+  --color-slate-400: #636d75;
+  --color-slate-500: #5a656d;
+  --color-slate-600: #4e5a64;
+  --color-slate-700: #364551;
+  --color-slate-800: #1f2f3e;
+  --color-slate-900: #071a2b;
+
+  --color-zinc-50: #f4efe8;
+  --color-zinc-100: #f0e9e1;
+  --color-zinc-200: #ded3c6;
+  --color-zinc-300: #7e848a;
+  --color-zinc-400: #636d75;
+  --color-zinc-500: #5a656d;
+  --color-zinc-600: #4e5a64;
+  --color-zinc-700: #364551;
+  --color-zinc-800: #1f2f3e;
+  --color-zinc-900: #071a2b;
+
+  --color-neutral-50: #f4efe8;
+  --color-neutral-100: #f0e9e1;
+  --color-neutral-200: #ded3c6;
+  --color-neutral-300: #7e848a;
+  --color-neutral-400: #636d75;
+  --color-neutral-500: #5a656d;
+  --color-neutral-600: #4e5a64;
+  --color-neutral-700: #364551;
+  --color-neutral-800: #1f2f3e;
+  --color-neutral-900: #071a2b;
+
+  /* Existing semantic success token; not a brand accent. */
+  --color-accent: #38a169;
 
   /* Typography */
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {
