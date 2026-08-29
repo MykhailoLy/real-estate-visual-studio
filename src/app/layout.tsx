@@ -23,7 +23,7 @@ const DEFAULT_DESCRIPTION =
   "PicchuSpot — Real Estate Visuals. Property visuals that make listings stand out. Virtual staging, virtual renovation, 3D floor plans, and photo editing delivered in 24-48 hours. Local photography in Alicante & Costa Blanca.";
 
 export const viewport: Viewport = {
-  themeColor: "#0B1F3A",
+  themeColor: "#071A2B",
 };
 
 export const metadata: Metadata = {
