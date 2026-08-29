@@ -54,6 +54,7 @@ import {
 } from "../uploads/file-signature.ts";
 import { dispatchOrderEmailOutbox } from "@/lib/email/send-order-emails";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { resolveCurrentTermsAcceptance } from "@/lib/order-terms";
 import {
   getDedicatedSubServiceLabel,
   SUB_SERVICE_REQUIRED_OPTION,
@@ -129,7 +130,7 @@ export interface CreateProductionOrderInput {
   items: ValidatedOrderItem[];
   itemFiles: TrustedOrderItemFiles[];
   deliveryPreferences?: DeliveryPreferences;
-  termsAcceptance: { accepted: boolean; version: string };
+  termsAcceptance: { accepted: boolean; version?: string };
   portfolioPermission?: { allowed: boolean };
   sourceDraftId?: string;
   draftExpectedVersion?: number;
@@ -298,6 +299,25 @@ function getSafeStorageErrorLabel(error: unknown): string {
 export async function createProductionOrder(
   input: CreateProductionOrderInput,
 ): Promise<CreateProductionOrderResult> {
+  const termsHandshake = resolveCurrentTermsAcceptance(input.termsAcceptance);
+  if (!termsHandshake.ok) {
+    if (termsHandshake.reason === "not_accepted") {
+      return {
+        ok: false,
+        code: "invalid_input",
+        message: "Terms must be accepted to submit an order.",
+        status: 400,
+      };
+    }
+    return {
+      ok: false,
+      code: "client_upgrade_required",
+      message:
+        "The Terms have changed. Please review and accept the current Terms before submitting your order.",
+      status: 409,
+    };
+  }
+
   if (input.items.length !== input.itemFiles.length) {
     return {
       ok: false,
@@ -339,7 +359,10 @@ export async function createProductionOrder(
   }
 
   const supabase = getSupabaseAdminClient();
-  const requestHash = createOrderIntentHash(input);
+  const requestHash = createOrderIntentHash({
+    ...input,
+    termsAcceptance: termsHandshake.acceptance,
+  });
   const quoteHash = createAuthoritativeQuoteHash(quote);
   const proposedSnapshot = createPricingSnapshot(quote);
   const leaseToken = crypto.randomUUID();
@@ -509,8 +532,7 @@ export async function createProductionOrder(
   }
 
   const trustedTermsAcceptance = {
-    accepted: input.termsAcceptance.accepted,
-    version: input.termsAcceptance.version || "unspecified",
+    ...termsHandshake.acceptance,
     accepted_at: new Date().toISOString(),
   };
   const trustedPortfolioPermission = {

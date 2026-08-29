@@ -12,6 +12,7 @@ import {
   parseDirectPendingPath,
   type UploadKind,
 } from "../upload-config.ts";
+import { LEGAL_VERSION as TERMS_VERSION } from "../legal.ts";
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -139,7 +140,11 @@ interface ProductionOrderInputForTest {
   currency: "USD" | "EUR" | "CAD";
   items: Array<Record<string, unknown>>;
   itemFiles: ItemFilesForTest[];
-  termsAcceptance: { accepted: boolean; version: string };
+  termsAcceptance: {
+    accepted: boolean;
+    version?: string;
+    acceptedAt?: string;
+  };
   portfolioPermission: { allowed: boolean };
   sourceDraftId?: string;
   storageMode: "move" | "copy";
@@ -193,6 +198,10 @@ interface CreateOrderModuleForTest {
   createProductionOrder(
     input: ProductionOrderInputForTest,
   ): Promise<ProductionOrderResultForTest>;
+}
+
+interface OrderFingerprintModuleForTest {
+  createOrderIntentHash(input: ProductionOrderInputForTest): string;
 }
 
 interface EmailMockResult {
@@ -740,7 +749,7 @@ function orderInput(
     currency: "USD",
     items: stagingItems(itemFiles.length),
     itemFiles,
-    termsAcceptance: { accepted: true, version: "test" },
+    termsAcceptance: { accepted: true, version: TERMS_VERSION },
     portfolioPermission: { allowed: false },
     storageMode: "move",
     ...overrides,
@@ -810,6 +819,12 @@ async function loadVerifier(): Promise<DirectVerificationModuleForTest> {
 
 async function loadOrderModule(): Promise<CreateOrderModuleForTest> {
   return import("./create-order-server.ts") as Promise<CreateOrderModuleForTest>;
+}
+
+async function loadOrderFingerprintModule(): Promise<OrderFingerprintModuleForTest> {
+  return import("./order-submission-fingerprint.ts") as Promise<
+    OrderFingerprintModuleForTest
+  >;
 }
 
 async function loadServerValidation(): Promise<{
@@ -1581,8 +1596,33 @@ test("atomic direct creation copies first, commits once, then removes pending so
   addStoredObjects(supabase, itemFiles);
   installSupabaseMock(supabase);
   const { createProductionOrder } = await loadOrderModule();
+  const { createOrderIntentHash } = await loadOrderFingerprintModule();
 
-  const result = await createProductionOrder(orderInput({ itemFiles }));
+  const tamperedAcceptedAt = "2000-01-01T00:00:00.000Z";
+  const browserInput = orderInput({
+    itemFiles,
+    termsAcceptance: {
+      accepted: true,
+      version: TERMS_VERSION,
+      acceptedAt: tamperedAcceptedAt,
+    },
+  });
+  const beforeSubmit = Date.now();
+  const result = await createProductionOrder(browserInput);
+  const afterSubmit = Date.now();
+
+  const claimCall = supabase.rpcCalls.find(
+    (call) => call.name === "claim_order_submission",
+  );
+  const requestHash = (claimCall?.params as { p_request_hash: string })
+    .p_request_hash;
+  assert.equal(requestHash, createOrderIntentHash({
+    ...browserInput,
+    termsAcceptance: {
+      accepted: true,
+      version: TERMS_VERSION,
+    },
+  }));
 
   assert.equal(result.ok, true);
   assert.equal(result.ok && result.replayed, false);
@@ -1592,14 +1632,78 @@ test("atomic direct creation copies first, commits once, then removes pending so
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
   assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission").length, 1);
   const commitCall = supabase.rpcCalls.find((call) => call.name === "commit_order_submission");
-  const commitItems = (commitCall?.params as { p_items: Array<{ subtotalCents: number }> }).p_items;
+  const commitItems = (commitCall?.params as {
+    p_items: Array<{
+      subtotalCents: number;
+      details: {
+        terms_acceptance: {
+          accepted: boolean;
+          version: string;
+          accepted_at: string;
+        };
+      };
+    }>;
+  }).p_items;
   assert.equal(commitItems[0].subtotalCents, result.ok ? result.pricingSnapshot.items[0].lineSubtotalCents : -1);
+  const persistedTerms = commitItems[0].details.terms_acceptance;
+  assert.equal(persistedTerms.accepted, true);
+  assert.equal(persistedTerms.version, TERMS_VERSION);
+  assert.notEqual(persistedTerms.accepted_at, tamperedAcceptedAt);
+  assert.ok(Date.parse(persistedTerms.accepted_at) >= beforeSubmit);
+  assert.ok(Date.parse(persistedTerms.accepted_at) <= afterSubmit);
   assert.equal(supabase.emailCalls.length, 1);
   assert.deepEqual(supabase.prefixReadCalls, [{
     path: directPath(0, "original"),
     range: "bytes=0-511",
     ifMatch: '"etag-1234-image/jpeg"',
   }]);
+});
+
+for (const [name, version] of [
+  ["an arbitrary client Terms version", "attacker-controlled-version"],
+  ["a stale client Terms version", "2025-01"],
+  ["the unspecified Terms version", "unspecified"],
+  ["a missing Terms version", undefined],
+] as const) {
+  test(`direct order rejects ${name} before claim, file finalization, commit, or email`, async () => {
+    const supabase = new MockSupabase();
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+
+    const result = await createProductionOrder(orderInput({
+      termsAcceptance: { accepted: true, version },
+    }));
+
+    assertFailure(result, "client_upgrade_required");
+    assert.equal(result.ok ? 0 : result.status, 409);
+    assert.equal(
+      result.ok ? "" : result.message,
+      "The Terms have changed. Please review and accept the current Terms before submitting your order.",
+    );
+    assert.equal(supabase.rpcCalls.length, 0);
+    assert.equal(supabase.copies.length, 0);
+    assert.equal(supabase.moves.length, 0);
+    assert.equal(supabase.removes.length, 0);
+    assert.equal(supabase.emailCalls.length, 0);
+  });
+}
+
+test("direct order still rejects unaccepted Terms before any side effect", async () => {
+  const supabase = new MockSupabase();
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({
+    termsAcceptance: { accepted: false, version: TERMS_VERSION },
+  }));
+
+  assertFailure(result, "invalid_input");
+  assert.equal(result.ok ? 0 : result.status, 400);
+  assert.equal(supabase.rpcCalls.length, 0);
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.moves.length, 0);
+  assert.equal(supabase.removes.length, 0);
+  assert.equal(supabase.emailCalls.length, 0);
 });
 
 for (const [name, extension, mimeType, bytes] of [
