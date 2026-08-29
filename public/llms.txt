@@ -1,8 +1,8 @@
 # PicchuSpot — Real Estate Visual Services
 
-PicchuSpot provides visual services for real estate marketing. Digital services
-are available online, with local real estate media services in Alicante and the
-Costa Blanca.
+> PicchuSpot provides visual services for real estate marketing, with digital
+> services available online and local real estate media services in Alicante
+> and the Costa Blanca.
 
 ## Services
 
