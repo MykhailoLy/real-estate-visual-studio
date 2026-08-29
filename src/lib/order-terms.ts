@@ -1,1 +1,3 @@
-export const TERMS_VERSION = "2026-05";
+import { LEGAL_VERSION } from "@/lib/legal";
+
+export const TERMS_VERSION = LEGAL_VERSION;

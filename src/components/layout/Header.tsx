@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import {
   BookOpen,
   ChevronDown,
+  Cookie,
   FileText,
   Globe2,
   HelpCircle,
@@ -15,6 +16,7 @@ import {
   Mail,
   Menu,
   Newspaper,
+  RefreshCcw,
   ShieldCheck,
   Tags,
   X,
@@ -172,6 +174,24 @@ export const resourceMenuItems: ResourceMenuItem[] = [
       "Cómo PicchuSpot gestiona datos de cuenta, pedidos y archivos subidos.",
     href: "/privacy",
     icon: ShieldCheck,
+  },
+  {
+    label: "Cookie Policy",
+    esLabel: "Política de cookies",
+    description: "Browser storage, analytics consent, and cookie controls.",
+    esDescription:
+      "Almacenamiento del navegador, consentimiento de analítica y controles.",
+    href: "/cookies",
+    icon: Cookie,
+  },
+  {
+    label: "Refunds & Cancellations",
+    esLabel: "Reembolsos y cancelaciones",
+    description: "Cancellation, withdrawal, service concerns, and refunds.",
+    esDescription:
+      "Cancelación, desistimiento, incidencias del servicio y reembolsos.",
+    href: "/refunds",
+    icon: RefreshCcw,
   },
 ];
 

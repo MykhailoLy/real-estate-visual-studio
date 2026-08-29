@@ -38,8 +38,10 @@ const footerCopy = {
       { href: "/contact", label: "Contact", tracked: true },
     ],
     legal: [
-      { href: "/privacy", label: "Privacy Policy" },
       { href: "/terms", label: "Terms & Conditions" },
+      { href: "/privacy", label: "Privacy Policy" },
+      { href: "/cookies", label: "Cookie Policy" },
+      { href: "/refunds", label: "Refunds & Cancellations" },
     ],
   },
   es: {
@@ -67,8 +69,10 @@ const footerCopy = {
       { href: "/es/contact", label: "Contacto", tracked: true },
     ],
     legal: [
-      { href: "/es/privacy", label: "Política de privacidad" },
       { href: "/es/terms", label: "Términos y condiciones" },
+      { href: "/es/privacy", label: "Política de privacidad" },
+      { href: "/es/cookies", label: "Política de cookies" },
+      { href: "/es/refunds", label: "Reembolsos y cancelaciones" },
     ],
   },
 } satisfies Record<
