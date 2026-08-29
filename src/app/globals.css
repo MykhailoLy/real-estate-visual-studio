@@ -117,6 +117,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Soft Line stays decorative. Form controls need a stronger visible
+   boundary against Warm Ivory to satisfy non-text contrast expectations.
+   This only upgrades controls that already opt into the shared border token;
+   decorative cards/dividers keep Soft Line. */
+:where(input, select, textarea).border-border {
+  border-color: var(--color-border-strong);
+}
+
 /* Smooth scroll + prevent horizontal page overflow.
    Elements that genuinely need horizontal scroll (pricing tables,
    internal carousels) use overflow-x: auto on their own container. */
