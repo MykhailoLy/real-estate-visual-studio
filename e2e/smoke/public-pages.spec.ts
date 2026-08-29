@@ -102,6 +102,48 @@ for (const { route, heading, question, taxCopy, oldTaxCopy } of faqRoutes) {
   });
 }
 
+const pricingTaxRoutes = [
+  {
+    route: "/pricing",
+    taxCopy:
+      "For eligible fixed-price online orders, the Checkout total is tax-inclusive where applicable, and Stripe identifies any included tax. Custom quotes or manually invoiced services may state their own tax treatment.",
+    oldTaxCopy: "Prices exclude applicable taxes.",
+  },
+  {
+    route: "/pricing/image-enhancement",
+    taxCopy:
+      "For eligible fixed-price online orders, the Checkout total is tax-inclusive where applicable, and Stripe identifies any included tax. Custom quotes or manually invoiced services may state their own tax treatment.",
+    oldTaxCopy: "Prices exclude applicable taxes.",
+  },
+  {
+    route: "/es/pricing",
+    taxCopy:
+      "Para los pedidos online elegibles con precio fijo, el total mostrado en Checkout incluye los impuestos cuando corresponda, y Stripe identifica cualquier impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.",
+    oldTaxCopy: "Los precios no incluyen los impuestos aplicables.",
+  },
+  {
+    route: "/es/pricing/image-enhancement",
+    taxCopy:
+      "Para los pedidos online elegibles con precio fijo, el total mostrado en Checkout incluye los impuestos cuando corresponda, y Stripe identifica cualquier impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.",
+    oldTaxCopy: "Los precios no incluyen los impuestos aplicables.",
+  },
+] as const;
+
+for (const { route, taxCopy, oldTaxCopy } of pricingTaxRoutes) {
+  test(`pricing route ${route} explains Checkout tax treatment`, async ({
+    page,
+  }, testInfo) => {
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+
+    const response = await page.goto(route);
+
+    expectNavigationResponseOk(response, route);
+    await expect(page.getByText(taxCopy, { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(oldTaxCopy, { exact: false })).toHaveCount(0);
+    await guard.expectClean();
+  });
+}
+
 const legalRoutes = [
   { route: "/terms", heading: "Terms & Conditions" },
   { route: "/privacy", heading: "Privacy Policy" },

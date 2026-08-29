@@ -17,7 +17,7 @@ import {
   SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
 } from "./pricing-prompt.ts";
 
-export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.8";
+export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.9";
 
 const LOCAL_SUPPORT_PRICING_ORDER: readonly LocalPricingServiceId[] = [
   "photography",
@@ -636,12 +636,16 @@ Never write:
 * CAD$ instead of CA$
 * an unqualified $ amount for a CAD price
 
-Prices exclude applicable taxes.
+Eligible fixed-price online orders use Stripe Checkout. The Checkout total is
+tax-inclusive where applicable, and Stripe identifies any included tax.
 
-Do not calculate or promise a tax amount unless an authorised pricing tool
-returns it.
+Custom quotes or manually invoiced services may state their own tax treatment.
 
-Do not assume that a specific VAT or IVA rate applies to a particular order.
+Do not calculate or promise a tax amount or specific VAT/IVA rate unless an
+authorised source or pricing tool returns it.
+
+Do not assume that a specific VAT or IVA rate applies to a particular order and
+do not provide tax advice.
 
 # CANONICAL PRICES
 

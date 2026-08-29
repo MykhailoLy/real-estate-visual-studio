@@ -209,7 +209,7 @@ const PRICING_NOTES = [
       "Choose only the services and images you need. There is no subscription.",
   },
   {
-    title: "Taxes shown separately",
+    title: "Tax-inclusive Checkout",
     description: PUBLIC_TAX_NOTICE,
   },
   {

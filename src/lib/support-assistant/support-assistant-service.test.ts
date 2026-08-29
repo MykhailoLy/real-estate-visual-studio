@@ -881,7 +881,7 @@ test("partial Gemini output is never returned to the service layer", async () =>
 test("support prompt versions and targeted service-selection contract are current", () => {
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.8";',
+      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.9";',
     ),
   );
   assert.match(
@@ -935,6 +935,31 @@ test("support prompt versions and targeted service-selection contract are curren
     supportPromptSource.includes(
       "do not ask quantity or currency merely because the customer asked which",
     ),
+  );
+});
+
+test("support prompt states the inclusive Checkout tax policy without tax advice", () => {
+  assert.match(
+    supportPromptSource,
+    /Eligible fixed-price online orders use Stripe Checkout\. The Checkout total is\s+tax-inclusive where applicable, and Stripe identifies any included tax\./,
+  );
+  assert.match(
+    supportPromptSource,
+    /Custom quotes or manually invoiced services may state their own tax treatment\./,
+  );
+  assert.match(
+    supportPromptSource,
+    /Do not calculate or promise a tax amount or specific VAT\/IVA rate unless an\s+authorised source or pricing tool returns it\./,
+  );
+  assert.match(supportPromptSource, /do not provide tax advice\./);
+  assert.doesNotMatch(supportPromptSource, /Prices exclude applicable taxes\./);
+  assert.match(
+    SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
+    /Combined catalog price before any applicable volume discount: €15\.00/,
+  );
+  assert.doesNotMatch(
+    SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
+    /before any applicable discount and tax/i,
   );
 });
 
@@ -1027,7 +1052,7 @@ test("support pricing output is generated from the final remote catalog", () => 
   );
   assert.match(
     SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
-    /Base Virtual Staging: €14\.00[\s\S]*Image Enhancement add-on: €1\.00[\s\S]*Combined price[^\n]*€15\.00/,
+    /Base Virtual Staging: €14\.00[\s\S]*Image Enhancement add-on: €1\.00[\s\S]*Combined catalog price[^\n]*€15\.00/,
   );
   assert.match(SUPPORT_360_NO_DISCOUNT_EXAMPLE, /Estimated total: €168\.00/);
 

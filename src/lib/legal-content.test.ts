@@ -17,6 +17,22 @@ const headerSource = source("src/components/layout/Header.tsx");
 const cookieBannerSource = source(
   "src/components/privacy/CookieConsentBanner.tsx",
 );
+const englishFaqSource = source("src/app/(public)/faq/page.tsx");
+const spanishFaqSource = source("src/app/(public)/es/faq/page.tsx");
+const faqDataSource = source("src/data/faq.ts");
+const publicPricingSource = source("src/lib/pricing/public.ts");
+const pricingPageSource = source("src/app/(public)/pricing/page.tsx");
+const pricingServicePageSource = source("src/components/pricing/ServicePage.tsx");
+const spanishPricingPageSource = source(
+  "src/app/(public)/es/pricing/page.tsx",
+);
+const spanishPricingLabelsSource = source(
+  "src/app/(public)/es/pricing/labels.ts",
+);
+const orderSummarySource = source("src/components/order/OrderSummary.tsx");
+const orderReviewHeaderSource = source(
+  "src/components/order/OrderReviewHeader.tsx",
+);
 
 test("legal version is current and remains the order terms version", () => {
   assert.equal(LEGAL_VERSION, "2026-08");
@@ -108,6 +124,72 @@ test("policy copy covers confirmed providers, controls, and consumer rights", ()
   assert.match(legalContentSource, /picchuspot_cookie_consent/);
   assert.match(legalContentSource, /portfolio permission/);
   assert.doesNotMatch(legalContentSource, /practical launch copy/i);
+});
+
+test("customer-facing tax copy matches tax-inclusive Stripe Checkout", () => {
+  const faqNotice =
+    "For eligible fixed-price online orders, the amount shown in Stripe Checkout is tax-inclusive where applicable, and Stripe identifies the included tax. Custom quotes or manually invoiced services may state their own tax treatment.";
+  const spanishFaqNotice =
+    "Para los pedidos online elegibles con precio fijo, el importe que muestra Stripe Checkout incluye los impuestos cuando corresponda, y Stripe identifica el impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.";
+  const pricingNotice =
+    "For eligible fixed-price online orders, the Checkout total is tax-inclusive where applicable, and Stripe identifies any included tax. Custom quotes or manually invoiced services may state their own tax treatment.";
+  const spanishPricingNotice =
+    "Para los pedidos online elegibles con precio fijo, el total mostrado en Checkout incluye los impuestos cuando corresponda, y Stripe identifica cualquier impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.";
+
+  assert.equal(englishFaqSource.includes(faqNotice), true);
+  assert.equal(faqDataSource.includes(faqNotice), true);
+  assert.equal(spanishFaqSource.includes(spanishFaqNotice), true);
+  assert.equal(publicPricingSource.includes(pricingNotice), true);
+  assert.equal(publicPricingSource.includes(spanishPricingNotice), true);
+  assert.equal(spanishPricingLabelsSource.includes(spanishPricingNotice), true);
+
+  assert.match(pricingPageSource, /title: "Tax-inclusive Checkout"/);
+  assert.match(pricingPageSource, /description: PUBLIC_TAX_NOTICE/);
+  assert.match(
+    pricingServicePageSource,
+    /labels\?\.taxNotice \?\? PUBLIC_TAX_NOTICE/,
+  );
+  assert.match(spanishPricingPageSource, /\{PUBLIC_TAX_NOTICE_ES\}/);
+
+  const obsoletePhrases = [
+    "Prices exclude applicable taxes.",
+    "Taxes calculated separately where applicable.",
+    "Los precios no incluyen los impuestos aplicables.",
+    "Los impuestos se calculan por separado cuando corresponda.",
+    "Estimated total before tax",
+    "Taxes shown separately",
+  ];
+  const customerSources = [
+    englishFaqSource,
+    spanishFaqSource,
+    faqDataSource,
+    publicPricingSource,
+    pricingPageSource,
+    spanishPricingLabelsSource,
+    orderSummarySource,
+    orderReviewHeaderSource,
+  ];
+  for (const customerSource of customerSources) {
+    for (const obsoletePhrase of obsoletePhrases) {
+      assert.equal(customerSource.includes(obsoletePhrase), false);
+    }
+  }
+
+  for (const orderSource of [orderSummarySource, orderReviewHeaderSource]) {
+    assert.match(orderSource, />\s*Estimated total\s*</);
+    assert.match(
+      orderSource,
+      /For eligible fixed-price online orders, this is the Checkout total\. Applicable tax is included and identified by Stripe\./,
+    );
+    assert.match(
+      orderSource,
+      /Final tax treatment will be confirmed in your written quote\./,
+    );
+    assert.match(
+      orderSource,
+      /quote\.customQuote \|\| quote\.totalCents === null/,
+    );
+  }
 });
 
 test("blocked and unnecessary legal routes are not published", () => {

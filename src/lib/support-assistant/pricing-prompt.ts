@@ -403,7 +403,7 @@ const enhancementEur = getCatalogPrice("image-enhancement", "EUR");
 
 export const SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE = `* Base Virtual Staging: ${formatSupportAmount(stagingEur, "EUR")} per image
 * Image Enhancement add-on: ${formatSupportAmount(enhancementEur, "EUR")} per image
-* Combined price before any applicable discount and tax: ${formatSupportAmount(
+* Combined catalog price before any applicable volume discount: ${formatSupportAmount(
   stagingEur + enhancementEur,
   "EUR",
 )} per image`;
