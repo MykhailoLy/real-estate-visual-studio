@@ -129,9 +129,13 @@ export default function DedicatedPhotoEditingOrderForm({
     }
     return true;
   });
-  const termsAccepted = orderTerms.accepted;
+  const requiredConfirmationsComplete =
+    orderTerms.accepted && orderTerms.earlyPerformanceRequested;
   const canSubmit =
-    items.length > 0 && allItemsValid && termsAccepted && isJobTitleValid(jobTitle);
+    items.length > 0 &&
+    allItemsValid &&
+    requiredConfirmationsComplete &&
+    isJobTitleValid(jobTitle);
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((_, i) => ({

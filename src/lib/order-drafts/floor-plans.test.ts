@@ -98,7 +98,11 @@ function source(): FloorPlansFormDraftSource {
         referenceFilename: null,
       },
     ],
-    orderTerms: { accepted: true, allowPortfolio: false },
+    orderTerms: {
+      accepted: true,
+      earlyPerformanceRequested: true,
+      allowPortfolio: false,
+    },
     currency: "USD",
     region: "US",
   };
@@ -163,12 +167,26 @@ test("an untouched Floor Plans form remains local", () => {
     hasMeaningfulFloorPlansDraftChange({
       jobTitle: "",
       items: [createFloorPlanFormItem()],
-      orderTerms: { accepted: false, allowPortfolio: false },
+      orderTerms: {
+        accepted: false,
+        earlyPerformanceRequested: false,
+        allowPortfolio: false,
+      },
       currency: "USD",
       region: "US",
     }),
     false,
   );
+});
+
+test("legacy Floor Plans drafts restore a missing early-performance request as false", () => {
+  const legacy = mapFloorPlansFormToDraftState(source()) as unknown as {
+    termsUi: Record<string, unknown>;
+  };
+  delete legacy.termsUi.earlyPerformanceRequested;
+
+  const restored = mapFloorPlansDraftToFormState(legacy);
+  assert.equal(restored.orderTerms.earlyPerformanceRequested, false);
 });
 
 test("Floor Plans quantity input accepts only canonical integers from 1 through 20", () => {

@@ -1146,6 +1146,7 @@ export default function FloorPlansOrderForm({
     items.length > 0 &&
     allItemsValid &&
     orderTerms.accepted &&
+    orderTerms.earlyPerformanceRequested &&
     isJobTitleValid(jobTitle) &&
     !hasActiveFileOperation &&
     saveStatus !== "conflict" &&

@@ -64,7 +64,11 @@ export interface VirtualRenovationDraftState extends JsonObject {
   jobTitle: string;
   currentStep: typeof VIRTUAL_RENOVATION_DRAFT_STEP;
   items: VirtualRenovationDraftItemEnvelope[];
-  termsUi: { accepted: boolean; allowPortfolio: boolean } & JsonObject;
+  termsUi: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  } & JsonObject;
   metadata: { service: "virtual-renovation" } & JsonObject;
 }
 
@@ -88,7 +92,11 @@ export interface VirtualRenovationFormItemDraftSource {
 export interface VirtualRenovationFormDraftSource {
   jobTitle: string;
   items: VirtualRenovationFormItemDraftSource[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
   currency: TransactionalCurrency;
   region?: RegionCode | null;
 }
@@ -155,6 +163,7 @@ export const VirtualRenovationDraftStateSchema = z
     termsUi: z
       .object({
         accepted: z.boolean().default(false),
+        earlyPerformanceRequested: z.boolean().default(false),
         allowPortfolio: z.boolean().default(false),
       })
       .strict(),
@@ -241,6 +250,8 @@ export function mapVirtualRenovationFormToDraftState(
     })),
     termsUi: {
       accepted: source.orderTerms.accepted === true,
+      earlyPerformanceRequested:
+        source.orderTerms.earlyPerformanceRequested === true,
       allowPortfolio: source.orderTerms.allowPortfolio === true,
     },
     metadata: { service: "virtual-renovation" },
@@ -250,7 +261,11 @@ export function mapVirtualRenovationFormToDraftState(
 export function mapVirtualRenovationDraftToFormState(state: unknown): {
   jobTitle: string;
   items: VirtualRenovationResumedFormItem[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
 } {
   const parsed = VirtualRenovationDraftStateSchema.parse(
     normalizeLegacyVirtualRenovationDraftState(state),
@@ -365,6 +380,7 @@ export function hasMeaningfulVirtualRenovationDraftChange(
   if (
     source.jobTitle.trim() ||
     source.orderTerms.accepted ||
+    source.orderTerms.earlyPerformanceRequested ||
     source.orderTerms.allowPortfolio ||
     source.items.length > 1
   ) {

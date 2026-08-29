@@ -19,7 +19,11 @@ function source(): SingleExposureFormDraftSource {
     step: "review",
     currency: "CAD",
     region: "CA",
-    orderTerms: { accepted: true, allowPortfolio: true },
+    orderTerms: {
+      accepted: true,
+      earlyPerformanceRequested: true,
+      allowPortfolio: true,
+    },
     items: [
       {
         clientItemId: itemId,

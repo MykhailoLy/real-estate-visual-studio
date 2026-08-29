@@ -338,12 +338,12 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       `Image #${itemNumber}: select a room or area.`,
     styleRequired: (itemNumber) =>
       `Image #${itemNumber}: select a furniture style.`,
-    termsRequired: "Accept the terms before submitting.",
+    termsRequired: "Complete both required order confirmations before submitting.",
     jobTitleLabel: "Job title",
     originalLabel: (itemNumber) => `Image #${itemNumber} original photo`,
     roomLabel: (itemNumber) => `Image #${itemNumber} room`,
     styleLabel: (itemNumber) => `Image #${itemNumber} furniture style`,
-    termsLabel: "Terms",
+    termsLabel: "Order confirmations",
     supportRecommendationTitle: "Recommendation applied",
     supportRecommendationMessage:
       "Image Enhancement was selected based on your PicchuSpot Assistant conversation. You can remove it from any image.",
@@ -417,12 +417,12 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       `Imagen #${itemNumber}: selecciona una habitación o zona.`,
     styleRequired: (itemNumber) =>
       `Imagen #${itemNumber}: selecciona un estilo de mobiliario.`,
-    termsRequired: "Acepta los términos antes de enviar.",
+    termsRequired: "Completa las dos confirmaciones obligatorias antes de enviar.",
     jobTitleLabel: "Título del pedido",
     originalLabel: (itemNumber) => `Imagen #${itemNumber} foto original`,
     roomLabel: (itemNumber) => `Imagen #${itemNumber} habitación`,
     styleLabel: (itemNumber) => `Imagen #${itemNumber} estilo`,
-    termsLabel: "Términos",
+    termsLabel: "Confirmaciones del pedido",
     supportRecommendationTitle: "Recomendación aplicada",
     supportRecommendationMessage:
       "Se ha seleccionado Image Enhancement según tu conversación con el asistente de PicchuSpot. Puedes quitarlo de cualquier imagen.",
@@ -1029,11 +1029,17 @@ export default function VirtualStagingOrderForm({
       buildRequiredFieldIssues(
         findMissingVirtualStagingRequiredFields({
           ...requiredFieldInput,
-          termsAccepted: orderTerms.accepted,
+          termsAccepted:
+            orderTerms.accepted && orderTerms.earlyPerformanceRequested,
         }),
         copy,
       ),
-    [copy, orderTerms.accepted, requiredFieldInput],
+    [
+      copy,
+      orderTerms.accepted,
+      orderTerms.earlyPerformanceRequested,
+      requiredFieldInput,
+    ],
   );
 
   const replaceDraftUrl = useCallback(

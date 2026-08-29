@@ -3,6 +3,7 @@
 import type { DeliveryPreferencesData } from "@/components/order/DeliveryPreferences";
 import type { OrderTermsData } from "@/components/order/OrderTermsBlock";
 import { TERMS_VERSION } from "@/lib/order-terms";
+import { EARLY_PERFORMANCE_VERSION } from "@/lib/early-performance";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { readBrowserCurrency } from "@/lib/currency";
 import {
@@ -317,6 +318,15 @@ export async function submitOrder(
     };
   }
 
+  if (!orderTerms.accepted || !orderTerms.earlyPerformanceRequested) {
+    return {
+      success: false,
+      error:
+        "Accept the Terms and request the confirmed-payment start of service before submitting.",
+      errorCode: "validation-failed",
+    };
+  }
+
   // ---- 1. Local pre-flight ----
   for (let i = 0; i < files.length; i++) {
     const references = (
@@ -350,6 +360,8 @@ export async function submitOrder(
     jobTitle: jobTitle.trim(),
     termsVersion: TERMS_VERSION,
     termsAccepted: orderTerms.accepted,
+    earlyPerformanceVersion: EARLY_PERFORMANCE_VERSION,
+    earlyPerformanceRequested: orderTerms.earlyPerformanceRequested,
     portfolioAllowed: orderTerms.allowPortfolio,
     deliveryPreferences: deliveryPreferences ?? null,
     items,
@@ -537,6 +549,10 @@ export async function submitOrder(
       // Replaced server-side, kept here only so older server builds
       // that still validated the field don't reject the request.
       acceptedAt: new Date().toISOString(),
+    },
+    earlyPerformanceRequest: {
+      requested: orderTerms.earlyPerformanceRequested,
+      version: EARLY_PERFORMANCE_VERSION,
     },
     portfolioPermission: {
       allowed: orderTerms.allowPortfolio,

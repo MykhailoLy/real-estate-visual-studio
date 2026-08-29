@@ -1056,9 +1056,10 @@ export default function PhotoEditingOrderForm({
     }
     if (!canSubmit) {
       setSubmitError(
-        orderTermsRef.current.accepted
+        orderTermsRef.current.accepted &&
+          orderTermsRef.current.earlyPerformanceRequested
           ? "Review every required order detail before submitting."
-          : "Accept the terms before submitting the order.",
+          : "Complete both required order confirmations before submitting.",
       );
       return;
     }
@@ -1183,7 +1184,9 @@ export default function PhotoEditingOrderForm({
     saveStatus !== "conflict" &&
     resumeState === "ready" &&
     (hasFinalizationRetryContext ||
-      (hasValidConfiguration && orderTerms.accepted));
+      (hasValidConfiguration &&
+        orderTerms.accepted &&
+        orderTerms.earlyPerformanceRequested));
   const reviewBlockedMessage = hasActiveFileOperation
     ? "Wait for every image operation to finish before review."
     : saveStatus === "conflict"
@@ -1337,8 +1340,12 @@ export default function PhotoEditingOrderForm({
                 <p role="status">Wait for every image operation to finish.</p>
               ) : saveStatus === "conflict" ? (
                 <p role="status">Reload the latest draft before submitting.</p>
-              ) : !hasFinalizationRetryContext && !orderTerms.accepted ? (
-                <p role="status">Accept the terms before submitting.</p>
+              ) : !hasFinalizationRetryContext &&
+                (!orderTerms.accepted ||
+                  !orderTerms.earlyPerformanceRequested) ? (
+                <p role="status">
+                  Complete both required order confirmations before submitting.
+                </p>
               ) : null
             }
           />

@@ -6,6 +6,7 @@ import {
 } from "../supabase-admin.ts";
 import type { ResolvedClientIdentity } from "../profile-completion.ts";
 import { TERMS_VERSION } from "../order-terms.ts";
+import { EARLY_PERFORMANCE_VERSION } from "../early-performance.ts";
 import { ORDER_FILES_BUCKET } from "../upload-config.ts";
 import {
   createProductionOrder,
@@ -94,7 +95,11 @@ interface TrustedDraftFinalizationContext {
   >;
   jobTitle: string;
   itemCount: number;
-  termsUi: { accepted: boolean; allowPortfolio: boolean };
+  termsUi: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
   items: ValidatedOrderItem[];
   matchFiles: (
     files: OrderDraftFileRow[],
@@ -292,6 +297,10 @@ async function submitTrustedOrderDraftForUser(
       termsAcceptance: {
         accepted: context.termsUi.accepted,
         version: TERMS_VERSION,
+      },
+      earlyPerformanceRequest: {
+        requested: context.termsUi.earlyPerformanceRequested,
+        version: EARLY_PERFORMANCE_VERSION,
       },
       portfolioPermission: {
         allowed: context.termsUi.allowPortfolio,

@@ -23,6 +23,7 @@ export interface VirtualStagingSupportPrefillDraftSource {
   items: readonly VirtualStagingSupportPrefillItemSource[];
   orderTerms: {
     accepted: boolean;
+    earlyPerformanceRequested: boolean;
     allowPortfolio: boolean;
   };
 }
@@ -77,7 +78,11 @@ export function isVirtualStagingSupportPrefillOnlyState(
   if (!normalizedRecommendedAddOnIds) return false;
   if (source.items.length === 0) return false;
   if (source.jobTitle.trim() !== "") return false;
-  if (source.orderTerms.accepted || source.orderTerms.allowPortfolio) {
+  if (
+    source.orderTerms.accepted ||
+    source.orderTerms.earlyPerformanceRequested ||
+    source.orderTerms.allowPortfolio
+  ) {
     return false;
   }
 

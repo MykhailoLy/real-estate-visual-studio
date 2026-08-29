@@ -1451,8 +1451,13 @@ export default function VirtualRenovationOrderForm({
       setSubmitError("Return to Edit and complete every required order field.");
       return;
     }
-    if (!orderTermsRef.current.accepted) {
-      setSubmitError("Accept the terms before submitting your order.");
+    if (
+      !orderTermsRef.current.accepted ||
+      !orderTermsRef.current.earlyPerformanceRequested
+    ) {
+      setSubmitError(
+        "Complete both required order confirmations before submitting.",
+      );
       return;
     }
     const saved = await enqueueDraftSave(buildDraftSource(), true);
@@ -1591,7 +1596,9 @@ export default function VirtualRenovationOrderForm({
     !hasActiveFileOperation &&
     !isSubmitting &&
     (hasFinalizationRetryContext ||
-      (configurationValid && orderTerms.accepted));
+      (configurationValid &&
+        orderTerms.accepted &&
+        orderTerms.earlyPerformanceRequested));
   const editsDisabled = isSubmitting || finalizationRetryContext !== null;
   const startNewDisabled =
     editsDisabled || hasActiveFileOperation || saveStatus === "saving";
@@ -1817,8 +1824,12 @@ export default function VirtualRenovationOrderForm({
             submitHelper={
               hasActiveFileOperation ? (
                 <p role="status">Wait for file operations to finish.</p>
-              ) : !orderTerms.accepted && !hasFinalizationRetryContext ? (
-                <p role="status">Accept the terms before submitting.</p>
+              ) : (!orderTerms.accepted ||
+                  !orderTerms.earlyPerformanceRequested) &&
+                !hasFinalizationRetryContext ? (
+                <p role="status">
+                  Complete both required order confirmations before submitting.
+                </p>
               ) : null
             }
           />

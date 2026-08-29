@@ -58,6 +58,11 @@ export interface AdminNotificationInput {
     version: string;
     accepted_at: string;
   };
+  earlyPerformanceRequest: {
+    requested: boolean;
+    version: string;
+    requested_at: string;
+  };
   portfolioPermission: {
     allowed: boolean;
   };
@@ -84,6 +89,7 @@ export function renderAdminNotification(
     pricingSnapshot,
     hasFixedCheckoutPrice,
     termsAcceptance,
+    earlyPerformanceRequest,
     portfolioPermission,
     items,
   } = input;
@@ -163,6 +169,11 @@ export function renderAdminNotification(
     `  Version: ${termsAcceptance.version}`,
     `  At: ${termsAcceptance.accepted_at}`,
     `  Portfolio use allowed: ${portfolioPermission.allowed ? "yes" : "no"}`,
+    "",
+    "START OF SERVICE",
+    `  Requested: ${earlyPerformanceRequest.requested ? "yes" : "no"}`,
+    `  Version: ${earlyPerformanceRequest.version}`,
+    `  At: ${earlyPerformanceRequest.requested_at}`,
     "",
     "ITEMS"
   );
@@ -300,6 +311,21 @@ export function renderAdminNotification(
           <tr><td style="padding:2px 12px 2px 0;color:#718096;">Portfolio use</td><td style="padding:2px 0;">${
             portfolioPermission.allowed ? "allowed" : "not allowed"
           }</td></tr>
+        </tbody>
+      </table>
+
+      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin-bottom:6px;">Start of service</div>
+      <table style="width:100%;font-size:13px;line-height:1.6;border-collapse:collapse;margin-bottom:18px;color:#4a5568;">
+        <tbody>
+          <tr><td style="padding:2px 12px 2px 0;color:#718096;">Requested</td><td style="padding:2px 0;">${
+            earlyPerformanceRequest.requested ? "yes" : "no"
+          }</td></tr>
+          <tr><td style="padding:2px 12px 2px 0;color:#718096;">Version</td><td style="padding:2px 0;">${escapeHtml(
+            earlyPerformanceRequest.version,
+          )}</td></tr>
+          <tr><td style="padding:2px 12px 2px 0;color:#718096;">At</td><td style="padding:2px 0;">${escapeHtml(
+            earlyPerformanceRequest.requested_at,
+          )}</td></tr>
         </tbody>
       </table>
 

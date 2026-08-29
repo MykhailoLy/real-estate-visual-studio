@@ -203,7 +203,10 @@ export default function ItemRemovalOrderForm({
     items.length > 0 &&
     items.every(isItemRemovalItemValid) &&
     isJobTitleValid(jobTitle);
-  const reviewValid = configureValid && orderTerms.accepted;
+  const reviewValid =
+    configureValid &&
+    orderTerms.accepted &&
+    orderTerms.earlyPerformanceRequested;
 
   // --- Summary ---
   const summaryItems: SummaryItem[] = items.map((_, i) => ({

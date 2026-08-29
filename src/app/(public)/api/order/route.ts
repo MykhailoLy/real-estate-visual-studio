@@ -38,6 +38,17 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!("earlyPerformanceRequest" in bodyJson)) {
+      return NextResponse.json(
+        {
+          error:
+            "The order confirmation requirements have changed. Please review the current information and submit again.",
+          code: "client_upgrade_required",
+        },
+        { status: 409 },
+      );
+    }
+
     const metaResult = OrderMetadataSchema.safeParse(bodyJson);
     if (!metaResult.success) {
       return NextResponse.json(
@@ -52,6 +63,7 @@ export async function POST(request: Request) {
       currency,
       deliveryPreferences,
       termsAcceptance,
+      earlyPerformanceRequest,
       portfolioPermission,
       items: rawItems,
       itemFiles,
@@ -126,6 +138,7 @@ export async function POST(request: Request) {
       itemFiles,
       deliveryPreferences,
       termsAcceptance,
+      earlyPerformanceRequest,
       portfolioPermission,
       storageMode: "move",
     });

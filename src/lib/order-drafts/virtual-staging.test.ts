@@ -42,6 +42,7 @@ function source() {
     region: "US" as const,
     orderTerms: {
       accepted: true,
+      earlyPerformanceRequested: true,
       allowPortfolio: true,
     },
     items: [
@@ -138,11 +139,22 @@ test("draft mapping restores safe fields without file re-selection", () => {
   assert.equal(form.jobTitle, "Sunny Condo");
   assert.equal(form.defaultFurnitureStyle, "Modern");
   assert.equal(form.orderTerms.accepted, true);
+  assert.equal(form.orderTerms.earlyPerformanceRequested, true);
   assert.equal(form.items[0]?.file, null);
   assert.equal(form.items[0]?.referenceFile, null);
   assert.equal(form.items[0]?.originalFilename, "living.jpg");
   assert.equal(form.items[0]?.needsOriginalFileReselection, false);
   assert.equal(form.items[0]?.furnitureStyle, "Modern");
+});
+
+test("legacy Virtual Staging drafts restore a missing early-performance request as false", () => {
+  const legacy = mapVirtualStagingFormToDraftState(source()) as unknown as {
+    termsUi: Record<string, unknown>;
+  };
+  delete legacy.termsUi.earlyPerformanceRequested;
+
+  const restored = mapVirtualStagingDraftToFormState(legacy);
+  assert.equal(restored.orderTerms.earlyPerformanceRequested, false);
 });
 
 test("global default and individual styles survive draft serialization", () => {
@@ -226,7 +238,11 @@ test("meaningful-change detection avoids empty abandoned drafts", () => {
     hasMeaningfulVirtualStagingDraftChange({
       jobTitle: "",
       currency: "USD",
-      orderTerms: { accepted: false, allowPortfolio: false },
+      orderTerms: {
+        accepted: false,
+        earlyPerformanceRequested: false,
+        allowPortfolio: false,
+      },
       items: [
         {
           clientItemId: ITEM_ID,

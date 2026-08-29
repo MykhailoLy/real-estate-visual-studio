@@ -29,6 +29,10 @@ const PAYMENT_EMAIL_MIGRATION = readFileSync(
   "supabase/add-payment-confirmation-email.sql",
   "utf8",
 );
+const SEND_ORDER_EMAILS_SOURCE = readFileSync(
+  "src/lib/email/send-order-emails.ts",
+  "utf8",
+);
 
 function snapshot(customQuote = false) {
   return {
@@ -62,6 +66,7 @@ function clientInput(hasFixedCheckoutPrice: boolean) {
     currency: "USD" as const,
     pricingSnapshot: snapshot(!hasFixedCheckoutPrice),
     hasFixedCheckoutPrice,
+    earlyPerformanceRequest: { requested: true },
     items: [{
       index: 0,
       details: {
@@ -91,6 +96,11 @@ function adminInput(hasFixedCheckoutPrice: boolean) {
       accepted: true,
       version: "2026-01",
       accepted_at: "2026-08-24T12:00:00.000Z",
+    },
+    earlyPerformanceRequest: {
+      requested: true,
+      version: "2026-08-29",
+      requested_at: "2026-08-24T12:00:01.000Z",
     },
     portfolioPermission: { allowed: false },
     items: [{
@@ -133,6 +143,15 @@ test("fixed-price client email uses the inclusive final total and Checkout next 
   assert.match(combined, /Any applicable tax is included in this amount\./);
   assert.match(combined, /Complete secure payment from the PicchuSpot order page\./);
   assert.match(combined, /Work begins after payment has been verified\./);
+  assert.match(combined, /Start of service/);
+  assert.match(
+    combined,
+    /begin work as soon as payment is confirmed, including during any applicable 14-day withdrawal period/,
+  );
+  assert.match(
+    combined,
+    /Where consumer withdrawal rights apply, you acknowledged the consequences described in the order confirmation/,
+  );
   assert.match(combined, /View order \/ Pay securely/);
   assert.match(combined, /dashboard\/jobs\/11111111-1111-4111-8111-111111111111/);
   for (const stale of staleCopy) assert.doesNotMatch(combined, new RegExp(stale));
@@ -162,6 +181,10 @@ test("admin email calls the stored fixed amount final and inclusive", () => {
   assert.match(fixed.html, /Subtotal/);
   assert.match(fixed.html, /\$15\.00/);
   assert.match(fixedCombined, /Any applicable tax is included in this amount\./);
+  assert.match(fixedCombined, /START OF SERVICE/);
+  assert.match(fixedCombined, /Requested: yes/);
+  assert.match(fixedCombined, /2026-08-29/);
+  assert.match(fixedCombined, /2026-08-24T12:00:01\.000Z/);
   assert.doesNotMatch(fixedCombined, /before tax/i);
 
   const manual = renderAdminNotification(adminInput(false));
@@ -177,6 +200,25 @@ test("admin email calls the stored fixed amount final and inclusive", () => {
     assert.doesNotMatch(output, /Pay securely/);
     assert.doesNotMatch(output, /Final total/);
   }
+});
+
+test("durable email payloads read early-performance evidence from persisted item details", () => {
+  assert.match(
+    SEND_ORDER_EMAILS_SOURCE,
+    /earlyPerformanceRequest: readEarlyPerformanceRequest\(\s*items\[0\]\?\.details/,
+  );
+  assert.match(
+    SEND_ORDER_EMAILS_SOURCE,
+    /details\?\.early_performance_request/,
+  );
+  assert.match(
+    SEND_ORDER_EMAILS_SOURCE,
+    /acknowledged_loss_after_full_performance === true[\s\S]*acknowledged_proportionate_payment === true/,
+  );
+  assert.match(
+    SEND_ORDER_EMAILS_SOURCE,
+    /requested_at: stringOrNull\(request\.requested_at\)/,
+  );
 });
 
 test("payment confirmation email reports the verified inclusive amount without promising production", () => {

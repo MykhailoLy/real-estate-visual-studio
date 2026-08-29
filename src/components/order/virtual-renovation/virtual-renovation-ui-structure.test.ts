@@ -214,7 +214,7 @@ test("retry submission is outside the disabled Configure fieldset", () => {
   );
   assert.match(
     formSource,
-    /hasFinalizationRetryContext \|\|\s*\(configurationValid && orderTerms\.accepted\)/,
+    /hasFinalizationRetryContext \|\|\s*\(configurationValid &&\s*orderTerms\.accepted &&\s*orderTerms\.earlyPerformanceRequested\)/,
   );
 });
 

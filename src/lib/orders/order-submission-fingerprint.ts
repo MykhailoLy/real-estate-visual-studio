@@ -9,7 +9,7 @@ import type {
 } from "./create-order-server.ts";
 import { canonicalJson } from "./canonical-json.ts";
 
-export const ORDER_SUBMISSION_SCHEMA_VERSION = 1;
+export const ORDER_SUBMISSION_SCHEMA_VERSION = 2;
 
 export function createOrderIntentHash(input: {
   serviceType: string;
@@ -19,6 +19,12 @@ export function createOrderIntentHash(input: {
   itemFiles: TrustedOrderItemFiles[];
   deliveryPreferences?: DeliveryPreferences;
   termsAcceptance: { accepted: boolean; version: string };
+  earlyPerformanceRequest: {
+    requested: boolean;
+    acknowledged_loss_after_full_performance: boolean;
+    acknowledged_proportionate_payment: boolean;
+    version: string;
+  };
   portfolioPermission?: { allowed: boolean };
   sourceDraftId?: string;
 }): string {
@@ -43,6 +49,15 @@ export function createOrderIntentHash(input: {
     termsAcceptance: {
       accepted: input.termsAcceptance.accepted,
       version: input.termsAcceptance.version,
+    },
+    earlyPerformanceRequest: {
+      requested: input.earlyPerformanceRequest.requested,
+      acknowledged_loss_after_full_performance:
+        input.earlyPerformanceRequest
+          .acknowledged_loss_after_full_performance,
+      acknowledged_proportionate_payment:
+        input.earlyPerformanceRequest.acknowledged_proportionate_payment,
+      version: input.earlyPerformanceRequest.version,
     },
     portfolioPermission: {
       allowed: input.portfolioPermission?.allowed === true,

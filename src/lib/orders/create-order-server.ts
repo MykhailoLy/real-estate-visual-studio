@@ -55,6 +55,7 @@ import {
 import { dispatchOrderEmailOutbox } from "@/lib/email/send-order-emails";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { resolveCurrentTermsAcceptance } from "@/lib/order-terms";
+import { resolveCurrentEarlyPerformanceRequest } from "@/lib/early-performance";
 import {
   getDedicatedSubServiceLabel,
   SUB_SERVICE_REQUIRED_OPTION,
@@ -131,6 +132,11 @@ export interface CreateProductionOrderInput {
   itemFiles: TrustedOrderItemFiles[];
   deliveryPreferences?: DeliveryPreferences;
   termsAcceptance: { accepted: boolean; version?: string };
+  earlyPerformanceRequest: {
+    requested: boolean;
+    version?: string;
+    requestedAt?: string;
+  };
   portfolioPermission?: { allowed: boolean };
   sourceDraftId?: string;
   draftExpectedVersion?: number;
@@ -318,6 +324,28 @@ export async function createProductionOrder(
     };
   }
 
+  const earlyPerformanceHandshake = resolveCurrentEarlyPerformanceRequest(
+    input.earlyPerformanceRequest,
+  );
+  if (!earlyPerformanceHandshake.ok) {
+    if (earlyPerformanceHandshake.reason === "not_requested") {
+      return {
+        ok: false,
+        code: "invalid_input",
+        message:
+          "Request to start work after payment confirmation is required.",
+        status: 400,
+      };
+    }
+    return {
+      ok: false,
+      code: "client_upgrade_required",
+      message:
+        "The order confirmation requirements have changed. Please review the current information and submit again.",
+      status: 409,
+    };
+  }
+
   if (input.items.length !== input.itemFiles.length) {
     return {
       ok: false,
@@ -362,6 +390,7 @@ export async function createProductionOrder(
   const requestHash = createOrderIntentHash({
     ...input,
     termsAcceptance: termsHandshake.acceptance,
+    earlyPerformanceRequest: earlyPerformanceHandshake.request,
   });
   const quoteHash = createAuthoritativeQuoteHash(quote);
   const proposedSnapshot = createPricingSnapshot(quote);
@@ -535,6 +564,10 @@ export async function createProductionOrder(
     ...termsHandshake.acceptance,
     accepted_at: new Date().toISOString(),
   };
+  const trustedEarlyPerformanceRequest = {
+    ...earlyPerformanceHandshake.request,
+    requested_at: new Date().toISOString(),
+  };
   const trustedPortfolioPermission = {
     allowed: input.portfolioPermission?.allowed === true,
   };
@@ -552,6 +585,7 @@ export async function createProductionOrder(
         input.deliveryPreferences,
       ),
       terms_acceptance: trustedTermsAcceptance,
+      early_performance_request: trustedEarlyPerformanceRequest,
       portfolio_permission: trustedPortfolioPermission,
       uploaded_files: {
         original: serializeUploadedFile(itemFiles.data[i].original),

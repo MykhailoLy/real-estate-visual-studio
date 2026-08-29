@@ -54,7 +54,11 @@ export interface DayToDuskFormDraftSource {
   jobTitle: string;
   step: DayToDuskDraftStep;
   items: DayToDuskFormItemDraftSource[];
-  orderTerms: { accepted: boolean; allowPortfolio: boolean };
+  orderTerms: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  };
   shareEnabled: boolean;
   currency: TransactionalCurrency;
   region?: RegionCode | null;
@@ -87,7 +91,11 @@ export interface DayToDuskDraftState extends JsonObject {
     clientItemId: string;
     state: DayToDuskDraftItemState;
   } & JsonObject>;
-  termsUi: { accepted: boolean; allowPortfolio: boolean } & JsonObject;
+  termsUi: {
+    accepted: boolean;
+    earlyPerformanceRequested: boolean;
+    allowPortfolio: boolean;
+  } & JsonObject;
   metadata: {
     service: "day-to-dusk";
     shareEnabled: boolean;
@@ -136,6 +144,7 @@ export const DayToDuskDraftStateSchema = z
     termsUi: z
       .object({
         accepted: z.boolean().default(false),
+        earlyPerformanceRequested: z.boolean().default(false),
         allowPortfolio: z.boolean().default(false),
       })
       .strict(),
@@ -170,6 +179,8 @@ export function mapDayToDuskFormToDraftState(
     currentStep: source.step,
     termsUi: {
       accepted: source.orderTerms.accepted === true,
+      earlyPerformanceRequested:
+        source.orderTerms.earlyPerformanceRequested === true,
       allowPortfolio: source.orderTerms.allowPortfolio === true,
     },
     metadata: { service: "day-to-dusk", shareEnabled: source.shareEnabled },
@@ -230,6 +241,7 @@ export function hasMeaningfulDayToDuskDraftChange(
   return Boolean(
     source.jobTitle.trim() ||
       source.orderTerms.accepted ||
+      source.orderTerms.earlyPerformanceRequested ||
       source.orderTerms.allowPortfolio ||
       source.items.some(
         (item) =>

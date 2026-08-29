@@ -250,6 +250,9 @@ async function buildPersistedEmailPayload(
       clientName: order.client_name,
       clientEmail: order.client_email,
       clientOrderUrl: absoluteUrl(`/dashboard/jobs/${order.id}`),
+      earlyPerformanceRequest: readEarlyPerformanceRequest(
+        items[0]?.details,
+      ),
       items: clientItems,
     });
     return { ok: true, value: { from, to: order.client_email, replyTo: admin, ...rendered } };
@@ -317,6 +320,7 @@ async function buildPersistedEmailPayload(
       company: order.client_company,
     },
     termsAcceptance: readTermsAcceptance(items[0]?.details),
+    earlyPerformanceRequest: readEarlyPerformanceRequest(items[0]?.details),
     portfolioPermission: readPortfolioPermission(items[0]?.details),
     items: adminItems,
   });
@@ -370,6 +374,19 @@ function readTermsAcceptance(details: Record<string, unknown> | undefined) {
     accepted: terms.accepted === true,
     version: stringOrNull(terms.version) ?? "unspecified",
     accepted_at: stringOrNull(terms.accepted_at) ?? "",
+  };
+}
+function readEarlyPerformanceRequest(
+  details: Record<string, unknown> | undefined,
+) {
+  const request = asRecord(details?.early_performance_request);
+  return {
+    requested:
+      request.requested === true &&
+      request.acknowledged_loss_after_full_performance === true &&
+      request.acknowledged_proportionate_payment === true,
+    version: stringOrNull(request.version) ?? "unspecified",
+    requested_at: stringOrNull(request.requested_at) ?? "",
   };
 }
 function readPortfolioPermission(details: Record<string, unknown> | undefined) {
