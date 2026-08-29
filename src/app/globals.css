@@ -45,11 +45,11 @@
   --color-border-strong: #7e848a;
 
   /* Harmonise Tailwind neutral utilities with the same system.
-     200 is the stronger control border; 300+ are safe for normal text
-     on Warm Ivory. */
+     200 stays Soft Line for decorative borders; 300+ are readable
+     neutral steps for copy and stronger UI states. */
   --color-stone-50: #f4efe8;
   --color-stone-100: #f0e9e1;
-  --color-stone-200: #7e848a;
+  --color-stone-200: #ded3c6;
   --color-stone-300: #636d75;
   --color-stone-400: #5a656d;
   --color-stone-500: #4e5a64;
@@ -60,7 +60,7 @@
 
   --color-gray-50: #f4efe8;
   --color-gray-100: #f0e9e1;
-  --color-gray-200: #7e848a;
+  --color-gray-200: #ded3c6;
   --color-gray-300: #636d75;
   --color-gray-400: #5a656d;
   --color-gray-500: #4e5a64;
@@ -71,7 +71,7 @@
 
   --color-slate-50: #f4efe8;
   --color-slate-100: #f0e9e1;
-  --color-slate-200: #7e848a;
+  --color-slate-200: #ded3c6;
   --color-slate-300: #636d75;
   --color-slate-400: #5a656d;
   --color-slate-500: #4e5a64;
@@ -82,7 +82,7 @@
 
   --color-zinc-50: #f4efe8;
   --color-zinc-100: #f0e9e1;
-  --color-zinc-200: #7e848a;
+  --color-zinc-200: #ded3c6;
   --color-zinc-300: #636d75;
   --color-zinc-400: #5a656d;
   --color-zinc-500: #4e5a64;
@@ -93,7 +93,7 @@
 
   --color-neutral-50: #f4efe8;
   --color-neutral-100: #f0e9e1;
-  --color-neutral-200: #7e848a;
+  --color-neutral-200: #ded3c6;
   --color-neutral-300: #636d75;
   --color-neutral-400: #5a656d;
   --color-neutral-500: #4e5a64;
@@ -121,7 +121,7 @@ body {
    boundary against Warm Ivory to satisfy non-text contrast expectations.
    This only upgrades controls that already opt into the shared border token;
    decorative cards/dividers keep Soft Line. */
-:where(input, select, textarea).border-border {
+:where(input, select, textarea) {
   border-color: var(--color-border-strong);
 }
 
