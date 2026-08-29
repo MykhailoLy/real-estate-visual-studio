@@ -114,7 +114,7 @@ export default function OrderSummary({
           )}
           <div className="flex justify-between gap-4 border-t border-border pt-3">
             <span className="font-semibold text-foreground">
-              Estimated total before tax
+              Estimated total
             </span>
             <span className="font-bold text-lg text-primary">
               {quote.customQuote || quote.totalCents === null
@@ -123,7 +123,9 @@ export default function OrderSummary({
             </span>
           </div>
           <p className="text-[11px] text-muted">
-            Taxes calculated separately where applicable.
+            {quote.customQuote || quote.totalCents === null
+              ? "Final tax treatment will be confirmed in your written quote."
+              : "For eligible fixed-price online orders, this is the Checkout total. Applicable tax is included and identified by Stripe."}
           </p>
         </div>
         ) : (

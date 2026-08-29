@@ -23,7 +23,7 @@ export const spanishServicePageLabels = {
   pricingEyebrow: "Precios",
   basePriceBadge: "Precio base",
   taxNotice:
-    "Los precios no incluyen los impuestos aplicables. Los impuestos se calculan por separado cuando corresponda.",
+    "Para los pedidos online elegibles con precio fijo, el total mostrado en Checkout incluye los impuestos cuando corresponda, y Stripe identifica cualquier impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.",
   faqEyebrow: "FAQ",
   beforeLabel: "Antes",
   afterLabel: "Después",

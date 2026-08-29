@@ -2,10 +2,10 @@ import { getCatalogPrice } from "./catalog";
 import type { PriceKey, TransactionalCurrency } from "./types";
 
 export const PUBLIC_TAX_NOTICE =
-  "Prices exclude applicable taxes. Taxes are calculated separately where applicable.";
+  "For eligible fixed-price online orders, the Checkout total is tax-inclusive where applicable, and Stripe identifies any included tax. Custom quotes or manually invoiced services may state their own tax treatment.";
 
 export const PUBLIC_TAX_NOTICE_ES =
-  "Los precios no incluyen los impuestos aplicables. Los impuestos se calculan por separado cuando corresponda.";
+  "Para los pedidos online elegibles con precio fijo, el total mostrado en Checkout incluye los impuestos cuando corresponda, y Stripe identifica cualquier impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.";
 
 export const PUBLIC_VOLUME_DISCOUNTS = [
   { range: "1–4 eligible units", discount: "Standard price" },

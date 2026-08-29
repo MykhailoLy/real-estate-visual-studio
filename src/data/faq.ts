@@ -43,7 +43,7 @@ export const faqItems: FaqItem[] = [
     id: "faq-6",
     question: "Do you offer volume discounts?",
     answer:
-      "Yes. Discounts apply automatically to the base service subtotal: 1–4 eligible units use the standard price, 5–9 receive 5% off, 10–19 receive 10% off, 20–49 receive 15% off, and 50+ require a custom quote. Add-ons are not volume-discounted. Prices exclude applicable taxes. Taxes are calculated separately where applicable.",
+      "Yes. Discounts apply automatically to the base service subtotal: 1–4 eligible units use the standard price, 5–9 receive 5% off, 10–19 receive 10% off, 20–49 receive 15% off, and 50+ require a custom quote. Add-ons are not volume-discounted. For eligible fixed-price online orders, the amount shown in Stripe Checkout is tax-inclusive where applicable, and Stripe identifies the included tax. Custom quotes or manually invoiced services may state their own tax treatment.",
     category: "pricing",
   },
   {

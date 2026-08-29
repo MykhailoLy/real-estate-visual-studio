@@ -79,7 +79,7 @@ export default function OrderReviewHeader({
             </>
           )}
           <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
-            Estimated total before tax
+            Estimated total
           </dt>
           <dd className="text-right text-lg font-bold text-primary">
             {quote.totalCents === null
@@ -87,7 +87,9 @@ export default function OrderReviewHeader({
               : formatMoney(quote.totalCents, quote.currency)}
           </dd>
           <p className="col-span-2 text-[11px] text-muted">
-            Taxes calculated separately where applicable.
+            {quote.customQuote || quote.totalCents === null
+              ? "Final tax treatment will be confirmed in your written quote."
+              : "For eligible fixed-price online orders, this is the Checkout total. Applicable tax is included and identified by Stripe."}
           </p>
         </div>
       </dl>
