@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import CookieConsentBanner from "@/components/privacy/CookieConsentBanner";
 import { SupportChatProvider } from "@/components/support/SupportChatProvider";
@@ -15,10 +15,6 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 const SITE_DESCRIPTOR = "Real Estate Visuals";
 const SITE_TAGLINE = "Property visuals that make listings stand out.";
@@ -75,7 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen w-full overflow-x-clip`}
+        className={`${geistSans.variable} antialiased flex flex-col min-h-screen w-full overflow-x-clip`}
       >
         <SupportChatProvider>{children}</SupportChatProvider>
         <GoogleAnalytics />
