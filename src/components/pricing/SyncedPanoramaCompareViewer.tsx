@@ -1,5 +1,6 @@
 "use client";
 
+import "@photo-sphere-viewer/core/index.css";
 import { useEffect, useRef, useState } from "react";
 import { MousePointer2, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
