@@ -165,6 +165,7 @@ export default function OrderPaymentPanel({
   }
 
   const isPaymentRequired = summary.state === "payment_required";
+  const isNoPaymentRequired = summary.state === "no_payment_required";
   const isProcessing = summary.state === "processing";
   const isPaid = summary.state === "paid";
   const isPartiallyRefunded = summary.state === "partially_refunded";
@@ -185,7 +186,9 @@ export default function OrderPaymentPanel({
         <span
           className={[
             "rounded-full border px-2.5 py-1 text-xs font-bold",
-            isPaid
+            isNoPaymentRequired
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : isPaid
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
               : isPartiallyRefunded
                 ? "border-orange-200 bg-orange-50 text-orange-800"
@@ -198,7 +201,9 @@ export default function OrderPaymentPanel({
                   : "border-border bg-surface text-muted",
           ].join(" ")}
         >
-          {isPaid
+          {isNoPaymentRequired
+            ? "No payment required"
+            : isPaid
             ? "Paid"
             : isPartiallyRefunded
               ? "Partially refunded"
@@ -229,7 +234,9 @@ export default function OrderPaymentPanel({
       </dl>
 
       <p className="mt-4 text-sm leading-relaxed text-muted">
-        {isPaymentRequired
+        {isNoPaymentRequired
+          ? "No payment is due for this Welcome Offer order. Work can begin after the order is confirmed."
+          : isPaymentRequired
           ? "Your order is received. Secure payment is still required before work can begin. The final total includes tax when applicable."
           : isProcessing
             ? "Stripe is processing this payment. This order will show Paid only after the verified payment update is received."

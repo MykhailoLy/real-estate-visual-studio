@@ -7,7 +7,10 @@ import {
 import {
   CheckoutEligibilityError,
   getStoredCheckoutPrice,
+  isNoPaymentRequiredOrder,
 } from "./checkout-eligibility.ts";
+import { PRICING_VERSION } from "../pricing/catalog.ts";
+import { parsePricingSnapshot } from "../pricing/snapshot.ts";
 
 export const PRODUCTION_ADVANCING_ORDER_STATUSES = [
   "confirmed",
@@ -50,6 +53,7 @@ export function assertAdminOrderStatusTransitionAllowed(
   dependencies: AdminPaymentGateDependencies,
 ): PersistedOrderPaymentState {
   let expectedStripeLivemode: boolean | null = null;
+  const noPaymentRequired = isNoPaymentRequiredOrder(order);
   try {
     getStoredCheckoutPrice(order);
     expectedStripeLivemode = dependencies.getExpectedStripeLivemode();
@@ -69,7 +73,27 @@ export function assertAdminOrderStatusTransitionAllowed(
   if (
     advancesProduction &&
     paymentState !== "paid" &&
+    paymentState !== "no_payment_required" &&
     paymentState !== "manual_review"
+  ) {
+    throw new AdminPaymentGateError(paymentState);
+  }
+
+  // A malformed current-version fixed-price snapshot must never inherit the
+  // legacy/custom-quote manual workflow exemption.
+  const snapshot = parsePricingSnapshot(order.pricing_snapshot);
+  const rawSnapshot =
+    order.pricing_snapshot && typeof order.pricing_snapshot === "object"
+      ? (order.pricing_snapshot as Record<string, unknown>)
+      : null;
+  if (
+    advancesProduction &&
+    paymentState === "manual_review" &&
+    !noPaymentRequired &&
+    rawSnapshot?.pricingVersion === PRICING_VERSION &&
+    rawSnapshot.serviceType === order.service_type &&
+    snapshot?.customQuote !== true &&
+    rawSnapshot.customQuote !== true
   ) {
     throw new AdminPaymentGateError(paymentState);
   }

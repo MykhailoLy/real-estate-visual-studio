@@ -39,6 +39,7 @@ export interface ClientConfirmationInput {
   currency: TransactionalCurrency;
   pricingSnapshot: PricingSnapshot;
   hasFixedCheckoutPrice: boolean;
+  noPaymentRequired?: boolean;
   earlyPerformanceRequest: {
     requested: boolean;
   };
@@ -80,26 +81,42 @@ export function renderClientConfirmation(
     pricingSnapshot.volumeDiscountCents,
     currency
   );
+  const welcomeDiscount = formatCents(
+    pricingSnapshot.welcomeDiscountCents,
+    currency,
+  );
+  const noPaymentRequired = input.noPaymentRequired === true;
   const subject = `Order ${orderNumber} Received — PicchuSpot`;
   const earlyStartConfirmation =
-    "You expressly asked PicchuSpot to begin work as soon as payment is confirmed, including during any applicable 14-day withdrawal period. Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed.";
+    "You expressly asked PicchuSpot to begin work as soon as any required payment is confirmed, or after order confirmation where no payment is due, including during any applicable 14-day withdrawal period. Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed.";
   const pricingTextLines = hasFixedCheckoutPrice
     ? [
         `Base subtotal: ${baseSubtotal}`,
         `Add-ons: ${addOns}`,
+        ...(pricingSnapshot.welcomeDiscountCents > 0
+          ? [`Welcome Offer: -${welcomeDiscount}`]
+          : []),
         ...(pricingSnapshot.volumeDiscountPercent > 0
           ? [
               `Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
             ]
           : []),
         `Final total: ${total} ${currency}`,
+        ...(noPaymentRequired ? ["No payment required."] : []),
         "Any applicable tax is included in this amount.",
       ]
     : [
         "Pricing: Manual review required.",
         "We’ll review the submitted files and instructions before confirming the commercial next step.",
       ];
-  const nextStepsText = hasFixedCheckoutPrice
+  const nextStepsText = noPaymentRequired
+    ? [
+        "  1. Review the submitted order and files.",
+        "  2. No payment is required for this Welcome Offer order.",
+        "  3. Work can begin after the order is confirmed.",
+        "  4. Track the order and download completed files from the client portal.",
+      ]
+    : hasFixedCheckoutPrice
     ? [
         "  1. Review the submitted order and files.",
         "  2. Complete secure payment from the PicchuSpot order page.",
@@ -144,7 +161,7 @@ export function renderClientConfirmation(
     ...pricingTextLines,
     ...(input.clientOrderUrl
       ? [
-          `${hasFixedCheckoutPrice ? "View order / Pay securely" : "View order"}: ${input.clientOrderUrl}`,
+          `${hasFixedCheckoutPrice && !noPaymentRequired ? "View order / Pay securely" : "View order"}: ${input.clientOrderUrl}`,
         ]
       : []),
     "",
@@ -180,16 +197,28 @@ export function renderClientConfirmation(
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
           ${
+            pricingSnapshot.welcomeDiscountCents > 0
+              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Welcome Offer</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(welcomeDiscount)}</td></tr>`
+              : ""
+          }
+          ${
             pricingSnapshot.volumeDiscountPercent > 0
               ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
               : ""
           }
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Final total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(total)} ${currency}</td></tr>
+          ${noPaymentRequired ? '<tr><td colspan="2" style="padding:6px 0 0;color:#15803d;font-weight:600;">No payment required</td></tr>' : ""}
           <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Any applicable tax is included in this amount.</td></tr>`
     : `
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Pricing</td><td style="padding:4px 0;font-weight:600;">Manual review required</td></tr>
           <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">We’ll review the submitted files and instructions before confirming the commercial next step.</td></tr>`;
-  const nextStepsHtml = hasFixedCheckoutPrice
+  const nextStepsHtml = noPaymentRequired
+    ? `
+        <li>Review the submitted order and files.</li>
+        <li>No payment is required for this Welcome Offer order.</li>
+        <li>Work can begin after the order is confirmed.</li>
+        <li>Track the order and download completed files from the client portal.</li>`
+    : hasFixedCheckoutPrice
     ? `
         <li>Review the submitted order and files.</li>
         <li>Complete secure payment from the PicchuSpot order page.</li>
@@ -239,7 +268,7 @@ export function renderClientConfirmation(
 
       ${
         input.clientOrderUrl
-          ? `<p style="margin:0 0 24px;"><a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:10px 15px;border-radius:7px;background:#0B1F3A;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;">${hasFixedCheckoutPrice ? "View order / Pay securely" : "View order"}</a></p>`
+          ? `<p style="margin:0 0 24px;"><a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:10px 15px;border-radius:7px;background:#0B1F3A;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;">${hasFixedCheckoutPrice && !noPaymentRequired ? "View order / Pay securely" : "View order"}</a></p>`
           : ""
       }
 

@@ -332,6 +332,8 @@ async function submitTrustedOrderDraftForUser(
       return finalizationError(
         orderResult.code === "storage_error"
           ? "storage_error"
+          : orderResult.code === "pricing_changed"
+            ? "pricing_changed"
           : orderResult.code === "database_error"
             ? "database_error"
             : "invalid_status",

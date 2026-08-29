@@ -84,6 +84,7 @@ export interface ServicePageProps {
   title: string;
   description: string;
   priceLine: ReactNode;
+  welcomeOfferDescription?: string;
   orderHref: string;
   orderLabel: string;
 
@@ -187,6 +188,7 @@ export default async function ServicePage({
   title,
   description,
   priceLine,
+  welcomeOfferDescription,
   orderHref,
   orderLabel,
   whenToUseTitle,
@@ -312,6 +314,11 @@ export default async function ServicePage({
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
                 {priceLine}
               </p>
+              {welcomeOfferDescription ? (
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-secondary-dark">
+                  {welcomeOfferDescription}
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
               <TrackedLink

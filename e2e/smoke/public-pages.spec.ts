@@ -167,7 +167,7 @@ for (const { route, heading } of legalRoutes) {
     await expect(
       page.getByRole("heading", { name: heading, exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("2026-08-29", { exact: true })).toBeVisible();
+    await expect(page.getByText("2026-08-29-v2", { exact: true })).toBeVisible();
     await expect(
       page.getByRole("navigation", {
         name: route.startsWith("/es/") ? "En esta página" : "On this page",

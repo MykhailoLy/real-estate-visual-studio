@@ -40,8 +40,15 @@ function snapshot(customQuote = false) {
     currency: "USD" as const,
     serviceType: "virtual-staging" as const,
     eligibleUnits: customQuote ? 50 : 1,
+    volumeEligibleUnits: customQuote ? 50 : 1,
     baseSubtotalCents: customQuote ? 0 : 1500,
     addOnSubtotalCents: 0,
+    welcomeDiscountCents: 0,
+    welcomeOffer: {
+      version: "2026-08-29",
+      totalDiscountCents: 0,
+      benefits: [],
+    },
     volumeDiscountPercent: 0,
     volumeDiscountCents: 0,
     subtotalAfterDiscountCents: customQuote ? null : 1500,
@@ -146,7 +153,7 @@ test("fixed-price client email uses the inclusive final total and Checkout next 
   assert.match(combined, /Start of service/);
   assert.match(
     combined,
-    /You expressly asked PicchuSpot to begin work as soon as payment is confirmed, including during any applicable 14-day withdrawal period/,
+    /You expressly asked PicchuSpot to begin work as soon as any required payment is confirmed, or after order confirmation where no payment is due/,
   );
   assert.match(
     combined,
@@ -159,6 +166,40 @@ test("fixed-price client email uses the inclusive final total and Checkout next 
   assert.match(combined, /View order \/ Pay securely/);
   assert.match(combined, /dashboard\/jobs\/11111111-1111-4111-8111-111111111111/);
   for (const stale of staleCopy) assert.doesNotMatch(combined, new RegExp(stale));
+});
+
+test("zero-total Welcome Offer email shows its discount and never asks for payment", () => {
+  const input = clientInput(true);
+  const rendered = renderClientConfirmation({
+    ...input,
+    estimatedTotalCents: 0,
+    noPaymentRequired: true,
+    pricingSnapshot: {
+      ...input.pricingSnapshot,
+      volumeEligibleUnits: 0,
+      baseSubtotalCents: 100,
+      welcomeDiscountCents: 100,
+      welcomeOffer: {
+        version: "2026-08-29",
+        totalDiscountCents: 100,
+        benefits: [{
+          key: "image-enhancement-free",
+          itemIndex: 0,
+          priceKey: "image-enhancement",
+          discountPercent: 100,
+          discountCents: 100,
+        }],
+      },
+      subtotalAfterDiscountCents: 0,
+      totalCents: 0,
+    },
+  });
+  const combined = `${rendered.text}\n${rendered.html}`;
+  assert.match(combined, /Welcome Offer/);
+  assert.match(combined, /No payment required/);
+  assert.match(combined, /Work can begin after the order is confirmed/);
+  assert.doesNotMatch(combined, /Complete secure payment/);
+  assert.doesNotMatch(combined, /View order \/ Pay securely/);
 });
 
 test("manual-review client email does not advertise a fixed payment", () => {

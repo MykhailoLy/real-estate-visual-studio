@@ -21,6 +21,7 @@ import type { SingleExposureItemData } from "./SingleExposureItemCard";
 import { buildSingleExposureReviewRows } from "./single-exposure-review";
 import ReferenceFilesReview from "@/components/order/ReferenceFilesReview";
 import { mergeReferenceFiles } from "@/lib/reference-files";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 
 const SERVICE_NAME = "Image Enhancement — Single Exposure";
 
@@ -34,6 +35,7 @@ interface SingleExposureReviewProps {
   onBack: () => void;
   submitError: string;
   disabled?: boolean;
+  welcomeOfferAvailability: WelcomeOfferAvailability;
 }
 
 function toReviewFileDisplay(
@@ -58,6 +60,7 @@ export default function SingleExposureReview({
   onBack,
   submitError,
   disabled = false,
+  welcomeOfferAvailability,
 }: SingleExposureReviewProps) {
   const currency = useDisplayCurrency();
   const pricingItems = items.map((item) => ({
@@ -66,12 +69,16 @@ export default function SingleExposureReview({
       item.aerialEditing,
     ),
     baseOptionId: SINGLE_EXPOSURE_OPTION_ID,
+    dedicatedSubService: "image-enhancement-single-exposure",
   }));
-  const quote = calculateOrderQuote({
-    serviceType: "photo-editing",
-    currency,
-    items: pricingItems,
-  });
+  const quote = calculateOrderQuote(
+    {
+      serviceType: "photo-editing",
+      currency,
+      items: pricingItems,
+    },
+    { welcomeOfferAvailability },
+  );
 
   return (
     <div className="space-y-5">

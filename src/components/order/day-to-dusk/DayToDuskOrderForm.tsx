@@ -129,6 +129,7 @@ interface DayToDuskOrderFormProps {
   orderRoute: string;
   /** mediaKey → resolved dusk-style example image (admin-managed). */
   duskStyleImages: Record<string, ServiceOptionImage>;
+  welcomeOfferAvailability: import("@/lib/welcome-offer").WelcomeOfferAvailability;
 }
 
 interface DraftSaveOutcome {
@@ -173,6 +174,7 @@ export default function DayToDuskOrderForm({
   clientEmail,
   orderRoute,
   duskStyleImages,
+  welcomeOfferAvailability,
 }: DayToDuskOrderFormProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -195,6 +197,8 @@ export default function DayToDuskOrderForm({
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [activeWelcomeOfferAvailability, setActiveWelcomeOfferAvailability] =
+    useState(welcomeOfferAvailability);
   const [draftId, setDraftId] = useState<string | null>(() =>
     requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
       ? requestedDraftId
@@ -884,6 +888,10 @@ export default function DayToDuskOrderForm({
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
+        setActiveWelcomeOfferAvailability((current) => ({
+          ...current,
+          dayToDuskAvailable: false,
+        }));
         const currentId = draftIdRef.current;
         const currentVersion = draftVersionRef.current;
         if (currentId && currentVersion) {
@@ -892,6 +900,12 @@ export default function DayToDuskOrderForm({
         return;
       }
       if (redirectOnOrderAuthError(result, orderRoute)) return;
+      if (result.errorCode === "pricing-changed") {
+        setActiveWelcomeOfferAvailability((current) => ({
+          ...current,
+          dayToDuskAvailable: false,
+        }));
+      }
       setSubmitError(result.error || "Submission failed. Please try again.");
     } catch (error) {
       setSubmitError(
@@ -1006,8 +1020,11 @@ export default function DayToDuskOrderForm({
         serviceType: "photo-editing",
         items: items.map(() => ({
           selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+          baseOptionId: DAY_TO_DUSK_OPTION_ID,
+          dedicatedSubService: "day-to-dusk",
         })),
       }}
+      welcomeOfferAvailability={activeWelcomeOfferAvailability}
       onSubmit={handleSubmit}
       isSubmitting={isSubmitting}
       canSubmit={reviewValid}
@@ -1095,6 +1112,7 @@ export default function DayToDuskOrderForm({
           onEditItem={handleEditItem}
           onBack={goToConfigureTop}
           submitError={submitError}
+          welcomeOfferAvailability={activeWelcomeOfferAvailability}
         />
       ) : (
         <>

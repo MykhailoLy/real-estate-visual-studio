@@ -19,6 +19,7 @@ import type { StagingItemData } from "./StagingItemCard";
 import { buildVirtualStagingReviewRows } from "./virtual-staging-review";
 import ReferenceFilesReview from "@/components/order/ReferenceFilesReview";
 import { mergeReferenceFiles } from "@/lib/reference-files";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 
 // ============================================================
 // VirtualStagingReview — read-only final step for Virtual Staging.
@@ -44,6 +45,7 @@ interface VirtualStagingReviewProps {
   termsErrorMessage?: string;
   termsContainerId?: string;
   disabled?: boolean;
+  welcomeOfferAvailability: WelcomeOfferAvailability;
 }
 
 function toReviewFileDisplay(
@@ -70,13 +72,17 @@ export default function VirtualStagingReview({
   termsErrorMessage,
   termsContainerId,
   disabled = false,
+  welcomeOfferAvailability,
 }: VirtualStagingReviewProps) {
   const currency = useDisplayCurrency();
-  const quote = calculateOrderQuote({
-    serviceType: "virtual-staging",
-    currency,
-    items: items.map((item) => ({ selectedAddons: item.selectedAddons })),
-  });
+  const quote = calculateOrderQuote(
+    {
+      serviceType: "virtual-staging",
+      currency,
+      items: items.map((item) => ({ selectedAddons: item.selectedAddons })),
+    },
+    { welcomeOfferAvailability },
+  );
 
   return (
     <div className="space-y-5">

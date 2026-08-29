@@ -62,7 +62,7 @@ const revisionPolicySources = [
 ].join("\n");
 
 test("legal version is current and remains the order terms version", () => {
-  assert.equal(LEGAL_VERSION, "2026-08-29");
+  assert.equal(LEGAL_VERSION, "2026-08-29-v2");
   assert.match(source("src/lib/order-terms.ts"), /TERMS_VERSION = LEGAL_VERSION/);
 
   const orderTermsBlock = source("src/components/order/OrderTermsBlock.tsx");

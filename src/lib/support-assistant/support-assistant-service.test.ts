@@ -881,7 +881,7 @@ test("partial Gemini output is never returned to the service layer", async () =>
 test("support prompt versions and targeted service-selection contract are current", () => {
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.10";',
+      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.11";',
     ),
   );
   assert.match(

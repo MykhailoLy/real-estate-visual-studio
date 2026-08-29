@@ -279,6 +279,7 @@ interface MockSupabaseOptions {
     bytes?: Uint8Array;
   };
   emailResult?: EmailMockResult;
+  welcomeOfferRowsByQuery?: string[][];
 }
 
 class MockSupabase {
@@ -301,6 +302,7 @@ class MockSupabase {
   private readonly prefixReadFailures: Set<string>;
   private readonly malformedRangeResponses: Set<string>;
   private readonly options: MockSupabaseOptions;
+  private welcomeOfferQueryCount = 0;
 
   readonly storage = {
     from: (bucket: string) => ({
@@ -471,7 +473,7 @@ class MockSupabase {
         error: null,
       };
     }
-    if (name === "commit_order_submission") {
+    if (name === "commit_order_submission_with_welcome_offer_v1") {
       if (this.options.commitError) {
         return { data: null, error: databaseError("CommitConnectionLost") };
       }
@@ -518,6 +520,13 @@ class MockSupabase {
 
   get recoveryCommitted(): boolean {
     return this.options.recoveryCommitted === true;
+  }
+
+  getWelcomeOfferRows(): Array<{ benefit_key: string }> {
+    const rows =
+      this.options.welcomeOfferRowsByQuery?.[this.welcomeOfferQueryCount] ?? [];
+    this.welcomeOfferQueryCount += 1;
+    return rows.map((benefit_key) => ({ benefit_key }));
   }
 }
 
@@ -585,6 +594,9 @@ class MockTableQuery {
 
   eq(column: string, value: unknown) {
     this.filters.set(column, value);
+    if (this.table === "welcome_offer_redemptions") {
+      return { data: this.supabase.getWelcomeOfferRows(), error: null };
+    }
     return this;
   }
 
@@ -1656,8 +1668,8 @@ test("atomic direct creation copies first, commits once, then removes pending so
   assert.equal(supabase.moves.length, 0);
   assert.equal(supabase.objects.has(directPath(0, "original")), false);
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
-  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission").length, 1);
-  const commitCall = supabase.rpcCalls.find((call) => call.name === "commit_order_submission");
+  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
+  const commitCall = supabase.rpcCalls.find((call) => call.name === "commit_order_submission_with_welcome_offer_v1");
   const commitItems = (commitCall?.params as {
     p_items: Array<{
       subtotalCents: number;
@@ -1833,7 +1845,7 @@ for (const [name, extension, mimeType, bytes] of [
     assert.equal(supabase.objects.has(path), true);
     assert.equal(supabase.removes.length, 0);
     assert.equal(
-      supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+      supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
       false,
     );
     assert.equal(
@@ -1862,7 +1874,7 @@ for (const [name, option] of [
     assert.equal(supabase.objects.has(path), true);
     assert.equal(supabase.copies.length, 0);
     assert.equal(
-      supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+      supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
       false,
     );
   });
@@ -1926,7 +1938,7 @@ test("invalid multi-reference bytes prevent the complete order commit", async ()
   assertFailure(result, "invalid_upload");
   assert.equal(supabase.copies.length, 0);
   assert.equal(
-    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
     false,
   );
 });
@@ -1949,7 +1961,7 @@ test("an object replaced after signature verification cannot reach copy or commi
   assertFailure(result, "storage_error");
   assert.equal(supabase.copies.length, 0);
   assert.equal(
-    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
     false,
   );
 });
@@ -1979,7 +1991,7 @@ test("draft finalization re-verifies source bytes instead of trusting uploaded d
   assertFailure(result, "invalid_upload");
   assert.equal(supabase.copies.length, 0);
   assert.equal(
-    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
     false,
   );
 });
@@ -2165,6 +2177,35 @@ test("known atomic commit rejection cleans only finals created by this attempt",
   assert.equal(supabase.objects.has(finalPath(0, "original")), false);
 });
 
+test("Welcome Offer race loser preserves pending source, removes prepared final, and returns current pricing", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({
+    commitCode: "welcome_offer_conflict",
+    welcomeOfferRowsByQuery: [[], ["virtual-staging-first-image-50"]],
+  });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "pricing_changed");
+  assert.equal(supabase.objects.has(directPath(0, "original")), true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), false);
+  assert.equal(
+    result.ok ? -1 : result.currentPricingSnapshot?.welcomeDiscountCents,
+    0,
+  );
+  const commit = supabase.rpcCalls.find(
+    (call) => call.name === "commit_order_submission_with_welcome_offer_v1",
+  );
+  assert.deepEqual(
+    (commit?.params as { p_welcome_offer_benefit_keys: string[] })
+      .p_welcome_offer_benefit_keys,
+    ["virtual-staging-first-image-50"],
+  );
+});
+
 test("email dispatch failure cannot roll back an atomically committed order", async () => {
   const itemFiles = itemFilesForDirectOrder();
   const supabase = new MockSupabase({
@@ -2178,5 +2219,5 @@ test("email dispatch failure cannot roll back an atomically committed order", as
 
   assert.equal(result.ok, true);
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
-  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission").length, 1);
+  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
 });

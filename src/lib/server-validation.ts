@@ -402,7 +402,7 @@ export const TermsAcceptanceSchema = z.object({
 export const EarlyPerformanceRequestSchema = z
   .object({
     requested: z.literal(true, {
-      message: "Request to start work after payment confirmation is required",
+      message: "Request to start work after any required payment or order confirmation is required",
     }),
     version: z.string().min(1).max(50).optional().default("unspecified"),
     requestedAt: z.string().datetime().optional(),

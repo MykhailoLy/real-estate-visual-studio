@@ -8,6 +8,7 @@ import type {
   OrderPricingPreviewInput,
   OrderQuote,
 } from "@/lib/pricing/types";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 
 export interface SummaryItem {
   label: string;
@@ -17,6 +18,7 @@ interface OrderSummaryProps {
   serviceName: string;
   items: SummaryItem[];
   pricingInput: OrderPricingPreviewInput;
+  welcomeOfferAvailability?: WelcomeOfferAvailability;
   onSubmit: () => void;
   isSubmitting: boolean;
   canSubmit: boolean;
@@ -40,6 +42,7 @@ export default function OrderSummary({
   serviceName,
   items,
   pricingInput,
+  welcomeOfferAvailability,
   onSubmit,
   isSubmitting,
   canSubmit,
@@ -51,7 +54,10 @@ export default function OrderSummary({
   const currency = useDisplayCurrency();
   let quote: OrderQuote | null = null;
   try {
-    quote = calculateOrderQuote({ ...pricingInput, currency });
+    quote = calculateOrderQuote(
+      { ...pricingInput, currency },
+      { welcomeOfferAvailability },
+    );
   } catch {
     // Incomplete form selections are expected while the client is editing.
     // The server remains strict and rejects invalid or unknown IDs.
@@ -104,6 +110,14 @@ export default function OrderSummary({
               {formatMoney(quote.addOnSubtotalCents, currency)}
             </span>
           </div>
+          {quote.welcomeDiscountCents > 0 && (
+            <div className="flex justify-between gap-4 text-green-700">
+              <span>Welcome Offer</span>
+              <span className="font-semibold">
+                −{formatMoney(quote.welcomeDiscountCents, currency)}
+              </span>
+            </div>
+          )}
           {quote.volumeDiscountPercent > 0 && (
             <div className="flex justify-between gap-4 text-green-700">
               <span>Volume discount — {quote.volumeDiscountPercent}%</span>
@@ -122,6 +136,9 @@ export default function OrderSummary({
                 : formatMoney(quote.totalCents, currency)}
             </span>
           </div>
+          {quote.totalCents === 0 && (
+            <p className="font-semibold text-emerald-700">No payment required</p>
+          )}
           <p className="text-[11px] text-muted">
             {quote.customQuote || quote.totalCents === null
               ? "Final tax treatment will be confirmed in your written quote."

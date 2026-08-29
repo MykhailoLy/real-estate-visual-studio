@@ -10,6 +10,7 @@ import { absoluteUrl } from "@/lib/seo";
 import {
   CheckoutEligibilityError,
   getStoredCheckoutPrice,
+  isNoPaymentRequiredOrder,
 } from "@/lib/payments/checkout-eligibility";
 import { renderClientConfirmation, type ClientConfirmationItem } from "./order-client-confirmation";
 import { renderAdminNotification, type AdminOrderItem } from "./order-admin-notification";
@@ -241,7 +242,9 @@ async function buildPersistedEmailPayload(
     estimatedTotalCents: order.estimated_total_cents,
     currency: order.currency,
     pricingSnapshot: snapshot as PricingSnapshot,
-    hasFixedCheckoutPrice: hasFixedCheckoutPrice(order),
+    hasFixedCheckoutPrice:
+      hasFixedCheckoutPrice(order) || isNoPaymentRequiredOrder(order),
+    noPaymentRequired: isNoPaymentRequiredOrder(order),
   };
 
   if (delivery.delivery_kind === "client_confirmation") {

@@ -18,6 +18,7 @@ const FINALIZATION_ERROR_STATUS: Record<DraftFinalizationPublicErrorCode, number
   finalization_conflict: 409,
   missing_original: 422,
   file_mismatch: 409,
+  pricing_changed: 409,
   storage_error: 500,
   database_error: 500,
   finalization_incomplete: 503,

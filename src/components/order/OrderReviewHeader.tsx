@@ -68,6 +68,16 @@ export default function OrderReviewHeader({
           <dd className="text-right font-medium text-foreground">
             {formatMoney(quote.addOnSubtotalCents, quote.currency)}
           </dd>
+          {quote.welcomeDiscountCents > 0 && (
+            <>
+              <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-green-700">
+                Welcome Offer
+              </dt>
+              <dd className="text-right font-semibold text-green-700">
+                −{formatMoney(quote.welcomeDiscountCents, quote.currency)}
+              </dd>
+            </>
+          )}
           {quote.volumeDiscountPercent > 0 && (
             <>
               <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-green-700">
@@ -86,6 +96,11 @@ export default function OrderReviewHeader({
               ? "Custom quote"
               : formatMoney(quote.totalCents, quote.currency)}
           </dd>
+          {quote.totalCents === 0 && (
+            <p className="col-span-2 font-semibold text-emerald-700">
+              No payment required
+            </p>
+          )}
           <p className="col-span-2 text-[11px] text-muted">
             {quote.customQuote || quote.totalCents === null
               ? "Final tax treatment will be confirmed in your written quote."

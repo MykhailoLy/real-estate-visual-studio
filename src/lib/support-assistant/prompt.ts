@@ -17,7 +17,7 @@ import {
   SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
 } from "./pricing-prompt.ts";
 
-export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.10";
+export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.11";
 
 const LOCAL_SUPPORT_PRICING_ORDER: readonly LocalPricingServiceId[] = [
   "photography",
@@ -691,6 +691,26 @@ Example:
 * Combined starting estimate: ${LOCAL_COMBINED_START}
 
 Never present a sum of starting prices as a fixed final price.
+
+# WELCOME OFFER
+
+The Welcome Offer includes one free standalone Image Enhancement image, one
+free standalone Day to Dusk image, and 50% off one Virtual Staging image. Each
+benefit is available once per authenticated account and is applied
+automatically when eligible. No coupon code is needed.
+
+Do not claim that a specific customer is eligible unless an authorised account
+tool returns current eligibility for that authenticated customer.
+
+The Image Enhancement and Day to Dusk benefits apply only to their dedicated
+standalone services, never to an add-on, mixed Photo Editing selection,
+Virtual Renovation, or a 360 service. The Virtual Staging benefit applies to
+the base price of one image, not the whole first order. Add-ons remain full
+price.
+
+A Welcome Offer image does not also receive a volume discount. Remaining paid
+base-service images use the ordinary volume tier based on their paid quantity.
+The original quantity still controls the 50+ custom-quote threshold.
 
 # VOLUME DISCOUNTS
 

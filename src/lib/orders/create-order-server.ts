@@ -35,6 +35,11 @@ import type {
   PricingSnapshot,
   TransactionalCurrency,
 } from "@/lib/pricing/types";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
+import {
+  getWelcomeOfferAvailability,
+  WelcomeOfferEligibilityError,
+} from "@/lib/welcome-offer-server";
 import {
   ORDER_FILES_BUCKET,
   buildFinalPath,
@@ -333,7 +338,7 @@ export async function createProductionOrder(
         ok: false,
         code: "invalid_input",
         message:
-          "Request to start work after payment confirmation is required.",
+          "Request to start work after any required payment or order confirmation is required.",
         status: 400,
       };
     }
@@ -362,9 +367,33 @@ export async function createProductionOrder(
   );
   if (!aerialValidation.ok) return aerialValidation;
 
+  const supabase = getSupabaseAdminClient();
+  let welcomeOfferAvailability: WelcomeOfferAvailability;
+  try {
+    welcomeOfferAvailability = await getWelcomeOfferAvailability(
+      input.ownerUserId,
+      supabase,
+    );
+  } catch (error) {
+    if (error instanceof WelcomeOfferEligibilityError) {
+      return {
+        ok: false,
+        code: "database_error",
+        message: "Welcome Offer eligibility could not be verified. Please retry.",
+        status: 503,
+      };
+    }
+    throw error;
+  }
+
   let quote: OrderQuote;
   try {
-    quote = calculateServerQuote(input.serviceType, input.currency, input.items);
+    quote = calculateServerQuote(
+      input.serviceType,
+      input.currency,
+      input.items,
+      welcomeOfferAvailability,
+    );
   } catch (error) {
     if (error instanceof PricingValidationError) {
       return {
@@ -386,7 +415,6 @@ export async function createProductionOrder(
     };
   }
 
-  const supabase = getSupabaseAdminClient();
   const requestHash = createOrderIntentHash({
     ...input,
     termsAcceptance: termsHandshake.acceptance,
@@ -612,7 +640,7 @@ export async function createProductionOrder(
         .map((file) => ({ fileId: file.draftFileId!, finalPath: file.finalPath }))
     : null;
   const { data: commitData, error: commitError } = await supabase.rpc(
-    "commit_order_submission",
+    "commit_order_submission_with_welcome_offer_v1",
     {
       p_user_id: input.ownerUserId,
       p_submission_id: input.submissionId,
@@ -624,6 +652,9 @@ export async function createProductionOrder(
       p_client_company: input.clientIdentity.company,
       p_job_title: input.jobTitle,
       p_items: orderItemsPayload,
+      p_welcome_offer_benefit_keys: pricingSnapshot.welcomeOffer.benefits.map(
+        (benefit) => benefit.key,
+      ),
       p_draft_expected_version: input.draftExpectedVersion ?? null,
       p_draft_finalization_key: input.draftFinalizationKey ?? null,
       p_draft_moved_files: movedDraftFiles,
@@ -639,6 +670,30 @@ export async function createProductionOrder(
   if (commit.result_code !== "created" && commit.result_code !== "replayed") {
     await cleanupFinalPaths(supabase, copiedFinalPaths);
     await releaseSubmissionBestEffort(supabase, input, leaseToken, commit.result_code);
+    if (commit.result_code === "welcome_offer_conflict") {
+      try {
+        const currentAvailability = await getWelcomeOfferAvailability(
+          input.ownerUserId,
+          supabase,
+        );
+        const currentQuote = calculateServerQuote(
+          input.serviceType,
+          input.currency,
+          input.items,
+          currentAvailability,
+        );
+        return {
+          ok: false,
+          code: "pricing_changed",
+          message:
+            "Welcome Offer eligibility changed before the order was committed. Review and confirm the current price.",
+          status: 409,
+          currentPricingSnapshot: createPricingSnapshot(currentQuote),
+        };
+      } catch {
+        return databaseAmbiguityError();
+      }
+    }
     return mapCommitFailure(commit.result_code);
   }
 
@@ -836,6 +891,7 @@ function calculateServerQuote(
   serviceType: ServiceType,
   currency: TransactionalCurrency,
   items: ValidatedOrderItem[],
+  welcomeOfferAvailability?: WelcomeOfferAvailability,
 ): OrderQuote {
   let input: OrderPricingInput;
   switch (serviceType) {
@@ -878,11 +934,12 @@ function calculateServerQuote(
           baseOptionId: item.subService
             ? SUB_SERVICE_REQUIRED_OPTION[item.subService]
             : undefined,
+          dedicatedSubService: item.subService,
         })),
       };
       break;
   }
-  return calculateOrderQuote(input);
+  return calculateOrderQuote(input, { welcomeOfferAvailability });
 }
 
 function buildDeliveryPreferences(

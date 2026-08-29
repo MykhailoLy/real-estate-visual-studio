@@ -33,8 +33,15 @@ function order(overrides: Record<string, unknown> = {}) {
       currency: "USD",
       serviceType: "virtual-staging",
       eligibleUnits: 1,
+      volumeEligibleUnits: 1,
       baseSubtotalCents: 1500,
       addOnSubtotalCents: 0,
+      welcomeDiscountCents: 0,
+      welcomeOffer: {
+        version: "2026-08-29",
+        totalDiscountCents: 0,
+        benefits: [],
+      },
       volumeDiscountPercent: 0,
       volumeDiscountCents: 0,
       subtotalAfterDiscountCents: 1500,
@@ -47,6 +54,37 @@ function order(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   };
+}
+
+function zeroTotalOrder(catalogPrice = 100) {
+  return order({
+    service_type: "photo-editing",
+    estimated_total_cents: 0,
+    pricing_snapshot: {
+      pricingVersion: PRICING_VERSION,
+      currency: "USD",
+      serviceType: "photo-editing",
+      eligibleUnits: 1,
+      volumeEligibleUnits: 0,
+      baseSubtotalCents: catalogPrice,
+      addOnSubtotalCents: 0,
+      welcomeDiscountCents: catalogPrice,
+      welcomeOffer: {
+        version: "2026-08-29",
+        totalDiscountCents: catalogPrice,
+        benefits: [{ key: "image-enhancement-free", itemIndex: 0, priceKey: "image-enhancement", discountPercent: 100, discountCents: catalogPrice }],
+      },
+      volumeDiscountPercent: 0,
+      volumeDiscountCents: 0,
+      subtotalAfterDiscountCents: 0,
+      taxCalculated: false,
+      taxCents: 0,
+      totalCents: 0,
+      customQuote: false,
+      items: [{ itemIndex: 0, quantity: 1, priceKey: "image-enhancement", unitPriceCents: catalogPrice, baseSubtotalCents: catalogPrice, addOns: [], addOnSubtotalCents: 0, lineSubtotalCents: catalogPrice }],
+      pricedAt: "2026-08-29T12:00:00.000Z",
+    },
+  });
 }
 
 function payment(overrides: Record<string, unknown> = {}) {
@@ -135,6 +173,19 @@ test("paid matching eligible order can advance", () => {
   }
 });
 
+test("trusted no-payment-required order can advance without Stripe state", () => {
+  for (const status of ["confirmed", "in-progress", "delivered"]) {
+    assert.equal(paymentGate(zeroTotalOrder(), null, status), "no_payment_required");
+  }
+});
+
+test("tampered zero-total snapshot cannot use the production exemption", () => {
+  assert.throws(
+    () => paymentGate(zeroTotalOrder(99), null, "confirmed"),
+    AdminPaymentGateError,
+  );
+});
+
 test("mismatched paid payment cannot advance", () => {
   const mismatched = payment({
     payment_status: "paid",
@@ -156,6 +207,7 @@ test("custom-quote and Checkout-ineligible orders preserve manual workflow", () 
     pricing_snapshot: {
       ...order().pricing_snapshot,
       eligibleUnits: 50,
+      volumeEligibleUnits: 50,
       subtotalAfterDiscountCents: null,
       totalCents: null,
       customQuote: true,

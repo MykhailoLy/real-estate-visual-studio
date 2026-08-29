@@ -7,6 +7,7 @@ import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 
 export const metadata = spanishMetadata({
   title: "Edición Day to Dusk",
@@ -54,6 +55,7 @@ export default function SpanishDayToDuskPricingPage() {
           suffix=" / imagen"
         />
       }
+      welcomeOfferDescription={`${WELCOME_OFFER_PUBLIC_COPY.es.short} ${WELCOME_OFFER_PUBLIC_COPY.es.rules}`}
       orderHref="/order/day-to-dusk"
       orderLabel="Pedir Day to Dusk"
       whenToUseTitle="Cuándo usar Day to Dusk"

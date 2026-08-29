@@ -4,6 +4,7 @@ import { getServiceLabel } from "@/lib/display/service-labels";
 import {
   CheckoutEligibilityError,
   getStoredCheckoutPrice,
+  isNoPaymentRequiredOrder,
 } from "./checkout-eligibility.ts";
 import type {
   CheckoutRepository,
@@ -41,6 +42,7 @@ export async function getAuthoritativePaymentSummary(
   } catch (error) {
     if (!(error instanceof CheckoutEligibilityError)) throw error;
   }
+  const noPaymentRequired = isNoPaymentRequiredOrder(order);
 
   const paymentMatches = paymentRecordMatchesCheckoutSnapshot(
     order,
@@ -75,8 +77,8 @@ export async function getAuthoritativePaymentSummary(
     orderNumber: order.order_number,
     serviceLabel: getServiceLabel(order.service_type),
     itemCount: order.item_count,
-    finalTotalCents: price?.subtotalCents ?? null,
-    currency: price
+    finalTotalCents: noPaymentRequired ? 0 : (price?.subtotalCents ?? null),
+    currency: price || noPaymentRequired
       ? (order.currency as AuthoritativePaymentSummary["currency"])
       : null,
     paymentStatus: summaryPaymentStatus,
@@ -95,6 +97,7 @@ function deriveCustomerPaymentState({
   paymentExists: boolean;
   paymentMatches: boolean;
 }): CustomerPaymentState {
+  if (persistedState === "no_payment_required") return "no_payment_required";
   if (persistedState === "paid") return "paid";
   if (persistedState === "partially_refunded") return "partially_refunded";
   if (persistedState === "refunded") return "refunded";

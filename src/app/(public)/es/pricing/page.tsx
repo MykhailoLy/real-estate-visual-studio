@@ -15,6 +15,7 @@ import {
 } from "@/lib/pricing/local-catalog";
 import type { SpanishLocalizedPath } from "@/lib/seo";
 import type { PriceKey } from "@/lib/pricing/types";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 
 export const metadata = spanishMetadata({
   title: "Precios de servicios visuales inmobiliarios",
@@ -294,6 +295,15 @@ export default function SpanishPricingPage() {
 
       <section className="py-16 lg:py-24 bg-white">
         <Container>
+          <div className="mb-10 rounded-2xl border border-secondary/30 bg-secondary/5 p-5 sm:p-6">
+            <h2 className="text-lg font-bold text-primary">Oferta de bienvenida</h2>
+            <p className="mt-2 text-sm leading-relaxed text-foreground">
+              {WELCOME_OFFER_PUBLIC_COPY.es.short}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              {WELCOME_OFFER_PUBLIC_COPY.es.rules}
+            </p>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-14 items-start">
             <div className="space-y-8">
               {digitalSections.map((section) => (

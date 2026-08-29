@@ -68,6 +68,7 @@ export type DraftFinalizationPublicErrorCode =
   | "finalization_conflict"
   | "missing_original"
   | "file_mismatch"
+  | "pricing_changed"
   | "storage_error"
   | "database_error"
   | "finalization_incomplete"

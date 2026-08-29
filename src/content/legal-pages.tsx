@@ -119,13 +119,15 @@ export const termsSectionsEn = [
           and may send a transactional confirmation.
         </p>
         <p>
-          For an eligible fixed-price order, you can then continue to hosted
-          Stripe Checkout. Other orders require a written scope, custom quote,
-          manual payment or scheduling confirmation. The agreement becomes
-          binding when PicchuSpot accepts the order by confirming the scope or
-          making the agreed fixed-price service available for payment, subject
-          to any mandatory rule that applies to you. A pending order does not
-          mean that production has begun.
+          For an eligible fixed-price order with an amount due, you can then
+          continue to hosted Stripe Checkout. A valid zero-total order proceeds
+          without Stripe Checkout. Other orders require a written scope, custom
+          quote, manual payment or scheduling confirmation. The agreement
+          becomes binding when PicchuSpot accepts the order by confirming the
+          scope, confirming a no-payment-required order, or making the agreed
+          fixed-price service available for payment, subject to any mandatory
+          rule that applies to you. A pending order does not mean that
+          production has begun.
         </p>
         <p>
           The ordering interface and these Terms are available in English and
@@ -191,10 +193,11 @@ export const termsSectionsEn = [
           the full card number or CVC in its order form.
         </p>
         <p>
-          Payment must be verified before production normally begins. If a
-          payment fails, is reversed, or remains outstanding, we may pause the
-          order. We will obtain your agreement before charging for additional
-          work outside the confirmed scope.
+          Any required payment must be verified before production normally
+          begins. A valid no-payment-required order may begin after order
+          confirmation. If a required payment fails, is reversed, or remains
+          outstanding, we may pause the order. We will obtain your agreement
+          before charging for additional work outside the confirmed scope.
         </p>
       </>
     ),
@@ -207,8 +210,8 @@ export const termsSectionsEn = [
         <p>
           A 24–48 hour turnaround is a usual estimate for many standard remote
           services, not a guaranteed deadline. It starts only when we have
-          verified payment, complete usable files, clear instructions and any
-          required approvals. Complex work, large batches, revisions, public
+          any required verified payment, complete usable files, clear
+          instructions and any required approvals. Complex work, large batches, revisions, public
           holidays and events outside reasonable control can take longer.
         </p>
         <p>
@@ -465,13 +468,15 @@ export const termsSectionsEs = [
           cuenta y puede enviar una confirmación transaccional.
         </p>
         <p>
-          En un pedido elegible de precio fijo, después puedes continuar al
-          Checkout alojado por Stripe. Otros pedidos requieren confirmar por
-          escrito el alcance, un presupuesto personalizado, pago manual o la
-          reserva de fecha. El acuerdo pasa a ser vinculante cuando PicchuSpot
-          acepta el pedido confirmando el alcance o habilitando para pago el
-          servicio de precio fijo acordado, sin perjuicio de cualquier norma
-          imperativa aplicable. Un pedido pendiente no significa que la
+          En un pedido elegible de precio fijo con un importe pendiente,
+          después puedes continuar al Checkout alojado por Stripe. Un pedido
+          válido con total cero continúa sin Stripe Checkout. Otros pedidos
+          requieren confirmar por escrito el alcance, un presupuesto
+          personalizado, pago manual o la reserva de fecha. El acuerdo pasa a
+          ser vinculante cuando PicchuSpot acepta el pedido confirmando el
+          alcance, confirmando un pedido sin pago requerido o habilitando para
+          pago el servicio de precio fijo acordado, sin perjuicio de cualquier
+          norma imperativa aplicable. Un pedido pendiente no significa que la
           producción haya comenzado.
         </p>
         <p>
@@ -539,10 +544,12 @@ export const termsSectionsEs = [
           tarjeta ni el CVC en su formulario de pedido.
         </p>
         <p>
-          El pago debe estar verificado antes de que normalmente comience la
-          producción. Si falla, se revierte o queda pendiente, podemos pausar el
-          pedido. Solicitaremos tu conformidad antes de cobrar trabajo adicional
-          fuera del alcance confirmado.
+          Cualquier pago exigible debe estar verificado antes de que
+          normalmente comience la producción. Un pedido válido sin pago
+          requerido puede comenzar después de la confirmación del pedido. Si un
+          pago exigible falla, se revierte o queda pendiente, podemos pausar el
+          pedido. Solicitaremos tu conformidad antes de cobrar trabajo
+          adicional fuera del alcance confirmado.
         </p>
       </>
     ),
@@ -555,7 +562,7 @@ export const termsSectionsEs = [
         <p>
           El plazo de 24–48 horas es una estimación habitual para muchos
           servicios remotos estándar, no una fecha garantizada. Solo empieza
-          cuando disponemos del pago verificado, archivos completos y
+          cuando disponemos de cualquier pago exigible verificado, archivos completos y
           utilizables, instrucciones claras y las aprobaciones necesarias. Los
           trabajos complejos, lotes grandes, revisiones, festivos y sucesos
           fuera de un control razonable pueden ampliar el plazo.

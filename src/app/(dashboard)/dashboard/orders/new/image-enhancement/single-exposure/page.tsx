@@ -4,6 +4,7 @@ import SingleExposureOrderForm from "@/components/order/image-enhancement/Single
 import { requireOrderingClient } from "@/lib/order-access";
 import { SINGLE_EXPOSURE_ORDER_MEDIA_KEYS } from "@/lib/image-enhancement";
 import { getServiceOptionMediaByKeys } from "@/lib/site-media";
+import { getWelcomeOfferAvailability } from "@/lib/welcome-offer-server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +16,12 @@ export const metadata: Metadata = {
 };
 
 export default async function NewSingleExposureOrderPage() {
-  const { email } = await requireOrderingClient(ROUTE);
-
-  const exampleMediaByKey = Object.fromEntries(
-    await getServiceOptionMediaByKeys(SINGLE_EXPOSURE_ORDER_MEDIA_KEYS),
-  );
+  const { email, userId } = await requireOrderingClient(ROUTE);
+  const [media, welcomeOfferAvailability] = await Promise.all([
+    getServiceOptionMediaByKeys(SINGLE_EXPOSURE_ORDER_MEDIA_KEYS),
+    getWelcomeOfferAvailability(userId),
+  ]);
+  const exampleMediaByKey = Object.fromEntries(media);
 
   return (
     <ClientDashboardLayout>
@@ -27,6 +29,7 @@ export default async function NewSingleExposureOrderPage() {
         clientEmail={email}
         orderRoute={ROUTE}
         exampleMediaByKey={exampleMediaByKey}
+        welcomeOfferAvailability={welcomeOfferAvailability}
       />
     </ClientDashboardLayout>
   );

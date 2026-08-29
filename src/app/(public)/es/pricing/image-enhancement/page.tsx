@@ -12,6 +12,7 @@ import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 
 export const metadata = spanishMetadata({
   title: "Mejora de imagen",
@@ -59,6 +60,7 @@ export default function SpanishImageEnhancementPricingPage() {
           suffix=" / imagen"
         />
       }
+      welcomeOfferDescription={`${WELCOME_OFFER_PUBLIC_COPY.es.short} ${WELCOME_OFFER_PUBLIC_COPY.es.rules}`}
       orderHref="/order/image-enhancement"
       orderLabel="Pedir Mejora de imagen"
       whenToUseTitle="Cuándo usar Mejora de imagen"

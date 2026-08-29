@@ -78,6 +78,8 @@ export interface PhotoEditingPricingItem {
    * Legacy generic Photo Editing omits this and keeps highest-price-as-base.
    */
   baseOptionId?: string;
+  /** Canonical dedicated-flow identity, derived by the server on submission. */
+  dedicatedSubService?: string;
 }
 
 export type OrderPricingInput =
@@ -139,13 +141,30 @@ export interface PricedOrderItem {
   lineSubtotalCents: number;
 }
 
+export interface AppliedWelcomeOfferBenefit {
+  key: import("../welcome-offer.ts").WelcomeOfferBenefitKey;
+  itemIndex: number;
+  priceKey: PriceKey;
+  discountPercent: 50 | 100;
+  discountCents: number;
+}
+
+export interface AppliedWelcomeOffer {
+  version: string;
+  totalDiscountCents: number;
+  benefits: AppliedWelcomeOfferBenefit[];
+}
+
 export interface OrderQuote {
   pricingVersion: string;
   currency: TransactionalCurrency;
   serviceType: TransactionalServiceType;
   eligibleUnits: number;
+  volumeEligibleUnits: number;
   baseSubtotalCents: number;
   addOnSubtotalCents: number;
+  welcomeDiscountCents: number;
+  welcomeOffer: AppliedWelcomeOffer;
   volumeDiscountPercent: number;
   volumeDiscountCents: number;
   subtotalAfterDiscountCents: number | null;

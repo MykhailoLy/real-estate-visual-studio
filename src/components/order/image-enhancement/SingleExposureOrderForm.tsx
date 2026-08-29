@@ -77,6 +77,7 @@ import {
   uploadPreparedDraftReferenceFile,
 } from "@/lib/order-drafts/draft-reference-files-client";
 import type { ReferenceFileValue } from "@/lib/reference-files";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 
 const SERVICE_NAME = "Image Enhancement — Single Exposure";
 const STEPS: OrderStep[] = [
@@ -88,6 +89,7 @@ interface SingleExposureOrderFormProps {
   clientEmail: string;
   orderRoute: string;
   exampleMediaByKey: Record<string, ServiceOptionMedia>;
+  welcomeOfferAvailability: WelcomeOfferAvailability;
 }
 
 interface DraftSaveOutcome {
@@ -101,6 +103,7 @@ export default function SingleExposureOrderForm({
   clientEmail,
   orderRoute,
   exampleMediaByKey,
+  welcomeOfferAvailability,
 }: SingleExposureOrderFormProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -122,6 +125,8 @@ export default function SingleExposureOrderForm({
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [activeWelcomeOfferAvailability, setActiveWelcomeOfferAvailability] =
+    useState(welcomeOfferAvailability);
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(() =>
     requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
@@ -876,6 +881,10 @@ export default function SingleExposureOrderForm({
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
+        setActiveWelcomeOfferAvailability((current) => ({
+          ...current,
+          imageEnhancementAvailable: false,
+        }));
         const currentId = draftIdRef.current;
         const currentVersion = draftVersionRef.current;
         if (currentId && currentVersion) {
@@ -884,6 +893,12 @@ export default function SingleExposureOrderForm({
         return;
       }
       if (redirectOnOrderAuthError(result, orderRoute)) return;
+      if (result.errorCode === "pricing-changed") {
+        setActiveWelcomeOfferAvailability((current) => ({
+          ...current,
+          imageEnhancementAvailable: false,
+        }));
+      }
       setSubmitError(result.error || "Submission failed. Please try again.");
     } catch (error) {
       setSubmitError(
@@ -933,6 +948,7 @@ export default function SingleExposureOrderForm({
         item.aerialEditing,
       ),
       baseOptionId: SINGLE_EXPOSURE_OPTION_ID,
+      dedicatedSubService: "image-enhancement-single-exposure",
     })),
   };
 
@@ -986,6 +1002,7 @@ export default function SingleExposureOrderForm({
       serviceName={SERVICE_NAME}
       items={summaryItems}
       pricingInput={pricingInput}
+      welcomeOfferAvailability={activeWelcomeOfferAvailability}
       onSubmit={isReview ? handleSubmit : goToReview}
       isSubmitting={isReview && isSubmitting}
       canSubmit={isReview ? reviewValid : configureValid && !fileOperationActive}
@@ -1039,6 +1056,7 @@ export default function SingleExposureOrderForm({
           onBack={goToConfigure}
           submitError={submitError}
           disabled={isSubmitting}
+          welcomeOfferAvailability={activeWelcomeOfferAvailability}
         />
       ) : (
         <>

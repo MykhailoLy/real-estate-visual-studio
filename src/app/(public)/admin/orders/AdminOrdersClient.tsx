@@ -80,6 +80,7 @@ function getPaymentStateLabel(state: PersistedOrderPaymentState): string {
   if (state === "refunded") return "Refunded";
   if (state === "processing") return "Processing";
   if (state === "payment_required") return "Payment required";
+  if (state === "no_payment_required") return "No payment required";
   return "Manual review";
 }
 
@@ -334,7 +335,8 @@ function OrderRow({
         <span
           className={[
             "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold",
-            order.payment_state === "paid"
+            order.payment_state === "paid" ||
+            order.payment_state === "no_payment_required"
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
               : order.payment_state === "partially_refunded"
                 ? "border-orange-200 bg-orange-50 text-orange-800"
