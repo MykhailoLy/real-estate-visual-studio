@@ -53,7 +53,7 @@ import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 export const metadata: Metadata = {
   title: "Virtual Staging Services",
   description:
-    "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
+    "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, unlimited revisions for 30 days from first delivery, delivered in 24–48 hours.",
   alternates: localizedAlternates({
     canonicalPath: "/pricing/virtual-staging",
     englishPath: "/pricing/virtual-staging",
@@ -93,7 +93,7 @@ const USE_CASES = [
 const WHAT_IT_IS_BULLETS = [
   "Photorealistic furniture and decor",
   "Multiple interior styles to choose from",
-  "1 revision included",
+  "Unlimited revisions for 30 days from first delivery",
   "High-resolution JPG delivery in 24–48h",
 ] as const;
 
@@ -188,7 +188,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Are revisions included?",
     answer:
-      "One revision is included for each item so the final image matches your brief more closely.",
+      "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
   },
   {
     question: "Can I use the images for MLS and marketing?",
@@ -263,7 +263,7 @@ export default async function VirtualStagingPage() {
           serviceSchema({
             name: "Virtual Staging",
             description:
-              "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, 1 revision included, delivered in 24–48 hours.",
+              "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, unlimited revisions for 30 days from first delivery, delivered in 24–48 hours.",
             url: absoluteUrl("/pricing/virtual-staging"),
             price: getCatalogPriceDecimal("virtual-staging"),
             priceCurrency: "USD",

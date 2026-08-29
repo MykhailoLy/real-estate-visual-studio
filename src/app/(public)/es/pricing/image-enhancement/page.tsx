@@ -96,7 +96,7 @@ export default function SpanishImageEnhancementPricingPage() {
         "Balance de blancos y color corregidos",
         "Vistas por ventana recuperadas cuando sea posible",
         "Distorsión de lente corregida",
-        "1 revisión incluida por imagen",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
         "Entrega en JPG de alta resolución en 24-48 h",
       ]}
       beforeYouOrderDescription="Envíanos tus imágenes originales y cualquier nota específica; nosotros nos encargamos del resto."
@@ -169,9 +169,9 @@ export default function SpanishImageEnhancementPricingPage() {
             "La entrega estándar es de 24-48 horas desde que recibimos tus imágenes y las notas necesarias.",
         },
         {
-          question: "¿Incluye una revisión?",
+          question: "¿Se incluyen revisiones?",
           answer:
-            "Sí. Se incluye una ronda de revisión por cada imagen para que el resultado final se ajuste mejor a tu brief.",
+            "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
         {
           question: "¿Puedo pedir mejora para un set completo de anuncio?",

@@ -143,7 +143,7 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
         "Estilo ajustado a moderno, escandinavo, costero, clásico y más",
         "Integración de iluminación y sombras en todo el panorama",
         "Entrega final como JPG equirectangular listo para cualquier plataforma 360",
-        "Una ronda de revisión por panorama",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
       ]}
       beforeYouOrderDescription="Envía el panorama 360° vacío de la habitación y un breve brief de estilo para que podamos presupuestar con precisión antes de producir."
       uploadItems={[
@@ -219,9 +219,9 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
             "El staging estándar de un panorama usa el precio fijo mostrado arriba. Los tours multiestancia, habitaciones especialmente complejas o la dirección de estilo personalizada pueden presupuestarse aparte.",
         },
         {
-          question: "¿Incluye una revisión?",
+          question: "¿Se incluyen revisiones?",
           answer:
-            "Sí. Se incluye una ronda de revisión por panorama para pequeños ajustes de mobiliario, estilo o integración.",
+            "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
       ]}
       ctaTitle="Amuebla un 360 sin mover un sofá."

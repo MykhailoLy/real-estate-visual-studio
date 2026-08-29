@@ -50,7 +50,7 @@ const benefitsCopy: BenefitsRowCopy = {
     },
     {
       title: "Revisiones incluidas",
-      body: "Cada elemento incluye una revisión para que el resultado final encaje con tu briefing.",
+      body: "Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, dentro del encargo y la línea de diseño acordados.",
     },
     {
       title: "Revisión humana real",

@@ -90,7 +90,7 @@ export default function PhotoEditingPricingPage() {
         "Background fill blended naturally",
         "Cables, signs, and reflections cleaned up",
         "Compatible with Virtual Staging on the same image",
-        "1 revision included per image",
+        "Unlimited revisions for 30 days from first delivery",
         "High-resolution JPG delivery in 24–48h",
       ]}
       beforeYouOrderDescription="Send the original image with clear notes about what should be removed — the more specific you are, the cleaner the result."
@@ -168,8 +168,8 @@ export default function PhotoEditingPricingPage() {
           answer: "Standard delivery is 24–48 hours from when we receive your image and removal notes.",
         },
         {
-          question: "Is one revision included?",
-          answer: "Yes. One revision round is included per image.",
+          question: "Are revisions included?",
+          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
         {
           question: "Can I use the result for MLS and marketing?",

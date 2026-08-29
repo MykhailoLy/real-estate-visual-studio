@@ -145,7 +145,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
         "Style match for modern, Scandinavian, coastal, classic, and more",
         "Lighting and shadow blending across the full panorama",
         "Final delivery as equirectangular JPG ready for any 360 platform",
-        "One round of revisions per panorama",
+        "Unlimited revisions for 30 days from first delivery",
       ]}
       beforeYouOrderDescription="Send the empty 360° room panorama and a short style brief so we can confirm the staging scope before production."
       uploadItems={[
@@ -221,9 +221,9 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
             "Standard single-panorama staging uses the fixed price shown above. Multi-room tours, unusually complex rooms, or custom style direction can be quoted separately.",
         },
         {
-          question: "Is a revision included?",
+          question: "Are revisions included?",
           answer:
-            "Yes. One revision round is included per panorama so small furniture, styling, or blend adjustments can be handled.",
+            "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
       ]}
       ctaTitle="Furnish a 360 without lifting a sofa."

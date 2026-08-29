@@ -41,7 +41,7 @@ const faqs = [
   {
     question: "How do revisions work?",
     answer:
-      "A revision covers reasonable corrections or adjustments based on the original instructions. New directions, extra rooms, new style requests, or changes outside the original scope may require a separate quote. In the dashboard, some revision statuses may use the word rework to show the production stage.",
+      "Unlimited revisions are included for 30 calendar days from first delivery when changes stay within the original brief, overall style, design direction, and original source materials. Specific colour, material, texture, furniture, object, and detail adjustments are included. A substantial redesign, most or all furniture replacements, new source images or angles, extra deliverables or services, or a materially expanded brief are new work; cumulative requests can also become a redesign. In the dashboard, some revision statuses may use the word rework to show the production stage.",
   },
   {
     question: "Can I attach reference images for revisions?",

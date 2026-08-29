@@ -87,7 +87,7 @@ export default function VirtualRenovationPricingPage() {
         "Flooring, walls, kitchens, bathrooms, fixtures, and more",
         "Pools, landscaping, and exterior upgrades",
         "Stack multiple options on one image",
-        "1 revision included per image",
+        "Unlimited revisions for 30 days from first delivery",
         "High-resolution JPG delivery in 24–48h",
       ]}
       beforeYouOrderDescription="Send the original photo with clear instructions about what to change, keep, and reference materials if you have them."
@@ -168,8 +168,8 @@ export default function VirtualRenovationPricingPage() {
           answer: "Standard delivery is 24–48 hours from when we receive your photos and instructions. Complex full-room renovations may take slightly longer — we'll confirm at order.",
         },
         {
-          question: "Is a revision included?",
-          answer: "Yes. One revision round is included per image so the final result matches your brief.",
+          question: "Are revisions included?",
+          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
       ]}
       ctaTitle="Ready to renovate digitally?"

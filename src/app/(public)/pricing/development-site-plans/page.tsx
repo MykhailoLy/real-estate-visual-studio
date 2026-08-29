@@ -79,7 +79,7 @@ export default function DevelopmentSitePlansPricingPage() {
         "Plot boundaries, building footprints, and unit labels",
         "Amenities and access routes highlighted",
         "North arrow, scale bar, and legend included on request",
-        "1 revision included",
+        "Unlimited revisions for 30 days from first delivery",
         "High-resolution JPG and PDF delivery",
       ]}
       beforeYouOrderDescription="Send your source files and a clear brief — the more detail you provide, the more accurate the final plan will be."
@@ -167,8 +167,8 @@ export default function DevelopmentSitePlansPricingPage() {
           answer: "Turnaround is discussed at quoting stage based on complexity. Simple plans can be ready within 48 hours once source files are confirmed.",
         },
         {
-          question: "Is a revision included?",
-          answer: "Yes. One revision round is included in the quoted price.",
+          question: "Are revisions included?",
+          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
       ]}
       ctaTitle="A clear site plan does the heavy lifting in development marketing."

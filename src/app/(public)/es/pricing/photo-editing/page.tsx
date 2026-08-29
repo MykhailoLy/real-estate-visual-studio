@@ -91,7 +91,7 @@ export default function SpanishPhotoEditingPricingPage() {
         "Relleno de fondo integrado de forma natural",
         "Cables, carteles y reflejos limpiados",
         "Compatible con Virtual Staging en la misma imagen",
-        "1 revisión incluida por imagen",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
         "Entrega en JPG de alta resolución en 24-48 h",
       ]}
       beforeYouOrderDescription="Envíanos la imagen original con notas claras sobre lo que debe eliminarse; cuanto más específico seas, más limpio será el resultado."
@@ -178,8 +178,8 @@ export default function SpanishPhotoEditingPricingPage() {
             "La entrega estándar es de 24-48 horas desde que recibimos tu imagen y las notas de eliminación.",
         },
         {
-          question: "¿Incluye una revisión?",
-          answer: "Sí. Se incluye una ronda de revisión por imagen.",
+          question: "¿Se incluyen revisiones?",
+          answer: "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
         {
           question: "¿Puedo usar el resultado para MLS y marketing?",

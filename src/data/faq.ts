@@ -29,7 +29,7 @@ export const faqItems: FaqItem[] = [
     id: "faq-4",
     question: "Are revisions included?",
     answer:
-      "Yes, one revision is included with every order. Additional revisions may incur extra charges depending on the scope of changes requested.",
+      "Yes. Unlimited revisions are included for 30 calendar days from first delivery when changes stay within the original brief, overall style, design direction, and original source materials. Specific colour, material, texture, furniture, object, and detail adjustments are included. A substantial redesign, most or all furniture replacements, new source images or angles, extra deliverables or services, or a materially expanded brief are new work; cumulative requests can also become a redesign.",
     category: "general",
   },
   {

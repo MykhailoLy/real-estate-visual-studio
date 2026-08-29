@@ -80,7 +80,7 @@ export default function SpanishDevelopmentSitePlansPricingPage() {
         "Límites de parcela, huellas de edificios y etiquetas de unidades",
         "Amenities y rutas de acceso destacadas",
         "Flecha norte, escala y leyenda incluidas bajo petición",
-        "1 revisión incluida",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
         "Entrega en JPG y PDF de alta resolución",
       ]}
       beforeYouOrderDescription="Envía tus archivos fuente y un brief claro; cuanto más detalle aportes, más preciso será el plano final."
@@ -175,8 +175,8 @@ export default function SpanishDevelopmentSitePlansPricingPage() {
             "El plazo se comenta en la fase de presupuesto según la complejidad. Los planos sencillos pueden estar listos en 48 horas una vez confirmados los archivos fuente.",
         },
         {
-          question: "¿Incluye una revisión?",
-          answer: "Sí. Se incluye una ronda de revisión en el precio presupuestado.",
+          question: "¿Se incluyen revisiones?",
+          answer: "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
       ]}
       ctaTitle="Un plano claro hace gran parte del trabajo en marketing de promociones."
