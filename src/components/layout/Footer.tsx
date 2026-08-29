@@ -38,9 +38,9 @@ const footerCopy = {
       { href: "/contact", label: "Contact", tracked: true },
     ],
     legal: [
-      { href: "/terms", label: "Terms & Conditions" },
       { href: "/privacy", label: "Privacy Policy" },
       { href: "/cookies", label: "Cookie Policy" },
+      { href: "/terms", label: "Terms & Conditions" },
       { href: "/refunds", label: "Refunds & Cancellations" },
     ],
   },
@@ -69,9 +69,9 @@ const footerCopy = {
       { href: "/es/contact", label: "Contacto", tracked: true },
     ],
     legal: [
-      { href: "/es/terms", label: "Términos y condiciones" },
       { href: "/es/privacy", label: "Política de privacidad" },
       { href: "/es/cookies", label: "Política de cookies" },
+      { href: "/es/terms", label: "Términos y condiciones" },
       { href: "/es/refunds", label: "Reembolsos y cancelaciones" },
     ],
   },

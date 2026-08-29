@@ -145,9 +145,9 @@ test("legal footer exposes the complete policy set in each language", async ({
   await page.goto("/terms");
   const englishFooter = page.locator("footer");
   for (const link of [
-    ["Terms & Conditions", "/terms"],
     ["Privacy Policy", "/privacy"],
     ["Cookie Policy", "/cookies"],
+    ["Terms & Conditions", "/terms"],
     ["Refunds & Cancellations", "/refunds"],
   ] as const) {
     await expect(
@@ -158,9 +158,9 @@ test("legal footer exposes the complete policy set in each language", async ({
   await page.goto("/es/terms");
   const spanishFooter = page.locator("footer");
   for (const link of [
-    ["Términos y condiciones", "/es/terms"],
     ["Política de privacidad", "/es/privacy"],
     ["Política de cookies", "/es/cookies"],
+    ["Términos y condiciones", "/es/terms"],
     ["Reembolsos y cancelaciones", "/es/refunds"],
   ] as const) {
     await expect(
@@ -171,7 +171,7 @@ test("legal footer exposes the complete policy set in each language", async ({
   await guard.expectClean();
 });
 
-test("header Explore menu exposes the new policy links in both languages", async ({
+test("header Explore menu keeps only the established policy links", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
@@ -183,22 +183,34 @@ test("header Explore menu exposes the new policy links in both languages", async
   await page.getByRole("button", { name: "Open menu" }).click();
   const englishMenu = page.getByRole("dialog", { name: "Site menu" });
   await expect(
+    englishMenu.getByRole("link", { name: /Terms & Conditions/ }),
+  ).toHaveAttribute("href", "/terms");
+  await expect(
+    englishMenu.getByRole("link", { name: /Privacy Policy/ }),
+  ).toHaveAttribute("href", "/privacy");
+  await expect(
     englishMenu.getByRole("link", { name: /Cookie Policy/ }),
-  ).toHaveAttribute("href", "/cookies");
+  ).toHaveCount(0);
   await expect(
     englishMenu.getByRole("link", { name: /Refunds & Cancellations/ }),
-  ).toHaveAttribute("href", "/refunds");
+  ).toHaveCount(0);
   await englishMenu.getByRole("button", { name: "Close menu" }).click();
 
   await page.goto("/es/terms");
   await page.getByRole("button", { name: "Open menu" }).click();
   const spanishMenu = page.getByRole("dialog", { name: "Menú del sitio" });
   await expect(
+    spanishMenu.getByRole("link", { name: /Términos y condiciones/ }),
+  ).toHaveAttribute("href", "/es/terms");
+  await expect(
+    spanishMenu.getByRole("link", { name: /Política de privacidad/ }),
+  ).toHaveAttribute("href", "/es/privacy");
+  await expect(
     spanishMenu.getByRole("link", { name: /Política de cookies/ }),
-  ).toHaveAttribute("href", "/es/cookies");
+  ).toHaveCount(0);
   await expect(
     spanishMenu.getByRole("link", { name: /Reembolsos y cancelaciones/ }),
-  ).toHaveAttribute("href", "/es/refunds");
+  ).toHaveCount(0);
 
   await guard.expectClean();
 });

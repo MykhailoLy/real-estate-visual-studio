@@ -73,8 +73,11 @@ test("footer and consent banner expose the bilingual policy routes", () => {
     assert.equal(footerSource.includes('href: "' + href + '"'), true);
   }
 
-  for (const href of ["/terms", "/privacy", "/cookies", "/refunds"]) {
+  for (const href of ["/terms", "/privacy"]) {
     assert.equal(headerSource.includes('href: "' + href + '"'), true);
+  }
+  for (const href of ["/cookies", "/refunds"]) {
+    assert.equal(headerSource.includes('href: "' + href + '"'), false);
   }
 
   assert.match(cookieBannerSource, /policyHref: "\/cookies"/);
