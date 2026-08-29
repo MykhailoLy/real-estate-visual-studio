@@ -62,19 +62,19 @@ for (const viewport of MOBILE_VIEWPORTS) {
     expectNavigationResponseOk(response, "/");
 
     const banner = page.getByRole("complementary", { name: "Cookie consent" });
-    const privacyLink = banner.getByRole("link", { name: "Privacy Policy" });
+    const policyLink = banner.getByRole("link", { name: "Cookie Policy" });
     const rejectButton = banner.getByRole("button", { name: "Reject" });
     const acceptButton = banner.getByRole("button", { name: "Accept analytics" });
 
     await expect(banner).toBeVisible();
     await expect(banner.getByText("Analytics cookies", { exact: true })).toBeVisible();
-    await expect(privacyLink).toHaveAttribute("href", "/privacy");
+    await expect(policyLink).toHaveAttribute("href", "/cookies");
     await expect(rejectButton).toBeVisible();
     await expect(acceptButton).toBeVisible();
 
-    const [bannerBox, privacyBox, rejectBox, acceptBox, pageWidths] = await Promise.all([
+    const [bannerBox, policyBox, rejectBox, acceptBox, pageWidths] = await Promise.all([
       banner.boundingBox(),
-      privacyLink.boundingBox(),
+      policyLink.boundingBox(),
       rejectButton.boundingBox(),
       acceptButton.boundingBox(),
       page.evaluate(() => ({
@@ -84,7 +84,7 @@ for (const viewport of MOBILE_VIEWPORTS) {
     ]);
 
     expect(bannerBox?.height).toBeLessThanOrEqual(200);
-    expect(privacyBox?.height).toBeGreaterThanOrEqual(44);
+    expect(policyBox?.height).toBeGreaterThanOrEqual(44);
     expect(rejectBox?.height).toBeGreaterThanOrEqual(44);
     expect(acceptBox?.height).toBeGreaterThanOrEqual(44);
     expect(pageWidths.scrollWidth).toBeLessThanOrEqual(pageWidths.clientWidth);
@@ -145,7 +145,7 @@ for (const choice of ["accepted", "rejected"] as const) {
   });
 }
 
-test("privacy policy link keeps the consent banner routing intact", async ({
+test("cookie policy link keeps the consent banner routing intact", async ({
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
@@ -153,14 +153,54 @@ test("privacy policy link keeps the consent banner routing intact", async ({
 
   await page
     .getByRole("complementary", { name: "Cookie consent" })
-    .getByRole("link", { name: "Privacy Policy" })
+    .getByRole("link", { name: "Cookie Policy" })
     .click();
 
-  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(page).toHaveURL(/\/cookies$/);
   await expect(
     page.getByRole("heading", {
-      name: "How we handle client and project information",
+      name: "Cookie Policy",
+      exact: true,
     }),
   ).toBeVisible();
+  await guard.expectClean();
+});
+
+test("Spanish cookie banner links to the Spanish policy", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.goto("/es");
+
+  const banner = page.getByRole("complementary", {
+    name: "Consentimiento de cookies",
+  });
+  await expect(
+    banner.getByText("Cookies de analítica", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    banner.getByRole("link", { name: "Política de cookies" }),
+  ).toHaveAttribute("href", "/es/cookies");
+  await expect(banner.getByRole("button", { name: "Rechazar" })).toBeVisible();
+  await expect(
+    banner.getByRole("button", { name: "Aceptar analítica" }),
+  ).toBeVisible();
+  await guard.expectClean();
+});
+
+test("footer Cookie settings reopens the banner without changing stored consent", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("picchuspot_cookie_consent", "accepted");
+  });
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.goto("/cookies");
+
+  const banner = page.getByRole("complementary", { name: "Cookie consent" });
+  await expect(banner).toBeHidden();
+  await page.getByRole("button", { name: "Cookie settings" }).click();
+  await expect(banner).toBeVisible();
+  await expect.poll(() => getStoredConsent(page)).toBe("accepted");
   await guard.expectClean();
 });
