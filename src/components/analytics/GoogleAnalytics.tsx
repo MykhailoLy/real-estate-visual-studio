@@ -142,7 +142,7 @@ export default function GoogleAnalytics() {
         src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(
           GA_MEASUREMENT_ID,
         )}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
       <Suspense fallback={null}>
         <GoogleAnalyticsPageViews
