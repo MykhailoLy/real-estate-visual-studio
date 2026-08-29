@@ -90,7 +90,7 @@ export default function AerialEditingPricingPage() {
         "Sky tone and direction adjusted",
         "Distracting elements removed where possible",
         "Property edges sharpened and de-hazed",
-        "1 revision included per image",
+        "Unlimited revisions for 30 days from first delivery",
         "High-resolution JPG delivery in 24–48h",
       ]}
       beforeYouOrderDescription="Send your drone images and any notes about sky direction, objects to remove, or specific corrections needed."
@@ -177,8 +177,8 @@ export default function AerialEditingPricingPage() {
           answer: "Standard delivery is 24–48 hours after we receive your files and confirm the scope.",
         },
         {
-          question: "Is a revision included?",
-          answer: "Yes. One revision round is included per image.",
+          question: "Are revisions included?",
+          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
         {
           question: "Can the images be used for MLS and marketing?",

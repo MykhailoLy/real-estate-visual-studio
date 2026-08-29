@@ -41,7 +41,7 @@ import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 export const metadata = spanishMetadata({
   title: "Precios de Virtual Staging",
   description:
-    "Transforma habitaciones vacías o anticuadas en espacios amueblados y listos para el mercado. 9 estilos interiores, 1 revisión incluida y entrega en 24-48 horas.",
+    "Transforma habitaciones vacías o anticuadas en espacios amueblados y listos para el mercado. 9 estilos interiores, revisiones ilimitadas durante 30 días desde la primera entrega y entrega en 24-48 horas.",
   path: "/es/pricing/virtual-staging",
   englishPath: "/pricing/virtual-staging",
 });
@@ -76,7 +76,7 @@ const USE_CASES = [
 const WHAT_IT_IS_BULLETS = [
   "Mobiliario y decoración fotorrealistas",
   "Varios estilos interiores para elegir",
-  "1 revisión incluida",
+  "Revisiones ilimitadas durante 30 días desde la primera entrega",
   "Entrega en JPG de alta resolución en 24-48 h",
 ] as const;
 
@@ -171,7 +171,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "¿Incluye revisiones?",
     answer:
-      "Se incluye una revisión por cada elemento para que la imagen final se ajuste mejor a tu brief.",
+      "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
   },
   {
     question: "¿Puedo usar las imágenes para MLS y marketing?",
@@ -283,7 +283,7 @@ export default async function SpanishVirtualStagingPage() {
           serviceSchema({
             name: "Virtual Staging",
             description:
-              "Transforma habitaciones vacías o anticuadas en espacios amueblados y listos para el mercado. 9 estilos interiores, 1 revisión incluida, entrega en 24-48 horas.",
+              "Transforma habitaciones vacías o anticuadas en espacios amueblados y listos para el mercado. 9 estilos interiores, revisiones ilimitadas durante 30 días desde la primera entrega, entrega en 24-48 horas.",
             url: absoluteUrl("/es/pricing/virtual-staging"),
             price: getCatalogPriceDecimal("virtual-staging"),
             priceCurrency: "USD",

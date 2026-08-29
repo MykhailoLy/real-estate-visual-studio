@@ -230,16 +230,33 @@ export const termsSectionsEn = [
     body: (
       <>
         <p>
-          One revision is included per ordered item unless the order or written
-          quote says otherwise. An included revision is a reasonable correction
-          that remains within the original brief. Please submit it through the
-          review workflow with specific, consolidated instructions.
+          Unlimited revisions are included for 30 calendar days from the first
+          delivery of the completed work, provided the requested changes remain
+          within the original brief, overall style and design direction and use
+          the original source materials.
         </p>
         <p>
-          A new creative direction, replacement source material, added output,
-          changed measurements, or a request outside the confirmed brief is
-          additional work. We will explain any additional price or timing and
-          seek approval before continuing.
+          Included revisions may cover specific adjustments such as changing
+          colours, materials or textures, replacing or repositioning individual
+          furniture or décor items, changing the size or appearance of
+          individual objects, and correcting particular details needed to
+          better match the original brief.
+        </p>
+        <p>
+          A substantial redesign — including changing the overall style or
+          design direction, replacing most or all of the furniture, supplying a
+          new source image or angle, requesting additional images or
+          deliverables or a different service, materially expanding the
+          original brief, or otherwise requiring the work to be substantially
+          recreated — is considered new work. A series of revision requests
+          that collectively results in a substantial redesign may also be
+          treated as new work.
+        </p>
+        <p>
+          This included creative-revision policy is separate from correction of
+          work that does not conform to the agreed scope and does not limit
+          mandatory consumer rights or remedies. We will explain any separate
+          price or timing for new work and seek approval before continuing.
         </p>
       </>
     ),
@@ -562,16 +579,35 @@ export const termsSectionsEs = [
     body: (
       <>
         <p>
-          Se incluye una revisión por elemento pedido salvo que el pedido o
-          presupuesto escrito indique otra cosa. Una revisión incluida es una
-          corrección razonable dentro del encargo original. Envíala mediante el
-          flujo de revisión con instrucciones concretas y consolidadas.
+          Se incluyen revisiones ilimitadas durante los 30 días naturales
+          siguientes a la primera entrega del trabajo terminado, siempre que
+          los cambios solicitados se mantengan dentro del encargo original, el
+          estilo general y la línea de diseño acordada, y utilicen los
+          materiales originales aportados.
         </p>
         <p>
-          Una nueva dirección creativa, material original sustituido, un
-          entregable añadido, medidas modificadas o una solicitud fuera del
-          encargo confirmado constituyen trabajo adicional. Explicaremos el
-          precio o plazo adicional y pediremos aprobación antes de continuar.
+          Las revisiones incluidas pueden abarcar ajustes concretos, como
+          cambiar colores, materiales o texturas; sustituir o recolocar muebles
+          o elementos decorativos concretos; modificar el tamaño o aspecto de
+          objetos individuales; y corregir detalles específicos para ajustarse
+          mejor al encargo original.
+        </p>
+        <p>
+          Un rediseño sustancial —incluido cambiar el estilo general o la línea
+          de diseño, sustituir la mayoría o la totalidad del mobiliario, aportar
+          una nueva imagen o ángulo de origen, pedir imágenes o entregables
+          adicionales o un servicio distinto, ampliar de forma material el
+          encargo original o exigir que el trabajo se rehaga en gran medida— se
+          considera trabajo nuevo. Una serie de solicitudes que, en conjunto,
+          suponga un rediseño sustancial también puede tratarse como trabajo
+          nuevo.
+        </p>
+        <p>
+          Esta política de revisiones creativas incluidas es independiente de
+          la corrección de un trabajo que no se ajuste al alcance acordado y no
+          limita los derechos ni remedios imperativos de las personas
+          consumidoras. Explicaremos cualquier precio o plazo separado del
+          trabajo nuevo y pediremos aprobación antes de continuar.
         </p>
       </>
     ),
@@ -2174,8 +2210,9 @@ export const refundSectionsEn = [
           If a deliverable appears incomplete, defective or outside the agreed
           scope, report it promptly through the review workflow or by email and
           identify the affected item. PicchuSpot will investigate and will
-          normally first offer an appropriate correction or the included
-          revision where that can bring the work into conformity.
+          normally first offer an appropriate correction where that can bring
+          the work into conformity. This correction is distinct from the
+          included creative-revision policy in the Terms.
         </p>
         <p>
           A new creative direction, changed source file, taste preference not
@@ -2395,8 +2432,9 @@ export const refundSectionsEs = [
           Si un entregable parece incompleto, defectuoso o fuera del alcance,
           notifícalo cuanto antes mediante el flujo de revisión o por email e
           identifica el elemento. PicchuSpot lo investigará y normalmente
-          ofrecerá primero una corrección adecuada o la revisión incluida cuando
-          pueda poner el trabajo en conformidad.
+          ofrecerá primero una corrección adecuada cuando pueda poner el trabajo
+          en conformidad. Esta corrección es distinta de la política de
+          revisiones creativas incluidas en los Términos.
         </p>
         <p>
           Una nueva dirección creativa, un original modificado, una preferencia

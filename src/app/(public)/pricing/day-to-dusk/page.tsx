@@ -87,7 +87,7 @@ export default function DayToDuskPricingPage() {
         "Warm interior glow added",
         "Lights turned on automatically",
         "Color and contrast balanced for the new lighting",
-        "1 revision included per image",
+        "Unlimited revisions for 30 days from first delivery",
         "High-resolution JPG delivery in 24–48h",
       ]}
       beforeYouOrderDescription="Send us a clean exterior photo and any notes about mood or sky direction — we handle the transformation."
@@ -163,8 +163,8 @@ export default function DayToDuskPricingPage() {
           answer: "Standard delivery is 24–48 hours from when we receive your image and any notes.",
         },
         {
-          question: "Is one revision included?",
-          answer: "Yes. One revision round is included per image.",
+          question: "Are revisions included?",
+          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
         {
           question: "Can I use the image for MLS and marketing?",

@@ -32,8 +32,8 @@ const benefits = [
   },
   {
     icon: RefreshCw,
-    title: "Revision Included",
-    description: "One revision included with every order at no extra cost.",
+    title: "Unlimited Revisions",
+    description: "Unlimited revisions for 30 calendar days from first delivery, within the original brief and design direction.",
   },
   {
     icon: Globe,

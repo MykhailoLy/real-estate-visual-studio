@@ -131,7 +131,7 @@ export default function SpanishVirtualRenovationPricingPage() {
         "Suelos, paredes, cocinas, baños, instalaciones y más",
         "Piscinas, paisajismo y mejoras exteriores",
         "Combina varias opciones en una misma imagen",
-        "1 revisión incluida por imagen",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
         "Entrega en JPG de alta resolución en 24-48 h",
       ]}
       beforeYouOrderDescription="Envía la foto original con instrucciones claras sobre qué cambiar, qué conservar y materiales de referencia si los tienes."
@@ -225,9 +225,9 @@ export default function SpanishVirtualRenovationPricingPage() {
             "La entrega estándar es de 24-48 horas desde que recibimos tus fotos e instrucciones. Las renovaciones complejas de habitaciones completas pueden tardar algo más; lo confirmaremos al pedir.",
         },
         {
-          question: "¿Incluye una revisión?",
+          question: "¿Se incluyen revisiones?",
           answer:
-            "Sí. Se incluye una ronda de revisión por imagen para que el resultado final se ajuste a tu brief.",
+            "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
       ]}
       ctaTitle="¿Listo para renovar digitalmente?"

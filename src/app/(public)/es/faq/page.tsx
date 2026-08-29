@@ -37,7 +37,7 @@ const faqs = [
   {
     question: "¿Cómo funcionan las revisiones?",
     answer:
-      "Una revisión cubre correcciones o ajustes razonables basados en las instrucciones originales. Nuevas direcciones, habitaciones extra, nuevas solicitudes de estilo o cambios fuera del alcance original pueden requerir un presupuesto aparte. En el dashboard, algunos estados de revisión pueden usar la palabra rework para mostrar la fase de producción.",
+      "Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega cuando los cambios se mantienen dentro del encargo original, el estilo general, la línea de diseño y los materiales originales. Se incluyen ajustes concretos de colores, materiales, texturas, muebles, objetos y detalles. Un rediseño sustancial, sustituir la mayoría o todo el mobiliario, nuevas imágenes o ángulos de origen, entregables o servicios adicionales o una ampliación material del encargo son trabajo nuevo; las solicitudes acumuladas también pueden convertirse en un rediseño. En el dashboard, algunos estados de revisión pueden usar la palabra rework para mostrar la fase de producción.",
   },
   {
     question: "¿Puedo adjuntar imágenes de referencia para revisiones?",

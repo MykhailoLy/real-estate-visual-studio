@@ -881,7 +881,7 @@ test("partial Gemini output is never returned to the service layer", async () =>
 test("support prompt versions and targeted service-selection contract are current", () => {
   assert.ok(
     supportPromptSource.includes(
-      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.9";',
+      'export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.10";',
     ),
   );
   assert.match(
@@ -935,6 +935,43 @@ test("support prompt versions and targeted service-selection contract are curren
     supportPromptSource.includes(
       "do not ask quantity or currency merely because the customer asked which",
     ),
+  );
+});
+
+test("support prompt explains the unlimited revision policy without inventing commitments", () => {
+  assert.match(
+    supportPromptSource,
+    /Unlimited revisions are included for 30 calendar days from the first delivery/,
+  );
+  assert.match(
+    supportPromptSource,
+    /original brief, overall style and design direction and use the original source/,
+  );
+  assert.match(supportPromptSource, /changing colours, materials or textures/);
+  assert.match(
+    supportPromptSource,
+    /replacing or repositioning individual furniture or décor items/,
+  );
+  assert.match(supportPromptSource, /A substantial redesign is new work/);
+  assert.match(
+    supportPromptSource,
+    /changing the overall style or design direction/,
+  );
+  assert.match(supportPromptSource, /replacing most or all of the furniture/);
+  assert.match(supportPromptSource, /new source image or angle/);
+  assert.match(
+    supportPromptSource,
+    /series of revision requests that collectively results in a substantial/,
+  );
+  assert.match(supportPromptSource, /normal quote or order path/);
+  assert.match(supportPromptSource, /Do not invent a price/);
+  assert.match(
+    supportPromptSource,
+    /separate from correcting work that\s+does not conform to the agreed scope/,
+  );
+  assert.match(
+    supportPromptSource,
+    /Do not promise a specific revision deadline without authorised confirmation/,
   );
 });
 

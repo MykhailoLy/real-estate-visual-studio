@@ -237,7 +237,7 @@ const localRows: PricingRow[] = LOCAL_PRICING_ORDER.flatMap((serviceId) => {
 });
 
 const inclusions = [
-  "1 revisión incluida en cada pedido digital",
+  "Revisiones ilimitadas durante 30 días desde la primera entrega",
   "Entrega en alta resolución según el servicio contratado",
   "Derechos de uso comercial para marketing inmobiliario",
   "Sin suscripción mensual",

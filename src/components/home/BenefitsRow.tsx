@@ -49,7 +49,7 @@ const BENEFITS: (BenefitCopy & { icon: LucideIcon })[] = [
   {
     icon: RefreshCw,
     title: "Revisions Included",
-    body: "One revision is included on every item so the final result matches your brief.",
+    body: "Unlimited revisions are included for 30 calendar days from first delivery when changes stay within the original brief and design direction.",
   },
   {
     icon: Eye,

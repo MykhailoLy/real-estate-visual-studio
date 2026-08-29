@@ -91,7 +91,7 @@ export default function SpanishDayToDuskPricingPage() {
         "Brillo interior cálido añadido",
         "Luces encendidas automáticamente",
         "Color y contraste equilibrados para la nueva iluminación",
-        "1 revisión incluida por imagen",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
         "Entrega en JPG de alta resolución en 24-48 h",
       ]}
       beforeYouOrderDescription="Envíanos una foto exterior limpia y cualquier nota sobre el ambiente o la dirección del cielo; nosotros nos encargamos de la transformación."
@@ -173,8 +173,8 @@ export default function SpanishDayToDuskPricingPage() {
             "La entrega estándar es de 24-48 horas desde que recibimos tu imagen y las notas necesarias.",
         },
         {
-          question: "¿Incluye una revisión?",
-          answer: "Sí. Se incluye una ronda de revisión por imagen.",
+          question: "¿Se incluyen revisiones?",
+          answer: "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
         {
           question: "¿Puedo usar la imagen para MLS y marketing?",

@@ -11,7 +11,7 @@ export const remoteServices: Service[] = [
     deliverables: [
       "High-resolution JPG",
       "Multiple style options",
-      "1 revision included",
+      "Unlimited revisions for 30 days from first delivery",
       "24-48h delivery",
     ],
     priceKey: "virtual-staging",
@@ -28,7 +28,7 @@ export const remoteServices: Service[] = [
     deliverables: [
       "Photorealistic renovation render",
       "Material/style selection",
-      "1 revision included",
+      "Unlimited revisions for 30 days from first delivery",
       "High-resolution JPG",
     ],
     orderable: true,

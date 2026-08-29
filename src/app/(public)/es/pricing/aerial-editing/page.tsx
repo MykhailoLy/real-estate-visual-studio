@@ -91,7 +91,7 @@ export default function SpanishAerialEditingPricingPage() {
         "Tono y dirección del cielo ajustados",
         "Elementos que distraen eliminados cuando sea posible",
         "Bordes de propiedad más nítidos y reducción de neblina",
-        "1 revisión incluida por imagen",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
         "Entrega en JPG de alta resolución en 24-48 h",
       ]}
       beforeYouOrderDescription="Envía tus imágenes de dron y cualquier nota sobre dirección del cielo, objetos a eliminar o correcciones concretas necesarias."
@@ -184,8 +184,8 @@ export default function SpanishAerialEditingPricingPage() {
             "La entrega estándar es de 24-48 horas después de recibir tus archivos y confirmar el alcance.",
         },
         {
-          question: "¿Incluye una revisión?",
-          answer: "Sí. Se incluye una ronda de revisión por imagen.",
+          question: "¿Se incluyen revisiones?",
+          answer: "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
         {
           question: "¿Las imágenes pueden usarse para MLS y marketing?",

@@ -1661,7 +1661,7 @@ test("atomic direct creation copies first, commits once, then removes pending so
 
 for (const [name, version] of [
   ["an arbitrary client Terms version", "attacker-controlled-version"],
-  ["a stale client Terms version", "2025-01"],
+  ["the previous client Terms version", "2026-08"],
   ["the unspecified Terms version", "unspecified"],
   ["a missing Terms version", undefined],
 ] as const) {

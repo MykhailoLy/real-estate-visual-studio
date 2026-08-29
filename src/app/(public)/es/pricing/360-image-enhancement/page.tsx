@@ -126,7 +126,7 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
         "Limpieza de líneas de unión cuando sean visibles",
         "Mejora de techo y nadir",
         "Recuperación de vistas por ventana cuando sea posible",
-        "1 revisión incluida por panorama",
+        "Revisiones ilimitadas durante 30 días desde la primera entrega",
         "Entrega final como JPG equirectangular",
       ]}
       beforeYouOrderDescription="Envía tus archivos panorámicos y cualquier nota sobre la plataforma de tour; presupuestaremos y haremos la mejora."
@@ -212,8 +212,8 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
             "El plazo depende del número de panoramas y la complejidad. Las mejoras sencillas suelen entregarse en 24-48 horas.",
         },
         {
-          question: "¿Incluye una revisión?",
-          answer: "Sí. Se incluye una ronda de revisión por panorama.",
+          question: "¿Se incluyen revisiones?",
+          answer: "Sí. Se incluyen revisiones ilimitadas durante 30 días naturales desde la primera entrega, siempre que los cambios se mantengan dentro del encargo original, el estilo general y la línea de diseño acordada.",
         },
       ]}
       ctaTitle="Envía una muestra 360°; presupuestaremos en 24 horas."

@@ -90,7 +90,7 @@ export default function ImageEnhancementPricingPage() {
         "White balance and color corrected",
         "Window views recovered where possible",
         "Lens distortion cleaned up",
-        "1 revision included per image",
+        "Unlimited revisions for 30 days from first delivery",
         "High-resolution JPG delivery in 24–48h",
       ]}
       beforeYouOrderDescription="Send us your original images and any specific notes — we handle the rest."
@@ -157,8 +157,8 @@ export default function ImageEnhancementPricingPage() {
           answer: "Standard delivery is 24–48 hours from when we receive your images and any notes.",
         },
         {
-          question: "Is one revision included?",
-          answer: "Yes. One revision round is included for each image so the final result matches your brief.",
+          question: "Are revisions included?",
+          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
         {
           question: "Can I order enhancement for a full listing set?",

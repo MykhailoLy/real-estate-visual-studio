@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { LEGAL_VERSION } from "./legal.ts";
@@ -8,6 +8,24 @@ const workspace = process.cwd();
 
 function source(relativePath: string) {
   return readFileSync(path.join(workspace, relativePath), "utf8");
+}
+
+function sourceTree(relativeDirectory: string) {
+  const files: string[] = [];
+
+  function visit(directory: string) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(entryPath);
+      } else if (/\.(?:ts|tsx)$/.test(entry.name)) {
+        files.push(readFileSync(entryPath, "utf8"));
+      }
+    }
+  }
+
+  visit(path.join(workspace, relativeDirectory));
+  return files.join("\n");
 }
 
 const localizedRoutesSource = source("src/lib/localized-routes.ts");
@@ -33,14 +51,104 @@ const orderSummarySource = source("src/components/order/OrderSummary.tsx");
 const orderReviewHeaderSource = source(
   "src/components/order/OrderReviewHeader.tsx",
 );
+const supportPromptSource = source("src/lib/support-assistant/prompt.ts");
+const clientReviewsSource = source("src/lib/client-reviews.ts");
+const revisionPolicySources = [
+  sourceTree("src/app/(public)"),
+  sourceTree("src/components"),
+  sourceTree("src/content"),
+  sourceTree("src/data"),
+  supportPromptSource,
+].join("\n");
 
 test("legal version is current and remains the order terms version", () => {
-  assert.equal(LEGAL_VERSION, "2026-08");
+  assert.equal(LEGAL_VERSION, "2026-08-29");
   assert.match(source("src/lib/order-terms.ts"), /TERMS_VERSION = LEGAL_VERSION/);
 
   const orderTermsBlock = source("src/components/order/OrderTermsBlock.tsx");
   assert.match(orderTermsBlock, /href="\/terms"/);
   assert.match(orderTermsBlock, /TERMS_VERSION/);
+});
+
+test("bilingual revision policy is unlimited for 30 days within the original scope", () => {
+  assert.match(
+    legalContentSource,
+    /Unlimited revisions are included for 30 calendar days from the first\s+delivery of the completed work/,
+  );
+  assert.match(
+    legalContentSource,
+    /original brief, overall style and design direction and use\s+the original source materials/,
+  );
+  assert.match(legalContentSource, /colours, materials or textures/);
+  assert.match(
+    legalContentSource,
+    /replacing or repositioning individual\s+furniture or décor items/,
+  );
+  assert.match(legalContentSource, /A substantial redesign/);
+  assert.match(legalContentSource, /replacing most or all of the furniture/);
+  assert.match(legalContentSource, /new source image or angle/);
+  assert.match(
+    legalContentSource,
+    /series of revision requests\s+that collectively results in a substantial redesign/,
+  );
+
+  assert.match(
+    legalContentSource,
+    /revisiones ilimitadas durante los 30 días naturales\s+siguientes a la primera entrega del trabajo terminado/,
+  );
+  assert.match(legalContentSource, /estilo general y la línea de diseño acordada/);
+  assert.match(legalContentSource, /cambiar colores, materiales o texturas/);
+  assert.match(legalContentSource, /Un rediseño sustancial/);
+  assert.match(legalContentSource, /la mayoría o la totalidad del mobiliario/);
+  assert.match(legalContentSource, /nueva imagen o ángulo de origen/);
+  assert.match(
+    legalContentSource,
+    /serie de solicitudes que, en conjunto,\s+suponga un rediseño sustancial/,
+  );
+
+  assert.doesNotMatch(
+    revisionPolicySources,
+    /\b(?:one|1)\s+(?:round\s+of\s+)?revisions?\b|\bone\s+revision\s+round\b/i,
+  );
+  assert.doesNotMatch(
+    revisionPolicySources,
+    /\b(?:una|1)\s+(?:ronda\s+de\s+)?revisi(?:ó|o)n(?:es)?\b|\bse\s+incluye\s+una\s+revisión\b/i,
+  );
+});
+
+test("creative revisions remain distinct from nonconforming-work remedies", () => {
+  assert.match(
+    legalContentSource,
+    /creative-revision policy is separate from correction of\s+work that does not conform to the agreed scope/,
+  );
+  assert.match(
+    legalContentSource,
+    /does not limit\s+mandatory consumer rights or remedies/,
+  );
+  assert.match(
+    legalContentSource,
+    /correction is distinct from the\s+included creative-revision policy in the Terms/,
+  );
+  assert.match(
+    legalContentSource,
+    /política de revisiones creativas incluidas es independiente de\s+la corrección de un trabajo que no se ajuste al alcance acordado/,
+  );
+  assert.match(legalContentSource, /remedios imperativos/);
+});
+
+test("revision policy is copy-only and repeated review cycles remain available", () => {
+  assert.match(
+    clientReviewsSource,
+    /rework_requested is intentionally allowed after terminal states/,
+  );
+  assert.match(
+    clientReviewsSource,
+    /if \(\(ACTIVE_REWORK_STATUSES as string\[\]\)\.includes\(latest\)\)/,
+  );
+  assert.doesNotMatch(
+    clientReviewsSource,
+    /revision[_ ]count|max(?:imum)?[_ ]revisions?|revision[_ ]limit/i,
+  );
 });
 
 test("all bilingual policy routes are localized and present", () => {

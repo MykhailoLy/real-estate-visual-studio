@@ -124,7 +124,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
         "Stitch line cleanup where visible",
         "Ceiling and nadir patches improved",
         "Window view recovery where possible",
-        "1 revision included per panorama",
+        "Unlimited revisions for 30 days from first delivery",
         "Final delivery as equirectangular JPG",
       ]}
       beforeYouOrderDescription="Send your panoramic files and any tour platform notes so we can confirm the required corrections."
@@ -203,8 +203,8 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
           answer: "Turnaround depends on the number of panoramas and complexity. Simple enhancements are usually delivered within 24–48 hours.",
         },
         {
-          question: "Is a revision included?",
-          answer: "Yes. One revision round is included per panorama.",
+          question: "Are revisions included?",
+          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
         },
       ]}
       ctaTitle="Ready to polish your 360 tour?"
