@@ -144,7 +144,7 @@ export default function Testimonials({
             </button>
 
             <div
-              className="flex items-center gap-2"
+              className="flex items-center gap-0"
               role="tablist"
               aria-label={copy.chooseLabel}
             >
@@ -158,13 +158,18 @@ export default function Testimonials({
                     aria-selected={isActive}
                     aria-label={`${copy.showLabel} ${i + 1}: ${t.name}`}
                     onClick={() => setIdx(i)}
-                    className={cn(
-                      "h-2.5 rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
-                      isActive
-                        ? "w-8 bg-primary"
-                        : "w-2.5 bg-stone-300 hover:bg-stone-400"
-                    )}
-                  />
+                    className="group flex h-11 w-11 items-center justify-center rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "h-2.5 rounded-full transition-all duration-200",
+                        isActive
+                          ? "w-8 bg-primary"
+                          : "w-2.5 bg-stone-300 group-hover:bg-stone-400"
+                      )}
+                    />
+                  </button>
                 );
               })}
             </div>
