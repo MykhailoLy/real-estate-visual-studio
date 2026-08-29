@@ -380,7 +380,9 @@ export const DeliveryPreferencesSchema = z.object({
 
 // --- Order-level Terms Acceptance ---
 // `accepted` MUST be true; the API rejects orders that do not include it.
-// `version` lets us know which terms wording the client agreed to.
+// `version` is a browser-reported handshake value. The order service requires
+// an exact match with the current server version before any side effects and
+// constructs the persisted acceptance from server state.
 // `acceptedAt` is optional from the client; the API replaces it with the
 // server's own ISO timestamp before persisting so the recorded time
 // cannot be manipulated by the browser.

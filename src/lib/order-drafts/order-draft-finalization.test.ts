@@ -253,6 +253,27 @@ test("finalization body validation accepts expected version and UUID key", () =>
   );
 });
 
+test("finalization body rejects browser-supplied Terms authority", () => {
+  for (const extra of [
+    { termsVersion: "attacker-controlled-version" },
+    {
+      termsAcceptance: {
+        accepted: true,
+        version: "attacker-controlled-version",
+      },
+    },
+  ]) {
+    assert.equal(
+      DraftFinalizationBodySchema.safeParse({
+        expectedVersion: 4,
+        finalizationKey: FINALIZATION_KEY,
+        ...extra,
+      }).success,
+      false,
+    );
+  }
+});
+
 test("invalid UUID finalization key is rejected", () => {
   assert.equal(
     DraftFinalizationBodySchema.safeParse({
@@ -405,6 +426,19 @@ test("terms must be accepted", () => {
   assert.equal(result.ok, false);
   if (result.ok) return;
   assert.equal(result.code, "invalid_status");
+});
+
+test("draft finalization supplies the current server Terms version", () => {
+  const createOrderCall = sourceSlice(
+    FINALIZATION_SERVER,
+    "const orderResult = await createProductionOrder({",
+    "if (!orderResult.ok)",
+  );
+  assert.match(
+    createOrderCall,
+    /termsAcceptance: \{\s+accepted: context\.termsUi\.accepted,\s+version: TERMS_VERSION,\s+\}/,
+  );
+  assert.doesNotMatch(createOrderCall, /version: (?:draft|state|input)\./);
 });
 
 test("pricing preview is ignored for final pricing", () => {
