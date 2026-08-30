@@ -27,16 +27,16 @@ const overviewSource = readFileSync(
   new URL("./VirtualRenovationOverview.tsx", import.meta.url),
   "utf8",
 );
-const requirementsSource = readFileSync(
-  new URL("./VirtualRenovationRequirements.tsx", import.meta.url),
-  "utf8",
-);
 const reviewSource = readFileSync(
   new URL("./VirtualRenovationReview.tsx", import.meta.url),
   "utf8",
 );
 const reviewRowsSource = readFileSync(
   new URL("./virtual-renovation-review.ts", import.meta.url),
+  "utf8",
+);
+const requirementsSource = readFileSync(
+  new URL("./VirtualRenovationRequirements.tsx", import.meta.url),
   "utf8",
 );
 const pageSource = readFileSync(
@@ -127,32 +127,25 @@ test("Configure and Review use the shared two-step order language", () => {
   );
 });
 
-test("Configure uses the canonical leading requirements rails", () => {
+test("Configure composes service-specific requirements through the shared guide", () => {
   assert.match(
     formSource,
-    /const requirementsRail = !isReview \? \(\s*<VirtualRenovationRequirements \/>\s*\) : undefined/,
-  );
-  assert.match(
-    formSource,
-    /const compactRequirements = !isReview \? \(\s*<VirtualRenovationRequirements compact \/>\s*\) : undefined/,
+    /const requirementsRail = !isReview \? \(\s*<VirtualRenovationRequirements \/>/,
   );
   assert.match(formSource, /leadingRail=\{requirementsRail\}/);
-  assert.match(formSource, /compactLeadingRail=\{compactRequirements\}/);
-  assert.doesNotMatch(
-    formSource,
-    /sidebar=\{[\s\S]*?VirtualRenovationRequirements/,
-  );
-  assert.doesNotMatch(formSource, /className="xl:hidden"/);
-  assert.match(requirementsSource, /<details/);
-  assert.match(requirementsSource, /Preparation requirements/);
-  assert.match(
-    requirementsSource,
-    /Original photo<\/dt>\s*<dd>JPG, JPEG or PNG\.<\/dd>/,
-  );
-  assert.match(
-    requirementsSource,
-    /Reference files<\/dt>\s*<dd>JPG, JPEG, PNG, WebP or PDF\.<\/dd>/,
-  );
+  assert.equal(requirementsSource.match(/<OrderGuideRail/g)?.length, 1);
+  assert.doesNotMatch(formSource, /compactLeadingRail|<OrderGuideRail/);
+  assert.doesNotMatch(requirementsSource, /<details|<aside|compact|useState/);
+  assert.match(requirementsSource, /high-resolution original image/);
+  assert.match(requirementsSource, /style\/design brief/);
+  assert.match(requirementsSource, /build changes, fixture\s+changes/);
+  assert.match(requirementsSource, /furniture, materials, textures/);
+  assert.match(requirementsSource, /colour direction/);
+  assert.match(requirementsSource, /Reference images, links or mark-up sketches/);
+  assert.match(requirementsSource, /Use Virtual Renovation to visualise/);
+  assert.match(requirementsSource, /Complex reconstruction or unclear source material/);
+  assert.match(requirementsSource, /JPG, JPEG or PNG/);
+  assert.match(requirementsSource, /JPG, JPEG, PNG, WebP or PDF/);
 });
 
 test("Review alone owns the unchanged Order Summary sidebar", () => {
@@ -286,7 +279,7 @@ test("renovation rows and style choices use the compact shared visual language",
   );
   assert.match(
     formSource,
-    /className="flex flex-col gap-4 border-t border-border pt-7/,
+    /<OrderReviewAction[\s\S]*?onClick=\{\(\) => void goToReview\(\)\}[\s\S]*?disabled=\{!canReview\}/,
   );
 });
 

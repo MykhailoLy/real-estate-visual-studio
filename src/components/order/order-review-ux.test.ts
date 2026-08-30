@@ -148,9 +148,9 @@ test("summary rows keep labels and long values separated at narrow widths", () =
     "src/components/order/photo-editing/PhotoEditingOrderForm.tsx",
     "src/components/order/item-removal/ItemRemovalOrderForm.tsx",
   ]) {
-    assert.match(
-      source(path),
-      /No payment now\. You’ll confirm your order on the next step\./,
-    );
+    const form = source(path);
+    assert.equal((form.match(/<OrderSummary/g) ?? []).length, 1, path);
+    assert.match(form, /<OrderReviewAction/, path);
+    assert.doesNotMatch(form, /No payment now\. You’ll confirm your order on the next step\./);
   }
 });

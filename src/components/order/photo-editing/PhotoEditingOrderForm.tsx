@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Info, Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
+import OrderGuideRail, {
+  type OrderGuideStep,
+} from "@/components/order/OrderGuideRail";
+import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
@@ -116,6 +120,22 @@ type FinalizationRecovery =
 
 const AUTOSAVE_DELAY_MS = 900;
 const STEPS = TWO_STEP_ORDER_STEPS;
+const PHOTO_EDITING_GUIDE_STEPS: OrderGuideStep[] = [
+  {
+    title: "Upload",
+    description: "Add the original file for each photo you want edited.",
+  },
+  {
+    title: "Choose",
+    description:
+      "Select at least one editing option per photo and add any specific instructions.",
+  },
+  {
+    title: "Review",
+    description:
+      "Review every photo, selection and estimated total before submitting.",
+  },
+];
 const PHOTO_EDIT_OPTION_IDS = new Set(
   PHOTO_EDIT_OPTIONS.map((option) => option.id),
 );
@@ -1306,6 +1326,26 @@ export default function PhotoEditingOrderForm({
     );
   }
 
+  const guideInformation = (
+    <>
+      <p>
+        Additional Information is optional. Use it to explain any photo-specific
+        editing direction that the selected options do not capture.
+      </p>
+      <p>
+        Each photo needs a saved original and at least one editing option before
+        you can review the order.
+      </p>
+    </>
+  );
+
+  const guide = !isReview ? (
+    <OrderGuideRail
+      steps={PHOTO_EDITING_GUIDE_STEPS}
+      information={guideInformation}
+    />
+  ) : undefined;
+
   return (
     <OrderLayout
       title="Real Estate Photo Editing"
@@ -1345,29 +1385,11 @@ export default function PhotoEditingOrderForm({
               ) : null
             }
           />
-        ) : (
-          <OrderSummary
-            serviceName="Photo Editing"
-            items={summaryItems}
-            pricingInput={{
-              serviceType: "photo-editing",
-              items: items.map((item) => ({
-                selectedOptions: item.selectedOptions,
-              })),
-            }}
-            onSubmit={goToReview}
-            isSubmitting={false}
-            canSubmit={canReview}
-            submitLabel="Review Order"
-            footerNote="No payment now. You’ll confirm your order on the next step."
-            submitHelper={
-              reviewBlockedMessage ? (
-                <p role="status">{reviewBlockedMessage}</p>
-              ) : null
-            }
-          />
-        )
+        ) : undefined
       }
+      leadingRail={guide}
+      editorial={!isReview}
+      workspaceVariant={isReview ? undefined : "wide"}
     >
       {!isReview && submitError ? (
         <div
@@ -1433,73 +1455,93 @@ export default function PhotoEditingOrderForm({
           disabled={editsDisabled}
         />
       ) : (
-      <fieldset disabled={editsDisabled} className="contents">
-        <OrderJobTitleField
-          value={jobTitle}
-          onChange={(value) => {
-            jobTitleRef.current = value;
-            setJobTitle(value);
-          }}
-        />
-
-        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <Info className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
-          <p>
-            Some item removal projects can be complex. Removing large objects may
-            require recreating the hidden background area. If the image requires
-            advanced reconstruction, we may confirm a custom quote before starting.
-          </p>
-        </div>
-
-        <div className="space-y-5">
-        {items.map((item, index) => {
-          const slotKey = originalSlotKey(item.clientItemId);
-          const operation = fileOperations[slotKey];
-          return (
-            <PhotoEditItemCard
-              key={item.clientItemId}
-              index={index}
-              data={item}
-              onChange={(data) => handleItemChange(item.clientItemId, data)}
-              onRemove={() => void handleRemoveItem(item.clientItemId)}
-              canRemove={items.length > 1}
-              onApplyToAll={handleApplyToAll}
-              showApplyToAll={items.length > 1}
-              persistedOriginal={uploadedFilesBySlot.get(slotKey)}
-              onOriginalFileChange={(file) =>
-                handleOriginalFileChange(item.clientItemId, file)
-              }
-              onRemovePersistedOriginal={() =>
-                void handleRemovePersistedOriginal(item.clientItemId)
-              }
-              originalOperationStatus={
-                operation?.phase !== "error" ? operation?.message : undefined
-              }
-              originalOperationError={operation?.error || undefined}
-              onRetryOriginal={
-                operation?.error
-                  ? () => handleRetryOriginal(item.clientItemId)
-                  : undefined
-              }
-              fileOperationDisabled={
-                editsDisabled ||
-                (Boolean(operation) && operation?.phase !== "error")
-              }
+        <>
+          <fieldset disabled={editsDisabled} className="contents">
+            <OrderJobTitleField
+              value={jobTitle}
+              onChange={(value) => {
+                jobTitleRef.current = value;
+                setJobTitle(value);
+              }}
             />
-          );
-        })}
-        </div>
 
-        <button
-          type="button"
-          onClick={handleAddItem}
-          disabled={hasActiveFileOperation || editsDisabled}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-3 text-sm font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Add Another Photo
-        </button>
-      </fieldset>
+            <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <Info
+                className="mt-0.5 h-5 w-5 flex-shrink-0"
+                aria-hidden="true"
+              />
+              <p>
+                Some item removal projects can be complex. Removing large objects
+                may require recreating the hidden background area. If the image
+                requires advanced reconstruction, we may confirm a custom quote
+                before starting.
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              {items.map((item, index) => {
+                const slotKey = originalSlotKey(item.clientItemId);
+                const operation = fileOperations[slotKey];
+                return (
+                  <PhotoEditItemCard
+                    key={item.clientItemId}
+                    index={index}
+                    data={item}
+                    onChange={(data) =>
+                      handleItemChange(item.clientItemId, data)
+                    }
+                    onRemove={() => void handleRemoveItem(item.clientItemId)}
+                    canRemove={items.length > 1}
+                    onApplyToAll={handleApplyToAll}
+                    showApplyToAll={items.length > 1}
+                    persistedOriginal={uploadedFilesBySlot.get(slotKey)}
+                    onOriginalFileChange={(file) =>
+                      handleOriginalFileChange(item.clientItemId, file)
+                    }
+                    onRemovePersistedOriginal={() =>
+                      void handleRemovePersistedOriginal(item.clientItemId)
+                    }
+                    originalOperationStatus={
+                      operation?.phase !== "error"
+                        ? operation?.message
+                        : undefined
+                    }
+                    originalOperationError={operation?.error || undefined}
+                    onRetryOriginal={
+                      operation?.error
+                        ? () => handleRetryOriginal(item.clientItemId)
+                        : undefined
+                    }
+                    fileOperationDisabled={
+                      editsDisabled ||
+                      (Boolean(operation) && operation?.phase !== "error")
+                    }
+                  />
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddItem}
+              disabled={hasActiveFileOperation || editsDisabled}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-3 text-sm font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Add Another Photo
+            </button>
+          </fieldset>
+          <OrderReviewAction onClick={goToReview} disabled={!canReview}>
+            {reviewBlockedMessage ? (
+              <p role="status">{reviewBlockedMessage}</p>
+            ) : (
+              <p>
+                Next, review every photo, selected edit and the full estimated
+                order total before submitting.
+              </p>
+            )}
+          </OrderReviewAction>
+        </>
       )}
     </OrderLayout>
   );

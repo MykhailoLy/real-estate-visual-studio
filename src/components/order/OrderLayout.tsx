@@ -10,13 +10,11 @@ interface OrderLayoutProps {
   /** Optional right-hand action/summary rail. */
   sidebar?: React.ReactNode;
   /**
-   * Optional informational rail rendered before the form on wide screens.
-   * It disappears below xl without reserving space for order forms that need
-   * the full tablet/mobile width.
+   * Optional responsive guidance rendered before the form. The guide owns its
+   * compact mobile/tablet presentation; this layout owns the bounded desktop
+   * column and sticky positioning.
    */
   leadingRail?: React.ReactNode;
-  /** Compact guidance rendered above the form on tablet widths only. */
-  compactLeadingRail?: React.ReactNode;
   /**
    * Optional content rendered above the title (e.g. a step indicator).
    * Kept optional so existing order forms are unaffected.
@@ -37,7 +35,6 @@ export default function OrderLayout({
   children,
   sidebar,
   leadingRail,
-  compactLeadingRail,
   header,
   editorial = false,
   workspaceVariant,
@@ -93,33 +90,24 @@ export default function OrderLayout({
           </p>
         </div>
 
-        {compactLeadingRail && (
-          <div className="mb-7 hidden md:block lg:hidden">
-            {compactLeadingRail}
-          </div>
-        )}
-
         <div
           className={cn(
-            "grid min-w-0 grid-cols-1 gap-8",
+            "grid min-w-0 grid-cols-1 gap-7",
             hasLeadingRail &&
               !hasSidebar &&
-              (isWideWorkspace
-                ? "lg:grid-cols-[minmax(210px,230px)_minmax(0,1fr)] lg:gap-6 xl:gap-7 min-[1440px]:grid-cols-[minmax(220px,240px)_minmax(0,1fr)] min-[1440px]:gap-8"
-                : "xl:grid-cols-[minmax(220px,260px)_minmax(0,1fr)] xl:gap-8 2xl:gap-10"),
+              "lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-8",
             !hasLeadingRail &&
               hasSidebar &&
               (editorial
                 ? "xl:grid-cols-[minmax(0,1fr)_340px]"
                 : "lg:grid-cols-[minmax(0,1fr)_340px]"),
-            hasLeadingRail &&
-              hasSidebar &&
-              "xl:grid-cols-[minmax(220px,240px)_minmax(0,1fr)_340px]",
           )}
         >
           {hasLeadingRail && (
-            <div className="hidden min-w-0 lg:block">
-              <div className="sticky top-8">{leadingRail}</div>
+            <div className="min-w-0 lg:self-start">
+              {/* Dashboard <main> begins below the fixed top navigation, so
+                  this safe inset is measured inside the actual scrollport. */}
+              <div className="lg:sticky lg:top-8">{leadingRail}</div>
             </div>
           )}
 

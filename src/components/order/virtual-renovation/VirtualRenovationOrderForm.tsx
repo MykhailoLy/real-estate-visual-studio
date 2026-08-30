@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
+import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
@@ -1787,10 +1788,6 @@ export default function VirtualRenovationOrderForm({
     <VirtualRenovationRequirements />
   ) : undefined;
 
-  const compactRequirements = !isReview ? (
-    <VirtualRenovationRequirements compact />
-  ) : undefined;
-
   return (
     <OrderLayout
       title="Virtual Renovation"
@@ -1834,7 +1831,6 @@ export default function VirtualRenovationOrderForm({
         ) : undefined
       }
       leadingRail={requirementsRail}
-      compactLeadingRail={compactRequirements}
       editorial={!isReview}
       workspaceVariant={isReview ? undefined : "wide"}
     >
@@ -2002,8 +1998,11 @@ export default function VirtualRenovationOrderForm({
             </button>
           </fieldset>
 
-          <div className="flex flex-col gap-4 border-t border-border pt-7 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 max-w-2xl text-sm leading-6 text-muted">
+          <OrderReviewAction
+            onClick={() => void goToReview()}
+            disabled={!canReview}
+          >
+            <div>
               {configurationError ? (
                 <p role="alert" className="font-medium text-red-700">
                   {configurationError}
@@ -2015,16 +2014,7 @@ export default function VirtualRenovationOrderForm({
                 </p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => void goToReview()}
-              disabled={!canReview}
-              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
-            >
-              Review Order
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
+          </OrderReviewAction>
         </>
       )}
     </OrderLayout>

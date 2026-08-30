@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
+import OrderGuideRail, {
+  type OrderGuideStep,
+} from "@/components/order/OrderGuideRail";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderTermsBlock, {
   type OrderTermsData,
@@ -108,6 +111,24 @@ type FinalizationRecovery =
     };
 
 const AUTOSAVE_DELAY_MS = 900;
+
+const FLOOR_PLANS_GUIDE_STEPS: OrderGuideStep[] = [
+  {
+    title: "Upload",
+    description:
+      "Upload the source floor plan, sketch or other supported source material required by the form.",
+  },
+  {
+    title: "Configure",
+    description:
+      "Choose the plan type, floor count, orientations and any other plan options you need.",
+  },
+  {
+    title: "Submit",
+    description:
+      "Check the configured plan details and submit the order directly from this page.",
+  },
+];
 
 function fileSlotKey(
   clientItemId: string,
@@ -1259,29 +1280,36 @@ export default function FloorPlansOrderForm({
     );
   }
 
+  const guide = (
+    <OrderGuideRail
+      steps={FLOOR_PLANS_GUIDE_STEPS}
+      information={
+        <>
+          <p>
+            Each plan needs a saved source file, plan type, floor count, page
+            orientation and plan orientation before submission.
+          </p>
+          <p>
+            The source upload supports the floor plans, sketches, measurements,
+            reference photos or existing plans described in the form. Accepted
+            files are JPG, JPEG, PNG, GIF, PDF, DXF, DWG or FBX, up to 20 MB.
+          </p>
+          <p>
+            A reference link or sample image is optional. Add one when it helps
+            explain the layout or presentation you want.
+          </p>
+        </>
+      }
+    />
+  );
+
   return (
     <OrderLayout
       title="2D / 3D Floor Plans"
       subtitle="Upload your floor plan, sketch, or photos. Price is based on plan type and number of floors."
-      sidebar={
-        <OrderSummary
-          serviceName="2D / 3D Floor Plans"
-          items={summaryItems}
-          pricingInput={{
-            serviceType: "3d-floor-plans",
-            items: items.map((item) => ({
-              planType: item.planType,
-              numberOfFloors: item.numberOfFloors,
-            })),
-          }}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          canSubmit={canSubmit || finalizationRetryContext !== null}
-          submitLabel={
-            finalizationRetryContext ? "Retry submission" : undefined
-          }
-        />
-      }
+      leadingRail={guide}
+      editorial
+      workspaceVariant="wide"
     >
       {submitError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -1415,6 +1443,26 @@ export default function FloorPlansOrderForm({
           }}
         />
       </fieldset>
+
+      <div className="ml-auto w-full lg:max-w-md">
+        <OrderSummary
+          serviceName="2D / 3D Floor Plans"
+          items={summaryItems}
+          pricingInput={{
+            serviceType: "3d-floor-plans",
+            items: items.map((item) => ({
+              planType: item.planType,
+              numberOfFloors: item.numberOfFloors,
+            })),
+          }}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          canSubmit={canSubmit || finalizationRetryContext !== null}
+          submitLabel={
+            finalizationRetryContext ? "Retry submission" : undefined
+          }
+        />
+      </div>
     </OrderLayout>
   );
 }

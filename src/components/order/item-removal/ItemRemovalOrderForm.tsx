@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Info } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
+import OrderGuideRail, {
+  type OrderGuideStep,
+} from "@/components/order/OrderGuideRail";
+import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
@@ -54,6 +58,23 @@ type ItemRemovalFormStep = "configure" | "review";
 const STEPS = TWO_STEP_ORDER_STEPS;
 
 const SERVICE_NAME = "Item Removal & Virtual Cleaning";
+
+const ITEM_REMOVAL_GUIDE_STEPS: OrderGuideStep[] = [
+  {
+    title: "Upload",
+    description: "Add the original photo for each space you want cleaned up.",
+  },
+  {
+    title: "Describe",
+    description:
+      "Choose at least one work type and describe exactly what should be removed or cleaned.",
+  },
+  {
+    title: "Review",
+    description:
+      "Review every photo, instruction and estimated total before submitting.",
+  },
+];
 
 interface ItemRemovalOrderFormProps {
   clientEmail: string;
@@ -244,23 +265,24 @@ export default function ItemRemovalOrderForm({
       submitLabel="Submit Order"
       submittingLabel="Submitting..."
     />
-  ) : (
-    <OrderSummary
-      serviceName={SERVICE_NAME}
-      items={summaryItems}
-      pricingInput={{
-        serviceType: "photo-editing",
-        items: items.map(() => ({
-          selectedOptions: [ITEM_REMOVAL_OPTION_ID],
-        })),
-      }}
-      onSubmit={goToReview}
-      isSubmitting={false}
-      canSubmit
-      submitLabel="Review Order"
-      footerNote="No payment now. You’ll confirm your order on the next step."
-    />
+  ) : undefined;
+
+  const guideInformation = (
+    <>
+      <p>
+        A markup or reference image is optional. Use one when circles, arrows
+        or notes will make the requested cleanup clearer.
+      </p>
+      <p>{ITEM_REMOVAL_COMPLEXITY_NOTICE}</p>
+    </>
   );
+
+  const guide = !isReview ? (
+    <OrderGuideRail
+      steps={ITEM_REMOVAL_GUIDE_STEPS}
+      information={guideInformation}
+    />
+  ) : undefined;
 
   return (
     <OrderLayout
@@ -268,6 +290,9 @@ export default function ItemRemovalOrderForm({
       subtitle="Remove clutter, objects, vehicles and distractions, and virtually clean marks and imperfections so the space looks listing-ready."
       header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={sidebar}
+      leadingRail={guide}
+      editorial={!isReview}
+      workspaceVariant={isReview ? undefined : "wide"}
     >
       {isReview ? (
         <ItemRemovalReview
@@ -317,6 +342,13 @@ export default function ItemRemovalOrderForm({
             <Plus className="w-4 h-4" />
             Add Another Photo
           </button>
+
+          <OrderReviewAction onClick={goToReview}>
+            <p>
+              Next, review every photo, selected work type, instruction and the
+              full estimated order total before submitting.
+            </p>
+          </OrderReviewAction>
         </>
       )}
     </OrderLayout>

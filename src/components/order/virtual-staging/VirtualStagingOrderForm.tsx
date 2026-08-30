@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, Plus, RotateCcw } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderGuideRail, {
   type OrderGuideStep,
 } from "@/components/order/OrderGuideRail";
+import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
@@ -2914,14 +2915,6 @@ export default function VirtualStagingOrderForm({
     />
   ) : undefined;
 
-  const compactGuide = !isReview ? (
-    <OrderGuideRail
-      steps={VIRTUAL_STAGING_GUIDE_STEPS}
-      information={guideInformation}
-      variant="compact"
-    />
-  ) : undefined;
-
   return (
     <OrderLayout
       title="Virtual Staging"
@@ -2971,7 +2964,6 @@ export default function VirtualStagingOrderForm({
         ) : undefined
       }
       leadingRail={guide}
-      compactLeadingRail={compactGuide}
       editorial={!isReview}
       workspaceVariant={isReview ? undefined : "wide"}
     >
@@ -3255,8 +3247,8 @@ export default function VirtualStagingOrderForm({
         Add Another Image
       </button>
 
-      <div className="flex flex-col gap-4 border-t border-border pt-7 sm:flex-row sm:items-start sm:justify-between">
-        <div className="max-w-2xl text-sm leading-6 text-muted">
+      <OrderReviewAction onClick={goToReview} disabled={!canReview}>
+        <div>
           {hasActiveDraftFileOperation ? (
             <p role="status">{copy.waitForImages}</p>
           ) : validationAttempted &&
@@ -3293,16 +3285,7 @@ export default function VirtualStagingOrderForm({
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={goToReview}
-          disabled={!canReview}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
-        >
-          Review Order
-          <ArrowRight className="h-5 w-5" aria-hidden />
-        </button>
-      </div>
+      </OrderReviewAction>
         </>
       )}
       <ApplyStyleConfirmationDialog

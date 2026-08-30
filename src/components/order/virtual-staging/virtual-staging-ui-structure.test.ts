@@ -76,19 +76,18 @@ test("existing Virtual Staging dialogs keep the pre-extraction no-media behavior
 });
 
 test("Review Order transitions steps while final Submit Order owns submission", () => {
-  const reviewAction = orderFormSource.indexOf("onClick={goToReview}");
-  const reviewLabel = orderFormSource.indexOf("Review Order", reviewAction);
+  const reviewAction = orderFormSource.indexOf(
+    "<OrderReviewAction onClick={goToReview}",
+  );
   const finalAction = orderFormSource.indexOf("onSubmit={handleSubmit}");
 
   assert.ok(reviewAction > -1);
-  assert.ok(reviewLabel > reviewAction);
   assert.ok(finalAction > -1);
   assert.notEqual(reviewAction, finalAction);
 });
 
 test("configure uses the wide guided workspace without an order summary", () => {
   assert.match(orderFormSource, /leadingRail=\{guide\}/);
-  assert.match(orderFormSource, /compactLeadingRail=\{compactGuide\}/);
   assert.match(
     orderFormSource,
     /workspaceVariant=\{isReview \? undefined : "wide"\}/,
@@ -96,6 +95,10 @@ test("configure uses the wide guided workspace without an order summary", () => 
   assert.match(orderFormSource, /sidebar=\{\s*isReview \? \(/);
   assert.match(orderFormSource, /editorial=\{!isReview\}/);
   assert.doesNotMatch(orderFormSource, /onSubmit=\{goToReview\}/);
+  assert.match(
+    orderFormSource,
+    /<OrderReviewAction onClick=\{goToReview\} disabled=\{!canReview\}>/,
+  );
   assert.equal(orderFormSource.match(/<OrderSummary/g)?.length, 1);
 });
 

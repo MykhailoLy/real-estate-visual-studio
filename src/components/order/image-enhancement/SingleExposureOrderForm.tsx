@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
+import OrderGuideRail, {
+  type OrderGuideStep,
+} from "@/components/order/OrderGuideRail";
+import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
@@ -85,6 +89,23 @@ import {
 
 const SERVICE_NAME = "Image Enhancement — Single Exposure";
 const STEPS = TWO_STEP_ORDER_STEPS;
+
+const SINGLE_EXPOSURE_GUIDE_STEPS: OrderGuideStep[] = [
+  {
+    title: "Upload",
+    description: "Add the original photo for each image you want enhanced.",
+  },
+  {
+    title: "Choose",
+    description:
+      "Set image preferences, optional add-ons and any aerial editing direction.",
+  },
+  {
+    title: "Review",
+    description:
+      "Review every photo, selection and estimated total before submitting.",
+  },
+];
 
 interface SingleExposureOrderFormProps {
   clientEmail: string;
@@ -1019,24 +1040,39 @@ export default function SingleExposureOrderForm({
   }
 
   const isReview = step === "review";
-  const sidebar = (
+  const sidebar = isReview ? (
     <OrderSummary
       serviceName={SERVICE_NAME}
       items={summaryItems}
       pricingInput={pricingInput}
       welcomeOfferAvailability={activeWelcomeOfferAvailability}
-      onSubmit={isReview ? handleSubmit : goToReview}
-      isSubmitting={isReview && isSubmitting}
-      canSubmit={isReview ? reviewValid : configureValid && !fileOperationActive}
-      submitLabel={isReview ? "Submit Order" : "Review Order"}
+      onSubmit={handleSubmit}
+      isSubmitting={isSubmitting}
+      canSubmit={reviewValid}
+      submitLabel="Submit Order"
       submittingLabel="Submitting..."
-      footerNote={
-        isReview
-          ? undefined
-          : "No payment now. You’ll confirm your order on the next step."
-      }
     />
+  ) : undefined;
+
+  const guideInformation = (
+    <>
+      <p>
+        Reference links and files are optional for standard enhancements. Add
+        them when they clarify the result you want.
+      </p>
+      <p>
+        When an aerial edit asks for details, provide meaningful instructions
+        or at least one reference file.
+      </p>
+    </>
   );
+
+  const guide = !isReview ? (
+    <OrderGuideRail
+      steps={SINGLE_EXPOSURE_GUIDE_STEPS}
+      information={guideInformation}
+    />
+  ) : undefined;
 
   return (
     <OrderLayout
@@ -1044,6 +1080,9 @@ export default function SingleExposureOrderForm({
       subtitle="Professional colour, exposure, white balance, contrast and detail correction for standard real-estate photographs."
       header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={sidebar}
+      leadingRail={guide}
+      editorial={!isReview}
+      workspaceVariant={isReview ? undefined : "wide"}
     >
       {draftError && resumeState === "ready" ? (
         <div
@@ -1151,6 +1190,16 @@ export default function SingleExposureOrderForm({
             <Plus className="h-4 w-4" aria-hidden="true" />
             Add Another Photo
           </button>
+
+          <OrderReviewAction
+            onClick={goToReview}
+            disabled={!configureValid || fileOperationActive}
+          >
+            <p>
+              Next, review every photo, selected enhancement and the full
+              estimated order total before submitting.
+            </p>
+          </OrderReviewAction>
         </>
       )}
     </OrderLayout>
