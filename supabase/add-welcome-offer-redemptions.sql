@@ -158,7 +158,7 @@ BEGIN
     RAISE EXCEPTION 'stored Welcome Offer pricing evidence is invalid';
   END IF;
 
-  SELECT pg_catalog.coalesce(
+  SELECT COALESCE(
            pg_catalog.array_agg(benefit.value->>'key' ORDER BY benefit.ordinal),
            ARRAY[]::TEXT[]
          )

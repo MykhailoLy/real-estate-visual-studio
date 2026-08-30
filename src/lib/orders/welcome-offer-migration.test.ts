@@ -7,6 +7,11 @@ const SQL = readFileSync(
   "supabase/add-welcome-offer-redemptions.sql",
   "utf8",
 );
+const HOTFIX_SQL = readFileSync(
+  "supabase/fix-welcome-offer-rpc-coalesce.sql",
+  "utf8",
+);
+const RPC_NAME = "commit_order_submission_with_welcome_offer_v1";
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -16,10 +21,20 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-function normalizedStatements(pattern: RegExp): string[] {
-  return Array.from(SQL.matchAll(pattern), ([statement]) =>
+function normalizedStatements(pattern: RegExp, source = SQL): string[] {
+  return Array.from(source.matchAll(pattern), ([statement]) =>
     statement.replace(/\s+/g, " ").trim(),
   );
+}
+
+function rpcDefinition(source: string): string {
+  const definition = source.match(
+    new RegExp(
+      `CREATE OR REPLACE FUNCTION public\\.${RPC_NAME}\\([\\s\\S]*?\\n\\$\\$;`,
+    ),
+  )?.[0];
+  assert.ok(definition, `missing ${RPC_NAME} definition`);
+  return definition.replaceAll("\r\n", "\n");
 }
 
 test("Welcome Offer migration is additive, constrained, and browser-inaccessible", () => {
@@ -64,6 +79,45 @@ test("versioned commit RPC couples redemption and order commit race-safely", () 
     rpcExecuteGrants[0],
     /\bTO\s+(?:PUBLIC|anon|authenticated)\b/i,
   );
+});
+
+test("canonical and hotfix Welcome Offer RPCs stay identical and use valid COALESCE", () => {
+  for (const entry of readdirSync("supabase", { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".sql")) continue;
+    const source = readFileSync(join("supabase", entry.name), "utf8");
+    assert.doesNotMatch(
+      source,
+      /pg_catalog\.coalesce\s*\(/i,
+      `${entry.name} must use SQL COALESCE syntax`,
+    );
+  }
+
+  for (const source of [SQL, HOTFIX_SQL]) {
+    assert.match(
+      source,
+      /SELECT COALESCE\(\s*pg_catalog\.array_agg\(/,
+    );
+    assert.match(
+      rpcDefinition(source),
+      /SECURITY INVOKER\s+SET search_path = ''/,
+    );
+
+    assert.deepEqual(
+      normalizedStatements(
+        new RegExp(
+          `\\b(?:REVOKE|GRANT)\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.${RPC_NAME}\\([^;]*?\\)\\s+(?:FROM|TO)\\s+[^;]+;`,
+          "gi",
+        ),
+        source,
+      ),
+      [
+        `REVOKE EXECUTE ON FUNCTION public.${RPC_NAME}( UUID, UUID, TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, INTEGER, UUID, JSONB, TEXT[] ) FROM PUBLIC, anon, authenticated;`,
+        `GRANT EXECUTE ON FUNCTION public.${RPC_NAME}( UUID, UUID, TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, INTEGER, UUID, JSONB, TEXT[] ) TO service_role;`,
+      ],
+    );
+  }
+
+  assert.equal(rpcDefinition(HOTFIX_SQL), rpcDefinition(SQL));
 });
 
 test("migration preserves the deployed commit RPC and performs no backfill", () => {
