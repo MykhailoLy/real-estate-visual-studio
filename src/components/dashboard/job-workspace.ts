@@ -5,6 +5,33 @@ import type {
 
 export type JobsStatusFilter = DashboardJobStatus | "all";
 
+function normalizeJobLabel(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function getDistinctJobSecondaryLabel(
+  job: DashboardJob,
+): string | null {
+  const secondaryLabel = job.secondaryLabel?.trim();
+  if (!secondaryLabel) return null;
+
+  const visibleValues = new Set(
+    [job.serviceType, job.reference]
+      .map(normalizeJobLabel)
+      .filter((value) => value.length > 0),
+  );
+  const secondaryParts = secondaryLabel
+    .split("·")
+    .map(normalizeJobLabel)
+    .filter((value) => value.length > 0);
+
+  const onlyRepeatsVisibleValues =
+    secondaryParts.length > 0 &&
+    secondaryParts.every((part) => visibleValues.has(part));
+
+  return onlyRepeatsVisibleValues ? null : secondaryLabel;
+}
+
 export function getOpenDashboardJobs(
   jobs: DashboardJob[],
   limit = 3,

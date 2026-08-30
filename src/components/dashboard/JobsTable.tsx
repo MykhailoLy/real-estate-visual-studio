@@ -10,7 +10,10 @@ import type {
   DashboardJobStatus,
 } from "@/lib/client-dashboard/mock-data";
 import { STATUS_LABELS } from "@/lib/client-dashboard/mock-data";
-import { filterDashboardJobs } from "./job-workspace";
+import {
+  filterDashboardJobs,
+  getDistinctJobSecondaryLabel,
+} from "./job-workspace";
 import StatusBadge from "./StatusBadge";
 
 interface JobsTableProps {
@@ -245,11 +248,10 @@ export default function JobsTable({
                       <span className="line-clamp-2 break-words text-[13px] font-semibold leading-snug text-foreground transition-colors group-hover/link:text-primary">
                         {job.title}
                       </span>
-                      {job.secondaryLabel && (
-                        <span className="mt-0.5 line-clamp-1 break-words text-[11px] text-muted">
-                          {job.secondaryLabel}
-                        </span>
-                      )}
+                      <JobSecondaryLabel
+                        job={job}
+                        className="mt-0.5 line-clamp-1 break-words text-[11px] text-muted"
+                      />
                       <span className="mt-1 line-clamp-2 break-words text-[11px] text-foreground/65 xl:hidden">
                         {job.serviceType}
                       </span>
@@ -326,11 +328,10 @@ function MobileJobRow({
               <span className="line-clamp-2 break-words text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
                 {job.title}
               </span>
-              {job.secondaryLabel && (
-                <span className="mt-0.5 line-clamp-1 break-words text-xs text-muted">
-                  {job.secondaryLabel}
-                </span>
-              )}
+              <JobSecondaryLabel
+                job={job}
+                className="mt-0.5 line-clamp-1 break-words text-xs text-muted"
+              />
             </div>
             <StatusBadge status={job.status} compact />
           </div>
@@ -372,6 +373,20 @@ function MobileJobRow({
       </article>
     </li>
   );
+}
+
+function JobSecondaryLabel({
+  job,
+  className,
+}: {
+  job: DashboardJob;
+  className: string;
+}) {
+  const secondaryLabel = getDistinctJobSecondaryLabel(job);
+
+  if (!secondaryLabel) return null;
+
+  return <span className={className}>{secondaryLabel}</span>;
 }
 
 function EmptyJobsMessage({ isFiltered }: { isFiltered: boolean }) {

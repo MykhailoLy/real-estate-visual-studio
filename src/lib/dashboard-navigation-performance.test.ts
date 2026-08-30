@@ -14,6 +14,7 @@ import {
 import { getOrderServiceCatalog } from "./order-service-catalog.ts";
 import {
   filterDashboardJobs,
+  getDistinctJobSecondaryLabel,
   getOpenDashboardJobs,
 } from "../components/dashboard/job-workspace.ts";
 import type {
@@ -466,6 +467,38 @@ test("Jobs filtering still matches title, reference, and service", () => {
   );
 });
 
+test("Jobs hides duplicate secondary labels but preserves distinct fallback text", () => {
+  const mappedJob = makeDashboardJob("mapped", "in-progress", {
+    reference: "VS-0019",
+    serviceType: "Virtual Staging",
+    secondaryLabel: "Virtual Staging · VS-0019",
+  });
+  const historicalJob = makeDashboardJob("historical", "completed", {
+    reference: "LEGACY-7",
+    serviceType: "Photo Editing",
+    secondaryLabel: "Imported legacy order",
+  });
+
+  assert.equal(getDistinctJobSecondaryLabel(mappedJob), null);
+  assert.equal(
+    getDistinctJobSecondaryLabel({
+      ...mappedJob,
+      secondaryLabel: "  virtual staging  ·  vs-0019  ",
+    }),
+    null,
+  );
+  assert.equal(
+    getDistinctJobSecondaryLabel(historicalJob),
+    "Imported legacy order",
+  );
+  assert.deepEqual(
+    filterDashboardJobs([mappedJob, historicalJob], "legacy order", "all").map(
+      (job) => job.id,
+    ),
+    ["historical"],
+  );
+});
+
 test("Jobs uses one status controller and distinct mobile and desktop results", () => {
   const shellSource = source("components/dashboard/ClientJobsShell.tsx");
   const filtersSource = source(
@@ -482,6 +515,8 @@ test("Jobs uses one status controller and distinct mobile and desktop results", 
   assert.match(tableSource, /data-mobile-jobs-list/);
   assert.match(tableSource, /md:hidden/);
   assert.match(tableSource, /data-desktop-jobs-table/);
+  assert.equal(tableSource.match(/<JobSecondaryLabel/g)?.length, 2);
+  assert.doesNotMatch(tableSource, /\{job\.secondaryLabel && \(/);
   assert.match(tableSource, /hidden[\s\S]*?md:block/);
   assert.match(tableSource, /<table className="w-full table-fixed text-sm">/);
   assert.doesNotMatch(tableSource, /minWidth:[\s\S]*?720px/);
