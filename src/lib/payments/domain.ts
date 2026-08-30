@@ -32,6 +32,7 @@ export const PAYMENT_STATUSES = [
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export type CustomerPaymentState =
+  | "no_payment_required"
   | "payment_required"
   | "processing"
   | "paid"

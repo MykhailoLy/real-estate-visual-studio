@@ -361,6 +361,12 @@ export default async function SpanishVirtualStagingPage() {
                   suffix=" / imagen"
                 />
               </p>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-secondary-dark">
+                Oferta de bienvenida — 50 % de descuento en tu primera imagen
+                de Virtual Staging. Cada ventaja puede utilizarse una sola vez
+                por cuenta y no se acumula con un descuento por volumen en la
+                misma imagen.
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
               <Link

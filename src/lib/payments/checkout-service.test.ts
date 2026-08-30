@@ -47,8 +47,15 @@ function validOrder(overrides: Record<string, unknown> = {}) {
       currency,
       serviceType: "virtual-staging",
       eligibleUnits: 1,
+      volumeEligibleUnits: 1,
       baseSubtotalCents: 1350,
       addOnSubtotalCents: 0,
+      welcomeDiscountCents: 0,
+      welcomeOffer: {
+        version: "2026-08-29",
+        totalDiscountCents: 0,
+        benefits: [],
+      },
       volumeDiscountPercent: 0,
       volumeDiscountCents: 0,
       subtotalAfterDiscountCents: 1350,
@@ -61,6 +68,102 @@ function validOrder(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   };
+}
+
+function noPaymentRequiredOrder() {
+  return validOrder({
+    service_type: "photo-editing",
+    estimated_total_cents: 0,
+    pricing_snapshot: {
+      pricingVersion: PRICING_VERSION,
+      currency: "USD",
+      serviceType: "photo-editing",
+      eligibleUnits: 1,
+      volumeEligibleUnits: 0,
+      baseSubtotalCents: 100,
+      addOnSubtotalCents: 0,
+      welcomeDiscountCents: 100,
+      welcomeOffer: {
+        version: "2026-08-29",
+        totalDiscountCents: 100,
+        benefits: [{
+          key: "image-enhancement-free",
+          itemIndex: 0,
+          priceKey: "image-enhancement",
+          discountPercent: 100,
+          discountCents: 100,
+        }],
+      },
+      volumeDiscountPercent: 0,
+      volumeDiscountCents: 0,
+      subtotalAfterDiscountCents: 0,
+      taxCalculated: false,
+      taxCents: 0,
+      totalCents: 0,
+      customQuote: false,
+      items: [{
+        itemIndex: 0,
+        quantity: 1,
+        priceKey: "image-enhancement",
+        unitPriceCents: 100,
+        baseSubtotalCents: 100,
+        addOns: [],
+        addOnSubtotalCents: 0,
+        lineSubtotalCents: 100,
+      }],
+      pricedAt: "2026-08-29T12:00:00.000Z",
+    },
+  });
+}
+
+function partiallyDiscountedWelcomeOfferOrder() {
+  const unitPriceCents = 1500;
+  const welcomeDiscountCents = 750;
+  const totalCents = unitPriceCents * 2 - welcomeDiscountCents;
+  const items = [0, 1].map((itemIndex) => ({
+    itemIndex,
+    quantity: 1,
+    priceKey: "virtual-staging",
+    unitPriceCents,
+    baseSubtotalCents: unitPriceCents,
+    addOns: [],
+    addOnSubtotalCents: 0,
+    lineSubtotalCents: unitPriceCents,
+  }));
+  return validOrder({
+    estimated_total_cents: totalCents,
+    item_count: 2,
+    pricing_snapshot: {
+      pricingVersion: PRICING_VERSION,
+      currency: "USD",
+      serviceType: "virtual-staging",
+      eligibleUnits: 2,
+      volumeEligibleUnits: 1,
+      baseSubtotalCents: unitPriceCents * 2,
+      addOnSubtotalCents: 0,
+      welcomeDiscountCents,
+      welcomeOffer: {
+        version: "2026-08-29",
+        totalDiscountCents: welcomeDiscountCents,
+        benefits: [{
+          key: "virtual-staging-first-image-50",
+          itemIndex: 0,
+          priceKey: "virtual-staging",
+          discountPercent: 50,
+          discountCents: welcomeDiscountCents,
+        }],
+      },
+      volumeDiscountPercent: 0,
+      volumeDiscountCents: 0,
+      subtotalAfterDiscountCents: totalCents,
+      taxCalculated: false,
+      taxCents: 0,
+      totalCents,
+      customQuote: false,
+      items,
+      pricedAt: "2026-08-29T12:00:00.000Z",
+    },
+  });
 }
 
 function payment(overrides: Record<string, unknown> = {}) {
@@ -290,6 +393,44 @@ test("creates a server-authoritative Checkout Session and checkout_open payment"
       },
     }],
   });
+});
+
+test("valid zero-total Welcome Offer order never creates a payment or Checkout Session", async () => {
+  const repository = new FakeRepository();
+  repository.order = noPaymentRequiredOrder();
+  const { stripe, calls } = fakeStripe();
+
+  await assert.rejects(
+    createCheckoutSession(
+      { orderId, authenticatedUserId: userId },
+      dependencies(repository, stripe),
+    ),
+    CheckoutServiceError,
+  );
+  assert.equal(repository.created.length, 0);
+  assert.equal(repository.currentPayment, null);
+  assert.equal(calls.length, 0);
+});
+
+test("partially discounted Welcome Offer uses the exact immutable snapshot total in Stripe", async () => {
+  const repository = new FakeRepository();
+  repository.order = partiallyDiscountedWelcomeOfferOrder();
+  const { stripe, calls } = fakeStripe();
+
+  await createCheckoutSession(
+    { orderId, authenticatedUserId: userId },
+    dependencies(repository, stripe),
+  );
+
+  assert.equal(repository.created[0]?.subtotalCents, 2250);
+  const lineItems = calls[0]?.params.line_items as Array<{
+    price_data: { unit_amount: number; tax_behavior: string };
+  }>;
+  assert.equal(lineItems[0]?.price_data.unit_amount, 2250);
+  assert.equal(lineItems[0]?.price_data.tax_behavior, "inclusive");
+  assert.equal(calls[0]?.params.allow_promotion_codes, false);
+  assert.deepEqual(calls[0]?.params.automatic_tax, { enabled: true });
+  assert.deepEqual(calls[0]?.params.tax_id_collection, { enabled: true });
 });
 
 test("rejects unauthenticated, malformed, extra client price fields, and non-owned orders", async () => {

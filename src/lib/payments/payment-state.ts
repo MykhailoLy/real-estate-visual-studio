@@ -1,6 +1,7 @@
 import {
   CheckoutEligibilityError,
   getStoredCheckoutPrice,
+  isNoPaymentRequiredOrder,
   type StoredCheckoutPriceOrder,
 } from "./checkout-eligibility.ts";
 import type { PaymentStatus, RefundStatus } from "./domain.ts";
@@ -9,6 +10,7 @@ export type PersistedOrderPaymentState =
   | "paid"
   | "partially_refunded"
   | "refunded"
+  | "no_payment_required"
   | "payment_required"
   | "processing"
   | "manual_review";
@@ -46,6 +48,8 @@ export function getPersistedOrderPaymentState(
   payment: PersistedOrderPayment | null,
   expectedStripeLivemode: boolean | null,
 ): PersistedOrderPaymentState {
+  if (isNoPaymentRequiredOrder(order)) return "no_payment_required";
+
   let price: ReturnType<typeof getStoredCheckoutPrice>;
   try {
     price = getStoredCheckoutPrice(order);

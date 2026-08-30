@@ -51,6 +51,11 @@ import {
   scrollElementIntoViewWithinDashboard,
 } from "@/lib/dashboard-scroll";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import {
+  applyAuthoritativeWelcomeOfferSnapshot,
+  createPricingExpectation,
+} from "@/lib/pricing/expectation";
 import { currencyForRegion } from "@/lib/currency";
 import {
   LANGUAGE_CHANGE_EVENT,
@@ -147,6 +152,7 @@ import {
   uploadPreparedDraftReferenceFile,
 } from "@/lib/order-drafts/draft-reference-files-client";
 import type { ReferenceFileValue } from "@/lib/reference-files";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 
 // ============================================================
 // Virtual Staging order form (authenticated dashboard).
@@ -162,6 +168,7 @@ interface VirtualStagingOrderFormProps {
   clientEmail: string;
   orderRoute: string;
   exampleMediaByKey: Record<string, ServiceOptionMedia>;
+  welcomeOfferAvailability: WelcomeOfferAvailability;
 }
 
 type DraftCopy = Record<VirtualStagingAutosaveStatus, string> & {
@@ -507,6 +514,7 @@ export default function VirtualStagingOrderForm({
   clientEmail,
   orderRoute,
   exampleMediaByKey,
+  welcomeOfferAvailability,
 }: VirtualStagingOrderFormProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -533,6 +541,8 @@ export default function VirtualStagingOrderForm({
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [activeWelcomeOfferAvailability, setActiveWelcomeOfferAvailability] =
+    useState(welcomeOfferAvailability);
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(() => {
     return requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
@@ -2298,9 +2308,27 @@ export default function VirtualStagingOrderForm({
       retryContext.draftId,
       retryContext.expectedVersion,
       retryContext.finalizationKey,
+      buildCurrentPricingExpectation(),
     );
     applyDraftFinalizationResult(result, retryContext, sessionAtStart);
   };
+
+  function buildCurrentPricingExpectation(
+    currentItems: StagingItemData[] = itemsRef.current,
+  ) {
+    return createPricingExpectation(
+      calculateOrderQuote(
+        {
+          serviceType: "virtual-staging",
+          currency,
+          items: currentItems.map((item) => ({
+            selectedAddons: item.selectedAddons,
+          })),
+        },
+        { welcomeOfferAvailability: activeWelcomeOfferAvailability },
+      ),
+    );
+  }
 
   const submitCurrentLocalOrder = async (
     currentItems: StagingItemData[],
@@ -2370,6 +2398,8 @@ export default function VirtualStagingOrderForm({
       files,
       orderTerms,
       jobTitle,
+      undefined,
+      buildCurrentPricingExpectation(currentItems),
     );
   };
 
@@ -2424,6 +2454,10 @@ export default function VirtualStagingOrderForm({
       setOrderNumber(result.data.orderNumber);
       setConfirmationEmailSent(result.data.confirmationEmailSent === true);
       setSubmitted(true);
+      setActiveWelcomeOfferAvailability((current) => ({
+        ...current,
+        virtualStagingAvailable: false,
+      }));
       setFinalizationRecovery(null);
       setFinalizationKey(null);
       finalizationKeyRef.current = null;
@@ -2477,6 +2511,15 @@ export default function VirtualStagingOrderForm({
       return true;
     }
 
+    if (result.code === "pricing_changed") {
+      setActiveWelcomeOfferAvailability((current) =>
+        applyAuthoritativeWelcomeOfferSnapshot(
+          current,
+          "virtual-staging-first-image-50",
+          result.currentPricingSnapshot,
+        ),
+      );
+    }
     submissionInFlightRef.current = false;
     setIsSubmitting(false);
     setSubmitError(result.message || "Submission failed. Please try again.");
@@ -2540,6 +2583,7 @@ export default function VirtualStagingOrderForm({
         retryContext.draftId,
         retryContext.expectedVersion,
         retryContext.finalizationKey,
+        buildCurrentPricingExpectation(),
       );
       applyDraftFinalizationResult(result, retryContext, sessionAtStart);
       return;
@@ -2642,6 +2686,10 @@ export default function VirtualStagingOrderForm({
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
+        setActiveWelcomeOfferAvailability((current) => ({
+          ...current,
+          virtualStagingAvailable: false,
+        }));
         submissionInFlightRef.current = false;
         setIsSubmitting(false);
         return;
@@ -2649,6 +2697,15 @@ export default function VirtualStagingOrderForm({
       if (redirectOnOrderAuthError(result, orderRoute)) {
         submissionInFlightRef.current = false;
         return;
+      }
+      if (result.errorCode === "pricing-changed") {
+        setActiveWelcomeOfferAvailability((current) =>
+          applyAuthoritativeWelcomeOfferSnapshot(
+            current,
+            "virtual-staging-first-image-50",
+            result.currentPricingSnapshot,
+          ),
+        );
       }
       submissionInFlightRef.current = false;
       setIsSubmitting(false);
@@ -2669,6 +2726,7 @@ export default function VirtualStagingOrderForm({
       nextRetryContext.draftId,
       nextRetryContext.expectedVersion,
       nextRetryContext.finalizationKey,
+      buildCurrentPricingExpectation(),
     );
     applyDraftFinalizationResult(result, nextRetryContext, sessionAtStart);
   };
@@ -2890,6 +2948,7 @@ export default function VirtualStagingOrderForm({
                 selectedAddons: item.selectedAddons,
               })),
             }}
+            welcomeOfferAvailability={activeWelcomeOfferAvailability}
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
             canSubmit={canSubmit}
@@ -2930,6 +2989,7 @@ export default function VirtualStagingOrderForm({
           submitError={submitError}
           termsContainerId={TERMS_REQUIRED_FIELD_ID}
           disabled={hasFinalizationRetryContext || isSubmitting}
+          welcomeOfferAvailability={activeWelcomeOfferAvailability}
         />
       ) : (
         <>

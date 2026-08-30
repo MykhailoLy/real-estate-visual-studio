@@ -52,6 +52,7 @@ export async function POST(
       draftId,
       expectedVersion: parsed.expectedVersion,
       finalizationKey: parsed.finalizationKey,
+      pricingExpectation: parsed.pricingExpectation,
       clientIdentity: identity,
     });
 

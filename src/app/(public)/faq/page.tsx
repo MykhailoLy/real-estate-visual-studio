@@ -69,6 +69,11 @@ const faqs = [
       "Yes. Contact us for custom visual requests, larger batches, local shoots, or property media needs that do not fit the standard order forms.",
   },
   {
+    question: "How does the Welcome Offer work?",
+    answer:
+      "The Welcome Offer includes one free standalone Image Enhancement image, one free standalone Day to Dusk image, and 50% off one Virtual Staging image. Each independent benefit is available once per account and is applied automatically when eligible, with no coupon code. It applies only to the base service: add-ons stay full price, and the same image does not also receive a volume discount. Remaining paid images use the ordinary volume tiers.",
+  },
+  {
     question: "Do you offer volume discounts?",
     answer:
       "Yes. Discounts apply automatically to the base service subtotal: 1–4 eligible units use the standard price, 5–9 receive 5% off, 10–19 receive 10% off, 20–49 receive 15% off, and 50+ require a custom quote. Add-ons are not volume-discounted. For eligible fixed-price online orders, the amount shown in Stripe Checkout is tax-inclusive where applicable, and Stripe identifies the included tax. Custom quotes or manually invoiced services may state their own tax treatment.",

@@ -65,6 +65,11 @@ const faqs = [
       "Sí. Contacta con nosotros para solicitudes visuales personalizadas, lotes grandes, sesiones locales o necesidades de media inmobiliaria que no encajen en los formularios de pedido estándar.",
   },
   {
+    question: "¿Cómo funciona la Oferta de bienvenida?",
+    answer:
+      "La Oferta de bienvenida incluye una imagen gratis de Mejora de imagen como servicio independiente, una imagen gratis de Day to Dusk como servicio independiente y un 50 % de descuento en una imagen de Virtual Staging. Cada ventaja independiente está disponible una sola vez por cuenta y se aplica automáticamente cuando corresponde, sin código. Solo se aplica al servicio base: los extras mantienen su precio completo y la misma imagen no recibe además un descuento por volumen. Las imágenes de pago restantes utilizan los tramos de volumen habituales.",
+  },
+  {
     question: "¿Ofrecéis descuentos por volumen?",
     answer:
       "Sí. Los descuentos se aplican automáticamente al subtotal del servicio base: 1–4 unidades elegibles mantienen el precio estándar, 5–9 reciben un 5%, 10–19 un 10%, 20–49 un 15% y 50+ requieren un presupuesto personalizado. Los extras no reciben descuento por volumen. Para los pedidos online elegibles con precio fijo, el importe que muestra Stripe Checkout incluye los impuestos cuando corresponda, y Stripe identifica el impuesto incluido. Los presupuestos personalizados o los servicios facturados manualmente pueden indicar su propio tratamiento fiscal.",

@@ -328,6 +328,15 @@ export default async function OrderDetailPage({
                     pricing.currency
                   )}
                 />
+                {pricing.welcomeDiscountCents > 0 && (
+                  <SummaryRow
+                    label="Welcome Offer"
+                    value={`−${formatStoredMoney(
+                      pricing.welcomeDiscountCents,
+                      pricing.currency
+                    )}`}
+                  />
+                )}
                 {pricing.volumeDiscountPercent > 0 && (
                   <SummaryRow
                     label={`Volume discount (${pricing.volumeDiscountPercent}%)`}
@@ -358,10 +367,14 @@ export default async function OrderDetailPage({
               "Your payment is processing. Production will not begin until payment is verified."}
             {paymentSummary?.state === "paid" && order.status === "pending" &&
               "Payment is verified. Your order is awaiting confirmation."}
+            {paymentSummary?.state === "no_payment_required" &&
+              order.status === "pending" &&
+              "No payment is required. Your order is awaiting confirmation and can then enter production."}
             {order.status === "pending" &&
               paymentSummary?.state !== "payment_required" &&
               paymentSummary?.state !== "processing" &&
               paymentSummary?.state !== "paid" &&
+              paymentSummary?.state !== "no_payment_required" &&
               "Your order has been received and is awaiting confirmation."}
             {order.status === "confirmed" &&
               "Your order has been confirmed and will enter production soon."}

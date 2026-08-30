@@ -4,6 +4,7 @@ import DayToDuskOrderForm from "@/components/order/day-to-dusk/DayToDuskOrderFor
 import { requireOrderingClient } from "@/lib/order-access";
 import { DAY_TO_DUSK_MEDIA_KEYS } from "@/lib/day-to-dusk";
 import { getServiceOptionImagesByKeys } from "@/lib/site-media";
+import { getWelcomeOfferAvailability } from "@/lib/welcome-offer-server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +16,14 @@ export const metadata: Metadata = {
 };
 
 export default async function NewDayToDuskOrderPage() {
-  const { email } = await requireOrderingClient(ROUTE);
+  const { email, userId } = await requireOrderingClient(ROUTE);
 
   // Batched fetch of admin-managed dusk-style example images (ONE query).
   // Serialised to a plain record so it can cross to the client form.
-  const imageMap = await getServiceOptionImagesByKeys(DAY_TO_DUSK_MEDIA_KEYS);
+  const [imageMap, welcomeOfferAvailability] = await Promise.all([
+    getServiceOptionImagesByKeys(DAY_TO_DUSK_MEDIA_KEYS),
+    getWelcomeOfferAvailability(userId),
+  ]);
   const duskStyleImages = Object.fromEntries(imageMap);
 
   return (
@@ -28,6 +32,7 @@ export default async function NewDayToDuskOrderPage() {
         clientEmail={email}
         orderRoute={ROUTE}
         duskStyleImages={duskStyleImages}
+        welcomeOfferAvailability={welcomeOfferAvailability}
       />
     </ClientDashboardLayout>
   );

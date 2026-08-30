@@ -530,6 +530,18 @@ export default async function AdminOrderDetailPage({
                         )}
                       </span>
                     </div>
+                    {pricing.welcomeDiscountCents > 0 && (
+                      <div className="mt-1 flex justify-between gap-4 text-green-700">
+                        <span>Welcome Offer</span>
+                        <span>
+                          −
+                          {formatStoredMoney(
+                            pricing.welcomeDiscountCents,
+                            pricing.currency
+                          )}
+                        </span>
+                      </div>
+                    )}
                     {pricing.volumeDiscountPercent > 0 && (
                       <div className="mt-1 flex justify-between gap-4 text-green-700">
                         <span>

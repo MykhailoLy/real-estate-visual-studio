@@ -53,6 +53,7 @@ export interface AdminNotificationInput {
   currency: TransactionalCurrency;
   pricingSnapshot: PricingSnapshot;
   hasFixedCheckoutPrice: boolean;
+  noPaymentRequired?: boolean;
   termsAcceptance: {
     accepted: boolean;
     version: string;
@@ -106,17 +107,25 @@ export function renderAdminNotification(
     pricingSnapshot.volumeDiscountCents,
     currency
   );
+  const welcomeDiscount = formatCents(
+    pricingSnapshot.welcomeDiscountCents,
+    currency,
+  );
   const subject = `New Order: ${orderNumber} — ${service}`;
   const commercialTextLines = hasFixedCheckoutPrice
     ? [
         `  Base subtotal: ${baseSubtotal}`,
         `  Add-ons: ${addOns}`,
+        ...(pricingSnapshot.welcomeDiscountCents > 0
+          ? [`  Welcome Offer: -${welcomeDiscount}`]
+          : []),
         ...(pricingSnapshot.volumeDiscountPercent > 0
           ? [
               `  Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
             ]
           : []),
         `  Final total: ${total} ${currency}`,
+        ...(input.noPaymentRequired ? ["  No payment required."] : []),
         "  Any applicable tax is included in this amount.",
       ]
     : [
@@ -229,11 +238,17 @@ export function renderAdminNotification(
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
           ${
+            pricingSnapshot.welcomeDiscountCents > 0
+              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Welcome Offer</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(welcomeDiscount)}</td></tr>`
+              : ""
+          }
+          ${
             pricingSnapshot.volumeDiscountPercent > 0
               ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
               : ""
           }
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Final total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(total)} ${currency}</td></tr>
+          ${input.noPaymentRequired ? '<tr><td colspan="2" style="padding:6px 0 0;color:#15803d;font-weight:600;">No payment required</td></tr>' : ""}
           <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Any applicable tax is included in this amount.</td></tr>`
     : `
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Pricing</td><td style="padding:4px 0;font-weight:600;">Manual review required</td></tr>

@@ -9,7 +9,12 @@ import {
   profileIncompleteDraftFinalizationResponse,
   unauthenticatedDraftFinalizationResponse,
 } from "./finalization-api.ts";
-import { getVirtualStagingDraftFinalizationStatus } from "./finalization-client.ts";
+import {
+  getVirtualStagingDraftFinalizationStatus,
+  submitOrderDraft,
+} from "./finalization-client.ts";
+import { PRICING_VERSION } from "../pricing/catalog.ts";
+import { WELCOME_OFFER_VERSION } from "../welcome-offer.ts";
 
 const FINALIZATION_KEY = "77777777-7777-4777-8777-777777777777";
 const DRAFT_ID = "22222222-2222-4222-8222-222222222222";
@@ -72,6 +77,33 @@ test("body validation accepts expected shape", () => {
   );
 });
 
+test("body validation accepts the narrow pricing expectation and rejects pricing authority fields", () => {
+  const pricingExpectation = {
+    pricingVersion: PRICING_VERSION,
+    welcomeOfferVersion: WELCOME_OFFER_VERSION,
+    welcomeBenefitKey: "virtual-staging-first-image-50",
+    totalCents: 2900,
+  } as const;
+  assert.equal(
+    draftFinalizationBodyValidationResponse({
+      expectedVersion: 4,
+      finalizationKey: FINALIZATION_KEY,
+      pricingExpectation,
+    }),
+    null,
+  );
+  const response = draftFinalizationBodyValidationResponse({
+    expectedVersion: 4,
+    finalizationKey: FINALIZATION_KEY,
+    pricingExpectation: {
+      ...pricingExpectation,
+      discountCents: 2900,
+    },
+  });
+  assert.ok(response);
+  assert.equal(response.status, 400);
+});
+
 test("unauthenticated response uses safe code", async () => {
   const response = unauthenticatedDraftFinalizationResponse();
   assert.equal(response.status, 401);
@@ -91,6 +123,8 @@ test("result errors map to HTTP statuses", async () => {
     ["finalization_conflict", 409],
     ["missing_original", 422],
     ["file_mismatch", 409],
+    ["pricing_changed", 409],
+    ["client_upgrade_required", 409],
     ["database_error", 500],
     ["finalization_incomplete", 503],
   ] as const;
@@ -103,6 +137,63 @@ test("result errors map to HTTP statuses", async () => {
     });
     assert.equal(response.status, status);
     assert.equal((await responseJson(response)).code, code);
+  }
+});
+
+test("pricing conflict response and typed client preserve the authoritative snapshot", async () => {
+  const currentPricingSnapshot = {
+    pricingVersion: PRICING_VERSION,
+    totalCents: 5800,
+    welcomeOffer: { benefits: [] },
+  } as never;
+  const response = draftFinalizationResultToResponse({
+    ok: false,
+    code: "pricing_changed",
+    message: "Review the current price.",
+    currentPricingSnapshot,
+  });
+  assert.equal(response.status, 409);
+  assert.deepEqual(
+    (await responseJson(response)).currentPricingSnapshot,
+    currentPricingSnapshot,
+  );
+
+  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return Response.json(
+      {
+        error: "Review the current price.",
+        code: "pricing_changed",
+        currentPricingSnapshot,
+      },
+      { status: 409 },
+    );
+  };
+
+  try {
+    const pricingExpectation = {
+      pricingVersion: PRICING_VERSION,
+      welcomeOfferVersion: WELCOME_OFFER_VERSION,
+      welcomeBenefitKey: "virtual-staging-first-image-50" as const,
+      totalCents: 2900,
+    };
+    const result = await submitOrderDraft(
+      DRAFT_ID,
+      4,
+      FINALIZATION_KEY,
+      pricingExpectation,
+    );
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.deepEqual(result.currentPricingSnapshot, currentPricingSnapshot);
+    assert.deepEqual(
+      JSON.parse(String(calls[0]?.init?.body)).pricingExpectation,
+      pricingExpectation,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 

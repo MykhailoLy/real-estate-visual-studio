@@ -14,6 +14,8 @@ import {
 } from "../upload-config.ts";
 import { LEGAL_VERSION as TERMS_VERSION } from "../legal.ts";
 import { EARLY_PERFORMANCE_VERSION } from "../early-performance.ts";
+import { PRICING_VERSION, getCatalogPrice } from "../pricing/catalog.ts";
+import { WELCOME_OFFER_VERSION } from "../welcome-offer.ts";
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -154,6 +156,16 @@ interface ProductionOrderInputForTest {
     acknowledged_proportionate_payment?: boolean;
   };
   portfolioPermission: { allowed: boolean };
+  pricingExpectation?: {
+    pricingVersion: string;
+    welcomeOfferVersion: string;
+    welcomeBenefitKey:
+      | "image-enhancement-free"
+      | "day-to-dusk-free"
+      | "virtual-staging-first-image-50"
+      | null;
+    totalCents: number;
+  };
   sourceDraftId?: string;
   storageMode: "move" | "copy";
 }
@@ -279,6 +291,8 @@ interface MockSupabaseOptions {
     bytes?: Uint8Array;
   };
   emailResult?: EmailMockResult;
+  welcomeOfferRowsByQuery?: string[][];
+  welcomeOfferQueryError?: boolean;
 }
 
 class MockSupabase {
@@ -294,6 +308,7 @@ class MockSupabase {
   readonly deletes: DeleteOperationForTest[] = [];
   readonly rpcCalls: Array<{ name: string; params: unknown }> = [];
   readonly emailCalls: unknown[] = [];
+  readonly fromCalls: string[] = [];
   private readonly listFailures: Set<string>;
   private readonly moveFailures: Set<string>;
   private readonly copyFailures: Set<string>;
@@ -301,6 +316,7 @@ class MockSupabase {
   private readonly prefixReadFailures: Set<string>;
   private readonly malformedRangeResponses: Set<string>;
   private readonly options: MockSupabaseOptions;
+  private welcomeOfferQueryCount = 0;
 
   readonly storage = {
     from: (bucket: string) => ({
@@ -471,7 +487,10 @@ class MockSupabase {
         error: null,
       };
     }
-    if (name === "commit_order_submission") {
+    if (
+      name === "commit_order_submission_with_welcome_offer_v1" ||
+      name === "commit_order_submission"
+    ) {
       if (this.options.commitError) {
         return { data: null, error: databaseError("CommitConnectionLost") };
       }
@@ -482,8 +501,14 @@ class MockSupabase {
           created: (this.options.commitCode ?? "created") === "created",
           order_id: "33333333-3333-4333-8333-333333333333",
           order_number: ORDER_NUMBER,
-          estimated_total_cents: 2900,
-          currency: "USD",
+          estimated_total_cents: Number(
+            (this.claimSnapshot as { totalCents?: number } | null)?.totalCents ??
+              0,
+          ),
+          currency: String(
+            (this.claimSnapshot as { currency?: string } | null)?.currency ??
+              "USD",
+          ),
           pricing_snapshot: this.claimSnapshot,
           item_count: items.length,
         }],
@@ -496,6 +521,7 @@ class MockSupabase {
   claimSnapshot: unknown = null;
 
   from(table: string): MockTableQuery {
+    this.fromCalls.push(table);
     return new MockTableQuery(this, table);
   }
 
@@ -518,6 +544,17 @@ class MockSupabase {
 
   get recoveryCommitted(): boolean {
     return this.options.recoveryCommitted === true;
+  }
+
+  getWelcomeOfferRows(): Array<{ benefit_key: string }> {
+    const rows =
+      this.options.welcomeOfferRowsByQuery?.[this.welcomeOfferQueryCount] ?? [];
+    this.welcomeOfferQueryCount += 1;
+    return rows.map((benefit_key) => ({ benefit_key }));
+  }
+
+  get welcomeOfferQueryError(): boolean {
+    return this.options.welcomeOfferQueryError === true;
   }
 }
 
@@ -585,6 +622,11 @@ class MockTableQuery {
 
   eq(column: string, value: unknown) {
     this.filters.set(column, value);
+    if (this.table === "welcome_offer_redemptions") {
+      return this.supabase.welcomeOfferQueryError
+        ? { data: null, error: databaseError("WelcomeOfferLookupFailed") }
+        : { data: this.supabase.getWelcomeOfferRows(), error: null };
+    }
     return this;
   }
 
@@ -739,6 +781,57 @@ function stagingItems(count = 1): Array<Record<string, unknown>> {
   }));
 }
 
+function dedicatedPhotoItems(
+  subService: "image-enhancement-single-exposure" | "day-to-dusk",
+  count = 1,
+): Array<Record<string, unknown>> {
+  return Array.from({ length: count }, () =>
+    subService === "image-enhancement-single-exposure"
+      ? {
+          subService,
+          selectedOptions: ["image-enhancement-re"],
+          additionalInfo: "",
+          referenceLink: "",
+          grassRepair: "no",
+          skyReplacement: "no",
+          tvScreenReplacement: "no",
+          addFireToFireplace: "no",
+          aerialEditing: "none",
+          aerialEditingInstructions: "",
+          fileSizeLimit: "",
+          disclaimerText: "",
+        }
+      : {
+          subService,
+          selectedOptions: ["day-to-dusk-pe"],
+          additionalInfo: "",
+          referenceLink: "",
+          duskStyle: "expert-decide",
+          turnOnInteriorLights: false,
+          turnOnExteriorLights: false,
+          addPoolLights: false,
+          fileSizeLimit: "",
+          disclaimerText: "",
+        },
+  );
+}
+
+function pricingExpectation(
+  welcomeBenefitKey:
+    | "image-enhancement-free"
+    | "day-to-dusk-free"
+    | "virtual-staging-first-image-50"
+    | null,
+  totalCents: number,
+): NonNullable<ProductionOrderInputForTest["pricingExpectation"]> {
+  return {
+    pricingVersion: PRICING_VERSION,
+    welcomeOfferVersion: WELCOME_OFFER_VERSION,
+    welcomeBenefitKey,
+    totalCents,
+  };
+}
+
 function orderInput(
   overrides: Partial<ProductionOrderInputForTest> = {},
 ): ProductionOrderInputForTest {
@@ -763,6 +856,14 @@ function orderInput(
       version: EARLY_PERFORMANCE_VERSION,
     },
     portfolioPermission: { allowed: false },
+    pricingExpectation: {
+      pricingVersion: PRICING_VERSION,
+      welcomeOfferVersion: WELCOME_OFFER_VERSION,
+      welcomeBenefitKey: "virtual-staging-first-image-50",
+      totalCents: Math.round(
+        getCatalogPrice("virtual-staging", "USD") / 2,
+      ),
+    },
     storageMode: "move",
     ...overrides,
   };
@@ -1656,8 +1757,8 @@ test("atomic direct creation copies first, commits once, then removes pending so
   assert.equal(supabase.moves.length, 0);
   assert.equal(supabase.objects.has(directPath(0, "original")), false);
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
-  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission").length, 1);
-  const commitCall = supabase.rpcCalls.find((call) => call.name === "commit_order_submission");
+  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
+  const commitCall = supabase.rpcCalls.find((call) => call.name === "commit_order_submission_with_welcome_offer_v1");
   const commitItems = (commitCall?.params as {
     p_items: Array<{
       subtotalCents: number;
@@ -1833,7 +1934,7 @@ for (const [name, extension, mimeType, bytes] of [
     assert.equal(supabase.objects.has(path), true);
     assert.equal(supabase.removes.length, 0);
     assert.equal(
-      supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+      supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
       false,
     );
     assert.equal(
@@ -1862,7 +1963,7 @@ for (const [name, option] of [
     assert.equal(supabase.objects.has(path), true);
     assert.equal(supabase.copies.length, 0);
     assert.equal(
-      supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+      supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
       false,
     );
   });
@@ -1926,7 +2027,7 @@ test("invalid multi-reference bytes prevent the complete order commit", async ()
   assertFailure(result, "invalid_upload");
   assert.equal(supabase.copies.length, 0);
   assert.equal(
-    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
     false,
   );
 });
@@ -1949,7 +2050,7 @@ test("an object replaced after signature verification cannot reach copy or commi
   assertFailure(result, "storage_error");
   assert.equal(supabase.copies.length, 0);
   assert.equal(
-    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
     false,
   );
 });
@@ -1979,7 +2080,7 @@ test("draft finalization re-verifies source bytes instead of trusting uploaded d
   assertFailure(result, "invalid_upload");
   assert.equal(supabase.copies.length, 0);
   assert.equal(
-    supabase.rpcCalls.some((call) => call.name === "commit_order_submission"),
+    supabase.rpcCalls.some((call) => call.name === "commit_order_submission_with_welcome_offer_v1"),
     false,
   );
 });
@@ -2165,6 +2266,351 @@ test("known atomic commit rejection cleans only finals created by this attempt",
   assert.equal(supabase.objects.has(finalPath(0, "original")), false);
 });
 
+for (const scenario of [
+  {
+    name: "Virtual Staging",
+    serviceType: "virtual-staging" as const,
+    items: stagingItems(),
+    benefitKey: "virtual-staging-first-image-50" as const,
+    fullTotal: getCatalogPrice("virtual-staging", "USD"),
+    discountedTotal: Math.round(
+      getCatalogPrice("virtual-staging", "USD") / 2,
+    ),
+  },
+  {
+    name: "Image Enhancement",
+    serviceType: "photo-editing" as const,
+    items: dedicatedPhotoItems("image-enhancement-single-exposure"),
+    benefitKey: "image-enhancement-free" as const,
+    fullTotal: getCatalogPrice("image-enhancement", "USD"),
+    discountedTotal: 0,
+  },
+  {
+    name: "Day to Dusk",
+    serviceType: "photo-editing" as const,
+    items: dedicatedPhotoItems("day-to-dusk"),
+    benefitKey: "day-to-dusk-free" as const,
+    fullTotal: getCatalogPrice("day-to-dusk", "USD"),
+    discountedTotal: 0,
+  },
+]) {
+  test(`${scenario.name} stale discounted tab returns current pricing before every production side effect and retries through the legacy RPC`, async () => {
+    const itemFiles = itemFilesForDirectOrder();
+    const supabase = new MockSupabase({
+      welcomeOfferRowsByQuery: [
+        [scenario.benefitKey],
+        [scenario.benefitKey],
+      ],
+    });
+    addStoredObjects(supabase, itemFiles);
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+    const staleInput = orderInput({
+      serviceType: scenario.serviceType,
+      items: scenario.items,
+      itemFiles,
+      pricingExpectation: pricingExpectation(
+        scenario.benefitKey,
+        scenario.discountedTotal,
+      ),
+    });
+
+    const staleResult = await createProductionOrder(staleInput);
+
+    assertFailure(staleResult, "pricing_changed");
+    assert.equal(staleResult.ok ? 0 : staleResult.status, 409);
+    assert.equal(
+      staleResult.ok
+        ? -1
+        : staleResult.currentPricingSnapshot?.totalCents,
+      scenario.fullTotal,
+    );
+    assert.equal(
+      staleResult.ok
+        ? -1
+        : staleResult.currentPricingSnapshot?.welcomeOffer.benefits.length,
+      0,
+    );
+    assert.equal(
+      supabase.rpcCalls.some(
+        (call) => call.name === "claim_order_submission",
+      ),
+      false,
+    );
+    assert.equal(supabase.copies.length, 0);
+    assert.equal(supabase.moves.length, 0);
+    assert.equal(supabase.emailCalls.length, 0);
+    assert.equal(supabase.objects.has(itemFiles[0].original.path), true);
+
+    const retryResult = await createProductionOrder({
+      ...staleInput,
+      pricingExpectation: pricingExpectation(null, scenario.fullTotal),
+    });
+
+    assert.equal(retryResult.ok, true);
+    assert.equal(
+      supabase.rpcCalls.filter(
+        (call) => call.name === "commit_order_submission",
+      ).length,
+      1,
+    );
+    assert.equal(
+      supabase.rpcCalls.some(
+        (call) =>
+          call.name === "commit_order_submission_with_welcome_offer_v1",
+      ),
+      false,
+    );
+  });
+}
+
+test("reverse expectation rejects an ordinary-price preview when the authoritative Welcome Offer is available", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({ welcomeOfferRowsByQuery: [[]] });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  const fullTotal = getCatalogPrice("virtual-staging", "USD");
+
+  const result = await createProductionOrder(orderInput({
+    itemFiles,
+    pricingExpectation: pricingExpectation(null, fullTotal),
+  }));
+
+  assertFailure(result, "pricing_changed");
+  assert.equal(
+    result.ok ? null : result.currentPricingSnapshot?.welcomeOffer.benefits[0]?.key,
+    "virtual-staging-first-image-50",
+  );
+  assert.equal(
+    result.ok ? -1 : result.currentPricingSnapshot?.totalCents,
+    Math.round(fullTotal / 2),
+  );
+  assert.equal(
+    supabase.rpcCalls.some((call) => call.name === "claim_order_submission"),
+    false,
+  );
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.emailCalls.length, 0);
+});
+
+for (const [field, staleVersion] of [
+  ["pricingVersion", "stale-pricing"],
+  ["welcomeOfferVersion", "stale-welcome-offer"],
+] as const) {
+  test(`stale ${field} requires a client refresh before submission claim`, async () => {
+    const supabase = new MockSupabase({ welcomeOfferRowsByQuery: [[]] });
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+    const expectation = {
+      ...orderInput().pricingExpectation!,
+      [field]: staleVersion,
+    };
+
+    const result = await createProductionOrder(orderInput({
+      pricingExpectation: expectation,
+    }));
+
+    assertFailure(result, "client_upgrade_required");
+    assert.equal(result.ok ? 0 : result.status, 409);
+    assert.match(result.ok ? "" : result.message, /Refresh the page/);
+    assert.equal(supabase.rpcCalls.length, 0);
+    assert.equal(supabase.copies.length, 0);
+    assert.equal(supabase.emailCalls.length, 0);
+  });
+}
+
+test("draft-source stale eligibility is rejected before submission claim or final copy", async () => {
+  const draftId = "88888888-8888-4888-8888-888888888888";
+  const sourcePath = `drafts/${USER_ID}/${draftId}/${REFERENCE_ID}/room.jpg`;
+  const original = descriptor(sourcePath, {
+    originalFilename: "room.jpg",
+    draftFileId: REFERENCE_ID,
+  });
+  const supabase = new MockSupabase({
+    welcomeOfferRowsByQuery: [["virtual-staging-first-image-50"]],
+  });
+  supabase.addObject(sourcePath, metadata(original.size, original.mimeType));
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({
+    submissionId: draftId,
+    sourceDraftId: draftId,
+    storageMode: "copy",
+    itemFiles: [{ original }],
+  }));
+
+  assertFailure(result, "pricing_changed");
+  assert.equal(
+    supabase.rpcCalls.some((call) => call.name === "claim_order_submission"),
+    false,
+  );
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.emailCalls.length, 0);
+  assert.equal(supabase.objects.has(sourcePath), true);
+});
+
+for (const unrelated of [
+  {
+    name: "Virtual Renovation",
+    serviceType: "virtual-renovation" as const,
+    items: [{
+      selectedInternal: ["replace-walls"],
+      selectedExternal: [],
+      room: "Living Room",
+      presentationStyle: "",
+      referenceLink: "",
+      additionalInfo: "",
+      fileSizeLimit: "",
+      disclaimerText: "",
+    }],
+  },
+  {
+    name: "Floor Plans",
+    serviceType: "3d-floor-plans" as const,
+    items: [{ planType: "2d-bw", numberOfFloors: 1 }],
+  },
+  {
+    name: "generic Photo Editing",
+    serviceType: "photo-editing" as const,
+    items: [{ selectedOptions: ["shadow-removal"] }],
+  },
+  {
+    name: "unrelated dedicated Image Enhancement",
+    serviceType: "photo-editing" as const,
+    items: [{
+      subService: "image-enhancement",
+      selectedOptions: ["image-enhancement-re"],
+      additionalInfo: "",
+      referenceLink: "",
+      fileSizeLimit: "",
+      disclaimerText: "",
+    }],
+  },
+  {
+    name: "mixed dedicated Photo Editing",
+    serviceType: "photo-editing" as const,
+    items: [
+      ...dedicatedPhotoItems("image-enhancement-single-exposure"),
+      ...dedicatedPhotoItems("day-to-dusk"),
+    ],
+  },
+]) {
+  test(`${unrelated.name} avoids Welcome lookup failures and uses the proven commit RPC`, async () => {
+    const itemFiles = itemFilesForDirectOrder(unrelated.items.length);
+    const supabase = new MockSupabase({ welcomeOfferQueryError: true });
+    addStoredObjects(supabase, itemFiles);
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+
+    const result = await createProductionOrder(orderInput({
+      serviceType: unrelated.serviceType,
+      items: unrelated.items,
+      itemFiles,
+      pricingExpectation: undefined,
+    }));
+
+    assert.equal(result.ok, true);
+    assert.equal(
+      supabase.fromCalls.includes("welcome_offer_redemptions"),
+      false,
+    );
+    assert.equal(
+      supabase.rpcCalls.filter(
+        (call) => call.name === "commit_order_submission",
+      ).length,
+      1,
+    );
+    assert.equal(
+      supabase.rpcCalls.some(
+        (call) =>
+          call.name === "commit_order_submission_with_welcome_offer_v1",
+      ),
+      false,
+    );
+  });
+}
+
+test("eligible service with an already-used benefit reads eligibility then uses the legacy commit RPC", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const fullTotal = getCatalogPrice("virtual-staging", "USD");
+  const supabase = new MockSupabase({
+    welcomeOfferRowsByQuery: [["virtual-staging-first-image-50"]],
+  });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({
+    itemFiles,
+    pricingExpectation: pricingExpectation(null, fullTotal),
+  }));
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.fromCalls.includes("welcome_offer_redemptions"), true);
+  assert.equal(
+    supabase.rpcCalls.filter(
+      (call) => call.name === "commit_order_submission",
+    ).length,
+    1,
+  );
+  assert.equal(
+    supabase.rpcCalls.some(
+      (call) => call.name === "commit_order_submission_with_welcome_offer_v1",
+    ),
+    false,
+  );
+});
+
+test("eligible service with an applied benefit uses the versioned atomic Welcome Offer RPC", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({ welcomeOfferRowsByQuery: [[]] });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.fromCalls.includes("welcome_offer_redemptions"), true);
+  assert.equal(
+    supabase.rpcCalls.filter(
+      (call) => call.name === "commit_order_submission_with_welcome_offer_v1",
+    ).length,
+    1,
+  );
+});
+
+test("Welcome Offer race loser preserves pending source, removes prepared final, and returns current pricing", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase({
+    commitCode: "welcome_offer_conflict",
+    welcomeOfferRowsByQuery: [[], ["virtual-staging-first-image-50"]],
+  });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const result = await createProductionOrder(orderInput({ itemFiles }));
+
+  assertFailure(result, "pricing_changed");
+  assert.equal(supabase.objects.has(directPath(0, "original")), true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), false);
+  assert.equal(
+    result.ok ? -1 : result.currentPricingSnapshot?.welcomeDiscountCents,
+    0,
+  );
+  const commit = supabase.rpcCalls.find(
+    (call) => call.name === "commit_order_submission_with_welcome_offer_v1",
+  );
+  assert.deepEqual(
+    (commit?.params as { p_welcome_offer_benefit_keys: string[] })
+      .p_welcome_offer_benefit_keys,
+    ["virtual-staging-first-image-50"],
+  );
+});
+
 test("email dispatch failure cannot roll back an atomically committed order", async () => {
   const itemFiles = itemFilesForDirectOrder();
   const supabase = new MockSupabase({
@@ -2178,5 +2624,5 @@ test("email dispatch failure cannot roll back an atomically committed order", as
 
   assert.equal(result.ok, true);
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
-  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission").length, 1);
+  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
 });

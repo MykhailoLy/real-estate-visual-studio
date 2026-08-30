@@ -7,6 +7,7 @@ import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 
 export const metadata: Metadata = {
   title: "Image Enhancement",
@@ -57,6 +58,7 @@ export default function ImageEnhancementPricingPage() {
           suffix=" / image"
         />
       }
+      welcomeOfferDescription={`${WELCOME_OFFER_PUBLIC_COPY.en.short} ${WELCOME_OFFER_PUBLIC_COPY.en.rules}`}
       orderHref="/order/image-enhancement"
       orderLabel="Order Image Enhancement"
       whenToUseTitle="When to use Image Enhancement"

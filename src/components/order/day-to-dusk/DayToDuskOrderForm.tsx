@@ -77,6 +77,11 @@ import {
   prepareDraftReferenceFile,
   uploadPreparedDraftReferenceFile,
 } from "@/lib/order-drafts/draft-reference-files-client";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import {
+  applyAuthoritativeWelcomeOfferSnapshot,
+  createPricingExpectation,
+} from "@/lib/pricing/expectation";
 
 // ============================================================
 // DayToDuskOrderForm — dedicated Day to Dusk order flow.
@@ -129,6 +134,7 @@ interface DayToDuskOrderFormProps {
   orderRoute: string;
   /** mediaKey → resolved dusk-style example image (admin-managed). */
   duskStyleImages: Record<string, ServiceOptionImage>;
+  welcomeOfferAvailability: import("@/lib/welcome-offer").WelcomeOfferAvailability;
 }
 
 interface DraftSaveOutcome {
@@ -173,6 +179,7 @@ export default function DayToDuskOrderForm({
   clientEmail,
   orderRoute,
   duskStyleImages,
+  welcomeOfferAvailability,
 }: DayToDuskOrderFormProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -195,6 +202,8 @@ export default function DayToDuskOrderForm({
   const [orderNumber, setOrderNumber] = useState("");
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [activeWelcomeOfferAvailability, setActiveWelcomeOfferAvailability] =
+    useState(welcomeOfferAvailability);
   const [draftId, setDraftId] = useState<string | null>(() =>
     requestedDraftId && UuidSchema.safeParse(requestedDraftId).success
       ? requestedDraftId
@@ -878,12 +887,31 @@ export default function DayToDuskOrderForm({
         files,
         orderTermsRef.current,
         jobTitleRef.current,
+        undefined,
+        createPricingExpectation(
+          calculateOrderQuote(
+            {
+              serviceType: "photo-editing",
+              currency,
+              items: itemsRef.current.map(() => ({
+                selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+                baseOptionId: DAY_TO_DUSK_OPTION_ID,
+                dedicatedSubService: DAY_TO_DUSK_SUB_SERVICE,
+              })),
+            },
+            { welcomeOfferAvailability: activeWelcomeOfferAvailability },
+          ),
+        ),
       );
       if (result.success && result.orderId && result.orderNumber) {
         setOrderId(result.orderId);
         setOrderNumber(result.orderNumber);
         setConfirmationEmailSent(result.confirmationEmailSent === true);
         setSubmitted(true);
+        setActiveWelcomeOfferAvailability((current) => ({
+          ...current,
+          dayToDuskAvailable: false,
+        }));
         const currentId = draftIdRef.current;
         const currentVersion = draftVersionRef.current;
         if (currentId && currentVersion) {
@@ -892,6 +920,15 @@ export default function DayToDuskOrderForm({
         return;
       }
       if (redirectOnOrderAuthError(result, orderRoute)) return;
+      if (result.errorCode === "pricing-changed") {
+        setActiveWelcomeOfferAvailability((current) =>
+          applyAuthoritativeWelcomeOfferSnapshot(
+            current,
+            "day-to-dusk-free",
+            result.currentPricingSnapshot,
+          ),
+        );
+      }
       setSubmitError(result.error || "Submission failed. Please try again.");
     } catch (error) {
       setSubmitError(
@@ -1006,8 +1043,11 @@ export default function DayToDuskOrderForm({
         serviceType: "photo-editing",
         items: items.map(() => ({
           selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+          baseOptionId: DAY_TO_DUSK_OPTION_ID,
+          dedicatedSubService: "day-to-dusk",
         })),
       }}
+      welcomeOfferAvailability={activeWelcomeOfferAvailability}
       onSubmit={handleSubmit}
       isSubmitting={isSubmitting}
       canSubmit={reviewValid}
@@ -1095,6 +1135,7 @@ export default function DayToDuskOrderForm({
           onEditItem={handleEditItem}
           onBack={goToConfigureTop}
           submitError={submitError}
+          welcomeOfferAvailability={activeWelcomeOfferAvailability}
         />
       ) : (
         <>

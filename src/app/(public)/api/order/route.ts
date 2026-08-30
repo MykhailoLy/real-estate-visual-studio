@@ -64,6 +64,7 @@ export async function POST(request: Request) {
       deliveryPreferences,
       termsAcceptance,
       earlyPerformanceRequest,
+      pricingExpectation,
       portfolioPermission,
       items: rawItems,
       itemFiles,
@@ -139,6 +140,7 @@ export async function POST(request: Request) {
       deliveryPreferences,
       termsAcceptance,
       earlyPerformanceRequest,
+      pricingExpectation,
       portfolioPermission,
       storageMode: "move",
     });

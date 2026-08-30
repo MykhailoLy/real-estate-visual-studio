@@ -14,6 +14,7 @@ import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { DAY_TO_DUSK_OPTION_ID, getDuskStyleLabel } from "@/lib/day-to-dusk";
 import type { DayToDuskItemData } from "./DayToDuskItemCard";
 import ReferenceFilesReview from "@/components/order/ReferenceFilesReview";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 
 // ============================================================
 // DayToDuskReview — Review & Submit step body for a Day to Dusk order.
@@ -36,6 +37,7 @@ interface DayToDuskReviewProps {
   onEditItem: (index: number) => void;
   onBack: () => void;
   submitError: string;
+  welcomeOfferAvailability: WelcomeOfferAvailability;
 }
 
 function fileSizeLabel(value: string): string {
@@ -64,15 +66,21 @@ export default function DayToDuskReview({
   onEditItem,
   onBack,
   submitError,
+  welcomeOfferAvailability,
 }: DayToDuskReviewProps) {
   const currency = useDisplayCurrency();
-  const quote = calculateOrderQuote({
-    serviceType: "photo-editing",
-    currency,
-    items: items.map(() => ({
-      selectedOptions: [DAY_TO_DUSK_OPTION_ID],
-    })),
-  });
+  const quote = calculateOrderQuote(
+    {
+      serviceType: "photo-editing",
+      currency,
+      items: items.map(() => ({
+        selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+        baseOptionId: DAY_TO_DUSK_OPTION_ID,
+        dedicatedSubService: "day-to-dusk",
+      })),
+    },
+    { welcomeOfferAvailability },
+  );
   const perItem = calculatePhotoEditItemTotal(
     [DAY_TO_DUSK_OPTION_ID],
     currency

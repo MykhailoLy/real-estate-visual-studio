@@ -3,6 +3,7 @@ import type {
   DraftFinalizationResult,
 } from "./finalization.ts";
 import { DraftFinalizationBodySchema } from "./finalization.ts";
+import type { PricingSnapshot } from "../pricing/types.ts";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
@@ -18,6 +19,8 @@ const FINALIZATION_ERROR_STATUS: Record<DraftFinalizationPublicErrorCode, number
   finalization_conflict: 409,
   missing_original: 422,
   file_mismatch: 409,
+  pricing_changed: 409,
+  client_upgrade_required: 409,
   storage_error: 500,
   database_error: 500,
   finalization_incomplete: 503,
@@ -28,6 +31,7 @@ export interface DraftFinalizationApiErrorBody {
   error: string;
   code: DraftFinalizationPublicErrorCode | "invalid_json";
   details?: unknown;
+  currentPricingSnapshot?: PricingSnapshot;
 }
 
 export type DraftFinalizationJsonParseResult =
@@ -46,9 +50,13 @@ export function draftFinalizationErrorResponse(
   code: DraftFinalizationApiErrorBody["code"],
   status: number,
   details?: unknown,
+  currentPricingSnapshot?: PricingSnapshot,
 ): Response {
   const body: DraftFinalizationApiErrorBody = { error, code };
   if (details !== undefined) body.details = details;
+  if (currentPricingSnapshot !== undefined) {
+    body.currentPricingSnapshot = currentPricingSnapshot;
+  }
   return Response.json(body, { status, headers: NO_STORE_HEADERS });
 }
 
@@ -118,6 +126,8 @@ export function draftFinalizationResultToResponse<T>(
     result.message,
     result.code,
     FINALIZATION_ERROR_STATUS[result.code],
+    undefined,
+    result.currentPricingSnapshot,
   );
 }
 

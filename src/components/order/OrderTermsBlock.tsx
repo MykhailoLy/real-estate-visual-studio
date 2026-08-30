@@ -31,7 +31,7 @@ export { EARLY_PERFORMANCE_VERSION, TERMS_VERSION };
 export interface OrderTermsData {
   /** Required: must be true to enable Submit Order. */
   accepted: boolean;
-  /** Required: explicit request to start work after payment is confirmed. */
+  /** Required: explicit request to start after required payment or order confirmation. */
   earlyPerformanceRequested: boolean;
   /**
    * Optional: client lets us use anonymized before/after examples from

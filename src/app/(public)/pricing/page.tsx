@@ -15,6 +15,7 @@ import { getLocalPricingPresentation } from "@/lib/pricing/local-catalog";
 import type { PriceKey } from "@/lib/pricing/types";
 import { publicPageMetadata } from "@/lib/seo";
 import type { LocalServiceType } from "@/types";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Pricing",
@@ -375,6 +376,15 @@ export default async function PricingPage() {
 
       <section className="bg-white py-12 sm:py-14 lg:py-16">
         <Container>
+          <div className="mb-10 rounded-2xl border border-secondary/30 bg-secondary/5 p-5 sm:p-6">
+            <h2 className="text-lg font-bold text-primary">Welcome Offer</h2>
+            <p className="mt-2 text-sm leading-relaxed text-foreground">
+              {WELCOME_OFFER_PUBLIC_COPY.en.short}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              {WELCOME_OFFER_PUBLIC_COPY.en.rules}
+            </p>
+          </div>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-10">
             {PRICING_NOTES.map((note) => (
               <div key={note.title} className="border-t-2 border-secondary pt-4">

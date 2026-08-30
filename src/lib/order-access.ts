@@ -22,6 +22,8 @@ import {
 import { isProfileComplete } from "@/lib/profile-completion";
 
 export interface OrderingClient {
+  /** Verified session ID used only by trusted server-side eligibility reads. */
+  userId: string;
   /** Verified session email — passed to the form for the confirmation screen. */
   email: string;
 }
@@ -46,5 +48,5 @@ export async function requireOrderingClient(
     );
   }
 
-  return { email: user.email };
+  return { email: user.email, userId: user.id };
 }

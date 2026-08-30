@@ -10,7 +10,14 @@ import {
   getCatalogPrice,
 } from "./catalog.ts";
 import { getVolumeDiscount } from "./discounts.ts";
+import {
+  WELCOME_OFFER_BENEFIT_RULES,
+  WELCOME_OFFER_VERSION,
+  type WelcomeOfferAvailability,
+  type WelcomeOfferBenefitKey,
+} from "../welcome-offer.ts";
 import type {
+  AppliedWelcomeOffer,
   OrderPricingInput,
   OrderQuote,
   PriceKey,
@@ -18,6 +25,11 @@ import type {
   PricedOrderItem,
   TransactionalCurrency,
 } from "./types.ts";
+
+export interface CalculateOrderQuoteOptions {
+  /** Presentation may pass this value, but order submission resolves it again server-side. */
+  welcomeOfferAvailability?: WelcomeOfferAvailability;
+}
 
 export class PricingValidationError extends Error {
   readonly code: string;
@@ -243,7 +255,87 @@ function calculatePhotoEditingItems(
   });
 }
 
-export function calculateOrderQuote(input: OrderPricingInput): OrderQuote {
+function percentageOfCents(cents: number, percent: number): number {
+  return Number(
+    (BigInt(cents) * BigInt(percent) + BigInt(50)) / BigInt(100),
+  );
+}
+
+function getWelcomeOfferBenefitKey(
+  input: OrderPricingInput,
+  availability: WelcomeOfferAvailability | undefined,
+): WelcomeOfferBenefitKey | null {
+  if (!availability) return null;
+  if (
+    input.serviceType === "virtual-staging" &&
+    availability.virtualStagingAvailable
+  ) {
+    return "virtual-staging-first-image-50";
+  }
+  if (input.serviceType !== "photo-editing") return null;
+
+  const dedicatedServices = new Set(
+    input.items.map((item) => item.dedicatedSubService),
+  );
+  if (
+    dedicatedServices.size === 1 &&
+    dedicatedServices.has("image-enhancement-single-exposure") &&
+    availability.imageEnhancementAvailable
+  ) {
+    return "image-enhancement-free";
+  }
+  if (
+    dedicatedServices.size === 1 &&
+    dedicatedServices.has("day-to-dusk") &&
+    availability.dayToDuskAvailable
+  ) {
+    return "day-to-dusk-free";
+  }
+  return null;
+}
+
+function calculateWelcomeOffer(
+  input: OrderPricingInput,
+  items: PricedOrderItem[],
+  availability: WelcomeOfferAvailability | undefined,
+  customQuote: boolean,
+): AppliedWelcomeOffer {
+  const empty: AppliedWelcomeOffer = {
+    version: WELCOME_OFFER_VERSION,
+    totalDiscountCents: 0,
+    benefits: [],
+  };
+  if (customQuote) return empty;
+
+  const key = getWelcomeOfferBenefitKey(input, availability);
+  if (!key) return empty;
+  const rule = WELCOME_OFFER_BENEFIT_RULES[key];
+  const item = items.find((candidate) => candidate.priceKey === rule.priceKey);
+  if (!item) return empty;
+
+  const discountCents = percentageOfCents(
+    item.baseSubtotalCents,
+    rule.discountPercent,
+  );
+  return {
+    version: WELCOME_OFFER_VERSION,
+    totalDiscountCents: discountCents,
+    benefits: [
+      {
+        key,
+        itemIndex: item.itemIndex,
+        priceKey: rule.priceKey,
+        discountPercent: rule.discountPercent,
+        discountCents,
+      },
+    ],
+  };
+}
+
+export function calculateOrderQuote(
+  input: OrderPricingInput,
+  options: CalculateOrderQuoteOptions = {},
+): OrderQuote {
   if (input.items.length < 1) {
     throw new PricingValidationError(
       "Order quantity must contain at least one item.",
@@ -284,21 +376,48 @@ export function calculateOrderQuote(input: OrderPricingInput): OrderQuote {
     (sum, item) => sum + item.addOnSubtotalCents,
     0
   );
-  const volume = getVolumeDiscount(eligibleUnits);
+  const originalVolume = getVolumeDiscount(eligibleUnits);
+  const welcomeOffer = calculateWelcomeOffer(
+    input,
+    items,
+    options.welcomeOfferAvailability,
+    originalVolume.customQuote,
+  );
+  const discountedItemIndexes = new Set(
+    welcomeOffer.benefits.map((benefit) => benefit.itemIndex),
+  );
+  const volumeEligibleUnits =
+    welcomeOffer.benefits.length > 0 ? eligibleUnits - 1 : eligibleUnits;
+  const volume = originalVolume.customQuote
+    ? originalVolume
+    : getVolumeDiscount(volumeEligibleUnits);
+  const volumeDiscountBaseCents = items.reduce(
+    (sum, item) =>
+      discountedItemIndexes.has(item.itemIndex)
+        ? sum
+        : sum + item.baseSubtotalCents,
+    0,
+  );
   const volumeDiscountCents = volume.customQuote
     ? 0
-    : Math.round((baseSubtotalCents * volume.percent) / 100);
+    : percentageOfCents(volumeDiscountBaseCents, volume.percent);
   const subtotalAfterDiscountCents = volume.customQuote
     ? null
-    : baseSubtotalCents + addOnSubtotalCents - volumeDiscountCents;
+    : baseSubtotalCents +
+      addOnSubtotalCents -
+      welcomeOffer.totalDiscountCents -
+      volumeDiscountCents;
 
   return {
     pricingVersion: PRICING_VERSION,
     currency: input.currency,
     serviceType: input.serviceType,
     eligibleUnits,
+    volumeEligibleUnits,
     baseSubtotalCents,
     addOnSubtotalCents,
+    welcomeDiscountCents: welcomeOffer.totalDiscountCents,
+    welcomeOffer,
     volumeDiscountPercent: volume.percent,
     volumeDiscountCents,
     subtotalAfterDiscountCents,

@@ -2,13 +2,16 @@ import { z } from "zod";
 import {
   FloorPlanItemSchema,
   PhotoEditItemSchema,
+  PricingExpectationSchema,
   RenovationItemSchema,
   StagingItemSchema,
   type FloorPlanItem,
   type PhotoEditItem,
+  type PricingExpectationData,
   type RenovationItem,
   type StagingItem,
 } from "../server-validation.ts";
+import type { PricingSnapshot } from "../pricing/types.ts";
 import {
   ORDER_FILES_BUCKET,
   buildFinalPath,
@@ -51,6 +54,7 @@ export const DraftFinalizationBodySchema = z
   .object({
     expectedVersion: z.number().int().min(1),
     finalizationKey: UuidSchema,
+    pricingExpectation: PricingExpectationSchema.optional(),
   })
   .strict();
 
@@ -68,6 +72,8 @@ export type DraftFinalizationPublicErrorCode =
   | "finalization_conflict"
   | "missing_original"
   | "file_mismatch"
+  | "pricing_changed"
+  | "client_upgrade_required"
   | "storage_error"
   | "database_error"
   | "finalization_incomplete"
@@ -120,6 +126,7 @@ export type DraftFinalizationResult<T> =
       ok: false;
       code: DraftFinalizationPublicErrorCode;
       message: string;
+      currentPricingSnapshot?: PricingSnapshot;
     };
 
 export interface BrowserFileMetadata {
@@ -198,6 +205,8 @@ export interface VirtualStagingFinalizationRetryContext {
   expectedVersion: number;
   finalizationKey: string;
 }
+
+export type DraftPricingExpectation = PricingExpectationData;
 
 export type DraftFinalizationRetryContext =
   VirtualStagingFinalizationRetryContext;
@@ -1251,8 +1260,9 @@ export function isStaleVirtualStagingFinalizationClaim(input: {
 export function finalizationError<T = never>(
   code: DraftFinalizationPublicErrorCode,
   message: string,
+  currentPricingSnapshot?: PricingSnapshot,
 ): DraftFinalizationResult<T> {
-  return { ok: false, code, message };
+  return { ok: false, code, message, currentPricingSnapshot };
 }
 
 function mapDraftFileDescriptor(
