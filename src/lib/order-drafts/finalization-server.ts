@@ -264,7 +264,7 @@ async function submitTrustedOrderDraftForUser(
     const reconciledFiles = await reconcileDraftReferenceFilesForSubmission({
       userId: input.userId,
       draftId: input.draftId,
-      serviceType: context.serviceType,
+      trustedServiceType: context.serviceType,
       files: loadedFiles,
     });
     if (!reconciledFiles.ok) {
@@ -725,12 +725,12 @@ async function loadClaimedDraft(
 async function reconcileDraftReferenceFilesForSubmission(input: {
   userId: string;
   draftId: string;
-  serviceType: TrustedDraftFinalizationContext["serviceType"];
+  trustedServiceType: TrustedDraftFinalizationContext["serviceType"];
   files: OrderDraftFileRow[];
 }): Promise<DraftFinalizationResult<OrderDraftFileRow[]>> {
   if (
-    input.serviceType !== "virtual-staging" &&
-    input.serviceType !== "virtual-renovation"
+    input.trustedServiceType !== "virtual-staging" &&
+    input.trustedServiceType !== "virtual-renovation"
   ) {
     return { ok: true, data: input.files };
   }
