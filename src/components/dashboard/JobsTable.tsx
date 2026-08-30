@@ -10,6 +10,10 @@ import type {
   DashboardJobStatus,
 } from "@/lib/client-dashboard/mock-data";
 import { STATUS_LABELS } from "@/lib/client-dashboard/mock-data";
+import {
+  filterDashboardJobs,
+  getDistinctJobSecondaryLabel,
+} from "./job-workspace";
 import StatusBadge from "./StatusBadge";
 
 interface JobsTableProps {
@@ -110,23 +114,13 @@ export default function JobsTable({
     }
   }
 
-  const filtered = jobs.filter((job) => {
-    const matchesSearch =
-      search === "" ||
-      job.title.toLowerCase().includes(search.toLowerCase()) ||
-      job.reference.toLowerCase().includes(search.toLowerCase()) ||
-      job.serviceType.toLowerCase().includes(search.toLowerCase()) ||
-      (job.secondaryLabel?.toLowerCase().includes(search.toLowerCase()) ?? false);
-    const matchesStatus =
-      statusFilter === "all" || job.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filtered = filterDashboardJobs(jobs, search, statusFilter);
 
   const displayed = limit ? filtered.slice(0, limit) : filtered;
 
-  // Columns: Job | Service | Progress | Status | Est. Completion | Cost
-  // Progress + Est. Completion are hidden on small screens for readability
-  const colCount = showProgress ? 6 : 5;
+  // Desktop columns: Job | Service | Progress | Status | Cost.
+  // Meaningful estimated completion dates remain available in the mobile rows.
+  const colCount = showProgress ? 5 : 4;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -143,7 +137,7 @@ export default function JobsTable({
               placeholder="Search by title, order number, or service..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-lg bg-white placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              className="min-h-11 w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-4 text-sm transition-colors placeholder:text-muted-light focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
@@ -158,7 +152,7 @@ export default function JobsTable({
               onChange={(e) =>
                 handleStatusFilterChange(e.target.value as DashboardJobStatus | "all")
               }
-              className="w-full sm:w-auto pl-9 pr-8 py-2.5 text-sm border border-border rounded-lg bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors cursor-pointer text-foreground"
+              className="min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-border bg-white py-2.5 pl-9 pr-8 text-sm text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-auto"
               aria-label="Filter by status"
             >
               <option value="all">All statuses</option>
@@ -174,7 +168,7 @@ export default function JobsTable({
 
       {/* Results summary */}
       {showControls && (
-        <p className="text-[11px] text-muted">
+        <p className="text-[11px] text-muted" aria-live="polite">
           {displayed.length === 0
             ? "No jobs match your search or filters"
             : `Showing ${displayed.length} of ${jobs.length} job${jobs.length !== 1 ? "s" : ""}`}
@@ -182,117 +176,117 @@ export default function JobsTable({
         </p>
       )}
 
-      {/* Table */}
-      <div className="border border-border rounded-xl overflow-hidden shadow-sm bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: showProgress ? "720px" : "580px" }}>
-            <thead>
-              <tr className="bg-surface border-b border-border">
-                <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                  Job
+      <div
+        data-mobile-jobs-list
+        className="overflow-hidden rounded-xl border border-border bg-white shadow-sm md:hidden"
+      >
+        {displayed.length === 0 ? (
+          <div className="px-4 py-10">
+            <EmptyJobsMessage
+              isFiltered={Boolean(search || statusFilter !== "all")}
+            />
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {displayed.map((job) => (
+              <MobileJobRow
+                key={job.id}
+                job={job}
+                showProgress={showProgress}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div
+        data-desktop-jobs-table
+        className="hidden overflow-hidden rounded-xl border border-border bg-white shadow-sm md:block"
+      >
+        <table className="w-full table-fixed text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface">
+              <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Job
+              </th>
+              <th className="hidden px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light xl:table-cell">
+                Service
+              </th>
+              {showProgress && (
+                <th className="hidden w-32 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light xl:table-cell">
+                  Progress
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light hidden md:table-cell">
-                  Service
-                </th>
-                {showProgress && (
-                  <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light hidden lg:table-cell w-36">
-                    Progress
-                  </th>
-                )}
-                <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                  Status
-                </th>
-                <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light hidden xl:table-cell">
-                  Est. Completion
-                </th>
-                <th className="text-right px-4 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                  Cost
-                </th>
+              )}
+              <th className="w-40 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Status
+              </th>
+              <th className="w-24 px-3 py-3 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Cost
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {displayed.length === 0 ? (
+              <tr>
+                <td colSpan={colCount} className="px-4 py-12 text-center">
+                  <EmptyJobsMessage
+                    isFiltered={Boolean(search || statusFilter !== "all")}
+                  />
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {displayed.length === 0 ? (
-                <tr>
-                  <td colSpan={colCount} className="px-4 py-14 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center">
-                        <FileX className="w-5 h-5 text-muted-light" aria-hidden />
+            ) : (
+              displayed.map((job) => (
+                <tr
+                  key={job.id}
+                  className="group transition-colors hover:bg-surface/50"
+                >
+                  <td className="px-3 py-3.5 align-top">
+                    <ClientPortalLink
+                      href={`/dashboard/jobs/${job.id}`}
+                      className="group/link inline-flex min-h-11 max-w-full flex-col justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    >
+                      <span className="line-clamp-2 break-words text-[13px] font-semibold leading-snug text-foreground transition-colors group-hover/link:text-primary">
+                        {job.title}
+                      </span>
+                      <JobSecondaryLabel
+                        job={job}
+                        className="mt-0.5 line-clamp-1 break-words text-[11px] text-muted"
+                      />
+                      <span className="mt-1 line-clamp-2 break-words text-[11px] text-foreground/65 xl:hidden">
+                        {job.serviceType}
+                      </span>
+                      <span className="mt-1.5 w-fit max-w-full truncate rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted transition-colors group-hover/link:bg-primary/8">
+                        {job.reference}
+                      </span>
+                    </ClientPortalLink>
+                  </td>
+                  <td className="hidden break-words px-3 py-3.5 align-top text-[13px] leading-snug text-foreground/70 xl:table-cell">
+                    {job.serviceType}
+                  </td>
+                  {showProgress && (
+                    <td className="hidden px-3 py-3.5 align-top xl:table-cell">
+                      <ProgressBar value={job.progress} status={job.status} />
+                    </td>
+                  )}
+                  <td className="px-3 py-3.5 align-top">
+                    <StatusBadge status={job.status} compact />
+                    {showProgress && (
+                      <div className="mt-2 xl:hidden">
+                        <ProgressBar
+                          value={job.progress}
+                          status={job.status}
+                        />
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">No jobs found</p>
-                        <p className="text-xs text-muted mt-1">
-                          {search || statusFilter !== "all"
-                            ? "Try adjusting your search or filter."
-                            : "Your jobs will appear here once you place an order."}
-                        </p>
-                      </div>
-                    </div>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 text-right align-top text-[13px] font-bold tabular-nums text-foreground">
+                    {formatStoredMoney(job.costCents, job.currency)}
                   </td>
                 </tr>
-              ) : (
-                displayed.map((job) => (
-                  <tr
-                    key={job.id}
-                    className="hover:bg-surface/50 transition-colors group"
-                  >
-                    {/* Job title + reference — links to the detail page */}
-                    <td className="px-4 py-3.5">
-                      <ClientPortalLink
-                        href={`/dashboard/jobs/${job.id}`}
-                        className="block group/link"
-                      >
-                        <p className="font-semibold text-foreground group-hover/link:text-primary transition-colors leading-snug text-[13px]">
-                          {job.title}
-                        </p>
-                        {job.secondaryLabel && (
-                          <p className="text-[11px] text-muted mt-0.5 truncate">
-                            {job.secondaryLabel}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-muted font-mono bg-surface px-1.5 py-0.5 rounded group-hover/link:bg-primary/8 transition-colors">
-                            {job.reference}
-                          </span>
-                          <span className="text-[10px] text-muted-light hidden sm:inline">
-                            {job.imageCount} image{job.imageCount !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                      </ClientPortalLink>
-                    </td>
-                    {/* Service */}
-                    <td className="px-4 py-3.5 hidden md:table-cell">
-                      <span className="text-[13px] text-foreground/70">{job.serviceType}</span>
-                    </td>
-                    {/* Progress bar */}
-                    {showProgress && (
-                      <td className="px-4 py-3.5 hidden lg:table-cell">
-                        <ProgressBar value={job.progress} status={job.status} />
-                      </td>
-                    )}
-                    {/* Status */}
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={job.status} />
-                      {/* Show progress inline on small screens where the column is hidden */}
-                      {showProgress && (
-                        <div className="mt-1.5 lg:hidden">
-                          <ProgressBar value={job.progress} status={job.status} />
-                        </div>
-                      )}
-                    </td>
-                    {/* Est. completion */}
-                    <td className="px-4 py-3.5 hidden xl:table-cell text-[13px] text-foreground/65">
-                      {formatDate(job.estimatedCompletion)}
-                    </td>
-                    {/* Cost */}
-                    <td className="px-4 py-3.5 text-right font-bold text-foreground tabular-nums text-[13px]">
-                      {formatStoredMoney(job.costCents, job.currency)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {limit && filtered.length > limit && (
@@ -306,6 +300,109 @@ export default function JobsTable({
           </ClientPortalLink>
         </div>
       )}
+    </div>
+  );
+}
+
+function MobileJobRow({
+  job,
+  showProgress,
+}: {
+  job: DashboardJob;
+  showProgress: boolean;
+}) {
+  const estimatedCompletion = formatDate(job.estimatedCompletion);
+  const showEstimatedCompletion =
+    estimatedCompletion !== "—" && estimatedCompletion !== "Delivered";
+
+  return (
+    <li>
+      <article>
+        <ClientPortalLink
+          href={`/dashboard/jobs/${job.id}`}
+          aria-label={`Open ${job.title}, ${job.reference}`}
+          className="group block min-h-11 p-4 transition-colors hover:bg-surface/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <span className="line-clamp-2 break-words text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
+                {job.title}
+              </span>
+              <JobSecondaryLabel
+                job={job}
+                className="mt-0.5 line-clamp-1 break-words text-xs text-muted"
+              />
+            </div>
+            <StatusBadge status={job.status} compact />
+          </div>
+
+          <span className="mt-2 block w-fit max-w-full truncate rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
+            {job.reference}
+          </span>
+          <span className="mt-2 line-clamp-2 break-words text-xs leading-relaxed text-foreground/70">
+            {job.serviceType}
+          </span>
+
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3 text-xs">
+            <span>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+                Cost
+              </span>
+              <span className="mt-0.5 block whitespace-nowrap font-bold tabular-nums text-foreground">
+                {formatStoredMoney(job.costCents, job.currency)}
+              </span>
+            </span>
+            {showEstimatedCompletion && (
+              <span>
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+                  Estimated
+                </span>
+                <span className="mt-0.5 block text-foreground/70">
+                  {estimatedCompletion}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {showProgress && (
+            <div className="mt-3">
+              <ProgressBar value={job.progress} status={job.status} />
+            </div>
+          )}
+        </ClientPortalLink>
+      </article>
+    </li>
+  );
+}
+
+function JobSecondaryLabel({
+  job,
+  className,
+}: {
+  job: DashboardJob;
+  className: string;
+}) {
+  const secondaryLabel = getDistinctJobSecondaryLabel(job);
+
+  if (!secondaryLabel) return null;
+
+  return <span className={className}>{secondaryLabel}</span>;
+}
+
+function EmptyJobsMessage({ isFiltered }: { isFiltered: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface">
+        <FileX className="h-5 w-5 text-muted-light" aria-hidden />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-foreground">No jobs found</p>
+        <p className="mt-1 text-xs text-muted">
+          {isFiltered
+            ? "Try adjusting your search or filter."
+            : "Your jobs will appear here once you place an order."}
+        </p>
+      </div>
     </div>
   );
 }

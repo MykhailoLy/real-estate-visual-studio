@@ -186,7 +186,7 @@ export const MOCK_CLIENT = {
 };
 
 export const STATUS_LABELS: Record<DashboardJobStatus, string> = {
-  "awaiting-submission": "Awaiting Submission",
+  "awaiting-submission": "Awaiting Confirmation",
   "in-progress": "In Progress",
   "revision-requested": "Revision Requested",
   "pending-rework": "Pending Rework",

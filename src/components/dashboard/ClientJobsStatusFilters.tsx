@@ -19,18 +19,18 @@ export default function ClientJobsStatusFilters({
   return (
     <section
       aria-labelledby="jobs-status-filters-title"
-      className="mb-5 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4"
+      className="mb-4 border-b border-border pb-4"
     >
-      <h2
+      <h3
         id="jobs-status-filters-title"
-        className="mb-2 px-1 text-xs font-bold uppercase tracking-[0.14em] text-primary"
+        className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-primary"
       >
         Filter jobs by status
-      </h2>
+      </h3>
       <div
         role="group"
         aria-label="Filter jobs by status"
-        className="flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden"
       >
         {JOB_STATUS_FILTERS.map((filter) => {
           const active = activeStatusFilter === filter.value;
@@ -43,7 +43,7 @@ export default function ClientJobsStatusFilters({
               aria-pressed={active}
               onClick={() => onStatusFilter(filter.value)}
               className={cn(
-                "inline-flex min-h-10 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                "inline-flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                 active
                   ? "border-primary bg-primary text-white shadow-sm"
                   : "border-border bg-white text-foreground/70 hover:border-primary/40 hover:text-primary",
