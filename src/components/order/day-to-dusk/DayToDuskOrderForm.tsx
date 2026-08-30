@@ -77,6 +77,11 @@ import {
   prepareDraftReferenceFile,
   uploadPreparedDraftReferenceFile,
 } from "@/lib/order-drafts/draft-reference-files-client";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import {
+  applyAuthoritativeWelcomeOfferSnapshot,
+  createPricingExpectation,
+} from "@/lib/pricing/expectation";
 
 // ============================================================
 // DayToDuskOrderForm — dedicated Day to Dusk order flow.
@@ -882,6 +887,21 @@ export default function DayToDuskOrderForm({
         files,
         orderTermsRef.current,
         jobTitleRef.current,
+        undefined,
+        createPricingExpectation(
+          calculateOrderQuote(
+            {
+              serviceType: "photo-editing",
+              currency,
+              items: itemsRef.current.map(() => ({
+                selectedOptions: [DAY_TO_DUSK_OPTION_ID],
+                baseOptionId: DAY_TO_DUSK_OPTION_ID,
+                dedicatedSubService: DAY_TO_DUSK_SUB_SERVICE,
+              })),
+            },
+            { welcomeOfferAvailability: activeWelcomeOfferAvailability },
+          ),
+        ),
       );
       if (result.success && result.orderId && result.orderNumber) {
         setOrderId(result.orderId);
@@ -901,10 +921,13 @@ export default function DayToDuskOrderForm({
       }
       if (redirectOnOrderAuthError(result, orderRoute)) return;
       if (result.errorCode === "pricing-changed") {
-        setActiveWelcomeOfferAvailability((current) => ({
-          ...current,
-          dayToDuskAvailable: false,
-        }));
+        setActiveWelcomeOfferAvailability((current) =>
+          applyAuthoritativeWelcomeOfferSnapshot(
+            current,
+            "day-to-dusk-free",
+            result.currentPricingSnapshot,
+          ),
+        );
       }
       setSubmitError(result.error || "Submission failed. Please try again.");
     } catch (error) {

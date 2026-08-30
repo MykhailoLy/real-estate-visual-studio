@@ -2,6 +2,8 @@ import type {
   DraftFinalizationStatusDto,
   DraftFinalizationPublicErrorCode,
 } from "./finalization.ts";
+import type { PricingExpectation } from "../pricing/expectation.ts";
+import type { PricingSnapshot } from "../pricing/types.ts";
 
 export interface SubmitOrderDraftSuccess {
   orderNumber: string;
@@ -26,6 +28,7 @@ export type DraftFinalizationClientResult =
       code: DraftFinalizationClientErrorCode;
       message: string;
       details?: unknown;
+      currentPricingSnapshot?: PricingSnapshot;
     };
 
 export type DraftFinalizationStatusClientResult =
@@ -46,12 +49,14 @@ interface ApiError {
   error?: string;
   code?: DraftFinalizationClientErrorCode;
   details?: unknown;
+  currentPricingSnapshot?: PricingSnapshot;
 }
 
 export async function submitOrderDraft(
   draftId: string,
   expectedVersion: number,
   finalizationKey: string,
+  pricingExpectation?: PricingExpectation,
   signal?: AbortSignal,
 ): Promise<DraftFinalizationClientResult> {
   let response: Response;
@@ -62,7 +67,11 @@ export async function submitOrderDraft(
         method: "POST",
         cache: "no-store",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ expectedVersion, finalizationKey }),
+        body: JSON.stringify({
+          expectedVersion,
+          finalizationKey,
+          pricingExpectation,
+        }),
         signal,
       },
     );
@@ -87,6 +96,7 @@ export async function submitOrderDraft(
       code: errorPayload.code ?? "unexpected_error",
       message: errorPayload.error ?? "Draft finalization failed.",
       details: errorPayload.details,
+      currentPricingSnapshot: errorPayload.currentPricingSnapshot,
     };
   }
 

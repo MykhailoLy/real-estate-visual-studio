@@ -15,6 +15,7 @@ import {
 import { validateReferenceFiles } from "@/lib/reference-files";
 import { canonicalJson } from "@/lib/orders/canonical-json";
 import type { PricingSnapshot } from "@/lib/pricing/types";
+import type { PricingExpectation } from "@/lib/pricing/expectation";
 import {
   clearOrderSubmissionRecord,
   readOrderSubmissionRecord,
@@ -274,7 +275,8 @@ export async function submitOrder(
    * (3–120 trimmed chars) and persists it to orders.job_title.
    */
   jobTitle: string,
-  deliveryPreferences?: DeliveryPreferencesData
+  deliveryPreferences?: DeliveryPreferencesData,
+  pricingExpectation?: PricingExpectation,
 ): Promise<OrderSubmitResult> {
   // Reconcile a previous unknown outcome before reading the current form or
   // requiring browser File objects. This is also a defense-in-depth guard for
@@ -364,6 +366,7 @@ export async function submitOrder(
     earlyPerformanceRequested: orderTerms.earlyPerformanceRequested,
     portfolioAllowed: orderTerms.allowPortfolio,
     deliveryPreferences: deliveryPreferences ?? null,
+    pricingExpectation: pricingExpectation ?? null,
     items,
     files: files.map((slot) => ({
       original: fileIdentity(slot.file),
@@ -554,6 +557,7 @@ export async function submitOrder(
       requested: orderTerms.earlyPerformanceRequested,
       version: EARLY_PERFORMANCE_VERSION,
     },
+    pricingExpectation,
     portfolioPermission: {
       allowed: orderTerms.allowPortfolio,
     },

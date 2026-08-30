@@ -30,6 +30,8 @@ import {
   type VirtualStagingDraftState,
 } from "./virtual-staging.ts";
 import type { OrderDraftFileRow, OrderDraftRow } from "./types.ts";
+import { PRICING_VERSION } from "../pricing/catalog.ts";
+import { WELCOME_OFFER_VERSION } from "../welcome-offer.ts";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const DRAFT_ID = "22222222-2222-4222-8222-222222222222";
@@ -251,6 +253,31 @@ test("finalization body validation accepts expected version and UUID key", () =>
       finalizationKey: FINALIZATION_KEY,
     }).success,
     true,
+  );
+});
+
+test("finalization accepts only the non-authoritative pricing expectation shape", () => {
+  const pricingExpectation = {
+    pricingVersion: PRICING_VERSION,
+    welcomeOfferVersion: WELCOME_OFFER_VERSION,
+    welcomeBenefitKey: "virtual-staging-first-image-50",
+    totalCents: 2900,
+  };
+  assert.equal(
+    DraftFinalizationBodySchema.safeParse({
+      expectedVersion: 4,
+      finalizationKey: FINALIZATION_KEY,
+      pricingExpectation,
+    }).success,
+    true,
+  );
+  assert.equal(
+    DraftFinalizationBodySchema.safeParse({
+      expectedVersion: 4,
+      finalizationKey: FINALIZATION_KEY,
+      pricingExpectation: { ...pricingExpectation, eligibility: true },
+    }).success,
+    false,
   );
 });
 
@@ -495,6 +522,30 @@ test("draft finalization supplies trusted early-performance authority", () => {
 test("pricing preview is ignored for final pricing", () => {
   assert.match(FINALIZATION_SERVER, /createProductionOrder/);
   assert.doesNotMatch(FINALIZATION_SERVER, /pricingPreview/);
+});
+
+test("draft finalization forwards the reviewed expectation and releases its claim on stale pricing", () => {
+  const createOrderCall = sourceSlice(
+    FINALIZATION_SERVER,
+    "const orderResult = await createProductionOrder({",
+    "if (!orderResult.ok)",
+  );
+  assert.match(
+    createOrderCall,
+    /pricingExpectation: input\.pricingExpectation/,
+  );
+  assert.match(
+    FINALIZATION_SERVER,
+    /if \(!orderResult\.ok\)[\s\S]*await releaseClaimBestEffort\(input\);[\s\S]*orderResult\.code === "pricing_changed"[\s\S]*orderResult\.code === "client_upgrade_required"[\s\S]*orderResult\.currentPricingSnapshot/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /submitVirtualStagingDraft\([\s\S]{0,220}buildCurrentPricingExpectation\(\)/,
+  );
+  assert.match(
+    VIRTUAL_STAGING_FORM,
+    /result\.code === "pricing_changed"[\s\S]{0,260}result\.currentPricingSnapshot/,
+  );
 });
 
 test("files match by clientItemId, not itemIndex", () => {

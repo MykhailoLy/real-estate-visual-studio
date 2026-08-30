@@ -7,6 +7,12 @@ import type {
   TransactionalCurrency,
 } from "./types.ts";
 import { WELCOME_OFFER_VERSION } from "../welcome-offer.ts";
+import {
+  applyAuthoritativeWelcomeOfferSnapshot,
+  comparePricingExpectation,
+  createPricingExpectation,
+} from "./expectation.ts";
+import { createPricingSnapshot } from "./snapshot.ts";
 
 const AVAILABLE = {
   imageEnhancementAvailable: true,
@@ -253,5 +259,92 @@ test("unknown browser fields cannot choose a key, percentage, amount, or item", 
   assert.equal(
     quote.welcomeDiscountCents,
     Math.round(getCatalogPrice("virtual-staging", "USD") / 2),
+  );
+});
+
+test("pricing expectation records only the reviewed versions, benefit key, and total", () => {
+  const quote = calculateOrderQuote(
+    {
+      serviceType: "virtual-staging",
+      currency: "USD",
+      items: stagingItems(1),
+    },
+    { welcomeOfferAvailability: AVAILABLE },
+  );
+  const expectation = createPricingExpectation(quote);
+  assert.deepEqual(expectation, {
+    pricingVersion: quote.pricingVersion,
+    welcomeOfferVersion: quote.welcomeOffer.version,
+    welcomeBenefitKey: "virtual-staging-first-image-50",
+    totalCents: quote.totalCents,
+  });
+  assert.deepEqual(comparePricingExpectation(expectation, quote), { ok: true });
+});
+
+test("pricing expectation distinguishes stale code from a changed authoritative quote", () => {
+  const eligible = calculateOrderQuote(
+    {
+      serviceType: "virtual-staging",
+      currency: "USD",
+      items: stagingItems(1),
+    },
+    { welcomeOfferAvailability: AVAILABLE },
+  );
+  const ordinary = calculateOrderQuote({
+    serviceType: "virtual-staging",
+    currency: "USD",
+    items: stagingItems(1),
+  });
+  const expectation = createPricingExpectation(eligible)!;
+  assert.deepEqual(comparePricingExpectation(undefined, ordinary), {
+    ok: false,
+    reason: "client_upgrade_required",
+  });
+  assert.deepEqual(
+    comparePricingExpectation(
+      { ...expectation, pricingVersion: "stale" },
+      ordinary,
+    ),
+    { ok: false, reason: "client_upgrade_required" },
+  );
+  assert.deepEqual(comparePricingExpectation(expectation, ordinary), {
+    ok: false,
+    reason: "pricing_changed",
+  });
+});
+
+test("authoritative pricing snapshot can restore or remove the current service benefit presentation", () => {
+  const eligible = createPricingSnapshot(
+    calculateOrderQuote(
+      {
+        serviceType: "virtual-staging",
+        currency: "USD",
+        items: stagingItems(1),
+      },
+      { welcomeOfferAvailability: AVAILABLE },
+    ),
+  );
+  const ordinary = createPricingSnapshot(
+    calculateOrderQuote({
+      serviceType: "virtual-staging",
+      currency: "USD",
+      items: stagingItems(1),
+    }),
+  );
+  assert.equal(
+    applyAuthoritativeWelcomeOfferSnapshot(
+      { ...AVAILABLE, virtualStagingAvailable: false },
+      "virtual-staging-first-image-50",
+      eligible,
+    ).virtualStagingAvailable,
+    true,
+  );
+  assert.equal(
+    applyAuthoritativeWelcomeOfferSnapshot(
+      AVAILABLE,
+      "virtual-staging-first-image-50",
+      ordinary,
+    ).virtualStagingAvailable,
+    false,
   );
 });

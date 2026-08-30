@@ -59,3 +59,33 @@ test("approved public Welcome Offer copy is present in English and Spanish", () 
   assert.match(WELCOME_OFFER_PUBLIC_COPY.en.rules, /once per account/);
   assert.match(WELCOME_OFFER_PUBLIC_COPY.es.rules, /una sola vez por cuenta/);
 });
+
+test("eligible review flows submit an expectation built from their displayed quote", () => {
+  for (const path of [
+    "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
+    "src/components/order/image-enhancement/SingleExposureOrderForm.tsx",
+    "src/components/order/day-to-dusk/DayToDuskOrderForm.tsx",
+  ]) {
+    const form = source(path);
+    assert.match(form, /createPricingExpectation\(/);
+    assert.match(form, /calculateOrderQuote\(/);
+    assert.match(form, /activeWelcomeOfferAvailability/);
+    assert.match(form, /submit(?:VirtualStagingDraft|Order)\(/);
+  }
+});
+
+test("pricing conflicts reconcile the current benefit from the authoritative snapshot", () => {
+  for (const path of [
+    "src/components/order/virtual-staging/VirtualStagingOrderForm.tsx",
+    "src/components/order/image-enhancement/SingleExposureOrderForm.tsx",
+    "src/components/order/day-to-dusk/DayToDuskOrderForm.tsx",
+  ]) {
+    const form = source(path);
+    assert.match(form, /applyAuthoritativeWelcomeOfferSnapshot\(/);
+    assert.match(form, /currentPricingSnapshot/);
+    assert.doesNotMatch(
+      form,
+      /errorCode === "pricing-changed"[\s\S]{0,220}(?:virtualStagingAvailable|imageEnhancementAvailable|dayToDuskAvailable): false/,
+    );
+  }
+});

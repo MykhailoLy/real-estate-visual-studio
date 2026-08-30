@@ -51,6 +51,11 @@ import {
   scrollElementIntoViewWithinDashboard,
 } from "@/lib/dashboard-scroll";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import {
+  applyAuthoritativeWelcomeOfferSnapshot,
+  createPricingExpectation,
+} from "@/lib/pricing/expectation";
 import { currencyForRegion } from "@/lib/currency";
 import {
   LANGUAGE_CHANGE_EVENT,
@@ -2303,9 +2308,27 @@ export default function VirtualStagingOrderForm({
       retryContext.draftId,
       retryContext.expectedVersion,
       retryContext.finalizationKey,
+      buildCurrentPricingExpectation(),
     );
     applyDraftFinalizationResult(result, retryContext, sessionAtStart);
   };
+
+  function buildCurrentPricingExpectation(
+    currentItems: StagingItemData[] = itemsRef.current,
+  ) {
+    return createPricingExpectation(
+      calculateOrderQuote(
+        {
+          serviceType: "virtual-staging",
+          currency,
+          items: currentItems.map((item) => ({
+            selectedAddons: item.selectedAddons,
+          })),
+        },
+        { welcomeOfferAvailability: activeWelcomeOfferAvailability },
+      ),
+    );
+  }
 
   const submitCurrentLocalOrder = async (
     currentItems: StagingItemData[],
@@ -2375,6 +2398,8 @@ export default function VirtualStagingOrderForm({
       files,
       orderTerms,
       jobTitle,
+      undefined,
+      buildCurrentPricingExpectation(currentItems),
     );
   };
 
@@ -2487,10 +2512,13 @@ export default function VirtualStagingOrderForm({
     }
 
     if (result.code === "pricing_changed") {
-      setActiveWelcomeOfferAvailability((current) => ({
-        ...current,
-        virtualStagingAvailable: false,
-      }));
+      setActiveWelcomeOfferAvailability((current) =>
+        applyAuthoritativeWelcomeOfferSnapshot(
+          current,
+          "virtual-staging-first-image-50",
+          result.currentPricingSnapshot,
+        ),
+      );
     }
     submissionInFlightRef.current = false;
     setIsSubmitting(false);
@@ -2555,6 +2583,7 @@ export default function VirtualStagingOrderForm({
         retryContext.draftId,
         retryContext.expectedVersion,
         retryContext.finalizationKey,
+        buildCurrentPricingExpectation(),
       );
       applyDraftFinalizationResult(result, retryContext, sessionAtStart);
       return;
@@ -2670,10 +2699,13 @@ export default function VirtualStagingOrderForm({
         return;
       }
       if (result.errorCode === "pricing-changed") {
-        setActiveWelcomeOfferAvailability((current) => ({
-          ...current,
-          virtualStagingAvailable: false,
-        }));
+        setActiveWelcomeOfferAvailability((current) =>
+          applyAuthoritativeWelcomeOfferSnapshot(
+            current,
+            "virtual-staging-first-image-50",
+            result.currentPricingSnapshot,
+          ),
+        );
       }
       submissionInFlightRef.current = false;
       setIsSubmitting(false);
@@ -2694,6 +2726,7 @@ export default function VirtualStagingOrderForm({
       nextRetryContext.draftId,
       nextRetryContext.expectedVersion,
       nextRetryContext.finalizationKey,
+      buildCurrentPricingExpectation(),
     );
     applyDraftFinalizationResult(result, nextRetryContext, sessionAtStart);
   };

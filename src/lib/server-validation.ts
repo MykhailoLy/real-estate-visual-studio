@@ -36,6 +36,7 @@ import {
   STAGING_ADDON_IDS,
 } from "./pricing/catalog.ts";
 import { TRANSACTIONAL_CURRENCIES } from "./pricing/types.ts";
+import { WELCOME_OFFER_BENEFIT_KEYS } from "./welcome-offer.ts";
 
 // ============================================================
 // SERVER-SIDE VALIDATION SCHEMAS
@@ -539,6 +540,15 @@ export const ItemFilesSchema = z
 // `itemFiles` is parallel to `items` (same length / same index order)
 // and points to files already uploaded to Supabase Storage. The API
 // route enforces this length match and refuses orders without it.
+export const PricingExpectationSchema = z
+  .object({
+    pricingVersion: z.string().min(1).max(100),
+    welcomeOfferVersion: z.string().min(1).max(100),
+    welcomeBenefitKey: z.enum(WELCOME_OFFER_BENEFIT_KEYS).nullable(),
+    totalCents: z.number().int().nonnegative().safe(),
+  })
+  .strict();
+
 export const OrderMetadataSchema = z.object({
   submissionId: z.string().uuid(),
   serviceType: ServiceTypeSchema,
@@ -558,6 +568,7 @@ export const OrderMetadataSchema = z.object({
   deliveryPreferences: DeliveryPreferencesSchema.optional(),
   termsAcceptance: TermsAcceptanceSchema,
   earlyPerformanceRequest: EarlyPerformanceRequestSchema,
+  pricingExpectation: PricingExpectationSchema.optional(),
   portfolioPermission: PortfolioPermissionSchema.optional(),
   items: z.array(z.unknown()).min(1, "At least one item is required").max(50, "Maximum 50 items per order"),
   itemFiles: z
@@ -576,6 +587,9 @@ export type DeliveryPreferences = z.infer<typeof DeliveryPreferencesSchema>;
 export type TermsAcceptance = z.infer<typeof TermsAcceptanceSchema>;
 export type EarlyPerformanceRequest = z.infer<
   typeof EarlyPerformanceRequestSchema
+>;
+export type PricingExpectationData = NonNullable<
+  z.infer<typeof PricingExpectationSchema>
 >;
 export type PortfolioPermission = z.infer<typeof PortfolioPermissionSchema>;
 export type StagingItem = z.infer<typeof StagingItemSchema>;

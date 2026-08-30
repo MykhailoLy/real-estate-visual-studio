@@ -51,6 +51,7 @@ import {
   type DraftFinalizationCompleteResultCode,
   type DraftFinalizationSlot,
   type DraftFinalizationResult,
+  type DraftPricingExpectation,
   type ParsedFinalizationRpcResult,
   type TrustedMovedDraftFile,
 } from "./finalization.ts";
@@ -70,6 +71,7 @@ export interface SubmitOrderDraftInput {
   draftId: string;
   expectedVersion: number;
   finalizationKey: string;
+  pricingExpectation?: DraftPricingExpectation;
   clientIdentity: ResolvedClientIdentity;
 }
 
@@ -302,6 +304,7 @@ async function submitTrustedOrderDraftForUser(
         requested: context.termsUi.earlyPerformanceRequested,
         version: EARLY_PERFORMANCE_VERSION,
       },
+      pricingExpectation: input.pricingExpectation,
       portfolioPermission: {
         allowed: context.termsUi.allowPortfolio,
       },
@@ -334,10 +337,13 @@ async function submitTrustedOrderDraftForUser(
           ? "storage_error"
           : orderResult.code === "pricing_changed"
             ? "pricing_changed"
+          : orderResult.code === "client_upgrade_required"
+            ? "client_upgrade_required"
           : orderResult.code === "database_error"
             ? "database_error"
             : "invalid_status",
         orderResult.message,
+        orderResult.currentPricingSnapshot,
       );
     }
 

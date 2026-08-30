@@ -11,6 +11,7 @@ import {
   type FloorPlanItem,
   type ItemFiles,
   type PhotoEditItem,
+  type PricingExpectationData,
   type RenovationItem,
   type ServiceType,
   type StagingItem,
@@ -36,6 +37,8 @@ import type {
   TransactionalCurrency,
 } from "@/lib/pricing/types";
 import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
+import type { WelcomeOfferBenefitKey } from "@/lib/welcome-offer";
+import { comparePricingExpectation } from "@/lib/pricing/expectation";
 import {
   getWelcomeOfferAvailability,
   WelcomeOfferEligibilityError,
@@ -142,6 +145,7 @@ export interface CreateProductionOrderInput {
     version?: string;
     requestedAt?: string;
   };
+  pricingExpectation?: PricingExpectationData;
   portfolioPermission?: { allowed: boolean };
   sourceDraftId?: string;
   draftExpectedVersion?: number;
@@ -368,22 +372,28 @@ export async function createProductionOrder(
   if (!aerialValidation.ok) return aerialValidation;
 
   const supabase = getSupabaseAdminClient();
-  let welcomeOfferAvailability: WelcomeOfferAvailability;
-  try {
-    welcomeOfferAvailability = await getWelcomeOfferAvailability(
-      input.ownerUserId,
-      supabase,
-    );
-  } catch (error) {
-    if (error instanceof WelcomeOfferEligibilityError) {
-      return {
-        ok: false,
-        code: "database_error",
-        message: "Welcome Offer eligibility could not be verified. Please retry.",
-        status: 503,
-      };
+  const potentialWelcomeBenefitKey = getPotentialWelcomeOfferBenefitKey(
+    input.serviceType,
+    input.items,
+  );
+  let welcomeOfferAvailability: WelcomeOfferAvailability | undefined;
+  if (potentialWelcomeBenefitKey) {
+    try {
+      welcomeOfferAvailability = await getWelcomeOfferAvailability(
+        input.ownerUserId,
+        supabase,
+      );
+    } catch (error) {
+      if (error instanceof WelcomeOfferEligibilityError) {
+        return {
+          ok: false,
+          code: "database_error",
+          message: "Welcome Offer eligibility could not be verified. Please retry.",
+          status: 503,
+        };
+      }
+      throw error;
     }
-    throw error;
   }
 
   let quote: OrderQuote;
@@ -413,6 +423,32 @@ export async function createProductionOrder(
       message: "Orders with 50 or more eligible units require a custom quote.",
       status: 409,
     };
+  }
+
+  if (potentialWelcomeBenefitKey) {
+    const expectationComparison = comparePricingExpectation(
+      input.pricingExpectation,
+      quote,
+    );
+    if (!expectationComparison.ok) {
+      if (expectationComparison.reason === "client_upgrade_required") {
+        return {
+          ok: false,
+          code: "client_upgrade_required",
+          message:
+            "Pricing information has changed. Refresh the page, review the current price, and submit again.",
+          status: 409,
+        };
+      }
+      return {
+        ok: false,
+        code: "pricing_changed",
+        message:
+          "Welcome Offer eligibility or pricing changed. Review and confirm the current price.",
+        status: 409,
+        currentPricingSnapshot: createPricingSnapshot(quote),
+      };
+    }
   }
 
   const requestHash = createOrderIntentHash({
@@ -639,9 +675,14 @@ export async function createProductionOrder(
         .filter((file) => file.draftFileId)
         .map((file) => ({ fileId: file.draftFileId!, finalPath: file.finalPath }))
     : null;
-  const { data: commitData, error: commitError } = await supabase.rpc(
-    "commit_order_submission_with_welcome_offer_v1",
-    {
+  const appliedWelcomeBenefitKeys = pricingSnapshot.welcomeOffer.benefits.map(
+    (benefit) => benefit.key,
+  );
+  const commitRpcName =
+    appliedWelcomeBenefitKeys.length > 0
+      ? "commit_order_submission_with_welcome_offer_v1"
+      : "commit_order_submission";
+  const commitRpcParams = {
       p_user_id: input.ownerUserId,
       p_submission_id: input.submissionId,
       p_request_hash: requestHash,
@@ -652,13 +693,16 @@ export async function createProductionOrder(
       p_client_company: input.clientIdentity.company,
       p_job_title: input.jobTitle,
       p_items: orderItemsPayload,
-      p_welcome_offer_benefit_keys: pricingSnapshot.welcomeOffer.benefits.map(
-        (benefit) => benefit.key,
-      ),
       p_draft_expected_version: input.draftExpectedVersion ?? null,
       p_draft_finalization_key: input.draftFinalizationKey ?? null,
       p_draft_moved_files: movedDraftFiles,
-    },
+      ...(appliedWelcomeBenefitKeys.length > 0
+        ? { p_welcome_offer_benefit_keys: appliedWelcomeBenefitKeys }
+        : {}),
+    };
+  const { data: commitData, error: commitError } = await supabase.rpc(
+    commitRpcName,
+    commitRpcParams,
   );
 
   let commit = firstRpcRow<OrderSubmissionCommitRow>(commitData);
@@ -940,6 +984,29 @@ function calculateServerQuote(
       break;
   }
   return calculateOrderQuote(input, { welcomeOfferAvailability });
+}
+
+export function getPotentialWelcomeOfferBenefitKey(
+  serviceType: ServiceType,
+  items: ValidatedOrderItem[],
+): WelcomeOfferBenefitKey | null {
+  if (serviceType === "virtual-staging") {
+    return "virtual-staging-first-image-50";
+  }
+  if (serviceType !== "photo-editing" || items.length === 0) return null;
+
+  const photoItems = items as PhotoEditItem[];
+  if (
+    photoItems.every(
+      (item) => item.subService === "image-enhancement-single-exposure",
+    )
+  ) {
+    return "image-enhancement-free";
+  }
+  if (photoItems.every((item) => item.subService === "day-to-dusk")) {
+    return "day-to-dusk-free";
+  }
+  return null;
 }
 
 function buildDeliveryPreferences(
