@@ -12,6 +12,14 @@ import {
   safeDashboardRequestPath,
 } from "./dashboard-request-path.ts";
 import { getOrderServiceCatalog } from "./order-service-catalog.ts";
+import {
+  filterDashboardJobs,
+  getOpenDashboardJobs,
+} from "../components/dashboard/job-workspace.ts";
+import type {
+  DashboardJob,
+  DashboardJobStatus,
+} from "./client-dashboard/mock-data.ts";
 
 const SOURCE_DIRECTORY = fileURLToPath(new URL("../", import.meta.url));
 
@@ -36,6 +44,27 @@ function sourceFilesUnder(path: string): string[] {
 
   visit(root);
   return files;
+}
+
+function makeDashboardJob(
+  id: string,
+  status: DashboardJobStatus,
+  overrides: Partial<DashboardJob> = {},
+): DashboardJob {
+  return {
+    id,
+    title: `Job ${id}`,
+    reference: `REF-${id}`,
+    serviceType: "Virtual Staging",
+    status,
+    submittedDate: "2026-08-01",
+    estimatedCompletion: "2026-08-03",
+    progress: 50,
+    costCents: 4900,
+    currency: "EUR",
+    imageCount: 1,
+    ...overrides,
+  };
 }
 
 test("proxy matcher and pass-through exclude public auth pages from Supabase work", () => {
@@ -343,6 +372,143 @@ test("compact Saved Drafts reuses the existing list and Resume or Finish flow", 
   assert.match(savedDraftsSource, /resume: copy\.resume/);
   assert.match(savedDraftsSource, /finish: copy\.finish/);
   assert.match(savedDraftsSource, /href=\{resumeUrl\}/);
+});
+
+test("Jobs workspace keeps a bounded rail before the flexible jobs area", () => {
+  const shellSource = source("components/dashboard/ClientJobsShell.tsx");
+  const railSource = source("components/dashboard/JobsWorkspaceRail.tsx");
+  const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
+  const draftsRouteSource = source("app/(dashboard)/dashboard/drafts/page.tsx");
+  const railIndex = shellSource.indexOf("<JobsWorkspaceRail jobs={jobs} />");
+  const allJobsIndex = shellSource.indexOf("data-all-jobs-workspace");
+
+  assert.match(shellSource, /data-jobs-workspace/);
+  assert.match(shellSource, /grid grid-cols-1 gap-6/);
+  assert.match(shellSource, /lg:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.match(shellSource, /xl:grid-cols-\[340px_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(shellSource, /grid-cols-\[33%|grid-cols-4|col-span-1/);
+  assert.ok(railIndex >= 0 && allJobsIndex > railIndex);
+  assert.match(
+    shellSource,
+    /<JobsWorkspaceRail jobs=\{jobs\} \/>[\s\S]*?\{hasJobs \? \(/,
+  );
+  assert.match(railSource, /<SavedDraftsSection variant="rail" \/>/);
+  assert.doesNotMatch(railSource, /listOrderDrafts|\/api\/order-drafts|fetch\(/);
+  assert.equal(
+    savedDraftsSource.match(/listOrderDrafts\(3, controller\.signal\)/g)
+      ?.length,
+    1,
+  );
+  assert.match(draftsRouteSource, /<ClientDraftsPage \/>/);
+});
+
+test("Jobs rail derives only open orders and reuses detail links and StatusBadge", () => {
+  const railSource = source("components/dashboard/JobsWorkspaceRail.tsx");
+  const jobs = [
+    makeDashboardJob("pending", "awaiting-submission"),
+    makeDashboardJob("active", "in-progress"),
+    makeDashboardJob("done", "completed"),
+    makeDashboardJob("cancelled", "cancelled"),
+    makeDashboardJob("revision", "pending-rework"),
+    makeDashboardJob("fourth-open", "new-version-ready"),
+  ];
+
+  assert.deepEqual(
+    getOpenDashboardJobs(jobs).map((job) => job.id),
+    ["pending", "active", "revision"],
+  );
+  assert.match(railSource, /getOpenDashboardJobs\(jobs\)/);
+  assert.match(railSource, /<StatusBadge status=\{job\.status\} compact \/>/);
+  assert.match(
+    railSource,
+    /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/,
+  );
+  assert.match(railSource, /Open jobs/);
+  assert.doesNotMatch(railSource, /Needs attention|pending orders/i);
+});
+
+test("Jobs filtering still matches title, reference, and service", () => {
+  const jobs = [
+    makeDashboardJob("title", "in-progress", {
+      title: "Marbella penthouse",
+      reference: "VS-1001",
+      serviceType: "Virtual Staging",
+    }),
+    makeDashboardJob("reference", "completed", {
+      title: "Seaside apartment",
+      reference: "FP-2042",
+      serviceType: "Floor Plans",
+    }),
+    makeDashboardJob("service", "in-progress", {
+      title: "Garden villa",
+      reference: "PE-3003",
+      serviceType: "Image Enhancement",
+    }),
+  ];
+
+  assert.deepEqual(
+    filterDashboardJobs(jobs, "marbella", "all").map((job) => job.id),
+    ["title"],
+  );
+  assert.deepEqual(
+    filterDashboardJobs(jobs, "fp-2042", "all").map((job) => job.id),
+    ["reference"],
+  );
+  assert.deepEqual(
+    filterDashboardJobs(jobs, "image enhancement", "all").map(
+      (job) => job.id,
+    ),
+    ["service"],
+  );
+  assert.deepEqual(
+    filterDashboardJobs(jobs, "", "completed").map((job) => job.id),
+    ["reference"],
+  );
+});
+
+test("Jobs uses one status controller and distinct mobile and desktop results", () => {
+  const shellSource = source("components/dashboard/ClientJobsShell.tsx");
+  const filtersSource = source(
+    "components/dashboard/ClientJobsStatusFilters.tsx",
+  );
+  const tableSource = source("components/dashboard/JobsTable.tsx");
+  const statusSource = source("lib/client-dashboard/mock-data.ts");
+
+  assert.match(shellSource, /<ClientJobsStatusFilters/);
+  assert.match(shellSource, /showStatusControl=\{false\}/);
+  assert.equal(shellSource.match(/activeStatusFilter=\{statusFilter\}/g)?.length, 1);
+  assert.match(filtersSource, /aria-pressed=\{active\}/);
+  assert.match(filtersSource, /min-h-11/);
+  assert.match(tableSource, /data-mobile-jobs-list/);
+  assert.match(tableSource, /md:hidden/);
+  assert.match(tableSource, /data-desktop-jobs-table/);
+  assert.match(tableSource, /hidden[\s\S]*?md:block/);
+  assert.match(tableSource, /<table className="w-full table-fixed text-sm">/);
+  assert.doesNotMatch(tableSource, /minWidth:[\s\S]*?720px/);
+  assert.match(tableSource, /min-h-11 w-full/);
+  assert.match(tableSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
+  assert.match(statusSource, /"awaiting-submission": "Awaiting Confirmation"/);
+});
+
+test("Jobs presentation components add no order queries or media", () => {
+  const pageSource = source("app/(dashboard)/dashboard/jobs/page.tsx");
+  const clientSources = [
+    source("components/dashboard/ClientJobsShell.tsx"),
+    source("components/dashboard/JobsWorkspaceRail.tsx"),
+    source("components/dashboard/JobsTable.tsx"),
+  ].join("\n");
+
+  assert.match(pageSource, /getOrdersForClient\(toOrderOwnership\(user\)\)/);
+  assert.match(pageSource, /getReviewsForClient\(toOrderOwnership\(user\)\)/);
+  assert.match(pageSource, /return <ClientJobsShell jobs=\{jobs\} \/>/);
+  assert.doesNotMatch(
+    clientSources,
+    /createClient|getOrdersForClient|getReviewsForClient|from\("orders"\)|fetch\(/,
+  );
+  assert.doesNotMatch(
+    clientSources,
+    /next\/image|<Image|portfolio|service image|preload/i,
+  );
 });
 
 test("every primary client portal route keeps the shared width-aware shell", () => {
