@@ -5,13 +5,13 @@ export const COMBINED_ORDER_CONSENT_COPY = {
     beforeTerms: "I agree to the ",
     termsLabel: "Terms & Conditions",
     afterTerms:
-      " and expressly request PicchuSpot to start work as described there. Where consumer withdrawal rights apply, I understand that a proportionate amount may be due for work already performed and that the right ends once the service has been fully performed.",
+      " and expressly request PicchuSpot to start work as described there. Where consumer withdrawal rights apply, I understand that a proportionate amount may be due for work already performed and that the right of withdrawal ends once the service has been fully performed.",
   },
   es: {
     beforeTerms: "Acepto los ",
     termsLabel: "Términos y Condiciones",
     afterTerms:
-      " y solicito expresamente que PicchuSpot comience el trabajo según lo descrito allí. Cuando sean aplicables los derechos de desistimiento del consumidor, entiendo que puede corresponder un importe proporcional por el trabajo ya realizado y que el derecho termina una vez que el servicio se haya ejecutado íntegramente.",
+      " y solicito expresamente que PicchuSpot comience el trabajo según lo descrito allí. Cuando sean aplicables los derechos de desistimiento del consumidor, entiendo que puede corresponder un importe proporcional por el trabajo ya realizado y que el derecho de desistimiento termina una vez que el servicio se haya ejecutado íntegramente.",
   },
 } as const;
 
