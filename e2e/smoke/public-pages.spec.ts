@@ -145,10 +145,12 @@ for (const { route, taxCopy, oldTaxCopy } of pricingTaxRoutes) {
 }
 
 const legalRoutes = [
+  { route: "/legal", heading: "Legal Notice" },
   { route: "/terms", heading: "Terms & Conditions" },
   { route: "/privacy", heading: "Privacy Policy" },
   { route: "/cookies", heading: "Cookie Policy" },
   { route: "/refunds", heading: "Refunds & Cancellations" },
+  { route: "/es/legal", heading: "Aviso legal" },
   { route: "/es/terms", heading: "Términos y condiciones" },
   { route: "/es/privacy", heading: "Política de privacidad" },
   { route: "/es/cookies", heading: "Política de cookies" },
@@ -176,6 +178,52 @@ for (const { route, heading } of legalRoutes) {
     await guard.expectClean();
   });
 }
+
+test("Legal Notice publishes the confirmed bilingual operator identity and metadata", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("picchuspot_cookie_consent", "rejected");
+  });
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  await page.goto("/legal");
+  await expect(page.getByRole("heading", { name: "Legal Notice" })).toBeVisible();
+  await expect(page.locator("main")).toContainText("Mykhailo Lykin");
+  await expect(page.locator("main")).toContainText("Y9650008G");
+  await expect(page.locator("main")).toContainText("C. Capitán Dema, 3");
+  await expect(page.locator("main")).toContainText("trading name");
+  await expect(
+    page.getByRole("link", { name: "+34 614 714 337" }).first(),
+  ).toHaveAttribute("href", "tel:+34614714337");
+  await expect(
+    page.getByRole("link", { name: "hello@picchuspot.com" }).first(),
+  ).toHaveAttribute("href", "mailto:hello@picchuspot.com");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://picchuspot.com/legal",
+  );
+  await expect(page.locator('link[rel="alternate"][hreflang="es"]')).toHaveAttribute(
+    "href",
+    "https://picchuspot.com/es/legal",
+  );
+
+  await page.goto("/es/legal");
+  await expect(page.getByRole("heading", { name: "Aviso legal" })).toBeVisible();
+  await expect(page.locator("main")).toContainText("Mykhailo Lykin");
+  await expect(page.locator("main")).toContainText("Y9650008G");
+  await expect(page.locator("main")).toContainText("nombre comercial");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://picchuspot.com/es/legal",
+  );
+  await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveAttribute(
+    "href",
+    "https://picchuspot.com/legal",
+  );
+
+  await guard.expectClean();
+});
 
 const LEGAL_VIEWPORTS = [
   { width: 360, height: 800 },
@@ -228,6 +276,7 @@ test("legal footer exposes the complete policy set in each language", async ({
   await page.goto("/terms");
   const englishFooter = page.locator("footer");
   for (const link of [
+    ["Legal Notice", "/legal"],
     ["Privacy Policy", "/privacy"],
     ["Cookie Policy", "/cookies"],
     ["Terms & Conditions", "/terms"],
@@ -241,6 +290,7 @@ test("legal footer exposes the complete policy set in each language", async ({
   await page.goto("/es/terms");
   const spanishFooter = page.locator("footer");
   for (const link of [
+    ["Aviso legal", "/es/legal"],
     ["Política de privacidad", "/es/privacy"],
     ["Política de cookies", "/es/cookies"],
     ["Términos y condiciones", "/es/terms"],
