@@ -235,15 +235,15 @@ test("Order Detail keeps payment visible before responsive context and workflow"
   assert.equal((detail.match(/<OrderPaymentPanel/g) ?? []).length, 1);
   assert.match(
     detail,
-    /const hasAuthoritativeTotal =[\s\S]*?paymentSummary\?\.finalTotalCents != null && paymentSummary\.currency != null/,
+    /const authoritativeTotal =[\s\S]*?paymentSummary\?\.finalTotalCents != null && paymentSummary\.currency != null[\s\S]*?cents: paymentSummary\.finalTotalCents[\s\S]*?currency: paymentSummary\.currency/,
   );
   assert.match(
     detail,
-    /totalLabel: hasAuthoritativeTotal \? "Final total" : "Estimated total"/,
+    /totalLabel: authoritativeTotal \? "Final total" : "Estimated total"/,
   );
   assert.match(
     detail,
-    /hasAuthoritativeTotal[\s\S]*?paymentSummary\.finalTotalCents[\s\S]*?order\.estimated_total_cents[\s\S]*?paymentSummary\.currency[\s\S]*?order\.currency/,
+    /authoritativeTotal[\s\S]*?formatStoredMoney\(authoritativeTotal\.cents, authoritativeTotal\.currency\)[\s\S]*?formatStoredMoney\(order\.estimated_total_cents, order\.currency\)/,
   );
   assert.match(detail, /Image workflow/);
   assert.match(detail, /<ClientOrderImageCard/);
