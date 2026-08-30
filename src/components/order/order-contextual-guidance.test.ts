@@ -233,6 +233,18 @@ test("Order Detail keeps payment visible before responsive context and workflow"
   assert.match(detail, /data-order-workflow className="min-w-0 space-y-5"/);
   assert.match(detail, /<OrderDetailContext \{\.\.\.orderContextProps\} \/>/);
   assert.equal((detail.match(/<OrderPaymentPanel/g) ?? []).length, 1);
+  assert.match(
+    detail,
+    /const authoritativeTotal =[\s\S]*?paymentSummary\?\.finalTotalCents != null && paymentSummary\.currency != null[\s\S]*?cents: paymentSummary\.finalTotalCents[\s\S]*?currency: paymentSummary\.currency/,
+  );
+  assert.match(
+    detail,
+    /totalLabel: authoritativeTotal \? "Final total" : "Estimated total"/,
+  );
+  assert.match(
+    detail,
+    /authoritativeTotal[\s\S]*?formatStoredMoney\(authoritativeTotal\.cents, authoritativeTotal\.currency\)[\s\S]*?formatStoredMoney\(order\.estimated_total_cents, order\.currency\)/,
+  );
   assert.match(detail, /Image workflow/);
   assert.match(detail, /<ClientOrderImageCard/);
   assert.match(detail, /<DeliverableReviewActions/);
