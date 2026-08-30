@@ -9,6 +9,10 @@ import type {
   OrderQuote,
 } from "@/lib/pricing/types";
 import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
+import {
+  getOrderSubmitFooterCopy,
+  getOrderSummarySupportingCopy,
+} from "@/components/order/order-summary-copy";
 
 export interface SummaryItem {
   label: string;
@@ -28,15 +32,9 @@ interface OrderSummaryProps {
   submittingLabel?: string;
   /** Compact guidance rendered directly below the submit action. */
   submitHelper?: React.ReactNode;
-  /**
-   * Footer note under the CTA. Defaults to the "No payment now" copy.
-   * Pass null to hide it (e.g. on a Configure step that only advances
-   * to Review).
-   */
+  /** Footer note under the CTA. Omit for quote-aware review copy; null hides it. */
   footerNote?: React.ReactNode;
 }
-
-const DEFAULT_FOOTER_NOTE = "No payment now. We confirm & invoice after review.";
 
 export default function OrderSummary({
   serviceName,
@@ -49,7 +47,7 @@ export default function OrderSummary({
   submitLabel = "Submit Order",
   submittingLabel = "Submitting...",
   submitHelper,
-  footerNote = DEFAULT_FOOTER_NOTE,
+  footerNote,
 }: OrderSummaryProps) {
   const currency = useDisplayCurrency();
   let quote: OrderQuote | null = null;
@@ -62,6 +60,11 @@ export default function OrderSummary({
     // Incomplete form selections are expected while the client is editing.
     // The server remains strict and rejects invalid or unknown IDs.
   }
+  const supportingCopy = quote ? getOrderSummarySupportingCopy(quote) : [];
+  const resolvedFooterNote =
+    footerNote === undefined && quote
+      ? getOrderSubmitFooterCopy(quote)
+      : footerNote;
 
   return (
     <div className="bg-white border border-border rounded-xl p-6 shadow-sm">
@@ -70,21 +73,27 @@ export default function OrderSummary({
       </h3>
 
       <div className="space-y-3 text-sm">
-        <div className="flex justify-between">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start gap-4">
           <span className="text-muted">Service</span>
-          <span className="font-medium text-foreground">{serviceName}</span>
+          <span className="min-w-0 break-words text-right font-medium text-foreground">
+            {serviceName}
+          </span>
         </div>
-        <div className="flex justify-between">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start gap-4">
           <span className="text-muted">Items</span>
-          <span className="font-medium text-foreground">{items.length}</span>
+          <span className="min-w-0 text-right font-medium text-foreground">
+            {items.length}
+          </span>
         </div>
 
         {/* Per-item breakdown */}
         {items.length > 0 && (
           <div className="border-t border-border pt-3 space-y-2">
             {items.map((item, i) => (
-              <div key={i} className="flex justify-between text-xs">
-                <span className="text-muted truncate mr-2">{item.label}</span>
+              <div key={i} className="flex justify-between gap-4 text-xs">
+                <span className="min-w-0 break-words text-muted">
+                  {item.label}
+                </span>
                 <span className="text-foreground font-medium flex-shrink-0">
                   {formatMoney(
                     quote?.items[i]?.lineSubtotalCents ?? 0,
@@ -97,54 +106,56 @@ export default function OrderSummary({
         )}
 
         {quote ? (
-        <div className="border-t border-border pt-3 mt-3 space-y-2">
-          <div className="flex justify-between gap-4">
-            <span className="text-muted">Base subtotal</span>
-            <span className="font-medium text-foreground">
-              {formatMoney(quote.baseSubtotalCents, currency)}
-            </span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-muted">Add-ons</span>
-            <span className="font-medium text-foreground">
-              {formatMoney(quote.addOnSubtotalCents, currency)}
-            </span>
-          </div>
-          {quote.welcomeDiscountCents > 0 && (
-            <div className="flex justify-between gap-4 text-green-700">
-              <span>Welcome Offer</span>
-              <span className="font-semibold">
-                −{formatMoney(quote.welcomeDiscountCents, currency)}
+          <div className="border-t border-border pt-3 mt-3 space-y-2">
+            <div className="flex justify-between gap-4">
+              <span className="text-muted">Base subtotal</span>
+              <span className="font-medium text-foreground">
+                {formatMoney(quote.baseSubtotalCents, currency)}
               </span>
             </div>
-          )}
-          {quote.volumeDiscountPercent > 0 && (
-            <div className="flex justify-between gap-4 text-green-700">
-              <span>Volume discount — {quote.volumeDiscountPercent}%</span>
-              <span className="font-semibold">
-                −{formatMoney(quote.volumeDiscountCents, currency)}
+            <div className="flex justify-between gap-4">
+              <span className="text-muted">Add-ons</span>
+              <span className="font-medium text-foreground">
+                {formatMoney(quote.addOnSubtotalCents, currency)}
               </span>
             </div>
-          )}
-          <div className="flex justify-between gap-4 border-t border-border pt-3">
-            <span className="font-semibold text-foreground">
-              Estimated total
-            </span>
-            <span className="font-bold text-lg text-primary">
-              {quote.customQuote || quote.totalCents === null
-                ? "Custom quote"
-                : formatMoney(quote.totalCents, currency)}
-            </span>
+            {quote.welcomeDiscountCents > 0 && (
+              <div className="flex justify-between gap-4 text-green-700">
+                <span>Welcome Offer</span>
+                <span className="font-semibold">
+                  −{formatMoney(quote.welcomeDiscountCents, currency)}
+                </span>
+              </div>
+            )}
+            {quote.volumeDiscountPercent > 0 && (
+              <div className="flex justify-between gap-4 text-green-700">
+                <span>Volume discount — {quote.volumeDiscountPercent}%</span>
+                <span className="font-semibold">
+                  −{formatMoney(quote.volumeDiscountCents, currency)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between gap-4 border-t border-border pt-3">
+              <span className="font-semibold text-foreground">
+                Estimated total
+              </span>
+              <span className="font-bold text-lg text-primary">
+                {quote.customQuote || quote.totalCents === null
+                  ? "Custom quote"
+                  : formatMoney(quote.totalCents, currency)}
+              </span>
+            </div>
+            {quote.totalCents === 0 && (
+              <p className="font-semibold text-emerald-700">
+                No payment required
+              </p>
+            )}
+            {supportingCopy.map((line) => (
+              <p key={line} className="text-[11px] text-muted">
+                {line}
+              </p>
+            ))}
           </div>
-          {quote.totalCents === 0 && (
-            <p className="font-semibold text-emerald-700">No payment required</p>
-          )}
-          <p className="text-[11px] text-muted">
-            {quote.customQuote || quote.totalCents === null
-              ? "Final tax treatment will be confirmed in your written quote."
-              : "For eligible fixed-price online orders, this is the Checkout total. Applicable tax is included and identified by Stripe."}
-          </p>
-        </div>
         ) : (
           <div className="border-t border-border pt-3 mt-3 text-xs text-muted">
             Complete the service selections to calculate the estimate.
@@ -176,8 +187,10 @@ export default function OrderSummary({
         </div>
       )}
 
-      {footerNote != null && (
-        <p className="text-xs text-muted text-center mt-3">{footerNote}</p>
+      {resolvedFooterNote != null && (
+        <p className="text-xs text-muted text-center mt-3">
+          {resolvedFooterNote}
+        </p>
       )}
     </div>
   );

@@ -5,9 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
-import OrderStepIndicator, {
-  type OrderStep,
-} from "@/components/order/OrderStepIndicator";
+import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
   emptyOrderTerms,
@@ -85,10 +84,7 @@ import {
 } from "@/lib/pricing/expectation";
 
 const SERVICE_NAME = "Image Enhancement — Single Exposure";
-const STEPS: OrderStep[] = [
-  { id: "configure", label: "Configure Order" },
-  { id: "review", label: "Review & Submit" },
-];
+const STEPS = TWO_STEP_ORDER_STEPS;
 
 interface SingleExposureOrderFormProps {
   clientEmail: string;
@@ -1037,7 +1033,7 @@ export default function SingleExposureOrderForm({
       footerNote={
         isReview
           ? undefined
-          : "No payment now. You'll confirm your order on the next step."
+          : "No payment now. You’ll confirm your order on the next step."
       }
     />
   );

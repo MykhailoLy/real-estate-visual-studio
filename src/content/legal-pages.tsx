@@ -278,10 +278,17 @@ export const termsSectionsEn = [
         </p>
         <p>
           Consumers contracting at a distance may normally have a 14-day
-          statutory withdrawal right. Starting a service within that period and
-          the effect of complete performance are governed by specific consent
-          rules explained in the Refunds &amp; Cancellations Policy. Nothing in
-          these Terms removes a mandatory right or remedy.
+          statutory withdrawal period. Where the customer expressly requests
+          PicchuSpot to start during that period, work may begin after any
+          required payment is confirmed or, where no payment is due, after order
+          confirmation.
+        </p>
+        <p>
+          If the consumer withdraws after work has started, a proportionate
+          amount may be due for the service already supplied. The withdrawal
+          right is lost once the service has been fully performed where the
+          applicable statutory consent conditions are satisfied. Mandatory
+          consumer rights remain unaffected.
         </p>
       </>
     ),
@@ -633,12 +640,20 @@ export const termsSectionsEs = [
           forma parte de estos Términos.
         </p>
         <p>
-          Las personas consumidoras que contratan a distancia disponen
-          normalmente de un derecho legal de desistimiento de 14 días. El
-          inicio del servicio durante ese plazo y el efecto de su ejecución
-          completa están sujetos a las reglas específicas de consentimiento
-          explicadas en dicha Política. Nada en estos Términos elimina un
-          derecho o remedio imperativo.
+          Las personas consumidoras que contratan a distancia normalmente
+          pueden disponer de un plazo legal de desistimiento de 14 días. Cuando
+          el cliente solicite expresamente que PicchuSpot comience durante ese
+          plazo, el trabajo podrá comenzar una vez confirmado cualquier pago
+          exigible o, si no se adeuda pago alguno, después de la confirmación del
+          pedido.
+        </p>
+        <p>
+          Si la persona consumidora desiste después de que haya comenzado el
+          trabajo, puede corresponder un importe proporcional por el servicio ya
+          prestado. El derecho de desistimiento se pierde una vez que el servicio
+          se ha ejecutado íntegramente cuando se cumplen las condiciones de
+          consentimiento exigidas por la ley aplicable. Los derechos imperativos
+          de las personas consumidoras no se ven afectados.
         </p>
       </>
     ),

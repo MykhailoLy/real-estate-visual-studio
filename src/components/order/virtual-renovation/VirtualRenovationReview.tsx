@@ -16,6 +16,7 @@ import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { mergeReferenceFiles } from "@/lib/reference-files";
 import type { RenovationItemData } from "./RenovationItemCard";
 import { buildVirtualRenovationReviewRows } from "./virtual-renovation-review";
+import { ORDER_REVIEW_BACK_LABEL } from "@/components/order/order-flow-copy";
 
 interface VirtualRenovationReviewProps {
   jobTitle: string;
@@ -71,7 +72,7 @@ export default function VirtualRenovationReview({
           className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to Edit
+          {ORDER_REVIEW_BACK_LABEL}
         </button>
       </div>
 
@@ -159,7 +160,7 @@ export default function VirtualRenovationReview({
           className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary transition-colors hover:text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to Edit
+          {ORDER_REVIEW_BACK_LABEL}
         </button>
       </div>
     </div>

@@ -5,9 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Info, Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
-import OrderStepIndicator, {
-  type OrderStep,
-} from "@/components/order/OrderStepIndicator";
+import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
   emptyOrderTerms,
@@ -116,10 +115,7 @@ type FinalizationRecovery =
     };
 
 const AUTOSAVE_DELAY_MS = 900;
-const STEPS: OrderStep[] = [
-  { id: "configure", label: "Configure" },
-  { id: "review", label: "Review & Submit" },
-];
+const STEPS = TWO_STEP_ORDER_STEPS;
 const PHOTO_EDIT_OPTION_IDS = new Set(
   PHOTO_EDIT_OPTIONS.map((option) => option.id),
 );
@@ -1363,7 +1359,7 @@ export default function PhotoEditingOrderForm({
             isSubmitting={false}
             canSubmit={canReview}
             submitLabel="Review Order"
-            footerNote="No payment now. You'll confirm your order on the next step."
+            footerNote="No payment now. You’ll confirm your order on the next step."
             submitHelper={
               reviewBlockedMessage ? (
                 <p role="status">{reviewBlockedMessage}</p>

@@ -8,9 +8,8 @@ import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary"
 import OrderGuideRail, {
   type OrderGuideStep,
 } from "@/components/order/OrderGuideRail";
-import OrderStepIndicator, {
-  type OrderStep,
-} from "@/components/order/OrderStepIndicator";
+import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
   emptyOrderTerms,
@@ -255,10 +254,7 @@ type FinalizationRecoveryState =
 
 type VirtualStagingFormStep = "configure" | "review";
 
-const STEPS: OrderStep[] = [
-  { id: "configure", label: "Configure Order" },
-  { id: "review", label: "Review & Submit" },
-];
+const STEPS = TWO_STEP_ORDER_STEPS;
 
 const VIRTUAL_STAGING_GUIDE_STEPS: OrderGuideStep[] = [
   {
@@ -345,12 +341,13 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       `Image #${itemNumber}: select a room or area.`,
     styleRequired: (itemNumber) =>
       `Image #${itemNumber}: select a furniture style.`,
-    termsRequired: "Complete both required order confirmations before submitting.",
+    termsRequired:
+      "Accept the Terms and confirm the start-of-service request before submitting.",
     jobTitleLabel: "Job title",
     originalLabel: (itemNumber) => `Image #${itemNumber} original photo`,
     roomLabel: (itemNumber) => `Image #${itemNumber} room`,
     styleLabel: (itemNumber) => `Image #${itemNumber} furniture style`,
-    termsLabel: "Order confirmations",
+    termsLabel: "Terms and start of service",
     supportRecommendationTitle: "Recommendation applied",
     supportRecommendationMessage:
       "Image Enhancement was selected based on your PicchuSpot Assistant conversation. You can remove it from any image.",
@@ -424,12 +421,13 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
       `Imagen #${itemNumber}: selecciona una habitación o zona.`,
     styleRequired: (itemNumber) =>
       `Imagen #${itemNumber}: selecciona un estilo de mobiliario.`,
-    termsRequired: "Completa las dos confirmaciones obligatorias antes de enviar.",
+    termsRequired:
+      "Acepta los Términos y confirma la solicitud de inicio del servicio antes de enviar.",
     jobTitleLabel: "Título del pedido",
     originalLabel: (itemNumber) => `Imagen #${itemNumber} foto original`,
     roomLabel: (itemNumber) => `Imagen #${itemNumber} habitación`,
     styleLabel: (itemNumber) => `Imagen #${itemNumber} estilo`,
-    termsLabel: "Confirmaciones del pedido",
+    termsLabel: "Términos e inicio del servicio",
     supportRecommendationTitle: "Recomendación aplicada",
     supportRecommendationMessage:
       "Se ha seleccionado Image Enhancement según tu conversación con el asistente de PicchuSpot. Puedes quitarlo de cualquier imagen.",

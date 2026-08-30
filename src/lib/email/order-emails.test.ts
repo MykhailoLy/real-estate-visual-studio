@@ -106,7 +106,7 @@ function adminInput(hasFixedCheckoutPrice: boolean) {
     },
     earlyPerformanceRequest: {
       requested: true,
-      version: "2026-08-29",
+      version: "2026-08-30",
       requested_at: "2026-08-24T12:00:01.000Z",
     },
     portfolioPermission: { allowed: false },
@@ -228,7 +228,7 @@ test("admin email calls the stored fixed amount final and inclusive", () => {
   assert.match(fixedCombined, /Any applicable tax is included in this amount\./);
   assert.match(fixedCombined, /START OF SERVICE/);
   assert.match(fixedCombined, /Requested: yes/);
-  assert.match(fixedCombined, /2026-08-29/);
+  assert.match(fixedCombined, /2026-08-30/);
   assert.match(fixedCombined, /2026-08-24T12:00:01\.000Z/);
   assert.doesNotMatch(fixedCombined, /before tax/i);
 

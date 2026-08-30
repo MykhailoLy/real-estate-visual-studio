@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { LEGAL_VERSION } from "./legal.ts";
+import { LEGAL_UPDATED, LEGAL_VERSION } from "./legal.ts";
+import {
+  TERMS_VERSION,
+  resolveCurrentTermsAcceptance,
+} from "./order-terms.ts";
 
 const workspace = process.cwd();
 
@@ -51,6 +55,9 @@ const orderSummarySource = source("src/components/order/OrderSummary.tsx");
 const orderReviewHeaderSource = source(
   "src/components/order/OrderReviewHeader.tsx",
 );
+const orderSummaryCopySource = source(
+  "src/components/order/order-summary-copy.ts",
+);
 const supportPromptSource = source("src/lib/support-assistant/prompt.ts");
 const clientReviewsSource = source("src/lib/client-reviews.ts");
 const revisionPolicySources = [
@@ -62,12 +69,66 @@ const revisionPolicySources = [
 ].join("\n");
 
 test("legal version is current and remains the order terms version", () => {
-  assert.equal(LEGAL_VERSION, "2026-08-29-v2");
+  assert.equal(LEGAL_VERSION, "2026-08-30");
+  assert.equal(TERMS_VERSION, LEGAL_VERSION);
+  assert.equal(LEGAL_UPDATED.en, "30 August 2026");
+  assert.equal(LEGAL_UPDATED.es, "30 de agosto de 2026");
   assert.match(source("src/lib/order-terms.ts"), /TERMS_VERSION = LEGAL_VERSION/);
+  assert.deepEqual(
+    resolveCurrentTermsAcceptance({
+      accepted: true,
+      version: "stale-client",
+    }),
+    { ok: false, reason: "version_mismatch" },
+  );
 
   const orderTermsBlock = source("src/components/order/OrderTermsBlock.tsx");
-  assert.match(orderTermsBlock, /href="\/terms"/);
+  assert.match(
+    orderTermsBlock,
+    /termsHref = language === "es" \? "\/es\/terms" : "\/terms"/,
+  );
   assert.match(orderTermsBlock, /TERMS_VERSION/);
+});
+
+test("Terms explain early performance and withdrawal effects in both languages", () => {
+  assert.match(
+    legalContentSource,
+    /Consumers contracting at a distance may normally have a 14-day\s+statutory withdrawal period/,
+  );
+  assert.match(
+    legalContentSource,
+    /work may begin after any\s+required payment is confirmed or, where no payment is due, after order\s+confirmation/,
+  );
+  assert.match(
+    legalContentSource,
+    /withdraws after work has started, a proportionate\s+amount may be due for the service already supplied/,
+  );
+  assert.match(
+    legalContentSource,
+    /withdrawal\s+right is lost once the service has been fully performed where the\s+applicable statutory consent conditions are satisfied/,
+  );
+  assert.match(legalContentSource, /Mandatory\s+consumer rights remain unaffected/);
+
+  assert.match(
+    legalContentSource,
+    /plazo legal de desistimiento de 14 días/,
+  );
+  assert.match(
+    legalContentSource,
+    /trabajo podrá comenzar una vez confirmado cualquier pago\s+exigible o, si no se adeuda pago alguno, después de la confirmación del\s+pedido/,
+  );
+  assert.match(
+    legalContentSource,
+    /desiste después de que haya comenzado el\s+trabajo, puede corresponder un importe proporcional por el servicio ya\s+prestado/,
+  );
+  assert.match(
+    legalContentSource,
+    /derecho de desistimiento se pierde una vez que el servicio\s+se ha ejecutado íntegramente cuando se cumplen las condiciones de\s+consentimiento exigidas por la ley aplicable/,
+  );
+  assert.match(
+    legalContentSource,
+    /derechos imperativos\s+de las personas consumidoras no se ven afectados/,
+  );
 });
 
 test("bilingual revision policy is unlimited for 30 days within the original scope", () => {
@@ -283,21 +344,28 @@ test("customer-facing tax copy matches tax-inclusive Stripe Checkout", () => {
     }
   }
 
-  for (const orderSource of [orderSummarySource, orderReviewHeaderSource]) {
-    assert.match(orderSource, />\s*Estimated total\s*</);
-    assert.match(
-      orderSource,
-      /For eligible fixed-price online orders, this is the Checkout total\. Applicable tax is included and identified by Stripe\./,
-    );
-    assert.match(
-      orderSource,
-      /Final tax treatment will be confirmed in your written quote\./,
-    );
-    assert.match(
-      orderSource,
-      /quote\.customQuote \|\| quote\.totalCents === null/,
-    );
-  }
+  assert.match(orderSummarySource, />\s*Estimated total\s*</);
+  assert.match(
+    orderSummarySource,
+    /getOrderSummarySupportingCopy\(quote\)/,
+  );
+  assert.match(orderReviewHeaderSource, />\s*Estimated total\s*</);
+  assert.match(
+    orderReviewHeaderSource,
+    /getOrderTotalSupportingCopy\(quote\)/,
+  );
+  assert.match(
+    orderSummaryCopySource,
+    /For eligible fixed-price online orders, this is the Checkout total\. Applicable tax is included and identified by Stripe\./,
+  );
+  assert.match(
+    orderSummaryCopySource,
+    /Final tax treatment will be confirmed in your written quote\./,
+  );
+  assert.match(
+    orderSummaryCopySource,
+    /quote\.customQuote \|\| quote\.totalCents === null/,
+  );
 });
 
 test("blocked and unnecessary legal routes are not published", () => {

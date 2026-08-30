@@ -2,6 +2,7 @@
 
 import { formatMoney } from "@/lib/pricing/format";
 import type { OrderQuote } from "@/lib/pricing/types";
+import { getOrderTotalSupportingCopy } from "@/components/order/order-summary-copy";
 
 // ============================================================
 // OrderReviewHeader — top-of-review summary block.
@@ -27,6 +28,8 @@ export default function OrderReviewHeader({
   quote,
   addOnLabel = "Add-ons",
 }: OrderReviewHeaderProps) {
+  const supportingCopy = getOrderTotalSupportingCopy(quote);
+
   return (
     <div className="bg-white border border-border rounded-xl p-5 sm:p-6">
       <h2 className="text-xl font-bold text-foreground">Review Your Order</h2>
@@ -101,11 +104,11 @@ export default function OrderReviewHeader({
               No payment required
             </p>
           )}
-          <p className="col-span-2 text-[11px] text-muted">
-            {quote.customQuote || quote.totalCents === null
-              ? "Final tax treatment will be confirmed in your written quote."
-              : "For eligible fixed-price online orders, this is the Checkout total. Applicable tax is included and identified by Stripe."}
-          </p>
+          {supportingCopy.map((line) => (
+            <p key={line} className="col-span-2 text-[11px] text-muted">
+              {line}
+            </p>
+          ))}
         </div>
       </dl>
     </div>

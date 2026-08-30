@@ -1588,11 +1588,12 @@ test("required fields expose inline errors plus scroll and focus guidance", () =
   assert.match(STAGING_ITEM_CARD, /aria-invalid=\{Boolean\(validationErrors\.room\)/);
   assert.match(STAGING_ITEM_CARD, /aria-describedby=/);
   assert.match(ORDER_JOB_TITLE_FIELD, /aria-invalid=\{displayError/);
-  assert.match(ORDER_TERMS_BLOCK, /aria-invalid=\{displayTermsError/);
-  assert.match(
-    ORDER_TERMS_BLOCK,
-    /aria-invalid=\{displayEarlyPerformanceError/,
+  assert.equal(
+    (ORDER_TERMS_BLOCK.match(/aria-invalid=\{displayRequiredError/g) ?? [])
+      .length,
+    1,
   );
+  assert.doesNotMatch(ORDER_TERMS_BLOCK, /displayEarlyPerformanceError/);
 });
 
 test("active image operations disable submit and explain the wait", () => {
@@ -1629,7 +1630,7 @@ test("Spanish required-field guidance remains valid UTF-8 copy", () => {
   const spanishCopy = VIRTUAL_STAGING_FORM.slice(copyStart, copyEnd);
 
   const quoted = (property: string): string | undefined =>
-    new RegExp(`${property}: "([^"]+)"`).exec(spanishCopy)?.[1];
+    new RegExp(`${property}:\\s*"([^"]+)"`).exec(spanishCopy)?.[1];
   const itemCopy = (property: string): string | undefined =>
     new RegExp(`${property}: \\(itemNumber\\) =>\\s+\`([^\`]+)\``)
       .exec(spanishCopy)?.[1]
@@ -1649,10 +1650,10 @@ test("Spanish required-field guidance remains valid UTF-8 copy", () => {
       "Espera a que tus imágenes terminen de subirse.",
       "Introduce un título para el pedido.",
       "Imagen #1: selecciona una habitación o zona.",
-      "Completa las dos confirmaciones obligatorias antes de enviar.",
+      "Acepta los Términos y confirma la solicitud de inicio del servicio antes de enviar.",
       "Título del pedido",
       "Imagen #1 habitación",
-      "Confirmaciones del pedido",
+      "Términos e inicio del servicio",
     ],
   );
   assert.doesNotMatch(

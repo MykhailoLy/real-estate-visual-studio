@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, Info } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
-import OrderStepIndicator, {
-  type OrderStep,
-} from "@/components/order/OrderStepIndicator";
+import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
   emptyOrderTerms,
@@ -52,10 +51,7 @@ import ItemRemovalReview from "./ItemRemovalReview";
 
 type ItemRemovalFormStep = "configure" | "review";
 
-const STEPS: OrderStep[] = [
-  { id: "configure", label: "Configure Order" },
-  { id: "review", label: "Review & Submit" },
-];
+const STEPS = TWO_STEP_ORDER_STEPS;
 
 const SERVICE_NAME = "Item Removal & Virtual Cleaning";
 
@@ -262,7 +258,7 @@ export default function ItemRemovalOrderForm({
       isSubmitting={false}
       canSubmit
       submitLabel="Review Order"
-      footerNote="No payment now. You'll confirm your order on the next step."
+      footerNote="No payment now. You’ll confirm your order on the next step."
     />
   );
 
