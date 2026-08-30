@@ -118,7 +118,7 @@ export default function ClientDashboardMobileNav({
             type="button"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="rounded-md p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <X className="w-5 h-5" aria-hidden />
           </button>
