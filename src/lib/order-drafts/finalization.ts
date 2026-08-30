@@ -144,6 +144,16 @@ export interface UploadedDraftFileMetadata {
   mimeType: string;
 }
 
+export interface NormalizedDraftReferenceIdentity {
+  itemClientId: string;
+  referenceId: string;
+  position: number;
+  storagePath: string;
+  originalFilename: string;
+  fileSize: number;
+  mimeType: string;
+}
+
 export interface VirtualStagingDraftSubmissionDecisionItem {
   localOriginal: BrowserFileMetadata | null;
   localReference?: BrowserFileMetadata | null;
@@ -721,6 +731,101 @@ export function mapFloorPlansDraftStateToProductionItems(
     items.push(parsed.data);
   }
   return { ok: true, data: items };
+}
+
+export function reconcileLegacyDraftReferenceFileIdentities(input: {
+  verifiedUserId: string;
+  draftId: string;
+  files: OrderDraftFileRow[];
+  normalizedReferences: NormalizedDraftReferenceIdentity[];
+}): DraftFinalizationResult<OrderDraftFileRow[]> {
+  const normalizedByItem = new Map<
+    string,
+    NormalizedDraftReferenceIdentity[]
+  >();
+
+  for (const reference of input.normalizedReferences) {
+    if (
+      !UuidSchema.safeParse(reference.itemClientId).success ||
+      !UuidSchema.safeParse(reference.referenceId).success ||
+      !Number.isInteger(reference.position) ||
+      reference.position < 0 ||
+      !isExactDraftStoragePathForFile({
+        path: reference.storagePath,
+        verifiedUserId: input.verifiedUserId,
+        draftId: input.draftId,
+        fileId: reference.referenceId,
+      })
+    ) {
+      return finalizationError(
+        "file_mismatch",
+        "Saved reference file identity could not be verified.",
+      );
+    }
+
+    const current = normalizedByItem.get(reference.itemClientId) ?? [];
+    if (
+      current.some(
+        (candidate) =>
+          candidate.position === reference.position ||
+          candidate.referenceId === reference.referenceId ||
+          candidate.storagePath === reference.storagePath,
+      )
+    ) {
+      return finalizationError(
+        "file_mismatch",
+        "Saved reference file identity is duplicated.",
+      );
+    }
+    current.push(reference);
+    normalizedByItem.set(reference.itemClientId, current);
+  }
+
+  const reconciled: OrderDraftFileRow[] = [];
+  for (const file of input.files) {
+    if (file.kind !== "reference") {
+      reconciled.push(file);
+      continue;
+    }
+
+    const normalized = normalizedByItem.get(file.itemClientId) ?? [];
+    if (normalized.length === 0) {
+      // Legacy-only references keep the original exact-ID namespace contract.
+      reconciled.push(file);
+      continue;
+    }
+
+    const positionZero = normalized.find((reference) => reference.position === 0);
+    if (!positionZero) {
+      return finalizationError(
+        "file_mismatch",
+        "Saved reference files are missing the primary reference.",
+      );
+    }
+
+    if (
+      file.storagePath !== positionZero.storagePath ||
+      file.originalFilename !== positionZero.originalFilename ||
+      file.fileSize !== positionZero.fileSize ||
+      file.mimeType.toLowerCase() !== positionZero.mimeType.toLowerCase()
+    ) {
+      return finalizationError(
+        "file_mismatch",
+        "Legacy reference mirror does not match the saved primary reference.",
+      );
+    }
+
+    reconciled.push({
+      ...file,
+      // The compatibility mirror may have been created with an older random
+      // row id. The normalized reference identity is server-owned and its
+      // storage namespace is verified above, so use it for exact validation
+      // without mutating existing production draft rows.
+      id: positionZero.referenceId,
+    });
+  }
+
+  return { ok: true, data: reconciled };
 }
 
 export function validateAndMatchVirtualStagingDraftFiles(input: {

@@ -69,6 +69,25 @@ test("first-reference legacy mirroring follows the next active position", () => 
   assert.match(DRAFT_REFERENCE_SERVER, /storage_path: next\.storage_path/);
 });
 
+test("legacy draft mirror keeps the normalized primary reference identity", () => {
+  assert.match(
+    DRAFT_REFERENCE_SERVER,
+    /const mirror = \{[\s\S]+id: next\.reference_id,[\s\S]+storage_path: next\.storage_path/,
+  );
+  assert.match(
+    DRAFT_REFERENCE_SERVER,
+    /\.update\(mirror\)[\s\S]+\.eq\("id", legacy\.id\)/,
+  );
+  assert.match(
+    DRAFT_REFERENCE_SERVER,
+    /\.from\("order_draft_files"\)\.insert\(mirror\)/,
+  );
+  assert.doesNotMatch(
+    DRAFT_REFERENCE_SERVER,
+    /insert\(\{ id: crypto\.randomUUID\(\), \.\.\.mirror \}\)/,
+  );
+});
+
 test("removing the first reference compacts positions and refreshes the mirror", () => {
   assert.match(
     DRAFT_REFERENCE_SERVER,

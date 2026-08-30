@@ -16,6 +16,7 @@ import {
   parseClaimFinalizationRpcResult,
   parseVirtualStagingFinalizationRetryContext,
   parseStrictClaimFinalizationRpcResult,
+  reconcileLegacyDraftReferenceFileIdentities,
   resetVirtualStagingFinalizationIdentity,
   selectVirtualStagingDraftSubmissionMode,
   serializeVirtualStagingFinalizationRetryContext,
@@ -39,6 +40,7 @@ const ITEM_ID = "33333333-3333-4333-8333-333333333333";
 const ITEM_ID_2 = "44444444-4444-4444-8444-444444444444";
 const ORIGINAL_ID = "55555555-5555-4555-8555-555555555555";
 const REFERENCE_ID = "66666666-6666-4666-8666-666666666666";
+const LEGACY_REFERENCE_MIRROR_ID = "99999999-9999-4999-8999-999999999999";
 const FINALIZATION_KEY = "77777777-7777-4777-8777-777777777777";
 const ORDER_ID = "88888888-8888-4888-8888-888888888888";
 
@@ -651,6 +653,141 @@ test("path must match the exact verified user, draft, and file namespace", () =>
       files: [draftFile({ storagePath: `drafts/${USER_ID}/${DRAFT_ID}/bad/living.jpg` })],
     }).ok,
     false,
+  );
+});
+
+test("normalized position-zero reference repairs an older random legacy mirror id in memory", () => {
+  const storagePath = `drafts/${USER_ID}/${DRAFT_ID}/${REFERENCE_ID}/style.png`;
+  const legacyReference = draftFile({
+    id: LEGACY_REFERENCE_MIRROR_ID,
+    kind: "reference",
+    storagePath,
+    originalFilename: "style.png",
+    fileSize: 4321,
+    mimeType: "image/png",
+  });
+  const reconciled = reconcileLegacyDraftReferenceFileIdentities({
+    verifiedUserId: USER_ID,
+    draftId: DRAFT_ID,
+    files: [draftFile(), legacyReference],
+    normalizedReferences: [
+      {
+        itemClientId: ITEM_ID,
+        referenceId: REFERENCE_ID,
+        position: 0,
+        storagePath,
+        originalFilename: "style.png",
+        fileSize: 4321,
+        mimeType: "image/png",
+      },
+    ],
+  });
+  assert.equal(reconciled.ok, true);
+  if (!reconciled.ok) return;
+  const reference = reconciled.data.find((file) => file.kind === "reference");
+  assert.equal(reference?.id, REFERENCE_ID);
+  assert.equal(
+    validateAndMatchVirtualStagingDraftFiles({
+      verifiedUserId: USER_ID,
+      draftId: DRAFT_ID,
+      state: draftState(),
+      files: reconciled.data,
+    }).ok,
+    true,
+  );
+});
+
+test("normalized reference reconciliation rejects an unverified namespace", () => {
+  const result = reconcileLegacyDraftReferenceFileIdentities({
+    verifiedUserId: USER_ID,
+    draftId: DRAFT_ID,
+    files: [draftFile()],
+    normalizedReferences: [
+      {
+        itemClientId: ITEM_ID,
+        referenceId: REFERENCE_ID,
+        position: 0,
+        storagePath: `drafts/${USER_ID}/${DRAFT_ID}/${LEGACY_REFERENCE_MIRROR_ID}/style.png`,
+        originalFilename: "style.png",
+        fileSize: 4321,
+        mimeType: "image/png",
+      },
+    ],
+  });
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.code, "file_mismatch");
+});
+
+test("legacy mirror must match the normalized position-zero reference exactly", () => {
+  const primaryPath = `drafts/${USER_ID}/${DRAFT_ID}/${REFERENCE_ID}/primary.png`;
+  const staleMirror = draftFile({
+    id: LEGACY_REFERENCE_MIRROR_ID,
+    kind: "reference",
+    storagePath: `drafts/${USER_ID}/${DRAFT_ID}/${LEGACY_REFERENCE_MIRROR_ID}/stale.png`,
+    originalFilename: "stale.png",
+    fileSize: 100,
+    mimeType: "image/png",
+  });
+  const result = reconcileLegacyDraftReferenceFileIdentities({
+    verifiedUserId: USER_ID,
+    draftId: DRAFT_ID,
+    files: [draftFile(), staleMirror],
+    normalizedReferences: [
+      {
+        itemClientId: ITEM_ID,
+        referenceId: REFERENCE_ID,
+        position: 0,
+        storagePath: primaryPath,
+        originalFilename: "primary.png",
+        fileSize: 200,
+        mimeType: "image/png",
+      },
+    ],
+  });
+  assert.equal(result.ok, false);
+});
+
+test("legacy-only references retain the original exact-id namespace contract", () => {
+  const legacyReference = draftFile({
+    id: REFERENCE_ID,
+    kind: "reference",
+    storagePath: `drafts/${USER_ID}/${DRAFT_ID}/${REFERENCE_ID}/style.png`,
+    originalFilename: "style.png",
+    mimeType: "image/png",
+  });
+  const reconciled = reconcileLegacyDraftReferenceFileIdentities({
+    verifiedUserId: USER_ID,
+    draftId: DRAFT_ID,
+    files: [draftFile(), legacyReference],
+    normalizedReferences: [],
+  });
+  assert.equal(reconciled.ok, true);
+  if (!reconciled.ok) return;
+  assert.equal(reconciled.data.find((file) => file.kind === "reference")?.id, REFERENCE_ID);
+  assert.equal(
+    validateAndMatchVirtualStagingDraftFiles({
+      verifiedUserId: USER_ID,
+      draftId: DRAFT_ID,
+      state: draftState(),
+      files: reconciled.data,
+    }).ok,
+    true,
+  );
+});
+
+test("finalization reconciles normalized references before strict slot matching", () => {
+  const reconcileIndex = FINALIZATION_SERVER.indexOf(
+    "reconcileDraftReferenceFilesForSubmission",
+  );
+  const matchIndex = FINALIZATION_SERVER.indexOf(
+    "const slots = context.matchFiles(files)",
+  );
+  assert.ok(reconcileIndex >= 0);
+  assert.ok(matchIndex > reconcileIndex);
+  assert.match(
+    FINALIZATION_SERVER,
+    /trustedServiceType !== "virtual-staging"[\s\S]+trustedServiceType !== "virtual-renovation"/,
   );
 });
 

@@ -388,6 +388,7 @@ async function syncLegacyDraftReferenceMirror(
     return;
   }
   const mirror = {
+    id: next.reference_id,
     draft_id: draftId,
     item_client_id: itemClientId,
     item_index: next.item_index,
@@ -401,8 +402,17 @@ async function syncLegacyDraftReferenceMirror(
     deleted_at: null,
   };
   if (legacy) {
-    await supabase.from("order_draft_files").update(mirror).eq("id", legacy.id);
+    const { error } = await supabase
+      .from("order_draft_files")
+      .update(mirror)
+      .eq("id", legacy.id);
+    if (error) {
+      console.error("[draft-reference-files] legacy mirror update failed:", error.message);
+    }
   } else {
-    await supabase.from("order_draft_files").insert({ id: crypto.randomUUID(), ...mirror });
+    const { error } = await supabase.from("order_draft_files").insert(mirror);
+    if (error) {
+      console.error("[draft-reference-files] legacy mirror insert failed:", error.message);
+    }
   }
 }

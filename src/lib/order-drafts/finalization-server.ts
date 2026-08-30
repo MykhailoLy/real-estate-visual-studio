@@ -39,6 +39,7 @@ import {
   parseReleaseFinalizationRpcResult,
   parseStrictClaimFinalizationRpcResult,
   parseStrictCompleteFinalizationRpcResult,
+  reconcileLegacyDraftReferenceFileIdentities,
   validateAndMatchFloorPlansDraftFiles,
   validateAndMatchPhotoEditingDraftFiles,
   validateAndMatchVirtualRenovationDraftFiles,
@@ -259,7 +260,18 @@ async function submitTrustedOrderDraftForUser(
       ? await loadProductionOrderById(input.userId, claim.convertedOrderId)
       : await loadProductionOrderBySourceDraft(input.userId, input.draftId);
 
-    const files = await loadLiveUploadedDraftFiles(input.draftId);
+    const loadedFiles = await loadLiveUploadedDraftFiles(input.draftId);
+    const reconciledFiles = await reconcileDraftReferenceFilesForSubmission({
+      userId: input.userId,
+      draftId: input.draftId,
+      trustedServiceType: context.serviceType,
+      files: loadedFiles,
+    });
+    if (!reconciledFiles.ok) {
+      await releaseClaimBestEffort(input);
+      return reconciledFiles;
+    }
+    const files = reconciledFiles.data;
     const slots = context.matchFiles(files);
     if (!slots.ok) {
       await releaseClaimBestEffort(input);
@@ -708,6 +720,39 @@ async function loadClaimedDraft(
     return null;
   }
   return data ? mapOrderDraftDatabaseRow(data) : null;
+}
+
+async function reconcileDraftReferenceFilesForSubmission(input: {
+  userId: string;
+  draftId: string;
+  trustedServiceType: TrustedDraftFinalizationContext["serviceType"];
+  files: OrderDraftFileRow[];
+}): Promise<DraftFinalizationResult<OrderDraftFileRow[]>> {
+  if (
+    input.trustedServiceType !== "virtual-staging" &&
+    input.trustedServiceType !== "virtual-renovation"
+  ) {
+    return { ok: true, data: input.files };
+  }
+
+  try {
+    const normalizedReferences = await loadLiveDraftReferenceFiles(input.draftId);
+    return reconcileLegacyDraftReferenceFileIdentities({
+      verifiedUserId: input.userId,
+      draftId: input.draftId,
+      files: input.files,
+      normalizedReferences,
+    });
+  } catch (error) {
+    console.error(
+      "[order-draft-finalization] normalized reference reconciliation failed:",
+      error,
+    );
+    return finalizationError(
+      "database_error",
+      "Saved reference files could not be verified. Please try again.",
+    );
+  }
 }
 
 async function loadLiveUploadedDraftFiles(
