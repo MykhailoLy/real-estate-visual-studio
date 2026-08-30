@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowLeft,
   Building2,
   CalendarDays,
+  ChevronDown,
   Clock,
   FolderOpen,
   Layers,
@@ -172,6 +174,112 @@ function ProgressBar({ value, className = "" }: { value: number; className?: str
   );
 }
 
+interface OrderDetailContextProps {
+  orderNumber: string;
+  serviceLabel: string;
+  jobTitle: string;
+  submittedLabel: string;
+  estimatedCompletionLabel: string;
+  itemCount: number;
+  totalLabel: string;
+  totalValue: string;
+  pricing: ReturnType<typeof parsePricingSnapshot>;
+  clientCompany: string | null;
+  progress: number;
+  progressMessage: ReactNode;
+}
+
+function OrderDetailContext({
+  orderNumber,
+  serviceLabel,
+  jobTitle,
+  submittedLabel,
+  estimatedCompletionLabel,
+  itemCount,
+  totalLabel,
+  totalValue,
+  pricing,
+  clientCompany,
+  progress,
+  progressMessage,
+}: OrderDetailContextProps) {
+  return (
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-border bg-surface/60 px-5 py-3.5">
+          <Receipt className="h-4 w-4 text-primary" aria-hidden />
+          <h2 className="text-[13px] font-bold text-foreground">Summary</h2>
+        </div>
+        <dl className="divide-y divide-border">
+          <SummaryRow label="Order number" value={orderNumber} mono />
+          <SummaryRow label="Service" value={serviceLabel} />
+          {jobTitle && <SummaryRow label="Job title" value={jobTitle} />}
+          <SummaryRow label="Submitted" value={submittedLabel} />
+          <SummaryRow
+            label="Est. completion"
+            value={estimatedCompletionLabel}
+          />
+          <SummaryRow
+            label="Images / items"
+            value={`${itemCount} image${itemCount !== 1 ? "s" : ""}`}
+          />
+          <SummaryRow label={totalLabel} value={totalValue} bold />
+          {pricing && (
+            <>
+              <SummaryRow
+                label="Base subtotal"
+                value={formatStoredMoney(
+                  pricing.baseSubtotalCents,
+                  pricing.currency,
+                )}
+              />
+              <SummaryRow
+                label="Add-ons"
+                value={formatStoredMoney(
+                  pricing.addOnSubtotalCents,
+                  pricing.currency,
+                )}
+              />
+              {pricing.welcomeDiscountCents > 0 && (
+                <SummaryRow
+                  label="Welcome Offer"
+                  value={`−${formatStoredMoney(
+                    pricing.welcomeDiscountCents,
+                    pricing.currency,
+                  )}`}
+                />
+              )}
+              {pricing.volumeDiscountPercent > 0 && (
+                <SummaryRow
+                  label={`Volume discount (${pricing.volumeDiscountPercent}%)`}
+                  value={`−${formatStoredMoney(
+                    pricing.volumeDiscountCents,
+                    pricing.currency,
+                  )}`}
+                />
+              )}
+            </>
+          )}
+          {clientCompany && (
+            <SummaryRow label="Company" value={clientCompany} />
+          )}
+        </dl>
+      </section>
+
+      <section className="rounded-xl border border-border bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Clock className="h-4 w-4 text-primary" aria-hidden />
+          <h2 className="text-[13px] font-bold text-foreground">Progress</h2>
+        </div>
+        <ProgressBar value={progress} className="mb-3" />
+        <p className="text-[11px] leading-relaxed text-muted">
+          {progressMessage}
+        </p>
+      </section>
+    </div>
+  );
+}
+
 export default async function OrderDetailPage({
   params,
 }: {
@@ -217,9 +325,69 @@ export default async function OrderDetailPage({
   const estimatedComp = deriveEstimatedCompletion(order.status, order.created_at);
   const estimatedCompDisplay = formatDisplayDate(estimatedComp);
   const pricing = parsePricingSnapshot(order.pricing_snapshot);
+  const estimatedCompletionLabel =
+    estimatedComp === "Delivered"
+      ? "Delivered"
+      : estimatedCompDisplay === "-"
+        ? "-"
+        : `~${estimatedCompDisplay} (est.)`;
+  const progressMessage = (
+    <>
+      {paymentSummary?.state === "payment_required" &&
+        "Your order has been received. Payment is required before production can begin."}
+      {paymentSummary?.state === "processing" &&
+        "Your payment is processing. Production will not begin until payment is verified."}
+      {paymentSummary?.state === "paid" &&
+        order.status === "pending" &&
+        "Payment is verified. Your order is awaiting confirmation."}
+      {paymentSummary?.state === "no_payment_required" &&
+        order.status === "pending" &&
+        "No payment is required. Your order is awaiting confirmation and can then enter production."}
+      {order.status === "pending" &&
+        paymentSummary?.state !== "payment_required" &&
+        paymentSummary?.state !== "processing" &&
+        paymentSummary?.state !== "paid" &&
+        paymentSummary?.state !== "no_payment_required" &&
+        "Your order has been received and is awaiting confirmation."}
+      {order.status === "confirmed" &&
+        "Your order has been confirmed and will enter production soon."}
+      {order.status === "in-progress" &&
+        "Our team is currently working on your order."}
+      {dashStatus === "pending-rework" &&
+        "Your rework request is pending review by our team."}
+      {dashStatus === "rework-in-progress" &&
+        "Our team is working on your requested revisions."}
+      {dashStatus === "new-version-ready" &&
+        "A new version is ready for your review."}
+      {order.status === "delivered" &&
+        dashStatus === "completed" &&
+        "Your order has been completed and delivered."}
+      {order.status === "cancelled" && "This order has been cancelled."}
+    </>
+  );
+  const orderContextProps = {
+    orderNumber: order.order_number,
+    serviceLabel,
+    jobTitle,
+    submittedLabel: formatDisplayDate(order.created_at),
+    estimatedCompletionLabel,
+    itemCount: order.item_count,
+    totalLabel:
+      paymentSummary?.finalTotalCents != null
+        ? "Final total"
+        : "Estimated total",
+    totalValue: formatStoredMoney(
+      order.estimated_total_cents,
+      order.currency,
+    ),
+    pricing,
+    clientCompany: order.client_company,
+    progress,
+    progressMessage,
+  } satisfies OrderDetailContextProps;
 
   return (
-    <ClientDashboardLayout>
+    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8 2xl:px-12">
       <div className="mb-6">
         <ClientPortalLink
           href="/dashboard/jobs"
@@ -279,123 +447,37 @@ export default async function OrderDetailPage({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-5 mb-7">
-        <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-primary" aria-hidden />
-            <h2 className="text-[13px] font-bold text-foreground">Summary</h2>
-          </div>
-          <dl className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
-            <SummaryRow label="Order number" value={order.order_number} mono />
-            <SummaryRow label="Service" value={serviceLabel} />
-            {jobTitle && <SummaryRow label="Job title" value={jobTitle} />}
-            <SummaryRow label="Submitted" value={formatDisplayDate(order.created_at)} />
-            <SummaryRow
-              label="Est. completion"
-              value={
-                estimatedComp === "Delivered"
-                  ? "Delivered"
-                  : estimatedCompDisplay === "-"
-                    ? "-"
-                    : `~${estimatedCompDisplay} (est.)`
-              }
-            />
-            <SummaryRow
-              label="Images / items"
-              value={`${order.item_count} image${order.item_count !== 1 ? "s" : ""}`}
-            />
-            <SummaryRow
-              label={paymentSummary?.finalTotalCents != null ? "Final total" : "Estimated total"}
-              value={formatStoredMoney(
-                order.estimated_total_cents,
-                order.currency
-              )}
-              bold
-            />
-            {pricing && (
-              <>
-                <SummaryRow
-                  label="Base subtotal"
-                  value={formatStoredMoney(
-                    pricing.baseSubtotalCents,
-                    pricing.currency
-                  )}
-                />
-                <SummaryRow
-                  label="Add-ons"
-                  value={formatStoredMoney(
-                    pricing.addOnSubtotalCents,
-                    pricing.currency
-                  )}
-                />
-                {pricing.welcomeDiscountCents > 0 && (
-                  <SummaryRow
-                    label="Welcome Offer"
-                    value={`−${formatStoredMoney(
-                      pricing.welcomeDiscountCents,
-                      pricing.currency
-                    )}`}
-                  />
-                )}
-                {pricing.volumeDiscountPercent > 0 && (
-                  <SummaryRow
-                    label={`Volume discount (${pricing.volumeDiscountPercent}%)`}
-                    value={`−${formatStoredMoney(
-                      pricing.volumeDiscountCents,
-                      pricing.currency
-                    )}`}
-                  />
-                )}
-              </>
-            )}
-            {order.client_company && (
-              <SummaryRow label="Company" value={order.client_company} />
-            )}
-          </dl>
+      <details
+        data-order-context-mobile
+        className="group mb-6 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:hidden"
+      >
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+          Order summary and progress
+          <ChevronDown
+            className="h-4 w-4 transition-transform group-open:rotate-180"
+            aria-hidden
+          />
+        </summary>
+        <div className="border-t border-border bg-surface/40 p-4">
+          <OrderDetailContext {...orderContextProps} />
         </div>
+      </details>
 
-        <div className="bg-white border border-border rounded-xl shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-4 h-4 text-primary" aria-hidden />
-            <h2 className="text-[13px] font-bold text-foreground">Progress</h2>
+      <div
+        data-order-detail-workspace
+        className="grid min-w-0 grid-cols-1 gap-7 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-8"
+      >
+        <aside
+          data-order-context-desktop
+          aria-label="Order summary and progress"
+          className="hidden min-w-0 lg:block lg:self-start"
+        >
+          <div className="lg:sticky lg:top-8">
+            <OrderDetailContext {...orderContextProps} />
           </div>
-          <ProgressBar value={progress} className="mb-3" />
-          <p className="text-[11px] text-muted leading-relaxed">
-            {paymentSummary?.state === "payment_required" &&
-              "Your order has been received. Payment is required before production can begin."}
-            {paymentSummary?.state === "processing" &&
-              "Your payment is processing. Production will not begin until payment is verified."}
-            {paymentSummary?.state === "paid" && order.status === "pending" &&
-              "Payment is verified. Your order is awaiting confirmation."}
-            {paymentSummary?.state === "no_payment_required" &&
-              order.status === "pending" &&
-              "No payment is required. Your order is awaiting confirmation and can then enter production."}
-            {order.status === "pending" &&
-              paymentSummary?.state !== "payment_required" &&
-              paymentSummary?.state !== "processing" &&
-              paymentSummary?.state !== "paid" &&
-              paymentSummary?.state !== "no_payment_required" &&
-              "Your order has been received and is awaiting confirmation."}
-            {order.status === "confirmed" &&
-              "Your order has been confirmed and will enter production soon."}
-            {order.status === "in-progress" &&
-              "Our team is currently working on your order."}
-            {dashStatus === "pending-rework" &&
-              "Your rework request is pending review by our team."}
-            {dashStatus === "rework-in-progress" &&
-              "Our team is working on your requested revisions."}
-            {dashStatus === "new-version-ready" &&
-              "A new version is ready for your review."}
-            {order.status === "delivered" &&
-              dashStatus === "completed" &&
-              "Your order has been completed and delivered."}
-            {order.status === "cancelled" &&
-              "This order has been cancelled."}
-          </p>
-        </div>
-      </div>
+        </aside>
 
-      <section className="space-y-5">
+        <section data-order-workflow className="min-w-0 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-primary" aria-hidden />
@@ -527,6 +609,7 @@ export default async function OrderDetailPage({
           </div>
         )}
       </section>
+      </div>
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 px-5 py-4 bg-surface border border-border rounded-xl">
         <div className="flex items-center gap-2">

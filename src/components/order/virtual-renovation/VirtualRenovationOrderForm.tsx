@@ -4,9 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
-import OrderGuideRail, {
-  type OrderGuideStep,
-} from "@/components/order/OrderGuideRail";
 import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
@@ -25,6 +22,7 @@ import RenovationItemCard, {
   renovationItemDomId,
 } from "@/components/order/virtual-renovation/RenovationItemCard";
 import VirtualRenovationOverview from "@/components/order/virtual-renovation/VirtualRenovationOverview";
+import VirtualRenovationRequirements from "@/components/order/virtual-renovation/VirtualRenovationRequirements";
 import VirtualRenovationReview from "@/components/order/virtual-renovation/VirtualRenovationReview";
 import { useVirtualRenovationMedia } from "@/components/order/virtual-renovation/VirtualRenovationMediaContext";
 import {
@@ -133,23 +131,6 @@ type FinalizationRecovery =
 const AUTOSAVE_DELAY_MS = 900;
 
 const STEPS = TWO_STEP_ORDER_STEPS;
-
-const VIRTUAL_RENOVATION_GUIDE_STEPS: OrderGuideStep[] = [
-  {
-    title: "Upload",
-    description: "Upload the original photo for each space you want to renovate.",
-  },
-  {
-    title: "Configure",
-    description:
-      "Choose the room and at least one renovation option, then add direction or references where helpful.",
-  },
-  {
-    title: "Review",
-    description:
-      "Review every image, selection and estimated total before submitting.",
-  },
-];
 
 const JOB_TITLE_CONTAINER_ID = "virtual-renovation-job-title";
 
@@ -1803,28 +1784,8 @@ export default function VirtualRenovationOrderForm({
     );
   }
 
-  const guideInformation = (
-    <>
-      <p>
-        Reference links and files are optional. Add them when they clarify the
-        layout, finishes, fixtures, furniture or visual direction you want.
-      </p>
-      <p>
-        Original photos: JPG, JPEG or PNG. Reference files: JPG, JPEG, PNG,
-        WebP or PDF.
-      </p>
-      <p>
-        Complex reconstruction or unclear source material may require custom
-        review before work begins.
-      </p>
-    </>
-  );
-
   const requirementsRail = !isReview ? (
-    <OrderGuideRail
-      steps={VIRTUAL_RENOVATION_GUIDE_STEPS}
-      information={guideInformation}
-    />
+    <VirtualRenovationRequirements />
   ) : undefined;
 
   return (

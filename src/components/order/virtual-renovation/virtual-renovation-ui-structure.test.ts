@@ -35,6 +35,10 @@ const reviewRowsSource = readFileSync(
   new URL("./virtual-renovation-review.ts", import.meta.url),
   "utf8",
 );
+const requirementsSource = readFileSync(
+  new URL("./VirtualRenovationRequirements.tsx", import.meta.url),
+  "utf8",
+);
 const pageSource = readFileSync(
   new URL(
     "../../../app/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
@@ -123,19 +127,25 @@ test("Configure and Review use the shared two-step order language", () => {
   );
 });
 
-test("Configure uses the canonical shared contextual guide", () => {
+test("Configure composes service-specific requirements through the shared guide", () => {
   assert.match(
     formSource,
-    /const requirementsRail = !isReview \? \(\s*<OrderGuideRail[\s\S]*?steps=\{VIRTUAL_RENOVATION_GUIDE_STEPS\}/,
+    /const requirementsRail = !isReview \? \(\s*<VirtualRenovationRequirements \/>/,
   );
   assert.match(formSource, /leadingRail=\{requirementsRail\}/);
-  assert.equal(formSource.match(/<OrderGuideRail/g)?.length, 1);
-  assert.doesNotMatch(formSource, /compactLeadingRail|VirtualRenovationRequirements/);
-  assert.match(formSource, /Original photos: JPG, JPEG or PNG\./);
-  assert.match(
-    formSource,
-    /Reference files: JPG, JPEG, PNG,\s*WebP or PDF\./,
-  );
+  assert.equal(requirementsSource.match(/<OrderGuideRail/g)?.length, 1);
+  assert.doesNotMatch(formSource, /compactLeadingRail|<OrderGuideRail/);
+  assert.doesNotMatch(requirementsSource, /<details|<aside|compact|useState/);
+  assert.match(requirementsSource, /high-resolution original image/);
+  assert.match(requirementsSource, /style\/design brief/);
+  assert.match(requirementsSource, /build changes, fixture\s+changes/);
+  assert.match(requirementsSource, /furniture, materials, textures/);
+  assert.match(requirementsSource, /colour direction/);
+  assert.match(requirementsSource, /Reference images, links or mark-up sketches/);
+  assert.match(requirementsSource, /Use Virtual Renovation to visualise/);
+  assert.match(requirementsSource, /Complex reconstruction or unclear source material/);
+  assert.match(requirementsSource, /JPG, JPEG or PNG/);
+  assert.match(requirementsSource, /JPG, JPEG, PNG, WebP or PDF/);
 });
 
 test("Review alone owns the unchanged Order Summary sidebar", () => {

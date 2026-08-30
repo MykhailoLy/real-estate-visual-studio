@@ -17,6 +17,8 @@ const flows = [
   {
     name: "Virtual Renovation",
     path: "src/components/order/virtual-renovation/VirtualRenovationOrderForm.tsx",
+    guidePath:
+      "src/components/order/virtual-renovation/VirtualRenovationRequirements.tsx",
     guideVariable: "requirementsRail",
   },
   {
@@ -73,7 +75,14 @@ test("one shared guide owns mobile, tablet and desktop behavior", () => {
 test("all scoped configure stages use the shared guide and no summary column", () => {
   for (const flow of flows) {
     const form = source(flow.path);
-    assert.equal((form.match(/<OrderGuideRail/g) ?? []).length, 1, flow.name);
+    const guideOwner = source(
+      "guidePath" in flow ? flow.guidePath : flow.path,
+    );
+    assert.equal(
+      (guideOwner.match(/<OrderGuideRail/g) ?? []).length,
+      1,
+      flow.name,
+    );
     assert.match(form, /const \w+ = !isReview \? \(/, flow.name);
     assert.match(
       form,
@@ -147,6 +156,7 @@ test("all configure pages opt into the existing wide dashboard workspace", () =>
     "src/app/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
     "src/app/(dashboard)/dashboard/orders/new/item-removal-virtual-cleaning/page.tsx",
     "src/app/(dashboard)/dashboard/orders/new/photo-editing/page.tsx",
+    "src/app/(dashboard)/dashboard/orders/new/3d-floor-plans/page.tsx",
   ];
 
   for (const path of pages) {
@@ -154,11 +164,77 @@ test("all configure pages opt into the existing wide dashboard workspace", () =>
   }
 });
 
-test("Virtual Renovation no longer carries a parallel guide implementation", () => {
+test("Virtual Renovation preserves its requirements through the shared guide", () => {
+  const requirementsPath =
+    "src/components/order/virtual-renovation/VirtualRenovationRequirements.tsx";
   assert.equal(
-    existsSync(
-      "src/components/order/virtual-renovation/VirtualRenovationRequirements.tsx",
-    ),
-    false,
+    existsSync(requirementsPath),
+    true,
   );
+  const requirements = source(requirementsPath);
+  assert.match(requirements, /from "@\/components\/order\/OrderGuideRail"/);
+  assert.equal((requirements.match(/<OrderGuideRail/g) ?? []).length, 1);
+  assert.match(requirements, /high-resolution original image/);
+  assert.match(requirements, /build changes, fixture\s+changes, furniture, materials, textures and colour direction/);
+  assert.match(requirements, /Reference images, links or mark-up sketches/);
+  assert.match(requirements, /Complex reconstruction or unclear source material/);
+  assert.match(requirements, /JPG, JPEG or PNG/);
+  assert.match(requirements, /JPG, JPEG, PNG, WebP or PDF/);
+  assert.doesNotMatch(
+    requirements,
+    /<details|<aside|compact|md:hidden|lg:hidden|useState|matchMedia/,
+  );
+});
+
+test("Floor Plans uses the guide while preserving one direct-submit summary", () => {
+  const form = source(
+    "src/components/order/floor-plans/FloorPlansOrderForm.tsx",
+  );
+  assert.equal((form.match(/<OrderGuideRail/g) ?? []).length, 1);
+  assert.match(form, /title: "Upload"/);
+  assert.match(form, /title: "Configure"/);
+  assert.match(form, /title: "Submit"/);
+  assert.match(form, /leadingRail=\{guide\}/);
+  assert.match(form, /workspaceVariant="wide"/);
+  assert.equal((form.match(/<OrderSummary/g) ?? []).length, 1);
+  assert.match(form, /onSubmit=\{handleSubmit\}/);
+  assert.match(form, /serviceType: "3d-floor-plans"/);
+  assert.match(
+    form,
+    /canSubmit=\{canSubmit \|\| finalizationRetryContext !== null\}/,
+  );
+  assert.ok(form.indexOf("</fieldset>") < form.indexOf("<OrderSummary"));
+  assert.doesNotMatch(
+    form,
+    /OrderReviewAction|OrderStepIndicator|TWO_STEP_ORDER_STEPS|setStep/,
+  );
+});
+
+test("Order Detail keeps payment visible before responsive context and workflow", () => {
+  const detail = source(
+    "src/app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
+  );
+  const payment = detail.indexOf("<OrderPaymentPanel");
+  const mobileContext = detail.indexOf("data-order-context-mobile");
+  const workspace = detail.indexOf("data-order-detail-workspace");
+  assert.ok(payment > -1 && mobileContext > payment && workspace > mobileContext);
+  assert.match(detail, /data-order-context-mobile[\s\S]*?lg:hidden/);
+  assert.match(detail, /<summary className="[^"]*min-h-11/);
+  assert.match(detail, /data-order-context-desktop[\s\S]*?hidden min-w-0 lg:block/);
+  assert.match(detail, /lg:sticky lg:top-8/);
+  assert.match(
+    detail,
+    /lg:grid-cols-\[300px_minmax\(0,1fr\)\] lg:gap-6/,
+  );
+  assert.match(
+    detail,
+    /xl:grid-cols-\[320px_minmax\(0,1fr\)\] xl:gap-8/,
+  );
+  assert.match(detail, /data-order-workflow className="min-w-0 space-y-5"/);
+  assert.match(detail, /<OrderDetailContext \{\.\.\.orderContextProps\} \/>/);
+  assert.equal((detail.match(/<OrderPaymentPanel/g) ?? []).length, 1);
+  assert.match(detail, /Image workflow/);
+  assert.match(detail, /<ClientOrderImageCard/);
+  assert.match(detail, /<DeliverableReviewActions/);
+  assert.doesNotMatch(detail, /<OrderLayout|overflow-y-auto|max-h-/);
 });
