@@ -17,9 +17,10 @@ import {
   getRemovalTaskLabels,
 } from "@/lib/item-removal";
 import type { ItemRemovalItemData } from "./ItemRemovalItemCard";
+import { ORDER_REVIEW_BACK_LABEL } from "@/components/order/order-flow-copy";
 
 // ============================================================
-// ItemRemovalReview — Review & Submit step body for an Item Removal
+// ItemRemovalReview — Review & Confirm step body for an Item Removal
 // & Virtual Cleaning order.
 //
 // Composes the reusable OrderReviewHeader + OrderReviewItem cards (the
@@ -97,7 +98,7 @@ export default function ItemRemovalReview({
           className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-semibold text-foreground hover:border-primary/40 hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          Back to Edit
+          {ORDER_REVIEW_BACK_LABEL}
         </button>
       </div>
 
@@ -148,7 +149,7 @@ export default function ItemRemovalReview({
           className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:text-primary-light transition-colors"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          Back to Edit
+          {ORDER_REVIEW_BACK_LABEL}
         </button>
       </div>
     </div>

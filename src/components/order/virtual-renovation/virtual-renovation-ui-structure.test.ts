@@ -115,8 +115,7 @@ test("guide and option metadata use one server-side media batch", () => {
 });
 
 test("Configure and Review use the shared two-step order language", () => {
-  assert.match(formSource, /id: "configure", label: "Configure Order"/);
-  assert.match(formSource, /id: "review", label: "Review & Submit"/);
+  assert.match(formSource, /const STEPS = TWO_STEP_ORDER_STEPS/);
   assert.match(
     formSource,
     /<OrderStepIndicator steps=\{STEPS\} currentStepId=\{screen\}/,

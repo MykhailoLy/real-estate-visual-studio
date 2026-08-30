@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 // OrderStepIndicator — restrained, accessible multi-step indicator.
 //
 // Generic over an ordered list of steps so the order flow can later
-// grow from [Configure, Review] to [Configure, Review, Payment]
+// grow beyond today's details and review steps
 // WITHOUT changing this component. Pass the additional step in the
 // `steps` array when payment is implemented — no fake/disabled payment
 // step is shown today.
@@ -23,7 +23,7 @@ export interface OrderStep {
 }
 
 interface OrderStepIndicatorProps {
-  steps: OrderStep[];
+  steps: readonly OrderStep[];
   /** id of the currently active step. */
   currentStepId: string;
 }

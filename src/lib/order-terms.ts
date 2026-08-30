@@ -1,4 +1,4 @@
-import { LEGAL_VERSION } from "@/lib/legal";
+import { LEGAL_VERSION } from "./legal.ts";
 
 export const TERMS_VERSION = LEGAL_VERSION;
 

@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { ArrowRight, Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import {
   type OrderTermsData,
@@ -128,10 +129,7 @@ type FinalizationRecovery =
 
 const AUTOSAVE_DELAY_MS = 900;
 
-const STEPS = [
-  { id: "configure", label: "Configure Order" },
-  { id: "review", label: "Review & Submit" },
-];
+const STEPS = TWO_STEP_ORDER_STEPS;
 
 const JOB_TITLE_CONTAINER_ID = "virtual-renovation-job-title";
 

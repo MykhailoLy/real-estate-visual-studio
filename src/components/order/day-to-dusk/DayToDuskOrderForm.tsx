@@ -8,9 +8,8 @@ import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary"
 import OrderGuideRail, {
   type OrderGuideStep,
 } from "@/components/order/OrderGuideRail";
-import OrderStepIndicator, {
-  type OrderStep,
-} from "@/components/order/OrderStepIndicator";
+import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
   emptyOrderTerms,
@@ -103,11 +102,7 @@ import {
 
 type DayToDuskFormStep = "configure" | "review";
 
-const STEPS: OrderStep[] = [
-  { id: "configure", label: "Configure Order" },
-  { id: "review", label: "Review & Submit" },
-  // FUTURE: { id: "payment", label: "Payment" },
-];
+const STEPS = TWO_STEP_ORDER_STEPS;
 
 const SERVICE_NAME = "Day to Dusk";
 

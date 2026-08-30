@@ -14,6 +14,7 @@ import {
   calculatePhotoEditingReviewQuote,
   findPhotoEditingReviewFileDisplay,
 } from "./photo-editing-review";
+import { ORDER_REVIEW_BACK_LABEL } from "@/components/order/order-flow-copy";
 
 interface PhotoEditingReviewProps {
   jobTitle: string;
@@ -50,7 +51,7 @@ export default function PhotoEditingReview({
         className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        Back to Edit
+        {ORDER_REVIEW_BACK_LABEL}
       </button>
 
       <OrderReviewHeader
@@ -106,7 +107,7 @@ export default function PhotoEditingReview({
         className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary transition-colors hover:text-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        Back to Edit
+        {ORDER_REVIEW_BACK_LABEL}
       </button>
     </div>
   );
