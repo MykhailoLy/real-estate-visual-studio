@@ -365,6 +365,8 @@ export default async function OrderDetailPage({
       {order.status === "cancelled" && "This order has been cancelled."}
     </>
   );
+  const hasAuthoritativeTotal =
+    paymentSummary?.finalTotalCents != null && paymentSummary.currency != null;
   const orderContextProps = {
     orderNumber: order.order_number,
     serviceLabel,
@@ -372,13 +374,12 @@ export default async function OrderDetailPage({
     submittedLabel: formatDisplayDate(order.created_at),
     estimatedCompletionLabel,
     itemCount: order.item_count,
-    totalLabel:
-      paymentSummary?.finalTotalCents != null
-        ? "Final total"
-        : "Estimated total",
+    totalLabel: hasAuthoritativeTotal ? "Final total" : "Estimated total",
     totalValue: formatStoredMoney(
-      order.estimated_total_cents,
-      order.currency,
+      hasAuthoritativeTotal
+        ? paymentSummary.finalTotalCents
+        : order.estimated_total_cents,
+      hasAuthoritativeTotal ? paymentSummary.currency : order.currency,
     ),
     pricing,
     clientCompany: order.client_company,
