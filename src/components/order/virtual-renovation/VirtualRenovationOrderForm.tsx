@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
+import OrderGuideRail, {
+  type OrderGuideStep,
+} from "@/components/order/OrderGuideRail";
+import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
@@ -21,7 +25,6 @@ import RenovationItemCard, {
   renovationItemDomId,
 } from "@/components/order/virtual-renovation/RenovationItemCard";
 import VirtualRenovationOverview from "@/components/order/virtual-renovation/VirtualRenovationOverview";
-import VirtualRenovationRequirements from "@/components/order/virtual-renovation/VirtualRenovationRequirements";
 import VirtualRenovationReview from "@/components/order/virtual-renovation/VirtualRenovationReview";
 import { useVirtualRenovationMedia } from "@/components/order/virtual-renovation/VirtualRenovationMediaContext";
 import {
@@ -130,6 +133,23 @@ type FinalizationRecovery =
 const AUTOSAVE_DELAY_MS = 900;
 
 const STEPS = TWO_STEP_ORDER_STEPS;
+
+const VIRTUAL_RENOVATION_GUIDE_STEPS: OrderGuideStep[] = [
+  {
+    title: "Upload",
+    description: "Upload the original photo for each space you want to renovate.",
+  },
+  {
+    title: "Configure",
+    description:
+      "Choose the room and at least one renovation option, then add direction or references where helpful.",
+  },
+  {
+    title: "Review",
+    description:
+      "Review every image, selection and estimated total before submitting.",
+  },
+];
 
 const JOB_TITLE_CONTAINER_ID = "virtual-renovation-job-title";
 
@@ -1783,12 +1803,28 @@ export default function VirtualRenovationOrderForm({
     );
   }
 
-  const requirementsRail = !isReview ? (
-    <VirtualRenovationRequirements />
-  ) : undefined;
+  const guideInformation = (
+    <>
+      <p>
+        Reference links and files are optional. Add them when they clarify the
+        layout, finishes, fixtures, furniture or visual direction you want.
+      </p>
+      <p>
+        Original photos: JPG, JPEG or PNG. Reference files: JPG, JPEG, PNG,
+        WebP or PDF.
+      </p>
+      <p>
+        Complex reconstruction or unclear source material may require custom
+        review before work begins.
+      </p>
+    </>
+  );
 
-  const compactRequirements = !isReview ? (
-    <VirtualRenovationRequirements compact />
+  const requirementsRail = !isReview ? (
+    <OrderGuideRail
+      steps={VIRTUAL_RENOVATION_GUIDE_STEPS}
+      information={guideInformation}
+    />
   ) : undefined;
 
   return (
@@ -1834,7 +1870,6 @@ export default function VirtualRenovationOrderForm({
         ) : undefined
       }
       leadingRail={requirementsRail}
-      compactLeadingRail={compactRequirements}
       editorial={!isReview}
       workspaceVariant={isReview ? undefined : "wide"}
     >
@@ -2002,8 +2037,11 @@ export default function VirtualRenovationOrderForm({
             </button>
           </fieldset>
 
-          <div className="flex flex-col gap-4 border-t border-border pt-7 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 max-w-2xl text-sm leading-6 text-muted">
+          <OrderReviewAction
+            onClick={() => void goToReview()}
+            disabled={!canReview}
+          >
+            <div>
               {configurationError ? (
                 <p role="alert" className="font-medium text-red-700">
                   {configurationError}
@@ -2015,16 +2053,7 @@ export default function VirtualRenovationOrderForm({
                 </p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => void goToReview()}
-              disabled={!canReview}
-              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
-            >
-              Review Order
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
+          </OrderReviewAction>
         </>
       )}
     </OrderLayout>

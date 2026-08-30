@@ -17,8 +17,12 @@ test("Review Order changes steps and never invokes final submission", () => {
   const reviewBody = formSource.slice(reviewStart, reviewEnd);
   assert.match(reviewBody, /setStep\("review"\)/);
   assert.doesNotMatch(reviewBody, /submitOrder\(/);
-  assert.match(formSource, /submitLabel=\{isReview \? "Submit Order" : "Review Order"\}/);
-  assert.match(formSource, /onSubmit=\{isReview \? handleSubmit : goToReview\}/);
+  assert.match(formSource, /onSubmit=\{handleSubmit\}/);
+  assert.match(
+    formSource,
+    /<OrderReviewAction[\s\S]*?onClick=\{goToReview\}[\s\S]*?disabled=\{!configureValid \|\| fileOperationActive\}/,
+  );
+  assert.equal(formSource.match(/<OrderSummary/g)?.length, 1);
 });
 
 test("final Submit Order is guarded against duplicate submission", () => {

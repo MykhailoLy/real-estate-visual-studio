@@ -66,25 +66,28 @@ test("configure uses the guide and local Review action while Review keeps one su
   assert.match(form, /const sidebar = isReview/);
   assert.match(form, /const guide = !isReview/);
   assert.match(form, /leadingRail=\{guide\}/);
-  assert.match(form, /onClick=\{goToReview\}[\s\S]+Review Order/);
+  assert.match(
+    form,
+    /<OrderReviewAction[\s\S]*?onClick=\{goToReview\}[\s\S]*?disabled=\{!configureValid \|\| fileOperationActive\}/,
+  );
   assert.match(form, /if \(submittingRef\.current \|\| step !== "review"\) return/);
 });
 
-test("the reusable guide uses a desktop rail and compact tablet block", () => {
-  assert.match(layout, /hidden min-w-0 lg:block/);
-  assert.match(layout, /hidden md:block lg:hidden/);
-  assert.match(layout, /minmax\(210px,230px\)/);
-  assert.match(form, /compactLeadingRail=\{compactGuide\}/);
-  assert.match(guide, /variant === "compact"/);
-  assert.match(guide, /<details/);
-  assert.match(guide, /hidden min-\[1400px\]:block/);
+test("the reusable guide uses mobile, tablet and desktop presentations", () => {
+  assert.match(layout, /lg:grid-cols-\[300px_minmax\(0,1fr\)\]/);
+  assert.match(layout, /xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.match(guide, /md:hidden/);
+  assert.match(guide, /md:block lg:hidden/);
+  assert.match(guide, /hidden border-l[^\"]*lg:block/);
+  assert.match(guide, /Before you start/);
+  assert.doesNotMatch(form, /compactLeadingRail/);
 });
 
 test("configure opts into the wide dashboard workspace while Review stays default", () => {
   assert.match(form, /workspaceVariant=\{isReview \? undefined : "wide"\}/);
   assert.match(layout, /workspaceVariant\?: "wide"/);
   assert.match(layout, /max-w-\[1800px\]/);
-  assert.match(layout, /minmax\(220px,240px\)/);
+  assert.match(layout, /320px_minmax\(0,1fr\)/);
   assert.match(page, /max-w-\[1800px\]/);
 });
 

@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderGuideRail, {
   type OrderGuideStep,
 } from "@/components/order/OrderGuideRail";
+import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
@@ -1053,38 +1054,27 @@ export default function DayToDuskOrderForm({
 
   const guideInformation = (
     <>
-          <p className="font-semibold text-foreground">Important</p>
-          <p>
-            For the best result, upload the highest-quality daytime exterior
-            image available.
-          </p>
-          <p>
-            Not sure which sky works best? Choose “Let Our Experts Decide”.
-          </p>
-          <p>
-            Reference files are optional and can show a preferred sky, colour
-            mood or visual direction.
-          </p>
-          <p>
-            Reference files: JPG, JPEG, PNG, WebP or PDF. Up to 10 files, 20 MB
-            each and 100 MB total.
-          </p>
+      <p className="font-semibold text-foreground">Important</p>
+      <p>
+        For the best result, upload the highest-quality daytime exterior image
+        available.
+      </p>
+      <p>Not sure which sky works best? Choose “Let Our Experts Decide”.</p>
+      <p>
+        Reference files are optional and can show a preferred sky, colour mood
+        or visual direction.
+      </p>
+      <p>
+        Reference files: JPG, JPEG, PNG, WebP or PDF. Up to 10 files, 20 MB each
+        and 100 MB total.
+      </p>
     </>
   );
 
   const guide = !isReview ? (
     <OrderGuideRail
       steps={DAY_TO_DUSK_GUIDE_STEPS}
-      deferInformation
       information={guideInformation}
-    />
-  ) : undefined;
-
-  const compactGuide = !isReview ? (
-    <OrderGuideRail
-      steps={DAY_TO_DUSK_GUIDE_STEPS}
-      information={guideInformation}
-      variant="compact"
     />
   ) : undefined;
 
@@ -1095,7 +1085,6 @@ export default function DayToDuskOrderForm({
       header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={sidebar}
       leadingRail={guide}
-      compactLeadingRail={compactGuide}
       editorial
       workspaceVariant={isReview ? undefined : "wide"}
     >
@@ -1203,21 +1192,15 @@ export default function DayToDuskOrderForm({
             Add Another Photo
           </button>
 
-          <div className="flex flex-col gap-4 border-t border-border pt-7 sm:flex-row sm:items-center sm:justify-between">
+          <OrderReviewAction
+            onClick={goToReview}
+            disabled={!configureValid || fileOperationActive}
+          >
             <p className="max-w-xl text-sm leading-6 text-muted">
               Next, review every photo, selected option and the full estimated
               order total before submitting.
             </p>
-            <button
-              type="button"
-              onClick={goToReview}
-              disabled={!configureValid || fileOperationActive}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-56"
-            >
-              Review Order
-              <ArrowRight className="h-5 w-5" aria-hidden />
-            </button>
-          </div>
+          </OrderReviewAction>
         </>
       )}
     </OrderLayout>

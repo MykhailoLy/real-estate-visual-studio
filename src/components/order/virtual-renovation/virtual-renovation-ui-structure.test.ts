@@ -27,10 +27,6 @@ const overviewSource = readFileSync(
   new URL("./VirtualRenovationOverview.tsx", import.meta.url),
   "utf8",
 );
-const requirementsSource = readFileSync(
-  new URL("./VirtualRenovationRequirements.tsx", import.meta.url),
-  "utf8",
-);
 const reviewSource = readFileSync(
   new URL("./VirtualRenovationReview.tsx", import.meta.url),
   "utf8",
@@ -127,31 +123,18 @@ test("Configure and Review use the shared two-step order language", () => {
   );
 });
 
-test("Configure uses the canonical leading requirements rails", () => {
+test("Configure uses the canonical shared contextual guide", () => {
   assert.match(
     formSource,
-    /const requirementsRail = !isReview \? \(\s*<VirtualRenovationRequirements \/>\s*\) : undefined/,
-  );
-  assert.match(
-    formSource,
-    /const compactRequirements = !isReview \? \(\s*<VirtualRenovationRequirements compact \/>\s*\) : undefined/,
+    /const requirementsRail = !isReview \? \(\s*<OrderGuideRail[\s\S]*?steps=\{VIRTUAL_RENOVATION_GUIDE_STEPS\}/,
   );
   assert.match(formSource, /leadingRail=\{requirementsRail\}/);
-  assert.match(formSource, /compactLeadingRail=\{compactRequirements\}/);
-  assert.doesNotMatch(
+  assert.equal(formSource.match(/<OrderGuideRail/g)?.length, 1);
+  assert.doesNotMatch(formSource, /compactLeadingRail|VirtualRenovationRequirements/);
+  assert.match(formSource, /Original photos: JPG, JPEG or PNG\./);
+  assert.match(
     formSource,
-    /sidebar=\{[\s\S]*?VirtualRenovationRequirements/,
-  );
-  assert.doesNotMatch(formSource, /className="xl:hidden"/);
-  assert.match(requirementsSource, /<details/);
-  assert.match(requirementsSource, /Preparation requirements/);
-  assert.match(
-    requirementsSource,
-    /Original photo<\/dt>\s*<dd>JPG, JPEG or PNG\.<\/dd>/,
-  );
-  assert.match(
-    requirementsSource,
-    /Reference files<\/dt>\s*<dd>JPG, JPEG, PNG, WebP or PDF\.<\/dd>/,
+    /Reference files: JPG, JPEG, PNG,\s*WebP or PDF\./,
   );
 });
 
@@ -286,7 +269,7 @@ test("renovation rows and style choices use the compact shared visual language",
   );
   assert.match(
     formSource,
-    /className="flex flex-col gap-4 border-t border-border pt-7/,
+    /<OrderReviewAction[\s\S]*?onClick=\{\(\) => void goToReview\(\)\}[\s\S]*?disabled=\{!canReview\}/,
   );
 });
 

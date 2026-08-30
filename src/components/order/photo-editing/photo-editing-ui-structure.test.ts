@@ -16,14 +16,14 @@ const itemCardSource = readFileSync(
 );
 
 test("Configure advances to Review without owning production submission", () => {
-  const configureAction = formSource.indexOf("onSubmit={goToReview}");
-  const configureLabel = formSource.indexOf('submitLabel="Review Order"');
+  const configureAction = formSource.indexOf("<OrderReviewAction onClick={goToReview}");
   const finalAction = formSource.indexOf("onSubmit={handleSubmit}");
 
   assert.ok(configureAction > -1);
-  assert.ok(configureLabel > configureAction);
   assert.ok(finalAction > -1);
   assert.notEqual(configureAction, finalAction);
+  assert.match(formSource, /disabled=\{!canReview\}/);
+  assert.equal(formSource.match(/<OrderSummary/g)?.length, 1);
   assert.match(
     formSource,
     /header=\{<OrderStepIndicator steps=\{STEPS\} currentStepId=\{step\} \/>\}/,
