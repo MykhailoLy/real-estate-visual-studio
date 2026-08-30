@@ -254,6 +254,8 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   assert.match(mobileNavSource, /event\.key === "Escape"/);
   assert.match(mobileNavSource, /document\.body\.style\.overflow = "hidden"/);
   assert.match(mobileNavSource, /trigger\?\.focus\(\)/);
+  assert.match(topNavSource, /aria-controls="client-dashboard-mobile-menu"[\s\S]*?h-11 w-11/);
+  assert.match(mobileNavSource, /inline-flex h-11 w-11 items-center justify-center/);
   assert.match(jobsSource, /<ClientJobsStatusFilters/);
   assert.match(jobsSource, /activeStatusFilter=\{statusFilter\}/);
   assert.match(jobsSource, /onStatusFilter=\{setStatusFilter\}/);
@@ -262,6 +264,85 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
     source("components/dashboard/ClientJobsStatusFilters.tsx"),
     /JOB_STATUS_FILTERS\.map/,
   );
+});
+
+test("Drafts stays available outside the primary desktop and mobile navigation", () => {
+  const navItemsSource = source("components/dashboard/dashboard-nav-items.ts");
+  const topNavSource = source("components/dashboard/ClientDashboardTopNav.tsx");
+  const mobileNavSource = source("components/dashboard/ClientDashboardMobileNav.tsx");
+  const draftsRouteSource = source("app/(dashboard)/dashboard/drafts/page.tsx");
+  const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
+  const primaryLabels = Array.from(
+    navItemsSource.matchAll(/label: "([^"]+)"/g),
+    (match) => match[1],
+  );
+
+  assert.deepEqual(primaryLabels, [
+    "Dashboard",
+    "Jobs",
+    "New Order",
+    "Files",
+    "Invoices",
+    "Support",
+  ]);
+  assert.doesNotMatch(navItemsSource, /\/dashboard\/drafts/);
+  assert.match(topNavSource, /DASHBOARD_NAV_ITEMS\.map/);
+  assert.match(mobileNavSource, /DASHBOARD_NAV_ITEMS\.map/);
+  assert.match(draftsRouteSource, /<ClientDraftsPage \/>/);
+  assert.match(savedDraftsSource, /href="\/dashboard\/drafts"/);
+  assert.match(savedDraftsSource, /\{copy\.viewAll\}/);
+});
+
+test("dashboard composes a bounded activity rail and stacked mobile workspace", () => {
+  const pageSource = source("app/(dashboard)/dashboard/page.tsx");
+  const railSource = source("components/dashboard/DashboardActivityRail.tsx");
+
+  assert.match(pageSource, /data-dashboard-workspace/);
+  assert.match(pageSource, /grid grid-cols-1 gap-6/);
+  assert.match(pageSource, /lg:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.match(pageSource, /xl:grid-cols-\[340px_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(pageSource, /grid-cols-\[33%/);
+  assert.match(pageSource, /<DashboardActivityRail jobs=\{jobs\} \/>/);
+  assert.match(pageSource, /<DashboardQuickStart/);
+  assert.match(railSource, /<SavedDraftsSection variant="rail" \/>/);
+  assert.match(railSource, /Continue working/);
+  assert.match(railSource, /Next actions/);
+  assert.match(railSource, /Recently completed/);
+  assert.match(railSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
+  assert.match(railSource, /href="\/dashboard\/jobs"/);
+});
+
+test("dashboard quick start is registry-driven and media-free", () => {
+  const pageSource = source("app/(dashboard)/dashboard/page.tsx");
+  const quickStartSource = source("components/dashboard/DashboardQuickStart.tsx");
+  const activeServices = getOrderServiceCatalog().filter(
+    (service) => service.availability === "active" && service.route !== null,
+  );
+
+  assert.ok(activeServices.length >= 6);
+  assert.ok(activeServices.slice(0, 6).every((service) => service.route));
+  assert.match(pageSource, /getOrderServiceCards\(\)/);
+  assert.match(quickStartSource, /services\.filter\(isActiveOrderService\)\.slice\(0, 6\)/);
+  assert.match(quickStartSource, /href=\{service\.route\}/);
+  assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
+  assert.doesNotMatch(
+    `${pageSource}\n${quickStartSource}`,
+    /OrderServiceGrid|<OrderServiceCard|from "next\/image"|getOrderCardImages|getOrderServiceExamples/,
+  );
+  assert.doesNotMatch(quickStartSource, /price|turnaround/i);
+});
+
+test("compact Saved Drafts reuses the existing list and Resume or Finish flow", () => {
+  const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
+  const listCalls = savedDraftsSource.match(/listOrderDrafts\(3, controller\.signal\)/g);
+
+  assert.equal(listCalls?.length, 1);
+  assert.match(savedDraftsSource, /variant\?: SavedDraftsVariant/);
+  assert.match(savedDraftsSource, /buildSavedDraftResumeUrl/);
+  assert.match(savedDraftsSource, /getSavedDraftActionLabel/);
+  assert.match(savedDraftsSource, /resume: copy\.resume/);
+  assert.match(savedDraftsSource, /finish: copy\.finish/);
+  assert.match(savedDraftsSource, /href=\{resumeUrl\}/);
 });
 
 test("every primary client portal route keeps the shared width-aware shell", () => {

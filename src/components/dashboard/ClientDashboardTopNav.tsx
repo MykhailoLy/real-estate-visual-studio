@@ -67,7 +67,7 @@ export default function ClientDashboardTopNav() {
         <Link
           href={getLocaleAwareHref("/", language)}
           aria-label="Open the PicchuSpot public homepage"
-          className="flex min-w-0 flex-shrink items-center gap-1.5 sm:gap-2"
+          className="flex min-h-11 min-w-0 flex-shrink items-center gap-1.5 sm:gap-2"
         >
           <PicchuSpotLogo
             variant="mark"
@@ -100,7 +100,7 @@ export default function ClientDashboardTopNav() {
           aria-label={mobileMenuOpen ? "Close dashboard menu" : "Open dashboard menu"}
           aria-expanded={mobileMenuOpen}
           aria-controls="client-dashboard-mobile-menu"
-          className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+          className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
         >
           {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
         </button>
