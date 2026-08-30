@@ -5,6 +5,7 @@ export const localizedRoutes = [
   { englishPath: "/contact", spanishPath: "/es/contact", priority: 0.8 },
   { englishPath: "/about", spanishPath: "/es/about", priority: 0.7 },
   { englishPath: "/faq", spanishPath: "/es/faq", priority: 0.6 },
+  { englishPath: "/legal", spanishPath: "/es/legal", priority: 0.4 },
   { englishPath: "/terms", spanishPath: "/es/terms", priority: 0.4 },
   { englishPath: "/privacy", spanishPath: "/es/privacy", priority: 0.4 },
   { englishPath: "/cookies", spanishPath: "/es/cookies", priority: 0.4 },

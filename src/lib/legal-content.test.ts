@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { EARLY_PERFORMANCE_VERSION } from "./early-performance.ts";
 import { LEGAL_UPDATED, LEGAL_VERSION } from "./legal.ts";
 import {
   TERMS_VERSION,
@@ -34,6 +35,18 @@ function sourceTree(relativeDirectory: string) {
 
 const localizedRoutesSource = source("src/lib/localized-routes.ts");
 const legalContentSource = source("src/content/legal-pages.tsx");
+const legalNoticeContentSource = legalContentSource.slice(
+  legalContentSource.indexOf("export const legalNoticeSectionsEn"),
+  legalContentSource.indexOf("export const termsSectionsEn"),
+);
+const termsContentSource = legalContentSource.slice(
+  legalContentSource.indexOf("export const termsSectionsEn"),
+  legalContentSource.indexOf("export const privacySectionsEn"),
+);
+const privacyContentSource = legalContentSource.slice(
+  legalContentSource.indexOf("export const privacySectionsEn"),
+  legalContentSource.indexOf("export const cookieSectionsEn"),
+);
 const footerSource = source("src/components/layout/Footer.tsx");
 const headerSource = source("src/components/layout/Header.tsx");
 const cookieBannerSource = source(
@@ -71,6 +84,7 @@ const revisionPolicySources = [
 test("legal version is current and remains the order terms version", () => {
   assert.equal(LEGAL_VERSION, "2026-08-30");
   assert.equal(TERMS_VERSION, LEGAL_VERSION);
+  assert.equal(EARLY_PERFORMANCE_VERSION, "2026-08-30");
   assert.equal(LEGAL_UPDATED.en, "30 August 2026");
   assert.equal(LEGAL_UPDATED.es, "30 de agosto de 2026");
   assert.match(source("src/lib/order-terms.ts"), /TERMS_VERSION = LEGAL_VERSION/);
@@ -214,6 +228,7 @@ test("revision policy is copy-only and repeated review cycles remain available",
 
 test("all bilingual policy routes are localized and present", () => {
   const routePairs = [
+    ["/legal", "/es/legal"],
     ["/terms", "/es/terms"],
     ["/privacy", "/es/privacy"],
     ["/cookies", "/es/cookies"],
@@ -244,12 +259,89 @@ test("all bilingual policy routes are localized and present", () => {
   assert.match(source("src/app/sitemap.ts"), /localizedRoutes/);
 });
 
+test("Legal Notice metadata uses the bilingual canonical and alternate helpers", () => {
+  const englishPage = source("src/app/(public)/legal/page.tsx");
+  const spanishPage = source("src/app/(public)/es/legal/page.tsx");
+
+  assert.match(englishPage, /title: "Legal Notice"/);
+  assert.match(englishPage, /canonicalPath: "\/legal"/);
+  assert.match(englishPage, /spanishPath: "\/es\/legal"/);
+  assert.match(englishPage, /publicPageMetadata/);
+
+  assert.match(spanishPage, /title: "Aviso legal"/);
+  assert.match(spanishPage, /path: "\/es\/legal"/);
+  assert.match(spanishPage, /englishPath: "\/legal"/);
+  assert.match(spanishPage, /spanishMetadata/);
+});
+
+test("Legal Notice identifies the confirmed operator without invented claims", () => {
+  assert.match(legalNoticeContentSource, /Mykhailo Lykin/);
+  assert.match(legalNoticeContentSource, /Y9650008G/);
+  assert.match(legalNoticeContentSource, /C\. Capitán Dema, 3/);
+  assert.match(legalNoticeContentSource, /03007 Alicante/);
+  assert.match(legalNoticeContentSource, /\+34 614 714 337/);
+  assert.match(legalNoticeContentSource, /tel:\+34614714337/);
+  assert.match(legalContentSource, /contactEmail = "hello@picchuspot\.com"/);
+  assert.match(legalNoticeContentSource, /mailto:/);
+  assert.match(legalNoticeContentSource, /trading name used by Mykhailo Lykin/);
+  assert.match(legalNoticeContentSource, /nombre comercial utilizado por Mykhailo Lykin/);
+  assert.match(legalNoticeContentSource, /self-employed\s+individual \(autónomo\)/);
+  assert.match(legalNoticeContentSource, /trabajador autónomo/);
+
+  assert.doesNotMatch(legalNoticeContentSource, /\bcompany\b|\bsociedad\b/i);
+  assert.doesNotMatch(
+    legalNoticeContentSource,
+    /\bS\.?\s*L\.?\b|\bCIF\b|Registro Mercantil|Colegio de Arquitectos|colegiad[oa]/,
+  );
+  assert.doesNotMatch(
+    legalNoticeContentSource,
+    /(?:architect|arquitect[oa]).{0,30}(?:licen[cs]e|colegiad[oa])/i,
+  );
+});
+
+test("Privacy identifies the controller and links to the Legal Notice", () => {
+  assert.match(
+    privacyContentSource,
+    /controller is\s+Mykhailo Lykin, trading as PicchuSpot and established in Spain/,
+  );
+  assert.match(
+    privacyContentSource,
+    /responsable es\s+Mykhailo Lykin, que opera bajo el nombre comercial PicchuSpot y está\s+establecido en España/,
+  );
+  assert.match(privacyContentSource, /C\. Capitán Dema, 3/);
+  assert.match(privacyContentSource, /href="\/legal"/);
+  assert.match(privacyContentSource, /href="\/es\/legal"/);
+  assert.match(
+    privacyContentSource,
+    /See the Legal Notice for full operator details\./,
+  );
+  assert.match(
+    privacyContentSource,
+    /Consulta el Aviso legal para ver los datos completos del titular\./,
+  );
+});
+
+test("Terms link to the bilingual operator identification without changing their rules", () => {
+  assert.match(termsContentSource, /href="\/legal">Legal Notice/);
+  assert.match(termsContentSource, /href="\/es\/legal">Aviso legal/);
+  assert.match(
+    termsContentSource,
+    /Full operator identification is available in the/,
+  );
+  assert.match(
+    termsContentSource,
+    /Los datos completos del titular están\s+disponibles en el/,
+  );
+});
+
 test("footer and consent banner expose the bilingual policy routes", () => {
   for (const href of [
+    "/legal",
     "/terms",
     "/privacy",
     "/cookies",
     "/refunds",
+    "/es/legal",
     "/es/terms",
     "/es/privacy",
     "/es/cookies",
@@ -269,6 +361,15 @@ test("footer and consent banner expose the bilingual policy routes", () => {
   assert.match(cookieBannerSource, /policyHref: "\/es\/cookies"/);
   assert.match(cookieBannerSource, /saveChoice\("rejected"\)/);
   assert.match(cookieBannerSource, /saveChoice\("accepted"\)/);
+
+  assert.match(
+    footerSource,
+    /legal: \[\s*\{ href: "\/legal", label: "Legal Notice" \}/,
+  );
+  assert.match(
+    footerSource,
+    /legal: \[\s*\{ href: "\/es\/legal", label: "Aviso legal" \}/,
+  );
 });
 
 test("policy copy covers confirmed providers, controls, and consumer rights", () => {
@@ -368,19 +469,10 @@ test("customer-facing tax copy matches tax-inclusive Stripe Checkout", () => {
   );
 });
 
-test("blocked and unnecessary legal routes are not published", () => {
-  assert.equal(
-    existsSync(path.join(workspace, "src/app/(public)/legal/page.tsx")),
-    false,
-  );
-  assert.equal(
-    existsSync(path.join(workspace, "src/app/(public)/es/legal/page.tsx")),
-    false,
-  );
+test("unnecessary legal routes are not published", () => {
   assert.equal(
     existsSync(path.join(workspace, "src/app/(public)/payment-security/page.tsx")),
     false,
   );
-  assert.doesNotMatch(footerSource, /href: "\/(?:es\/)?legal"/);
   assert.doesNotMatch(footerSource, /payment-security/);
 });

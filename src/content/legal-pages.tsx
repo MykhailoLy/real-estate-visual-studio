@@ -84,6 +84,332 @@ function PolicyTable({
   );
 }
 
+export const legalNoticeSectionsEn = [
+  {
+    id: "operator",
+    title: "1. Website operator",
+    body: (
+      <>
+        <p>
+          PicchuSpot is the trading name used by Mykhailo Lykin, a self-employed
+          individual (autónomo) established in Spain, who is the legal owner and
+          service provider for this website.
+        </p>
+        <address className="not-italic">
+          <span className="block">
+            <strong>Legal owner and service provider:</strong> Mykhailo Lykin
+          </span>
+          <span className="block">
+            <strong>Trading name:</strong> PicchuSpot
+          </span>
+          <span className="block">
+            <strong>NIF/NIE:</strong> Y9650008G
+          </span>
+          <span className="mt-2 block">
+            <strong>Business/contact address:</strong>
+          </span>
+          <span className="block">C. Capitán Dema, 3</span>
+          <span className="block">03007 Alicante</span>
+          <span className="block">Spain</span>
+          <span className="mt-2 block">
+            <strong>Email:</strong>{" "}
+            <a href={"mailto:" + contactEmail}>{contactEmail}</a>
+          </span>
+          <span className="block">
+            <strong>Telephone:</strong>{" "}
+            <a href="tel:+34614714337">+34 614 714 337</a>
+          </span>
+          <span className="block">
+            <strong>Website:</strong> <Link href="/">picchuspot.com</Link>
+          </span>
+        </address>
+      </>
+    ),
+  },
+  {
+    id: "purpose",
+    title: "2. Purpose of the website",
+    body: (
+      <>
+        <p>
+          This website provides information and contact, ordering and account
+          facilities for PicchuSpot real-estate visual services. These may
+          include virtual staging, visual renovation, floor-plan visualisation,
+          photo editing and other property-media services described on the
+          relevant service page.
+        </p>
+        <p>
+          Floor-plan and visual-renovation deliverables are visual and media
+          services, not signed or certified technical projects. Contractual
+          matters are set out in the applicable{" "}
+          <Link href="/terms">Terms &amp; Conditions</Link>.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "prices-contracting",
+    title: "3. Prices and contracting",
+    body: (
+      <>
+        <p>
+          Prices, currency, scope and any service-specific conditions are shown
+          on the applicable <Link href="/pricing">pricing</Link>, service or
+          order page, or in a written quote. For eligible fixed-price online
+          orders, the Checkout total is tax-inclusive where applicable, and
+          Stripe identifies any included tax. Custom quotes or manually invoiced
+          services may state their own tax treatment.
+        </p>
+        <p>
+          Contracting rules are in the{" "}
+          <Link href="/terms">Terms &amp; Conditions</Link>. The{" "}
+          <Link href="/refunds">Refunds &amp; Cancellations Policy</Link> explains
+          the applicable cancellation and refund framework.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "intellectual-property",
+    title: "4. Intellectual property",
+    body: (
+      <>
+        <p>
+          The website design, PicchuSpot branding, original copy and visual
+          materials owned by the operator may be protected by intellectual
+          property and related rights. Access to the website does not by itself
+          grant permission to reproduce or exploit those materials.
+        </p>
+        <p>
+          Third-party assets remain subject to their owners’ rights and
+          licences. Customer-uploaded and source materials remain governed by
+          the <Link href="/terms">Terms &amp; Conditions</Link> and the rights of
+          their respective owners; PicchuSpot does not claim ownership merely
+          because material is submitted through the service.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "website-use",
+    title: "5. Website use and external services",
+    body: (
+      <>
+        <p>
+          Users must use this website lawfully and must not interfere with its
+          security, availability or other users’ rights.
+        </p>
+        <p>
+          Links or integrations may provide access to independent third-party
+          services. Their presence does not transfer responsibility to
+          PicchuSpot for those services’ independent operation, content or
+          terms. Responsibility for PicchuSpot services remains governed by the{" "}
+          <Link href="/terms">Terms &amp; Conditions</Link> and mandatory law.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "privacy-cookies",
+    title: "6. Privacy and cookies",
+    body: (
+      <p>
+        The <Link href="/privacy">Privacy Policy</Link> explains how personal
+        information is processed. The <Link href="/cookies">Cookie Policy</Link>{" "}
+        explains the website’s cookies, storage and related controls.
+      </p>
+    ),
+  },
+  {
+    id: "terms-contact",
+    title: "7. Applicable terms and contact",
+    body: (
+      <>
+        <p>
+          Service contracts are governed by the applicable{" "}
+          <Link href="/terms">Terms &amp; Conditions</Link>, service or order page,
+          written quote and order confirmation. Mandatory consumer rights remain
+          unaffected.
+        </p>
+        <p>
+          For legal or website enquiries, email{" "}
+          <a href={"mailto:" + contactEmail}>{contactEmail}</a> or call{" "}
+          <a href="tel:+34614714337">+34 614 714 337</a>.
+        </p>
+      </>
+    ),
+  },
+] as const satisfies readonly LegalSection[];
+
+export const legalNoticeSectionsEs = [
+  {
+    id: "titular",
+    title: "1. Titular del sitio web",
+    body: (
+      <>
+        <p>
+          PicchuSpot es el nombre comercial utilizado por Mykhailo Lykin,
+          trabajador autónomo establecido en España y titular legal y prestador
+          de los servicios ofrecidos a través de este sitio web.
+        </p>
+        <address className="not-italic">
+          <span className="block">
+            <strong>Titular legal y prestador del servicio:</strong> Mykhailo
+            Lykin
+          </span>
+          <span className="block">
+            <strong>Nombre comercial:</strong> PicchuSpot
+          </span>
+          <span className="block">
+            <strong>NIF/NIE:</strong> Y9650008G
+          </span>
+          <span className="mt-2 block">
+            <strong>Domicilio profesional y de contacto:</strong>
+          </span>
+          <span className="block">C. Capitán Dema, 3</span>
+          <span className="block">03007 Alicante</span>
+          <span className="block">España</span>
+          <span className="mt-2 block">
+            <strong>Correo electrónico:</strong>{" "}
+            <a href={"mailto:" + contactEmail}>{contactEmail}</a>
+          </span>
+          <span className="block">
+            <strong>Teléfono:</strong>{" "}
+            <a href="tel:+34614714337">+34 614 714 337</a>
+          </span>
+          <span className="block">
+            <strong>Sitio web:</strong> <Link href="/es">picchuspot.com</Link>
+          </span>
+        </address>
+      </>
+    ),
+  },
+  {
+    id: "finalidad",
+    title: "2. Finalidad del sitio web",
+    body: (
+      <>
+        <p>
+          Este sitio web ofrece información y medios de contacto, contratación y
+          gestión de los servicios visuales inmobiliarios de PicchuSpot. Pueden
+          incluir Virtual Staging, renovación visual, visualización de planos,
+          edición fotográfica y otros servicios audiovisuales inmobiliarios
+          descritos en la página correspondiente.
+        </p>
+        <p>
+          Los entregables de planos y renovación visual son servicios visuales y
+          audiovisuales, no proyectos técnicos firmados ni certificados. Las
+          cuestiones contractuales se regulan en los{" "}
+          <Link href="/es/terms">Términos y condiciones</Link> aplicables.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "precios-contratacion",
+    title: "3. Precios y contratación",
+    body: (
+      <>
+        <p>
+          Los precios, la moneda, el alcance y las condiciones específicas se
+          muestran en la página de <Link href="/es/pricing">precios</Link>, del
+          servicio o del pedido aplicable, o en un presupuesto escrito. Para los
+          pedidos online elegibles con precio fijo, el total mostrado en
+          Checkout incluye los impuestos cuando corresponda, y Stripe identifica
+          cualquier impuesto incluido. Los presupuestos personalizados o los
+          servicios facturados manualmente pueden indicar su propio tratamiento
+          fiscal.
+        </p>
+        <p>
+          Las reglas de contratación figuran en los{" "}
+          <Link href="/es/terms">Términos y condiciones</Link>. La{" "}
+          <Link href="/es/refunds">
+            Política de reembolsos y cancelaciones
+          </Link>{" "}
+          explica el marco aplicable a cancelaciones y devoluciones.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "propiedad-intelectual",
+    title: "4. Propiedad intelectual",
+    body: (
+      <>
+        <p>
+          El diseño del sitio, la marca PicchuSpot, los textos originales y los
+          materiales visuales propiedad del titular pueden estar protegidos por
+          derechos de propiedad intelectual y otros derechos relacionados. El
+          acceso al sitio no concede por sí solo permiso para reproducir o
+          explotar esos materiales.
+        </p>
+        <p>
+          Los recursos de terceros siguen sujetos a los derechos y licencias de
+          sus titulares. Los materiales subidos por el cliente y los archivos de
+          origen se rigen por los{" "}
+          <Link href="/es/terms">Términos y condiciones</Link> y por los derechos
+          de sus respectivos titulares; PicchuSpot no adquiere su propiedad por
+          el mero hecho de que se envíen a través del servicio.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "uso-sitio",
+    title: "5. Uso del sitio y servicios de terceros",
+    body: (
+      <>
+        <p>
+          Las personas usuarias deben utilizar este sitio de forma lícita y no
+          interferir con su seguridad, disponibilidad ni con los derechos de
+          terceros.
+        </p>
+        <p>
+          Los enlaces o integraciones pueden dar acceso a servicios
+          independientes de terceros. Su presencia no atribuye a PicchuSpot
+          responsabilidad por el funcionamiento, contenido o condiciones
+          propios de esos servicios. La responsabilidad por los servicios de
+          PicchuSpot se rige por los{" "}
+          <Link href="/es/terms">Términos y condiciones</Link> y la normativa
+          imperativa.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "privacidad-cookies",
+    title: "6. Privacidad y cookies",
+    body: (
+      <p>
+        La <Link href="/es/privacy">Política de privacidad</Link> explica cómo
+        se tratan los datos personales. La{" "}
+        <Link href="/es/cookies">Política de cookies</Link> describe las
+        cookies, el almacenamiento y los controles relacionados del sitio.
+      </p>
+    ),
+  },
+  {
+    id: "condiciones-contacto",
+    title: "7. Condiciones aplicables y contacto",
+    body: (
+      <>
+        <p>
+          Los contratos de servicios se rigen por los{" "}
+          <Link href="/es/terms">Términos y condiciones</Link>, la página del
+          servicio o pedido aplicable, el presupuesto escrito y la confirmación
+          del pedido. Los derechos imperativos de las personas consumidoras no
+          se ven afectados.
+        </p>
+        <p>
+          Para consultas legales o sobre el sitio web, escribe a{" "}
+          <a href={"mailto:" + contactEmail}>{contactEmail}</a> o llama al{" "}
+          <a href="tel:+34614714337">+34 614 714 337</a>.
+        </p>
+      </>
+    ),
+  },
+] as const satisfies readonly LegalSection[];
+
 export const termsSectionsEn = [
   {
     id: "about",
@@ -94,7 +420,8 @@ export const termsSectionsEn = [
           These Terms govern visual services ordered from PicchuSpot, a service
           operating from Spain. They apply to consumers and business customers;
           mandatory consumer rights continue to apply where they cannot lawfully
-          be excluded.
+          be excluded. Full operator identification is available in the{" "}
+          <Link href="/legal">Legal Notice</Link>.
         </p>
         <p>
           The service can include remote virtual staging, virtual renovation,
@@ -449,7 +776,8 @@ export const termsSectionsEs = [
           PicchuSpot, un servicio que opera desde España. Se aplican tanto a
           consumidores como a clientes profesionales; los derechos imperativos
           de las personas consumidoras siguen siendo aplicables cuando no
-          puedan excluirse legalmente.
+          puedan excluirse legalmente. Los datos completos del titular están
+          disponibles en el <Link href="/es/legal">Aviso legal</Link>.
         </p>
         <p>
           El servicio puede incluir Virtual Staging, renovación virtual,
@@ -813,13 +1141,25 @@ export const privacySectionsEn = [
     body: (
       <>
         <p>
-          For the processing described in this Policy, the controller operates
-          from Spain under the trading name PicchuSpot. Privacy requests can be
-          sent to{" "}
-          <a href={"mailto:" + contactEmail}>{contactEmail}</a>. This Policy
-          applies when you browse the public site, create an account, place or
-          review an order, upload files, use support, or submit a property
-          enquiry.
+          For the processing described in this Policy, the controller is
+          Mykhailo Lykin, trading as PicchuSpot and established in Spain.
+        </p>
+        <address className="not-italic">
+          <span className="block">C. Capitán Dema, 3</span>
+          <span className="block">03007 Alicante</span>
+          <span className="block">Spain</span>
+          <span className="mt-2 block">
+            Privacy email:{" "}
+            <a href={"mailto:" + contactEmail}>{contactEmail}</a>
+          </span>
+        </address>
+        <p>
+          <Link href="/legal">
+            See the Legal Notice for full operator details.
+          </Link>{" "}
+          This Policy applies when you browse the public site, create an account,
+          place or review an order, upload files, use support, or submit a
+          property enquiry.
         </p>
         <p>
           If another organisation gives you access to PicchuSpot or places an
@@ -1244,13 +1584,26 @@ export const privacySectionsEs = [
     body: (
       <>
         <p>
-          Para los tratamientos descritos en esta Política, el responsable
-          opera desde España bajo el nombre comercial PicchuSpot. Puedes enviar
-          solicitudes de privacidad a{" "}
-          <a href={"mailto:" + contactEmail}>{contactEmail}</a>. Esta Política
-          se aplica cuando navegas por el sitio público, creas una cuenta,
-          realizas o revisas un pedido, subes archivos, usas soporte o envías una
-          consulta sobre un inmueble.
+          Para los tratamientos descritos en esta Política, el responsable es
+          Mykhailo Lykin, que opera bajo el nombre comercial PicchuSpot y está
+          establecido en España.
+        </p>
+        <address className="not-italic">
+          <span className="block">C. Capitán Dema, 3</span>
+          <span className="block">03007 Alicante</span>
+          <span className="block">España</span>
+          <span className="mt-2 block">
+            Correo de privacidad:{" "}
+            <a href={"mailto:" + contactEmail}>{contactEmail}</a>
+          </span>
+        </address>
+        <p>
+          <Link href="/es/legal">
+            Consulta el Aviso legal para ver los datos completos del titular.
+          </Link>{" "}
+          Esta Política se aplica cuando navegas por el sitio público, creas una
+          cuenta, realizas o revisas un pedido, subes archivos, usas soporte o
+          envías una consulta sobre un inmueble.
         </p>
         <p>
           Si otra organización te facilita acceso a PicchuSpot o realiza un
