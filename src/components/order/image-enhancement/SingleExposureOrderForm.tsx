@@ -1033,7 +1033,7 @@ export default function SingleExposureOrderForm({
       footerNote={
         isReview
           ? undefined
-          : "No payment now. You'll confirm your order on the next step."
+          : "No payment now. You’ll confirm your order on the next step."
       }
     />
   );

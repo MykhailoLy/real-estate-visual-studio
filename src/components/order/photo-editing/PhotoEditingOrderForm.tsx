@@ -1359,7 +1359,7 @@ export default function PhotoEditingOrderForm({
             isSubmitting={false}
             canSubmit={canReview}
             submitLabel="Review Order"
-            footerNote="No payment now. You'll confirm your order on the next step."
+            footerNote="No payment now. You’ll confirm your order on the next step."
             submitHelper={
               reviewBlockedMessage ? (
                 <p role="status">{reviewBlockedMessage}</p>

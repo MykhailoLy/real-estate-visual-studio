@@ -150,7 +150,7 @@ test("summary rows keep labels and long values separated at narrow widths", () =
   ]) {
     assert.match(
       source(path),
-      /No payment now\. You'll confirm your order on the next step\./,
+      /No payment now\. You’ll confirm your order on the next step\./,
     );
   }
 });

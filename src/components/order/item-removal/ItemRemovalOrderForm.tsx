@@ -258,7 +258,7 @@ export default function ItemRemovalOrderForm({
       isSubmitting={false}
       canSubmit
       submitLabel="Review Order"
-      footerNote="No payment now. You'll confirm your order on the next step."
+      footerNote="No payment now. You’ll confirm your order on the next step."
     />
   );
 
