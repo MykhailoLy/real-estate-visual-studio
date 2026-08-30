@@ -787,7 +787,7 @@ test("finalization reconciles normalized references before strict slot matching"
   assert.ok(matchIndex > reconcileIndex);
   assert.match(
     FINALIZATION_SERVER,
-    /serviceType !== "virtual-staging"[\s\S]+serviceType !== "virtual-renovation"/,
+    /trustedServiceType !== "virtual-staging"[\s\S]+trustedServiceType !== "virtual-renovation"/,
   );
 });
 
