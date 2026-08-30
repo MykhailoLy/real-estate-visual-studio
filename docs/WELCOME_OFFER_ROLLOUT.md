@@ -1,13 +1,30 @@
 # Welcome Offer rollout and rollback
 
-The migration in `supabase/add-welcome-offer-redemptions.sql` is additive and
-must be applied manually before deploying the application in PR #257. It does
-not backfill or rewrite existing orders, and the existing
-`commit_order_submission` RPC remains available for ordinary-price orders.
+The initial version of the additive migration in
+`supabase/add-welcome-offer-redemptions.sql` has already been applied to
+production and read-only verified. It does not backfill or rewrite existing
+orders, and the existing `commit_order_submission` RPC remains available for
+ordinary-price orders.
 
-After applying the migration, verify the new table and versioned RPC, then
-deploy the application and complete rollout checks before allowing real
-customer orders.
+## Production permission follow-up
+
+The initial migration was applied before the final table-grant hardening
+correction. Before merging or deploying the application, apply this targeted
+permission adjustment manually in production:
+
+```sql
+REVOKE ALL ON TABLE public.welcome_offer_redemptions FROM service_role;
+
+GRANT SELECT, INSERT, DELETE
+ON TABLE public.welcome_offer_redemptions
+TO service_role;
+```
+
+This adjustment changes permissions only. No row or data changes are required,
+and the full migration must not be rerun. After applying it, verify that the
+table grants are limited to the intended service-role privileges and that the
+versioned RPC remains executable only by `service_role`. Then deploy the
+application and complete rollout checks before allowing real customer orders.
 
 ## Rollback limitation
 

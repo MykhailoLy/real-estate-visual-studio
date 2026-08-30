@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.welcome_offer_redemptions (
 ALTER TABLE public.welcome_offer_redemptions ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.welcome_offer_redemptions
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT, DELETE ON TABLE public.welcome_offer_redemptions
   TO service_role;
 
