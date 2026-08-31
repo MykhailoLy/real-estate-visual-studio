@@ -336,7 +336,13 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   );
   assert.match(utilityBarSource, /useSupportChat\(\)/);
   assert.match(utilityBarSource, /openSupportChat\(chatTriggerRef\.current\)/);
-  assert.match(utilityBarSource, /href="\/dashboard\/profile"/);
+  assert.match(utilityBarSource, /Open account menu/);
+  assert.match(utilityBarSource, /client-dashboard-mobile-account-menu/);
+  assert.match(utilityBarSource, /role="menu"/);
+  assert.match(utilityBarSource, /My Account/);
+  assert.match(utilityBarSource, /Edit account/);
+  assert.match(utilityBarSource, /<SignOutButton/);
+  assert.match(utilityBarSource, /event\.key === "Escape"/);
   assert.match(utilityBarSource, /Open PicchuSpot support chat/);
   assert.match(utilityBarSource, /env\(safe-area-inset-bottom\)/);
   assert.match(utilityBarSource, /lg:hidden/);
@@ -429,6 +435,10 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
   assert.match(railSource, /listLimit=\{8\}/);
   assert.match(railSource, /Recently completed/);
   assert.match(railSource, /slice\(0, 6\)/);
+  assert.match(railSource, /cursor-pointer/);
+  assert.match(railSource, /hover:bg-ivory/);
+  assert.match(railSource, /group-focus-visible:text-primary/);
+  assert.match(railSource, />\s*Open\s*</);
   assert.match(railSource, /How to get started/);
   assert.match(railSource, /Add your property photos or source files\./);
   assert.match(railSource, /Choose the service options and add any references or instructions\./);
@@ -468,6 +478,9 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
     welcomeOfferSource,
     /if \(visibleBenefits\.length === 0\) return null;/,
   );
+  assert.match(welcomeOfferSource, /Gift/);
+  assert.match(welcomeOfferSource, /bg-primary/);
+  assert.match(welcomeOfferSource, /Use offer/);
 
   assert.match(savedDraftsSource, /data-dashboard-section=\{panel/);
   assert.match(
@@ -519,7 +532,7 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
   assert.match(
     serviceGridSource,
-    /3xl:grid-cols-3 4xl:grid-cols-4 5xl:grid-cols-5 6xl:grid-cols-6/,
+    /3xl:grid-cols-3 5xl:grid-cols-4/,
   );
   assert.match(
     serviceGridSource,
@@ -531,7 +544,11 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(globalsSource, /--breakpoint-6xl: 200rem/);
   assert.match(serviceCardSource, /getOrderServicePriceLabel\(service, currency\)/);
   assert.match(priceLabelSource, /getCatalogPrice\(service\.priceKey, currency\)/);
-  assert.match(serviceCardSource, /href=\{service\.route as string\}/);
+  assert.match(serviceCardSource, /const isDashboard = layout === "dashboard"/);
+  assert.match(serviceCardSource, /isDashboard && isActive/);
+  assert.match(serviceCardSource, /aria-label=\{`Start a \$\{service\.title\} order`\}/);
+  assert.match(serviceCardSource, /z-20 inline-flex/);
+  assert.match(serviceCardSource, /isActive && !isDashboard/);
   assert.match(serviceCardSource, /loading="lazy"/);
   assert.match(serviceCardSource, /DASHBOARD_COVER_SIZES/);
   assert.match(serviceCardSource, /min-width: 1920px/);
@@ -587,7 +604,9 @@ test("compact Saved Drafts reuses the existing list and Resume or Finish flow", 
   assert.match(savedDraftsSource, /h-11 w-11/);
   assert.match(savedDraftsSource, /deletion\.beginDelete\(draft, trigger\)/);
   assert.doesNotMatch(railBranch, /DraftThumbnail|FileText|Clock3/);
-  assert.doesNotMatch(railBranch, />\s*\{actionLabel\}\s*</);
+  assert.match(railBranch, />\s*\{actionLabel\}\s*</);
+  assert.match(railBranch, /hover:bg-ivory/);
+  assert.match(railBranch, /cursor-pointer/);
   assert.match(draftsPageSource, /export function useOrderDraftDeletion/);
   assert.match(draftsPageSource, /await deleteOrderDraft\(/);
   assert.match(draftsPageSource, /draft\.version/);

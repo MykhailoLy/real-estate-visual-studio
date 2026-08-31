@@ -95,10 +95,10 @@ export default function DashboardActivityRail({
                 <li key={job.id}>
                   <ClientPortalLink
                     href={isQaPreview ? "/dashboard/jobs" : `/dashboard/jobs/${job.id}`}
-                    className="group flex min-h-11 items-center gap-2 px-3 py-2.5 transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    className="group flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2.5 transition-colors hover:bg-ivory focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
+                      <span className="block truncate text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary">
                         {job.title}
                       </span>
                       <span className="mt-0.5 block truncate text-[11px] text-muted">
@@ -111,8 +111,11 @@ export default function DashboardActivityRail({
                         </time>
                       </span>
                     </span>
+                    <span className="hidden items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition-colors group-hover:text-primary group-focus-visible:text-primary sm:inline-flex">
+                      Open
+                    </span>
                     <ArrowRight
-                      className="mt-1 h-4 w-4 flex-shrink-0 text-muted-light transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+                      className="mt-1 h-4 w-4 flex-shrink-0 text-muted-light transition-transform group-hover:translate-x-0.5 group-hover:text-primary group-focus-visible:translate-x-0.5 group-focus-visible:text-primary"
                       aria-hidden
                     />
                   </ClientPortalLink>

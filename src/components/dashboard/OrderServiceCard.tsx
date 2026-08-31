@@ -15,17 +15,18 @@ import OrderExamplesModal from "./OrderExamplesModal";
 import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { getOrderServicePriceLabel } from "@/lib/order-service-price-label";
 import { PORTFOLIO_VIEWER_VARIANTS } from "@/components/media/static-image-variant";
+import { cn } from "@/lib/utils";
 
 // ============================================================
 // OrderServiceCard — one service tile in the New Order hub.
 //
-// The shell is a NON-interactive <article> (not a Link), so the
-// nested "View Examples" <button> and "Start Order" portal link are both
-// valid and never conflict. Active services get a clickable Start
-// Order link; inactive services get a disabled Coming Soon / Custom
-// Quote pill and never navigate. Any service with complete Portfolio
-// examples (active or inactive, excluding the temporary Photo Editing
-// card) shows a View Examples button that opens an in-dashboard modal.
+// The shell stays a non-interactive <article>. Dashboard cards add a full-card
+// portal link below the Examples button, so the card is the primary order
+// target while the modal control remains independently accessible. The New
+// Order catalog retains its separate Start Order link. Inactive cards remain
+// non-navigable. Any service with complete Portfolio examples (active or
+// inactive, excluding the temporary Photo Editing card) shows a View Examples
+// button that opens an in-dashboard modal.
 //
 // Media priority: Portfolio Before/After preview → order-card image
 // → branded CSS fallback. All non-serializable bits (the icon) are
@@ -46,9 +47,9 @@ const HALF_SIZES =
 const COVER_SIZES =
   "(min-width: 3200px) 15vw, (min-width: 2400px) 18vw, (min-width: 1536px) 25vw, (min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw";
 const DASHBOARD_HALF_SIZES =
-  "(min-width: 3200px) 7vw, (min-width: 2400px) 8vw, (min-width: 1920px) 7.5vw, (min-width: 1360px) 10vw, (min-width: 1024px) 15vw, (min-width: 640px) 25vw, 50vw";
+  "(min-width: 3200px) 8vw, (min-width: 2400px) 8vw, (min-width: 1920px) 10vw, (min-width: 1360px) 10vw, (min-width: 1024px) 15vw, (min-width: 640px) 25vw, 50vw";
 const DASHBOARD_COVER_SIZES =
-  "(min-width: 3200px) 14vw, (min-width: 2400px) 16vw, (min-width: 1920px) 15vw, (min-width: 1360px) 20vw, (min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw";
+  "(min-width: 3200px) 16vw, (min-width: 2400px) 16vw, (min-width: 1920px) 20vw, (min-width: 1360px) 20vw, (min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw";
 
 function PortfolioPreview({
   pair,
@@ -153,11 +154,27 @@ export default function OrderServiceCard({
   const labels = service.portfolioServiceSlug
     ? getGalleryPairLabels(service.portfolioServiceSlug, "en")
     : null;
+  const isDashboard = layout === "dashboard";
   const halfSizes = layout === "dashboard" ? DASHBOARD_HALF_SIZES : HALF_SIZES;
   const coverSizes = layout === "dashboard" ? DASHBOARD_COVER_SIZES : COVER_SIZES;
 
   return (
-    <article className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <article
+      className={cn(
+        "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        isDashboard && isActive && "cursor-pointer hover:border-primary/35",
+      )}
+    >
+      {isDashboard && isActive && (
+        <ClientPortalLink
+          href={service.route as string}
+          aria-label={`Start a ${service.title} order`}
+          className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:bg-primary/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        >
+          <span className="sr-only">Start a {service.title} order</span>
+        </ClientPortalLink>
+      )}
+
       {/* ── Media region ── */}
       <div className="relative">
         {hasExamples && labels ? (
@@ -185,7 +202,7 @@ export default function OrderServiceCard({
             onClick={() => setModalOpen(true)}
             aria-label={`View ${service.title} examples`}
             title="View examples"
-            className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-primary shadow-sm backdrop-blur transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-primary shadow-sm backdrop-blur transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <Images className="h-4 w-4" aria-hidden />
             <span className="hidden sm:inline">Examples</span>
@@ -195,7 +212,7 @@ export default function OrderServiceCard({
 
       {/* ── Body ── */}
       <div className="flex flex-1 flex-col p-5">
-        <h2 className="text-lg font-semibold text-foreground">{service.title}</h2>
+        <h2 className="text-lg font-semibold text-foreground transition-colors group-hover:text-primary group-focus-within:text-primary">{service.title}</h2>
         <p className="mt-1.5 line-clamp-3 flex-1 text-sm text-muted">
           {service.description}
         </p>
@@ -213,7 +230,7 @@ export default function OrderServiceCard({
             )}
           </div>
 
-          {isActive ? (
+          {isActive && !isDashboard ? (
             <ClientPortalLink
               href={service.route as string}
               className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
@@ -221,7 +238,7 @@ export default function OrderServiceCard({
               Start Order
               <ArrowRight className="h-4 w-4" aria-hidden />
             </ClientPortalLink>
-          ) : (
+          ) : !isActive ? (
             <span
               className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-stone-100 px-3.5 py-2 text-sm font-semibold text-muted"
               aria-disabled="true"
@@ -229,7 +246,7 @@ export default function OrderServiceCard({
               <Lock className="h-3.5 w-3.5" aria-hidden />
               {service.availability === "custom-quote" ? "Custom Quote" : "Coming Soon"}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
 
