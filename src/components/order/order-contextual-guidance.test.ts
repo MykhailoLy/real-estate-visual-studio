@@ -214,43 +214,99 @@ test("Floor Plans uses the guide while preserving one direct-submit summary", ()
   );
 });
 
-test("Order Detail keeps payment visible before responsive context and workflow", () => {
+test("Order Detail uses a factual overview and preserves authenticated job flows", () => {
   const detail = source(
     "src/app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
   );
+  const overview = detail.indexOf("<JobDetailsCard");
   const payment = detail.indexOf("<OrderPaymentPanel");
-  const mobileContext = detail.indexOf("data-order-context-mobile");
   const workspace = detail.indexOf("data-order-detail-workspace");
-  assert.ok(payment > -1 && mobileContext > payment && workspace > mobileContext);
-  assert.match(detail, /data-order-context-mobile[\s\S]*?lg:hidden/);
-  assert.match(detail, /<summary className="[^"]*min-h-11/);
-  assert.match(detail, /data-order-context-desktop[\s\S]*?hidden min-w-0 lg:block/);
-  assert.match(detail, /lg:sticky lg:top-8/);
+  assert.ok(overview > -1 && payment > overview && workspace === -1);
+  assert.match(detail, /grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6/);
+  assert.match(detail, /<JobDetailsCard \{\.\.\.jobDetailsProps\} \/>/);
+  assert.match(detail, /<DeliveryCard/);
+  assert.match(detail, /function PaymentDetailsUnavailableCard\(\)/);
+  assert.match(detail, /Payment details unavailable/);
+  assert.match(detail, /paymentSummary === null \? \([\s\S]*?<PaymentDetailsUnavailableCard \/>/);
   assert.match(
     detail,
-    /lg:grid-cols-\[300px_minmax\(0,1fr\)\] lg:gap-6/,
+    /paymentSummary\.state === "payment_required" \|\|[\s\S]*?paymentSummary\.state === "processing" \|\|[\s\S]*?paymentSummary\.state === "not_available"[\s\S]*?<OrderPaymentPanel/,
   );
-  assert.match(
-    detail,
-    /xl:grid-cols-\[320px_minmax\(0,1fr\)\] xl:gap-8/,
+  const deliveryStateStart = detail.indexOf("const deliveryPaymentState");
+  const deliveryStateSource = detail.slice(
+    deliveryStateStart,
+    detail.indexOf("return (", deliveryStateStart),
   );
-  assert.match(detail, /data-order-workflow className="min-w-0 space-y-5"/);
-  assert.match(detail, /<OrderDetailContext \{\.\.\.orderContextProps\} \/>/);
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "paid"/);
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "no_payment_required"/);
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "partially_refunded"/);
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "refunded"/);
+  assert.doesNotMatch(deliveryStateSource, /not_available/);
+  assert.match(detail, /label="Completed" value="—"/);
+  assert.match(detail, /label="Cost" value=\{totalValue\} strong/);
+  assert.match(detail, /aria-label=\{`Order progress: \$\{value\}%`\}/);
+  assert.doesNotMatch(detail, /OrderDetailContext|data-order-context|deriveEstimatedCompletion|parsePricingSnapshot/);
   assert.equal((detail.match(/<OrderPaymentPanel/g) ?? []).length, 1);
+  assert.doesNotMatch(detail, /secondaryHref="\/dashboard\/jobs"/);
   assert.match(
     detail,
     /const authoritativeTotal =[\s\S]*?paymentSummary\?\.finalTotalCents != null && paymentSummary\.currency != null[\s\S]*?cents: paymentSummary\.finalTotalCents[\s\S]*?currency: paymentSummary\.currency/,
   );
   assert.match(
     detail,
-    /totalLabel: authoritativeTotal \? "Final total" : "Estimated total"/,
-  );
-  assert.match(
-    detail,
     /authoritativeTotal[\s\S]*?formatStoredMoney\(authoritativeTotal\.cents, authoritativeTotal\.currency\)[\s\S]*?formatStoredMoney\(order\.estimated_total_cents, order\.currency\)/,
   );
-  assert.match(detail, /Image workflow/);
+  assert.match(detail, /Download the available delivered files as a ZIP\./);
+  assert.match(detail, /Files will appear here when ready\./);
+  assert.match(detail, /label="Download completed job"/);
+  const workflowHeader = detail.slice(
+    detail.indexOf("<section data-order-workflow"),
+    detail.indexOf("{order.items.length > 0 ?"),
+  );
+  assert.match(workflowHeader, /Image workflow \(\{order\.items\.length\} image/);
+  assert.doesNotMatch(workflowHeader, /BulkDownloadButton/);
   assert.match(detail, /<ClientOrderImageCard/);
   assert.match(detail, /<DeliverableReviewActions/);
-  assert.doesNotMatch(detail, /<OrderLayout|overflow-y-auto|max-h-/);
+  assert.match(detail, /getDashboardRequestUser\(\)/);
+  assert.match(detail, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
+  assert.match(detail, /toOrderOwnership\(user\)/);
+  assert.match(detail, /getOrderForClient\(orderId, ownership\)/);
+  assert.match(detail, /getClientSourceFilesForOrder\(order\.id, ownership\)/);
+  assert.match(detail, /getDeliverablesForClient\(ownership\)/);
+  assert.match(detail, /getReviewsForClient\(ownership\)/);
+  assert.match(detail, /getAuthoritativePaymentSummary\(order\.id, user\.id/);
+  assert.match(detail, /expectedStripeLivemode/);
+
+  const imageCard = source("src/components/dashboard/ClientOrderImageCard.tsx");
+  assert.match(imageCard, /Original \/ Before/);
+  assert.match(imageCard, /Delivered \/ After/);
+  assert.match(imageCard, /Edits \/ options/);
+  assert.match(
+    imageCard,
+    /\/api\/client\/orders\/\$\{orderId\}\/source-files\/\$\{originalSource\.id\}\/download-url/,
+  );
+  assert.match(
+    imageCard,
+    /\/api\/client\/deliverables\/\$\{deliverable\.id\}\/download-url/,
+  );
+  assert.match(imageCard, /<DeliverableReviewActions/);
+
+  const itemDetails = source("src/components/order/OrderItemDetails.tsx");
+  assert.match(itemDetails, /variant\?: "default" \| "specification"/);
+  assert.match(itemDetails, /variant === "specification"/);
+
+  const paymentPanel = source("src/components/payments/OrderPaymentPanel.tsx");
+  assert.match(paymentPanel, /fetch\("\/api\/payments\/checkout", \{/);
+  assert.match(paymentPanel, /body: JSON\.stringify\(\{ orderId \}\)/);
+  assert.match(paymentPanel, /getStripeCheckoutRedirectUrl\(body\?\.url\)/);
+  assert.match(paymentPanel, /presentation\?: "default" \| "order-detail"/);
+
+  const reviewActions = source(
+    "src/components/dashboard/DeliverableReviewActions.tsx",
+  );
+  assert.match(
+    reviewActions,
+    /\/api\/client\/deliverables\/\$\{deliverableId\}\/review/,
+  );
+  assert.match(reviewActions, /action: "rework_requested"/);
 });
