@@ -339,8 +339,9 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   assert.match(layoutSource, /<ClientDashboardMobileUtilityBar \/>/);
   assert.match(
     layoutSource,
-    /pb-\[calc\(3\.5rem\+env\(safe-area-inset-bottom\)\)\] lg:pb-0/,
+    /pb-\[calc\(2\.875rem\+env\(safe-area-inset-bottom\)\)\] lg:pb-0/,
   );
+  assert.match(layoutSource, /bg-dashboard-canvas/);
   assert.match(utilityBarSource, /useSupportChat\(\)/);
   assert.match(utilityBarSource, /openSupportChat\(chatTriggerRef\.current\)/);
   assert.match(utilityBarSource, /Open account menu/);
@@ -354,6 +355,7 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   assert.match(utilityBarSource, /bg-surface[\s\S]*?text-primary/);
   assert.match(utilityBarSource, /<MessageCircle className="h-4 w-4 flex-shrink-0 text-primary"/);
   assert.match(utilityBarSource, /env\(safe-area-inset-bottom\)/);
+  assert.match(utilityBarSource, /h-\[calc\(2\.875rem\+env\(safe-area-inset-bottom\)\)\]/);
   assert.match(utilityBarSource, /lg:hidden/);
   assert.doesNotMatch(utilityBarSource, /fetch\(|\/api\//);
   assert.match(topNavSource, /hidden border-t border-border bg-primary lg:block/);

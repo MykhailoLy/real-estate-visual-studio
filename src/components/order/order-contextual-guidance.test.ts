@@ -214,24 +214,25 @@ test("Floor Plans uses the guide while preserving one direct-submit summary", ()
   );
 });
 
-test("Order Detail uses a factual overview and preserves authenticated job flows", () => {
+test("Order Detail prioritizes client actions and visual deliverables while preserving authenticated job flows", () => {
   const detail = source(
     "src/app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
   );
   const overview = detail.indexOf("<JobDetailsCard");
   const payment = detail.indexOf("<OrderPaymentPanel");
-  const workspace = detail.indexOf("data-order-detail-workspace");
-  assert.ok(overview > -1 && payment > overview && workspace === -1);
-  assert.match(detail, /grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6/);
+  const workflow = detail.indexOf("data-order-workflow");
+  assert.ok(payment > -1 && workflow > payment && overview > workflow);
   assert.match(detail, /<JobDetailsCard \{\.\.\.jobDetailsProps\} \/>/);
   assert.match(detail, /<DeliveryCard/);
   assert.match(detail, /function PaymentDetailsUnavailableCard\(\)/);
   assert.match(detail, /Payment details unavailable/);
-  assert.match(detail, /paymentSummary === null \? \([\s\S]*?<PaymentDetailsUnavailableCard \/>/);
+  assert.match(detail, /paymentSummary === null \|\| paymentSummary\?\.state === "not_available"[\s\S]*?<PaymentDetailsUnavailableCard \/>/);
   assert.match(
     detail,
-    /paymentSummary\.state === "payment_required" \|\|[\s\S]*?paymentSummary\.state === "processing" \|\|[\s\S]*?paymentSummary\.state === "not_available"[\s\S]*?<OrderPaymentPanel/,
+    /const hasPaymentAction =[\s\S]*?paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"/,
   );
+  assert.match(detail, /<section aria-labelledby="action-required-heading"/);
+  assert.match(detail, /Action required[\s\S]*?<OrderPaymentPanel/);
   const deliveryStateStart = detail.indexOf("const deliveryPaymentState");
   const deliveryStateSource = detail.slice(
     deliveryStateStart,
@@ -242,8 +243,11 @@ test("Order Detail uses a factual overview and preserves authenticated job flows
   assert.match(deliveryStateSource, /paymentSummary\?\.state === "partially_refunded"/);
   assert.match(deliveryStateSource, /paymentSummary\?\.state === "refunded"/);
   assert.doesNotMatch(deliveryStateSource, /not_available/);
-  assert.match(detail, /label="Completed" value="—"/);
-  assert.match(detail, /label="Cost" value=\{totalValue\} strong/);
+  assert.doesNotMatch(detail, /label="Completed" value="—"/);
+  assert.doesNotMatch(detail, /label="Job name"/);
+  assert.doesNotMatch(detail, /label="Reference"/);
+  assert.doesNotMatch(detail, /label="Service"/);
+  assert.match(detail, /paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"[\s\S]*?\? null/);
   assert.match(detail, /aria-label=\{`Order progress: \$\{value\}%`\}/);
   assert.doesNotMatch(detail, /OrderDetailContext|data-order-context|deriveEstimatedCompletion|parsePricingSnapshot/);
   assert.equal((detail.match(/<OrderPaymentPanel/g) ?? []).length, 1);
@@ -260,10 +264,11 @@ test("Order Detail uses a factual overview and preserves authenticated job flows
   assert.match(detail, /Files will appear here when ready\./);
   assert.match(detail, /label="Download completed job"/);
   const workflowHeader = detail.slice(
-    detail.indexOf("<section data-order-workflow"),
+    workflow,
     detail.indexOf("{order.items.length > 0 ?"),
   );
-  assert.match(workflowHeader, /Image workflow \(\{order\.items\.length\} image/);
+  assert.match(workflowHeader, /Your images/);
+  assert.match(workflowHeader, /Image workflow/);
   assert.doesNotMatch(workflowHeader, /BulkDownloadButton/);
   assert.match(detail, /<ClientOrderImageCard/);
   assert.match(detail, /<DeliverableReviewActions/);
@@ -278,9 +283,11 @@ test("Order Detail uses a factual overview and preserves authenticated job flows
   assert.match(detail, /expectedStripeLivemode/);
 
   const imageCard = source("src/components/dashboard/ClientOrderImageCard.tsx");
-  assert.match(imageCard, /Original \/ Before/);
-  assert.match(imageCard, /Delivered \/ After/);
-  assert.match(imageCard, /Edits \/ options/);
+  assert.match(imageCard, /<WorkflowPanel title="Original">/);
+  assert.match(imageCard, /<WorkflowPanel title="Delivered">/);
+  assert.match(imageCard, /Editing instructions/);
+  assert.match(imageCard, /<FeatureFilePreview>/);
+  assert.doesNotMatch(imageCard, /LargePreviewFrame/);
   assert.match(
     imageCard,
     /\/api\/client\/orders\/\$\{orderId\}\/source-files\/\$\{originalSource\.id\}\/download-url/,
@@ -294,12 +301,16 @@ test("Order Detail uses a factual overview and preserves authenticated job flows
   const itemDetails = source("src/components/order/OrderItemDetails.tsx");
   assert.match(itemDetails, /variant\?: "default" \| "specification"/);
   assert.match(itemDetails, /variant === "specification"/);
+  assert.match(itemDetails, /CLIENT_VISIBLE_KEYS/);
+  assert.match(itemDetails, /BOOLEAN_KEYS/);
 
   const paymentPanel = source("src/components/payments/OrderPaymentPanel.tsx");
   assert.match(paymentPanel, /fetch\("\/api\/payments\/checkout", \{/);
   assert.match(paymentPanel, /body: JSON\.stringify\(\{ orderId \}\)/);
   assert.match(paymentPanel, /getStripeCheckoutRedirectUrl\(body\?\.url\)/);
   assert.match(paymentPanel, /presentation\?: "default" \| "order-detail"/);
+  assert.match(paymentPanel, /Payment required/);
+  assert.match(paymentPanel, /\$\{summary\.itemCount\} \$\{summary\.itemCount === 1 \? "image" : "images"\}/);
 
   const reviewActions = source(
     "src/components/dashboard/DeliverableReviewActions.tsx",
