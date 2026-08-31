@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import OrderServiceGrid from "@/components/dashboard/OrderServiceGrid";
-import SavedDraftsSection from "@/components/dashboard/SavedDraftsSection";
 import {
   getOrderServiceCards,
   type OrderServiceCard,
@@ -71,8 +70,6 @@ export default function NewOrderHubPage() {
           receive professional results, typically within 24-48 hours.
         </p>
       </div>
-
-      <SavedDraftsSection />
 
       <Suspense fallback={<OrderServiceGrid services={services} />}>
         <EnrichedOrderServiceGrid services={services} />
