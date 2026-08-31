@@ -52,7 +52,7 @@ export default function DashboardActivityRail({
     <div
       data-dashboard-workspace
       data-dashboard-activity-rail
-      className="relative grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-x-0 lg:gap-y-6 lg:before:pointer-events-none lg:before:absolute lg:before:inset-y-0 lg:before:left-[279px] lg:before:w-px lg:before:bg-border lg:before:content-[''] xl:grid-cols-[300px_minmax(0,1fr)] xl:before:left-[299px] 2xl:grid-cols-[320px_minmax(0,1fr)] 2xl:before:left-[319px]"
+      className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,2fr)] lg:gap-x-0 lg:gap-y-6 xl:gap-y-8"
     >
       <SavedDraftsSection
         variant="rail"
@@ -61,13 +61,13 @@ export default function DashboardActivityRail({
         panel
         deletable
         listLimit={8}
-        className="order-1 lg:col-start-1 lg:row-start-1 lg:mr-6 xl:mr-8 2xl:mr-10"
+        className="order-1 lg:col-start-1 lg:row-start-1 lg:pr-6 xl:pr-8"
       />
 
       <section
         data-dashboard-section="recently-completed"
         aria-labelledby="recently-completed-heading"
-        className="order-2 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-2 lg:mr-6 xl:mr-8 2xl:mr-10"
+        className="order-2 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-2 lg:pr-6 xl:pr-8"
       >
         <div className="border-b border-border px-4 py-4">
           <h2
@@ -125,7 +125,7 @@ export default function DashboardActivityRail({
 
       <div
         data-dashboard-services
-        className="order-3 min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:pl-6 xl:pl-8 2xl:pl-10"
+        className="order-3 min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:border-l lg:border-border lg:pl-6 xl:pl-8"
       >
         {services}
       </div>
@@ -133,7 +133,7 @@ export default function DashboardActivityRail({
       <section
         data-dashboard-section="getting-started"
         aria-labelledby="getting-started-heading"
-        className="order-4 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-3 lg:mr-6 xl:mr-8 2xl:mr-10"
+        className="order-4 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-3 lg:pr-6 xl:pr-8"
       >
         <div className="border-b border-border px-4 py-4">
           <h2

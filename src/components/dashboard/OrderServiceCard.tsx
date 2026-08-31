@@ -39,21 +39,28 @@ interface OrderServiceCardProps {
   examples: OrderExamplePair[];
   /** Admin-managed order-card cover image, or null. */
   cardImage: OrderCardImage | null;
+  layout?: "catalog" | "dashboard";
 }
 
 const HALF_SIZES =
   "(min-width: 1536px) 13vw, (min-width: 1280px) 17vw, (min-width: 640px) 25vw, 50vw";
 const COVER_SIZES =
   "(min-width: 1536px) 25vw, (min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw";
+const DASHBOARD_HALF_SIZES =
+  "(min-width: 2200px) 9rem, (min-width: 1920px) 7.5vw, (min-width: 1360px) 10vw, (min-width: 1024px) 15vw, (min-width: 640px) 25vw, 50vw";
+const DASHBOARD_COVER_SIZES =
+  "(min-width: 2200px) 18rem, (min-width: 1920px) 15vw, (min-width: 1360px) 20vw, (min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw";
 
 function PortfolioPreview({
   pair,
   beforeLabel,
   afterLabel,
+  sizes,
 }: {
   pair: OrderExamplePair;
   beforeLabel: string;
   afterLabel: string;
+  sizes: string;
 }) {
   return (
     <div className="relative aspect-[3/1] w-full overflow-hidden bg-stone-100">
@@ -63,7 +70,7 @@ function PortfolioPreview({
             src={pair.beforeUrl}
             alt={pair.beforeAlt}
             fill
-            sizes={HALF_SIZES}
+            sizes={sizes}
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             loading="lazy"
           />
@@ -76,7 +83,7 @@ function PortfolioPreview({
             src={pair.afterUrl}
             alt={pair.afterAlt}
             fill
-            sizes={HALF_SIZES}
+            sizes={sizes}
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             loading="lazy"
           />
@@ -89,14 +96,22 @@ function PortfolioPreview({
   );
 }
 
-function CoverImage({ image, title }: { image: OrderCardImage; title: string }) {
+function CoverImage({
+  image,
+  title,
+  sizes,
+}: {
+  image: OrderCardImage;
+  title: string;
+  sizes: string;
+}) {
   return (
     <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-100">
       <Image
         src={image.url}
         alt={image.alt ?? title}
         fill
-        sizes={COVER_SIZES}
+        sizes={sizes}
         className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
         loading="lazy"
       />
@@ -125,6 +140,7 @@ export default function OrderServiceCard({
   slug,
   examples,
   cardImage,
+  layout = "catalog",
 }: OrderServiceCardProps) {
   const currency = useDisplayCurrency();
   const [modalOpen, setModalOpen] = useState(false);
@@ -138,6 +154,8 @@ export default function OrderServiceCard({
   const labels = service.portfolioServiceSlug
     ? getGalleryPairLabels(service.portfolioServiceSlug, "en")
     : null;
+  const halfSizes = layout === "dashboard" ? DASHBOARD_HALF_SIZES : HALF_SIZES;
+  const coverSizes = layout === "dashboard" ? DASHBOARD_COVER_SIZES : COVER_SIZES;
 
   return (
     <article className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -148,9 +166,10 @@ export default function OrderServiceCard({
             pair={examples[0]}
             beforeLabel={labels.before}
             afterLabel={labels.after}
+            sizes={halfSizes}
           />
         ) : cardImage ? (
-          <CoverImage image={cardImage} title={service.title} />
+          <CoverImage image={cardImage} title={service.title} sizes={coverSizes} />
         ) : (
           <FallbackVisual service={service} />
         )}

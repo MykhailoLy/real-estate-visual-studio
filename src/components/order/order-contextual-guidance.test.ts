@@ -149,6 +149,9 @@ test("configure Review Order actions preserve their existing handlers and gates"
 });
 
 test("all configure pages opt into the existing wide dashboard workspace", () => {
+  const workspace = source(
+    "src/components/dashboard/client-portal-workspace.ts",
+  );
   const pages = [
     "src/app/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
     "src/app/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
@@ -159,8 +162,9 @@ test("all configure pages opt into the existing wide dashboard workspace", () =>
     "src/app/(dashboard)/dashboard/orders/new/3d-floor-plans/page.tsx",
   ];
 
+  assert.match(workspace, /max-w-\[1800px\]/);
   for (const path of pages) {
-    assert.match(source(path), /max-w-\[1800px\]/, path);
+    assert.match(source(path), /<ClientDashboardLayout flush>/, path);
   }
 });
 

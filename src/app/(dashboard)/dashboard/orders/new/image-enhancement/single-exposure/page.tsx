@@ -24,7 +24,7 @@ export default async function NewSingleExposureOrderPage() {
   const exampleMediaByKey = Object.fromEntries(media);
 
   return (
-    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
+    <ClientDashboardLayout flush>
       <SingleExposureOrderForm
         clientEmail={email}
         orderRoute={ROUTE}

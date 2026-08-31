@@ -32,6 +32,10 @@ const page = readFileSync(
   "src/app/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
   "utf8",
 );
+const clientWorkspace = readFileSync(
+  "src/components/dashboard/client-portal-workspace.ts",
+  "utf8",
+);
 
 test("Day to Dusk transactional option values and default remain unchanged", () => {
   assert.equal(DAY_TO_DUSK_OPTION_ID, "day-to-dusk-pe");
@@ -88,7 +92,8 @@ test("configure opts into the wide dashboard workspace while Review stays defaul
   assert.match(layout, /workspaceVariant\?: "wide"/);
   assert.match(layout, /max-w-\[1800px\]/);
   assert.match(layout, /320px_minmax\(0,1fr\)/);
-  assert.match(page, /max-w-\[1800px\]/);
+  assert.match(clientWorkspace, /max-w-\[1800px\]/);
+  assert.match(page, /<ClientDashboardLayout flush>/);
 });
 
 test("each uploaded photo keeps one item-local responsive preview", () => {

@@ -7,8 +7,8 @@
 // Also fetches the client_profiles row (if it exists) so the nav can
 // show the profile first_name instead of the auth metadata name.
 //
-// Pages continue to render ClientDashboardLayout themselves so individual
-// routes can choose an appropriate content width inside the shared shell.
+// Pages continue to render ClientDashboardLayout themselves so local content
+// can remain readable inside the shared wide client-workspace shell.
 
 import type { Metadata } from "next";
 import { headers } from "next/headers";

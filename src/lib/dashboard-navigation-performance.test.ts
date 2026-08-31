@@ -323,7 +323,7 @@ test("Drafts stays available outside the primary desktop and mobile navigation",
   assert.match(savedDraftsSource, /\{copy\.viewAll\}/);
 });
 
-test("dashboard composes a bounded activity rail and stacked mobile workspace", () => {
+test("dashboard composes a proportional activity rail and stacked mobile workspace", () => {
   const pageSource = source("app/(dashboard)/dashboard/page.tsx");
   const railSource = source("components/dashboard/DashboardActivityRail.tsx");
   const responsiveServicesSource = source(
@@ -333,10 +333,12 @@ test("dashboard composes a bounded activity rail and stacked mobile workspace", 
 
   assert.match(railSource, /data-dashboard-workspace/);
   assert.match(railSource, /grid grid-cols-1 gap-6/);
-  assert.match(railSource, /lg:grid-cols-\[280px_minmax\(0,1fr\)\]/);
-  assert.match(railSource, /xl:grid-cols-\[300px_minmax\(0,1fr\)\]/);
-  assert.match(railSource, /2xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
-  assert.doesNotMatch(railSource, /grid-cols-\[33%/);
+  assert.match(
+    railSource,
+    /lg:grid-cols-\[minmax\(18rem,1fr\)_minmax\(0,2fr\)\]/,
+  );
+  assert.match(railSource, /lg:border-l lg:border-border/);
+  assert.doesNotMatch(railSource, /grid-cols-\[(?:280|300|320)px/);
   assert.match(pageSource, /<DashboardActivityRail/);
   assert.match(pageSource, /jobs=\{jobs\}/);
   assert.match(pageSource, /services=\{/);
@@ -416,10 +418,16 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(quickStartSource, /examples=\{examples\}/);
   assert.match(quickStartSource, /layout="dashboard"/);
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
-  assert.match(serviceGridSource, /layout === "catalog" && "2xl:grid-cols-4"/);
+  assert.match(
+    serviceGridSource,
+    /min-\[1360px\]:grid-cols-3 min-\[1920px\]:grid-cols-4/,
+  );
+  assert.match(serviceGridSource, /: "xl:grid-cols-3 2xl:grid-cols-4"/);
   assert.match(serviceCardSource, /getCatalogPrice\(service\.priceKey, currency\)/);
   assert.match(serviceCardSource, /href=\{service\.route as string\}/);
   assert.match(serviceCardSource, /loading="lazy"/);
+  assert.match(serviceCardSource, /DASHBOARD_COVER_SIZES/);
+  assert.match(serviceCardSource, /min-width: 1920px/);
   assert.doesNotMatch(
     quickStartSource,
     /from "next\/image"/,
@@ -662,7 +670,15 @@ test("every primary client portal route keeps the shared width-aware shell", () 
   );
 
   const layoutSource = source("components/dashboard/ClientDashboardLayout.tsx");
-  assert.match(layoutSource, /max-w-6xl mx-auto px-4 sm:px-6 lg:px-8/);
+  const workspaceSource = source("components/dashboard/client-portal-workspace.ts");
+  const topNavSource = source("components/dashboard/ClientDashboardTopNav.tsx");
+  const publicContainerSource = source("components/layout/Container.tsx");
+  assert.match(workspaceSource, /max-w-\[1800px\]/);
+  assert.match(workspaceSource, /px-4 sm:px-5 lg:px-6 2xl:px-8 min-\[1920px\]:px-10/);
+  assert.doesNotMatch(layoutSource, /max-w-6xl/);
+  assert.match(layoutSource, /CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/);
+  assert.match(topNavSource, /CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/);
+  assert.match(publicContainerSource, /max-w-\[1500px\]/);
   assert.match(layoutSource, /className="min-h-0 w-full flex-1/);
 });
 

@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
+import { CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME } from "./client-portal-workspace";
 import SignOutButton from "./SignOutButton";
 import ClientPortalLink from "./ClientPortalLink";
 import ClientDashboardMobileNav from "./ClientDashboardMobileNav";
@@ -63,7 +64,12 @@ export default function ClientDashboardTopNav() {
 
   return (
     <header className="sticky top-0 z-40 flex-shrink-0 border-b border-border bg-white shadow-sm">
-      <div className="flex h-14 min-w-0 items-center gap-2 px-4 sm:h-16 sm:px-6 lg:px-8">
+      <div
+        className={cn(
+          CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+          "flex h-14 min-w-0 items-center gap-2 sm:h-16",
+        )}
+      >
         <Link
           href={getLocaleAwareHref("/", language)}
           aria-label="Open the PicchuSpot public homepage"
@@ -123,7 +129,10 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
     <div className="hidden border-t border-border bg-primary lg:block">
       <nav
         aria-label="Dashboard navigation"
-        className="flex h-12 items-center gap-1 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] sm:px-6 lg:px-8 [&::-webkit-scrollbar]:hidden"
+        className={cn(
+          CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+          "flex h-12 items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        )}
       >
         {DASHBOARD_NAV_ITEMS.map((item) => {
           const active = item.exact

@@ -23,7 +23,7 @@ export default async function NewVirtualStagingOrderPage() {
   ]);
   const exampleMedia = Object.fromEntries(media);
   return (
-    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
+    <ClientDashboardLayout flush>
       <VirtualStagingOrderForm
         clientEmail={email}
         orderRoute={ORDER_ROUTE}

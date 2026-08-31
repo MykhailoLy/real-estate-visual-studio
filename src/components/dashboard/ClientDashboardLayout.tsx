@@ -1,25 +1,21 @@
 "use client";
 
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
+import { cn } from "@/lib/utils";
+import { CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME } from "./client-portal-workspace";
 
 interface ClientDashboardLayoutProps {
   children: React.ReactNode;
   /**
-   * Opt-in override for the main content wrapper classes. Defaults to the
-   * centered max-w-6xl container every dashboard page uses. The New Order
-   * hub passes a full-width variant so its card grid fills the main area on
-   * large screens. Existing pages are unaffected.
+   * Lets self-contained order flows own their vertical and horizontal inset.
+   * The wide centered workspace cap remains shared with every portal page.
    */
-  contentClassName?: string;
+  flush?: boolean;
 }
-
-/** Default centered container — unchanged behaviour for every other page. */
-const DEFAULT_CONTENT_CLASSNAME =
-  "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8";
 
 export default function ClientDashboardLayout({
   children,
-  contentClassName,
+  flush = false,
 }: ClientDashboardLayoutProps) {
   return (
     // Outer shell is pinned to the dynamic viewport height and never
@@ -39,7 +35,12 @@ export default function ClientDashboardLayout({
           data-dashboard-scroll-container
           className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
         >
-          <div className={contentClassName ?? DEFAULT_CONTENT_CLASSNAME}>
+          <div
+            className={cn(
+              CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+              !flush && "py-6 lg:py-8",
+            )}
+          >
             {children}
           </div>
         </main>

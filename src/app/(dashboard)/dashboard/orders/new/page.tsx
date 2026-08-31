@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 //   2. else the admin-managed order-card image (/admin/media),
 //   3. else a branded CSS fallback.
 //
-// Uses the dashboard layout's full-width content option so the grid
-// fills the main area on large screens (other pages keep max-w-6xl).
+// Uses the shared wide client-workspace shell so the grid fills the main
+// area on large screens without diverging from the rest of the portal.
 // Two batched queries total (portfolio + order-card media), grouped
 // server-side — never one query per card.
 // ============================================================
@@ -57,7 +57,7 @@ export default function NewOrderHubPage() {
   const services = getOrderServiceCards();
 
   return (
-    <ClientDashboardLayout contentClassName="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8 2xl:px-10">
+    <ClientDashboardLayout>
       <div className="mb-8 max-w-3xl">
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark">
           Client Portal

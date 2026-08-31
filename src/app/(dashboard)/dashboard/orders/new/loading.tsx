@@ -5,7 +5,7 @@ export default function NewOrderLoading() {
   const services = getOrderServiceCards();
 
   return (
-    <ClientDashboardLayout contentClassName="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8 2xl:px-10">
+    <ClientDashboardLayout>
       <div className="animate-pulse" aria-label="Loading New Order catalog">
         <div className="mb-8 max-w-3xl">
           <div className="h-3 w-24 rounded bg-secondary/20" />
