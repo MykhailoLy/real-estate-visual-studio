@@ -225,6 +225,23 @@ test("Order Detail uses a factual overview and preserves authenticated job flows
   assert.match(detail, /grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6/);
   assert.match(detail, /<JobDetailsCard \{\.\.\.jobDetailsProps\} \/>/);
   assert.match(detail, /<DeliveryCard/);
+  assert.match(detail, /function PaymentDetailsUnavailableCard\(\)/);
+  assert.match(detail, /Payment details unavailable/);
+  assert.match(detail, /paymentSummary === null \? \([\s\S]*?<PaymentDetailsUnavailableCard \/>/);
+  assert.match(
+    detail,
+    /paymentSummary\.state === "payment_required" \|\|[\s\S]*?paymentSummary\.state === "processing" \|\|[\s\S]*?paymentSummary\.state === "not_available"[\s\S]*?<OrderPaymentPanel/,
+  );
+  const deliveryStateStart = detail.indexOf("const deliveryPaymentState");
+  const deliveryStateSource = detail.slice(
+    deliveryStateStart,
+    detail.indexOf("return (", deliveryStateStart),
+  );
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "paid"/);
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "no_payment_required"/);
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "partially_refunded"/);
+  assert.match(deliveryStateSource, /paymentSummary\?\.state === "refunded"/);
+  assert.doesNotMatch(deliveryStateSource, /not_available/);
   assert.match(detail, /label="Completed" value="—"/);
   assert.match(detail, /label="Cost" value=\{totalValue\} strong/);
   assert.match(detail, /aria-label=\{`Order progress: \$\{value\}%`\}/);
@@ -239,9 +256,15 @@ test("Order Detail uses a factual overview and preserves authenticated job flows
     detail,
     /authoritativeTotal[\s\S]*?formatStoredMoney\(authoritativeTotal\.cents, authoritativeTotal\.currency\)[\s\S]*?formatStoredMoney\(order\.estimated_total_cents, order\.currency\)/,
   );
-  assert.match(detail, /label="Download completed job"/);
   assert.match(detail, /Download the available delivered files as a ZIP\./);
   assert.match(detail, /Files will appear here when ready\./);
+  assert.match(detail, /label="Download completed job"/);
+  const workflowHeader = detail.slice(
+    detail.indexOf("<section data-order-workflow"),
+    detail.indexOf("{order.items.length > 0 ?"),
+  );
+  assert.match(workflowHeader, /Image workflow \(\{order\.items\.length\} image/);
+  assert.doesNotMatch(workflowHeader, /BulkDownloadButton/);
   assert.match(detail, /<ClientOrderImageCard/);
   assert.match(detail, /<DeliverableReviewActions/);
   assert.match(detail, /getDashboardRequestUser\(\)/);

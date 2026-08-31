@@ -242,7 +242,7 @@ function DeliveryCard({
 }: {
   orderId: string;
   hasDeliverables: boolean;
-  paymentState: "paid" | "no_payment_required" | "partially_refunded" | "refunded" | "not_available" | undefined;
+  paymentState: "paid" | "no_payment_required" | "partially_refunded" | "refunded";
 }) {
   const paymentMessage =
     paymentState === "paid"
@@ -294,6 +294,28 @@ function DeliveryCard({
           Files will appear here when ready.
         </p>
       )}
+    </section>
+  );
+}
+
+function PaymentDetailsUnavailableCard() {
+  return (
+    <section
+      aria-labelledby="payment-unavailable-heading"
+      className="rounded-xl border border-border bg-white p-5 shadow-sm"
+    >
+      <h2
+        id="payment-unavailable-heading"
+        className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary"
+      >
+        Payment
+      </h2>
+      <p className="mt-5 text-sm font-semibold text-foreground">
+        Payment details unavailable
+      </p>
+      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+        We could not retrieve an authoritative payment status for this order.
+      </p>
     </section>
   );
 }
@@ -395,6 +417,13 @@ export default async function OrderDetailPage({
     progress,
     progressMessage,
   } satisfies JobDetailsCardProps;
+  const deliveryPaymentState =
+    paymentSummary?.state === "paid" ||
+    paymentSummary?.state === "no_payment_required" ||
+    paymentSummary?.state === "partially_refunded" ||
+    paymentSummary?.state === "refunded"
+      ? paymentSummary.state
+      : null;
 
   return (
     <ClientDashboardLayout>
@@ -448,47 +477,33 @@ export default async function OrderDetailPage({
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
         <JobDetailsCard {...jobDetailsProps} />
-        {paymentSummary?.state === "payment_required" ||
-        paymentSummary?.state === "processing" ? (
+        {paymentSummary === null ? (
+          <PaymentDetailsUnavailableCard />
+        ) : paymentSummary.state === "payment_required" ||
+          paymentSummary.state === "processing" ||
+          paymentSummary.state === "not_available" ? (
           <OrderPaymentPanel
             orderId={order.id}
             initialSummary={paymentSummary}
             presentation="order-detail"
           />
-        ) : (
+        ) : deliveryPaymentState ? (
           <DeliveryCard
             orderId={order.id}
             hasDeliverables={currentDeliverables.length > 0}
-            paymentState={
-              paymentSummary?.state === "paid" ||
-              paymentSummary?.state === "no_payment_required" ||
-              paymentSummary?.state === "partially_refunded" ||
-              paymentSummary?.state === "refunded" ||
-              paymentSummary?.state === "not_available"
-                ? paymentSummary.state
-                : undefined
-            }
+            paymentState={deliveryPaymentState}
           />
+        ) : (
+          <PaymentDetailsUnavailableCard />
         )}
       </div>
 
       <section data-order-workflow className="mt-7 min-w-0 space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-primary" aria-hidden />
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
-              Image workflow
-              <span className="ml-2 text-[11px] font-normal text-muted">
-                ({order.items.length} image{order.items.length !== 1 ? "s" : ""})
-              </span>
-            </h2>
-          </div>
-          <BulkDownloadButton
-            endpoint={`/api/client/orders/${order.id}/deliverables/bulk-download`}
-            disabled={currentDeliverables.length === 0}
-            label="Download completed job"
-            emptyLabel="No files"
-          />
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-primary" aria-hidden />
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
+            Image workflow ({order.items.length} image{order.items.length !== 1 ? "s" : ""})
+          </h2>
         </div>
 
         {order.items.length > 0 ? (
