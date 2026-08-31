@@ -25,6 +25,18 @@ export const CLIENT_PORTAL_QA_COMPLETED_JOBS: readonly DashboardJob[] = [
   qaCompletedJob("qa-completed-studio", "Studio Refresh", "Item Removal & Virtual Cleaning", "QA-IR-006", "2026-08-25"),
 ];
 
+/** Render-only open jobs keep the preview Jobs rail and filters representative. */
+export const CLIENT_PORTAL_QA_OPEN_JOBS: readonly DashboardJob[] = [
+  qaOpenJob("qa-open-harbor", "Harbor View Living Room", "Virtual Staging", "QA-VS-007", "in-progress", 55, "2026-08-31"),
+  qaOpenJob("qa-open-loft", "City Loft Rework", "Image Enhancement", "QA-IE-008", "pending-rework", 72, "2026-08-30"),
+  qaOpenJob("qa-open-garden", "Garden Suite Refresh", "Virtual Renovation", "QA-VR-009", "new-version-ready", 90, "2026-08-29"),
+];
+
+export const CLIENT_PORTAL_QA_JOBS: readonly DashboardJob[] = [
+  ...CLIENT_PORTAL_QA_OPEN_JOBS,
+  ...CLIENT_PORTAL_QA_COMPLETED_JOBS,
+];
+
 function qaDraft(
   id: string,
   title: string,
@@ -65,6 +77,29 @@ function qaCompletedJob(
     submittedDate,
     estimatedCompletion: submittedDate,
     progress: 100,
+    costCents: 0,
+    imageCount: 1,
+  };
+}
+
+function qaOpenJob(
+  id: string,
+  title: string,
+  serviceType: string,
+  reference: string,
+  status: DashboardJob["status"],
+  progress: number,
+  submittedDate: string,
+): DashboardJob {
+  return {
+    id,
+    title,
+    serviceType,
+    reference,
+    status,
+    submittedDate,
+    estimatedCompletion: "2026-09-05",
+    progress,
     costCents: 0,
     imageCount: 1,
   };

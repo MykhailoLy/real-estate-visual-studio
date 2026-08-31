@@ -23,7 +23,7 @@ export default function ClientJobsStatusFilters({
     >
       <h3
         id="jobs-status-filters-title"
-        className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-primary"
+        className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-secondary"
       >
         Filter jobs by status
       </h3>

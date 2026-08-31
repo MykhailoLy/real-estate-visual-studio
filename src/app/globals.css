@@ -197,3 +197,22 @@ html.dashboard-scroll-locked body {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* Interactive dashboard rows also need hover feedback when a hybrid device
+   exposes a mouse or trackpad as a secondary pointer. Tailwind's hover
+   variant follows the primary pointer, while any-hover covers both. */
+@media (any-hover: hover) {
+  .dashboard-pointer-hover:hover {
+    background-color: var(--color-ivory);
+  }
+
+  .dashboard-pointer-hover:hover .dashboard-pointer-hover-title {
+    color: var(--color-primary);
+    font-weight: 750;
+  }
+
+  .dashboard-pointer-hover:hover .dashboard-pointer-hover-arrow {
+    color: var(--color-primary);
+    transform: translateX(0.125rem);
+  }
+}

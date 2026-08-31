@@ -1,6 +1,7 @@
 "use client";
 
 import ClientPortalLink from "./ClientPortalLink";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Search, SlidersHorizontal, FileX } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,10 @@ const ALL_STATUSES: DashboardJobStatus[] = [
   "cancelled",
 ];
 
+// DashboardJob has no authoritative completion timestamp. An ETA must never
+// be displayed as though the job were actually complete.
+const JOB_COMPLETE_VALUE = "—";
+
 /** Progress bar — coloured by job status */
 function ProgressBar({ value, status }: { value: number; status: DashboardJobStatus }) {
   const trackColor = "bg-border";
@@ -81,7 +86,7 @@ function ProgressBar({ value, status }: { value: number; status: DashboardJobSta
           style={{ width: `${value}%` }}
         />
       </div>
-      <span className="text-[11px] tabular-nums text-muted w-7 text-right flex-shrink-0">
+      <span className="w-7 flex-shrink-0 text-right text-[11px] tabular-nums text-foreground">
         {value}%
       </span>
     </div>
@@ -118,9 +123,7 @@ export default function JobsTable({
 
   const displayed = limit ? filtered.slice(0, limit) : filtered;
 
-  // Desktop columns: Job | Service | Progress | Status | Cost.
-  // Meaningful estimated completion dates remain available in the mobile rows.
-  const colCount = showProgress ? 5 : 4;
+  const colCount = showProgress ? 8 : 7;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -134,7 +137,7 @@ export default function JobsTable({
             />
             <input
               type="search"
-              placeholder="Search by title, order number, or service..."
+              placeholder="Search by title, reference or service..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="min-h-11 w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-4 text-sm transition-colors placeholder:text-muted-light focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -178,7 +181,7 @@ export default function JobsTable({
 
       <div
         data-mobile-jobs-list
-        className="overflow-hidden rounded-xl border border-border bg-white shadow-sm md:hidden"
+        className="overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:hidden"
       >
         {displayed.length === 0 ? (
           <div className="px-4 py-10">
@@ -201,34 +204,55 @@ export default function JobsTable({
 
       <div
         data-desktop-jobs-table
-        className="hidden overflow-hidden rounded-xl border border-border bg-white shadow-sm md:block"
+        className="hidden overflow-x-auto rounded-xl border border-border bg-white shadow-sm lg:block"
+        tabIndex={0}
       >
-        <table className="w-full table-fixed text-sm">
+        <table className="min-w-[1200px] w-full table-fixed text-sm">
+          <caption className="sr-only">All submitted jobs</caption>
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[12%]" />
+            <col className="w-[14%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[15%]" />
+            <col className="w-[8%]" />
+            {showProgress && <col className="w-[11%]" />}
+          </colgroup>
           <thead>
             <tr className="border-b border-border bg-surface">
-              <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                Job
+              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                Job title
               </th>
-              <th className="hidden px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light xl:table-cell">
-                Service
+              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                Job reference
+              </th>
+              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                Status
+              </th>
+              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                Job submitted
+              </th>
+              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                Job complete
+              </th>
+              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                Job type
+              </th>
+              <th className="align-middle px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                Job cost
               </th>
               {showProgress && (
-                <th className="hidden w-32 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light xl:table-cell">
+                <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
                   Progress
                 </th>
               )}
-              <th className="w-40 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                Status
-              </th>
-              <th className="w-24 px-3 py-3 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                Cost
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {displayed.length === 0 ? (
               <tr>
-                <td colSpan={colCount} className="px-4 py-12 text-center">
+                <td colSpan={colCount} className="align-middle px-4 py-12 text-center">
                   <EmptyJobsMessage
                     isFiltered={Boolean(search || statusFilter !== "all")}
                   />
@@ -236,53 +260,11 @@ export default function JobsTable({
               </tr>
             ) : (
               displayed.map((job) => (
-                <tr
+                <DesktopJobRow
                   key={job.id}
-                  className="group transition-colors hover:bg-surface/50"
-                >
-                  <td className="px-3 py-3.5 align-top">
-                    <ClientPortalLink
-                      href={`/dashboard/jobs/${job.id}`}
-                      className="group/link inline-flex min-h-11 max-w-full flex-col justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                    >
-                      <span className="line-clamp-2 break-words text-[13px] font-semibold leading-snug text-foreground transition-colors group-hover/link:text-primary">
-                        {job.title}
-                      </span>
-                      <JobSecondaryLabel
-                        job={job}
-                        className="mt-0.5 line-clamp-1 break-words text-[11px] text-muted"
-                      />
-                      <span className="mt-1 line-clamp-2 break-words text-[11px] text-foreground/65 xl:hidden">
-                        {job.serviceType}
-                      </span>
-                      <span className="mt-1.5 w-fit max-w-full truncate rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted transition-colors group-hover/link:bg-primary/8">
-                        {job.reference}
-                      </span>
-                    </ClientPortalLink>
-                  </td>
-                  <td className="hidden break-words px-3 py-3.5 align-top text-[13px] leading-snug text-foreground/70 xl:table-cell">
-                    {job.serviceType}
-                  </td>
-                  {showProgress && (
-                    <td className="hidden px-3 py-3.5 align-top xl:table-cell">
-                      <ProgressBar value={job.progress} status={job.status} />
-                    </td>
-                  )}
-                  <td className="px-3 py-3.5 align-top">
-                    <StatusBadge status={job.status} compact />
-                    {showProgress && (
-                      <div className="mt-2 xl:hidden">
-                        <ProgressBar
-                          value={job.progress}
-                          status={job.status}
-                        />
-                      </div>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3.5 text-right align-top text-[13px] font-bold tabular-nums text-foreground">
-                    {formatStoredMoney(job.costCents, job.currency)}
-                  </td>
-                </tr>
+                  job={job}
+                  showProgress={showProgress}
+                />
               ))
             )}
           </tbody>
@@ -304,6 +286,87 @@ export default function JobsTable({
   );
 }
 
+function DesktopJobRow({
+  job,
+  showProgress,
+}: {
+  job: DashboardJob;
+  showProgress: boolean;
+}) {
+  const router = useRouter();
+  const jobHref = `/dashboard/jobs/${job.id}`;
+
+  function handleRowClick(event: React.MouseEvent<HTMLTableRowElement>) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      isInteractiveTarget(event.target)
+    ) {
+      return;
+    }
+
+    router.push(jobHref);
+  }
+
+  return (
+    <tr
+      onClick={handleRowClick}
+      className="dashboard-pointer-hover group cursor-pointer transition-colors active:bg-ivory"
+    >
+      <td className="align-middle px-4 py-3.5">
+        <ClientPortalLink
+          href={jobHref}
+          className="group/link inline-flex min-h-11 max-w-full flex-col justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          <span className="dashboard-pointer-hover-title inline-block line-clamp-2 break-words text-[13px] font-bold leading-snug text-primary transition-colors group-focus-visible/link:text-primary-light">
+            {job.title}
+          </span>
+          <JobSecondaryLabel
+            job={job}
+            className="mt-0.5 line-clamp-1 break-words text-[11px] text-muted"
+          />
+        </ClientPortalLink>
+      </td>
+      <td className="align-middle px-4 py-3.5">
+        <span className="block w-fit max-w-full truncate rounded-md bg-primary/8 px-2 py-1 font-mono text-[11px] font-semibold text-primary">
+          {job.reference}
+        </span>
+      </td>
+      <td className="align-middle px-4 py-3.5">
+        <StatusBadge status={job.status} compact />
+      </td>
+      <td className="align-middle whitespace-nowrap px-4 py-3.5 text-[12px] font-medium text-foreground">
+        {formatDate(job.submittedDate)}
+      </td>
+      <td className="align-middle whitespace-nowrap px-4 py-3.5 text-[12px] font-medium text-muted">
+        {JOB_COMPLETE_VALUE}
+      </td>
+      <td className="align-middle break-words px-4 py-3.5 text-[13px] font-medium leading-snug text-foreground">
+        {job.serviceType}
+      </td>
+      <td className="align-middle whitespace-nowrap px-4 py-3.5 text-right text-[13px] font-bold tabular-nums text-foreground">
+        {formatStoredMoney(job.costCents, job.currency)}
+      </td>
+      {showProgress && (
+        <td className="align-middle px-4 py-3.5">
+          <ProgressBar value={job.progress} status={job.status} />
+        </td>
+      )}
+    </tr>
+  );
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest("a, button, input, select, textarea, [role='button']") !== null
+  );
+}
+
 function MobileJobRow({
   job,
   showProgress,
@@ -311,67 +374,73 @@ function MobileJobRow({
   job: DashboardJob;
   showProgress: boolean;
 }) {
-  const estimatedCompletion = formatDate(job.estimatedCompletion);
-  const showEstimatedCompletion =
-    estimatedCompletion !== "—" && estimatedCompletion !== "Delivered";
-
   return (
     <li>
       <article>
         <ClientPortalLink
           href={`/dashboard/jobs/${job.id}`}
           aria-label={`Open ${job.title}, ${job.reference}`}
-          className="group block min-h-11 p-4 transition-colors hover:bg-surface/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+          className="group block min-h-11 p-4 transition-colors hover:bg-surface/50 active:bg-ivory focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <span className="line-clamp-2 break-words text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
                 {job.title}
               </span>
-              <JobSecondaryLabel
-                job={job}
-                className="mt-0.5 line-clamp-1 break-words text-xs text-muted"
-              />
             </div>
             <StatusBadge status={job.status} compact />
           </div>
 
-          <span className="mt-2 block w-fit max-w-full truncate rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
-            {job.reference}
-          </span>
-          <span className="mt-2 line-clamp-2 break-words text-xs leading-relaxed text-foreground/70">
-            {job.serviceType}
-          </span>
-
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3 text-xs">
-            <span>
-              <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
-                Cost
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-3 text-xs">
+            <JobMetadataItem label="Job reference">
+              <span className="block w-fit max-w-full truncate rounded-md bg-primary/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
+                {job.reference}
               </span>
-              <span className="mt-0.5 block whitespace-nowrap font-bold tabular-nums text-foreground">
+            </JobMetadataItem>
+            <JobMetadataItem label="Job submitted">
+              {formatDate(job.submittedDate)}
+            </JobMetadataItem>
+            <JobMetadataItem label="Job complete">
+              {JOB_COMPLETE_VALUE}
+            </JobMetadataItem>
+            <JobMetadataItem label="Job cost">
+              <span className="font-bold tabular-nums">
                 {formatStoredMoney(job.costCents, job.currency)}
               </span>
-            </span>
-            {showEstimatedCompletion && (
-              <span>
-                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
-                  Estimated
-                </span>
-                <span className="mt-0.5 block text-foreground/70">
-                  {estimatedCompletion}
-                </span>
-              </span>
+            </JobMetadataItem>
+            <JobMetadataItem label="Job type" className="col-span-2">
+              {job.serviceType}
+            </JobMetadataItem>
+            {showProgress && (
+              <JobMetadataItem label="Progress" className="col-span-2">
+                <ProgressBar value={job.progress} status={job.status} />
+              </JobMetadataItem>
             )}
           </div>
-
-          {showProgress && (
-            <div className="mt-3">
-              <ProgressBar value={job.progress} status={job.status} />
-            </div>
-          )}
         </ClientPortalLink>
       </article>
     </li>
+  );
+}
+
+function JobMetadataItem({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("min-w-0 text-foreground", className)}>
+      <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
+        {label}
+      </span>
+      <div className="mt-0.5 break-words font-medium leading-snug">
+        {children}
+      </div>
+    </div>
   );
 }
 
