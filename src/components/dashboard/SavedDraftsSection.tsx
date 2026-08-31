@@ -491,10 +491,10 @@ function SavedDraftItem({
               <ClientPortalLink
                 href={resumeUrl}
                 aria-label={`${actionLabel}: ${title}`}
-                className="group flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2 transition-colors hover:bg-ivory focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="dashboard-pointer-hover group flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2 transition-colors active:bg-ivory focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary">
+                  <span className="dashboard-pointer-hover-title block truncate text-sm font-bold leading-snug text-foreground transition-colors group-focus-visible:text-primary">
                     {title}
                   </span>
                   <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-muted">
@@ -507,11 +507,11 @@ function SavedDraftItem({
                     </span>
                   </span>
                 </span>
-                <span className="hidden items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition-colors group-hover:text-primary group-focus-visible:text-primary sm:inline-flex">
+                <span className="hidden items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition-colors group-focus-visible:text-primary sm:inline-flex">
                   {actionLabel}
                 </span>
                 <ArrowRight
-                  className="h-3.5 w-3.5 flex-shrink-0 text-muted-light transition-transform group-hover:translate-x-0.5 group-hover:text-primary group-focus-visible:translate-x-0.5 group-focus-visible:text-primary"
+                  className="dashboard-pointer-hover-arrow h-3.5 w-3.5 flex-shrink-0 text-muted-light transition-transform group-focus-visible:translate-x-0.5 group-focus-visible:text-primary"
                   aria-hidden
                 />
               </ClientPortalLink>

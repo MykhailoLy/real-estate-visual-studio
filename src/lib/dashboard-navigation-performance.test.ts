@@ -632,7 +632,8 @@ test("compact Saved Drafts reuses the existing list and Resume or Finish flow", 
   assert.match(savedDraftsSource, /deletion\.beginDelete\(draft, trigger\)/);
   assert.doesNotMatch(railBranch, /DraftThumbnail|FileText|Clock3/);
   assert.match(railBranch, />\s*\{actionLabel\}\s*</);
-  assert.match(railBranch, /hover:bg-ivory/);
+  assert.match(railBranch, /dashboard-pointer-hover/);
+  assert.match(railBranch, /active:bg-ivory/);
   assert.match(railBranch, /cursor-pointer/);
   assert.match(draftsPageSource, /export function useOrderDraftDeletion/);
   assert.match(draftsPageSource, /await deleteOrderDraft\(/);
@@ -697,7 +698,8 @@ test("Jobs rail derives only open orders and reuses detail links and StatusBadge
     /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/,
   );
   assert.match(railSource, /Open jobs/);
-  assert.match(railSource, /hover:bg-ivory/);
+  assert.match(railSource, /dashboard-pointer-hover/);
+  assert.match(railSource, /active:bg-ivory/);
   assert.match(railSource, /focus:bg-ivory/);
   assert.match(railSource, /cursor-pointer/);
   assert.doesNotMatch(railSource, /Needs attention|pending orders/i);
@@ -807,8 +809,45 @@ test("Jobs uses one status controller and distinct mobile and desktop results", 
   assert.match(filtersSource, /text-secondary/);
   assert.doesNotMatch(tableSource, /minWidth:[\s\S]*?720px/);
   assert.match(tableSource, /min-h-11 w-full/);
-  assert.match(tableSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
+  assert.match(tableSource, /const jobHref = `\/dashboard\/jobs\/\$\{job\.id\}`/);
+  assert.match(tableSource, /href=\{jobHref\}/);
   assert.match(statusSource, /"awaiting-submission": "Awaiting Confirmation"/);
+});
+
+test("Jobs interactions support hybrid pointers, row navigation, and vertical alignment", () => {
+  const globalStyles = source("app/globals.css");
+  const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
+  const railSource = source("components/dashboard/JobsWorkspaceRail.tsx");
+  const tableSource = source("components/dashboard/JobsTable.tsx");
+
+  assert.match(
+    globalStyles,
+    /@media \(any-hover: hover\)[\s\S]*?\.dashboard-pointer-hover:hover/,
+  );
+  assert.match(globalStyles, /\.dashboard-pointer-hover-title/);
+  assert.match(globalStyles, /\.dashboard-pointer-hover-arrow/);
+
+  for (const interactionSource of [savedDraftsSource, railSource, tableSource]) {
+    assert.match(interactionSource, /dashboard-pointer-hover/);
+    assert.match(interactionSource, /cursor-pointer/);
+    assert.match(interactionSource, /active:bg-ivory/);
+  }
+
+  assert.match(tableSource, /import \{ useRouter \} from "next\/navigation"/);
+  assert.match(tableSource, /onClick=\{handleRowClick\}/);
+  assert.match(tableSource, /router\.push\(jobHref\)/);
+  assert.match(tableSource, /isInteractiveTarget\(event\.target\)/);
+  assert.match(
+    tableSource,
+    /target\.closest\("a, button, input, select, textarea, \[role='button'\]"\)/,
+  );
+  assert.match(tableSource, /<ClientPortalLink[\s\S]*?href=\{jobHref\}/);
+  assert.ok((tableSource.match(/align-middle/g) ?? []).length >= 17);
+  assert.match(
+    tableSource,
+    /align-middle whitespace-nowrap px-4 py-3\.5 text-right/,
+  );
+  assert.doesNotMatch(tableSource, /job\.estimatedCompletion/);
 });
 
 test("Jobs presentation components add no order queries or media", () => {
@@ -880,7 +919,7 @@ test("visible job details and service cards never auto-prefetch", () => {
 
   assert.match(
     jobsTableSource,
-    /<ClientPortalLink[\s\S]*?href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/,
+    /const jobHref = `\/dashboard\/jobs\/\$\{job\.id\}`[\s\S]*?<ClientPortalLink[\s\S]*?href=\{jobHref\}/,
   );
   assert.doesNotMatch(jobsTableSource, /<Link/);
   assert.match(
