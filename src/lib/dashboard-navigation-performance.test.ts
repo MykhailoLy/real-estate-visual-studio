@@ -328,21 +328,21 @@ test("dashboard composes a bounded activity rail and stacked mobile workspace", 
   const railSource = source("components/dashboard/DashboardActivityRail.tsx");
 
   assert.match(pageSource, /data-dashboard-workspace/);
-  assert.match(pageSource, /grid grid-cols-1 gap-6/);
-  assert.match(pageSource, /lg:grid-cols-\[320px_minmax\(0,1fr\)\]/);
-  assert.match(pageSource, /xl:grid-cols-\[340px_minmax\(0,1fr\)\]/);
+  assert.match(pageSource, /grid grid-cols-1 gap-8/);
+  assert.match(pageSource, /lg:grid-cols-\[300px_minmax\(0,1fr\)\]/);
+  assert.match(pageSource, /xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(pageSource, /grid-cols-\[33%/);
   assert.match(pageSource, /<DashboardActivityRail jobs=\{jobs\} \/>/);
   assert.match(pageSource, /<DashboardQuickStart/);
-  assert.match(railSource, /<SavedDraftsSection variant="rail" \/>/);
-  assert.match(railSource, /Continue working/);
-  assert.match(railSource, /Next actions/);
+  assert.match(railSource, /variant="rail"/);
+  assert.match(railSource, /heading="Awaiting submission"/);
   assert.match(railSource, /Recently completed/);
+  assert.match(railSource, /How to get started/);
   assert.match(railSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
-  assert.match(railSource, /href="\/dashboard\/jobs"/);
+  assert.match(railSource, /href="\/dashboard\/jobs\?status=completed"/);
 });
 
-test("dashboard quick start is registry-driven and media-free", () => {
+test("dashboard services are registry-driven and portfolio-enriched", () => {
   const pageSource = source("app/(dashboard)/dashboard/page.tsx");
   const quickStartSource = source("components/dashboard/DashboardQuickStart.tsx");
   const activeServices = getOrderServiceCatalog().filter(
@@ -352,14 +352,18 @@ test("dashboard quick start is registry-driven and media-free", () => {
   assert.ok(activeServices.length >= 6);
   assert.ok(activeServices.slice(0, 6).every((service) => service.route));
   assert.match(pageSource, /getOrderServiceCards\(\)/);
+  assert.match(pageSource, /getOrderCardImages\(\)/);
+  assert.match(pageSource, /getOrderServiceExamples\(\)/);
+  assert.match(pageSource, /<Suspense fallback=\{<DashboardQuickStart/);
   assert.match(quickStartSource, /services\.filter\(isActiveOrderService\)\.slice\(0, 6\)/);
-  assert.match(quickStartSource, /href=\{service\.route\}/);
+  assert.match(quickStartSource, /<OrderServiceGrid/);
+  assert.match(quickStartSource, /images=\{images\}/);
+  assert.match(quickStartSource, /examples=\{examples\}/);
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
   assert.doesNotMatch(
-    `${pageSource}\n${quickStartSource}`,
-    /OrderServiceGrid|<OrderServiceCard|from "next\/image"|getOrderCardImages|getOrderServiceExamples/,
+    quickStartSource,
+    /from "next\/image"/,
   );
-  assert.doesNotMatch(quickStartSource, /price|turnaround/i);
 });
 
 test("compact Saved Drafts reuses the existing list and Resume or Finish flow", () => {

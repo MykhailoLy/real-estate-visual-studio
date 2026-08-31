@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Clock3, FileText, RotateCcw } from "lucide-react";
+import { ArrowRight, Clock3, FileText, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import ClientPortalLink from "./ClientPortalLink";
 import DraftThumbnail from "@/components/dashboard/DraftThumbnail";
@@ -29,6 +29,9 @@ type SavedDraftsVariant = "grid" | "rail";
 
 interface SavedDraftsSectionProps {
   variant?: SavedDraftsVariant;
+  heading?: string;
+  helper?: string;
+  carded?: boolean;
 }
 
 interface DraftCopy {
@@ -86,10 +89,22 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   },
 };
 
-function LoadingCard({ variant }: { variant: SavedDraftsVariant }) {
+function LoadingCard({
+  variant,
+  carded,
+}: {
+  variant: SavedDraftsVariant;
+  carded?: boolean;
+}) {
   if (variant === "rail") {
     return (
-      <li className="border-t border-border py-3 first:border-t-0 first:pt-0">
+      <li
+        className={cn(
+          carded
+            ? "rounded-xl border border-border bg-white p-4"
+            : "border-t border-border py-3 first:border-t-0 first:pt-0",
+        )}
+      >
         <div className="h-4 w-2/3 rounded bg-stone-100" />
         <div className="mt-2 h-3 w-1/2 rounded bg-stone-100" />
         <div className="mt-3 h-11 w-24 rounded bg-stone-100" />
@@ -109,11 +124,16 @@ function LoadingCard({ variant }: { variant: SavedDraftsVariant }) {
 
 export default function SavedDraftsSection({
   variant = "grid",
+  heading,
+  helper,
+  carded = false,
 }: SavedDraftsSectionProps) {
   const pathname = usePathname();
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
   const copy = DRAFT_COPY[language];
+  const resolvedHeading = heading ?? copy.heading;
+  const resolvedHelper = helper ?? copy.helper;
   const [drafts, setDrafts] = useState<OrderDraftSummary[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [reloadKey, setReloadKey] = useState(0);
@@ -176,20 +196,34 @@ export default function SavedDraftsSection({
       >
         <div className="min-w-0">
           {isRail ? (
-            <h3 id={headingId} className="text-sm font-bold text-primary">
-              {copy.heading}
-            </h3>
+            <h2
+              id={headingId}
+              className={cn(
+                carded
+                  ? "text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+                  : "text-sm font-bold text-primary",
+              )}
+            >
+              {resolvedHeading}
+            </h2>
           ) : (
             <h2
               id={headingId}
               className="text-lg font-bold leading-tight text-primary"
             >
-              {copy.heading}
+              {resolvedHeading}
             </h2>
           )}
-          <p className={cn("text-muted", isRail ? "text-xs" : "text-sm")}>
-            {copy.helper}
-          </p>
+          {resolvedHelper && (
+            <p
+              className={cn(
+                "text-muted",
+                isRail ? "mt-1 text-xs leading-relaxed" : "text-sm",
+              )}
+            >
+              {resolvedHelper}
+            </p>
+          )}
         </div>
         {loadState === "success" && drafts.length > 0 && (
           <ClientPortalLink
@@ -212,13 +246,15 @@ export default function SavedDraftsSection({
           <ul
             className={cn(
               isRail
-                ? "divide-y divide-border"
+                ? carded
+                  ? "space-y-3"
+                  : "divide-y divide-border"
                 : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
             )}
           >
-            <LoadingCard variant={variant} />
-            <LoadingCard variant={variant} />
-            <LoadingCard variant={variant} />
+            <LoadingCard variant={variant} carded={carded} />
+            <LoadingCard variant={variant} carded={carded} />
+            <LoadingCard variant={variant} carded={carded} />
           </ul>
         </div>
       )}
@@ -254,7 +290,9 @@ export default function SavedDraftsSection({
         <ul
           className={cn(
             isRail
-              ? "divide-y divide-border"
+              ? carded
+                ? "space-y-3"
+                : "divide-y divide-border"
               : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
           )}
         >
@@ -265,6 +303,7 @@ export default function SavedDraftsSection({
               copy={copy}
               language={language}
               variant={variant}
+              carded={carded}
             />
           ))}
         </ul>
@@ -278,11 +317,13 @@ function SavedDraftItem({
   copy,
   language,
   variant,
+  carded,
 }: {
   draft: OrderDraftSummary;
   copy: DraftCopy;
   language: SiteLanguage;
   variant: SavedDraftsVariant;
+  carded: boolean;
 }) {
   const resumeUrl = buildSavedDraftResumeUrl(draft.route, draft.id);
   const title = getSavedDraftTitle(draft.title, copy.untitled);
@@ -304,7 +345,13 @@ function SavedDraftItem({
 
   if (variant === "rail") {
     return (
-      <li className="py-3 first:pt-0 last:pb-0">
+      <li
+        className={cn(
+          carded
+            ? "rounded-xl border border-border bg-white p-4 shadow-sm"
+            : "py-3 first:pt-0 last:pb-0",
+        )}
+      >
         <article className="min-w-0">
           <div className="flex items-start gap-2.5">
             <span
@@ -339,9 +386,10 @@ function SavedDraftItem({
           {resumeUrl && (
             <ClientPortalLink
               href={resumeUrl}
-              className="mt-2 inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {actionLabel}
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </ClientPortalLink>
           )}
         </article>
