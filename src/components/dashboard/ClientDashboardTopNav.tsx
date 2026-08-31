@@ -47,6 +47,7 @@ interface DashboardAccountMenuProps {
 
 export default function ClientDashboardTopNav() {
   const pathname = usePathname() ?? "/dashboard";
+  const user = useDashboardUser();
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -85,7 +86,18 @@ export default function ClientDashboardTopNav() {
           <BrandWordmark theme="light" className="min-w-0 text-sm sm:text-lg" />
         </Link>
 
-        <div className="ml-auto hidden min-w-0 items-center gap-2 lg:flex">
+        {user?.isQaPreview && (
+          <span className="ml-auto inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-800">
+            QA Preview
+          </span>
+        )}
+
+        <div
+          className={cn(
+            "hidden min-w-0 items-center gap-2 lg:flex",
+            !user?.isQaPreview && "ml-auto",
+          )}
+        >
           <PublicResourcesMenu language={language} />
           <MarketLanguageSelector
             pathname={pathname}
@@ -106,7 +118,10 @@ export default function ClientDashboardTopNav() {
           aria-label={mobileMenuOpen ? "Close dashboard menu" : "Open dashboard menu"}
           aria-expanded={mobileMenuOpen}
           aria-controls="client-dashboard-mobile-menu"
-          className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+          className={cn(
+            "inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden",
+            !user?.isQaPreview && "ml-auto",
+          )}
         >
           {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
         </button>

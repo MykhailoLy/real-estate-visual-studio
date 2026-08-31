@@ -52,7 +52,7 @@ export default function DashboardActivityRail({
     <div
       data-dashboard-workspace
       data-dashboard-activity-rail
-      className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,2fr)] lg:gap-x-0 lg:gap-y-6 xl:gap-y-8"
+      className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,2fr)] lg:gap-x-6 lg:gap-y-6 xl:gap-x-8 xl:gap-y-8"
     >
       <SavedDraftsSection
         variant="rail"
@@ -61,13 +61,13 @@ export default function DashboardActivityRail({
         panel
         deletable
         listLimit={8}
-        className="order-1 lg:col-start-1 lg:row-start-1 lg:pr-6 xl:pr-8"
+        className="order-1 lg:col-start-1 lg:row-start-1"
       />
 
       <section
         data-dashboard-section="recently-completed"
         aria-labelledby="recently-completed-heading"
-        className="order-2 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-2 lg:pr-6 xl:pr-8"
+        className="order-2 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-2"
       >
         <div className="border-b border-border px-4 py-4">
           <h2
@@ -133,7 +133,7 @@ export default function DashboardActivityRail({
       <section
         data-dashboard-section="getting-started"
         aria-labelledby="getting-started-heading"
-        className="order-4 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-3 lg:pr-6 xl:pr-8"
+        className="order-4 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-3"
       >
         <div className="border-b border-border px-4 py-4">
           <h2

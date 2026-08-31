@@ -203,8 +203,13 @@ test("dashboard layout is the fail-closed verified user gate with dub1 preferenc
 test("layout and dashboard pages share request-scoped verified identity", () => {
   const contextSource = source("lib/dashboard-request-context.ts");
   assert.match(contextSource, /import "server-only"/);
-  assert.match(contextSource, /cache\(getClientUser\)/);
-  assert.match(contextSource, /cache\(getClientProfile\)/);
+  assert.match(contextSource, /cache\(async \(\) =>/);
+  assert.match(
+    contextSource,
+    /const verifiedUser = await getClientUser\(\);[\s\S]*?resolveDashboardRequestUser\(verifiedUser\)/,
+  );
+  assert.match(contextSource, /const verifiedProfile = user \? await getClientProfile\(\) : null/);
+  assert.match(contextSource, /user\?\.isQaPreview/);
   assert.doesNotMatch(contextSource, /unstable_cache|use cache/);
 
   const verifiedPagePaths = [
@@ -224,17 +229,47 @@ test("layout and dashboard pages share request-scoped verified identity", () => 
   }
 });
 
-test("getClientUser remains canonical and APIs do not use dashboard context", () => {
+test("getClientUser remains canonical and APIs do not use dashboard QA context", () => {
   const clientAuthSource = source("lib/client-auth.ts");
   assert.match(clientAuthSource, /export async function getClientUser/);
   assert.match(clientAuthSource, /supabase\.auth\.getUser\(\)/);
   assert.doesNotMatch(clientAuthSource, /getClaims|getSession/);
 
-  const apiSources = sourceFilesUnder("app/api").map(source).join("\n");
+  const apiSources = [
+    ...sourceFilesUnder("app/api"),
+    ...sourceFilesUnder("app/(public)/api"),
+  ].map(source).join("\n");
   assert.doesNotMatch(
     apiSources,
-    /dashboard-request-context|DASHBOARD_REQUEST_PATH_HEADER/,
+    /dashboard-request-context|client-portal-qa|DASHBOARD_REQUEST_PATH_HEADER/,
   );
+});
+
+test("synthetic dashboard renders never enter ownership or welcome-offer reads", () => {
+  for (const path of [
+    "app/(dashboard)/dashboard/page.tsx",
+    "app/(dashboard)/dashboard/jobs/page.tsx",
+    "app/(dashboard)/dashboard/files/page.tsx",
+    "app/(dashboard)/dashboard/invoices/page.tsx",
+  ]) {
+    const pageSource = source(path);
+    assert.match(pageSource, /!user\.isQaPreview/, path);
+  }
+
+  const detailSource = source("app/(dashboard)/dashboard/jobs/[orderId]/page.tsx");
+  assert.match(detailSource, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
+
+  for (const path of [
+    "app/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
+    "app/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
+    "app/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
+  ]) {
+    const pageSource = source(path);
+    assert.match(pageSource, /isQaPreview[\s\S]*?NO_WELCOME_OFFER_AVAILABLE/, path);
+  }
+
+  const orderAccessSource = source("lib/order-access.ts");
+  assert.doesNotMatch(orderAccessSource, /isQaPreview|client-portal-qa/);
 });
 
 test("all dashboard navigation shells use the no-prefetch portal link", () => {
@@ -337,7 +372,10 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
     railSource,
     /lg:grid-cols-\[minmax\(18rem,1fr\)_minmax\(0,2fr\)\]/,
   );
+  assert.match(railSource, /lg:gap-x-6/);
+  assert.match(railSource, /xl:gap-x-8/);
   assert.match(railSource, /lg:border-l lg:border-border/);
+  assert.doesNotMatch(railSource, /lg:pr-6|xl:pr-8/);
   assert.doesNotMatch(railSource, /grid-cols-\[(?:280|300|320)px/);
   assert.match(pageSource, /<DashboardActivityRail/);
   assert.match(pageSource, /jobs=\{jobs\}/);
@@ -455,6 +493,9 @@ test("compact Saved Drafts reuses the existing list and Resume or Finish flow", 
   assert.match(savedDraftsSource, /variant\?: SavedDraftsVariant/);
   assert.match(savedDraftsSource, /listLimit\?: number/);
   assert.match(savedDraftsSource, /listOrderDrafts\(listLimit, controller\.signal\)/);
+  assert.match(savedDraftsSource, /const isQaPreview = user\?\.isQaPreview === true/);
+  assert.match(savedDraftsSource, /if \(isQaPreview\) return;/);
+  assert.match(savedDraftsSource, /const visibleLoadState: LoadState = isQaPreview \? "success" : loadState/);
   assert.match(savedDraftsSource, /result\.data\.slice\(0, listLimit\)/);
   assert.match(savedDraftsSource, /listLimit,/);
   assert.match(dashboardRailSource, /listLimit=\{8\}/);
@@ -677,7 +718,14 @@ test("every primary client portal route keeps the shared width-aware shell", () 
   assert.match(workspaceSource, /px-4 sm:px-5 lg:px-6 2xl:px-8 min-\[1920px\]:px-10/);
   assert.doesNotMatch(layoutSource, /max-w-6xl/);
   assert.match(layoutSource, /CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/);
+  assert.match(layoutSource, /CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME/);
+  assert.match(
+    layoutSource,
+    /flush\s*\?\s*CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME\s*:\s*CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/,
+  );
   assert.match(topNavSource, /CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/);
+  assert.match(topNavSource, /user\?\.isQaPreview/);
+  assert.match(topNavSource, />\s*QA Preview\s*</);
   assert.match(publicContainerSource, /max-w-\[1500px\]/);
   assert.match(layoutSource, /className="min-h-0 w-full flex-1/);
 });

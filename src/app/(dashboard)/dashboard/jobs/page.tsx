@@ -29,7 +29,7 @@ export default async function DashboardJobsPage() {
   // Fetch real orders. Ownership comes exclusively from the verified
   // session. Returns [] when SUPABASE_SERVICE_ROLE_KEY is absent or on
   // any error, so the page degrades gracefully to the empty state.
-  const [rawOrders, reviews] = user
+  const [rawOrders, reviews] = user && !user.isQaPreview
     ? await Promise.all([
         getOrdersForClient(toOrderOwnership(user)),
         getReviewsForClient(toOrderOwnership(user)),

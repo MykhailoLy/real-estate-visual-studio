@@ -2,7 +2,10 @@
 
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
 import { cn } from "@/lib/utils";
-import { CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME } from "./client-portal-workspace";
+import {
+  CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+  CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME,
+} from "./client-portal-workspace";
 
 interface ClientDashboardLayoutProps {
   children: React.ReactNode;
@@ -37,7 +40,9 @@ export default function ClientDashboardLayout({
         >
           <div
             className={cn(
-              CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+              flush
+                ? CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME
+                : CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
               !flush && "py-6 lg:py-8",
             )}
           >

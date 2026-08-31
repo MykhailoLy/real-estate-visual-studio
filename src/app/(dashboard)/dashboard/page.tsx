@@ -61,7 +61,7 @@ export default async function DashboardPage() {
   }
 
   // Fetch real orders. Returns [] on missing env vars or any error.
-  const [rawOrders, reviews] = user?.email
+  const [rawOrders, reviews] = user?.email && !user.isQaPreview
     ? await Promise.all([
         getOrdersForClient(toOrderOwnership(user)),
         getReviewsForClient(toOrderOwnership(user)),

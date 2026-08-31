@@ -28,6 +28,7 @@ import {
 } from "@/lib/order-drafts/saved-drafts";
 import type { OrderDraftSummary } from "@/lib/order-drafts/types";
 import { cn } from "@/lib/utils";
+import { useDashboardUser } from "./DashboardUserContext";
 
 type LoadState = "loading" | "success" | "error";
 type SavedDraftsVariant = "grid" | "rail";
@@ -163,6 +164,8 @@ export default function SavedDraftsSection({
   className,
 }: SavedDraftsSectionProps) {
   const pathname = usePathname();
+  const user = useDashboardUser();
+  const isQaPreview = user?.isQaPreview === true;
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
   const copy = DRAFT_COPY[language];
@@ -173,6 +176,8 @@ export default function SavedDraftsSection({
   const [reloadKey, setReloadKey] = useState(0);
   const isRail = variant === "rail";
   const headingId = isRail ? "saved-drafts-rail-heading" : "saved-drafts-heading";
+  const visibleDrafts = isQaPreview ? [] : drafts;
+  const visibleLoadState: LoadState = isQaPreview ? "success" : loadState;
 
   useEffect(() => {
     window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
@@ -185,6 +190,8 @@ export default function SavedDraftsSection({
   }, []);
 
   useEffect(() => {
+    if (isQaPreview) return;
+
     const controller = new AbortController();
 
     listOrderDrafts(listLimit, controller.signal)
@@ -203,7 +210,7 @@ export default function SavedDraftsSection({
       });
 
     return () => controller.abort();
-  }, [listLimit, reloadKey]);
+  }, [isQaPreview, listLimit, reloadKey]);
 
   const retry = useCallback(() => {
     setLoadState("loading");
@@ -213,7 +220,7 @@ export default function SavedDraftsSection({
     setLoadState("success");
   }, []);
   const deletion = useOrderDraftDeletion({
-    drafts,
+    drafts: visibleDrafts,
     setDrafts,
     copy,
     listLimit,
@@ -221,14 +228,14 @@ export default function SavedDraftsSection({
     onRefreshSuccess: handleDeleteRefreshSuccess,
   });
 
-  if (loadState === "success" && drafts.length === 0 && !isRail) {
+  if (visibleLoadState === "success" && visibleDrafts.length === 0 && !isRail) {
     return null;
   }
 
   return (
     <section
       aria-labelledby={headingId}
-      aria-busy={loadState === "loading"}
+      aria-busy={visibleLoadState === "loading"}
       data-dashboard-section={panel ? "awaiting-submission" : undefined}
       className={cn(
         !isRail && "mb-8",
@@ -284,7 +291,7 @@ export default function SavedDraftsSection({
             </p>
           )}
         </div>
-        {loadState === "success" && drafts.length > 0 && !panel && (
+        {visibleLoadState === "success" && visibleDrafts.length > 0 && !panel && (
           <ClientPortalLink
             href="/dashboard/drafts"
             className={cn(
@@ -315,7 +322,7 @@ export default function SavedDraftsSection({
         </p>
       )}
 
-      {loadState === "loading" && (
+      {visibleLoadState === "loading" && (
         <div role="status" aria-label={copy.loading}>
           <span className="sr-only">{copy.loading}</span>
           <ul
@@ -332,7 +339,7 @@ export default function SavedDraftsSection({
         </div>
       )}
 
-      {loadState === "error" && (
+      {visibleLoadState === "error" && (
         <div
           className={cn(
             "flex gap-3",
@@ -355,7 +362,7 @@ export default function SavedDraftsSection({
         </div>
       )}
 
-      {loadState === "success" && drafts.length === 0 && isRail && (
+      {visibleLoadState === "success" && visibleDrafts.length === 0 && isRail && (
         <p
           className={cn(
             "bg-surface text-xs leading-relaxed text-muted",
@@ -366,7 +373,7 @@ export default function SavedDraftsSection({
         </p>
       )}
 
-      {loadState === "success" && drafts.length > 0 && (
+      {visibleLoadState === "success" && visibleDrafts.length > 0 && (
         <ul
           className={cn(
             isRail
@@ -374,7 +381,7 @@ export default function SavedDraftsSection({
               : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
           )}
         >
-          {drafts.map((draft) => (
+          {visibleDrafts.map((draft) => (
             <SavedDraftItem
               key={draft.id}
               draft={draft}
@@ -391,7 +398,7 @@ export default function SavedDraftsSection({
         </ul>
       )}
 
-      {loadState === "success" && drafts.length > 0 && panel && (
+      {visibleLoadState === "success" && visibleDrafts.length > 0 && panel && (
         <div className="border-t border-border px-3 py-2">
           <ClientPortalLink
             href="/dashboard/drafts"

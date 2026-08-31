@@ -57,6 +57,7 @@ export default async function DashboardGroupLayout({
         displayName: rawUser.displayName,
         firstName: rawUser.firstName,
         avatarUrl: rawUser.avatarUrl,
+        isQaPreview: rawUser.isQaPreview,
         // profileName: prefer profile first_name, fall back to full_name split, else null
         profileName:
           profile?.first_name?.trim() ||

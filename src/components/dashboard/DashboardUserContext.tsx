@@ -20,6 +20,8 @@ export interface DashboardUser {
   /** First name from client_profiles row; null if onboarding not yet complete */
   profileName: string | null;
   avatarUrl: string | null;
+  /** True only for the fixed, non-production dashboard QA render mode. */
+  isQaPreview: boolean;
 }
 
 const DashboardUserContext = createContext<DashboardUser | null>(null);

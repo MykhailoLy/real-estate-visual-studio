@@ -287,7 +287,7 @@ export default async function OrderDetailPage({
 }) {
   const { orderId } = await params;
   const user = await getDashboardRequestUser();
-  if (!user) notFound();
+  if (!user || user.isQaPreview) notFound();
 
   const ownership = toOrderOwnership(user);
   const order = await getOrderForClient(orderId, ownership);

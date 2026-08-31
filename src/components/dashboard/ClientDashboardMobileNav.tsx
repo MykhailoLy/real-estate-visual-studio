@@ -87,7 +87,7 @@ export default function ClientDashboardMobileNav({
   const displayName = user?.displayName || "Client";
   const email       = user?.email       || "";
   const initials    = getInitials(user?.profileName || displayName);
-  const isLiveUser  = Boolean(user?.email);
+  const isLiveUser  = Boolean(user?.email && !user?.isQaPreview);
 
   return (
     <>
