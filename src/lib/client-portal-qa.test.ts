@@ -3,10 +3,15 @@ import test from "node:test";
 import {
   CLIENT_PORTAL_QA_PROFILE,
   CLIENT_PORTAL_QA_USER,
+  CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY,
   isClientPortalQaEnvironment,
   resolveDashboardRequestProfile,
   resolveDashboardRequestUser,
 } from "./client-portal-qa.ts";
+import {
+  CLIENT_PORTAL_QA_COMPLETED_JOBS,
+  CLIENT_PORTAL_QA_DRAFTS,
+} from "./client-portal-qa-fixtures.ts";
 import { isProfileComplete } from "./profile-completion.ts";
 
 const REAL_USER = {
@@ -58,6 +63,23 @@ test("an unauthenticated QA render uses the fixed complete preview profile", () 
     CLIENT_PORTAL_QA_PROFILE,
   );
   assert.equal(isProfileComplete(CLIENT_PORTAL_QA_PROFILE), true);
+});
+
+test("QA fixtures are render-only, populated, and avoid real draft or order routes", () => {
+  assert.deepEqual(CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY, {
+    imageEnhancementAvailable: true,
+    dayToDuskAvailable: true,
+    virtualStagingAvailable: true,
+  });
+  assert.equal(CLIENT_PORTAL_QA_DRAFTS.length, 8);
+  assert.equal(CLIENT_PORTAL_QA_COMPLETED_JOBS.length, 6);
+  assert.ok(CLIENT_PORTAL_QA_DRAFTS.every((draft) => draft.id.startsWith("qa-draft-")));
+  assert.ok(CLIENT_PORTAL_QA_COMPLETED_JOBS.every((job) => job.id.startsWith("qa-completed-")));
+  assert.ok(
+    CLIENT_PORTAL_QA_DRAFTS.every(
+      (draft) => draft.route.startsWith("/dashboard/orders/new/"),
+    ),
+  );
 });
 
 test("a real authenticated user always wins over the QA fallback", () => {

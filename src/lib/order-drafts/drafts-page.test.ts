@@ -101,7 +101,10 @@ test("finishing drafts cannot enter or confirm the shared delete flow", () => {
     SHARED_DELETE_SOURCE,
     /const confirmDelete = async[\s\S]+if \(isFinishingOrderDraft\(draft\)\)/,
   );
-  assert.match(DASHBOARD_DRAFTS_SOURCE, /deletable && !isFinishing && \(/);
+  assert.match(
+    DASHBOARD_DRAFTS_SOURCE,
+    /deletable && !isFinishing && !isQaPreview && \(/,
+  );
 });
 
 test("dashboard draft deletion keeps the shared accessible confirmation dialog", () => {

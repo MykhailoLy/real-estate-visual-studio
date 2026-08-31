@@ -2,6 +2,7 @@ import "server-only";
 
 import type { ClientUser } from "@/lib/client-auth";
 import type { ClientProfile } from "@/lib/client-profile";
+import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 
 /** The only environments where the non-production portal QA render mode exists. */
 export interface ClientPortalQaEnvironment {
@@ -56,6 +57,13 @@ export const CLIENT_PORTAL_QA_PROFILE: ClientProfile = {
   how_found_us: "Preview only",
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
+};
+
+/** Render-only preview eligibility. It is never read from or written to Supabase. */
+export const CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY: WelcomeOfferAvailability = {
+  imageEnhancementAvailable: true,
+  dayToDuskAvailable: true,
+  virtualStagingAvailable: true,
 };
 
 /**

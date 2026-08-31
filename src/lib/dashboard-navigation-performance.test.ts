@@ -245,7 +245,7 @@ test("getClientUser remains canonical and APIs do not use dashboard QA context",
   );
 });
 
-test("synthetic dashboard renders never enter ownership or welcome-offer reads", () => {
+test("synthetic dashboard renders use fixed safe fixtures and bypass ownership reads", () => {
   for (const path of [
     "app/(dashboard)/dashboard/page.tsx",
     "app/(dashboard)/dashboard/jobs/page.tsx",
@@ -258,6 +258,21 @@ test("synthetic dashboard renders never enter ownership or welcome-offer reads",
 
   const detailSource = source("app/(dashboard)/dashboard/jobs/[orderId]/page.tsx");
   assert.match(detailSource, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
+
+  const dashboardSource = source("app/(dashboard)/dashboard/page.tsx");
+  assert.match(
+    dashboardSource,
+    /user\?\.isQaPreview[\s\S]*?Promise\.resolve\(CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY\)/,
+  );
+  assert.match(
+    dashboardSource,
+    /user\?\.email && !user\.isQaPreview[\s\S]*?getOrdersForClient/,
+  );
+  assert.match(
+    dashboardSource,
+    /getWelcomeOfferAvailability\(user\.id\)\.catch\(\(\) => null\)/,
+  );
+  assert.match(dashboardSource, /CLIENT_PORTAL_QA_COMPLETED_JOBS/);
 
   for (const path of [
     "app/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
@@ -307,11 +322,25 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   const layoutSource = source("components/dashboard/ClientDashboardLayout.tsx");
   const topNavSource = source("components/dashboard/ClientDashboardTopNav.tsx");
   const mobileNavSource = source("components/dashboard/ClientDashboardMobileNav.tsx");
+  const utilityBarSource = source(
+    "components/dashboard/ClientDashboardMobileUtilityBar.tsx",
+  );
   const jobsSource = source("components/dashboard/ClientJobsShell.tsx");
 
   assert.doesNotMatch(layoutSource, /ClientDashboardSidebar/);
   assert.doesNotMatch(layoutSource, /ClientDashboardMobileBottomBar/);
-  assert.doesNotMatch(layoutSource, /pb-\[calc\(3\.5rem/);
+  assert.match(layoutSource, /<ClientDashboardMobileUtilityBar \/>/);
+  assert.match(
+    layoutSource,
+    /pb-\[calc\(3\.5rem\+env\(safe-area-inset-bottom\)\)\] lg:pb-0/,
+  );
+  assert.match(utilityBarSource, /useSupportChat\(\)/);
+  assert.match(utilityBarSource, /openSupportChat\(chatTriggerRef\.current\)/);
+  assert.match(utilityBarSource, /href="\/dashboard\/profile"/);
+  assert.match(utilityBarSource, /Open PicchuSpot support chat/);
+  assert.match(utilityBarSource, /env\(safe-area-inset-bottom\)/);
+  assert.match(utilityBarSource, /lg:hidden/);
+  assert.doesNotMatch(utilityBarSource, /fetch\(|\/api\//);
   assert.match(topNavSource, /hidden border-t border-border bg-primary lg:block/);
   assert.match(topNavSource, /aria-controls="client-dashboard-mobile-menu"/);
   assert.match(topNavSource, /aria-expanded=\{mobileMenuOpen\}/);
@@ -364,30 +393,42 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
   const responsiveServicesSource = source(
     "components/dashboard/DashboardResponsiveServices.tsx",
   );
+  const mobileSelectorSource = source(
+    "components/dashboard/MobileDashboardServiceSelector.tsx",
+  );
   const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
+  const welcomeOfferSource = source(
+    "components/dashboard/DashboardWelcomeOffer.tsx",
+  );
 
   assert.match(railSource, /data-dashboard-workspace/);
   assert.match(railSource, /grid grid-cols-1 gap-6/);
   assert.match(
     railSource,
-    /lg:grid-cols-\[minmax\(18rem,1fr\)_minmax\(0,2fr\)\]/,
+    /lg:grid-cols-\[clamp\(20rem,33vw,36rem\)_minmax\(0,1fr\)\]/,
   );
   assert.match(railSource, /lg:gap-x-6/);
   assert.match(railSource, /xl:gap-x-8/);
   assert.match(railSource, /lg:border-l lg:border-border/);
   assert.doesNotMatch(railSource, /lg:pr-6|xl:pr-8/);
   assert.doesNotMatch(railSource, /grid-cols-\[(?:280|300|320)px/);
+  assert.doesNotMatch(railSource, /row-span|row-start|col-start/);
+  assert.match(railSource, /contents lg:order-1 lg:block lg:self-start lg:space-y-6/);
   assert.match(pageSource, /<DashboardActivityRail/);
   assert.match(pageSource, /jobs=\{jobs\}/);
+  assert.match(pageSource, /welcomeOfferAvailability=\{resolvedWelcomeOfferAvailability\}/);
+  assert.match(pageSource, /isQaPreview=\{user\?\.isQaPreview === true\}/);
   assert.match(pageSource, /services=\{/);
   assert.match(pageSource, /<DashboardResponsiveServices/);
   assert.doesNotMatch(pageSource, /<DashboardQuickStart/);
+  assert.match(railSource, /<DashboardWelcomeOffer/);
   assert.match(railSource, /variant="rail"/);
   assert.match(railSource, /heading="Awaiting submission"/);
   assert.match(railSource, /panel/);
   assert.match(railSource, /deletable/);
   assert.match(railSource, /listLimit=\{8\}/);
   assert.match(railSource, /Recently completed/);
+  assert.match(railSource, /slice\(0, 6\)/);
   assert.match(railSource, /How to get started/);
   assert.match(railSource, /Add your property photos or source files\./);
   assert.match(railSource, /Choose the service options and add any references or instructions\./);
@@ -396,22 +437,37 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
   assert.match(railSource, /job\.status === "completed"/);
   assert.match(railSource, /\{job\.title\}/);
   assert.match(railSource, /Submitted\{" "\}/);
-  assert.match(railSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
+  assert.match(
+    railSource,
+    /href=\{isQaPreview \? "\/dashboard\/jobs" : `\/dashboard\/jobs\/\$\{job\.id\}`\}/,
+  );
   assert.match(railSource, /href="\/dashboard\/jobs"/);
   assert.match(railSource, /View all jobs/);
   assert.doesNotMatch(railSource, /jobs\?status=completed/);
 
-  assert.match(railSource, /className="order-1 [^"]*lg:col-start-1/);
-  assert.match(railSource, /className="order-2 [^"]*border border-border/);
-  assert.match(railSource, /className="order-3 [^"]*lg:col-start-2/);
-  assert.match(railSource, /className="order-4 [^"]*border border-border/);
+  assert.match(railSource, /className="order-2 lg:order-none"/);
+  assert.match(railSource, /className="order-3 [^"]*lg:order-none"/);
+  assert.match(railSource, /order-4 min-w-0 lg:order-2 lg:border-l/);
+  assert.match(railSource, /className="order-5 [^"]*lg:order-none"/);
   assert.ok(
-    railSource.indexOf("data-dashboard-services") <
-      railSource.indexOf('data-dashboard-section="getting-started"'),
+    railSource.indexOf('data-dashboard-section="getting-started"') <
+      railSource.indexOf("data-dashboard-services"),
   );
-  assert.match(responsiveServicesSource, /Browse services/);
-  assert.match(responsiveServicesSource, /href="\/dashboard\/orders\/new"/);
-  assert.match(responsiveServicesSource, /lg:hidden/);
+  assert.match(responsiveServicesSource, /<MobileDashboardServiceSelector \/>/);
+  assert.doesNotMatch(responsiveServicesSource, /Browse services/);
+  assert.match(mobileSelectorSource, /lg:hidden/);
+  assert.match(mobileSelectorSource, /data-dashboard-mobile-service-selector/);
+  assert.match(mobileSelectorSource, /getOrderServiceCards\(\)\.filter\(isActiveOrderService\)/);
+  assert.match(mobileSelectorSource, /href=\{service\.route\}/);
+  assert.doesNotMatch(
+    mobileSelectorSource,
+    /next\/image|<Image|getOrderCardImages|getOrderServiceExamples/,
+  );
+  assert.match(welcomeOfferSource, /if \(!availability\) return null;/);
+  assert.match(
+    welcomeOfferSource,
+    /if \(visibleBenefits\.length === 0\) return null;/,
+  );
 
   assert.match(savedDraftsSource, /data-dashboard-section=\{panel/);
   assert.match(
@@ -436,6 +492,11 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   const quickStartSource = source("components/dashboard/DashboardQuickStart.tsx");
   const serviceGridSource = source("components/dashboard/OrderServiceGrid.tsx");
   const serviceCardSource = source("components/dashboard/OrderServiceCard.tsx");
+  const globalsSource = source("app/globals.css");
+  const mobileSelectorSource = source(
+    "components/dashboard/MobileDashboardServiceSelector.tsx",
+  );
+  const priceLabelSource = source("lib/order-service-price-label.ts");
   const activeServices = getOrderServiceCatalog().filter(
     (service) => service.availability === "active" && service.route !== null,
   );
@@ -458,14 +519,23 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
   assert.match(
     serviceGridSource,
-    /min-\[1360px\]:grid-cols-3 min-\[1920px\]:grid-cols-4/,
+    /3xl:grid-cols-3 4xl:grid-cols-4 5xl:grid-cols-5 6xl:grid-cols-6/,
   );
-  assert.match(serviceGridSource, /: "xl:grid-cols-3 2xl:grid-cols-4"/);
-  assert.match(serviceCardSource, /getCatalogPrice\(service\.priceKey, currency\)/);
+  assert.match(
+    serviceGridSource,
+    /: "xl:grid-cols-3 2xl:grid-cols-4 5xl:grid-cols-5 6xl:grid-cols-6"/,
+  );
+  assert.match(globalsSource, /--breakpoint-3xl: 85rem/);
+  assert.match(globalsSource, /--breakpoint-4xl: 120rem/);
+  assert.match(globalsSource, /--breakpoint-5xl: 150rem/);
+  assert.match(globalsSource, /--breakpoint-6xl: 200rem/);
+  assert.match(serviceCardSource, /getOrderServicePriceLabel\(service, currency\)/);
+  assert.match(priceLabelSource, /getCatalogPrice\(service\.priceKey, currency\)/);
   assert.match(serviceCardSource, /href=\{service\.route as string\}/);
   assert.match(serviceCardSource, /loading="lazy"/);
   assert.match(serviceCardSource, /DASHBOARD_COVER_SIZES/);
   assert.match(serviceCardSource, /min-width: 1920px/);
+  assert.match(serviceCardSource, /min-width: 3200px/);
   assert.doesNotMatch(
     quickStartSource,
     /from "next\/image"/,
@@ -475,6 +545,9 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(responsiveServicesSource, /import\("\.\/DashboardDesktopServices"\)/);
   assert.match(responsiveServicesSource, /ssr: false/);
   assert.doesNotMatch(responsiveServicesSource, /<DashboardQuickStart/);
+  assert.match(mobileSelectorSource, /getOrderServicePriceLabel\(service, currency\)/);
+  assert.match(mobileSelectorSource, /services\.map/);
+  assert.match(mobileSelectorSource, /href=\{service\.route\}/);
 });
 
 test("compact Saved Drafts reuses the existing list and Resume or Finish flow", () => {
@@ -496,18 +569,21 @@ test("compact Saved Drafts reuses the existing list and Resume or Finish flow", 
   assert.match(savedDraftsSource, /const isQaPreview = user\?\.isQaPreview === true/);
   assert.match(savedDraftsSource, /if \(isQaPreview\) return;/);
   assert.match(savedDraftsSource, /const visibleLoadState: LoadState = isQaPreview \? "success" : loadState/);
+  assert.match(savedDraftsSource, /CLIENT_PORTAL_QA_DRAFTS\.slice\(0, listLimit\)/);
+  assert.match(savedDraftsSource, /drafts: isQaPreview \? \[\] : drafts/);
   assert.match(savedDraftsSource, /result\.data\.slice\(0, listLimit\)/);
   assert.match(savedDraftsSource, /listLimit,/);
   assert.match(dashboardRailSource, /listLimit=\{8\}/);
   assert.match(savedDraftsSource, /buildSavedDraftResumeUrl/);
   assert.match(savedDraftsSource, /getSavedDraftActionLabel/);
+  assert.match(savedDraftsSource, /const resumeUrl = isQaPreview[\s\S]*?\? draft\.route/);
   assert.match(savedDraftsSource, /resume: copy\.resume/);
   assert.match(savedDraftsSource, /finish: copy\.finish/);
   assert.match(savedDraftsSource, /href=\{resumeUrl\}/);
   assert.match(savedDraftsSource, /aria-label=\{`\$\{actionLabel\}: \$\{title\}`\}/);
   assert.match(savedDraftsSource, /useOrderDraftDeletion\(/);
   assert.match(savedDraftsSource, /OrderDraftDeletionDialog/);
-  assert.match(savedDraftsSource, /deletable && !isFinishing && \(/);
+  assert.match(savedDraftsSource, /deletable && !isFinishing && !isQaPreview && \(/);
   assert.match(savedDraftsSource, /h-11 w-11/);
   assert.match(savedDraftsSource, /deletion\.beginDelete\(draft, trigger\)/);
   assert.doesNotMatch(railBranch, /DraftThumbnail|FileText|Clock3/);
@@ -715,7 +791,8 @@ test("every primary client portal route keeps the shared width-aware shell", () 
   const topNavSource = source("components/dashboard/ClientDashboardTopNav.tsx");
   const publicContainerSource = source("components/layout/Container.tsx");
   assert.match(workspaceSource, /max-w-\[1800px\]/);
-  assert.match(workspaceSource, /px-4 sm:px-5 lg:px-6 2xl:px-8 min-\[1920px\]:px-10/);
+  assert.match(workspaceSource, /5xl:max-w-none/);
+  assert.match(workspaceSource, /px-4 sm:px-5 lg:px-6 2xl:px-8 4xl:px-10/);
   assert.doesNotMatch(layoutSource, /max-w-6xl/);
   assert.match(layoutSource, /CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/);
   assert.match(layoutSource, /CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME/);

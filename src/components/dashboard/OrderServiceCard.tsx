@@ -13,8 +13,7 @@ import type { OrderCardImage } from "@/lib/order-card-media";
 import type { OrderExamplePair } from "@/lib/order-card-examples";
 import OrderExamplesModal from "./OrderExamplesModal";
 import { useDisplayCurrency } from "@/components/pricing/currency-client";
-import { getCatalogPrice } from "@/lib/pricing/catalog";
-import { formatMoney } from "@/lib/pricing/format";
+import { getOrderServicePriceLabel } from "@/lib/order-service-price-label";
 import { PORTFOLIO_VIEWER_VARIANTS } from "@/components/media/static-image-variant";
 
 // ============================================================
@@ -43,13 +42,13 @@ interface OrderServiceCardProps {
 }
 
 const HALF_SIZES =
-  "(min-width: 1536px) 13vw, (min-width: 1280px) 17vw, (min-width: 640px) 25vw, 50vw";
+  "(min-width: 3200px) 7.5vw, (min-width: 2400px) 9vw, (min-width: 1536px) 13vw, (min-width: 1280px) 17vw, (min-width: 640px) 25vw, 50vw";
 const COVER_SIZES =
-  "(min-width: 1536px) 25vw, (min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw";
+  "(min-width: 3200px) 15vw, (min-width: 2400px) 18vw, (min-width: 1536px) 25vw, (min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw";
 const DASHBOARD_HALF_SIZES =
-  "(min-width: 2200px) 9rem, (min-width: 1920px) 7.5vw, (min-width: 1360px) 10vw, (min-width: 1024px) 15vw, (min-width: 640px) 25vw, 50vw";
+  "(min-width: 3200px) 7vw, (min-width: 2400px) 8vw, (min-width: 1920px) 7.5vw, (min-width: 1360px) 10vw, (min-width: 1024px) 15vw, (min-width: 640px) 25vw, 50vw";
 const DASHBOARD_COVER_SIZES =
-  "(min-width: 2200px) 18rem, (min-width: 1920px) 15vw, (min-width: 1360px) 20vw, (min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw";
+  "(min-width: 3200px) 14vw, (min-width: 2400px) 16vw, (min-width: 1920px) 15vw, (min-width: 1360px) 20vw, (min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw";
 
 function PortfolioPreview({
   pair,
@@ -204,14 +203,7 @@ export default function OrderServiceCard({
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-primary">
-              {service.priceKey
-                ? `From ${formatMoney(
-                    getCatalogPrice(service.priceKey, currency),
-                    currency
-                  )} / ${
-                    service.slug === "floor-plans" ? "floor" : "image"
-                  }`
-                : service.priceLabel}
+              {getOrderServicePriceLabel(service, currency)}
             </p>
             {service.turnaroundLabel && (
               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">

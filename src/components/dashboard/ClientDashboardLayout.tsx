@@ -1,6 +1,7 @@
 "use client";
 
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
+import ClientDashboardMobileUtilityBar from "./ClientDashboardMobileUtilityBar";
 import { cn } from "@/lib/utils";
 import {
   CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
@@ -36,7 +37,7 @@ export default function ClientDashboardLayout({
             (not the window) on step transitions. */}
         <main
           data-dashboard-scroll-container
-          className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+          className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
         >
           <div
             className={cn(
@@ -50,6 +51,7 @@ export default function ClientDashboardLayout({
           </div>
         </main>
       </div>
+      <ClientDashboardMobileUtilityBar />
     </div>
   );
 }

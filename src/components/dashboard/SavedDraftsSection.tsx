@@ -27,6 +27,7 @@ import {
   resolveSavedDraftServiceName,
 } from "@/lib/order-drafts/saved-drafts";
 import type { OrderDraftSummary } from "@/lib/order-drafts/types";
+import { CLIENT_PORTAL_QA_DRAFTS } from "@/lib/client-portal-qa-fixtures";
 import { cn } from "@/lib/utils";
 import { useDashboardUser } from "./DashboardUserContext";
 
@@ -176,7 +177,9 @@ export default function SavedDraftsSection({
   const [reloadKey, setReloadKey] = useState(0);
   const isRail = variant === "rail";
   const headingId = isRail ? "saved-drafts-rail-heading" : "saved-drafts-heading";
-  const visibleDrafts = isQaPreview ? [] : drafts;
+  const visibleDrafts = isQaPreview
+    ? CLIENT_PORTAL_QA_DRAFTS.slice(0, listLimit)
+    : drafts;
   const visibleLoadState: LoadState = isQaPreview ? "success" : loadState;
 
   useEffect(() => {
@@ -220,7 +223,7 @@ export default function SavedDraftsSection({
     setLoadState("success");
   }, []);
   const deletion = useOrderDraftDeletion({
-    drafts: visibleDrafts,
+    drafts: isQaPreview ? [] : drafts,
     setDrafts,
     copy,
     listLimit,
@@ -390,6 +393,7 @@ export default function SavedDraftsSection({
               variant={variant}
               panel={panel}
               deletable={deletable}
+              isQaPreview={isQaPreview}
               deleteInteractionDisabled={deletion.deleteInteractionDisabled}
               error={deletion.cardErrors[draft.id] ?? ""}
               onDelete={(trigger) => deletion.beginDelete(draft, trigger)}
@@ -431,6 +435,7 @@ function SavedDraftItem({
   variant,
   panel,
   deletable,
+  isQaPreview,
   deleteInteractionDisabled,
   error,
   onDelete,
@@ -441,11 +446,14 @@ function SavedDraftItem({
   variant: SavedDraftsVariant;
   panel: boolean;
   deletable: boolean;
+  isQaPreview: boolean;
   deleteInteractionDisabled: boolean;
   error: string;
   onDelete: (trigger: HTMLButtonElement) => void;
 }) {
-  const resumeUrl = buildSavedDraftResumeUrl(draft.route, draft.id);
+  const resumeUrl = isQaPreview
+    ? draft.route
+    : buildSavedDraftResumeUrl(draft.route, draft.id);
   const title = getSavedDraftTitle(draft.title, copy.untitled);
   const serviceName = resolveSavedDraftServiceName(draft);
   const updatedAt = formatSavedDraftUpdatedAt(
@@ -505,7 +513,7 @@ function SavedDraftItem({
                 </p>
               </div>
             )}
-            {deletable && !isFinishing && (
+            {deletable && !isFinishing && !isQaPreview && (
               <button
                 type="button"
                 onClick={(event) => onDelete(event.currentTarget)}

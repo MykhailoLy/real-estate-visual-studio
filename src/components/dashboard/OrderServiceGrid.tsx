@@ -28,8 +28,8 @@ export default function OrderServiceGrid({
       className={cn(
         "grid grid-cols-1 gap-5 sm:grid-cols-2",
         layout === "dashboard"
-          ? "min-[1360px]:grid-cols-3 min-[1920px]:grid-cols-4"
-          : "xl:grid-cols-3 2xl:grid-cols-4",
+          ? "3xl:grid-cols-3 4xl:grid-cols-4 5xl:grid-cols-5 6xl:grid-cols-6"
+          : "xl:grid-cols-3 2xl:grid-cols-4 5xl:grid-cols-5 6xl:grid-cols-6",
       )}
     >
       {services.map((service) => (
