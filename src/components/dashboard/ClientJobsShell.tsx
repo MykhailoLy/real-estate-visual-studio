@@ -33,17 +33,11 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
 
   return (
     <ClientDashboardLayout>
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark">
-            Client Portal
-          </p>
+      <header className="mb-6 flex flex-wrap items-center gap-3 border-b border-border pb-5 sm:mb-7">
+        <div className="mr-auto">
           <h1 className="text-2xl font-bold leading-tight text-primary sm:text-[28px]">
             Jobs
           </h1>
-          <p className="mt-1 text-sm text-muted">
-            Track every order from production through delivery.
-          </p>
         </div>
         <ClientPortalLink
           href="/dashboard/orders/new"
@@ -56,7 +50,7 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
 
       <div
         data-jobs-workspace
-        className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]"
+        className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)]"
       >
         <JobsWorkspaceRail jobs={jobs} />
 
@@ -67,17 +61,12 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
         >
           <div className="mb-4 border-b border-border pb-4">
             <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h2
-                  id="all-jobs-heading"
-                  className="text-lg font-bold text-primary"
-                >
-                  All jobs
-                </h2>
-                <p className="mt-1 text-xs leading-relaxed text-muted">
-                  Submitted orders remain separate from saved drafts.
-                </p>
-              </div>
+              <h2
+                id="all-jobs-heading"
+                className="text-lg font-bold uppercase tracking-[0.04em] text-primary"
+              >
+                All jobs
+              </h2>
               <p className="text-xs font-semibold text-muted">
                 {jobs.length} submitted {jobs.length === 1 ? "order" : "orders"}
               </p>

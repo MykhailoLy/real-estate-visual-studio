@@ -256,6 +256,13 @@ test("synthetic dashboard renders use fixed safe fixtures and bypass ownership r
     assert.match(pageSource, /!user\.isQaPreview/, path);
   }
 
+  const jobsPageSource = source("app/(dashboard)/dashboard/jobs/page.tsx");
+  assert.match(jobsPageSource, /CLIENT_PORTAL_QA_COMPLETED_JOBS/);
+  assert.match(
+    jobsPageSource,
+    /user\?\.isQaPreview[\s\S]*?\? \[\.\.\.CLIENT_PORTAL_QA_COMPLETED_JOBS\]/,
+  );
+
   const detailSource = source("app/(dashboard)/dashboard/jobs/[orderId]/page.tsx");
   assert.match(detailSource, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
 
@@ -647,15 +654,18 @@ test("Jobs workspace keeps a bounded rail before the flexible jobs area", () => 
 
   assert.match(shellSource, /data-jobs-workspace/);
   assert.match(shellSource, /grid grid-cols-1 gap-6/);
-  assert.match(shellSource, /lg:grid-cols-\[320px_minmax\(0,1fr\)\]/);
-  assert.match(shellSource, /xl:grid-cols-\[340px_minmax\(0,1fr\)\]/);
+  assert.match(shellSource, /xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.match(shellSource, /2xl:grid-cols-\[340px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(shellSource, /grid-cols-\[33%|grid-cols-4|col-span-1/);
   assert.ok(railIndex >= 0 && allJobsIndex > railIndex);
   assert.match(
     shellSource,
     /<JobsWorkspaceRail jobs=\{jobs\} \/>[\s\S]*?\{hasJobs \? \(/,
   );
-  assert.match(railSource, /<SavedDraftsSection variant="rail" \/>/);
+  assert.match(
+    railSource,
+    /<SavedDraftsSection[\s\S]*?variant="rail"[\s\S]*?workspace[\s\S]*?panel[\s\S]*?deletable/,
+  );
   assert.doesNotMatch(railSource, /listOrderDrafts|\/api\/order-drafts|fetch\(/);
   assert.match(savedDraftsSource, /listLimit = 3/);
   assert.match(draftsRouteSource, /<ClientDraftsPage \/>/);
@@ -771,12 +781,17 @@ test("Jobs uses one status controller and distinct mobile and desktop results", 
   assert.match(filtersSource, /aria-pressed=\{active\}/);
   assert.match(filtersSource, /min-h-11/);
   assert.match(tableSource, /data-mobile-jobs-list/);
-  assert.match(tableSource, /md:hidden/);
+  assert.match(tableSource, /lg:hidden/);
   assert.match(tableSource, /data-desktop-jobs-table/);
   assert.equal(tableSource.match(/<JobSecondaryLabel/g)?.length, 2);
   assert.doesNotMatch(tableSource, /\{job\.secondaryLabel && \(/);
-  assert.match(tableSource, /hidden[\s\S]*?md:block/);
-  assert.match(tableSource, /<table className="w-full table-fixed text-sm">/);
+  assert.match(tableSource, /hidden[\s\S]*?lg:block/);
+  assert.match(tableSource, /min-w-\[960px\] w-full table-fixed text-sm/);
+  assert.match(tableSource, />\s*Job title\s*</);
+  assert.match(tableSource, />\s*Job reference\s*</);
+  assert.match(tableSource, />\s*Job submitted\s*</);
+  assert.match(tableSource, />\s*Job complete\s*</);
+  assert.match(tableSource, />\s*Job type\s*</);
   assert.doesNotMatch(tableSource, /minWidth:[\s\S]*?720px/);
   assert.match(tableSource, /min-h-11 w-full/);
   assert.match(tableSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);

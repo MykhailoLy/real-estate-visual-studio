@@ -1,4 +1,4 @@
-import { ArrowRight, BriefcaseBusiness } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import ClientPortalLink from "./ClientPortalLink";
 import { getOpenDashboardJobs } from "./job-workspace";
 import SavedDraftsSection from "./SavedDraftsSection";
@@ -15,21 +15,26 @@ export default function JobsWorkspaceRail({ jobs }: JobsWorkspaceRailProps) {
   return (
     <aside
       aria-label="Saved drafts and open jobs"
-      className="self-start overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+      className="self-start space-y-6"
     >
       <h2 className="sr-only">Jobs working rail</h2>
 
-      <div className="border-b border-border px-4 py-4">
-        <SavedDraftsSection variant="rail" />
-      </div>
+      <SavedDraftsSection
+        variant="rail"
+        workspace
+        panel
+        deletable
+      />
 
-      <section aria-labelledby="open-jobs-heading" className="px-4 py-4">
-        <div className="flex items-center gap-2">
-          <BriefcaseBusiness
-            className="h-4 w-4 text-secondary-dark"
-            aria-hidden
-          />
-          <h3 id="open-jobs-heading" className="text-sm font-bold text-primary">
+      <section
+        aria-labelledby="open-jobs-heading"
+        className="overflow-hidden rounded-xl border border-border bg-white px-4 py-4 shadow-sm"
+      >
+        <div>
+          <h3
+            id="open-jobs-heading"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
+          >
             Open jobs
           </h3>
         </div>

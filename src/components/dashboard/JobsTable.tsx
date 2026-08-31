@@ -118,9 +118,7 @@ export default function JobsTable({
 
   const displayed = limit ? filtered.slice(0, limit) : filtered;
 
-  // Desktop columns: Job | Service | Progress | Status | Cost.
-  // Meaningful estimated completion dates remain available in the mobile rows.
-  const colCount = showProgress ? 5 : 4;
+  const colCount = showProgress ? 8 : 7;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -134,7 +132,7 @@ export default function JobsTable({
             />
             <input
               type="search"
-              placeholder="Search by title, order number, or service..."
+              placeholder="Search by title, reference or service..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="min-h-11 w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-4 text-sm transition-colors placeholder:text-muted-light focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -178,7 +176,7 @@ export default function JobsTable({
 
       <div
         data-mobile-jobs-list
-        className="overflow-hidden rounded-xl border border-border bg-white shadow-sm md:hidden"
+        className="overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:hidden"
       >
         {displayed.length === 0 ? (
           <div className="px-4 py-10">
@@ -201,28 +199,39 @@ export default function JobsTable({
 
       <div
         data-desktop-jobs-table
-        className="hidden overflow-hidden rounded-xl border border-border bg-white shadow-sm md:block"
+        className="hidden overflow-x-auto rounded-xl border border-border bg-white shadow-sm lg:block"
+        tabIndex={0}
       >
-        <table className="w-full table-fixed text-sm">
+        <table className="min-w-[960px] w-full table-fixed text-sm">
+          <caption className="sr-only">All submitted jobs</caption>
           <thead>
             <tr className="border-b border-border bg-surface">
-              <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                Job
+              <th className="w-40 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Job title
               </th>
-              <th className="hidden px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light xl:table-cell">
-                Service
+              <th className="w-24 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Job reference
+              </th>
+              <th className="w-32 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Status
+              </th>
+              <th className="w-24 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Job submitted
+              </th>
+              <th className="w-24 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Job complete
+              </th>
+              <th className="w-32 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Job type
+              </th>
+              <th className="w-20 px-3 py-3 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
+                Job cost
               </th>
               {showProgress && (
-                <th className="hidden w-32 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light xl:table-cell">
+                <th className="w-28 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
                   Progress
                 </th>
               )}
-              <th className="w-40 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                Status
-              </th>
-              <th className="w-24 px-3 py-3 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light">
-                Cost
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -252,36 +261,33 @@ export default function JobsTable({
                         job={job}
                         className="mt-0.5 line-clamp-1 break-words text-[11px] text-muted"
                       />
-                      <span className="mt-1 line-clamp-2 break-words text-[11px] text-foreground/65 xl:hidden">
-                        {job.serviceType}
-                      </span>
-                      <span className="mt-1.5 w-fit max-w-full truncate rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted transition-colors group-hover/link:bg-primary/8">
-                        {job.reference}
-                      </span>
                     </ClientPortalLink>
                   </td>
-                  <td className="hidden break-words px-3 py-3.5 align-top text-[13px] leading-snug text-foreground/70 xl:table-cell">
-                    {job.serviceType}
+                  <td className="px-3 py-3.5 align-top">
+                    <span className="block truncate rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
+                      {job.reference}
+                    </span>
                   </td>
-                  {showProgress && (
-                    <td className="hidden px-3 py-3.5 align-top xl:table-cell">
-                      <ProgressBar value={job.progress} status={job.status} />
-                    </td>
-                  )}
                   <td className="px-3 py-3.5 align-top">
                     <StatusBadge status={job.status} compact />
-                    {showProgress && (
-                      <div className="mt-2 xl:hidden">
-                        <ProgressBar
-                          value={job.progress}
-                          status={job.status}
-                        />
-                      </div>
-                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 align-top text-[12px] text-foreground/70">
+                    {formatDate(job.submittedDate)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 align-top text-[12px] text-foreground/70">
+                    {formatDate(job.estimatedCompletion)}
+                  </td>
+                  <td className="break-words px-3 py-3.5 align-top text-[13px] leading-snug text-foreground/70">
+                    {job.serviceType}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3.5 text-right align-top text-[13px] font-bold tabular-nums text-foreground">
                     {formatStoredMoney(job.costCents, job.currency)}
                   </td>
+                  {showProgress && (
+                    <td className="px-3 py-3.5 align-top">
+                      <ProgressBar value={job.progress} status={job.status} />
+                    </td>
+                  )}
                 </tr>
               ))
             )}

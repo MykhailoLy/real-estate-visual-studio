@@ -38,6 +38,8 @@ interface SavedDraftsSectionProps {
   variant?: SavedDraftsVariant;
   heading?: string;
   helper?: string;
+  /** Use the concise copy required by the Jobs workspace rail. */
+  workspace?: boolean;
   panel?: boolean;
   deletable?: boolean;
   listLimit?: number;
@@ -47,6 +49,8 @@ interface SavedDraftsSectionProps {
 interface DraftCopy extends DraftDeleteCopy {
   heading: string;
   helper: string;
+  workspaceHeading: string;
+  workspaceHelper: string;
   badge: string;
   finishingBadge: string;
   updated: string;
@@ -66,6 +70,8 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   en: {
     heading: "Saved drafts",
     helper: "Continue where you left off.",
+    workspaceHeading: "Awaiting submission",
+    workspaceHelper: "Continue a saved order...",
     badge: "Draft",
     finishingBadge: "Finishing order",
     updated: "Updated",
@@ -95,6 +101,8 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
   es: {
     heading: "Borradores guardados",
     helper: "Continúa donde lo dejaste.",
+    workspaceHeading: "Pendiente de envío",
+    workspaceHelper: "Continúa un pedido guardado...",
     badge: "Borrador",
     finishingBadge: "Finalizando pedido",
     updated: "Actualizado",
@@ -159,6 +167,7 @@ export default function SavedDraftsSection({
   variant = "grid",
   heading,
   helper,
+  workspace = false,
   panel = false,
   deletable = false,
   listLimit = 3,
@@ -170,8 +179,8 @@ export default function SavedDraftsSection({
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
   const copy = DRAFT_COPY[language];
-  const resolvedHeading = heading ?? copy.heading;
-  const resolvedHelper = helper ?? copy.helper;
+  const resolvedHeading = heading ?? (workspace ? copy.workspaceHeading : copy.heading);
+  const resolvedHelper = helper ?? (workspace ? copy.workspaceHelper : copy.helper);
   const [drafts, setDrafts] = useState<OrderDraftSummary[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [reloadKey, setReloadKey] = useState(0);
