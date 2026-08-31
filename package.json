@@ -39,7 +39,7 @@
     "test:multi-reference": "node --experimental-strip-types --test src/lib/reference-files.test.ts src/lib/order-drafts/draft-reference-files-client.test.ts src/lib/order-drafts/multi-reference-migration.test.ts src/lib/order-drafts/reference-shape-migration.test.ts src/lib/order-drafts/day-to-dusk.test.ts src/components/order/multi-reference-ui.test.ts src/components/order/reference-upload-client.test.ts",
     "test:day-to-dusk-ui": "node --experimental-strip-types --test src/components/order/day-to-dusk/day-to-dusk-ui-structure.test.ts",
     "test:order-review-ux": "node --experimental-strip-types --test src/components/order/order-review-ux.test.ts src/lib/early-performance.test.ts",
-    "test:order-contextual-guidance": "node --experimental-strip-types --test src/components/order/order-contextual-guidance.test.ts",
+    "test:order-contextual-guidance": "node --experimental-strip-types --test src/components/order/order-contextual-guidance.test.ts src/lib/client-order-item-presentation.test.ts",
     "test:admin-media-presets": "node --experimental-strip-types --test src/lib/admin-media-presets.test.ts",
     "test:admin-image-uploads": "node --experimental-strip-types --test src/lib/admin-image-upload-flow.test.ts",
     "test:public-media-backfill": "node --experimental-strip-types --test scripts/public-media-backfill.test.ts",

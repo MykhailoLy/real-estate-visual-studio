@@ -80,16 +80,29 @@ const BOOLEAN_KEYS = new Set([
   "show_title",
 ]);
 
-export default function OrderItemDetails({ details, variant = "default" }: Props) {
-  const entries = Object.entries(details).filter(
+function getVisibleEntries(
+  details: Record<string, unknown>,
+  variant: "default" | "specification",
+) {
+  return Object.entries(details).filter(
     ([key, value]) =>
       !SKIP_KEYS.has(key) &&
       (variant !== "specification" || CLIENT_VISIBLE_KEYS.has(key)) &&
       value !== null &&
       value !== undefined &&
       value !== "" &&
-      !(Array.isArray(value) && value.length === 0)
+      !(Array.isArray(value) && value.length === 0),
   );
+}
+
+export function hasClientVisibleOrderItemDetails(
+  details: Record<string, unknown>,
+): boolean {
+  return getVisibleEntries(details, "specification").length > 0;
+}
+
+export default function OrderItemDetails({ details, variant = "default" }: Props) {
+  const entries = getVisibleEntries(details, variant);
 
   if (entries.length === 0) {
     return (

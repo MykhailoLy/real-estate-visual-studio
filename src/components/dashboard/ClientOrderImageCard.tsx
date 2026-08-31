@@ -1,8 +1,9 @@
 "use client";
 
-import type React from "react";
+import { useState, type ReactNode } from "react";
 import {
   CheckCircle2,
+  ChevronDown,
   Clock,
   FileImage,
   Hourglass,
@@ -12,11 +13,17 @@ import {
 } from "lucide-react";
 import DeliverableReviewActions from "@/components/dashboard/DeliverableReviewActions";
 import FilePreviewCard from "@/components/FilePreviewCard";
-import OrderItemDetails from "@/components/order/OrderItemDetails";
+import OrderItemDetails, {
+  hasClientVisibleOrderItemDetails,
+} from "@/components/order/OrderItemDetails";
+import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 import type { CurrentDeliverableRow } from "@/lib/client-deliverable-display";
+import {
+  canShowCompletedReworkAction,
+  isOneToOneImageEditingPresentation,
+} from "@/lib/client-order-item-presentation";
 import type { ClientSourceFile } from "@/lib/client-source-files";
 import { formatBytes } from "@/lib/display/file-format";
-import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 
 export type ClientImageWorkflowStatus =
   | "awaiting_delivery"
@@ -30,6 +37,8 @@ export type ClientImageWorkflowStatus =
 interface Props {
   viewerVariant: StaticImageViewerVariant;
   orderId: string;
+  orderStatus: string;
+  editLabel: string;
   imageNumber: number;
   imageCount: number;
   subtotalLabel?: string | null;
@@ -40,44 +49,46 @@ interface Props {
   latestComment?: string | null;
 }
 
+type InitialReviewStatus = NonNullable<CurrentDeliverableRow["review"]>["status"] | null;
+
 const STATUS_CONFIG: Record<
   ClientImageWorkflowStatus,
-  { label: string; className: string; icon: React.ReactNode }
+  { label: string; className: string; icon: ReactNode }
 > = {
   awaiting_delivery: {
     label: "Awaiting delivery",
-    className: "bg-slate-50 text-slate-600 border-slate-200",
-    icon: <Hourglass className="w-3 h-3" aria-hidden />,
+    className: "border-slate-200 bg-slate-50 text-slate-600",
+    icon: <Hourglass className="h-3 w-3" aria-hidden />,
   },
   ready_for_review: {
     label: "Ready for review",
-    className: "bg-blue-50 text-blue-700 border-blue-200",
-    icon: <Clock className="w-3 h-3" aria-hidden />,
+    className: "border-blue-200 bg-blue-50 text-blue-700",
+    icon: <Clock className="h-3 w-3" aria-hidden />,
   },
   pending_rework: {
     label: "Pending Rework",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
-    icon: <RotateCcw className="w-3 h-3" aria-hidden />,
+    className: "border-amber-200 bg-amber-50 text-amber-700",
+    icon: <RotateCcw className="h-3 w-3" aria-hidden />,
   },
   rework_in_progress: {
     label: "Rework In Progress",
-    className: "bg-blue-50 text-blue-700 border-blue-200",
-    icon: <Clock className="w-3 h-3" aria-hidden />,
+    className: "border-blue-200 bg-blue-50 text-blue-700",
+    icon: <Clock className="h-3 w-3" aria-hidden />,
   },
   new_version_ready: {
     label: "New Version Ready",
-    className: "bg-purple-50 text-purple-700 border-purple-200",
-    icon: <Sparkles className="w-3 h-3" aria-hidden />,
+    className: "border-purple-200 bg-purple-50 text-purple-700",
+    icon: <Sparkles className="h-3 w-3" aria-hidden />,
   },
   approved: {
     label: "Approved",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    icon: <CheckCircle2 className="w-3 h-3" aria-hidden />,
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    icon: <CheckCircle2 className="h-3 w-3" aria-hidden />,
   },
   resolved: {
     label: "Resolved",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    icon: <CheckCircle2 className="w-3 h-3" aria-hidden />,
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    icon: <CheckCircle2 className="h-3 w-3" aria-hidden />,
   },
 };
 
@@ -90,6 +101,8 @@ const COMMENT_STATUSES = new Set<ClientImageWorkflowStatus>([
 export default function ClientOrderImageCard({
   viewerVariant,
   orderId,
+  orderStatus,
+  editLabel,
   imageNumber,
   imageCount,
   subtotalLabel = null,
@@ -99,9 +112,122 @@ export default function ClientOrderImageCard({
   status,
   latestComment = null,
 }: Props) {
+  const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const statusConfig = STATUS_CONFIG[status];
   const originalSource = sourceFiles.find((file) => file.kind === "original") ?? null;
   const referenceSources = sourceFiles.filter((file) => file.kind === "reference");
+  const hasPreferences = hasClientVisibleOrderItemDetails(details);
+  const usesOneToOneLayout = isOneToOneImageEditingPresentation({
+    details,
+    hasOriginalSource: originalSource !== null,
+    referenceCount: referenceSources.length,
+    deliverableCount: deliverables.length,
+  });
+  const canRequestRework = canShowCompletedReworkAction(
+    orderStatus,
+    deliverables.length > 0,
+  );
+
+  function handleOriginalAspectRatio(nextAspectRatio: number) {
+    if (!Number.isFinite(nextAspectRatio) || nextAspectRatio <= 0) return;
+    setMediaAspectRatio((currentAspectRatio) =>
+      currentAspectRatio !== null && Math.abs(currentAspectRatio - nextAspectRatio) < 0.01
+        ? currentAspectRatio
+        : nextAspectRatio,
+    );
+  }
+
+  const originalPanel = (
+    <WorkflowPanel title="Original">
+      {originalSource ? (
+        <FilePreviewCard
+          presentation="feature"
+          mediaAspectRatio={mediaAspectRatio}
+          onImageAspectRatio={handleOriginalAspectRatio}
+          viewerVariant={viewerVariant}
+          filename={originalSource.filename}
+          mimeType={originalSource.mimeType}
+          fileSizeLabel={formatBytes(originalSource.fileSize)}
+          badgeLabel="Original"
+          signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${originalSource.id}/download-url`}
+          downloadLabel="Download"
+        />
+      ) : (
+        <SourcePlaceholder mediaAspectRatio={mediaAspectRatio} />
+      )}
+
+      {referenceSources.length > 0 && (
+        <div className="mt-5 border-t border-border pt-5">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            Reference files
+          </p>
+          <ul className="divide-y divide-border">
+            {referenceSources.map((referenceSource, index) => (
+              <li key={referenceSource.id} className="py-3 first:pt-0 last:pb-0">
+                <FilePreviewCard
+                  viewerVariant={viewerVariant}
+                  filename={referenceSource.filename}
+                  mimeType={referenceSource.mimeType}
+                  fileSizeLabel={formatBytes(referenceSource.fileSize)}
+                  badgeLabel={`Reference ${index + 1}`}
+                  signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
+                  downloadLabel="Download"
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </WorkflowPanel>
+  );
+
+  const deliveredPanel = (
+    <WorkflowPanel title="Delivered">
+      {deliverables.length > 0 ? (
+        <ul className="space-y-5">
+          {deliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
+            <li key={deliverable.id}>
+              <FilePreviewCard
+                presentation="feature"
+                mediaAspectRatio={mediaAspectRatio}
+                viewerVariant={viewerVariant}
+                filename={deliverable.filename}
+                mimeType={deliverable.mime_type}
+                fileSizeLabel={formatBytes(deliverable.file_size)}
+                badgeLabel="Delivered"
+                signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
+                downloadLabel="Download file"
+                meta={
+                  <div className="space-y-1">
+                    {isReplacement && (
+                      <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
+                        New version
+                      </span>
+                    )}
+                    {previousFilename && (
+                      <p className="text-[10px] text-muted">Replaces {previousFilename}</p>
+                    )}
+                  </div>
+                }
+                actions={
+                  canRequestRework ? (
+                    <CompletedReworkArea
+                      deliverableId={deliverable.id}
+                      initialReviewStatus={review?.status ?? null}
+                      initialComment={review?.comment ?? null}
+                      filename={deliverable.filename}
+                    />
+                  ) : null
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <DeliveredPlaceholder mediaAspectRatio={mediaAspectRatio} />
+      )}
+    </WorkflowPanel>
+  );
 
   return (
     <article className="overflow-hidden rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
@@ -125,108 +251,24 @@ export default function ClientOrderImageCard({
       </div>
 
       <div className="pt-5">
-        <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-2 lg:gap-6">
-          <WorkflowPanel title="Original">
-            {originalSource ? (
-              <FeatureFilePreview>
-                <FilePreviewCard
-                  viewerVariant={viewerVariant}
-                  filename={originalSource.filename}
-                  mimeType={originalSource.mimeType}
-                  fileSizeLabel={formatBytes(originalSource.fileSize)}
-                  badgeLabel="Original"
-                  signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${originalSource.id}/download-url`}
-                  downloadLabel="Download"
-                />
-              </FeatureFilePreview>
-            ) : (
-              <SourcePlaceholder />
-            )}
-
-            {referenceSources.length > 0 && (
-              <div className="mt-5 border-t border-border pt-5">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
-                  Reference files
-                </p>
-                <ul className="divide-y divide-border">
-                  {referenceSources.map((referenceSource, index) => (
-                    <li key={referenceSource.id} className="py-3 first:pt-0 last:pb-0">
-                      <FilePreviewCard
-                        viewerVariant={viewerVariant}
-                        filename={referenceSource.filename}
-                        mimeType={referenceSource.mimeType}
-                        fileSizeLabel={formatBytes(referenceSource.fileSize)}
-                        badgeLabel={`Reference ${index + 1}`}
-                        signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${referenceSource.id}/download-url`}
-                        downloadLabel="Download"
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </WorkflowPanel>
-
-          <WorkflowPanel title="Delivered">
-            {deliverables.length > 0 ? (
-              <ul className="space-y-3">
-                {deliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
-                  <li key={deliverable.id}>
-                    <FeatureFilePreview>
-                      <FilePreviewCard
-                        viewerVariant={viewerVariant}
-                        filename={deliverable.filename}
-                        mimeType={deliverable.mime_type}
-                        fileSizeLabel={formatBytes(deliverable.file_size)}
-                        badgeLabel="Delivered"
-                        signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
-                        downloadLabel="Download file"
-                        meta={
-                          <div className="space-y-1">
-                            {isReplacement && (
-                              <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
-                                New version
-                              </span>
-                            )}
-                            {previousFilename && (
-                              <p className="text-[10px] text-muted">
-                                Replaces {previousFilename}
-                              </p>
-                            )}
-                          </div>
-                        }
-                        actions={
-                          <div className="w-full border-t border-border pt-3">
-                            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
-                              Need something changed?
-                            </p>
-                            <DeliverableReviewActions
-                              deliverableId={deliverable.id}
-                              initialReviewStatus={review?.status ?? null}
-                              initialComment={review?.comment ?? null}
-                              filename={deliverable.filename}
-                            />
-                          </div>
-                        }
-                      />
-                    </FeatureFilePreview>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="flex min-h-32 h-full flex-col items-center justify-center rounded-lg bg-blue-50/70 px-4 py-5 text-center">
-                <Clock className="w-7 h-7 text-blue-600" aria-hidden />
-                <p className="mt-2 text-[13px] font-semibold text-blue-800">
-                  Awaiting delivery
-                </p>
-                <p className="mt-1 text-[11px] text-blue-700/80 leading-relaxed max-w-xs">
-                  The finished file for this image will appear here when it is ready.
-                </p>
-              </div>
-            )}
-          </WorkflowPanel>
-
-        </div>
+        {usesOneToOneLayout ? (
+          <div className="grid grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
+            {originalPanel}
+            {deliveredPanel}
+            {hasPreferences ? (
+              <PreferencesPanel
+                details={details}
+                editLabel={editLabel}
+                className="md:col-span-2 lg:col-span-1"
+              />
+            ) : null}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-2 lg:gap-6">
+            {originalPanel}
+            {deliveredPanel}
+          </div>
+        )}
 
         {COMMENT_STATUSES.has(status) && latestComment && (
           <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3">
@@ -239,45 +281,101 @@ export default function ClientOrderImageCard({
           </div>
         )}
 
-        <details className="mt-6 border-t border-border pt-4">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-            Editing instructions
-            <span className="text-[12px] font-medium text-muted">View preferences</span>
-          </summary>
-          <div className="pt-3">
-            <OrderItemDetails details={details} variant="specification" />
-          </div>
-        </details>
+        {!usesOneToOneLayout && hasPreferences ? (
+          <PreferencesPanel
+            details={details}
+            editLabel={editLabel}
+            className="mt-6 border-t border-border pt-4"
+          />
+        ) : null}
       </div>
     </article>
   );
 }
 
-function SourcePlaceholder() {
+function PreferencesPanel({
+  details,
+  editLabel,
+  className = "",
+}: {
+  details: Record<string, unknown>;
+  editLabel: string;
+  className?: string;
+}) {
   return (
-    <div className="h-full min-h-56 rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 flex flex-col items-center justify-center text-center">
-      <FileImage className="w-8 h-8 text-muted-light" aria-hidden />
-      <p className="mt-2 text-[13px] font-semibold text-foreground">
-        Original uploaded file
+    <section className={`min-w-0 ${className}`} aria-label="Editing preferences">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">Edit</p>
+      <p className="mt-1 text-[14px] font-semibold leading-snug text-foreground">{editLabel}</p>
+      <details open className="group mt-5 border-t border-border pt-3">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+          Preferences / options
+          <ChevronDown
+            className="h-4 w-4 flex-shrink-0 text-muted transition-transform group-open:rotate-180"
+            aria-hidden
+          />
+        </summary>
+        <div className="pt-3">
+          <OrderItemDetails details={details} variant="specification" />
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function CompletedReworkArea({
+  deliverableId,
+  initialReviewStatus,
+  initialComment,
+  filename,
+}: {
+  deliverableId: string;
+  initialReviewStatus: InitialReviewStatus;
+  initialComment: string | null;
+  filename: string;
+}) {
+  return (
+    <section aria-label={`Request changes for ${filename}`}>
+      <p className="text-[13px] font-semibold text-foreground">Need any changes?</p>
+      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+        Request adjustments to the delivered result.
       </p>
-      <p className="mt-1 text-[11px] text-muted leading-relaxed max-w-xs">
-        Preview coming soon
-      </p>
+      <div className="mt-3">
+        <DeliverableReviewActions
+          deliverableId={deliverableId}
+          initialReviewStatus={initialReviewStatus}
+          initialComment={initialComment}
+          filename={filename}
+          presentation="compact"
+        />
+      </div>
+    </section>
+  );
+}
+
+function SourcePlaceholder({ mediaAspectRatio }: { mediaAspectRatio: number | null }) {
+  return (
+    <div
+      className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 text-center"
+      style={mediaAspectRatio ? { aspectRatio: mediaAspectRatio } : undefined}
+    >
+      <FileImage className="h-8 w-8 text-muted-light" aria-hidden />
+      <p className="mt-2 text-[13px] font-semibold text-foreground">Original uploaded file</p>
+      <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-muted">Preview coming soon</p>
     </div>
   );
 }
 
-function FeatureFilePreview({ children }: { children: React.ReactNode }) {
+function DeliveredPlaceholder({ mediaAspectRatio }: { mediaAspectRatio: number | null }) {
   return (
     <div
-      className={[
-        "[&>div]:items-stretch [&>div]:flex-col",
-        "[&>div>button:first-child]:!h-56 [&>div>button:first-child]:!w-full",
-        "[&>div>button:first-child]:sm:!h-64 [&>div>button:first-child]:lg:!h-72",
-        "[&>div>div:last-child]:items-start [&>div>div:last-child]:sm:flex-row",
-      ].join(" ")}
+      className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-blue-100 bg-blue-50/60 px-5 py-6 text-center"
+      style={mediaAspectRatio ? { aspectRatio: mediaAspectRatio } : undefined}
     >
-      {children}
+      <Clock className="h-7 w-7 text-blue-600/80" aria-hidden />
+      <p className="mt-2 text-[13px] font-semibold text-blue-900">Awaiting delivery</p>
+      <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-blue-800/75">
+        The finished file for this image will appear here when it is ready.
+      </p>
     </div>
   );
 }
@@ -287,10 +385,10 @@ function WorkflowPanel({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <section className="min-w-0 h-full">
+    <section className="min-w-0">
       <h4 className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
         {title}
       </h4>

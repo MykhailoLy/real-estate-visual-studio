@@ -20,6 +20,7 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import FilePreviewCard from "@/components/FilePreviewCard";
 import OrderPaymentPanel from "@/components/payments/OrderPaymentPanel";
 import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
+import { canShowCompletedReworkAction } from "@/lib/client-order-item-presentation";
 import { getDeliverablesForClient } from "@/lib/client-deliverables";
 import {
   getCurrentDeliverableRows,
@@ -343,6 +344,10 @@ export default async function OrderDetailPage({
   const imageDeliverables = groupCurrentDeliverablesByItem(currentDeliverables);
   const imageSourceFiles = groupSourceFilesByItem(sourceFiles);
   const orderLevelDeliverables = getOrderLevelDeliverables(currentDeliverables);
+  const canShowCompletedRework = canShowCompletedReworkAction(
+    order.status,
+    currentDeliverables.length > 0,
+  );
 
   const serviceLabel = getOrderServiceLabel(order.service_type, order.sub_service);
   const viewerVariant = getStaticImageViewerVariantForService(order.service_type);
@@ -514,6 +519,8 @@ export default async function OrderDetailPage({
                   viewerVariant={viewerVariant}
                   key={item.id}
                   orderId={order.id}
+                  orderStatus={order.status}
+                  editLabel={serviceLabel}
                   imageNumber={item.item_index + 1}
                   imageCount={order.items.length}
                   subtotalLabel={
@@ -586,17 +593,25 @@ export default async function OrderDetailPage({
                       </div>
                     }
                     actions={
-                      <div className="w-full border-t border-border pt-3">
-                        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
-                          Need something changed?
-                        </p>
-                        <DeliverableReviewActions
-                          deliverableId={deliverable.id}
-                          initialReviewStatus={review?.status ?? null}
-                          initialComment={review?.comment ?? null}
-                          filename={deliverable.filename}
-                        />
-                      </div>
+                      canShowCompletedRework ? (
+                        <div className="w-full border-t border-border pt-3">
+                          <p className="text-[12px] font-semibold text-foreground">
+                            Need any changes?
+                          </p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                            Request adjustments to the delivered result.
+                          </p>
+                          <div className="mt-3">
+                            <DeliverableReviewActions
+                              deliverableId={deliverable.id}
+                              initialReviewStatus={review?.status ?? null}
+                              initialComment={review?.comment ?? null}
+                              filename={deliverable.filename}
+                              presentation="compact"
+                            />
+                          </div>
+                        </div>
+                      ) : null
                     }
                   />
                 </li>

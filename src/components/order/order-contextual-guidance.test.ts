@@ -272,6 +272,9 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.doesNotMatch(workflowHeader, /BulkDownloadButton/);
   assert.match(detail, /<ClientOrderImageCard/);
   assert.match(detail, /<DeliverableReviewActions/);
+  assert.match(detail, /const canShowCompletedRework = canShowCompletedReworkAction\(/);
+  assert.match(detail, /actions=\{[\s\S]*?canShowCompletedRework \?/);
+  assert.match(detail, /presentation="compact"/);
   assert.match(detail, /getDashboardRequestUser\(\)/);
   assert.match(detail, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
   assert.match(detail, /toOrderOwnership\(user\)/);
@@ -285,8 +288,16 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   const imageCard = source("src/components/dashboard/ClientOrderImageCard.tsx");
   assert.match(imageCard, /<WorkflowPanel title="Original">/);
   assert.match(imageCard, /<WorkflowPanel title="Delivered">/);
-  assert.match(imageCard, /Editing instructions/);
-  assert.match(imageCard, /<FeatureFilePreview>/);
+  assert.match(imageCard, /isOneToOneImageEditingPresentation/);
+  assert.match(imageCard, /grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-3/);
+  assert.match(imageCard, /md:col-span-2 lg:col-span-1/);
+  assert.match(imageCard, /Preferences \/ options/);
+  assert.match(imageCard, /hasClientVisibleOrderItemDetails/);
+  assert.match(imageCard, /<DeliveredPlaceholder mediaAspectRatio=\{mediaAspectRatio\} \/>/);
+  assert.match(imageCard, /Awaiting delivery/);
+  assert.match(imageCard, /presentation="feature"/);
+  assert.match(imageCard, /canShowCompletedReworkAction/);
+  assert.match(imageCard, /Need any changes\?/);
   assert.doesNotMatch(imageCard, /LargePreviewFrame/);
   assert.match(
     imageCard,
@@ -303,6 +314,13 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(itemDetails, /variant === "specification"/);
   assert.match(itemDetails, /CLIENT_VISIBLE_KEYS/);
   assert.match(itemDetails, /BOOLEAN_KEYS/);
+  assert.match(itemDetails, /hasClientVisibleOrderItemDetails/);
+
+  const previewCard = source("src/components/FilePreviewCard.tsx");
+  assert.match(previewCard, /presentation\?: "default" \| "feature"/);
+  assert.match(previewCard, /fit=\{presentation === "feature" \? "contain" : "cover"\}/);
+  assert.match(previewCard, /object-contain/);
+  assert.match(previewCard, /mediaAspectRatio/);
 
   const paymentPanel = source("src/components/payments/OrderPaymentPanel.tsx");
   assert.match(paymentPanel, /fetch\("\/api\/payments\/checkout", \{/);
@@ -320,4 +338,5 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
     /\/api\/client\/deliverables\/\$\{deliverableId\}\/review/,
   );
   assert.match(reviewActions, /action: "rework_requested"/);
+  assert.match(reviewActions, /presentation\?: "default" \| "compact"/);
 });
