@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  canShowCompletedReworkAction,
+  isOneToOneImageEditingPresentation,
+} from "../../lib/client-order-item-presentation.ts";
 
 const source = (path: string) => readFileSync(path, "utf8");
 
@@ -214,6 +218,51 @@ test("Floor Plans uses the guide while preserving one direct-submit summary", ()
   );
 });
 
+test("paired Job Detail presentation keeps item-local reference files", () => {
+  assert.equal(
+    isOneToOneImageEditingPresentation({
+      details: { sub_service: "day-to-dusk" },
+      hasOriginalSource: true,
+      deliverableCount: 0,
+    }),
+    true,
+  );
+  assert.equal(
+    isOneToOneImageEditingPresentation({
+      details: { sub_service: "image-enhancement" },
+      hasOriginalSource: true,
+      deliverableCount: 1,
+    }),
+    true,
+  );
+});
+
+test("paired Job Detail presentation leaves generic, multi-result, and incomplete items on the fallback", () => {
+  const base = {
+    details: { sub_service: "image-enhancement" },
+    hasOriginalSource: true,
+    deliverableCount: 0,
+  };
+
+  assert.equal(isOneToOneImageEditingPresentation({ ...base, details: {} }), false);
+  assert.equal(
+    isOneToOneImageEditingPresentation({ ...base, deliverableCount: 2 }),
+    false,
+  );
+  assert.equal(
+    isOneToOneImageEditingPresentation({ ...base, hasOriginalSource: false }),
+    false,
+  );
+});
+
+test("Job Detail shows rework only for delivered or completed files", () => {
+  assert.equal(canShowCompletedReworkAction("delivered", true), true);
+  assert.equal(canShowCompletedReworkAction("completed", true), true);
+  assert.equal(canShowCompletedReworkAction("in-progress", true), false);
+  assert.equal(canShowCompletedReworkAction("pending", true), false);
+  assert.equal(canShowCompletedReworkAction("delivered", false), false);
+});
+
 test("Order Detail prioritizes client actions and visual deliverables while preserving authenticated job flows", () => {
   const detail = source(
     "src/app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
@@ -293,9 +342,10 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(imageCard, /md:col-span-2 lg:col-span-1/);
   assert.match(imageCard, /Preferences \/ options/);
   assert.match(imageCard, /hasClientVisibleOrderItemDetails/);
-  assert.match(imageCard, /<DeliveredPlaceholder mediaAspectRatio=\{mediaAspectRatio\} \/>/);
+  assert.match(imageCard, /<DeliveredPlaceholder \/>/);
   assert.match(imageCard, /Awaiting delivery/);
   assert.match(imageCard, /presentation="feature"/);
+  assert.match(imageCard, /Reference files/);
   assert.match(imageCard, /canShowCompletedReworkAction/);
   assert.match(imageCard, /Need any changes\?/);
   assert.doesNotMatch(imageCard, /LargePreviewFrame/);
@@ -320,7 +370,8 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(previewCard, /presentation\?: "default" \| "feature"/);
   assert.match(previewCard, /fit=\{presentation === "feature" \? "contain" : "cover"\}/);
   assert.match(previewCard, /object-contain/);
-  assert.match(previewCard, /mediaAspectRatio/);
+  assert.match(previewCard, /aspect-\[4\/3\]/);
+  assert.doesNotMatch(previewCard, /mediaAspectRatio|onImageAspectRatio/);
 
   const paymentPanel = source("src/components/payments/OrderPaymentPanel.tsx");
   assert.match(paymentPanel, /fetch\("\/api\/payments\/checkout", \{/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -112,7 +112,6 @@ export default function ClientOrderImageCard({
   status,
   latestComment = null,
 }: Props) {
-  const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const statusConfig = STATUS_CONFIG[status];
   const originalSource = sourceFiles.find((file) => file.kind === "original") ?? null;
   const referenceSources = sourceFiles.filter((file) => file.kind === "reference");
@@ -120,7 +119,6 @@ export default function ClientOrderImageCard({
   const usesOneToOneLayout = isOneToOneImageEditingPresentation({
     details,
     hasOriginalSource: originalSource !== null,
-    referenceCount: referenceSources.length,
     deliverableCount: deliverables.length,
   });
   const canRequestRework = canShowCompletedReworkAction(
@@ -128,22 +126,11 @@ export default function ClientOrderImageCard({
     deliverables.length > 0,
   );
 
-  function handleOriginalAspectRatio(nextAspectRatio: number) {
-    if (!Number.isFinite(nextAspectRatio) || nextAspectRatio <= 0) return;
-    setMediaAspectRatio((currentAspectRatio) =>
-      currentAspectRatio !== null && Math.abs(currentAspectRatio - nextAspectRatio) < 0.01
-        ? currentAspectRatio
-        : nextAspectRatio,
-    );
-  }
-
   const originalPanel = (
     <WorkflowPanel title="Original">
       {originalSource ? (
         <FilePreviewCard
           presentation="feature"
-          mediaAspectRatio={mediaAspectRatio}
-          onImageAspectRatio={handleOriginalAspectRatio}
           viewerVariant={viewerVariant}
           filename={originalSource.filename}
           mimeType={originalSource.mimeType}
@@ -153,7 +140,7 @@ export default function ClientOrderImageCard({
           downloadLabel="Download"
         />
       ) : (
-        <SourcePlaceholder mediaAspectRatio={mediaAspectRatio} />
+        <SourcePlaceholder />
       )}
 
       {referenceSources.length > 0 && (
@@ -189,7 +176,6 @@ export default function ClientOrderImageCard({
             <li key={deliverable.id}>
               <FilePreviewCard
                 presentation="feature"
-                mediaAspectRatio={mediaAspectRatio}
                 viewerVariant={viewerVariant}
                 filename={deliverable.filename}
                 mimeType={deliverable.mime_type}
@@ -224,7 +210,7 @@ export default function ClientOrderImageCard({
           ))}
         </ul>
       ) : (
-        <DeliveredPlaceholder mediaAspectRatio={mediaAspectRatio} />
+        <DeliveredPlaceholder />
       )}
     </WorkflowPanel>
   );
@@ -352,12 +338,9 @@ function CompletedReworkArea({
   );
 }
 
-function SourcePlaceholder({ mediaAspectRatio }: { mediaAspectRatio: number | null }) {
+function SourcePlaceholder() {
   return (
-    <div
-      className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 text-center"
-      style={mediaAspectRatio ? { aspectRatio: mediaAspectRatio } : undefined}
-    >
+    <div className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 text-center">
       <FileImage className="h-8 w-8 text-muted-light" aria-hidden />
       <p className="mt-2 text-[13px] font-semibold text-foreground">Original uploaded file</p>
       <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-muted">Preview coming soon</p>
@@ -365,12 +348,9 @@ function SourcePlaceholder({ mediaAspectRatio }: { mediaAspectRatio: number | nu
   );
 }
 
-function DeliveredPlaceholder({ mediaAspectRatio }: { mediaAspectRatio: number | null }) {
+function DeliveredPlaceholder() {
   return (
-    <div
-      className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-blue-100 bg-blue-50/60 px-5 py-6 text-center"
-      style={mediaAspectRatio ? { aspectRatio: mediaAspectRatio } : undefined}
-    >
+    <div className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-blue-100 bg-blue-50/60 px-5 py-6 text-center">
       <Clock className="h-7 w-7 text-blue-600/80" aria-hidden />
       <p className="mt-2 text-[13px] font-semibold text-blue-900">Awaiting delivery</p>
       <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-blue-800/75">

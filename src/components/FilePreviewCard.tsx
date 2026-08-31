@@ -22,8 +22,6 @@ interface Props {
   downloadLabel?: string;
   actions?: ReactNode;
   presentation?: "default" | "feature";
-  mediaAspectRatio?: number | null;
-  onImageAspectRatio?: (aspectRatio: number) => void;
 }
 
 type SignedUrlResponse = {
@@ -43,8 +41,6 @@ export default function FilePreviewCard({
   downloadLabel = "Download",
   actions,
   presentation = "default",
-  mediaAspectRatio = null,
-  onImageAspectRatio,
 }: Props) {
   const previewKind = getFilePreviewKind(filename, mimeType);
   const typeLabel = getFileTypeLabel(filename, mimeType);
@@ -124,11 +120,6 @@ export default function FilePreviewCard({
     }
   }
 
-  const featureMediaStyle =
-    presentation === "feature" && mediaAspectRatio && mediaAspectRatio > 0
-      ? { aspectRatio: mediaAspectRatio }
-      : undefined;
-
   const previewSurface = (
     <PreviewSurface
       kind={previewKind}
@@ -136,7 +127,6 @@ export default function FilePreviewCard({
       previewUrl={previewUrl}
       loading={previewLoading}
       fit={presentation === "feature" ? "contain" : "cover"}
-      onImageAspectRatio={onImageAspectRatio}
     />
   );
 
@@ -153,7 +143,6 @@ export default function FilePreviewCard({
               ? "cursor-pointer transition-colors hover:border-primary/50"
               : "cursor-default",
           ].join(" ")}
-          style={featureMediaStyle}
           title={previewable ? `Preview ${filename}` : "Preview not available"}
         >
           {previewSurface}
@@ -348,14 +337,12 @@ function PreviewSurface({
   previewUrl,
   loading,
   fit,
-  onImageAspectRatio,
 }: {
   kind: FilePreviewKind;
   filename: string;
   previewUrl: string | null;
   loading: boolean;
   fit: "cover" | "contain";
-  onImageAspectRatio?: (aspectRatio: number) => void;
 }) {
   if (loading) {
     return (
@@ -375,12 +362,6 @@ function PreviewSurface({
         loading="lazy"
         decoding="async"
         className={`h-full w-full ${fit === "contain" ? "object-contain" : "object-cover"}`}
-        onLoad={(event) => {
-          const { naturalHeight, naturalWidth } = event.currentTarget;
-          if (naturalWidth > 0 && naturalHeight > 0) {
-            onImageAspectRatio?.(naturalWidth / naturalHeight);
-          }
-        }}
       />
     );
   }

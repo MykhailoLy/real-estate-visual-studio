@@ -3,14 +3,14 @@ import { isDedicatedPhotoEditingSubService } from "./dedicated-photo-editing.ts"
 interface OneToOneImageEditingInput {
   details: Record<string, unknown>;
   hasOriginalSource: boolean;
-  referenceCount: number;
   deliverableCount: number;
 }
 
 /**
  * Dedicated photo-editing orders are submitted with one original image for
  * each item. We only opt into the paired presentation when that source shape
- * is still intact and there is no multi-reference workflow to represent.
+ * is still intact. Reference files are item-local supporting material and do
+ * not change the original-to-result relationship.
  *
  * Generic/batch and historical jobs deliberately fall back to the existing
  * file workflow because their eventual delivery mapping is not knowable before
@@ -19,12 +19,10 @@ interface OneToOneImageEditingInput {
 export function isOneToOneImageEditingPresentation({
   details,
   hasOriginalSource,
-  referenceCount,
   deliverableCount,
 }: OneToOneImageEditingInput): boolean {
   return (
     hasOriginalSource &&
-    referenceCount === 0 &&
     deliverableCount <= 1 &&
     isDedicatedPhotoEditingSubService(details.sub_service)
   );
