@@ -38,6 +38,7 @@ interface SavedDraftsSectionProps {
   helper?: string;
   panel?: boolean;
   deletable?: boolean;
+  listLimit?: number;
   className?: string;
 }
 
@@ -132,13 +133,12 @@ function LoadingCard({
       <li
         className={cn(
           panel
-            ? "px-4 py-4"
-            : "border-t border-border py-3 first:border-t-0 first:pt-0",
+            ? "px-4 py-3"
+            : "border-t border-border py-3 first:border-t-0",
         )}
       >
         <div className="h-4 w-2/3 rounded bg-stone-100" />
-        <div className="mt-2 h-3 w-1/2 rounded bg-stone-100" />
-        <div className="mt-3 h-11 w-24 rounded bg-stone-100" />
+        <div className="mt-1.5 h-3 w-4/5 rounded bg-stone-100" />
       </li>
     );
   }
@@ -159,6 +159,7 @@ export default function SavedDraftsSection({
   helper,
   panel = false,
   deletable = false,
+  listLimit = 3,
   className,
 }: SavedDraftsSectionProps) {
   const pathname = usePathname();
@@ -186,14 +187,14 @@ export default function SavedDraftsSection({
   useEffect(() => {
     const controller = new AbortController();
 
-    listOrderDrafts(3, controller.signal)
+    listOrderDrafts(listLimit, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
         if (!result.ok) {
           setLoadState("error");
           return;
         }
-        setDrafts(result.data.slice(0, 3));
+        setDrafts(result.data.slice(0, listLimit));
         setLoadState("success");
       })
       .catch((error) => {
@@ -202,7 +203,7 @@ export default function SavedDraftsSection({
       });
 
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [listLimit, reloadKey]);
 
   const retry = useCallback(() => {
     setLoadState("loading");
@@ -215,7 +216,7 @@ export default function SavedDraftsSection({
     drafts,
     setDrafts,
     copy,
-    listLimit: 3,
+    listLimit,
     loginRedirect: "/login?redirectTo=%2Fdashboard",
     onRefreshSuccess: handleDeleteRefreshSuccess,
   });
@@ -283,7 +284,7 @@ export default function SavedDraftsSection({
             </p>
           )}
         </div>
-        {loadState === "success" && drafts.length > 0 && (
+        {loadState === "success" && drafts.length > 0 && !panel && (
           <ClientPortalLink
             href="/dashboard/drafts"
             className={cn(
@@ -390,6 +391,18 @@ export default function SavedDraftsSection({
         </ul>
       )}
 
+      {loadState === "success" && drafts.length > 0 && panel && (
+        <div className="border-t border-border px-3 py-2">
+          <ClientPortalLink
+            href="/dashboard/drafts"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            {copy.viewAll}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </ClientPortalLink>
+        </div>
+      )}
+
       <OrderDraftDeletionDialog controller={deletion} copy={copy} />
 
       {deletion.toastMessage && (
@@ -446,42 +459,45 @@ function SavedDraftItem({
   if (variant === "rail") {
     return (
       <li
-        className={cn(
-          panel
-            ? "px-4 py-3"
-            : "py-3 first:pt-0 last:pb-0",
-        )}
+        className={cn(panel ? "px-2 py-2" : "py-2 first:pt-0 last:pb-0")}
       >
         <article className="min-w-0">
-          <div className="flex items-start gap-2.5">
-            <span
-              className={cn(
-                "mt-0.5 inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md",
-                isFinishing
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-secondary/10 text-secondary-dark",
-              )}
-              aria-label={badgeLabel}
-            >
-              <FileText className="h-3.5 w-3.5" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h4 className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
-                {title}
-              </h4>
-              <p className="mt-0.5 truncate text-xs font-medium text-primary">
-                {serviceName}
-              </p>
-              {draft.finalization && (
-                <p className="mt-0.5 truncate text-[11px] text-muted">
-                  {copy.order}: {draft.finalization.orderNumber}
+          <div className="flex items-center gap-1">
+            {resumeUrl ? (
+              <ClientPortalLink
+                href={resumeUrl}
+                aria-label={`${actionLabel}: ${title}`}
+                className="group flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold leading-snug text-foreground group-hover:text-primary">
+                    {title}
+                  </span>
+                  <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-muted">
+                    <span className="max-w-[45%] truncate font-medium text-primary">
+                      {serviceName}
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span className="min-w-0 truncate">
+                      {copy.updated} {updatedAt}
+                    </span>
+                  </span>
+                </span>
+                <ArrowRight
+                  className="h-3.5 w-3.5 flex-shrink-0 text-muted-light transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+                  aria-hidden
+                />
+              </ClientPortalLink>
+            ) : (
+              <div className="min-h-11 min-w-0 flex-1 px-2 py-1">
+                <p className="truncate text-sm font-bold leading-snug text-foreground">
+                  {title}
                 </p>
-              )}
-              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">
-                <Clock3 className="h-3 w-3 flex-shrink-0" aria-hidden />
-                <span className="truncate">{updatedAt}</span>
-              </p>
-            </div>
+                <p className="mt-0.5 truncate text-[11px] text-muted">
+                  {serviceName} · {copy.updated} {updatedAt}
+                </p>
+              </div>
+            )}
             {deletable && !isFinishing && (
               <button
                 type="button"
@@ -495,15 +511,6 @@ function SavedDraftItem({
               </button>
             )}
           </div>
-          {resumeUrl && (
-            <ClientPortalLink
-              href={resumeUrl}
-              className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              {actionLabel}
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </ClientPortalLink>
-          )}
           {error && (
             <p aria-live="polite" className="mt-2 text-xs font-medium text-red-700">
               {error}

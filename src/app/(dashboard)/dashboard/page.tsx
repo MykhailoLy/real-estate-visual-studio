@@ -16,7 +16,7 @@ import { Plus } from "lucide-react";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import DashboardActivityRail from "@/components/dashboard/DashboardActivityRail";
-import DashboardQuickStart from "@/components/dashboard/DashboardQuickStart";
+import DashboardResponsiveServices from "@/components/dashboard/DashboardResponsiveServices";
 import {
   getDashboardRequestProfile,
   getDashboardRequestUser,
@@ -26,7 +26,6 @@ import {
   mapOrdersToDashboardJobs,
 } from "@/lib/client-orders";
 import { getReviewsForClient } from "@/lib/client-reviews";
-import { getOrderServiceCards } from "@/lib/order-services";
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { getOrderCardImages } from "@/lib/order-card-media";
 import { getOrderServiceExamples } from "@/lib/order-card-examples";
@@ -35,21 +34,16 @@ export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
 };
 
-async function EnrichedDashboardQuickStart({
-  services,
-}: {
-  services: ReturnType<typeof getOrderServiceCards>;
-}) {
+async function EnrichedDashboardServices() {
   const [images, examples] = await Promise.all([
     getOrderCardImages(),
     getOrderServiceExamples(),
   ]);
 
   return (
-    <DashboardQuickStart
-      services={services}
-      images={images}
-      examples={examples}
+    <DashboardResponsiveServices
+      images={Array.from(images.entries())}
+      examples={Array.from(examples.entries())}
     />
   );
 }
@@ -75,7 +69,6 @@ export default async function DashboardPage() {
     : [[], []];
 
   const jobs = mapOrdersToDashboardJobs(rawOrders, reviews);
-  const services = getOrderServiceCards();
 
   // Welcome name: profile first_name → full_name split → auth firstName → fallback.
   const welcomeName =
@@ -115,8 +108,8 @@ export default async function DashboardPage() {
       <DashboardActivityRail
         jobs={jobs}
         services={
-          <Suspense fallback={<DashboardQuickStart services={services} />}>
-            <EnrichedDashboardQuickStart services={services} />
+          <Suspense fallback={<DashboardResponsiveServices />}>
+            <EnrichedDashboardServices />
           </Suspense>
         }
       />

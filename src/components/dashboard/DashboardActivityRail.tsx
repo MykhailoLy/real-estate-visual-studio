@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  CheckCircle2,
   ClipboardCheck,
   Download,
   SlidersHorizontal,
@@ -53,7 +52,7 @@ export default function DashboardActivityRail({
     <div
       data-dashboard-workspace
       data-dashboard-activity-rail
-      className="relative grid grid-cols-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-x-0 lg:gap-y-6 lg:before:pointer-events-none lg:before:absolute lg:before:inset-y-0 lg:before:left-[299px] lg:before:w-px lg:before:bg-border lg:before:content-[''] xl:grid-cols-[320px_minmax(0,1fr)] xl:before:left-[319px]"
+      className="relative grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-x-0 lg:gap-y-6 lg:before:pointer-events-none lg:before:absolute lg:before:inset-y-0 lg:before:left-[279px] lg:before:w-px lg:before:bg-border lg:before:content-[''] xl:grid-cols-[300px_minmax(0,1fr)] xl:before:left-[299px] 2xl:grid-cols-[320px_minmax(0,1fr)] 2xl:before:left-[319px]"
     >
       <SavedDraftsSection
         variant="rail"
@@ -61,13 +60,14 @@ export default function DashboardActivityRail({
         helper="Continue a saved order when you are ready."
         panel
         deletable
-        className="order-1 lg:col-start-1 lg:row-start-1 lg:mr-8 xl:mr-10"
+        listLimit={8}
+        className="order-1 lg:col-start-1 lg:row-start-1 lg:mr-6 xl:mr-8 2xl:mr-10"
       />
 
       <section
         data-dashboard-section="recently-completed"
         aria-labelledby="recently-completed-heading"
-        className="order-2 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-2 lg:mr-8 xl:mr-10"
+        className="order-2 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-2 lg:mr-6 xl:mr-8 2xl:mr-10"
       >
         <div className="border-b border-border px-4 py-4">
           <h2
@@ -83,19 +83,16 @@ export default function DashboardActivityRail({
               <li key={job.id}>
                 <ClientPortalLink
                   href={`/dashboard/jobs/${job.id}`}
-                  className="group flex min-h-11 items-start gap-3 px-4 py-3 transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                  className="group flex min-h-11 items-center gap-2 px-3 py-2.5 transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                 >
-                  <span className="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" aria-hidden />
-                  </span>
                   <span className="min-w-0 flex-1">
-                    <span className="line-clamp-2 break-words text-sm font-bold leading-snug text-foreground group-hover:text-primary">
+                    <span className="block truncate text-sm font-bold leading-snug text-foreground group-hover:text-primary">
                       {job.title}
                     </span>
-                    <span className="mt-1 block truncate text-[11px] text-muted">
+                    <span className="mt-0.5 block truncate text-[11px] text-muted">
                       {job.serviceType} · {job.reference}
                     </span>
-                    <span className="mt-1.5 block text-[11px] text-muted">
+                    <span className="mt-0.5 block text-[11px] text-muted">
                       Submitted{" "}
                       <time dateTime={job.submittedDate}>
                         {formatCompactDate(job.submittedDate)}
@@ -117,10 +114,10 @@ export default function DashboardActivityRail({
         )}
         <div className="border-t border-border px-3 py-2">
           <ClientPortalLink
-            href="/dashboard/jobs?status=completed"
+            href="/dashboard/jobs"
             className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            View completed orders
+            View all jobs
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </ClientPortalLink>
         </div>
@@ -128,7 +125,7 @@ export default function DashboardActivityRail({
 
       <div
         data-dashboard-services
-        className="order-3 min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:pl-8 xl:pl-10"
+        className="order-3 min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:pl-6 xl:pl-8 2xl:pl-10"
       >
         {services}
       </div>
@@ -136,7 +133,7 @@ export default function DashboardActivityRail({
       <section
         data-dashboard-section="getting-started"
         aria-labelledby="getting-started-heading"
-        className="order-4 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-3 lg:mr-8 xl:mr-10"
+        className="order-4 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:col-start-1 lg:row-start-3 lg:mr-6 xl:mr-8 2xl:mr-10"
       >
         <div className="border-b border-border px-4 py-4">
           <h2

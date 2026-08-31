@@ -57,6 +57,7 @@ export default function DashboardQuickStart({
         services={quickStartServices}
         images={images}
         examples={examples}
+        layout="dashboard"
       />
     </section>
   );

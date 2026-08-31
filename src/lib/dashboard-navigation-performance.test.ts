@@ -326,21 +326,27 @@ test("Drafts stays available outside the primary desktop and mobile navigation",
 test("dashboard composes a bounded activity rail and stacked mobile workspace", () => {
   const pageSource = source("app/(dashboard)/dashboard/page.tsx");
   const railSource = source("components/dashboard/DashboardActivityRail.tsx");
+  const responsiveServicesSource = source(
+    "components/dashboard/DashboardResponsiveServices.tsx",
+  );
   const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
 
   assert.match(railSource, /data-dashboard-workspace/);
   assert.match(railSource, /grid grid-cols-1 gap-6/);
-  assert.match(railSource, /lg:grid-cols-\[300px_minmax\(0,1fr\)\]/);
-  assert.match(railSource, /xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.match(railSource, /lg:grid-cols-\[280px_minmax\(0,1fr\)\]/);
+  assert.match(railSource, /xl:grid-cols-\[300px_minmax\(0,1fr\)\]/);
+  assert.match(railSource, /2xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(railSource, /grid-cols-\[33%/);
   assert.match(pageSource, /<DashboardActivityRail/);
   assert.match(pageSource, /jobs=\{jobs\}/);
   assert.match(pageSource, /services=\{/);
-  assert.match(pageSource, /<DashboardQuickStart/);
+  assert.match(pageSource, /<DashboardResponsiveServices/);
+  assert.doesNotMatch(pageSource, /<DashboardQuickStart/);
   assert.match(railSource, /variant="rail"/);
   assert.match(railSource, /heading="Awaiting submission"/);
   assert.match(railSource, /panel/);
   assert.match(railSource, /deletable/);
+  assert.match(railSource, /listLimit=\{8\}/);
   assert.match(railSource, /Recently completed/);
   assert.match(railSource, /How to get started/);
   assert.match(railSource, /Add your property photos or source files\./);
@@ -351,7 +357,9 @@ test("dashboard composes a bounded activity rail and stacked mobile workspace", 
   assert.match(railSource, /\{job\.title\}/);
   assert.match(railSource, /Submitted\{" "\}/);
   assert.match(railSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
-  assert.match(railSource, /href="\/dashboard\/jobs\?status=completed"/);
+  assert.match(railSource, /href="\/dashboard\/jobs"/);
+  assert.match(railSource, /View all jobs/);
+  assert.doesNotMatch(railSource, /jobs\?status=completed/);
 
   assert.match(railSource, /className="order-1 [^"]*lg:col-start-1/);
   assert.match(railSource, /className="order-2 [^"]*border border-border/);
@@ -361,6 +369,9 @@ test("dashboard composes a bounded activity rail and stacked mobile workspace", 
     railSource.indexOf("data-dashboard-services") <
       railSource.indexOf('data-dashboard-section="getting-started"'),
   );
+  assert.match(responsiveServicesSource, /Browse services/);
+  assert.match(responsiveServicesSource, /href="\/dashboard\/orders\/new"/);
+  assert.match(responsiveServicesSource, /lg:hidden/);
 
   assert.match(savedDraftsSource, /data-dashboard-section=\{panel/);
   assert.match(
@@ -376,7 +387,14 @@ test("dashboard composes a bounded activity rail and stacked mobile workspace", 
 
 test("dashboard services are registry-driven and portfolio-enriched", () => {
   const pageSource = source("app/(dashboard)/dashboard/page.tsx");
+  const responsiveServicesSource = source(
+    "components/dashboard/DashboardResponsiveServices.tsx",
+  );
+  const desktopServicesSource = source(
+    "components/dashboard/DashboardDesktopServices.tsx",
+  );
   const quickStartSource = source("components/dashboard/DashboardQuickStart.tsx");
+  const serviceGridSource = source("components/dashboard/OrderServiceGrid.tsx");
   const serviceCardSource = source("components/dashboard/OrderServiceCard.tsx");
   const activeServices = getOrderServiceCatalog().filter(
     (service) => service.availability === "active" && service.route !== null,
@@ -384,40 +402,67 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
 
   assert.ok(activeServices.length >= 6);
   assert.ok(activeServices.slice(0, 6).every((service) => service.route));
-  assert.match(pageSource, /getOrderServiceCards\(\)/);
   assert.match(pageSource, /getOrderCardImages\(\)/);
   assert.match(pageSource, /getOrderServiceExamples\(\)/);
-  assert.match(pageSource, /<Suspense fallback=\{<DashboardQuickStart/);
+  assert.match(
+    pageSource,
+    /<Suspense fallback=\{<DashboardResponsiveServices \/>\}>/,
+  );
+  assert.match(desktopServicesSource, /getOrderServiceCards\(\)/);
+  assert.match(desktopServicesSource, /<DashboardQuickStart/);
   assert.match(quickStartSource, /services\.filter\(isActiveOrderService\)\.slice\(0, 6\)/);
   assert.match(quickStartSource, /<OrderServiceGrid/);
   assert.match(quickStartSource, /images=\{images\}/);
   assert.match(quickStartSource, /examples=\{examples\}/);
+  assert.match(quickStartSource, /layout="dashboard"/);
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
+  assert.match(serviceGridSource, /layout === "catalog" && "2xl:grid-cols-4"/);
   assert.match(serviceCardSource, /getCatalogPrice\(service\.priceKey, currency\)/);
   assert.match(serviceCardSource, /href=\{service\.route as string\}/);
+  assert.match(serviceCardSource, /loading="lazy"/);
   assert.doesNotMatch(
     quickStartSource,
     /from "next\/image"/,
   );
+  assert.match(responsiveServicesSource, /window\.matchMedia\(/);
+  assert.match(responsiveServicesSource, /\{isDesktop && \(/);
+  assert.match(responsiveServicesSource, /import\("\.\/DashboardDesktopServices"\)/);
+  assert.match(responsiveServicesSource, /ssr: false/);
+  assert.doesNotMatch(responsiveServicesSource, /<DashboardQuickStart/);
 });
 
 test("compact Saved Drafts reuses the existing list and Resume or Finish flow", () => {
   const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
+  const dashboardRailSource = source("components/dashboard/DashboardActivityRail.tsx");
   const draftsPageSource = source("components/dashboard/ClientDraftsPage.tsx");
-  const listCalls = savedDraftsSource.match(/listOrderDrafts\(3, controller\.signal\)/g);
+  const railBranchStart = savedDraftsSource.indexOf(
+    'if (variant === "rail")',
+    5_000,
+  );
+  const railBranch = savedDraftsSource.slice(
+    railBranchStart,
+    savedDraftsSource.indexOf("\n  return (", railBranchStart),
+  );
 
-  assert.equal(listCalls?.length, 1);
   assert.match(savedDraftsSource, /variant\?: SavedDraftsVariant/);
+  assert.match(savedDraftsSource, /listLimit\?: number/);
+  assert.match(savedDraftsSource, /listOrderDrafts\(listLimit, controller\.signal\)/);
+  assert.match(savedDraftsSource, /result\.data\.slice\(0, listLimit\)/);
+  assert.match(savedDraftsSource, /listLimit,/);
+  assert.match(dashboardRailSource, /listLimit=\{8\}/);
   assert.match(savedDraftsSource, /buildSavedDraftResumeUrl/);
   assert.match(savedDraftsSource, /getSavedDraftActionLabel/);
   assert.match(savedDraftsSource, /resume: copy\.resume/);
   assert.match(savedDraftsSource, /finish: copy\.finish/);
   assert.match(savedDraftsSource, /href=\{resumeUrl\}/);
+  assert.match(savedDraftsSource, /aria-label=\{`\$\{actionLabel\}: \$\{title\}`\}/);
   assert.match(savedDraftsSource, /useOrderDraftDeletion\(/);
   assert.match(savedDraftsSource, /OrderDraftDeletionDialog/);
   assert.match(savedDraftsSource, /deletable && !isFinishing && \(/);
   assert.match(savedDraftsSource, /h-11 w-11/);
   assert.match(savedDraftsSource, /deletion\.beginDelete\(draft, trigger\)/);
+  assert.doesNotMatch(railBranch, /DraftThumbnail|FileText|Clock3/);
+  assert.doesNotMatch(railBranch, />\s*\{actionLabel\}\s*</);
   assert.match(draftsPageSource, /export function useOrderDraftDeletion/);
   assert.match(draftsPageSource, /await deleteOrderDraft\(/);
   assert.match(draftsPageSource, /draft\.version/);
@@ -448,11 +493,7 @@ test("Jobs workspace keeps a bounded rail before the flexible jobs area", () => 
   );
   assert.match(railSource, /<SavedDraftsSection variant="rail" \/>/);
   assert.doesNotMatch(railSource, /listOrderDrafts|\/api\/order-drafts|fetch\(/);
-  assert.equal(
-    savedDraftsSource.match(/listOrderDrafts\(3, controller\.signal\)/g)
-      ?.length,
-    1,
-  );
+  assert.match(savedDraftsSource, /listLimit = 3/);
   assert.match(draftsRouteSource, /<ClientDraftsPage \/>/);
 });
 

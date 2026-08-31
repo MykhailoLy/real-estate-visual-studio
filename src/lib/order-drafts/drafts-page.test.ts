@@ -27,6 +27,10 @@ const DASHBOARD_DRAFTS_SOURCE = readFileSync(
   "src/components/dashboard/SavedDraftsSection.tsx",
   "utf8",
 );
+const DASHBOARD_RAIL_SOURCE = readFileSync(
+  "src/components/dashboard/DashboardActivityRail.tsx",
+  "utf8",
+);
 
 const drafts = [
   { id: "draft-1", title: "One" },
@@ -79,6 +83,9 @@ test("deleteOrderDraft remains typed with expectedVersion and optional signal", 
 
 test("dashboard drafts reuse the shared version-checked delete controller", () => {
   assert.match(DASHBOARD_DRAFTS_SOURCE, /useOrderDraftDeletion\(/);
+  assert.match(DASHBOARD_DRAFTS_SOURCE, /listOrderDrafts\(listLimit, controller\.signal\)/);
+  assert.match(DASHBOARD_DRAFTS_SOURCE, /listLimit,/);
+  assert.match(DASHBOARD_RAIL_SOURCE, /listLimit=\{8\}/);
   assert.match(SHARED_DELETE_SOURCE, /await deleteOrderDraft\(/);
   assert.match(SHARED_DELETE_SOURCE, /draft\.version/);
   assert.match(SHARED_DELETE_SOURCE, /shouldRefreshDraftListAfterDeleteError/);
@@ -102,4 +109,9 @@ test("dashboard draft deletion keeps the shared accessible confirmation dialog",
   assert.match(SHARED_DELETE_SOURCE, /role="dialog"/);
   assert.match(SHARED_DELETE_SOURCE, /aria-modal="true"/);
   assert.match(SHARED_DELETE_SOURCE, /disabled=\{deletingDraftId === confirmDraft\.id\}/);
+});
+
+test("the full drafts page keeps its independent 100-item list limit", () => {
+  assert.match(SHARED_DELETE_SOURCE, /listOrderDrafts\(100, controller\.signal\)/);
+  assert.match(SHARED_DELETE_SOURCE, /listLimit: 100/);
 });
