@@ -146,7 +146,14 @@ test("card and thumbnail crop rules remain intact outside expanded viewers", () 
   assert.match(floorPlansInteractiveSource, /object-cover/);
   assert.match(styleGalleryCardSource, /object-cover/);
   assert.match(propertyGallerySource, /object-cover/);
-  assert.match(filePreviewSource, /w-full h-full object-cover/);
+  assert.match(
+    filePreviewSource,
+    /presentation === "feature" \? "contain" : "cover"/,
+  );
+  assert.match(
+    filePreviewSource,
+    /fit === "contain" \? "object-contain" : "object-cover"/,
+  );
 });
 
 const pricingRouteFiles = [

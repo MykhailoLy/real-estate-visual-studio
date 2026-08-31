@@ -29,6 +29,7 @@ interface Props {
   initialReviewStatus: ReviewStatus | null;
   initialComment?: string | null;
   filename?: string;
+  presentation?: "default" | "compact";
 }
 
 type BadgeVariant = "green" | "amber" | "blue";
@@ -101,6 +102,7 @@ export default function DeliverableReviewActions({
   initialReviewStatus,
   initialComment,
   filename,
+  presentation = "default",
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<ReviewStatus | null>(
@@ -121,6 +123,7 @@ export default function DeliverableReviewActions({
   const canRequestRework =
     status !== "rework_requested" && status !== "rework_in_progress";
   const badgeCfg = status !== null ? (STATUS_BADGE[status] ?? null) : null;
+  const isCompact = presentation === "compact";
 
   async function submitRework(text: string, files: SelectedReferenceFile[]) {
     setApiError(null);
@@ -277,15 +280,21 @@ export default function DeliverableReviewActions({
               setUploadWarning(null);
             }}
             disabled={loading !== null}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg text-[11px] font-semibold hover:bg-amber-100 transition-colors disabled:opacity-60"
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-60 ${
+              isCompact
+                ? "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            }`}
             aria-label={`Request rework for ${fileLabel}`}
           >
             <RotateCcw className="w-3 h-3" aria-hidden />
             Request rework
           </button>
-          <p className="text-[10px] text-muted leading-snug">
-            Need changes? Request a rework for this file.
-          </p>
+          {!isCompact && (
+            <p className="text-[10px] text-muted leading-snug">
+              Need changes? Request a rework for this file.
+            </p>
+          )}
         </div>
       )}
 

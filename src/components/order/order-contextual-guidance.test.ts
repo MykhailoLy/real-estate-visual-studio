@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  canShowCompletedReworkAction,
+  isOneToOneImageEditingPresentation,
+} from "../../lib/client-order-item-presentation.ts";
 
 const source = (path: string) => readFileSync(path, "utf8");
 
@@ -214,6 +218,51 @@ test("Floor Plans uses the guide while preserving one direct-submit summary", ()
   );
 });
 
+test("paired Job Detail presentation keeps item-local reference files", () => {
+  assert.equal(
+    isOneToOneImageEditingPresentation({
+      details: { sub_service: "day-to-dusk" },
+      hasOriginalSource: true,
+      deliverableCount: 0,
+    }),
+    true,
+  );
+  assert.equal(
+    isOneToOneImageEditingPresentation({
+      details: { sub_service: "image-enhancement" },
+      hasOriginalSource: true,
+      deliverableCount: 1,
+    }),
+    true,
+  );
+});
+
+test("paired Job Detail presentation leaves generic, multi-result, and incomplete items on the fallback", () => {
+  const base = {
+    details: { sub_service: "image-enhancement" },
+    hasOriginalSource: true,
+    deliverableCount: 0,
+  };
+
+  assert.equal(isOneToOneImageEditingPresentation({ ...base, details: {} }), false);
+  assert.equal(
+    isOneToOneImageEditingPresentation({ ...base, deliverableCount: 2 }),
+    false,
+  );
+  assert.equal(
+    isOneToOneImageEditingPresentation({ ...base, hasOriginalSource: false }),
+    false,
+  );
+});
+
+test("Job Detail shows rework only for delivered or completed files", () => {
+  assert.equal(canShowCompletedReworkAction("delivered", true), true);
+  assert.equal(canShowCompletedReworkAction("completed", true), true);
+  assert.equal(canShowCompletedReworkAction("in-progress", true), false);
+  assert.equal(canShowCompletedReworkAction("pending", true), false);
+  assert.equal(canShowCompletedReworkAction("delivered", false), false);
+});
+
 test("Order Detail prioritizes client actions and visual deliverables while preserving authenticated job flows", () => {
   const detail = source(
     "src/app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
@@ -272,6 +321,9 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.doesNotMatch(workflowHeader, /BulkDownloadButton/);
   assert.match(detail, /<ClientOrderImageCard/);
   assert.match(detail, /<DeliverableReviewActions/);
+  assert.match(detail, /const canShowCompletedRework = canShowCompletedReworkAction\(/);
+  assert.match(detail, /actions=\{[\s\S]*?canShowCompletedRework \?/);
+  assert.match(detail, /presentation="compact"/);
   assert.match(detail, /getDashboardRequestUser\(\)/);
   assert.match(detail, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
   assert.match(detail, /toOrderOwnership\(user\)/);
@@ -285,8 +337,17 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   const imageCard = source("src/components/dashboard/ClientOrderImageCard.tsx");
   assert.match(imageCard, /<WorkflowPanel title="Original">/);
   assert.match(imageCard, /<WorkflowPanel title="Delivered">/);
-  assert.match(imageCard, /Editing instructions/);
-  assert.match(imageCard, /<FeatureFilePreview>/);
+  assert.match(imageCard, /isOneToOneImageEditingPresentation/);
+  assert.match(imageCard, /grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-3/);
+  assert.match(imageCard, /md:col-span-2 lg:col-span-1/);
+  assert.match(imageCard, /Preferences \/ options/);
+  assert.match(imageCard, /hasClientVisibleOrderItemDetails/);
+  assert.match(imageCard, /<DeliveredPlaceholder \/>/);
+  assert.match(imageCard, /Awaiting delivery/);
+  assert.match(imageCard, /presentation="feature"/);
+  assert.match(imageCard, /Reference files/);
+  assert.match(imageCard, /canShowCompletedReworkAction/);
+  assert.match(imageCard, /Need any changes\?/);
   assert.doesNotMatch(imageCard, /LargePreviewFrame/);
   assert.match(
     imageCard,
@@ -303,6 +364,14 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(itemDetails, /variant === "specification"/);
   assert.match(itemDetails, /CLIENT_VISIBLE_KEYS/);
   assert.match(itemDetails, /BOOLEAN_KEYS/);
+  assert.match(itemDetails, /hasClientVisibleOrderItemDetails/);
+
+  const previewCard = source("src/components/FilePreviewCard.tsx");
+  assert.match(previewCard, /presentation\?: "default" \| "feature"/);
+  assert.match(previewCard, /fit=\{presentation === "feature" \? "contain" : "cover"\}/);
+  assert.match(previewCard, /object-contain/);
+  assert.match(previewCard, /aspect-\[4\/3\]/);
+  assert.doesNotMatch(previewCard, /mediaAspectRatio|onImageAspectRatio/);
 
   const paymentPanel = source("src/components/payments/OrderPaymentPanel.tsx");
   assert.match(paymentPanel, /fetch\("\/api\/payments\/checkout", \{/);
@@ -320,4 +389,5 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
     /\/api\/client\/deliverables\/\$\{deliverableId\}\/review/,
   );
   assert.match(reviewActions, /action: "rework_requested"/);
+  assert.match(reviewActions, /presentation\?: "default" \| "compact"/);
 });
