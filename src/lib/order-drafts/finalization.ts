@@ -823,13 +823,14 @@ export function reconcileLegacyDraftReferenceFileIdentities(input: {
       );
     }
 
-    reconciled.push({
+    const reconciledReference: FinalizationDraftFileRow = {
       ...file,
       // Preserve the real order_draft_files row id for the later atomic
       // moved-file update. The normalized reference id is a separate,
       // server-verified storage namespace identity used only for validation.
       [VERIFIED_STORAGE_NAMESPACE_FILE_ID]: positionZero.referenceId,
-    });
+    };
+    reconciled.push(reconciledReference);
   }
 
   return { ok: true, data: reconciled };
