@@ -7,6 +7,7 @@ import {
   STALE_DRAFT_FINALIZATION_CLAIM_MINUTES,
   buildTrustedFinalPathForDraftFile,
   buildTrustedMovedDraftFiles,
+  buildVirtualStagingFinalizationItemFiles,
   draftFinalizationMovedPayloadContainsOnlyTrustedFields,
   isExactDraftStoragePathForFile,
   isOwnershipSafeFinalizationNotFound,
@@ -656,7 +657,7 @@ test("path must match the exact verified user, draft, and file namespace", () =>
   );
 });
 
-test("normalized position-zero reference repairs an older random legacy mirror id in memory", () => {
+test("normalized position-zero reference validates with its trusted namespace while preserving the legacy DB row id", () => {
   const storagePath = `drafts/${USER_ID}/${DRAFT_ID}/${REFERENCE_ID}/style.png`;
   const legacyReference = draftFile({
     id: LEGACY_REFERENCE_MIRROR_ID,
@@ -684,17 +685,35 @@ test("normalized position-zero reference repairs an older random legacy mirror i
   });
   assert.equal(reconciled.ok, true);
   if (!reconciled.ok) return;
+
   const reference = reconciled.data.find((file) => file.kind === "reference");
-  assert.equal(reference?.id, REFERENCE_ID);
-  assert.equal(
-    validateAndMatchVirtualStagingDraftFiles({
-      verifiedUserId: USER_ID,
-      draftId: DRAFT_ID,
-      state: draftState(),
-      files: reconciled.data,
-    }).ok,
-    true,
-  );
+  assert.equal(reference?.id, LEGACY_REFERENCE_MIRROR_ID);
+
+  const matched = validateAndMatchVirtualStagingDraftFiles({
+    verifiedUserId: USER_ID,
+    draftId: DRAFT_ID,
+    state: draftState(),
+    files: reconciled.data,
+  });
+  assert.equal(matched.ok, true);
+  if (!matched.ok) return;
+
+  const itemFiles = buildVirtualStagingFinalizationItemFiles(matched.data);
+  assert.equal(itemFiles[0]?.reference?.draftFileId, LEGACY_REFERENCE_MIRROR_ID);
+  assert.equal(itemFiles[0]?.reference?.path, storagePath);
+
+  const moved = buildTrustedMovedDraftFiles([
+    {
+      draftFileId: itemFiles[0]?.reference?.draftFileId,
+      finalPath: "VS-0020/0-reference.png",
+    },
+  ]);
+  assert.deepEqual(moved, [
+    {
+      fileId: LEGACY_REFERENCE_MIRROR_ID,
+      finalPath: "VS-0020/0-reference.png",
+    },
+  ]);
 });
 
 test("normalized reference reconciliation rejects an unverified namespace", () => {
@@ -799,6 +818,17 @@ test("bucket must remain order-files", () => {
     files: [draftFile({ bucket: "public-files" as "order-files" })],
   });
   assert.equal(result.ok, false);
+});
+
+test("atomic draft commit uses the preserved draftFileId, not normalized referenceId, for moved rows", () => {
+  assert.match(
+    ORDER_SERVICE,
+    /\.filter\(\(file\) => file\.draftFileId\)[\s\S]*?fileId: file\.draftFileId!/,
+  );
+  assert.match(
+    ORDER_SERVICE,
+    /referenceId: reference\.referenceId \?\? crypto\.randomUUID\(\)/,
+  );
 });
 
 test("moved-file payload contains only trusted file IDs and final paths", () => {
