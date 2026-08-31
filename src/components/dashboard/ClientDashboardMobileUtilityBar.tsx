@@ -107,10 +107,10 @@ export default function ClientDashboardMobileUtilityBar() {
           aria-label="Open PicchuSpot support chat"
           aria-expanded={open}
           aria-controls="support-chat-widget"
-          className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 px-4 pb-[env(safe-area-inset-bottom)] text-sm font-bold transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+          className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         >
-          <MessageCircle className="h-4 w-4 flex-shrink-0 text-secondary" aria-hidden />
-          <span>Chat</span>
+          <MessageCircle className="h-4 w-4 flex-shrink-0 text-primary" aria-hidden />
+          <span className="truncate text-xs font-bold uppercase tracking-[0.10em]">Chat</span>
         </button>
       </div>
     </>

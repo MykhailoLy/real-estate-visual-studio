@@ -344,6 +344,8 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   assert.match(utilityBarSource, /<SignOutButton/);
   assert.match(utilityBarSource, /event\.key === "Escape"/);
   assert.match(utilityBarSource, /Open PicchuSpot support chat/);
+  assert.match(utilityBarSource, /bg-surface[\s\S]*?text-primary/);
+  assert.match(utilityBarSource, /<MessageCircle className="h-4 w-4 flex-shrink-0 text-primary"/);
   assert.match(utilityBarSource, /env\(safe-area-inset-bottom\)/);
   assert.match(utilityBarSource, /lg:hidden/);
   assert.doesNotMatch(utilityBarSource, /fetch\(|\/api\//);
@@ -480,7 +482,16 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
   );
   assert.match(welcomeOfferSource, /Gift/);
   assert.match(welcomeOfferSource, /bg-primary/);
+  assert.match(welcomeOfferSource, /Your available welcome benefits\./);
   assert.match(welcomeOfferSource, /Use offer/);
+  assert.match(
+    savedDraftsSource,
+    /text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary/,
+  );
+  assert.match(
+    railSource,
+    /id="recently-completed-heading"\s*className="text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary"/,
+  );
 
   assert.match(savedDraftsSource, /data-dashboard-section=\{panel/);
   assert.match(
@@ -529,6 +540,10 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(quickStartSource, /images=\{images\}/);
   assert.match(quickStartSource, /examples=\{examples\}/);
   assert.match(quickStartSource, /layout="dashboard"/);
+  assert.match(
+    quickStartSource,
+    /text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary/,
+  );
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
   assert.match(
     serviceGridSource,
@@ -543,6 +558,7 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(globalsSource, /--breakpoint-5xl: 150rem/);
   assert.match(globalsSource, /--breakpoint-6xl: 200rem/);
   assert.match(serviceCardSource, /getOrderServicePriceLabel\(service, currency\)/);
+  assert.match(serviceCardSource, /isDashboard \? "text-secondary" : "text-primary"/);
   assert.match(priceLabelSource, /getCatalogPrice\(service\.priceKey, currency\)/);
   assert.match(serviceCardSource, /const isDashboard = layout === "dashboard"/);
   assert.match(serviceCardSource, /isDashboard && isActive/);
@@ -563,6 +579,10 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(responsiveServicesSource, /ssr: false/);
   assert.doesNotMatch(responsiveServicesSource, /<DashboardQuickStart/);
   assert.match(mobileSelectorSource, /getOrderServicePriceLabel\(service, currency\)/);
+  assert.match(
+    mobileSelectorSource,
+    /text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary/,
+  );
   assert.match(mobileSelectorSource, /services\.map/);
   assert.match(mobileSelectorSource, /href=\{service\.route\}/);
 });

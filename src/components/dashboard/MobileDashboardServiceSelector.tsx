@@ -31,7 +31,7 @@ export default function MobileDashboardServiceSelector() {
       <div className="border-b border-border px-4 py-4">
         <h2
           id="mobile-dashboard-services-heading"
-          className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+          className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
         >
           Services
         </h2>

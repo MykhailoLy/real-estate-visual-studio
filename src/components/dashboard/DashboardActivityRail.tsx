@@ -84,7 +84,7 @@ export default function DashboardActivityRail({
           <div className="border-b border-border px-4 py-4">
             <h2
               id="recently-completed-heading"
-              className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+              className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
             >
               Recently completed
             </h2>

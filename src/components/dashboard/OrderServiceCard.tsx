@@ -219,7 +219,12 @@ export default function OrderServiceCard({
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-primary">
+            <p
+              className={cn(
+                "truncate text-sm font-semibold",
+                isDashboard ? "text-secondary" : "text-primary",
+              )}
+            >
               {getOrderServicePriceLabel(service, currency)}
             </p>
             {service.turnaroundLabel && (

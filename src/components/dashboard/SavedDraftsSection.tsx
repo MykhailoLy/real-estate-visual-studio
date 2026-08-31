@@ -269,7 +269,7 @@ export default function SavedDraftsSection({
               id={headingId}
               className={cn(
                 panel
-                  ? "text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+                  ? "text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
                   : "text-sm font-bold text-primary",
               )}
             >

@@ -37,7 +37,7 @@ export default function DashboardWelcomeOffer({
               Welcome Offer
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-white/75">
-              Available benefits for your first order.
+              Your available welcome benefits.
             </p>
           </div>
         </div>
