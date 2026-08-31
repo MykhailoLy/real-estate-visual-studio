@@ -24,6 +24,7 @@ export default function JobsWorkspaceRail({ jobs }: JobsWorkspaceRailProps) {
         workspace
         panel
         deletable
+        listLimit={8}
       />
 
       <section
@@ -46,22 +47,22 @@ export default function JobsWorkspaceRail({ jobs }: JobsWorkspaceRailProps) {
                 <ClientPortalLink
                   href={`/dashboard/jobs/${job.id}`}
                   aria-label={`Open ${job.title}, ${job.reference}`}
-                  className="group block min-h-11 rounded-lg py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="group block min-h-11 cursor-pointer rounded-lg px-2 py-2 transition-colors hover:bg-ivory focus:bg-ivory focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   <span className="flex items-start justify-between gap-2">
                     <StatusBadge status={job.status} compact />
                     <ArrowRight
-                      className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-muted-light transition-colors group-hover:text-primary"
+                      className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-secondary transition-colors group-hover:translate-x-0.5 group-hover:text-primary group-focus-visible:translate-x-0.5 group-focus-visible:text-primary"
                       aria-hidden
                     />
                   </span>
-                  <span className="mt-2 line-clamp-2 break-words text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
+                  <span className="mt-2 line-clamp-2 break-words text-sm font-bold leading-snug text-primary transition-colors group-hover:text-primary-light group-focus-visible:text-primary-light">
                     {job.title}
                   </span>
-                  <span className="mt-1 block break-words text-xs leading-snug text-muted">
+                  <span className="mt-1 block break-words text-xs font-medium leading-snug text-foreground/80">
                     {job.serviceType}
                   </span>
-                  <span className="mt-1.5 block truncate font-mono text-[10px] text-muted">
+                  <span className="mt-1.5 block truncate font-mono text-[10px] font-semibold text-foreground/80">
                     {job.reference}
                   </span>
                 </ClientPortalLink>

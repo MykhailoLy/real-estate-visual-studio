@@ -11,6 +11,8 @@ import {
 import {
   CLIENT_PORTAL_QA_COMPLETED_JOBS,
   CLIENT_PORTAL_QA_DRAFTS,
+  CLIENT_PORTAL_QA_JOBS,
+  CLIENT_PORTAL_QA_OPEN_JOBS,
 } from "./client-portal-qa-fixtures.ts";
 import { isProfileComplete } from "./profile-completion.ts";
 
@@ -73,8 +75,16 @@ test("QA fixtures are render-only, populated, and avoid real draft or order rout
   });
   assert.equal(CLIENT_PORTAL_QA_DRAFTS.length, 8);
   assert.equal(CLIENT_PORTAL_QA_COMPLETED_JOBS.length, 6);
+  assert.ok(CLIENT_PORTAL_QA_OPEN_JOBS.length >= 3);
+  assert.equal(
+    CLIENT_PORTAL_QA_JOBS.length,
+    CLIENT_PORTAL_QA_OPEN_JOBS.length + CLIENT_PORTAL_QA_COMPLETED_JOBS.length,
+  );
   assert.ok(CLIENT_PORTAL_QA_DRAFTS.every((draft) => draft.id.startsWith("qa-draft-")));
   assert.ok(CLIENT_PORTAL_QA_COMPLETED_JOBS.every((job) => job.id.startsWith("qa-completed-")));
+  assert.ok(CLIENT_PORTAL_QA_OPEN_JOBS.every((job) => job.id.startsWith("qa-open-")));
+  assert.ok(CLIENT_PORTAL_QA_OPEN_JOBS.every((job) => job.status !== "completed"));
+  assert.ok(new Set(CLIENT_PORTAL_QA_OPEN_JOBS.map((job) => job.status)).size >= 3);
   assert.ok(
     CLIENT_PORTAL_QA_DRAFTS.every(
       (draft) => draft.route.startsWith("/dashboard/orders/new/"),

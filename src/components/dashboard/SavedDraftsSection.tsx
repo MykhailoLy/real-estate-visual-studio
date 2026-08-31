@@ -38,7 +38,7 @@ interface SavedDraftsSectionProps {
   variant?: SavedDraftsVariant;
   heading?: string;
   helper?: string;
-  /** Use the concise copy required by the Jobs workspace rail. */
+  /** Use the Jobs workspace copy required by the Jobs workspace rail. */
   workspace?: boolean;
   panel?: boolean;
   deletable?: boolean;
@@ -71,7 +71,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     heading: "Saved drafts",
     helper: "Continue where you left off.",
     workspaceHeading: "Awaiting submission",
-    workspaceHelper: "Continue a saved order...",
+    workspaceHelper: "Continue a saved order when you are ready.",
     badge: "Draft",
     finishingBadge: "Finishing order",
     updated: "Updated",
@@ -102,7 +102,7 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     heading: "Borradores guardados",
     helper: "Continúa donde lo dejaste.",
     workspaceHeading: "Pendiente de envío",
-    workspaceHelper: "Continúa un pedido guardado...",
+    workspaceHelper: "Continúa un pedido guardado cuando estés listo.",
     badge: "Borrador",
     finishingBadge: "Finalizando pedido",
     updated: "Actualizado",

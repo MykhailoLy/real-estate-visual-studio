@@ -16,7 +16,7 @@ import {
 } from "@/lib/client-orders";
 import { getReviewsForClient } from "@/lib/client-reviews";
 import { toOrderOwnership } from "@/lib/order-ownership";
-import { CLIENT_PORTAL_QA_COMPLETED_JOBS } from "@/lib/client-portal-qa-fixtures";
+import { CLIENT_PORTAL_QA_JOBS } from "@/lib/client-portal-qa-fixtures";
 import ClientJobsShell from "@/components/dashboard/ClientJobsShell";
 
 export const metadata = {
@@ -38,7 +38,7 @@ export default async function DashboardJobsPage() {
     : [[], []];
 
   const jobs = user?.isQaPreview
-    ? [...CLIENT_PORTAL_QA_COMPLETED_JOBS]
+    ? [...CLIENT_PORTAL_QA_JOBS]
     : mapOrdersToDashboardJobs(rawOrders, reviews);
 
   return <ClientJobsShell jobs={jobs} />;

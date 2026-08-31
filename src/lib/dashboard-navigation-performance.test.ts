@@ -257,10 +257,10 @@ test("synthetic dashboard renders use fixed safe fixtures and bypass ownership r
   }
 
   const jobsPageSource = source("app/(dashboard)/dashboard/jobs/page.tsx");
-  assert.match(jobsPageSource, /CLIENT_PORTAL_QA_COMPLETED_JOBS/);
+  assert.match(jobsPageSource, /CLIENT_PORTAL_QA_JOBS/);
   assert.match(
     jobsPageSource,
-    /user\?\.isQaPreview[\s\S]*?\? \[\.\.\.CLIENT_PORTAL_QA_COMPLETED_JOBS\]/,
+    /user\?\.isQaPreview[\s\S]*?\? \[\.\.\.CLIENT_PORTAL_QA_JOBS\]/,
   );
 
   const detailSource = source("app/(dashboard)/dashboard/jobs/[orderId]/page.tsx");
@@ -664,10 +664,14 @@ test("Jobs workspace keeps a bounded rail before the flexible jobs area", () => 
   );
   assert.match(
     railSource,
-    /<SavedDraftsSection[\s\S]*?variant="rail"[\s\S]*?workspace[\s\S]*?panel[\s\S]*?deletable/,
+    /<SavedDraftsSection[\s\S]*?variant="rail"[\s\S]*?workspace[\s\S]*?panel[\s\S]*?deletable[\s\S]*?listLimit=\{8\}/,
   );
   assert.doesNotMatch(railSource, /listOrderDrafts|\/api\/order-drafts|fetch\(/);
   assert.match(savedDraftsSource, /listLimit = 3/);
+  assert.match(
+    savedDraftsSource,
+    /workspaceHelper: "Continue a saved order when you are ready\."/,
+  );
   assert.match(draftsRouteSource, /<ClientDraftsPage \/>/);
 });
 
@@ -693,6 +697,9 @@ test("Jobs rail derives only open orders and reuses detail links and StatusBadge
     /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/,
   );
   assert.match(railSource, /Open jobs/);
+  assert.match(railSource, /hover:bg-ivory/);
+  assert.match(railSource, /focus:bg-ivory/);
+  assert.match(railSource, /cursor-pointer/);
   assert.doesNotMatch(railSource, /Needs attention|pending orders/i);
 });
 
@@ -783,15 +790,21 @@ test("Jobs uses one status controller and distinct mobile and desktop results", 
   assert.match(tableSource, /data-mobile-jobs-list/);
   assert.match(tableSource, /lg:hidden/);
   assert.match(tableSource, /data-desktop-jobs-table/);
-  assert.equal(tableSource.match(/<JobSecondaryLabel/g)?.length, 2);
+  assert.equal(tableSource.match(/<JobSecondaryLabel/g)?.length, 1);
   assert.doesNotMatch(tableSource, /\{job\.secondaryLabel && \(/);
   assert.match(tableSource, /hidden[\s\S]*?lg:block/);
-  assert.match(tableSource, /min-w-\[960px\] w-full table-fixed text-sm/);
+  assert.match(tableSource, /min-w-\[1200px\] w-full table-fixed text-sm/);
+  assert.match(tableSource, /<col className="w-\[18%\]" \/>/);
+  assert.match(tableSource, /<col className="w-\[11%\]" \/>/);
   assert.match(tableSource, />\s*Job title\s*</);
   assert.match(tableSource, />\s*Job reference\s*</);
   assert.match(tableSource, />\s*Job submitted\s*</);
   assert.match(tableSource, />\s*Job complete\s*</);
   assert.match(tableSource, />\s*Job type\s*</);
+  assert.match(tableSource, /const JOB_COMPLETE_VALUE = "—"/);
+  assert.equal(tableSource.match(/\{JOB_COMPLETE_VALUE\}/g)?.length, 2);
+  assert.doesNotMatch(tableSource, /job\.estimatedCompletion/);
+  assert.match(filtersSource, /text-secondary/);
   assert.doesNotMatch(tableSource, /minWidth:[\s\S]*?720px/);
   assert.match(tableSource, /min-h-11 w-full/);
   assert.match(tableSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
