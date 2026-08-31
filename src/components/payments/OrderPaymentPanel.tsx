@@ -15,6 +15,7 @@ interface OrderPaymentPanelProps {
   initialSummary?: AuthoritativePaymentSummary | null;
   secondaryHref?: string;
   secondaryLabel?: string;
+  presentation?: "default" | "order-detail";
 }
 
 export default function OrderPaymentPanel({
@@ -22,6 +23,7 @@ export default function OrderPaymentPanel({
   initialSummary,
   secondaryHref,
   secondaryLabel = "View order",
+  presentation = "default",
 }: OrderPaymentPanelProps) {
   const [summary, setSummary] = useState<AuthoritativePaymentSummary | null>(
     initialSummary ?? null,
@@ -176,8 +178,12 @@ export default function OrderPaymentPanel({
     <div className="rounded-xl border border-border bg-white p-5 text-left shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-light">
-            Payment summary
+          <p
+            className={`text-xs font-bold uppercase tracking-[0.14em] ${
+              presentation === "order-detail" ? "text-secondary" : "text-muted-light"
+            }`}
+          >
+            {presentation === "order-detail" ? "Payment" : "Payment summary"}
           </p>
           <p className="mt-1 text-base font-bold text-foreground">
             {summary.serviceLabel}

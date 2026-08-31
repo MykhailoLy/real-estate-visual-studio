@@ -3,15 +3,11 @@ import type { ReactNode } from "react";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowLeft,
-  Building2,
   CalendarDays,
-  ChevronDown,
-  Clock,
   FolderOpen,
   Layers,
   LifeBuoy,
   PlusCircle,
-  Receipt,
 } from "lucide-react";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
@@ -31,7 +27,6 @@ import {
 } from "@/lib/client-deliverable-display";
 import {
   deriveDashboardStatusFromReviews,
-  deriveEstimatedCompletion,
   getOrderForClient,
   getProgressFromStatus,
 } from "@/lib/client-orders";
@@ -48,7 +43,6 @@ import {
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatBytes, itemLabel } from "@/lib/display/file-format";
 import { formatStoredMoney } from "@/lib/pricing/format";
-import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
 import { createSupabaseCheckoutRepository } from "@/lib/payments/checkout-repository";
 import { getAuthoritativePaymentSummary } from "@/lib/payments/payment-summary";
@@ -174,109 +168,133 @@ function ProgressBar({ value, className = "" }: { value: number; className?: str
   );
 }
 
-interface OrderDetailContextProps {
+interface JobDetailsCardProps {
   orderNumber: string;
   serviceLabel: string;
   jobTitle: string;
   submittedLabel: string;
-  estimatedCompletionLabel: string;
   itemCount: number;
-  totalLabel: string;
   totalValue: string;
-  pricing: ReturnType<typeof parsePricingSnapshot>;
   clientCompany: string | null;
+  status: ReactNode;
   progress: number;
   progressMessage: ReactNode;
 }
 
-function OrderDetailContext({
+function JobDetailsCard({
   orderNumber,
   serviceLabel,
   jobTitle,
   submittedLabel,
-  estimatedCompletionLabel,
   itemCount,
-  totalLabel,
   totalValue,
-  pricing,
   clientCompany,
+  status,
   progress,
   progressMessage,
-}: OrderDetailContextProps) {
+}: JobDetailsCardProps) {
   return (
-    <div className="space-y-4">
-      <section className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-        <div className="flex items-center gap-2 border-b border-border bg-surface/60 px-5 py-3.5">
-          <Receipt className="h-4 w-4 text-primary" aria-hidden />
-          <h2 className="text-[13px] font-bold text-foreground">Summary</h2>
+    <section
+      aria-labelledby="job-details-heading"
+      className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+    >
+      <div className="border-b border-border bg-surface/60 px-5 py-3.5">
+        <h2
+          id="job-details-heading"
+          className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary"
+        >
+          Job details
+        </h2>
+      </div>
+      <dl className="grid grid-cols-1 sm:grid-cols-2">
+        <JobDetailsRow label="Job name" value={jobTitle || serviceLabel} />
+        <JobDetailsRow label="Reference" value={orderNumber} mono />
+        <JobDetailsRow label="Cost" value={totalValue} strong />
+        <JobDetailsRow label="Status" value={status} />
+        <JobDetailsRow label="Submitted" value={submittedLabel} />
+        <JobDetailsRow label="Completed" value="—" />
+        <JobDetailsRow label="Service" value={serviceLabel} />
+        <JobDetailsRow
+          label="Images / items"
+          value={`${itemCount} image${itemCount !== 1 ? "s" : ""}`}
+        />
+        {clientCompany && (
+          <JobDetailsRow label="Company" value={clientCompany} />
+        )}
+        <div className="border-t border-border px-5 py-4 sm:col-span-2">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+              Progress
+            </dt>
+            <dd className="text-[11px] text-muted">{progressMessage}</dd>
+          </div>
+          <ProgressBar value={progress} />
         </div>
-        <dl className="divide-y divide-border">
-          <SummaryRow label="Order number" value={orderNumber} mono />
-          <SummaryRow label="Service" value={serviceLabel} />
-          {jobTitle && <SummaryRow label="Job title" value={jobTitle} />}
-          <SummaryRow label="Submitted" value={submittedLabel} />
-          <SummaryRow
-            label="Est. completion"
-            value={estimatedCompletionLabel}
-          />
-          <SummaryRow
-            label="Images / items"
-            value={`${itemCount} image${itemCount !== 1 ? "s" : ""}`}
-          />
-          <SummaryRow label={totalLabel} value={totalValue} bold />
-          {pricing && (
-            <>
-              <SummaryRow
-                label="Base subtotal"
-                value={formatStoredMoney(
-                  pricing.baseSubtotalCents,
-                  pricing.currency,
-                )}
-              />
-              <SummaryRow
-                label="Add-ons"
-                value={formatStoredMoney(
-                  pricing.addOnSubtotalCents,
-                  pricing.currency,
-                )}
-              />
-              {pricing.welcomeDiscountCents > 0 && (
-                <SummaryRow
-                  label="Welcome Offer"
-                  value={`−${formatStoredMoney(
-                    pricing.welcomeDiscountCents,
-                    pricing.currency,
-                  )}`}
-                />
-              )}
-              {pricing.volumeDiscountPercent > 0 && (
-                <SummaryRow
-                  label={`Volume discount (${pricing.volumeDiscountPercent}%)`}
-                  value={`−${formatStoredMoney(
-                    pricing.volumeDiscountCents,
-                    pricing.currency,
-                  )}`}
-                />
-              )}
-            </>
-          )}
-          {clientCompany && (
-            <SummaryRow label="Company" value={clientCompany} />
-          )}
-        </dl>
-      </section>
+      </dl>
+    </section>
+  );
+}
 
-      <section className="rounded-xl border border-border bg-white p-5 shadow-sm">
-        <div className="mb-3 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-primary" aria-hidden />
-          <h2 className="text-[13px] font-bold text-foreground">Progress</h2>
+function DeliveryCard({
+  orderId,
+  hasDeliverables,
+  paymentState,
+}: {
+  orderId: string;
+  hasDeliverables: boolean;
+  paymentState: "paid" | "no_payment_required" | "partially_refunded" | "refunded" | "not_available" | undefined;
+}) {
+  const paymentMessage =
+    paymentState === "paid"
+      ? "Payment confirmed"
+      : paymentState === "no_payment_required"
+        ? "No payment required"
+        : paymentState === "partially_refunded"
+          ? "Payment partially refunded"
+          : paymentState === "refunded"
+            ? "Payment refunded"
+            : null;
+
+  return (
+    <section
+      aria-labelledby="delivery-heading"
+      className="rounded-xl border border-border bg-white p-5 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2
+            id="delivery-heading"
+            className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary"
+          >
+            Delivery
+          </h2>
+          {paymentMessage && (
+            <p className="mt-1 text-[12px] font-medium text-muted">
+              {paymentMessage}
+            </p>
+          )}
         </div>
-        <ProgressBar value={progress} className="mb-3" />
-        <p className="text-[11px] leading-relaxed text-muted">
-          {progressMessage}
+      </div>
+      {hasDeliverables ? (
+        <div className="mt-5">
+          <p className="text-sm font-semibold text-foreground">
+            Delivered files available
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+            Download the available delivered files as a ZIP.
+          </p>
+          <BulkDownloadButton
+            endpoint={`/api/client/orders/${orderId}/deliverables/bulk-download`}
+            label="Download completed job"
+            className="mt-4 items-start"
+          />
+        </div>
+      ) : (
+        <p className="mt-5 text-[13px] leading-relaxed text-muted">
+          Files will appear here when ready.
         </p>
-      </section>
-    </div>
+      )}
+    </section>
   );
 }
 
@@ -322,15 +340,6 @@ export default async function OrderDetailPage({
   const jobTitle = order.job_title?.trim() || "";
   const dashStatus = deriveDashboardStatusFromReviews(order.status, orderReviews);
   const progress = getProgressFromStatus(order.status);
-  const estimatedComp = deriveEstimatedCompletion(order.status, order.created_at);
-  const estimatedCompDisplay = formatDisplayDate(estimatedComp);
-  const pricing = parsePricingSnapshot(order.pricing_snapshot);
-  const estimatedCompletionLabel =
-    estimatedComp === "Delivered"
-      ? "Delivered"
-      : estimatedCompDisplay === "-"
-        ? "-"
-        : `~${estimatedCompDisplay} (est.)`;
   const progressMessage = (
     <>
       {paymentSummary?.state === "payment_required" &&
@@ -372,22 +381,20 @@ export default async function OrderDetailPage({
           currency: paymentSummary.currency,
         }
       : null;
-  const orderContextProps = {
+  const jobDetailsProps = {
     orderNumber: order.order_number,
     serviceLabel,
     jobTitle,
     submittedLabel: formatDisplayDate(order.created_at),
-    estimatedCompletionLabel,
     itemCount: order.item_count,
-    totalLabel: authoritativeTotal ? "Final total" : "Estimated total",
     totalValue: authoritativeTotal
       ? formatStoredMoney(authoritativeTotal.cents, authoritativeTotal.currency)
       : formatStoredMoney(order.estimated_total_cents, order.currency),
-    pricing,
     clientCompany: order.client_company,
+    status: <StatusBadge status={dashStatus} />,
     progress,
     progressMessage,
-  } satisfies OrderDetailContextProps;
+  } satisfies JobDetailsCardProps;
 
   return (
     <ClientDashboardLayout>
@@ -401,9 +408,9 @@ export default async function OrderDetailPage({
         </ClientPortalLink>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-7">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-1.5">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary">
             Order detail
           </p>
           <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
@@ -424,14 +431,14 @@ export default async function OrderDetailPage({
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           <ClientPortalLink
             href="/dashboard/support"
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-lg text-[12px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary bg-white transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <LifeBuoy className="w-3.5 h-3.5" aria-hidden />
             Contact support
           </ClientPortalLink>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             New order
@@ -439,52 +446,37 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
-      {paymentSummary ? (
-        <div className="mb-7">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+        <JobDetailsCard {...jobDetailsProps} />
+        {paymentSummary?.state === "payment_required" ||
+        paymentSummary?.state === "processing" ? (
           <OrderPaymentPanel
             orderId={order.id}
             initialSummary={paymentSummary}
-            secondaryHref="/dashboard/jobs"
-            secondaryLabel="Back to jobs"
+            presentation="order-detail"
           />
-        </div>
-      ) : null}
-
-      <details
-        data-order-context-mobile
-        className="group mb-6 overflow-hidden rounded-xl border border-border bg-white shadow-sm lg:hidden"
-      >
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
-          Order summary and progress
-          <ChevronDown
-            className="h-4 w-4 transition-transform group-open:rotate-180"
-            aria-hidden
+        ) : (
+          <DeliveryCard
+            orderId={order.id}
+            hasDeliverables={currentDeliverables.length > 0}
+            paymentState={
+              paymentSummary?.state === "paid" ||
+              paymentSummary?.state === "no_payment_required" ||
+              paymentSummary?.state === "partially_refunded" ||
+              paymentSummary?.state === "refunded" ||
+              paymentSummary?.state === "not_available"
+                ? paymentSummary.state
+                : undefined
+            }
           />
-        </summary>
-        <div className="border-t border-border bg-surface/40 p-4">
-          <OrderDetailContext {...orderContextProps} />
-        </div>
-      </details>
+        )}
+      </div>
 
-      <div
-        data-order-detail-workspace
-        className="grid min-w-0 grid-cols-1 gap-7 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-8"
-      >
-        <aside
-          data-order-context-desktop
-          aria-label="Order summary and progress"
-          className="hidden min-w-0 lg:block lg:self-start"
-        >
-          <div className="lg:sticky lg:top-8">
-            <OrderDetailContext {...orderContextProps} />
-          </div>
-        </aside>
-
-        <section data-order-workflow className="min-w-0 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <section data-order-workflow className="mt-7 min-w-0 space-y-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-primary" aria-hidden />
-            <h2 className="text-[13px] font-bold text-foreground">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
               Image workflow
               <span className="ml-2 text-[11px] font-normal text-muted">
                 ({order.items.length} image{order.items.length !== 1 ? "s" : ""})
@@ -494,6 +486,7 @@ export default async function OrderDetailPage({
           <BulkDownloadButton
             endpoint={`/api/client/orders/${order.id}/deliverables/bulk-download`}
             disabled={currentDeliverables.length === 0}
+            label="Download completed job"
             emptyLabel="No files"
           />
         </div>
@@ -529,7 +522,7 @@ export default async function OrderDetailPage({
             })}
           </div>
         ) : (
-          <div className="bg-white border border-border rounded-xl shadow-sm p-8 flex flex-col items-center justify-center text-center">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-white p-8 text-center shadow-sm">
             <div className="w-12 h-12 rounded-xl bg-surface border border-border flex items-center justify-center mb-4">
               <Layers className="w-5 h-5 text-muted-light" aria-hidden />
             </div>
@@ -543,11 +536,11 @@ export default async function OrderDetailPage({
         )}
 
         {orderLevelDeliverables.length > 0 && (
-          <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
+          <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+            <div className="flex items-center gap-2 border-b border-border bg-surface/60 px-5 py-3.5">
               <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
-              <h2 className="text-[13px] font-bold text-foreground">
-                Order-level files
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
+                Order files
               </h2>
               <span className="ml-auto text-[11px] text-muted-light text-right">
                 {orderLevelDeliverables.length} file{orderLevelDeliverables.length !== 1 ? "s" : ""}
@@ -584,12 +577,17 @@ export default async function OrderDetailPage({
                       </div>
                     }
                     actions={
-                      <DeliverableReviewActions
-                        deliverableId={deliverable.id}
-                        initialReviewStatus={review?.status ?? null}
-                        initialComment={review?.comment ?? null}
-                        filename={deliverable.filename}
-                      />
+                      <div className="w-full border-t border-border pt-3">
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+                          Need something changed?
+                        </p>
+                        <DeliverableReviewActions
+                          deliverableId={deliverable.id}
+                          initialReviewStatus={review?.status ?? null}
+                          initialComment={review?.comment ?? null}
+                          filename={deliverable.filename}
+                        />
+                      </div>
                     }
                   />
                 </li>
@@ -598,41 +596,27 @@ export default async function OrderDetailPage({
           </div>
         )}
 
-        {order.client_company && (
-          <div className="flex items-start gap-3 bg-surface border border-border rounded-xl p-4">
-            <Building2 className="w-4 h-4 text-muted flex-shrink-0 mt-0.5" aria-hidden />
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-0.5">
-                Order placed for
-              </p>
-              <p className="text-[13px] font-semibold text-foreground">
-                {order.client_company}
-              </p>
-            </div>
-          </div>
-        )}
       </section>
-      </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 px-5 py-4 bg-surface border border-border rounded-xl">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface px-5 py-4">
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-muted-light" aria-hidden />
           <p className="text-xs text-muted">
-            Order submitted {formatDisplayDate(order.created_at)} - Last updated{" "}
+            Order submitted {formatDisplayDate(order.created_at)} · Last updated{" "}
             {formatDisplayDate(order.updated_at)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ClientPortalLink
             href="/dashboard/jobs"
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-lg text-[12px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary bg-white transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
             All jobs
           </ClientPortalLink>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             Place another order
@@ -643,27 +627,27 @@ export default async function OrderDetailPage({
   );
 }
 
-function SummaryRow({
+function JobDetailsRow({
   label,
   value,
   mono = false,
-  bold = false,
+  strong = false,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   mono?: boolean;
-  bold?: boolean;
+  strong?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-5 py-3">
-      <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light flex-shrink-0">
+    <div className="min-w-0 border-b border-border px-5 py-3 sm:even:border-l">
+      <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
         {label}
       </dt>
       <dd
         className={[
-          "text-right leading-snug",
+          "min-w-0 leading-snug",
           mono ? "font-mono text-[12px] text-foreground" : "text-[13px] text-foreground",
-          bold ? "font-bold" : "font-medium",
+          strong ? "font-bold" : "font-medium",
         ].join(" ")}
       >
         {value}

@@ -107,12 +107,12 @@ export default function ClientOrderImageCard({
     <article className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
       <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[14px] font-bold text-foreground">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
             Image {imageNumber} of {imageCount}
           </h3>
           {subtotalLabel && (
             <p className="mt-0.5 text-[11px] font-semibold text-muted tabular-nums">
-              {subtotalLabel}
+              Subtotal · {subtotalLabel}
             </p>
           )}
         </div>
@@ -145,7 +145,7 @@ export default function ClientOrderImageCard({
 
             {referenceSources.length > 0 && (
               <div className="mt-3 rounded-lg border border-border bg-surface/30 p-3">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
                   Reference files
                 </p>
                 <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
@@ -178,7 +178,7 @@ export default function ClientOrderImageCard({
                         filename={deliverable.filename}
                         mimeType={deliverable.mime_type}
                         fileSizeLabel={formatBytes(deliverable.file_size)}
-                        badgeLabel={`Image ${imageNumber}`}
+                        badgeLabel="Delivered"
                         signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
                         downloadLabel="Download file"
                         meta={
@@ -196,12 +196,17 @@ export default function ClientOrderImageCard({
                           </div>
                         }
                         actions={
-                          <DeliverableReviewActions
-                            deliverableId={deliverable.id}
-                            initialReviewStatus={review?.status ?? null}
-                            initialComment={review?.comment ?? null}
-                            filename={deliverable.filename}
-                          />
+                          <div className="w-full border-t border-border pt-3">
+                            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+                              Need something changed?
+                            </p>
+                            <DeliverableReviewActions
+                              deliverableId={deliverable.id}
+                              initialReviewStatus={review?.status ?? null}
+                              initialComment={review?.comment ?? null}
+                              filename={deliverable.filename}
+                            />
+                          </div>
                         }
                       />
                     </LargePreviewFrame>
@@ -221,9 +226,12 @@ export default function ClientOrderImageCard({
             )}
           </WorkflowPanel>
 
-          <WorkflowPanel title="Request details">
+          <WorkflowPanel title="Edits / options">
             <div className="rounded-lg border border-border bg-surface/30 p-4">
-              <OrderItemDetails details={details} />
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
+                Preferences / options
+              </p>
+              <OrderItemDetails details={details} variant="specification" />
             </div>
             {COMMENT_STATUSES.has(status) && latestComment && (
               <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
@@ -284,7 +292,7 @@ function WorkflowPanel({
 }) {
   return (
     <section className="min-w-0 h-full">
-      <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light mb-2">
+      <h4 className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary">
         {title}
       </h4>
       {children}

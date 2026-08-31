@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 
 interface Props {
   details: Record<string, unknown>;
+  variant?: "default" | "specification";
 }
 
 const KEY_LABELS: Record<string, string> = {
@@ -62,7 +63,7 @@ const SKIP_KEYS = new Set([
   "removal_tasks",
 ]);
 
-export default function OrderItemDetails({ details }: Props) {
+export default function OrderItemDetails({ details, variant = "default" }: Props) {
   const entries = Object.entries(details).filter(
     ([key, value]) =>
       !SKIP_KEYS.has(key) &&
@@ -80,11 +81,26 @@ export default function OrderItemDetails({ details }: Props) {
     );
   }
 
+  if (variant === "specification") {
+    return (
+      <dl className="divide-y divide-border">
+        {entries.map(([key, value]) => (
+          <div key={key} className="min-w-0 py-2.5 first:pt-0 last:pb-0">
+            <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
+              {KEY_LABELS[key] ?? toTitleLabel(key)}
+            </dt>
+            <dd>{renderValue(value)}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
   return (
-    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+    <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
       {entries.map(([key, value]) => (
         <div key={key} className="min-w-0">
-          <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light mb-1">
+          <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
             {KEY_LABELS[key] ?? toTitleLabel(key)}
           </dt>
           <dd>{renderValue(value)}</dd>
