@@ -22,7 +22,7 @@ export default async function NewVirtualRenovationOrderPage() {
   ]);
 
   return (
-    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
+    <ClientDashboardLayout flush>
       <VirtualRenovationMediaProvider mediaByKey={Object.fromEntries(media)}>
         <VirtualRenovationOrderForm clientEmail={email} orderRoute={ORDER_ROUTE} />
       </VirtualRenovationMediaProvider>

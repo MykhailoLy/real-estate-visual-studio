@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
+import { CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME } from "./client-portal-workspace";
 import SignOutButton from "./SignOutButton";
 import ClientPortalLink from "./ClientPortalLink";
 import ClientDashboardMobileNav from "./ClientDashboardMobileNav";
@@ -46,6 +47,7 @@ interface DashboardAccountMenuProps {
 
 export default function ClientDashboardTopNav() {
   const pathname = usePathname() ?? "/dashboard";
+  const user = useDashboardUser();
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -63,7 +65,12 @@ export default function ClientDashboardTopNav() {
 
   return (
     <header className="sticky top-0 z-40 flex-shrink-0 border-b border-border bg-white shadow-sm">
-      <div className="flex h-14 min-w-0 items-center gap-2 px-4 sm:h-16 sm:px-6 lg:px-8">
+      <div
+        className={cn(
+          CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+          "flex h-14 min-w-0 items-center gap-2 sm:h-16",
+        )}
+      >
         <Link
           href={getLocaleAwareHref("/", language)}
           aria-label="Open the PicchuSpot public homepage"
@@ -79,7 +86,18 @@ export default function ClientDashboardTopNav() {
           <BrandWordmark theme="light" className="min-w-0 text-sm sm:text-lg" />
         </Link>
 
-        <div className="ml-auto hidden min-w-0 items-center gap-2 lg:flex">
+        {user?.isQaPreview && (
+          <span className="ml-auto inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-800">
+            QA Preview
+          </span>
+        )}
+
+        <div
+          className={cn(
+            "hidden min-w-0 items-center gap-2 lg:flex",
+            !user?.isQaPreview && "ml-auto",
+          )}
+        >
           <PublicResourcesMenu language={language} />
           <MarketLanguageSelector
             pathname={pathname}
@@ -100,7 +118,10 @@ export default function ClientDashboardTopNav() {
           aria-label={mobileMenuOpen ? "Close dashboard menu" : "Open dashboard menu"}
           aria-expanded={mobileMenuOpen}
           aria-controls="client-dashboard-mobile-menu"
-          className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden"
+          className={cn(
+            "inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden",
+            !user?.isQaPreview && "ml-auto",
+          )}
         >
           {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
         </button>
@@ -123,7 +144,10 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
     <div className="hidden border-t border-border bg-primary lg:block">
       <nav
         aria-label="Dashboard navigation"
-        className="flex h-12 items-center gap-1 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] sm:px-6 lg:px-8 [&::-webkit-scrollbar]:hidden"
+        className={cn(
+          CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+          "flex h-12 items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        )}
       >
         {DASHBOARD_NAV_ITEMS.map((item) => {
           const active = item.exact

@@ -26,8 +26,10 @@ export default function OrderServiceGrid({
     <ul
       role="list"
       className={cn(
-        "grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3",
-        layout === "catalog" && "2xl:grid-cols-4",
+        "grid grid-cols-1 gap-5 sm:grid-cols-2",
+        layout === "dashboard"
+          ? "3xl:grid-cols-3 5xl:grid-cols-4"
+          : "xl:grid-cols-3 2xl:grid-cols-4 5xl:grid-cols-5 6xl:grid-cols-6",
       )}
     >
       {services.map((service) => (
@@ -44,6 +46,7 @@ export default function OrderServiceGrid({
                 ? images?.get(service.mediaServiceSlug) ?? null
                 : null
             }
+            layout={layout}
           />
         </li>
       ))}

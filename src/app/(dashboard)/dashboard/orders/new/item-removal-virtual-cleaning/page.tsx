@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function NewItemRemovalOrderPage() {
   const { email } = await requireOrderingClient(ROUTE);
   return (
-    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
+    <ClientDashboardLayout flush>
       <ItemRemovalOrderForm clientEmail={email} orderRoute={ROUTE} />
     </ClientDashboardLayout>
   );

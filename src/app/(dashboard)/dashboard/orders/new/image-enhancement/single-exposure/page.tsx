@@ -5,6 +5,8 @@ import { requireOrderingClient } from "@/lib/order-access";
 import { SINGLE_EXPOSURE_ORDER_MEDIA_KEYS } from "@/lib/image-enhancement";
 import { getServiceOptionMediaByKeys } from "@/lib/site-media";
 import { getWelcomeOfferAvailability } from "@/lib/welcome-offer-server";
+import { NO_WELCOME_OFFER_AVAILABLE } from "@/lib/welcome-offer";
+import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +19,17 @@ export const metadata: Metadata = {
 
 export default async function NewSingleExposureOrderPage() {
   const { email, userId } = await requireOrderingClient(ROUTE);
+  const isQaPreview = (await getDashboardRequestUser())?.isQaPreview === true;
   const [media, welcomeOfferAvailability] = await Promise.all([
     getServiceOptionMediaByKeys(SINGLE_EXPOSURE_ORDER_MEDIA_KEYS),
-    getWelcomeOfferAvailability(userId),
+    isQaPreview
+      ? Promise.resolve(NO_WELCOME_OFFER_AVAILABLE)
+      : getWelcomeOfferAvailability(userId),
   ]);
   const exampleMediaByKey = Object.fromEntries(media);
 
   return (
-    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
+    <ClientDashboardLayout flush>
       <SingleExposureOrderForm
         clientEmail={email}
         orderRoute={ROUTE}

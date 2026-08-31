@@ -15,7 +15,7 @@ const ORDER_ROUTE = "/dashboard/orders/new/3d-floor-plans";
 export default async function NewFloorPlansOrderPage() {
   const { email } = await requireOrderingClient(ORDER_ROUTE);
   return (
-    <ClientDashboardLayout contentClassName="mx-auto w-full max-w-[1800px] py-0">
+    <ClientDashboardLayout flush>
       <FloorPlansOrderForm clientEmail={email} orderRoute={ORDER_ROUTE} />
     </ClientDashboardLayout>
   );

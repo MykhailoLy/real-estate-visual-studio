@@ -27,7 +27,9 @@ import {
   resolveSavedDraftServiceName,
 } from "@/lib/order-drafts/saved-drafts";
 import type { OrderDraftSummary } from "@/lib/order-drafts/types";
+import { CLIENT_PORTAL_QA_DRAFTS } from "@/lib/client-portal-qa-fixtures";
 import { cn } from "@/lib/utils";
+import { useDashboardUser } from "./DashboardUserContext";
 
 type LoadState = "loading" | "success" | "error";
 type SavedDraftsVariant = "grid" | "rail";
@@ -163,6 +165,8 @@ export default function SavedDraftsSection({
   className,
 }: SavedDraftsSectionProps) {
   const pathname = usePathname();
+  const user = useDashboardUser();
+  const isQaPreview = user?.isQaPreview === true;
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
   const copy = DRAFT_COPY[language];
@@ -173,6 +177,10 @@ export default function SavedDraftsSection({
   const [reloadKey, setReloadKey] = useState(0);
   const isRail = variant === "rail";
   const headingId = isRail ? "saved-drafts-rail-heading" : "saved-drafts-heading";
+  const visibleDrafts = isQaPreview
+    ? CLIENT_PORTAL_QA_DRAFTS.slice(0, listLimit)
+    : drafts;
+  const visibleLoadState: LoadState = isQaPreview ? "success" : loadState;
 
   useEffect(() => {
     window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
@@ -185,6 +193,8 @@ export default function SavedDraftsSection({
   }, []);
 
   useEffect(() => {
+    if (isQaPreview) return;
+
     const controller = new AbortController();
 
     listOrderDrafts(listLimit, controller.signal)
@@ -203,7 +213,7 @@ export default function SavedDraftsSection({
       });
 
     return () => controller.abort();
-  }, [listLimit, reloadKey]);
+  }, [isQaPreview, listLimit, reloadKey]);
 
   const retry = useCallback(() => {
     setLoadState("loading");
@@ -213,7 +223,7 @@ export default function SavedDraftsSection({
     setLoadState("success");
   }, []);
   const deletion = useOrderDraftDeletion({
-    drafts,
+    drafts: isQaPreview ? [] : drafts,
     setDrafts,
     copy,
     listLimit,
@@ -221,14 +231,14 @@ export default function SavedDraftsSection({
     onRefreshSuccess: handleDeleteRefreshSuccess,
   });
 
-  if (loadState === "success" && drafts.length === 0 && !isRail) {
+  if (visibleLoadState === "success" && visibleDrafts.length === 0 && !isRail) {
     return null;
   }
 
   return (
     <section
       aria-labelledby={headingId}
-      aria-busy={loadState === "loading"}
+      aria-busy={visibleLoadState === "loading"}
       data-dashboard-section={panel ? "awaiting-submission" : undefined}
       className={cn(
         !isRail && "mb-8",
@@ -259,7 +269,7 @@ export default function SavedDraftsSection({
               id={headingId}
               className={cn(
                 panel
-                  ? "text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+                  ? "text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
                   : "text-sm font-bold text-primary",
               )}
             >
@@ -284,7 +294,7 @@ export default function SavedDraftsSection({
             </p>
           )}
         </div>
-        {loadState === "success" && drafts.length > 0 && !panel && (
+        {visibleLoadState === "success" && visibleDrafts.length > 0 && !panel && (
           <ClientPortalLink
             href="/dashboard/drafts"
             className={cn(
@@ -315,7 +325,7 @@ export default function SavedDraftsSection({
         </p>
       )}
 
-      {loadState === "loading" && (
+      {visibleLoadState === "loading" && (
         <div role="status" aria-label={copy.loading}>
           <span className="sr-only">{copy.loading}</span>
           <ul
@@ -332,7 +342,7 @@ export default function SavedDraftsSection({
         </div>
       )}
 
-      {loadState === "error" && (
+      {visibleLoadState === "error" && (
         <div
           className={cn(
             "flex gap-3",
@@ -355,7 +365,7 @@ export default function SavedDraftsSection({
         </div>
       )}
 
-      {loadState === "success" && drafts.length === 0 && isRail && (
+      {visibleLoadState === "success" && visibleDrafts.length === 0 && isRail && (
         <p
           className={cn(
             "bg-surface text-xs leading-relaxed text-muted",
@@ -366,7 +376,7 @@ export default function SavedDraftsSection({
         </p>
       )}
 
-      {loadState === "success" && drafts.length > 0 && (
+      {visibleLoadState === "success" && visibleDrafts.length > 0 && (
         <ul
           className={cn(
             isRail
@@ -374,7 +384,7 @@ export default function SavedDraftsSection({
               : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
           )}
         >
-          {drafts.map((draft) => (
+          {visibleDrafts.map((draft) => (
             <SavedDraftItem
               key={draft.id}
               draft={draft}
@@ -383,6 +393,7 @@ export default function SavedDraftsSection({
               variant={variant}
               panel={panel}
               deletable={deletable}
+              isQaPreview={isQaPreview}
               deleteInteractionDisabled={deletion.deleteInteractionDisabled}
               error={deletion.cardErrors[draft.id] ?? ""}
               onDelete={(trigger) => deletion.beginDelete(draft, trigger)}
@@ -391,7 +402,7 @@ export default function SavedDraftsSection({
         </ul>
       )}
 
-      {loadState === "success" && drafts.length > 0 && panel && (
+      {visibleLoadState === "success" && visibleDrafts.length > 0 && panel && (
         <div className="border-t border-border px-3 py-2">
           <ClientPortalLink
             href="/dashboard/drafts"
@@ -424,6 +435,7 @@ function SavedDraftItem({
   variant,
   panel,
   deletable,
+  isQaPreview,
   deleteInteractionDisabled,
   error,
   onDelete,
@@ -434,11 +446,14 @@ function SavedDraftItem({
   variant: SavedDraftsVariant;
   panel: boolean;
   deletable: boolean;
+  isQaPreview: boolean;
   deleteInteractionDisabled: boolean;
   error: string;
   onDelete: (trigger: HTMLButtonElement) => void;
 }) {
-  const resumeUrl = buildSavedDraftResumeUrl(draft.route, draft.id);
+  const resumeUrl = isQaPreview
+    ? draft.route
+    : buildSavedDraftResumeUrl(draft.route, draft.id);
   const title = getSavedDraftTitle(draft.title, copy.untitled);
   const serviceName = resolveSavedDraftServiceName(draft);
   const updatedAt = formatSavedDraftUpdatedAt(
@@ -467,10 +482,10 @@ function SavedDraftItem({
               <ClientPortalLink
                 href={resumeUrl}
                 aria-label={`${actionLabel}: ${title}`}
-                className="group flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="group flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2 transition-colors hover:bg-ivory focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold leading-snug text-foreground group-hover:text-primary">
+                  <span className="block truncate text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary">
                     {title}
                   </span>
                   <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-muted">
@@ -483,8 +498,11 @@ function SavedDraftItem({
                     </span>
                   </span>
                 </span>
+                <span className="hidden items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition-colors group-hover:text-primary group-focus-visible:text-primary sm:inline-flex">
+                  {actionLabel}
+                </span>
                 <ArrowRight
-                  className="h-3.5 w-3.5 flex-shrink-0 text-muted-light transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+                  className="h-3.5 w-3.5 flex-shrink-0 text-muted-light transition-transform group-hover:translate-x-0.5 group-hover:text-primary group-focus-visible:translate-x-0.5 group-focus-visible:text-primary"
                   aria-hidden
                 />
               </ClientPortalLink>
@@ -498,7 +516,7 @@ function SavedDraftItem({
                 </p>
               </div>
             )}
-            {deletable && !isFinishing && (
+            {deletable && !isFinishing && !isQaPreview && (
               <button
                 type="button"
                 onClick={(event) => onDelete(event.currentTarget)}

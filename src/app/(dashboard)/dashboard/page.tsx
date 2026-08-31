@@ -29,6 +29,13 @@ import { getReviewsForClient } from "@/lib/client-reviews";
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { getOrderCardImages } from "@/lib/order-card-media";
 import { getOrderServiceExamples } from "@/lib/order-card-examples";
+import {
+  CLIENT_PORTAL_QA_COMPLETED_JOBS,
+} from "@/lib/client-portal-qa-fixtures";
+import {
+  CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY,
+} from "@/lib/client-portal-qa";
+import { getWelcomeOfferAvailability } from "@/lib/welcome-offer-server";
 
 export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
@@ -60,15 +67,30 @@ export default async function DashboardPage() {
     redirect("/dashboard/profile?onboarding=1");
   }
 
-  // Fetch real orders. Returns [] on missing env vars or any error.
-  const [rawOrders, reviews] = user?.email
-    ? await Promise.all([
+  // Fetch real orders only for a verified session. QA renders use fixed,
+  // in-memory fixtures and never enter ownership-backed service-role reads.
+  const ordersAndReviews = user?.email && !user.isQaPreview
+    ? Promise.all([
         getOrdersForClient(toOrderOwnership(user)),
         getReviewsForClient(toOrderOwnership(user)),
       ])
-    : [[], []];
+    : Promise.resolve([[], []]);
 
-  const jobs = mapOrdersToDashboardJobs(rawOrders, reviews);
+  // The production view reads the existing authoritative redemption state.
+  // A read failure is intentionally hidden, and preview never uses its fake
+  // identity in that query.
+  const welcomeOfferAvailability = user?.isQaPreview
+    ? Promise.resolve(CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY)
+    : user
+      ? getWelcomeOfferAvailability(user.id).catch(() => null)
+      : Promise.resolve(null);
+
+  const [[rawOrders, reviews], resolvedWelcomeOfferAvailability] =
+    await Promise.all([ordersAndReviews, welcomeOfferAvailability]);
+
+  const jobs = user?.isQaPreview
+    ? [...CLIENT_PORTAL_QA_COMPLETED_JOBS]
+    : mapOrdersToDashboardJobs(rawOrders, reviews);
 
   // Welcome name: profile first_name → full_name split → auth firstName → fallback.
   const welcomeName =
@@ -107,6 +129,8 @@ export default async function DashboardPage() {
 
       <DashboardActivityRail
         jobs={jobs}
+        isQaPreview={user?.isQaPreview === true}
+        welcomeOfferAvailability={resolvedWelcomeOfferAvailability}
         services={
           <Suspense fallback={<DashboardResponsiveServices />}>
             <EnrichedDashboardServices />

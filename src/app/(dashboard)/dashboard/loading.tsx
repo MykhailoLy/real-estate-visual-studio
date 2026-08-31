@@ -1,7 +1,9 @@
+import { CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME } from "@/components/dashboard/client-portal-workspace";
+
 export default function DashboardLoading() {
   return (
     <div
-      className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+      className={`${CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME} py-6 lg:py-8`}
       role="status"
       aria-label="Loading dashboard page"
     >

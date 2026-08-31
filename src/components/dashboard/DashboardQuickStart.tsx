@@ -36,7 +36,7 @@ export default function DashboardQuickStart({
         <div>
           <h2
             id="start-new-order-heading"
-            className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
           >
             Services
           </h2>

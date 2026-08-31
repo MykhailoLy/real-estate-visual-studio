@@ -183,7 +183,9 @@ export default async function DashboardInvoicesPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  const orders = user ? await getOrdersForClient(toOrderOwnership(user)) : [];
+  const orders = user && !user.isQaPreview
+    ? await getOrdersForClient(toOrderOwnership(user))
+    : [];
   const totalOrders = orders.length;
   const estimatedTotalCents = orders.reduce(
     (sum, order) => sum + order.estimated_total_cents,

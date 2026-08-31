@@ -1,25 +1,25 @@
 "use client";
 
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
+import ClientDashboardMobileUtilityBar from "./ClientDashboardMobileUtilityBar";
+import { cn } from "@/lib/utils";
+import {
+  CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+  CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME,
+} from "./client-portal-workspace";
 
 interface ClientDashboardLayoutProps {
   children: React.ReactNode;
   /**
-   * Opt-in override for the main content wrapper classes. Defaults to the
-   * centered max-w-6xl container every dashboard page uses. The New Order
-   * hub passes a full-width variant so its card grid fills the main area on
-   * large screens. Existing pages are unaffected.
+   * Lets self-contained order flows own their vertical and horizontal inset.
+   * The wide centered workspace cap remains shared with every portal page.
    */
-  contentClassName?: string;
+  flush?: boolean;
 }
-
-/** Default centered container — unchanged behaviour for every other page. */
-const DEFAULT_CONTENT_CLASSNAME =
-  "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8";
 
 export default function ClientDashboardLayout({
   children,
-  contentClassName,
+  flush = false,
 }: ClientDashboardLayoutProps) {
   return (
     // Outer shell is pinned to the dynamic viewport height and never
@@ -37,13 +37,21 @@ export default function ClientDashboardLayout({
             (not the window) on step transitions. */}
         <main
           data-dashboard-scroll-container
-          className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+          className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
         >
-          <div className={contentClassName ?? DEFAULT_CONTENT_CLASSNAME}>
+          <div
+            className={cn(
+              flush
+                ? CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME
+                : CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
+              !flush && "py-6 lg:py-8",
+            )}
+          >
             {children}
           </div>
         </main>
       </div>
+      <ClientDashboardMobileUtilityBar />
     </div>
   );
 }
