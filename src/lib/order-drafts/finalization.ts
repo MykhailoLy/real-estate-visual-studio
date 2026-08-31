@@ -154,6 +154,14 @@ export interface NormalizedDraftReferenceIdentity {
   mimeType: string;
 }
 
+const VERIFIED_STORAGE_NAMESPACE_FILE_ID = Symbol(
+  "verifiedStorageNamespaceFileId",
+);
+
+type FinalizationDraftFileRow = OrderDraftFileRow & {
+  [VERIFIED_STORAGE_NAMESPACE_FILE_ID]?: string;
+};
+
 export interface VirtualStagingDraftSubmissionDecisionItem {
   localOriginal: BrowserFileMetadata | null;
   localReference?: BrowserFileMetadata | null;
@@ -817,11 +825,10 @@ export function reconcileLegacyDraftReferenceFileIdentities(input: {
 
     reconciled.push({
       ...file,
-      // The compatibility mirror may have been created with an older random
-      // row id. The normalized reference identity is server-owned and its
-      // storage namespace is verified above, so use it for exact validation
-      // without mutating existing production draft rows.
-      id: positionZero.referenceId,
+      // Preserve the real order_draft_files row id for the later atomic
+      // moved-file update. The normalized reference id is a separate,
+      // server-verified storage namespace identity used only for validation.
+      [VERIFIED_STORAGE_NAMESPACE_FILE_ID]: positionZero.referenceId,
     });
   }
 
@@ -865,7 +872,7 @@ export function validateAndMatchVirtualStagingDraftFiles(input: {
         path: file.storagePath,
         verifiedUserId: input.verifiedUserId,
         draftId: input.draftId,
-        fileId: file.id,
+        fileId: getVerifiedDraftStorageNamespaceFileId(file),
       })
     ) {
       return finalizationError(
@@ -947,7 +954,7 @@ export function validateAndMatchPhotoEditingDraftFiles(input: {
         path: file.storagePath,
         verifiedUserId: input.verifiedUserId,
         draftId: input.draftId,
-        fileId: file.id,
+        fileId: getVerifiedDraftStorageNamespaceFileId(file),
       })
     ) {
       return finalizationError(
@@ -1014,7 +1021,7 @@ export function validateAndMatchVirtualRenovationDraftFiles(input: {
         path: file.storagePath,
         verifiedUserId: input.verifiedUserId,
         draftId: input.draftId,
-        fileId: file.id,
+        fileId: getVerifiedDraftStorageNamespaceFileId(file),
       })
     ) {
       return finalizationError(
@@ -1102,7 +1109,7 @@ export function validateAndMatchFloorPlansDraftFiles(input: {
         path: file.storagePath,
         verifiedUserId: input.verifiedUserId,
         draftId: input.draftId,
-        fileId: file.id,
+        fileId: getVerifiedDraftStorageNamespaceFileId(file),
       })
     ) {
       return finalizationError(
@@ -1228,6 +1235,15 @@ export function buildTrustedFinalPathForDraftFile(input: {
     getFileExtension(input.sourcePath) ||
     getFileExtension(input.originalFilename);
   return buildFinalPath(input.orderNumber, input.itemIndex, input.kind, ext);
+}
+
+function getVerifiedDraftStorageNamespaceFileId(
+  file: OrderDraftFileRow,
+): string {
+  return (
+    (file as FinalizationDraftFileRow)[VERIFIED_STORAGE_NAMESPACE_FILE_ID] ??
+    file.id
+  );
 }
 
 export function isExactDraftStoragePathForFile(input: {
