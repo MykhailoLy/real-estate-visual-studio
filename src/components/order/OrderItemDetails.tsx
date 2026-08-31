@@ -63,10 +63,28 @@ const SKIP_KEYS = new Set([
   "removal_tasks",
 ]);
 
+// Specification is the customer-facing presentation used on a job detail.
+// The default variant remains available to the admin interface, where a more
+// complete data view is intentional.
+const CLIENT_VISIBLE_KEYS = new Set(Object.keys(KEY_LABELS));
+
+const BOOLEAN_KEYS = new Set([
+  "grass_repair",
+  "sky_replacement",
+  "tv_screen_replacement",
+  "add_fire_to_fireplace",
+  "turn_on_interior_lights",
+  "turn_on_exterior_lights",
+  "add_pool_lights",
+  "show_address",
+  "show_title",
+]);
+
 export default function OrderItemDetails({ details, variant = "default" }: Props) {
   const entries = Object.entries(details).filter(
     ([key, value]) =>
       !SKIP_KEYS.has(key) &&
+      (variant !== "specification" || CLIENT_VISIBLE_KEYS.has(key)) &&
       value !== null &&
       value !== undefined &&
       value !== "" &&
@@ -86,10 +104,10 @@ export default function OrderItemDetails({ details, variant = "default" }: Props
       <dl className="divide-y divide-border">
         {entries.map(([key, value]) => (
           <div key={key} className="min-w-0 py-2.5 first:pt-0 last:pb-0">
-            <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
+            <dt className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
               {KEY_LABELS[key] ?? toTitleLabel(key)}
             </dt>
-            <dd>{renderValue(value)}</dd>
+            <dd>{renderValue(value, key, true)}</dd>
           </div>
         ))}
       </dl>
@@ -103,14 +121,18 @@ export default function OrderItemDetails({ details, variant = "default" }: Props
           <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
             {KEY_LABELS[key] ?? toTitleLabel(key)}
           </dt>
-          <dd>{renderValue(value)}</dd>
+          <dd>{renderValue(value, key)}</dd>
         </div>
       ))}
     </dl>
   );
 }
 
-function renderValue(value: unknown): React.ReactNode {
+function renderValue(
+  value: unknown,
+  key: string,
+  customerFacing = false,
+): React.ReactNode {
   if (Array.isArray(value)) {
     return (
       <div className="flex flex-wrap gap-1.5">
@@ -119,7 +141,7 @@ function renderValue(value: unknown): React.ReactNode {
             key={index}
             className="inline-flex items-center px-2 py-0.5 bg-primary/8 border border-primary/15 rounded-full text-[11px] font-semibold text-primary"
           >
-            {String(item)}
+            {customerFacing ? humanizeValue(String(item)) : String(item)}
           </span>
         ))}
       </div>
@@ -130,8 +152,18 @@ function renderValue(value: unknown): React.ReactNode {
     return (
       <ul className="space-y-0.5">
         {Object.entries(value as Record<string, unknown>).map(([label, nested]) => (
-          <li key={label} className="text-[12px] text-foreground/75">
-            <span className="font-semibold">{label}:</span> {String(nested)}
+          <li
+            key={label}
+            className={
+              customerFacing
+                ? "text-[13px] leading-relaxed text-foreground/80"
+                : "text-[12px] text-foreground/75"
+            }
+          >
+            <span className="font-semibold">
+              {customerFacing ? toTitleLabel(label) : label}:
+            </span>{" "}
+            {customerFacing ? humanizeValue(String(nested)) : String(nested)}
           </li>
         ))}
       </ul>
@@ -156,12 +188,41 @@ function renderValue(value: unknown): React.ReactNode {
   }
 
   if (typeof value === "boolean") {
-    return <span className="text-[13px] text-foreground/80">{value ? "Yes" : "No"}</span>;
+    return (
+      <span
+        className={
+          customerFacing
+            ? "text-[14px] leading-relaxed text-foreground/85"
+            : "text-[13px] text-foreground/80"
+        }
+      >
+        {value ? "Yes" : "No"}
+      </span>
+    );
   }
 
-  return <span className="text-[13px] text-foreground/80">{String(value)}</span>;
+  if (customerFacing && BOOLEAN_KEYS.has(key) && (value === 0 || value === 1)) {
+    return <span className="text-[14px] leading-relaxed text-foreground/85">{value === 1 ? "Yes" : "No"}</span>;
+  }
+
+  return (
+    <span
+      className={
+        customerFacing
+          ? "text-[14px] leading-relaxed text-foreground/85"
+          : "text-[13px] text-foreground/80"
+      }
+    >
+      {customerFacing ? humanizeValue(String(value)) : String(value)}
+    </span>
+  );
 }
 
 function toTitleLabel(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function humanizeValue(value: string): string {
+  if (!/^[a-z0-9]+(?:[_-][a-z0-9]+)+$/i.test(value)) return value;
+  return toTitleLabel(value.replace(/-/g, " "));
 }

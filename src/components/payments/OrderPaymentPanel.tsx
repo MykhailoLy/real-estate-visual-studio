@@ -173,6 +173,24 @@ export default function OrderPaymentPanel({
   const isPartiallyRefunded = summary.state === "partially_refunded";
   const isRefunded = summary.state === "refunded";
   const canOpenCheckout = isPaymentRequired || isProcessing;
+  const paymentHeading = isPaymentRequired
+    ? "Payment required"
+    : isProcessing
+      ? "Payment processing"
+      : isPaid
+        ? "Payment confirmed"
+        : isNoPaymentRequired
+          ? "No payment required"
+          : isPartiallyRefunded
+            ? "Payment partially refunded"
+            : isRefunded
+              ? "Payment refunded"
+              : "Payment update";
+  const itemLabel = `${summary.itemCount} ${summary.itemCount === 1 ? "image" : "images"}`;
+  const totalLabel =
+    summary.finalTotalCents !== null && summary.currency
+      ? formatStoredMoney(summary.finalTotalCents, summary.currency)
+      : null;
 
   return (
     <div className="rounded-xl border border-border bg-white p-5 text-left shadow-sm">
@@ -183,61 +201,70 @@ export default function OrderPaymentPanel({
               presentation === "order-detail" ? "text-secondary" : "text-muted-light"
             }`}
           >
-            {presentation === "order-detail" ? "Payment" : "Payment summary"}
+            {presentation === "order-detail" ? "Secure payment" : "Payment summary"}
           </p>
           <p className="mt-1 text-base font-bold text-foreground">
-            {summary.serviceLabel}
+            {presentation === "order-detail" ? paymentHeading : summary.serviceLabel}
           </p>
+          {presentation === "order-detail" ? (
+            <p className="mt-1 text-sm font-semibold tabular-nums text-muted">
+              {itemLabel}
+              {totalLabel ? ` · ${totalLabel}` : ""}
+            </p>
+          ) : null}
         </div>
-        <span
-          className={[
-            "rounded-full border px-2.5 py-1 text-xs font-bold",
-            isNoPaymentRequired
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        {presentation !== "order-detail" ? (
+          <span
+            className={[
+              "rounded-full border px-2.5 py-1 text-xs font-bold",
+              isNoPaymentRequired
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : isPaid
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : isPartiallyRefunded
+                  ? "border-orange-200 bg-orange-50 text-orange-800"
+                  : isRefunded
+                    ? "border-rose-200 bg-rose-50 text-rose-800"
+                  : isProcessing
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : isPaymentRequired
+                      ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-border bg-surface text-muted",
+            ].join(" ")}
+          >
+            {isNoPaymentRequired
+              ? "No payment required"
               : isPaid
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              ? "Paid"
               : isPartiallyRefunded
-                ? "border-orange-200 bg-orange-50 text-orange-800"
+                ? "Partially refunded"
                 : isRefunded
-                  ? "border-rose-200 bg-rose-50 text-rose-800"
+                  ? "Refunded"
               : isProcessing
-                ? "border-blue-200 bg-blue-50 text-blue-700"
+                ? "Payment processing"
                 : isPaymentRequired
-                  ? "border-amber-200 bg-amber-50 text-amber-800"
-                  : "border-border bg-surface text-muted",
-          ].join(" ")}
-        >
-          {isNoPaymentRequired
-            ? "No payment required"
-            : isPaid
-            ? "Paid"
-            : isPartiallyRefunded
-              ? "Partially refunded"
-              : isRefunded
-                ? "Refunded"
-            : isProcessing
-              ? "Payment processing"
-              : isPaymentRequired
-                ? "Payment required"
-                : "Order received"}
-        </span>
+                  ? "Payment required"
+                  : "Order received"}
+          </span>
+        ) : null}
       </div>
 
-      <dl className="mt-4 divide-y divide-border border-y border-border text-sm">
-        <div className="flex items-center justify-between gap-4 py-2.5">
-          <dt className="text-muted">Quantity</dt>
-          <dd className="font-semibold text-foreground">{summary.itemCount}</dd>
-        </div>
-        {summary.finalTotalCents !== null && summary.currency ? (
+      {presentation !== "order-detail" ? (
+        <dl className="mt-4 divide-y divide-border border-y border-border text-sm">
           <div className="flex items-center justify-between gap-4 py-2.5">
-            <dt className="text-muted">Final total</dt>
-            <dd className="text-right font-bold text-foreground">
-              {formatStoredMoney(summary.finalTotalCents, summary.currency)}{" "}
-              <span className="text-xs font-semibold text-muted">{summary.currency}</span>
-            </dd>
+            <dt className="text-muted">Quantity</dt>
+            <dd className="font-semibold text-foreground">{summary.itemCount}</dd>
           </div>
-        ) : null}
-      </dl>
+          {totalLabel ? (
+            <div className="flex items-center justify-between gap-4 py-2.5">
+              <dt className="text-muted">Final total</dt>
+              <dd className="text-right font-bold text-foreground">
+                {totalLabel} <span className="text-xs font-semibold text-muted">{summary.currency}</span>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
 
       <p className="mt-4 text-sm leading-relaxed text-muted">
         {isNoPaymentRequired

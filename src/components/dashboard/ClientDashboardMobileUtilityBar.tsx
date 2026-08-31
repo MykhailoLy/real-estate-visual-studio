@@ -39,7 +39,7 @@ export default function ClientDashboardMobileUtilityBar() {
           id="client-dashboard-mobile-account-menu"
           role="menu"
           aria-label="Account actions"
-          className="fixed inset-x-4 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 overflow-hidden rounded-xl border border-border bg-white shadow-2xl shadow-primary/20 lg:hidden"
+          className="fixed inset-x-4 bottom-[calc(3.375rem+env(safe-area-inset-bottom))] z-40 overflow-hidden rounded-xl border border-border bg-white shadow-2xl shadow-primary/20 lg:hidden"
         >
           <div className="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
             <div>
@@ -91,7 +91,7 @@ export default function ClientDashboardMobileUtilityBar() {
           aria-expanded={accountOpen}
           aria-haspopup="menu"
           aria-controls="client-dashboard-mobile-account-menu"
-          className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 border-r border-white/15 px-4 pb-[env(safe-area-inset-bottom)] text-sm font-bold transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+          className="inline-flex h-[calc(2.875rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 border-r border-white/15 px-3 pb-[env(safe-area-inset-bottom)] text-sm font-bold transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
         >
           <User className="h-4 w-4 flex-shrink-0 text-secondary" aria-hidden />
           <span>Account</span>
@@ -107,7 +107,7 @@ export default function ClientDashboardMobileUtilityBar() {
           aria-label="Open PicchuSpot support chat"
           aria-expanded={open}
           aria-controls="support-chat-widget"
-          className="inline-flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+          className="inline-flex h-[calc(2.875rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         >
           <MessageCircle className="h-4 w-4 flex-shrink-0 text-primary" aria-hidden />
           <span className="truncate text-xs font-bold uppercase tracking-[0.10em]">Chat</span>

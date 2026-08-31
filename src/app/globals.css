@@ -35,6 +35,7 @@
 
   /* Semantic surfaces and readable text */
   --color-background: #ffffff;
+  --color-dashboard-canvas: #f8f8f6;
   --color-foreground: #071a2b;
   --color-surface: #ffffff;
   --color-muted: #5a656d;

@@ -169,27 +169,19 @@ function ProgressBar({ value, className = "" }: { value: number; className?: str
 }
 
 interface JobDetailsCardProps {
-  orderNumber: string;
-  serviceLabel: string;
-  jobTitle: string;
   submittedLabel: string;
   itemCount: number;
-  totalValue: string;
+  totalValue: string | null;
   clientCompany: string | null;
-  status: ReactNode;
   progress: number;
   progressMessage: ReactNode;
 }
 
 function JobDetailsCard({
-  orderNumber,
-  serviceLabel,
-  jobTitle,
   submittedLabel,
   itemCount,
   totalValue,
   clientCompany,
-  status,
   progress,
   progressMessage,
 }: JobDetailsCardProps) {
@@ -198,35 +190,32 @@ function JobDetailsCard({
       aria-labelledby="job-details-heading"
       className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
     >
-      <div className="border-b border-border bg-surface/60 px-5 py-3.5">
+      <div className="border-b border-border px-5 py-3.5">
         <h2
           id="job-details-heading"
-          className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary"
+          className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary"
         >
           Job details
         </h2>
       </div>
       <dl className="grid grid-cols-1 sm:grid-cols-2">
-        <JobDetailsRow label="Job name" value={jobTitle || serviceLabel} />
-        <JobDetailsRow label="Reference" value={orderNumber} mono />
-        <JobDetailsRow label="Cost" value={totalValue} strong />
-        <JobDetailsRow label="Status" value={status} />
-        <JobDetailsRow label="Submitted" value={submittedLabel} />
-        <JobDetailsRow label="Completed" value="—" />
-        <JobDetailsRow label="Service" value={serviceLabel} />
         <JobDetailsRow
           label="Images / items"
           value={`${itemCount} image${itemCount !== 1 ? "s" : ""}`}
         />
+        <JobDetailsRow label="Submitted" value={submittedLabel} />
+        {totalValue ? <JobDetailsRow label="Order total" value={totalValue} strong /> : null}
         {clientCompany && (
           <JobDetailsRow label="Company" value={clientCompany} />
         )}
         <div className="border-t border-border px-5 py-4 sm:col-span-2">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+            <dt className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
               Progress
             </dt>
-            <dd className="text-[11px] text-muted">{progressMessage}</dd>
+            <dd className="text-right text-[12px] leading-relaxed text-muted">
+              {progressMessage}
+            </dd>
           </div>
           <ProgressBar value={progress} />
         </div>
@@ -260,20 +249,18 @@ function DeliveryCard({
       aria-labelledby="delivery-heading"
       className="rounded-xl border border-border bg-white p-5 shadow-sm"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2
-            id="delivery-heading"
-            className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary"
-          >
-            Delivery
-          </h2>
-          {paymentMessage && (
-            <p className="mt-1 text-[12px] font-medium text-muted">
-              {paymentMessage}
-            </p>
-          )}
-        </div>
+      <div>
+        <h2
+          id="delivery-heading"
+          className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary"
+        >
+          Deliverables
+        </h2>
+        {paymentMessage && (
+          <p className="mt-1 text-[13px] font-medium text-muted">
+            {paymentMessage}
+          </p>
+        )}
       </div>
       {hasDeliverables ? (
         <div className="mt-5">
@@ -306,7 +293,7 @@ function PaymentDetailsUnavailableCard() {
     >
       <h2
         id="payment-unavailable-heading"
-        className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary"
+        className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary"
       >
         Payment
       </h2>
@@ -360,6 +347,8 @@ export default async function OrderDetailPage({
   const serviceLabel = getOrderServiceLabel(order.service_type, order.sub_service);
   const viewerVariant = getStaticImageViewerVariantForService(order.service_type);
   const jobTitle = order.job_title?.trim() || "";
+  const hasDistinctJobTitle =
+    jobTitle.length > 0 && jobTitle.toLocaleLowerCase() !== serviceLabel.toLocaleLowerCase();
   const dashStatus = deriveDashboardStatusFromReviews(order.status, orderReviews);
   const progress = getProgressFromStatus(order.status);
   const progressMessage = (
@@ -404,19 +393,20 @@ export default async function OrderDetailPage({
         }
       : null;
   const jobDetailsProps = {
-    orderNumber: order.order_number,
-    serviceLabel,
-    jobTitle,
     submittedLabel: formatDisplayDate(order.created_at),
     itemCount: order.item_count,
-    totalValue: authoritativeTotal
-      ? formatStoredMoney(authoritativeTotal.cents, authoritativeTotal.currency)
-      : formatStoredMoney(order.estimated_total_cents, order.currency),
+    totalValue:
+      paymentSummary?.state === "payment_required" || paymentSummary?.state === "processing"
+        ? null
+        : authoritativeTotal
+          ? formatStoredMoney(authoritativeTotal.cents, authoritativeTotal.currency)
+          : formatStoredMoney(order.estimated_total_cents, order.currency),
     clientCompany: order.client_company,
-    status: <StatusBadge status={dashStatus} />,
     progress,
     progressMessage,
   } satisfies JobDetailsCardProps;
+  const hasPaymentAction =
+    paymentSummary?.state === "payment_required" || paymentSummary?.state === "processing";
   const deliveryPaymentState =
     paymentSummary?.state === "paid" ||
     paymentSummary?.state === "no_payment_required" ||
@@ -437,19 +427,19 @@ export default async function OrderDetailPage({
         </ClientPortalLink>
       </div>
 
-      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary">
             Order detail
           </p>
-          <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
+          <h1 className="text-2xl font-bold leading-tight text-primary sm:text-[28px]">
             {jobTitle || serviceLabel}
           </h1>
-          {jobTitle && (
-            <p className="text-sm font-medium text-muted mt-1">{serviceLabel}</p>
+          {hasDistinctJobTitle && (
+            <p className="mt-1 text-sm font-medium text-muted">{serviceLabel}</p>
           )}
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span className="font-mono text-[12px] bg-surface border border-border px-2 py-0.5 rounded text-muted">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="rounded border border-border bg-white px-2 py-0.5 font-mono text-[12px] text-muted">
               {order.order_number}
             </span>
             <CopyOrderNumberButton orderNumber={order.order_number} />
@@ -460,14 +450,14 @@ export default async function OrderDetailPage({
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           <ClientPortalLink
             href="/dashboard/support"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <LifeBuoy className="w-3.5 h-3.5" aria-hidden />
             Contact support
           </ClientPortalLink>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             New order
@@ -475,34 +465,38 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
-        <JobDetailsCard {...jobDetailsProps} />
-        {paymentSummary === null ? (
-          <PaymentDetailsUnavailableCard />
-        ) : paymentSummary.state === "payment_required" ||
-          paymentSummary.state === "processing" ||
-          paymentSummary.state === "not_available" ? (
+      {hasPaymentAction ? (
+        <section aria-labelledby="action-required-heading" className="mb-8">
+          <p
+            id="action-required-heading"
+            className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
+          >
+            Action required
+          </p>
           <OrderPaymentPanel
             orderId={order.id}
             initialSummary={paymentSummary}
             presentation="order-detail"
           />
-        ) : deliveryPaymentState ? (
-          <DeliveryCard
-            orderId={order.id}
-            hasDeliverables={currentDeliverables.length > 0}
-            paymentState={deliveryPaymentState}
-          />
-        ) : (
-          <PaymentDetailsUnavailableCard />
-        )}
-      </div>
+        </section>
+      ) : null}
 
-      <section data-order-workflow className="mt-7 min-w-0 space-y-5">
-        <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-primary" aria-hidden />
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
-            Image workflow ({order.items.length} image{order.items.length !== 1 ? "s" : ""})
+      <section
+        data-order-workflow
+        aria-labelledby="order-images-heading"
+        className="min-w-0 space-y-5"
+      >
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary">
+            Your images
+          </p>
+          <h2
+            id="order-images-heading"
+            className="mt-1 flex items-center gap-2 text-xl font-bold text-primary"
+          >
+            <Layers className="h-5 w-5 flex-shrink-0" aria-hidden />
+            Image workflow{" "}
+            <span className="text-sm font-medium text-muted">({order.items.length})</span>
           </h2>
         </div>
 
@@ -552,11 +546,11 @@ export default async function OrderDetailPage({
 
         {orderLevelDeliverables.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-            <div className="flex items-center gap-2 border-b border-border bg-surface/60 px-5 py-3.5">
+            <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
               <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
+              <h3 className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary">
                 Order files
-              </h2>
+              </h3>
               <span className="ml-auto text-[11px] text-muted-light text-right">
                 {orderLevelDeliverables.length} file{orderLevelDeliverables.length !== 1 ? "s" : ""}
               </span>
@@ -613,31 +607,55 @@ export default async function OrderDetailPage({
 
       </section>
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface px-5 py-4">
+      <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
+        <JobDetailsCard {...jobDetailsProps} />
+        {paymentSummary === null || paymentSummary?.state === "not_available" ? (
+          <PaymentDetailsUnavailableCard />
+        ) : deliveryPaymentState ? (
+          <DeliveryCard
+            orderId={order.id}
+            hasDeliverables={currentDeliverables.length > 0}
+            paymentState={deliveryPaymentState}
+          />
+        ) : null}
+      </div>
+
+      <section
+        aria-labelledby="order-activity-heading"
+        className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5"
+      >
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-muted-light" aria-hidden />
-          <p className="text-xs text-muted">
-            Order submitted {formatDisplayDate(order.created_at)} · Last updated{" "}
-            {formatDisplayDate(order.updated_at)}
-          </p>
+          <div>
+            <h2
+              id="order-activity-heading"
+              className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted"
+            >
+              Activity
+            </h2>
+            <p className="mt-1 text-[13px] text-muted">
+              Order submitted {formatDisplayDate(order.created_at)} · Last updated{" "}
+              {formatDisplayDate(order.updated_at)}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <ClientPortalLink
             href="/dashboard/jobs"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
             All jobs
           </ClientPortalLink>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             Place another order
           </ClientPortalLink>
         </div>
-      </div>
+      </section>
     </ClientDashboardLayout>
   );
 }

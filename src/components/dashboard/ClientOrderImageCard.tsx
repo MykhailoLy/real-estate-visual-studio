@@ -104,31 +104,31 @@ export default function ClientOrderImageCard({
   const referenceSources = sourceFiles.filter((file) => file.kind === "reference");
 
   return (
-    <article className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <article className="overflow-hidden rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary">
             Image {imageNumber} of {imageCount}
           </h3>
           {subtotalLabel && (
-            <p className="mt-0.5 text-[11px] font-semibold text-muted tabular-nums">
+            <p className="mt-1 text-[12px] font-semibold tabular-nums text-muted">
               Subtotal · {subtotalLabel}
             </p>
           )}
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold self-start sm:self-center ${statusConfig.className}`}
+          className={`inline-flex self-start items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold sm:self-center ${statusConfig.className}`}
         >
           {statusConfig.icon}
           {statusConfig.label}
         </span>
       </div>
 
-      <div className="p-5 space-y-5">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1.05fr)_minmax(0,0.9fr)] gap-4 xl:gap-5 items-start">
-          <WorkflowPanel title="Original / Before">
+      <div className="pt-5">
+        <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-2 lg:gap-6">
+          <WorkflowPanel title="Original">
             {originalSource ? (
-              <LargePreviewFrame>
+              <FeatureFilePreview>
                 <FilePreviewCard
                   viewerVariant={viewerVariant}
                   filename={originalSource.filename}
@@ -138,19 +138,19 @@ export default function ClientOrderImageCard({
                   signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${originalSource.id}/download-url`}
                   downloadLabel="Download"
                 />
-              </LargePreviewFrame>
+              </FeatureFilePreview>
             ) : (
               <SourcePlaceholder />
             )}
 
             {referenceSources.length > 0 && (
-              <div className="mt-3 rounded-lg border border-border bg-surface/30 p-3">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
+              <div className="mt-5 border-t border-border pt-5">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
                   Reference files
                 </p>
-                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                <ul className="divide-y divide-border">
                   {referenceSources.map((referenceSource, index) => (
-                    <li key={referenceSource.id}>
+                    <li key={referenceSource.id} className="py-3 first:pt-0 last:pb-0">
                       <FilePreviewCard
                         viewerVariant={viewerVariant}
                         filename={referenceSource.filename}
@@ -167,12 +167,12 @@ export default function ClientOrderImageCard({
             )}
           </WorkflowPanel>
 
-          <WorkflowPanel title="Delivered / After">
+          <WorkflowPanel title="Delivered">
             {deliverables.length > 0 ? (
               <ul className="space-y-3">
                 {deliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
                   <li key={deliverable.id}>
-                    <LargePreviewFrame>
+                    <FeatureFilePreview>
                       <FilePreviewCard
                         viewerVariant={viewerVariant}
                         filename={deliverable.filename}
@@ -209,12 +209,12 @@ export default function ClientOrderImageCard({
                           </div>
                         }
                       />
-                    </LargePreviewFrame>
+                    </FeatureFilePreview>
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="h-full min-h-32 rounded-lg border border-border bg-blue-50/70 px-4 py-5 flex flex-col items-center justify-center text-center">
+              <div className="flex min-h-32 h-full flex-col items-center justify-center rounded-lg bg-blue-50/70 px-4 py-5 text-center">
                 <Clock className="w-7 h-7 text-blue-600" aria-hidden />
                 <p className="mt-2 text-[13px] font-semibold text-blue-800">
                   Awaiting delivery
@@ -226,25 +226,28 @@ export default function ClientOrderImageCard({
             )}
           </WorkflowPanel>
 
-          <WorkflowPanel title="Edits / options">
-            <div className="rounded-lg border border-border bg-surface/30 p-4">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
-                Preferences / options
-              </p>
-              <OrderItemDetails details={details} variant="specification" />
-            </div>
-            {COMMENT_STATUSES.has(status) && latestComment && (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
-                <p className="flex items-start gap-1.5 text-[12px] text-amber-900 leading-relaxed">
-                  <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" aria-hidden />
-                  <span>
-                    <span className="font-semibold">Latest rework note:</span> {latestComment}
-                  </span>
-                </p>
-              </div>
-            )}
-          </WorkflowPanel>
         </div>
+
+        {COMMENT_STATUSES.has(status) && latestComment && (
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3">
+            <p className="flex items-start gap-2 text-[13px] leading-relaxed text-amber-900">
+              <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />
+              <span>
+                <span className="font-semibold">Latest rework note:</span> {latestComment}
+              </span>
+            </p>
+          </div>
+        )}
+
+        <details className="mt-6 border-t border-border pt-4">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+            Editing instructions
+            <span className="text-[12px] font-medium text-muted">View preferences</span>
+          </summary>
+          <div className="pt-3">
+            <OrderItemDetails details={details} variant="specification" />
+          </div>
+        </details>
       </div>
     </article>
   );
@@ -264,18 +267,14 @@ function SourcePlaceholder() {
   );
 }
 
-function LargePreviewFrame({ children }: { children: React.ReactNode }) {
+function FeatureFilePreview({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={[
-        "rounded-lg border border-border bg-white p-3",
-        "[&>div]:sm:flex-col [&>div]:sm:items-stretch",
-        "[&>div>button:first-child]:sm:!w-full",
-        "[&>div>button:first-child]:sm:!h-56",
-        "[&>div>button:first-child]:lg:!h-64",
-        "[&>div>button:first-child]:xl:!h-72",
-        "[&>div>div:last-child]:sm:flex-row",
-        "[&>div>div:last-child]:sm:items-start",
+        "[&>div]:items-stretch [&>div]:flex-col",
+        "[&>div>button:first-child]:!h-56 [&>div>button:first-child]:!w-full",
+        "[&>div>button:first-child]:sm:!h-64 [&>div>button:first-child]:lg:!h-72",
+        "[&>div>div:last-child]:items-start [&>div>div:last-child]:sm:flex-row",
       ].join(" ")}
     >
       {children}
@@ -292,7 +291,7 @@ function WorkflowPanel({
 }) {
   return (
     <section className="min-w-0 h-full">
-      <h4 className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary">
+      <h4 className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
         {title}
       </h4>
       {children}
