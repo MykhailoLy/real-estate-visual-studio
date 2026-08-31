@@ -112,17 +112,14 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <div
-        data-dashboard-workspace
-        className="grid grid-cols-1 gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-0 xl:grid-cols-[320px_minmax(0,1fr)]"
-      >
-        <DashboardActivityRail jobs={jobs} />
-        <div className="min-w-0 lg:pl-8 xl:pl-10">
+      <DashboardActivityRail
+        jobs={jobs}
+        services={
           <Suspense fallback={<DashboardQuickStart services={services} />}>
             <EnrichedDashboardQuickStart services={services} />
           </Suspense>
-        </div>
-      </div>
+        }
+      />
     </ClientDashboardLayout>
   );
 }

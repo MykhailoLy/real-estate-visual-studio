@@ -3,7 +3,14 @@
 import ClientPortalLink from "./ClientPortalLink";
 import { usePathname, useRouter } from "next/navigation";
 import { Clock3, FileText, RotateCcw, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import DraftThumbnail from "@/components/dashboard/DraftThumbnail";
 import {
   LANGUAGE_CHANGE_EVENT,
@@ -32,7 +39,20 @@ import type { OrderDraftSummary } from "@/lib/order-drafts/types";
 type LoadState = "loading" | "success" | "error";
 type DeleteRefreshResult = "refreshed" | "failed" | "redirected" | "aborted";
 
-interface DraftsPageCopy {
+export interface DraftDeleteCopy {
+  delete: string;
+  confirmTitle: string;
+  confirmMessage: string;
+  cancel: string;
+  confirmDelete: string;
+  deleting: string;
+  deleted: string;
+  deleteFailed: string;
+  conflict: string;
+  unavailable: string;
+}
+
+interface DraftsPageCopy extends DraftDeleteCopy {
   heading: string;
   helper: string;
   badge: string;
@@ -41,12 +61,6 @@ interface DraftsPageCopy {
   resume: string;
   finish: string;
   order: string;
-  delete: string;
-  confirmTitle: string;
-  confirmMessage: string;
-  cancel: string;
-  confirmDelete: string;
-  deleting: string;
   untitled: string;
   loadError: string;
   retry: string;
@@ -55,10 +69,6 @@ interface DraftsPageCopy {
   emptyMessage: string;
   startOrder: string;
   loading: string;
-  deleted: string;
-  deleteFailed: string;
-  conflict: string;
-  unavailable: string;
 }
 
 const DRAFTS_COPY: Record<SiteLanguage, DraftsPageCopy> = {
@@ -139,15 +149,32 @@ function LoadingCard() {
   );
 }
 
-export default function ClientDraftsPage() {
+interface UseOrderDraftDeletionOptions {
+  drafts: OrderDraftSummary[];
+  setDrafts: Dispatch<SetStateAction<OrderDraftSummary[]>>;
+  copy: DraftDeleteCopy;
+  listLimit: number;
+  loginRedirect: string;
+  onRefreshSuccess?: () => void;
+}
+
+/**
+ * Shared controller for safe saved-draft deletion.
+ *
+ * Both the full Drafts page and the compact dashboard list use this exact
+ * flow so version checks, refresh recovery, focus handling, and authentication
+ * redirects cannot drift apart. Finishing drafts are rejected here as a
+ * defense-in-depth guard even when a caller accidentally exposes a trigger.
+ */
+export function useOrderDraftDeletion({
+  drafts,
+  setDrafts,
+  copy,
+  listLimit,
+  loginRedirect,
+  onRefreshSuccess,
+}: UseOrderDraftDeletionOptions) {
   const router = useRouter();
-  const pathname = usePathname();
-  const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
-  const language = getCurrentLanguage(pathname, savedLanguage);
-  const copy = DRAFTS_COPY[language];
-  const [drafts, setDrafts] = useState<OrderDraftSummary[]>([]);
-  const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [reloadKey, setReloadKey] = useState(0);
   const [confirmDraftId, setConfirmDraftId] = useState<string | null>(null);
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
@@ -214,6 +241,237 @@ export default function ClientDraftsPage() {
     };
   }, [confirmDraftId]);
 
+  const refreshDraftsAfterDeleteError = useCallback(
+    async (signal: AbortSignal): Promise<DeleteRefreshResult> => {
+      try {
+        const result = await listOrderDrafts(listLimit, signal);
+        if (signal.aborted || !mountedRef.current) return "aborted";
+        if (!result.ok) {
+          if (result.code === "unauthenticated") {
+            router.push(loginRedirect);
+            return "redirected";
+          }
+          return "failed";
+        }
+        setDrafts(result.data.slice(0, listLimit));
+        onRefreshSuccess?.();
+        return "refreshed";
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return "aborted";
+        }
+        return "failed";
+      }
+    },
+    [listLimit, loginRedirect, onRefreshSuccess, router, setDrafts],
+  );
+
+  const beginDelete = (draft: OrderDraftSummary, trigger: HTMLButtonElement) => {
+    if (
+      activeDeleteControllerRef.current ||
+      isFinishingOrderDraft(draft)
+    ) {
+      return;
+    }
+    deleteTriggerRef.current = trigger;
+    setConfirmDraftId(draft.id);
+    setCardErrors({});
+    setStatusMessage("");
+  };
+
+  const cancelDelete = () => {
+    if (activeDeleteControllerRef.current) return;
+    setConfirmDraftId(null);
+    window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
+  };
+
+  const confirmDelete = async (draft: OrderDraftSummary) => {
+    if (isFinishingOrderDraft(draft)) {
+      setConfirmDraftId(null);
+      window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
+      return;
+    }
+    if (deletingDraftId || activeDeleteControllerRef.current) return;
+    const controller = new AbortController();
+    activeDeleteControllerRef.current = controller;
+    setDeletingDraftId(draft.id);
+    setCardErrors({});
+    setStatusMessage("");
+
+    try {
+      const result = await deleteOrderDraft(
+        draft.id,
+        draft.version,
+        controller.signal,
+      );
+      if (!mountedRef.current) return;
+
+      if (result.ok) {
+        setDrafts((current) => removeDraftSummaryById(current, draft.id));
+        setConfirmDraftId(null);
+        setToastMessage(copy.deleted);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => {
+          if (mountedRef.current) setToastMessage("");
+        }, 3500);
+        return;
+      }
+
+      if (result.code === "unauthenticated") {
+        router.push(loginRedirect);
+        return;
+      }
+
+      if (shouldRefreshDraftListAfterDeleteError(result.code)) {
+        setConfirmDraftId(null);
+        window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
+        const refreshResult = await refreshDraftsAfterDeleteError(
+          controller.signal,
+        );
+        if (!mountedRef.current || refreshResult === "aborted") return;
+        if (refreshResult === "refreshed") {
+          setStatusMessage(getRefreshMessageForDeleteError(result.code, copy));
+          return;
+        }
+        if (refreshResult === "failed") {
+          setCardErrors({ [draft.id]: copy.deleteFailed });
+        }
+        return;
+      }
+
+      setCardErrors({ [draft.id]: copy.deleteFailed });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (!mountedRef.current) return;
+      setCardErrors({ [draft.id]: copy.deleteFailed });
+    } finally {
+      const ownsActiveDelete = activeDeleteControllerRef.current === controller;
+      if (ownsActiveDelete) {
+        activeDeleteControllerRef.current = null;
+      }
+      if (mountedRef.current && ownsActiveDelete) setDeletingDraftId(null);
+    }
+  };
+
+  const confirmDraft =
+    drafts.find((draft) => draft.id === confirmDraftId) ?? null;
+
+  return {
+    activeDeleteControllerRef,
+    beginDelete,
+    cancelDelete,
+    cancelDeleteRef,
+    cardErrors,
+    confirmDelete,
+    confirmDraft,
+    deleteDialogRef,
+    deleteInteractionDisabled: deletingDraftId !== null,
+    deletingDraftId,
+    statusMessage,
+    toastMessage,
+  };
+}
+
+export function OrderDraftDeletionDialog({
+  controller,
+  copy,
+}: {
+  controller: ReturnType<typeof useOrderDraftDeletion>;
+  copy: DraftDeleteCopy;
+}) {
+  const {
+    activeDeleteControllerRef,
+    cancelDelete,
+    cancelDeleteRef,
+    cardErrors,
+    confirmDelete,
+    confirmDraft,
+    deleteDialogRef,
+    deletingDraftId,
+  } = controller;
+
+  if (!confirmDraft) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-primary/35 p-4"
+      onMouseDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          !activeDeleteControllerRef.current
+        ) {
+          cancelDelete();
+        }
+      }}
+    >
+      <div
+        ref={deleteDialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-draft-title"
+        aria-describedby="delete-draft-description"
+        aria-busy={deletingDraftId === confirmDraft.id}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-border bg-white p-5 shadow-xl"
+      >
+        <h2 id="delete-draft-title" className="text-lg font-bold text-primary">
+          {copy.confirmTitle}
+        </h2>
+        <p
+          id="delete-draft-description"
+          className="mt-2 text-sm leading-relaxed text-muted"
+        >
+          {copy.confirmMessage}
+        </p>
+        {cardErrors[confirmDraft.id] && (
+          <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+            {cardErrors[confirmDraft.id]}
+          </p>
+        )}
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            ref={cancelDeleteRef}
+            type="button"
+            onClick={cancelDelete}
+            disabled={deletingDraftId === confirmDraft.id}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-white px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+          >
+            {copy.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={() => void confirmDelete(confirmDraft)}
+            disabled={deletingDraftId === confirmDraft.id}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden />
+            {deletingDraftId === confirmDraft.id
+              ? copy.deleting
+              : copy.confirmDelete}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ClientDraftsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
+  const language = getCurrentLanguage(pathname, savedLanguage);
+  const copy = DRAFTS_COPY[language];
+  const [drafts, setDrafts] = useState<OrderDraftSummary[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [reloadKey, setReloadKey] = useState(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
     const onLanguageChange = (event: Event) => {
@@ -255,111 +513,24 @@ export default function ClientDraftsPage() {
     setReloadKey((key) => key + 1);
   }, []);
 
-  const refreshDraftsAfterDeleteError = useCallback(async (
-    signal: AbortSignal,
-  ): Promise<DeleteRefreshResult> => {
-    try {
-      const result = await listOrderDrafts(100, signal);
-      if (signal.aborted || !mountedRef.current) return "aborted";
-      if (!result.ok) {
-        if (result.code === "unauthenticated") {
-          router.push(LOGIN_REDIRECT);
-          return "redirected";
-        }
-        return "failed";
-      }
-      setDrafts(result.data);
-      setLoadState("success");
-      return "refreshed";
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return "aborted";
-      }
-      return "failed";
-    }
-  }, [router]);
-
-  const beginDelete = (draftId: string, trigger: HTMLButtonElement) => {
-    if (activeDeleteControllerRef.current) return;
-    deleteTriggerRef.current = trigger;
-    setConfirmDraftId(draftId);
-    setCardErrors({});
-    setStatusMessage("");
-  };
-
-  const cancelDelete = () => {
-    if (activeDeleteControllerRef.current) return;
-    setConfirmDraftId(null);
-    window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
-  };
-
-  const confirmDelete = async (draft: OrderDraftSummary) => {
-    if (deletingDraftId || activeDeleteControllerRef.current) return;
-    const controller = new AbortController();
-    activeDeleteControllerRef.current = controller;
-    setDeletingDraftId(draft.id);
-    setCardErrors({});
-    setStatusMessage("");
-
-    try {
-      const result = await deleteOrderDraft(
-        draft.id,
-        draft.version,
-        controller.signal,
-      );
-      if (!mountedRef.current) return;
-
-      if (result.ok) {
-        setDrafts((current) => removeDraftSummaryById(current, draft.id));
-        setConfirmDraftId(null);
-        setToastMessage(copy.deleted);
-        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = setTimeout(() => {
-          if (mountedRef.current) setToastMessage("");
-        }, 3500);
-        return;
-      }
-
-      if (result.code === "unauthenticated") {
-        router.push(LOGIN_REDIRECT);
-        return;
-      }
-
-      if (shouldRefreshDraftListAfterDeleteError(result.code)) {
-        setConfirmDraftId(null);
-        window.requestAnimationFrame(() => deleteTriggerRef.current?.focus());
-        const refreshResult = await refreshDraftsAfterDeleteError(
-          controller.signal,
-        );
-        if (!mountedRef.current || refreshResult === "aborted") return;
-        if (refreshResult === "refreshed") {
-          setStatusMessage(
-            getRefreshMessageForDeleteError(result.code, copy),
-          );
-          return;
-        }
-        if (refreshResult === "failed") {
-          setCardErrors({ [draft.id]: copy.deleteFailed });
-        }
-        return;
-      }
-
-      setCardErrors({ [draft.id]: copy.deleteFailed });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (!mountedRef.current) return;
-      setCardErrors({ [draft.id]: copy.deleteFailed });
-    } finally {
-      const ownsActiveDelete = activeDeleteControllerRef.current === controller;
-      if (ownsActiveDelete) {
-        activeDeleteControllerRef.current = null;
-      }
-      if (mountedRef.current && ownsActiveDelete) setDeletingDraftId(null);
-    }
-  };
-
-  const confirmDraft =
-    drafts.find((draft) => draft.id === confirmDraftId) ?? null;
+  const handleDeleteRefreshSuccess = useCallback(() => {
+    setLoadState("success");
+  }, []);
+  const deletion = useOrderDraftDeletion({
+    drafts,
+    setDrafts,
+    copy,
+    listLimit: 100,
+    loginRedirect: LOGIN_REDIRECT,
+    onRefreshSuccess: handleDeleteRefreshSuccess,
+  });
+  const {
+    beginDelete,
+    cardErrors,
+    deleteInteractionDisabled,
+    statusMessage,
+    toastMessage,
+  } = deletion;
 
   return (
     <section aria-labelledby="drafts-page-heading" className="space-y-6">
@@ -430,78 +601,16 @@ export default function ClientDraftsPage() {
                 draft={draft}
                 copy={copy}
                 language={language}
-                deleteInteractionDisabled={deletingDraftId !== null}
+                deleteInteractionDisabled={deleteInteractionDisabled}
                 error={cardErrors[draft.id] ?? ""}
-                onDelete={(trigger) => beginDelete(draft.id, trigger)}
+                onDelete={(trigger) => beginDelete(draft, trigger)}
               />
             </li>
           ))}
         </ul>
       )}
 
-      {confirmDraft && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/35 p-4"
-          onMouseDown={(event) => {
-            if (
-              event.target === event.currentTarget &&
-              !activeDeleteControllerRef.current
-            ) {
-              cancelDelete();
-            }
-          }}
-        >
-          <div
-            ref={deleteDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-draft-title"
-            aria-describedby="delete-draft-description"
-            aria-busy={deletingDraftId === confirmDraft.id}
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-border bg-white p-5 shadow-xl"
-          >
-            <h2
-              id="delete-draft-title"
-              className="text-lg font-bold text-primary"
-            >
-              {copy.confirmTitle}
-            </h2>
-            <p
-              id="delete-draft-description"
-              className="mt-2 text-sm leading-relaxed text-muted"
-            >
-              {copy.confirmMessage}
-            </p>
-            {cardErrors[confirmDraft.id] && (
-              <p role="alert" className="mt-3 text-sm font-medium text-red-700">
-                {cardErrors[confirmDraft.id]}
-              </p>
-            )}
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                ref={cancelDeleteRef}
-                type="button"
-                onClick={cancelDelete}
-                disabled={deletingDraftId === confirmDraft.id}
-                className="inline-flex items-center justify-center rounded-lg border border-border bg-white px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
-              >
-                {copy.cancel}
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDelete(confirmDraft)}
-                disabled={deletingDraftId === confirmDraft.id}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-                {deletingDraftId === confirmDraft.id
-                  ? copy.deleting
-                  : copy.confirmDelete}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <OrderDraftDeletionDialog controller={deletion} copy={copy} />
 
       {toastMessage && (
         <div
@@ -517,7 +626,7 @@ export default function ClientDraftsPage() {
 
 function getRefreshMessageForDeleteError(
   code: OrderDraftClientErrorCode,
-  copy: DraftsPageCopy,
+  copy: DraftDeleteCopy,
 ): string {
   if (code === "version_conflict") return copy.conflict;
   return copy.unavailable;

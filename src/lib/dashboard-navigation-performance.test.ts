@@ -326,25 +326,58 @@ test("Drafts stays available outside the primary desktop and mobile navigation",
 test("dashboard composes a bounded activity rail and stacked mobile workspace", () => {
   const pageSource = source("app/(dashboard)/dashboard/page.tsx");
   const railSource = source("components/dashboard/DashboardActivityRail.tsx");
+  const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
 
-  assert.match(pageSource, /data-dashboard-workspace/);
-  assert.match(pageSource, /grid grid-cols-1 gap-8/);
-  assert.match(pageSource, /lg:grid-cols-\[300px_minmax\(0,1fr\)\]/);
-  assert.match(pageSource, /xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
-  assert.doesNotMatch(pageSource, /grid-cols-\[33%/);
-  assert.match(pageSource, /<DashboardActivityRail jobs=\{jobs\} \/>/);
+  assert.match(railSource, /data-dashboard-workspace/);
+  assert.match(railSource, /grid grid-cols-1 gap-6/);
+  assert.match(railSource, /lg:grid-cols-\[300px_minmax\(0,1fr\)\]/);
+  assert.match(railSource, /xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(railSource, /grid-cols-\[33%/);
+  assert.match(pageSource, /<DashboardActivityRail/);
+  assert.match(pageSource, /jobs=\{jobs\}/);
+  assert.match(pageSource, /services=\{/);
   assert.match(pageSource, /<DashboardQuickStart/);
   assert.match(railSource, /variant="rail"/);
   assert.match(railSource, /heading="Awaiting submission"/);
+  assert.match(railSource, /panel/);
+  assert.match(railSource, /deletable/);
   assert.match(railSource, /Recently completed/);
   assert.match(railSource, /How to get started/);
+  assert.match(railSource, /Add your property photos or source files\./);
+  assert.match(railSource, /Choose the service options and add any references or instructions\./);
+  assert.match(railSource, /Check the order details before submitting\./);
+  assert.match(railSource, /Track the job in your dashboard and download completed files when ready\./);
+  assert.match(railSource, /job\.status === "completed"/);
+  assert.match(railSource, /\{job\.title\}/);
+  assert.match(railSource, /Submitted\{" "\}/);
   assert.match(railSource, /href=\{`\/dashboard\/jobs\/\$\{job\.id\}`\}/);
   assert.match(railSource, /href="\/dashboard\/jobs\?status=completed"/);
+
+  assert.match(railSource, /className="order-1 [^"]*lg:col-start-1/);
+  assert.match(railSource, /className="order-2 [^"]*border border-border/);
+  assert.match(railSource, /className="order-3 [^"]*lg:col-start-2/);
+  assert.match(railSource, /className="order-4 [^"]*border border-border/);
+  assert.ok(
+    railSource.indexOf("data-dashboard-services") <
+      railSource.indexOf('data-dashboard-section="getting-started"'),
+  );
+
+  assert.match(savedDraftsSource, /data-dashboard-section=\{panel/);
+  assert.match(
+    savedDraftsSource,
+    /panel &&[\s\S]*?"overflow-hidden rounded-xl border border-border bg-white shadow-sm"/,
+  );
+  assert.equal(
+    railSource.match(/rounded-xl border border-border bg-white shadow-sm/g)
+      ?.length,
+    2,
+  );
 });
 
 test("dashboard services are registry-driven and portfolio-enriched", () => {
   const pageSource = source("app/(dashboard)/dashboard/page.tsx");
   const quickStartSource = source("components/dashboard/DashboardQuickStart.tsx");
+  const serviceCardSource = source("components/dashboard/OrderServiceCard.tsx");
   const activeServices = getOrderServiceCatalog().filter(
     (service) => service.availability === "active" && service.route !== null,
   );
@@ -360,6 +393,8 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(quickStartSource, /images=\{images\}/);
   assert.match(quickStartSource, /examples=\{examples\}/);
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
+  assert.match(serviceCardSource, /getCatalogPrice\(service\.priceKey, currency\)/);
+  assert.match(serviceCardSource, /href=\{service\.route as string\}/);
   assert.doesNotMatch(
     quickStartSource,
     /from "next\/image"/,
@@ -368,6 +403,7 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
 
 test("compact Saved Drafts reuses the existing list and Resume or Finish flow", () => {
   const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
+  const draftsPageSource = source("components/dashboard/ClientDraftsPage.tsx");
   const listCalls = savedDraftsSource.match(/listOrderDrafts\(3, controller\.signal\)/g);
 
   assert.equal(listCalls?.length, 1);
@@ -377,6 +413,19 @@ test("compact Saved Drafts reuses the existing list and Resume or Finish flow", 
   assert.match(savedDraftsSource, /resume: copy\.resume/);
   assert.match(savedDraftsSource, /finish: copy\.finish/);
   assert.match(savedDraftsSource, /href=\{resumeUrl\}/);
+  assert.match(savedDraftsSource, /useOrderDraftDeletion\(/);
+  assert.match(savedDraftsSource, /OrderDraftDeletionDialog/);
+  assert.match(savedDraftsSource, /deletable && !isFinishing && \(/);
+  assert.match(savedDraftsSource, /h-11 w-11/);
+  assert.match(savedDraftsSource, /deletion\.beginDelete\(draft, trigger\)/);
+  assert.match(draftsPageSource, /export function useOrderDraftDeletion/);
+  assert.match(draftsPageSource, /await deleteOrderDraft\(/);
+  assert.match(draftsPageSource, /draft\.version/);
+  assert.match(draftsPageSource, /shouldRefreshDraftListAfterDeleteError/);
+  assert.match(draftsPageSource, /result\.code === "unauthenticated"/);
+  assert.match(draftsPageSource, /isFinishingOrderDraft\(draft\)/);
+  assert.match(draftsPageSource, /role="dialog"/);
+  assert.match(draftsPageSource, /aria-modal="true"/);
 });
 
 test("Jobs workspace keeps a bounded rail before the flexible jobs area", () => {
@@ -631,7 +680,7 @@ test("New Order streaming improvements remain intact", () => {
   );
   assert.match(pageSource, /async function EnrichedOrderServiceGrid/);
   assert.match(gridSource, /<OrderServiceCard/);
-  assert.match(pageSource, /<SavedDraftsSection \/>/);
+  assert.doesNotMatch(pageSource, /SavedDraftsSection/);
   assert.match(loadingSource, /Loading New Order catalog/);
 });
 

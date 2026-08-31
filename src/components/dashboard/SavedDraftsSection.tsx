@@ -1,9 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ArrowRight, Clock3, FileText, RotateCcw } from "lucide-react";
+import { ArrowRight, Clock3, FileText, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import ClientPortalLink from "./ClientPortalLink";
+import {
+  OrderDraftDeletionDialog,
+  useOrderDraftDeletion,
+  type DraftDeleteCopy,
+} from "./ClientDraftsPage";
 import DraftThumbnail from "@/components/dashboard/DraftThumbnail";
 import {
   LANGUAGE_CHANGE_EVENT,
@@ -31,10 +36,12 @@ interface SavedDraftsSectionProps {
   variant?: SavedDraftsVariant;
   heading?: string;
   helper?: string;
-  carded?: boolean;
+  panel?: boolean;
+  deletable?: boolean;
+  className?: string;
 }
 
-interface DraftCopy {
+interface DraftCopy extends DraftDeleteCopy {
   heading: string;
   helper: string;
   badge: string;
@@ -69,6 +76,18 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     loading: "Loading saved drafts",
     viewAll: "View all drafts",
     empty: "No saved drafts right now.",
+    delete: "Delete",
+    confirmTitle: "Delete this draft?",
+    confirmMessage:
+      "This removes the saved draft. It does not affect submitted orders.",
+    cancel: "Cancel",
+    confirmDelete: "Delete draft",
+    deleting: "Deleting...",
+    deleted: "Draft deleted",
+    deleteFailed: "Draft could not be deleted. Try again.",
+    conflict:
+      "This draft changed in another tab. The list was refreshed. Review it and try again.",
+    unavailable: "This draft is no longer available. The list was refreshed.",
   },
   es: {
     heading: "Borradores guardados",
@@ -86,22 +105,34 @@ const DRAFT_COPY: Record<SiteLanguage, DraftCopy> = {
     loading: "Cargando borradores guardados",
     viewAll: "Ver todos los borradores",
     empty: "No hay borradores guardados ahora.",
+    delete: "Eliminar",
+    confirmTitle: "¿Eliminar este borrador?",
+    confirmMessage:
+      "Esta acción elimina el borrador guardado. No afecta a los pedidos enviados.",
+    cancel: "Cancelar",
+    confirmDelete: "Eliminar borrador",
+    deleting: "Eliminando...",
+    deleted: "Borrador eliminado.",
+    deleteFailed: "No se pudo eliminar el borrador. Inténtalo de nuevo.",
+    conflict:
+      "Este borrador cambió en otra pestaña. La lista se actualizó. Revísalo e inténtalo de nuevo.",
+    unavailable: "Este borrador ya no está disponible. La lista se actualizó.",
   },
 };
 
 function LoadingCard({
   variant,
-  carded,
+  panel,
 }: {
   variant: SavedDraftsVariant;
-  carded?: boolean;
+  panel?: boolean;
 }) {
   if (variant === "rail") {
     return (
       <li
         className={cn(
-          carded
-            ? "rounded-xl border border-border bg-white p-4"
+          panel
+            ? "px-4 py-4"
             : "border-t border-border py-3 first:border-t-0 first:pt-0",
         )}
       >
@@ -126,7 +157,9 @@ export default function SavedDraftsSection({
   variant = "grid",
   heading,
   helper,
-  carded = false,
+  panel = false,
+  deletable = false,
+  className,
 }: SavedDraftsSectionProps) {
   const pathname = usePathname();
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
@@ -175,6 +208,17 @@ export default function SavedDraftsSection({
     setLoadState("loading");
     setReloadKey((key) => key + 1);
   }, []);
+  const handleDeleteRefreshSuccess = useCallback(() => {
+    setLoadState("success");
+  }, []);
+  const deletion = useOrderDraftDeletion({
+    drafts,
+    setDrafts,
+    copy,
+    listLimit: 3,
+    loginRedirect: "/login?redirectTo=%2Fdashboard",
+    onRefreshSuccess: handleDeleteRefreshSuccess,
+  });
 
   if (loadState === "success" && drafts.length === 0 && !isRail) {
     return null;
@@ -184,22 +228,36 @@ export default function SavedDraftsSection({
     <section
       aria-labelledby={headingId}
       aria-busy={loadState === "loading"}
-      className={cn(!isRail && "mb-8")}
+      data-dashboard-section={panel ? "awaiting-submission" : undefined}
+      className={cn(
+        !isRail && "mb-8",
+        panel &&
+          "overflow-hidden rounded-xl border border-border bg-white shadow-sm",
+        className,
+      )}
     >
       <div
         className={cn(
           "flex gap-3",
+          isRail && panel && "flex-wrap",
           isRail
-            ? "mb-3 items-start justify-between"
+            ? panel
+              ? "items-start justify-between border-b border-border px-4 py-4"
+              : "mb-3 items-start justify-between"
             : "mb-3 flex-col sm:flex-row sm:items-end sm:justify-between",
         )}
       >
-        <div className="min-w-0">
+        <div
+          className={cn(
+            "min-w-0",
+            isRail && panel && "min-w-[7rem] flex-1",
+          )}
+        >
           {isRail ? (
             <h2
               id={headingId}
               className={cn(
-                carded
+                panel
                   ? "text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
                   : "text-sm font-bold text-primary",
               )}
@@ -240,21 +298,35 @@ export default function SavedDraftsSection({
         )}
       </div>
 
+      <div aria-live="polite" className="sr-only">
+        {deletion.statusMessage}
+      </div>
+      {deletion.statusMessage && (
+        <p
+          className={cn(
+            "text-sm font-medium text-muted",
+            panel
+              ? "border-b border-border px-4 py-3"
+              : "mb-3 rounded-lg border border-border bg-white p-3",
+          )}
+        >
+          {deletion.statusMessage}
+        </p>
+      )}
+
       {loadState === "loading" && (
         <div role="status" aria-label={copy.loading}>
           <span className="sr-only">{copy.loading}</span>
           <ul
             className={cn(
               isRail
-                ? carded
-                  ? "space-y-3"
-                  : "divide-y divide-border"
+                ? "divide-y divide-border"
                 : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
             )}
           >
-            <LoadingCard variant={variant} carded={carded} />
-            <LoadingCard variant={variant} carded={carded} />
-            <LoadingCard variant={variant} carded={carded} />
+            <LoadingCard variant={variant} panel={panel} />
+            <LoadingCard variant={variant} panel={panel} />
+            <LoadingCard variant={variant} panel={panel} />
           </ul>
         </div>
       )}
@@ -262,10 +334,12 @@ export default function SavedDraftsSection({
       {loadState === "error" && (
         <div
           className={cn(
-            "flex gap-3 border border-border bg-white",
+            "flex gap-3",
             isRail
-              ? "flex-col rounded-lg p-3"
-              : "flex-col rounded-lg p-4 sm:flex-row sm:items-center sm:justify-between",
+              ? panel
+                ? "m-4 flex-col rounded-lg bg-surface p-3"
+                : "flex-col rounded-lg border border-border bg-white p-3"
+              : "flex-col rounded-lg border border-border bg-white p-4 sm:flex-row sm:items-center sm:justify-between",
           )}
         >
           <p className="text-sm font-medium text-muted">{copy.error}</p>
@@ -281,7 +355,12 @@ export default function SavedDraftsSection({
       )}
 
       {loadState === "success" && drafts.length === 0 && isRail && (
-        <p className="rounded-lg bg-surface p-3 text-xs leading-relaxed text-muted">
+        <p
+          className={cn(
+            "bg-surface text-xs leading-relaxed text-muted",
+            panel ? "px-4 py-5" : "rounded-lg p-3",
+          )}
+        >
           {copy.empty}
         </p>
       )}
@@ -290,9 +369,7 @@ export default function SavedDraftsSection({
         <ul
           className={cn(
             isRail
-              ? carded
-                ? "space-y-3"
-                : "divide-y divide-border"
+              ? "divide-y divide-border"
               : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
           )}
         >
@@ -303,10 +380,25 @@ export default function SavedDraftsSection({
               copy={copy}
               language={language}
               variant={variant}
-              carded={carded}
+              panel={panel}
+              deletable={deletable}
+              deleteInteractionDisabled={deletion.deleteInteractionDisabled}
+              error={deletion.cardErrors[draft.id] ?? ""}
+              onDelete={(trigger) => deletion.beginDelete(draft, trigger)}
             />
           ))}
         </ul>
+      )}
+
+      <OrderDraftDeletionDialog controller={deletion} copy={copy} />
+
+      {deletion.toastMessage && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
+        >
+          {deletion.toastMessage}
+        </div>
       )}
     </section>
   );
@@ -317,13 +409,21 @@ function SavedDraftItem({
   copy,
   language,
   variant,
-  carded,
+  panel,
+  deletable,
+  deleteInteractionDisabled,
+  error,
+  onDelete,
 }: {
   draft: OrderDraftSummary;
   copy: DraftCopy;
   language: SiteLanguage;
   variant: SavedDraftsVariant;
-  carded: boolean;
+  panel: boolean;
+  deletable: boolean;
+  deleteInteractionDisabled: boolean;
+  error: string;
+  onDelete: (trigger: HTMLButtonElement) => void;
 }) {
   const resumeUrl = buildSavedDraftResumeUrl(draft.route, draft.id);
   const title = getSavedDraftTitle(draft.title, copy.untitled);
@@ -347,8 +447,8 @@ function SavedDraftItem({
     return (
       <li
         className={cn(
-          carded
-            ? "rounded-xl border border-border bg-white p-4 shadow-sm"
+          panel
+            ? "px-4 py-3"
             : "py-3 first:pt-0 last:pb-0",
         )}
       >
@@ -382,6 +482,18 @@ function SavedDraftItem({
                 <span className="truncate">{updatedAt}</span>
               </p>
             </div>
+            {deletable && !isFinishing && (
+              <button
+                type="button"
+                onClick={(event) => onDelete(event.currentTarget)}
+                disabled={deleteInteractionDisabled}
+                aria-label={`${copy.delete}: ${title}`}
+                title={copy.delete}
+                className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </button>
+            )}
           </div>
           {resumeUrl && (
             <ClientPortalLink
@@ -391,6 +503,11 @@ function SavedDraftItem({
               {actionLabel}
               <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </ClientPortalLink>
+          )}
+          {error && (
+            <p aria-live="polite" className="mt-2 text-xs font-medium text-red-700">
+              {error}
+            </p>
           )}
         </article>
       </li>
