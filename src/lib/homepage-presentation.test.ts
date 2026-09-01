@@ -60,11 +60,11 @@ test("service sub-navigation stays available from lg with compact overflow measu
 
   assert.match(
     headerSource,
-    /hidden border-t border-border bg-white lg:block/,
+    /hidden border-b border-border bg-white lg:block/,
   );
   assert.doesNotMatch(
     headerSource,
-    /hidden border-t border-border bg-white xl:block/,
+    /hidden border-b border-border bg-white xl:block/,
   );
   assert.match(headerSource, /gap-x-4 xl:gap-x-7/);
   assert.match(
@@ -73,6 +73,45 @@ test("service sub-navigation stays available from lg with compact overflow measu
   );
   assert.match(headerSource, /measureMoreRef/);
   assert.match(headerSource, /<MoreDropdown/);
+  assert.match(headerSource, /py-2\.5/);
+  assert.match(headerSource, /bg-secondary/);
+});
+
+test("public header keeps the dark primary hierarchy without changing its shared controls", () => {
+  const headerSource = readSource("src/components/layout/Header.tsx");
+  const accountMenuSource = readSource(
+    "src/components/auth/PublicAccountMenu.tsx",
+  );
+  const topLevelStart = headerSource.indexOf(
+    "{/* Top-level categories (desktop) */}",
+  );
+  const topLevelEnd = headerSource.indexOf(
+    "{/* Menu, account actions, and preferences */}",
+  );
+  const topLevelSource = headerSource.slice(topLevelStart, topLevelEnd);
+
+  assert.match(headerSource, /data-testid="public-header-primary-row"/);
+  assert.match(headerSource, /cn\("bg-primary", NAV_X_PADDING\)/);
+  assert.match(headerSource, /flex items-center h-14/);
+  assert.match(headerSource, /variant="mark-light"/);
+  assert.match(headerSource, /width=\{64\}/);
+  assert.match(headerSource, /height=\{32\}/);
+  assert.match(headerSource, /<BrandWordmark[\s\S]*?theme="dark"/);
+  assert.match(
+    topLevelSource,
+    /isActive\s*\?\s*"text-white"\s*:\s*"text-white\/65 hover:text-white"/,
+  );
+  assert.match(topLevelSource, /bg-secondary/);
+  assert.doesNotMatch(topLevelSource, /bg-primary\/5|rounded-md|hover:bg-surface/);
+  assert.match(headerSource, /bg-secondary[\s\S]*?text-primary/);
+  assert.match(headerSource, /text-white\/80/);
+  assert.match(headerSource, /theme="dark"/);
+  assert.match(headerSource, /darkHeaderTrigger/);
+  assert.match(headerSource, /border-white\/15 bg-white\/5/);
+  assert.match(headerSource, /focus-visible:ring-offset-primary/);
+  assert.match(accountMenuSource, /theme\?: "light" \| "dark"/);
+  assert.match(accountMenuSource, /const darkHeader = theme === "dark" && !mobileAction/);
+  assert.match(accountMenuSource, /text-white hover:bg-white\/10/);
 });
 
 test("homepage and signup presentation use the authoritative English Welcome Offer copy", () => {

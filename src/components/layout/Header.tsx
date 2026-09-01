@@ -386,10 +386,13 @@ export default function Header() {
   }, [menuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-border w-full overflow-x-hidden">
+    <header className="sticky top-0 z-50 w-full overflow-x-hidden">
       {/* ── Row 1: brand + top-level + CTAs ── */}
-      <div className={NAV_X_PADDING}>
-        <div className="flex items-center h-16">
+      <div
+        data-testid="public-header-primary-row"
+        className={cn("bg-primary", NAV_X_PADDING)}
+      >
+        <div className="flex items-center h-14">
           {/* Brand */}
           <Link
             href={getLocaleAwareHref("/", currentLanguage)}
@@ -397,13 +400,16 @@ export default function Header() {
             className="flex items-center gap-2 flex-shrink-0"
           >
             <PicchuSpotLogo
-              variant="mark"
-              className="h-7 w-auto"
-              width={56}
-              height={28}
+              variant="mark-light"
+              className="h-7 w-auto sm:h-8"
+              width={64}
+              height={32}
               alt=""
             />
-            <BrandWordmark theme="light" className="text-lg sm:text-xl" />
+            <BrandWordmark
+              theme="dark"
+              className="text-xl sm:text-[21px] xl:text-[22px]"
+            />
           </Link>
 
           {/* Top-level categories (desktop) */}
@@ -418,14 +424,23 @@ export default function Header() {
                   key={entry.key}
                   href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
-                    "whitespace-nowrap rounded-md px-1.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] transition-colors 2xl:px-2.5 2xl:text-[12px] 2xl:tracking-[0.08em]",
+                    "group relative inline-flex h-full items-center whitespace-nowrap px-1.5 text-[11px] font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white 2xl:px-2.5 2xl:text-[12px] 2xl:tracking-[0.08em]",
                     isActive
-                      ? "text-primary bg-primary/5"
-                      : "text-foreground/70 hover:text-primary hover:bg-surface"
+                      ? "text-white"
+                      : "text-white/65 hover:text-white"
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
                   {getHeaderLabel(entry.label, currentLanguage)}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute bottom-0 left-1.5 right-1.5 h-[2px] origin-left bg-secondary transition-transform duration-200 2xl:left-2.5 2xl:right-2.5",
+                      isActive
+                        ? "scale-x-100"
+                        : "scale-x-0 group-hover:scale-x-100 group-focus-visible:scale-x-100"
+                    )}
+                  />
                 </Link>
               );
             })}
@@ -435,7 +450,7 @@ export default function Header() {
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
             <button
               ref={menuButtonRef}
-              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-10 sm:w-10"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-10 sm:w-10"
               onClick={() => setMenuOpen((open) => !open)}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
@@ -498,7 +513,7 @@ function HeaderAccountControls({
   return (
     <div className={cn("min-w-0 items-center gap-1.5 md:gap-2", className)}>
       {status === "authenticated" ? (
-        <PublicAccountMenu className="hidden lg:block" />
+        <PublicAccountMenu theme="dark" className="hidden lg:block" />
       ) : (
         <GuestDesktopAuthActions
           language={language}
@@ -509,6 +524,7 @@ function HeaderAccountControls({
         pathname={pathname}
         currentLanguage={language}
         compact
+        theme="dark"
         onLanguageChange={onLanguageChange}
         analyticsLocation="header"
       />
@@ -532,7 +548,7 @@ function GuestDesktopAuthActions({
         href={getLocaleAwareHref("/login", language)}
         onClick={() => trackLoginClick("header")}
         tabIndex={loading ? -1 : undefined}
-        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md px-2 text-[11px] font-bold uppercase tracking-[0.06em] text-foreground/70 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:text-[13px] 2xl:tracking-[0.10em]"
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap px-2 text-[11px] font-bold uppercase tracking-[0.06em] text-white/80 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 md:text-[12px] 2xl:text-[13px] 2xl:tracking-[0.10em]"
         aria-label={language === "es" ? "Iniciar sesión" : "Login"}
       >
         {language === "es" ? "Iniciar sesión" : "Login"}
@@ -541,7 +557,7 @@ function GuestDesktopAuthActions({
         href={getLocaleAwareHref("/signup", language)}
         onClick={() => trackSignUpClick("header")}
         tabIndex={loading ? -1 : undefined}
-        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-primary px-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:px-3 md:text-[12px] 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-secondary px-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-primary transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 md:text-[12px] 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
         aria-label={language === "es" ? "Crear cuenta" : "Sign Up"}
       >
         {language === "es" ? "Crear cuenta" : "Sign Up"}
@@ -564,7 +580,7 @@ function MobileHeaderAuthControl({ language }: { language: SiteLanguage }) {
       aria-hidden={status === "loading"}
       tabIndex={status === "loading" ? -1 : undefined}
       className={cn(
-        "inline-flex h-9 flex-shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold uppercase tracking-[0.10em] text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:hidden",
+        "inline-flex h-9 flex-shrink-0 items-center justify-center px-3 text-xs font-bold uppercase tracking-[0.10em] text-white/80 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:hidden",
         status === "loading" && "invisible"
       )}
       aria-label={language === "es" ? "Iniciar sesión" : "Login"}
@@ -919,6 +935,7 @@ function ResourceMenuLink({
 }
 
 type MarketLanguageSelectorPlacement = "header" | "panel";
+type MarketLanguageSelectorTheme = "light" | "dark";
 
 export function MarketLanguageSelector({
   pathname,
@@ -927,6 +944,7 @@ export function MarketLanguageSelector({
   compact = false,
   tight = false,
   placement = "header",
+  theme = "light",
   onNavigate,
   onLanguageChange,
   analyticsLocation,
@@ -938,6 +956,7 @@ export function MarketLanguageSelector({
   compact?: boolean;
   tight?: boolean;
   placement?: MarketLanguageSelectorPlacement;
+  theme?: MarketLanguageSelectorTheme;
   onNavigate?: () => void;
   onLanguageChange: (language: SiteLanguage) => void;
   analyticsLocation: string;
@@ -957,6 +976,7 @@ export function MarketLanguageSelector({
     REGION_OPTIONS.find((option) => option.code === region) ??
     REGION_OPTIONS[0];
   const usePortal = placement === "header";
+  const darkHeaderTrigger = placement === "header" && theme === "dark";
 
   const updatePanelPosition = useCallback(() => {
     if (!buttonRef.current || !usePortal) return;
@@ -1153,7 +1173,10 @@ export function MarketLanguageSelector({
           setOpen((value) => !value);
         }}
         className={cn(
-          "inline-flex items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white/95 py-2 shadow-sm transition-colors hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          "inline-flex items-center justify-between gap-2 rounded-lg border py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+          darkHeaderTrigger
+            ? "border-white/15 bg-white/5 hover:bg-white/10 focus-visible:ring-white focus-visible:ring-offset-primary"
+            : "border-stone-200 bg-white/95 shadow-sm hover:border-primary/30 focus-visible:ring-primary",
           placement === "header"
             ? compact
               ? tight
@@ -1163,17 +1186,25 @@ export function MarketLanguageSelector({
             : "w-full px-3"
         )}
       >
-        <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em] text-primary sm:gap-1.5 sm:text-xs sm:tracking-[0.08em]">
+        <span
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em] sm:gap-1.5 sm:text-xs sm:tracking-[0.08em]",
+            darkHeaderTrigger ? "text-white" : "text-primary"
+          )}
+        >
           <span className={cn(tight && "hidden sm:inline-flex")}>
             <RegionFlag code={activeOption.code} />
           </span>
           <span>{currencyForRegion(region)}</span>
-          <span className="text-muted">{"\u00b7"}</span>
+          <span className={darkHeaderTrigger ? "text-white/60" : "text-muted"}>
+            {"\u00b7"}
+          </span>
           <span>{currentLanguage.toUpperCase()}</span>
         </span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 flex-shrink-0 text-primary transition-transform",
+            "h-3.5 w-3.5 flex-shrink-0 transition-transform",
+            darkHeaderTrigger ? "text-white/70" : "text-primary",
             open && "rotate-180"
           )}
           aria-hidden
@@ -1394,13 +1425,13 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
   const overflow = active.subLinks.slice(overflowAt);
 
   return (
-    <div className="hidden border-t border-border bg-white lg:block">
+    <div className="hidden border-b border-border bg-white lg:block">
       <div className={cn("relative", NAV_X_PADDING)}>
         {/* Hidden measurement mirror */}
         <div
           ref={measureLayerRef}
           aria-hidden
-          className="invisible pointer-events-none absolute inset-x-4 sm:inset-x-6 lg:inset-x-8 xl:inset-x-5 2xl:inset-x-10 top-0 flex items-center gap-x-4 xl:gap-x-7 whitespace-nowrap py-3 overflow-hidden"
+          className="pointer-events-none absolute inset-x-4 top-0 flex items-center gap-x-4 overflow-hidden whitespace-nowrap py-2.5 invisible sm:inset-x-6 lg:inset-x-8 xl:inset-x-5 xl:gap-x-7 2xl:inset-x-10"
         >
           {active.subLinks.map((link) => (
             <span
@@ -1450,7 +1481,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
-                  "group relative inline-flex items-center gap-1.5 py-3 text-[11px] font-bold uppercase tracking-[0.06em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
+                  "group relative inline-flex items-center gap-1.5 whitespace-nowrap py-2.5 text-[11px] font-bold uppercase tracking-[0.06em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
                   moreOpen
                     ? "text-primary"
                     : "text-foreground/65 hover:text-primary"
@@ -1467,7 +1498,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                 <span
                   aria-hidden
                   className={cn(
-                    "absolute left-0 right-0 bottom-0 h-[2px] bg-primary origin-left transition-transform duration-200",
+                    "absolute bottom-0 left-0 right-0 h-[2px] origin-left bg-secondary transition-transform duration-200",
                     moreOpen
                       ? "scale-x-100"
                       : "scale-x-0 group-hover:scale-x-100 group-focus-visible:scale-x-100"
@@ -1577,7 +1608,7 @@ function SubNavItem({ href, label, current }: SubNavItemProps) {
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "group relative inline-flex items-center py-3 text-[11px] font-bold uppercase tracking-[0.06em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
+        "group relative inline-flex items-center whitespace-nowrap py-2.5 text-[11px] font-bold uppercase tracking-[0.06em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
         current ? "text-primary" : "text-foreground/65 hover:text-primary"
       )}
     >
@@ -1585,7 +1616,7 @@ function SubNavItem({ href, label, current }: SubNavItemProps) {
       <span
         aria-hidden
         className={cn(
-          "absolute left-0 right-0 bottom-0 h-[2px] bg-primary origin-left transition-transform duration-200",
+          "absolute bottom-0 left-0 right-0 h-[2px] origin-left bg-secondary transition-transform duration-200",
           current
             ? "scale-x-100"
             : "scale-x-0 group-hover:scale-x-100 group-focus-visible:scale-x-100"

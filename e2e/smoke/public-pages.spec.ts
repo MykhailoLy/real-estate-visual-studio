@@ -99,6 +99,9 @@ test("signup uses public chrome and keeps its Welcome Offer compact across viewp
 
     const header = page.getByRole("banner");
     await expect(header).toBeVisible();
+    await expect(page.getByTestId("public-header-primary-row")).toHaveClass(
+      /bg-primary/,
+    );
     await expect(
       header.getByRole("link", { name: "Login", exact: true }),
     ).toBeVisible();
@@ -146,6 +149,9 @@ test("signup uses public chrome and keeps its Welcome Offer compact across viewp
   expectNavigationResponseOk(response, "/es/signup");
   const spanishHeader = page.getByRole("banner");
   await expect(spanishHeader).toBeVisible();
+  await expect(page.getByTestId("public-header-primary-row")).toHaveClass(
+    /bg-primary/,
+  );
   await expect(
     spanishHeader.getByRole("link", { name: "Iniciar sesión", exact: true }),
   ).toBeVisible();

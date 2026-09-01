@@ -9,6 +9,57 @@ const pixel5 = devices["Pixel 5"];
 test.describe("public navigation", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
+  test("desktop header keeps the dark primary treatment and control behavior", async ({
+    page,
+  }, testInfo) => {
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+
+    const response = await page.goto("/");
+    expectNavigationResponseOk(response, "/");
+
+    const header = page.getByRole("banner");
+    const primaryRow = page.getByTestId("public-header-primary-row");
+    await expect(primaryRow).toHaveClass(/bg-primary/);
+    await expect(primaryRow.locator(":scope > div")).toHaveClass(/h-14/);
+    await expect(
+      header.getByRole("link", {
+        name: "PicchuSpot — Real Estate Visuals home",
+      }),
+    ).toHaveAttribute("href", "/");
+
+    const categoryNav = header.getByRole("navigation", {
+      name: "Service categories",
+    });
+    const activeCategory = categoryNav.getByRole("link", {
+      name: "Remote Digital Services",
+    });
+    await expect(activeCategory).toHaveAttribute("aria-current", "page");
+    await expect(activeCategory).toHaveClass(/text-white/);
+    await expect(activeCategory).not.toHaveClass(/bg-primary\/5/);
+    await expect(activeCategory.locator("span")).toHaveClass(/bg-secondary/);
+
+    const login = header.getByRole("link", { name: "Login", exact: true });
+    await expect(login).toHaveAttribute("href", "/login");
+    await expect(login).toHaveClass(/text-white\/80/);
+    const signup = header.getByRole("link", { name: "Sign Up", exact: true });
+    await expect(signup).toHaveAttribute("href", "/signup");
+    await expect(signup).toHaveClass(/bg-secondary/);
+    await expect(signup).toHaveClass(/text-primary/);
+
+    const marketSelector = header.getByRole("button", {
+      name: "Select market, currency, and language",
+    });
+    await expect(marketSelector).toHaveClass(/border-white\/15/);
+    await expect(marketSelector).toHaveClass(/bg-white\/5/);
+    await marketSelector.click();
+    await expect(marketSelector).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("Market", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(marketSelector).toHaveAttribute("aria-expanded", "false");
+
+    await guard.expectClean();
+  });
+
   test("desktop header links navigate to core public pages", async ({
     page,
   }, testInfo) => {
@@ -58,6 +109,11 @@ test.describe("mobile navigation", () => {
 
     await page.getByRole("button", { name: "Open menu" }).click();
     const menu = page.getByRole("dialog", { name: "Site menu" });
+    await expect(menu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+
+    await page.getByRole("button", { name: "Open menu" }).click();
     await expect(menu).toBeVisible();
     await menu.getByRole("link", { name: "Virtual Staging", exact: true }).click();
 
@@ -131,6 +187,28 @@ test.describe("responsive service navigation", () => {
       .getByRole("menuitem", { name: "Development Site Plans", exact: true })
       .click();
     await expect(page).toHaveURL(/\/pricing\/development-site-plans$/);
+    await guard.expectClean();
+  });
+
+  test("active service links use the gold underline from the lg breakpoint", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+
+    const response = await page.goto("/pricing/image-enhancement");
+    expectNavigationResponseOk(response, "/pricing/image-enhancement");
+
+    const serviceNav = page.locator(
+      'nav[aria-label="Remote Digital Services services"]',
+    );
+    const activeLink = serviceNav.getByRole("link", {
+      name: "Image Enhancement",
+      exact: true,
+    });
+    await expect(activeLink).toHaveAttribute("aria-current", "page");
+    await expect(activeLink.locator("span")).toHaveClass(/bg-secondary/);
+    await expect(activeLink.locator("span")).toHaveClass(/scale-x-100/);
     await guard.expectClean();
   });
 });
