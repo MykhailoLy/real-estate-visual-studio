@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
+import WelcomeOfferCallout from "@/components/auth/WelcomeOfferCallout";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 import SignUpForm, { type SignUpFormCopy } from "../../signup/SignUpForm";
 
 export const metadata: Metadata = {
@@ -56,7 +58,7 @@ export default function SpanishSignUpPage() {
       </div>
 
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <div className="mb-5 text-center">
           <Link
             href="/es"
             className="inline-flex items-center gap-2 mb-5 group"
@@ -82,7 +84,16 @@ export default function SpanishSignUpPage() {
           </p>
         </div>
 
-        <div className="bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
+        <WelcomeOfferCallout
+          copy={{
+            title: WELCOME_OFFER_PUBLIC_COPY.es.title,
+            prompt: WELCOME_OFFER_PUBLIC_COPY.es.signupPrompt,
+            benefits: WELCOME_OFFER_PUBLIC_COPY.es.benefits,
+            perAccount: WELCOME_OFFER_PUBLIC_COPY.es.perAccount,
+          }}
+        />
+
+        <div className="mt-5 bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
           <Suspense fallback={<SignUpFormSkeleton />}>
             <SignUpForm
               copy={signUpCopy}

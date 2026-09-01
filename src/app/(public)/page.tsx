@@ -52,10 +52,10 @@ export const metadata: Metadata = publicPageMetadata({
 //   1. Header / two-level nav (sticky, owned by PublicLayout)
 //   2. Before/After slider — visual demonstration banner strip
 //   3. SEO intro — visible H1 + supporting paragraph
-//   4. Remote Digital Services — service grid (what we do)
-//   5. Why Work with PicchuSpot — benefits row
-//   6. Help Your Listings Stand Out — results / CTA strip
-//   7. How It Works
+//   4. Compact benefits row
+//   5. Remote Digital Services — service grid (what we do)
+//   6. How It Works
+//   7. Help Your Listings Stand Out — results / CTA strip
 //   8. About PicchuSpot — collage + narrative
 //   9. Testimonials carousel
 //  10. Final CTA — navy block
@@ -163,15 +163,16 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. Remote Digital Services — service grid (what we do). */}
-      <ServiceGrid />
-
-      {/* 4. Why Work with PicchuSpot — benefits row. */}
+      {/* 3. Compact supporting proof strip. */}
       <BenefitsRow />
 
-      {/* 5. Help Your Listings Stand Out — results / CTA strip.
-            Positioned after the service grid and benefits so users have
-            already seen what we do and why before the conversion prompt. */}
+      {/* 4. Remote Digital Services — service grid (what we do). */}
+      <ServiceGrid />
+
+      {/* 5. How It Works. */}
+      <HowItWorksDetailed />
+
+      {/* 6. Help Your Listings Stand Out — results / CTA strip. */}
       <section className="bg-white border-y border-border">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-10">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
@@ -205,9 +206,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* 6. How It Works. */}
-      <HowItWorksDetailed />
 
       {/* 7. About PicchuSpot — collage + narrative. */}
       <AboutPicchuSpot tiles={collageTiles} />

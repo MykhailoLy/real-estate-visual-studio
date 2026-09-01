@@ -22,6 +22,93 @@ test("home page loads without client or server smoke failures", async ({
   await guard.expectClean();
 });
 
+const HOMEPAGE_VIEWPORTS = [
+  { width: 390, height: 844, expectedBenefitColumns: 1 },
+  { width: 768, height: 900, expectedBenefitColumns: 3 },
+  { width: 1024, height: 900, expectedBenefitColumns: 6 },
+  { width: 1440, height: 1000, expectedBenefitColumns: 6 },
+  { width: 1980, height: 1100, expectedBenefitColumns: 6 },
+  { width: 3840, height: 1200, expectedBenefitColumns: 6 },
+] as const;
+
+test("homepage keeps its compact Welcome Offer benefits responsive and ordered", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60000);
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  for (const viewport of HOMEPAGE_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    const response = await page.goto("/");
+
+    expectNavigationResponseOk(response, "/");
+    await expect(
+      page.getByRole("heading", {
+        name: "Real Estate Photo Editing, Virtual Staging & Floor Plans",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Welcome Offer", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Why work with PicchuSpot", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Built for listings - not generic photo work.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+
+    const benefitGrid = page.getByTestId("benefits-grid");
+    const columnCount = await benefitGrid.evaluate((element) =>
+      getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length,
+    );
+    expect(columnCount).toBe(viewport.expectedBenefitColumns);
+
+    const pageWidth = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+  }
+
+  await guard.expectClean();
+});
+
+test("English and Spanish signup pages show localized Welcome Offer presentation", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  let response = await page.goto("/signup");
+  expectNavigationResponseOk(response, "/signup");
+  await expect(
+    page.getByRole("heading", { name: "Welcome Offer", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("1 Image Enhancement free", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Full name")).toBeVisible();
+
+  response = await page.goto("/es/signup");
+  expectNavigationResponseOk(response, "/es/signup");
+  await expect(
+    page.getByRole("heading", { name: "Oferta de bienvenida", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("1 mejora de imagen gratis", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Nombre completo")).toBeVisible();
+
+  const pageWidth = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+  await guard.expectClean();
+});
+
 const publicRoutes = [
   {
     route: "/pricing",

@@ -25,6 +25,7 @@ import {
   getHomepageSliderItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 import { spanishMetadata } from "./seo";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 
@@ -37,8 +38,7 @@ export const metadata = spanishMetadata({
 });
 
 const benefitsCopy: BenefitsRowCopy = {
-  heading: "Por qué trabajar con PicchuSpot",
-  description: "Creado para anuncios inmobiliarios, no para retoque genérico.",
+  ariaLabel: "Beneficios de PicchuSpot",
   benefits: [
     {
       title: "Entrega rápida",
@@ -61,8 +61,8 @@ const benefitsCopy: BenefitsRowCopy = {
       body: "Los archivos van directamente a almacenamiento privado mediante URL firmadas. Tus fotos siguen siendo tuyas.",
     },
     {
-      title: "Remoto + local",
-      body: "Edición remota en todo el mundo y fotografía presencial en Alicante y Costa Blanca.",
+      title: WELCOME_OFFER_PUBLIC_COPY.es.title,
+      body: WELCOME_OFFER_PUBLIC_COPY.es.benefitSummary,
     },
   ],
 };
@@ -278,7 +278,26 @@ export default async function SpanishHomePage() {
         </div>
       </section>
 
+      <section className="bg-white border-b border-border">
+        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-6 lg:py-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+            Edición fotográfica inmobiliaria, Virtual Staging y planos
+          </h1>
+          <p className="mt-3 text-sm sm:text-base lg:text-lg text-muted leading-relaxed max-w-4xl">
+            Crea visuales listos para tus anuncios con mejora de imagen,
+            edición Day to Dusk, Virtual Staging, eliminación de objetos,
+            renovación virtual, planos y mejora de imagen 360°. Pensado para
+            agentes inmobiliarios, fotógrafos, gestores de propiedades y
+            equipos de marketing.
+          </p>
+        </div>
+      </section>
+
       <BenefitsRow copy={benefitsCopy} />
+
+      <ServiceGrid copy={serviceGridCopy} locale="es" />
+
+      <HowItWorksDetailed copy={processCopy} />
 
       <section className="bg-white border-y border-border">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-10">
@@ -287,9 +306,9 @@ export default async function SpanishHomePage() {
               <p className="text-secondary-dark text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2">
                 Servicios digitales remotos
               </p>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
                 Ayuda a que tus anuncios destaquen y vendan más rápido
-              </h1>
+              </h2>
               <p className="mt-2 text-sm sm:text-base lg:text-lg text-muted leading-snug">
                 Virtual Staging, edición fotográfica, planos, visuales 360 y
                 media inmobiliaria local para anuncios de propiedades listos
@@ -314,10 +333,6 @@ export default async function SpanishHomePage() {
           </div>
         </div>
       </section>
-
-      <ServiceGrid copy={serviceGridCopy} locale="es" />
-
-      <HowItWorksDetailed copy={processCopy} />
 
       <AboutPicchuSpot
         tiles={collageTiles}

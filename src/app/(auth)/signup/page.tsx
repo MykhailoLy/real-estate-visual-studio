@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
+import WelcomeOfferCallout from "@/components/auth/WelcomeOfferCallout";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 import SignUpForm from "./SignUpForm";
 
 export const metadata: Metadata = {
@@ -29,7 +31,7 @@ export default function SignUpPage() {
 
       <div className="w-full max-w-md">
         {/* Branding */}
-        <div className="text-center mb-8">
+        <div className="mb-5 text-center">
           <Link
             href="/"
             className="inline-flex items-center gap-2 mb-5 group"
@@ -55,8 +57,17 @@ export default function SignUpPage() {
           </p>
         </div>
 
+        <WelcomeOfferCallout
+          copy={{
+            title: WELCOME_OFFER_PUBLIC_COPY.en.title,
+            prompt: WELCOME_OFFER_PUBLIC_COPY.en.signupPrompt,
+            benefits: WELCOME_OFFER_PUBLIC_COPY.en.benefits,
+            perAccount: WELCOME_OFFER_PUBLIC_COPY.en.perAccount,
+          }}
+        />
+
         {/* Card */}
-        <div className="bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
+        <div className="mt-5 bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
           {/* useSearchParams (redirectTo) needs Suspense in the App Router */}
           <Suspense fallback={<SignUpFormSkeleton />}>
             <SignUpForm turnstileSiteKey={turnstileSiteKey} />

@@ -4,24 +4,14 @@ import {
   RefreshCw,
   Eye,
   ShieldCheck,
-  Globe,
+  Gift,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 
 // ============================================================
-// "Why work with PicchuSpot" — benefits row
-//
-// Six cards. Layout adapts:
-//   < sm     1 col       — single stack on phones
-//   sm       2 cols      — pair-up on small tablets
-//   lg       3 cols      — comfortable 3+3 on desktop
-//   2xl+     6 cols      — single horizontal row on very wide
-//                          displays where the cards still read
-//                          comfortably without cramping the body
-//
-// Card padding scales down at 2xl so the six-in-a-row variant
-// doesn't feel cramped. Original PicchuSpot copy only — exact
-// strings supplied by the spec.
+// Compact supporting proof strip. The benefits stay visually secondary to
+// the service work while remaining easy to scan at every viewport.
 // ============================================================
 
 export type BenefitCopy = {
@@ -30,8 +20,7 @@ export type BenefitCopy = {
 };
 
 export type BenefitsRowCopy = {
-  heading: string;
-  description: string;
+  ariaLabel: string;
   benefits: BenefitCopy[];
 };
 
@@ -62,15 +51,14 @@ const BENEFITS: (BenefitCopy & { icon: LucideIcon })[] = [
     body: "Files go straight to private storage over signed URLs. Your photos stay yours.",
   },
   {
-    icon: Globe,
-    title: "Remote + Local",
-    body: "Worldwide remote editing plus on-location photography in Alicante and Costa Blanca.",
+    icon: Gift,
+    title: WELCOME_OFFER_PUBLIC_COPY.en.title,
+    body: WELCOME_OFFER_PUBLIC_COPY.en.benefitSummary,
   },
 ];
 
 const DEFAULT_COPY: BenefitsRowCopy = {
-  heading: "Why work with PicchuSpot",
-  description: "Built for listings - not generic photo work.",
+  ariaLabel: "PicchuSpot benefits",
   benefits: BENEFITS,
 };
 
@@ -80,40 +68,32 @@ export default function BenefitsRow({
   copy?: BenefitsRowCopy;
 }) {
   return (
-    <section className="py-12 lg:py-16 bg-surface border-y border-border">
+    <section
+      aria-label={copy.ariaLabel}
+      className="bg-ivory border-y border-border py-5 sm:py-6 lg:py-7"
+    >
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
-        <div className="max-w-3xl mb-8 lg:mb-12">
-          <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
-            {copy.heading}
-          </h2>
-          <p className="mt-3 text-base lg:text-xl text-muted leading-relaxed">
-            {copy.description}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-5 lg:gap-6 2xl:gap-5">
+        <div
+          data-testid="benefits-grid"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px overflow-hidden rounded-xl border border-border bg-border"
+        >
           {copy.benefits.map((b, index) => {
             const Icon = BENEFITS[index]?.icon ?? Clock;
             return (
               <div
                 key={b.title}
-                className="group relative bg-white border border-stone-200 rounded-2xl p-6 lg:p-7 2xl:p-5 hover:border-primary/30 hover:shadow-lg transition-all duration-300"
+                className="min-w-0 bg-white px-4 py-4 sm:px-5 lg:px-4 lg:py-4"
               >
-                {/* Top accent stripe — appears on hover */}
-                <span
-                  aria-hidden
-                  className="absolute top-0 left-6 right-6 h-0.5 rounded-b-full bg-secondary scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-300"
-                />
-                <div className="w-12 h-12 lg:w-14 lg:h-14 2xl:w-12 2xl:h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 lg:mb-5 2xl:mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon
-                    className="w-6 h-6 lg:w-7 lg:h-7 2xl:w-6 2xl:h-6 text-primary group-hover:text-white transition-colors"
+                    className="h-5 w-5"
                     aria-hidden
                   />
                 </div>
-                <h3 className="font-bold text-foreground text-base lg:text-lg 2xl:text-base tracking-tight">
+                <h3 className="mt-3 text-sm font-bold tracking-tight text-foreground lg:text-[15px]">
                   {b.title}
                 </h3>
-                <p className="mt-2 text-sm lg:text-[15px] 2xl:text-[13px] text-muted leading-relaxed">
+                <p className="mt-1.5 text-xs leading-relaxed text-muted lg:text-[13px]">
                   {b.body}
                 </p>
               </div>

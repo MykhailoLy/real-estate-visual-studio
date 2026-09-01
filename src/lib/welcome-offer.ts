@@ -50,14 +50,41 @@ export function isWelcomeOfferBenefitKey(
   );
 }
 
+const WELCOME_OFFER_PUBLIC_BENEFITS = {
+  en: [
+    "1 Image Enhancement free",
+    "1 Day to Dusk free",
+    "50% off your first Virtual Staging image",
+  ],
+  es: [
+    "1 mejora de imagen gratis",
+    "1 conversión Day to Dusk gratis",
+    "50 % de descuento en tu primera imagen de Virtual Staging",
+  ],
+} as const;
+
 export const WELCOME_OFFER_PUBLIC_COPY = {
   en: {
+    title: "Welcome Offer",
+    signupPrompt:
+      "Create your account and use your available welcome benefits:",
+    benefits: WELCOME_OFFER_PUBLIC_BENEFITS.en,
+    benefitSummary:
+      "1 Image Enhancement free, 1 Day to Dusk free, and 50% off your first Virtual Staging image.",
+    perAccount: "Each benefit can be used once per account.",
     short:
       "Welcome Offer — 1 Image Enhancement free, 1 Day to Dusk free, and 50% off your first Virtual Staging image.",
     rules:
       "Each benefit can be used once per account. Welcome Offer pricing does not combine with a volume discount on the same image.",
   },
   es: {
+    title: "Oferta de bienvenida",
+    signupPrompt:
+      "Crea tu cuenta y usa tus ventajas de bienvenida disponibles:",
+    benefits: WELCOME_OFFER_PUBLIC_BENEFITS.es,
+    benefitSummary:
+      "1 mejora de imagen gratis, 1 conversión Day to Dusk gratis y un 50 % de descuento en tu primera imagen de Virtual Staging.",
+    perAccount: "Cada ventaja puede utilizarse una sola vez por cuenta.",
     short:
       "Oferta de bienvenida — 1 mejora de imagen gratis, 1 conversión Day to Dusk gratis y un 50 % de descuento en tu primera imagen de Virtual Staging.",
     rules:
