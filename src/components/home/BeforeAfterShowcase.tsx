@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import {
+  getHomeHeroServicePresentation,
+  type HomeHeroServicePresentation,
+  type RemoteServiceLocale,
+} from "@/lib/pricing/remote-service-presentation";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "./ServicePlaceholder";
@@ -54,25 +61,69 @@ export type ShowcaseSlide =
       afterUrl: string;
       beforeAlt: string;
       afterAlt: string;
+      serviceSlug?: string | null;
     }
   | {
       kind: "placeholder";
       id: string;
       variant: ServiceVariant;
+      serviceSlug?: string;
     };
 
 interface Props {
   slides?: ShowcaseSlide[];
+  locale?: RemoteServiceLocale;
 }
 
 const FALLBACK_SLIDES: ShowcaseSlide[] = [
-  { kind: "placeholder", id: "image-enhancement", variant: "image-enhancement" },
-  { kind: "placeholder", id: "day-to-dusk", variant: "day-to-dusk" },
-  { kind: "placeholder", id: "virtual-staging", variant: "virtual-staging" },
-  { kind: "placeholder", id: "floor-plans", variant: "floor-plans" },
-  { kind: "placeholder", id: "virtual-renovation", variant: "virtual-renovation" },
-  { kind: "placeholder", id: "panorama-staging", variant: "panorama-staging" },
-  { kind: "placeholder", id: "aerial-editing", variant: "aerial-editing" },
+  {
+    kind: "placeholder",
+    id: "image-enhancement",
+    variant: "image-enhancement",
+    serviceSlug: "image-enhancement",
+  },
+  {
+    kind: "placeholder",
+    id: "day-to-dusk",
+    variant: "day-to-dusk",
+    serviceSlug: "day-to-dusk",
+  },
+  {
+    kind: "placeholder",
+    id: "virtual-staging",
+    variant: "virtual-staging",
+    serviceSlug: "virtual-staging",
+  },
+  {
+    kind: "placeholder",
+    id: "item-removal",
+    variant: "item-removal",
+    serviceSlug: "item-removal-virtual-cleaning",
+  },
+  {
+    kind: "placeholder",
+    id: "floor-plans",
+    variant: "floor-plans",
+    serviceSlug: "floor-plans",
+  },
+  {
+    kind: "placeholder",
+    id: "virtual-renovation",
+    variant: "virtual-renovation",
+    serviceSlug: "virtual-renovation",
+  },
+  {
+    kind: "placeholder",
+    id: "panorama-staging",
+    variant: "panorama-staging",
+    serviceSlug: "360-virtual-staging",
+  },
+  {
+    kind: "placeholder",
+    id: "aerial-editing",
+    variant: "aerial-editing",
+    serviceSlug: "aerial-editing",
+  },
   { kind: "placeholder", id: "local-package", variant: "local-package" },
 ];
 
@@ -88,7 +139,7 @@ const SWIPE_MAX_RATIO = 1.2;
 const HERO_HALF_SIZES =
   "(min-width: 1024px) calc(50vw - 8px), (min-width: 640px) calc(50vw - 16px), calc(50vw - 12px)";
 
-export default function BeforeAfterShowcase({ slides }: Props) {
+export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
   const effective: ShowcaseSlide[] =
     slides && slides.length > 0 ? slides : FALLBACK_SLIDES;
 
@@ -228,6 +279,10 @@ export default function BeforeAfterShowcase({ slides }: Props) {
             neighborsReady,
             preparePrev
           );
+          const service = getHomeHeroServicePresentation(
+            slide.serviceSlug,
+            locale,
+          );
           return (
             <div
               key={slide.id}
@@ -252,6 +307,13 @@ export default function BeforeAfterShowcase({ slides }: Props) {
                     showInnerLabels={false}
                   />
                 ))}
+              {active && (
+                <BeforeAfterLabels
+                  beforeLabel={locale === "es" ? "ANTES" : "BEFORE"}
+                  afterLabel={locale === "es" ? "DESPUÉS" : "AFTER"}
+                />
+              )}
+              {active && service && <HeroServiceCta service={service} />}
             </div>
           );
         })}
@@ -265,7 +327,7 @@ export default function BeforeAfterShowcase({ slides }: Props) {
               aria-label="Previous slide"
               className={cn(
                 // Generous tap target (44×44 minimum), centred on the icon
-                "absolute left-2 lg:left-4 top-1/2 -translate-y-1/2",
+                "absolute left-2 top-1/2 z-20 -translate-y-1/2 lg:left-4",
                 "w-11 h-11 flex items-center justify-center",
                 // Visually only the icon — no background circle
                 "text-white/80 hover:text-white",
@@ -280,7 +342,7 @@ export default function BeforeAfterShowcase({ slides }: Props) {
               onClick={goNext}
               aria-label="Next slide"
               className={cn(
-                "absolute right-2 lg:right-4 top-1/2 -translate-y-1/2",
+                "absolute right-2 top-1/2 z-20 -translate-y-1/2 lg:right-4",
                 "w-11 h-11 flex items-center justify-center",
                 "text-white/80 hover:text-white",
                 "drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]",
@@ -326,6 +388,70 @@ export default function BeforeAfterShowcase({ slides }: Props) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function BeforeAfterLabels({
+  beforeLabel,
+  afterLabel,
+}: {
+  beforeLabel: string;
+  afterLabel: string;
+}) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between sm:inset-x-4 sm:top-3.5"
+    >
+      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary backdrop-blur-sm sm:text-[11px]">
+        {beforeLabel}
+      </span>
+      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary backdrop-blur-sm sm:text-[11px]">
+        {afterLabel}
+      </span>
+    </div>
+  );
+}
+
+function HeroServiceCta({ service }: { service: HomeHeroServicePresentation }) {
+  const stopCarouselPointerEvent = (event: React.PointerEvent) => {
+    event.stopPropagation();
+  };
+
+  return (
+    <div
+      data-testid="hero-service-cta"
+      className="absolute inset-x-0 bottom-0 z-10 border-t border-white/10 bg-primary/90 backdrop-blur-sm"
+      onPointerDown={stopCarouselPointerEvent}
+      onPointerUp={stopCarouselPointerEvent}
+      onPointerCancel={stopCarouselPointerEvent}
+    >
+      <TrackedLink
+        href={service.href}
+        prefetch={false}
+        analyticsLabel={service.ctaLabel}
+        analyticsLocation="homepage_hero"
+        analyticsEvent="pricing_cta"
+        serviceSlug={service.mediaSlug}
+        className="flex min-h-[3.25rem] flex-col justify-center gap-0.5 px-3 py-2.5 transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary sm:min-h-[3rem] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4 sm:py-2 lg:px-5"
+      >
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white sm:text-[12px]">
+          {service.name}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-secondary sm:text-[13px]">
+          {service.price.kind === "catalog" ? (
+            <CatalogPriceText
+              priceKey={service.price.priceKey}
+              prefix={service.price.prefix}
+              suffix={service.price.suffix}
+            />
+          ) : (
+            service.price.label
+          )}
+          <ArrowRight className="h-3.5 w-3.5 text-secondary" aria-hidden />
+        </span>
+      </TrackedLink>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 import { spanishMetadata } from "./seo";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
+import { getHomeHeroServicePresentation } from "@/lib/pricing/remote-service-presentation";
 
 export const metadata = spanishMetadata({
   title: "PicchuSpot - Visuales inmobiliarios",
@@ -225,10 +226,12 @@ export default async function SpanishHomePage() {
       const beforeUrl = getSiteMediaPublicUrl(row.before_image_path);
       const afterUrl = getSiteMediaPublicUrl(row.after_image_path);
       if (!beforeUrl || !afterUrl) return null;
+      const service = getHomeHeroServicePresentation(row.service_slug, "es");
       const alt = getBeforeAfterAlt({
         sharedAlt: row.alt_text,
         title: row.title,
         description: row.description,
+        serviceLabel: service?.name,
         serviceSlug: row.service_slug,
         locale: "es",
       });
@@ -239,6 +242,7 @@ export default async function SpanishHomePage() {
         afterUrl,
         beforeAlt: alt.beforeAlt,
         afterAlt: alt.afterAlt,
+        serviceSlug: row.service_slug,
       };
     })
     .filter((slide): slide is ShowcaseSlide => slide !== null);
@@ -274,7 +278,7 @@ export default async function SpanishHomePage() {
     <>
       <section className="bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
-          <BeforeAfterShowcase slides={sliderSlides} />
+          <BeforeAfterShowcase slides={sliderSlides} locale="es" />
         </div>
       </section>
 

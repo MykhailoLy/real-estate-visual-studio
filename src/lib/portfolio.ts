@@ -1,15 +1,25 @@
 import { createServerClient } from "@/lib/supabase";
-import type { ServiceVariant } from "@/components/home/ServicePlaceholder";
+import {
+  isPortfolioServiceSlug,
+  type PortfolioServiceSlug,
+} from "@/lib/portfolio-service-meta";
+
+export {
+  ALL_PORTFOLIO_PRICING_PATHS,
+  getPortfolioService,
+  isPortfolioServiceSlug,
+  PORTFOLIO_SERVICES,
+  PORTFOLIO_SERVICE_SLUGS,
+  type PortfolioServiceMeta,
+  type PortfolioServiceSlug,
+} from "@/lib/portfolio-service-meta";
 
 // ============================================================
 // PORTFOLIO MEDIA — shared library
 //
-// Single source of truth for:
-//   - the canonical service-slug list used by portfolio_items
-//   - the mapping from slug -> public pricing page URL
-//   - the mapping from pricing page URL -> slug
-//   - the placeholder ServiceVariant used when no image exists
-//   - tiny helpers to read items + build public storage URLs
+// Server-side media reads and public storage URLs. Canonical public service
+// metadata is re-exported from portfolio-service-meta so browser presentation
+// components do not need to import this Supabase-backed module.
 //
 // Anything that needs to know about a portfolio service should
 // import from here so we don't drift across the homepage grid,
@@ -17,143 +27,6 @@ import type { ServiceVariant } from "@/components/home/ServicePlaceholder";
 // ============================================================
 
 export const PORTFOLIO_BUCKET = "portfolio";
-
-/**
- * Canonical portfolio service slugs. These are also the values
- * the `portfolio_items.service_slug` CHECK constraint enforces in
- * supabase/portfolio.sql — keep in sync with that file.
- *
- * Note: `item-removal-virtual-cleaning` is the canonical portfolio
- * slug, but the corresponding *pricing page* lives at
- * `/pricing/photo-editing` (legacy URL kept stable). The mapping
- * below handles the bridge so the public site keeps working.
- */
-export const PORTFOLIO_SERVICE_SLUGS = [
-  "image-enhancement",
-  "day-to-dusk",
-  "virtual-staging",
-  "item-removal-virtual-cleaning",
-  "floor-plans",
-  "virtual-renovation",
-  "360-image-enhancement",
-  "360-virtual-staging",
-  "aerial-editing",
-  "development-site-plans",
-] as const;
-
-export type PortfolioServiceSlug = (typeof PORTFOLIO_SERVICE_SLUGS)[number];
-
-export function isPortfolioServiceSlug(
-  value: unknown
-): value is PortfolioServiceSlug {
-  return (
-    typeof value === "string" &&
-    (PORTFOLIO_SERVICE_SLUGS as readonly string[]).includes(value)
-  );
-}
-
-/**
- * Long-form display labels and the route each slug resolves to on
- * the public marketing site. This is what the admin UI renders in
- * its filter and what the homepage card / pricing page reverse-
- * lookups consume.
- */
-export interface PortfolioServiceMeta {
-  slug: PortfolioServiceSlug;
-  label: string;
-  /** Public pricing page URL — note photo-editing legacy URL. */
-  pricingHref: string;
-  /** Variant used by ServicePlaceholder as fallback when no item
-   *  has been uploaded yet. */
-  placeholderVariant: ServiceVariant;
-}
-
-export const PORTFOLIO_SERVICES: PortfolioServiceMeta[] = [
-  {
-    slug: "image-enhancement",
-    label: "Image Enhancement",
-    pricingHref: "/pricing/image-enhancement",
-    placeholderVariant: "image-enhancement",
-  },
-  {
-    slug: "day-to-dusk",
-    label: "Day to Dusk",
-    pricingHref: "/pricing/day-to-dusk",
-    placeholderVariant: "day-to-dusk",
-  },
-  {
-    slug: "virtual-staging",
-    label: "Virtual Staging",
-    pricingHref: "/pricing/virtual-staging",
-    placeholderVariant: "virtual-staging",
-  },
-  {
-    slug: "item-removal-virtual-cleaning",
-    label: "Item Removal & Virtual Cleaning",
-    // Legacy URL — the pricing page is /pricing/photo-editing,
-    // but its portfolio slug is item-removal-virtual-cleaning.
-    pricingHref: "/pricing/photo-editing",
-    placeholderVariant: "item-removal",
-  },
-  {
-    slug: "floor-plans",
-    label: "Floor Plans",
-    pricingHref: "/pricing/floor-plans",
-    placeholderVariant: "floor-plans",
-  },
-  {
-    slug: "virtual-renovation",
-    label: "Virtual Renovation",
-    pricingHref: "/pricing/virtual-renovation",
-    placeholderVariant: "virtual-renovation",
-  },
-  {
-    slug: "360-image-enhancement",
-    label: "360° Image Enhancement",
-    pricingHref: "/pricing/360-image-enhancement",
-    placeholderVariant: "panorama-enhancement",
-  },
-  {
-    slug: "360-virtual-staging",
-    label: "360° Virtual Staging",
-    pricingHref: "/pricing/360-virtual-staging",
-    placeholderVariant: "panorama-staging",
-  },
-  {
-    slug: "aerial-editing",
-    label: "Aerial Editing",
-    pricingHref: "/pricing/aerial-editing",
-    placeholderVariant: "aerial-editing",
-  },
-  {
-    slug: "development-site-plans",
-    label: "Development Site Plans",
-    pricingHref: "/pricing/development-site-plans",
-    placeholderVariant: "site-plans",
-  },
-];
-
-const SLUG_INDEX: Record<PortfolioServiceSlug, PortfolioServiceMeta> =
-  Object.fromEntries(
-    PORTFOLIO_SERVICES.map((s) => [s.slug, s])
-  ) as Record<PortfolioServiceSlug, PortfolioServiceMeta>;
-
-/** Look up a portfolio service entry by canonical slug. */
-export function getPortfolioService(
-  slug: PortfolioServiceSlug
-): PortfolioServiceMeta {
-  return SLUG_INDEX[slug];
-}
-
-/**
- * The set of pricing-page paths that map to portfolio slugs. Used
- * by admin revalidation so we always invalidate the page actually
- * affected by an item change (including the legacy photo-editing
- * URL).
- */
-export const ALL_PORTFOLIO_PRICING_PATHS = PORTFOLIO_SERVICES.map(
-  (s) => s.pricingHref
-);
 
 // ============================================================
 // PUBLIC URL BUILDER

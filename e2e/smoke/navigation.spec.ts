@@ -68,7 +68,7 @@ test.describe("public navigation", () => {
     const response = await page.goto("/");
     expectNavigationResponseOk(response, "/");
 
-    await page.getByRole("link", { name: "Pricing" }).first().click();
+    await page.getByRole("link", { name: "Pricing", exact: true }).first().click();
     await expect(page).toHaveURL(/\/pricing$/);
     await expect(
       page.getByRole("heading", { name: "Pricing", exact: true }),
@@ -126,6 +126,41 @@ test.describe("mobile navigation", () => {
 });
 
 test.describe("responsive service navigation", () => {
+  test("top-level categories wait for 3xl while the burger remains clickable", async ({
+    page,
+  }, testInfo) => {
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    let response = await page.goto("/");
+    expectNavigationResponseOk(response, "/");
+    await expect(
+      page.getByRole("navigation", { name: "Service categories" }),
+    ).toBeHidden();
+    await expect(
+      page.locator('nav[aria-label="Remote Digital Services services"]'),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.getByRole("dialog", { name: "Site menu" })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.setViewportSize({ width: 1360, height: 900 });
+    response = await page.goto("/");
+    expectNavigationResponseOk(response, "/");
+    await expect(
+      page.getByRole("navigation", { name: "Service categories" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.getByRole("dialog", { name: "Site menu" })).toBeVisible();
+
+    const pageWidth = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+    await guard.expectClean();
+  });
+
   test("service links remain in the burger menu below lg", async ({
     page,
   }, testInfo) => {

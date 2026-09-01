@@ -20,6 +20,7 @@ type TrackedLinkProps = {
   analyticsIntentType?: string;
   analyticsEvent?: "sign_up" | "login" | "order_intent" | "pricing_cta" | "contact_intent";
   serviceSlug?: string;
+  prefetch?: boolean;
 };
 
 export default function TrackedLink({
@@ -31,6 +32,7 @@ export default function TrackedLink({
   analyticsIntentType,
   analyticsEvent,
   serviceSlug,
+  prefetch,
 }: TrackedLinkProps) {
   const trackClick = () => {
     const eventType =
@@ -81,6 +83,7 @@ export default function TrackedLink({
   return (
     <Link
       href={href}
+      prefetch={prefetch}
       className={className}
       onClick={trackClick}
       aria-label={analyticsLabel}

@@ -22,6 +22,92 @@ test("home page loads without client or server smoke failures", async ({
   await guard.expectClean();
 });
 
+test("homepage hero keeps active-slide service context, regional pricing, and routes", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  let response = await page.goto("/");
+  expectNavigationResponseOk(response, "/");
+
+  const hero = page.getByRole("region", { name: "Before and after slider" });
+  await expect(hero.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(hero.getByText("AFTER", { exact: true })).toBeVisible();
+  await expect(hero.getByTestId("hero-service-cta").getByRole("link")).toHaveCount(
+    1,
+  );
+  const imageEnhancementCta = hero.getByRole("link", {
+    name: "View Image Enhancement pricing",
+  });
+  await expect(imageEnhancementCta).toContainText(/From .*\/ image/);
+
+  const marketSelector = page.getByRole("button", {
+    name: "Select market, currency, and language",
+  });
+  await marketSelector.click();
+  await page.getByRole("button", { name: /Europe — EUR/ }).click();
+  await expect(imageEnhancementCta).toContainText("€");
+
+  await hero.getByRole("button", { name: "Next slide" }).click();
+  const dayToDuskCta = hero.getByRole("link", {
+    name: "View Day to Dusk pricing",
+  });
+  await expect(dayToDuskCta).toBeVisible();
+  await expect(hero.getByTestId("hero-service-cta").getByRole("link")).toHaveCount(
+    1,
+  );
+  await dayToDuskCta.click();
+  await expect(page).toHaveURL(/\/pricing\/day-to-dusk$/);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  response = await page.goto("/");
+  expectNavigationResponseOk(response, "/");
+  const mobileHero = page.getByRole("region", { name: "Before and after slider" });
+  await mobileHero
+    .getByRole("tab", { name: "Show slide 4 of 9" })
+    .click();
+  const itemRemovalCta = mobileHero.getByRole("link", {
+    name: "View Item Removal & Virtual Cleaning pricing",
+  });
+  await expect(itemRemovalCta).toHaveAttribute("href", "/pricing/photo-editing");
+  const pageWidth = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+
+  await itemRemovalCta.click();
+  await expect(page).toHaveURL(/\/pricing\/photo-editing$/);
+
+  response = await page.goto("/");
+  expectNavigationResponseOk(response, "/");
+  const unknownHero = page.getByRole("region", {
+    name: "Before and after slider",
+  });
+  await unknownHero.getByRole("tab", { name: "Show slide 9 of 9" }).click();
+  await expect(unknownHero.getByTestId("hero-service-cta")).toHaveCount(0);
+
+  await guard.expectClean();
+});
+
+test("Spanish homepage hero localizes its comparison labels and service route", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  const response = await page.goto("/es");
+  expectNavigationResponseOk(response, "/es");
+
+  const hero = page.getByRole("region", { name: "Before and after slider" });
+  await expect(hero.getByText("ANTES", { exact: true })).toBeVisible();
+  await expect(hero.getByText("DESPUÉS", { exact: true })).toBeVisible();
+  await expect(
+    hero.getByRole("link", { name: "Ver precios de Mejora de imagen" }),
+  ).toHaveAttribute("href", "/es/pricing/image-enhancement");
+  await guard.expectClean();
+});
+
 const HOMEPAGE_VIEWPORTS = [
   { width: 390, height: 844, expectedBenefitColumns: 1 },
   { width: 768, height: 900, expectedBenefitColumns: 3 },

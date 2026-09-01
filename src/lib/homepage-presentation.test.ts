@@ -114,6 +114,75 @@ test("public header keeps the dark primary hierarchy without changing its shared
   assert.match(accountMenuSource, /text-white hover:bg-white\/10/);
 });
 
+test("top-level header categories wait for the wide 3xl layout while the lg service row remains", () => {
+  const headerSource = readSource("src/components/layout/Header.tsx");
+  const categoryStart = headerSource.indexOf("aria-label=\"Service categories\"");
+  const categoryEnd = headerSource.indexOf(
+    "{/* Menu, account actions, and preferences */}",
+  );
+  const categorySource = headerSource.slice(categoryStart, categoryEnd);
+
+  assert.match(
+    categorySource,
+    /hidden 3xl:ml-4 3xl:flex 3xl:min-w-0 3xl:items-center 3xl:gap-0\.5/,
+  );
+  assert.doesNotMatch(categorySource, /\sxl:flex/);
+  assert.match(headerSource, /hidden border-b border-border bg-white lg:block/);
+});
+
+test("hero service metadata resolves canonical routes and display-only pricing", () => {
+  const heroSource = readSource("src/components/home/BeforeAfterShowcase.tsx");
+  const englishHomeSource = readSource("src/app/(public)/page.tsx");
+  const spanishHomeSource = readSource("src/app/(public)/es/page.tsx");
+  const pricingHubSource = readSource("src/app/(public)/pricing/page.tsx");
+  const presentationSource = readSource(
+    "src/lib/pricing/remote-service-presentation.ts",
+  );
+  const portfolioMetaSource = readSource("src/lib/portfolio-service-meta.ts");
+
+  assert.match(
+    presentationSource,
+    /"item-removal": "item-removal-virtual-cleaning"/,
+  );
+  assert.match(
+    presentationSource,
+    /en: "Item Removal & Virtual Cleaning"/,
+  );
+  assert.match(
+    presentationSource,
+    /es: "Eliminación de objetos y limpieza virtual"/,
+  );
+  assert.match(
+    presentationSource,
+    /priceKey: "item-removal-virtual-cleaning"/,
+  );
+  assert.match(presentationSource, /image: \{ en: "image", es: "imagen" \}/);
+  assert.match(presentationSource, /suffix: ` \/ \$\{UNIT_LABELS\[service\.price\.unit\]\[locale\]\}`/);
+  assert.match(
+    presentationSource,
+    /label: \{ en: "Option-based pricing", es: "Precio por opciones" \}/,
+  );
+  assert.match(presentationSource, /getSpanishPath\(service\.href\)/);
+  assert.match(presentationSource, /if \(!serviceSlug\) return null/);
+  assert.match(presentationSource, /if \(!service\) return null/);
+  assert.match(
+    portfolioMetaSource,
+    /slug: "item-removal-virtual-cleaning"[\s\S]*?pricingHref: "\/pricing\/photo-editing"/,
+  );
+
+  assert.match(pricingHubSource, /REMOTE_SERVICE_GROUPS/);
+  assert.match(heroSource, /getHomeHeroServicePresentation/);
+  assert.match(heroSource, /CatalogPriceText/);
+  assert.match(heroSource, /prefetch=\{false\}/);
+  assert.match(heroSource, /active && service && <HeroServiceCta/);
+  assert.match(heroSource, /locale === "es" \? "ANTES" : "BEFORE"/);
+  assert.match(heroSource, /locale === "es" \? "DESPUÉS" : "AFTER"/);
+  assert.doesNotMatch(heroSource, /\$\d/);
+  assert.match(englishHomeSource, /serviceSlug: row\.service_slug/);
+  assert.match(spanishHomeSource, /serviceSlug: row\.service_slug/);
+  assert.match(spanishHomeSource, /locale="es"/);
+});
+
 test("homepage and signup presentation use the authoritative English Welcome Offer copy", () => {
   const benefitsSource = readSource("src/components/home/BenefitsRow.tsx");
   const signUpPageSource = readSource("src/app/(auth)/signup/page.tsx");

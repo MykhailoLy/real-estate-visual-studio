@@ -136,6 +136,10 @@ test("public pricing sources keep renovation option-based and structured prices 
     new URL("../../app/(public)/pricing/page.tsx", import.meta.url),
     "utf8",
   );
+  const remotePresentationSource = readFileSync(
+    new URL("./remote-service-presentation.ts", import.meta.url),
+    "utf8",
+  );
   const serviceGridSource = readFileSync(
     new URL("../../components/home/ServiceGrid.tsx", import.meta.url),
     "utf8",
@@ -155,8 +159,9 @@ test("public pricing sources keep renovation option-based and structured prices 
     "utf8",
   );
 
-  assert.match(pricingHubSource, /priceKey: "aerial-colour-fade"/);
-  assert.match(pricingHubSource, /label: "Option-based pricing"/);
+  assert.match(pricingHubSource, /REMOTE_SERVICE_GROUPS/);
+  assert.match(remotePresentationSource, /priceKey: "aerial-colour-fade"/);
+  assert.match(remotePresentationSource, /label: \{ en: "Option-based pricing"/);
   assert.match(serviceGridSource, /customPriceLabel: "Option-based pricing"/);
   assert.doesNotMatch(
     serviceGridSource,

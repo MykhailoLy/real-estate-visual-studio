@@ -22,6 +22,7 @@ import { publicPageMetadata } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
+import { getHomeHeroServicePresentation } from "@/lib/pricing/remote-service-presentation";
 
 export const revalidate = 300;
 
@@ -87,10 +88,12 @@ export default async function HomePage() {
       // path, but a local check makes the URL fallback explicit
       // and keeps TypeScript happy.
       if (!beforeUrl || !afterUrl) return null;
+      const service = getHomeHeroServicePresentation(row.service_slug, "en");
       const alt = getBeforeAfterAlt({
         sharedAlt: row.alt_text,
         title: row.title,
         description: row.description,
+        serviceLabel: service?.name,
         serviceSlug: row.service_slug,
       });
       return {
@@ -100,6 +103,7 @@ export default async function HomePage() {
         afterUrl,
         beforeAlt: alt.beforeAlt,
         afterAlt: alt.afterAlt,
+        serviceSlug: row.service_slug,
       };
     })
     .filter((s): s is ShowcaseSlide => s !== null);

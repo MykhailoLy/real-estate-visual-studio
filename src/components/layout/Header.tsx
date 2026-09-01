@@ -415,7 +415,7 @@ export default function Header() {
           {/* Top-level categories (desktop) */}
           <nav
             aria-label="Service categories"
-            className="hidden xl:ml-4 xl:flex xl:min-w-0 xl:items-center xl:gap-0.5 2xl:ml-10 2xl:gap-1"
+            className="hidden 3xl:ml-4 3xl:flex 3xl:min-w-0 3xl:items-center 3xl:gap-0.5 2xl:ml-10 2xl:gap-1"
           >
             {topLevels.map((entry) => {
               const isActive = entry.key === active.key;
