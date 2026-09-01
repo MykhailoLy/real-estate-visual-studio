@@ -40,8 +40,39 @@ test("homepage keeps the SEO introduction, compact benefits, and conversion sect
     /Built for listings - not generic photo work\./,
   );
   assert.doesNotMatch(benefitsSource, /Remote \+ Local/);
+  assert.doesNotMatch(benefitsSource, /flex h-11 w-11/);
+  assert.doesNotMatch(benefitsSource, /rounded-lg bg-primary\/10/);
+  assert.match(benefitsSource, /Clock3/);
+  assert.match(benefitsSource, /CalendarX2/);
+  assert.match(benefitsSource, /RefreshCcw/);
+  assert.match(benefitsSource, /UserCheck/);
+  assert.match(benefitsSource, /ShieldCheck/);
   assert.match(benefitsSource, /Gift/);
+  assert.match(benefitsSource, /strokeWidth=\{1\.75\}/);
+  assert.match(benefitsSource, /text-secondary/);
+  assert.match(benefitsSource, /lg:mx-auto/);
+  assert.match(benefitsSource, /lg:text-center/);
   assert.match(benefitsSource, /lg:grid-cols-6/);
+});
+
+test("service sub-navigation stays available from lg with compact overflow measurement", () => {
+  const headerSource = readSource("src/components/layout/Header.tsx");
+
+  assert.match(
+    headerSource,
+    /hidden border-t border-border bg-white lg:block/,
+  );
+  assert.doesNotMatch(
+    headerSource,
+    /hidden border-t border-border bg-white xl:block/,
+  );
+  assert.match(headerSource, /gap-x-4 xl:gap-x-7/);
+  assert.match(
+    headerSource,
+    /text-\[11px\][\s\S]*?xl:text-\[12px\][\s\S]*?xl:tracking-\[0\.10em\]/,
+  );
+  assert.match(headerSource, /measureMoreRef/);
+  assert.match(headerSource, /<MoreDropdown/);
 });
 
 test("homepage and signup presentation use the authoritative English Welcome Offer copy", () => {

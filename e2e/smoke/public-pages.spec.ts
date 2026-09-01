@@ -25,7 +25,10 @@ test("home page loads without client or server smoke failures", async ({
 const HOMEPAGE_VIEWPORTS = [
   { width: 390, height: 844, expectedBenefitColumns: 1 },
   { width: 768, height: 900, expectedBenefitColumns: 3 },
+  { width: 960, height: 900, expectedBenefitColumns: 3 },
   { width: 1024, height: 900, expectedBenefitColumns: 6 },
+  { width: 1180, height: 900, expectedBenefitColumns: 6 },
+  { width: 1280, height: 900, expectedBenefitColumns: 6 },
   { width: 1440, height: 1000, expectedBenefitColumns: 6 },
   { width: 1980, height: 1100, expectedBenefitColumns: 6 },
   { width: 3840, height: 1200, expectedBenefitColumns: 6 },

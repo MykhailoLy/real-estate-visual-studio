@@ -68,3 +68,69 @@ test.describe("mobile navigation", () => {
     await guard.expectClean();
   });
 });
+
+test.describe("responsive service navigation", () => {
+  test("service links remain in the burger menu below lg", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 960, height: 900 });
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+
+    const response = await page.goto("/");
+    expectNavigationResponseOk(response, "/");
+
+    const serviceNav = page.locator(
+      'nav[aria-label="Remote Digital Services services"]',
+    );
+    await expect(serviceNav).toBeHidden();
+
+    await page.getByRole("button", { name: "Open menu" }).click();
+    const menu = page.getByRole("dialog", { name: "Site menu" });
+    await expect(
+      menu.getByRole("link", { name: "Virtual Staging", exact: true }),
+    ).toBeVisible();
+    await guard.expectClean();
+  });
+
+  test("service links appear from lg and retain the More overflow menu", async ({
+    page,
+  }, testInfo) => {
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+
+    for (const width of [1024, 1180, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      const response = await page.goto("/");
+      expectNavigationResponseOk(response, "/");
+
+      const serviceNav = page.locator(
+        'nav[aria-label="Remote Digital Services services"]',
+      );
+      await expect(serviceNav).toBeVisible();
+      await expect(
+        serviceNav.getByRole("link", {
+          name: "Image Enhancement",
+          exact: true,
+        }),
+      ).toBeVisible();
+
+      const pageWidth = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      }));
+      expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+    }
+
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    const moreMenu = page.getByRole("menu", {
+      name: "Remote Digital Services more services",
+    });
+    await expect(moreMenu).toBeVisible();
+    await moreMenu
+      .getByRole("menuitem", { name: "Development Site Plans", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/pricing\/development-site-plans$/);
+    await guard.expectClean();
+  });
+});

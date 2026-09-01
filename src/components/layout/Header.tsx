@@ -1394,19 +1394,19 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
   const overflow = active.subLinks.slice(overflowAt);
 
   return (
-    <div className="hidden border-t border-border bg-white xl:block">
+    <div className="hidden border-t border-border bg-white lg:block">
       <div className={cn("relative", NAV_X_PADDING)}>
         {/* Hidden measurement mirror */}
         <div
           ref={measureLayerRef}
           aria-hidden
-          className="invisible pointer-events-none absolute inset-x-4 sm:inset-x-6 lg:inset-x-8 xl:inset-x-10 top-0 flex items-center gap-x-6 xl:gap-x-7 whitespace-nowrap py-3 overflow-hidden"
+          className="invisible pointer-events-none absolute inset-x-4 sm:inset-x-6 lg:inset-x-8 xl:inset-x-5 2xl:inset-x-10 top-0 flex items-center gap-x-4 xl:gap-x-7 whitespace-nowrap py-3 overflow-hidden"
         >
           {active.subLinks.map((link) => (
             <span
               key={`measure-${link.label}`}
               data-subnav-measure="link"
-              className="text-[12px] font-bold uppercase tracking-[0.10em]"
+              className="text-[11px] font-bold uppercase tracking-[0.06em] xl:text-[12px] xl:tracking-[0.10em]"
             >
               {getSubNavLabel(link.label, language)}
             </span>
@@ -1414,7 +1414,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
           <span
             ref={measureMoreRef}
             data-subnav-measure="more"
-            className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.10em]"
+            className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.06em] xl:text-[12px] xl:tracking-[0.10em]"
           >
             {language === "es" ? "Más" : "More"}
             <ChevronDown className="w-3.5 h-3.5" aria-hidden />
@@ -1425,7 +1425,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
         <div ref={containerRef} className="flex items-stretch">
           <nav
             aria-label={`${getHeaderLabel(active.label, language)} services`}
-            className="flex items-stretch gap-x-6 xl:gap-x-7 flex-1 min-w-0 overflow-hidden"
+            className="flex items-stretch gap-x-4 xl:gap-x-7 flex-1 min-w-0 overflow-hidden"
           >
             {visible.map((link) => {
               const href = resolveSubLinkHref(link, active.href, language);
@@ -1450,7 +1450,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
-                  "group relative inline-flex items-center gap-1.5 py-3 text-[12px] font-bold uppercase tracking-[0.10em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary",
+                  "group relative inline-flex items-center gap-1.5 py-3 text-[11px] font-bold uppercase tracking-[0.06em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
                   moreOpen
                     ? "text-primary"
                     : "text-foreground/65 hover:text-primary"
@@ -1577,7 +1577,7 @@ function SubNavItem({ href, label, current }: SubNavItemProps) {
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "group relative inline-flex items-center py-3 text-[12px] font-bold uppercase tracking-[0.10em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary",
+        "group relative inline-flex items-center py-3 text-[11px] font-bold uppercase tracking-[0.06em] whitespace-nowrap transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
         current ? "text-primary" : "text-foreground/65 hover:text-primary"
       )}
     >
