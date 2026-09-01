@@ -78,6 +78,9 @@ test("service sub-navigation stays available from lg with compact overflow measu
 test("homepage and signup presentation use the authoritative English Welcome Offer copy", () => {
   const benefitsSource = readSource("src/components/home/BenefitsRow.tsx");
   const signUpPageSource = readSource("src/app/(auth)/signup/page.tsx");
+  const welcomeOfferSource = readSource(
+    "src/components/auth/WelcomeOfferCallout.tsx",
+  );
 
   assert.deepEqual(WELCOME_OFFER_PUBLIC_COPY.en.benefits, [
     "1 Image Enhancement free",
@@ -91,6 +94,14 @@ test("homepage and signup presentation use the authoritative English Welcome Off
   assert.match(benefitsSource, /WELCOME_OFFER_PUBLIC_COPY\.en\.benefitSummary/);
   assert.match(signUpPageSource, /WelcomeOfferCallout/);
   assert.match(signUpPageSource, /WELCOME_OFFER_PUBLIC_COPY\.en\.benefits/);
+  assert.match(welcomeOfferSource, /border border-primary bg-primary/);
+  assert.match(
+    welcomeOfferSource,
+    /bg-gradient-to-br from-primary-light to-primary/,
+  );
+  assert.match(welcomeOfferSource, /divide-y divide-white\/15/);
+  assert.match(welcomeOfferSource, /text-secondary/);
+  assert.doesNotMatch(welcomeOfferSource, /perAccount/);
 });
 
 test("Spanish homepage and signup mirror the localized presentation without a second H1", () => {
@@ -117,6 +128,30 @@ test("Spanish homepage and signup mirror the localized presentation without a se
   ]);
   assert.match(spanishSignUpSource, /WelcomeOfferCallout/);
   assert.match(spanishSignUpSource, /WELCOME_OFFER_PUBLIC_COPY\.es\.benefits/);
+});
+
+test("signup pages use shared public chrome without duplicate portal branding", () => {
+  const shellSource = readSource("src/components/auth/SignupPageShell.tsx");
+  const englishSignUpSource = readSource("src/app/(auth)/signup/page.tsx");
+  const spanishSignUpSource = readSource("src/app/(auth)/es/signup/page.tsx");
+
+  assert.match(shellSource, /PublicAuthProvider/);
+  assert.match(shellSource, /<Header/);
+  assert.match(shellSource, /<Footer/);
+  assert.doesNotMatch(shellSource, /FloatingSiteActions/);
+  assert.match(shellSource, /max-w-md/);
+  assert.match(shellSource, /py-8/);
+  assert.match(shellSource, /lg:py-16/);
+
+  for (const source of [englishSignUpSource, spanishSignUpSource]) {
+    assert.match(source, /SignupPageShell/);
+    assert.doesNotMatch(source, /PicchuSpotLogo/);
+    assert.doesNotMatch(source, /BrandWordmark/);
+    assert.doesNotMatch(source, /ArrowLeft/);
+  }
+
+  assert.doesNotMatch(englishSignUpSource, /Back to website/);
+  assert.doesNotMatch(spanishSignUpSource, /Volver al sitio/);
 });
 
 test("signup keeps the existing auth, redirect, and Turnstile implementation", () => {

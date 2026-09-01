@@ -78,24 +78,82 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
   await guard.expectClean();
 });
 
-test("English and Spanish signup pages show localized Welcome Offer presentation", async ({
+const SIGNUP_VIEWPORTS = [
+  { width: 390, height: 844 },
+  { width: 768, height: 900 },
+  { width: 1024, height: 900 },
+  { width: 1440, height: 1000 },
+  { width: 1980, height: 1100 },
+  { width: 3840, height: 1200 },
+] as const;
+
+test("signup uses public chrome and keeps its Welcome Offer compact across viewports", async ({
   page,
 }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
   const guard = await installSmokeNetworkGuards(page, testInfo);
 
-  let response = await page.goto("/signup");
-  expectNavigationResponseOk(response, "/signup");
-  await expect(
-    page.getByRole("heading", { name: "Welcome Offer", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("1 Image Enhancement free", { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByLabel("Full name")).toBeVisible();
+  for (const viewport of SIGNUP_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    const response = await page.goto("/signup");
+    expectNavigationResponseOk(response, "/signup");
 
-  response = await page.goto("/es/signup");
+    const header = page.getByRole("banner");
+    await expect(header).toBeVisible();
+    await expect(
+      header.getByRole("link", { name: "Login", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("footer")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Create your account", exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      page.getByRole("heading", { name: "Welcome Offer", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("1 Image Enhancement free", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("1 Day to Dusk free", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("50% off your first Virtual Staging image", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Full name")).toBeVisible();
+    await expect(page.getByText("Back to website", { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByText("Each benefit can be used once per account.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("signup-welcome-offer"),
+    ).toHaveClass(/bg-primary/);
+
+    if (viewport.width >= 1024) {
+      await expect(
+        page.locator('nav[aria-label="Remote Digital Services services"]'),
+      ).toBeVisible();
+    }
+
+    const pageWidth = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+  }
+
+  const response = await page.goto("/es/signup");
   expectNavigationResponseOk(response, "/es/signup");
+  const spanishHeader = page.getByRole("banner");
+  await expect(spanishHeader).toBeVisible();
+  await expect(
+    spanishHeader.getByRole("link", { name: "Iniciar sesión", exact: true }),
+  ).toBeVisible();
+  const spanishFooter = page.locator("footer");
+  await expect(spanishFooter).toBeVisible();
+  await expect(
+    spanishFooter.getByRole("link", { name: "Aviso legal", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Oferta de bienvenida", exact: true }),
   ).toBeVisible();
@@ -103,12 +161,12 @@ test("English and Spanish signup pages show localized Welcome Offer presentation
     page.getByText("1 mejora de imagen gratis", { exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Nombre completo")).toBeVisible();
-
-  const pageWidth = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+  await expect(page.getByText("Volver al sitio", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("Cada ventaja puede utilizarse una sola vez por cuenta.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await guard.expectClean();
 });
 

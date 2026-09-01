@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { ArrowLeft } from "lucide-react";
-import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import WelcomeOfferCallout from "@/components/auth/WelcomeOfferCallout";
+import SignupPageShell from "@/components/auth/SignupPageShell";
 import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 import SignUpForm from "./SignUpForm";
 
@@ -17,77 +16,43 @@ export default function SignUpPage() {
   const turnstileSiteKey = getTurnstileSiteKeyFromEnv();
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-      {/* Back to website */}
-      <div className="w-full max-w-md mb-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-primary transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
-          Back to website
-        </Link>
-      </div>
-
-      <div className="w-full max-w-md">
-        {/* Branding */}
-        <div className="mb-5 text-center">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 mb-5 group"
-            aria-label="PicchuSpot home"
-          >
-            <PicchuSpotLogo
-              variant="mark"
-              className="h-7 w-auto"
-              width={56}
-              height={28}
-              alt=""
-            />
-            <BrandWordmark theme="light" className="text-xl group-hover:opacity-80 transition-opacity" />
-            <span className="inline-flex items-center px-1.5 py-0.5 bg-primary/8 border border-primary/15 rounded text-primary text-[9px] font-bold uppercase tracking-[0.18em]">
-              Portal
-            </span>
-          </Link>
-          <h1 className="text-2xl sm:text-[26px] font-bold text-primary leading-tight">
-            Create your account
-          </h1>
-          <p className="mt-1.5 text-sm text-muted">
-            Manage your PicchuSpot orders, files, and invoices.
-          </p>
-        </div>
-
-        <WelcomeOfferCallout
-          copy={{
-            title: WELCOME_OFFER_PUBLIC_COPY.en.title,
-            prompt: WELCOME_OFFER_PUBLIC_COPY.en.signupPrompt,
-            benefits: WELCOME_OFFER_PUBLIC_COPY.en.benefits,
-            perAccount: WELCOME_OFFER_PUBLIC_COPY.en.perAccount,
-          }}
-        />
-
-        {/* Card */}
-        <div className="mt-5 bg-white border border-border rounded-2xl shadow-sm p-6 sm:p-8">
-          {/* useSearchParams (redirectTo) needs Suspense in the App Router */}
-          <Suspense fallback={<SignUpFormSkeleton />}>
-            <SignUpForm turnstileSiteKey={turnstileSiteKey} />
-          </Suspense>
-        </div>
-
-        {/* Footer note */}
-        <p className="mt-6 text-center text-[11px] text-muted leading-relaxed">
-          By creating an account you agree to our{" "}
-          <Link href="/terms" className="underline hover:text-primary transition-colors">
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="underline hover:text-primary transition-colors">
-            Privacy Policy
-          </Link>
-          .
+    <SignupPageShell>
+      <div className="mb-6 text-center">
+        <h1 className="text-2xl font-bold leading-tight text-primary sm:text-[26px]">
+          Create your account
+        </h1>
+        <p className="mt-1.5 text-sm text-muted">
+          Manage your PicchuSpot orders, files, and invoices.
         </p>
       </div>
-    </div>
+
+      <WelcomeOfferCallout
+        copy={{
+          title: WELCOME_OFFER_PUBLIC_COPY.en.title,
+          prompt: WELCOME_OFFER_PUBLIC_COPY.en.signupPrompt,
+          benefits: WELCOME_OFFER_PUBLIC_COPY.en.benefits,
+        }}
+      />
+
+      <div className="mt-5 rounded-2xl border border-border bg-white p-6 shadow-sm sm:p-8">
+        {/* useSearchParams (redirectTo) needs Suspense in the App Router */}
+        <Suspense fallback={<SignUpFormSkeleton />}>
+          <SignUpForm turnstileSiteKey={turnstileSiteKey} />
+        </Suspense>
+      </div>
+
+      <p className="mt-6 text-center text-[11px] leading-relaxed text-muted">
+        By creating an account you agree to our{" "}
+        <Link href="/terms" className="underline transition-colors hover:text-primary">
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline transition-colors hover:text-primary">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+    </SignupPageShell>
   );
 }
 
