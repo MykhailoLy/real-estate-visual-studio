@@ -392,11 +392,11 @@ function HeroServiceFooter({
       data-testid="hero-service-footer"
       className="grid min-h-[3.75rem] w-full grid-cols-2 grid-rows-[auto_auto] content-center items-center gap-y-0.5 bg-[#071A2B] px-3 py-1 text-white md:min-h-14 md:grid-cols-[1fr_auto_1fr] md:grid-rows-1 md:gap-y-0 md:px-4 md:py-2 lg:px-5"
     >
-      <span className="col-start-1 row-start-1 justify-self-start text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:text-base 2xl:text-[17px]">
+      <span className="col-start-1 row-start-1 justify-self-start text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:text-base">
         {beforeLabel}
       </span>
 
-      <span className="col-start-2 row-start-1 justify-self-end text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:col-start-3 md:text-base 2xl:text-[17px]">
+      <span className="col-start-2 row-start-1 justify-self-end text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:col-start-3 md:text-base">
         {afterLabel}
       </span>
 

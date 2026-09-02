@@ -161,7 +161,7 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await expect(virtualStagingTab).toHaveAttribute("aria-selected", "true");
 
   await dayToDuskTab.focus();
-  await dayToDuskTab.press("Enter");
+  await dayToDuskTab.press("Space");
   const dayToDuskCta = hero.getByRole("link", {
     name: "View Day to Dusk pricing",
   });
@@ -635,7 +635,7 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
       "bg-primary/50",
     );
     expect(responsiveHeroGeometry?.inactiveVisual.borderRadius).toBeGreaterThanOrEqual(5);
-    const expectedLabelSize = viewport.width >= 1536 ? 17 : viewport.width >= 768 ? 16 : 14;
+    const expectedLabelSize = viewport.width >= 768 ? 16 : 14;
     const expectedServiceSize = viewport.width >= 1536 ? 16 : viewport.width >= 768 ? 15 : 13;
     expect(responsiveHeroGeometry?.labelSizes).toEqual([
       expectedLabelSize,
