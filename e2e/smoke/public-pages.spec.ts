@@ -30,6 +30,7 @@ test("home page loads without client or server smoke failures", async ({
 test("homepage hero keeps active-slide service context, regional pricing, and routes", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(45000);
   const guard = await installSmokeNetworkGuards(page, testInfo);
 
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -37,66 +38,105 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   expectNavigationResponseOk(response, "/");
 
   const hero = page.getByRole("region", { name: "Before and after slider" });
-  await expect(hero.getByText("BEFORE", { exact: true })).toBeVisible();
-  await expect(hero.getByText("AFTER", { exact: true })).toBeVisible();
   const heroFooter = hero.getByTestId("hero-service-footer");
-  await expect(heroFooter.getByRole("tablist")).toBeVisible();
-  await expect(heroFooter.getByRole("link")).toHaveCount(
-    1,
-  );
+  const heroStage = hero.getByTestId("homepage-hero-image-stage");
+  const heroDots = heroStage.getByRole("tablist");
+  await expect(heroStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
+  await expect(heroStage.getByText("AFTER", { exact: true })).toHaveCount(0);
+  await expect(heroStage.getByRole("button")).toHaveCount(0);
+  await expect(heroStage.getByTestId("hero-comparison-divider")).toBeVisible();
+  await expect(heroFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(heroFooter.getByText("AFTER", { exact: true })).toBeVisible();
+  await expect(hero.getByRole("button", { name: "Previous slide" })).toHaveCount(0);
+  await expect(hero.getByRole("button", { name: "Next slide" })).toHaveCount(0);
+  await expect(heroDots).toBeVisible();
+  await expect(heroDots.getByRole("tab")).toHaveCount(9);
+  await expect(heroFooter.getByRole("tablist")).toHaveCount(0);
+  await expect(heroFooter.getByRole("link")).toHaveCount(1);
   const imageEnhancementCta = hero.getByRole("link", {
     name: "View Image Enhancement pricing",
   });
+  await expect(imageEnhancementCta).toContainText("Image Enhancement");
+  await expect(imageEnhancementCta.locator("span").first()).toHaveCSS(
+    "text-transform",
+    "uppercase",
+  );
   await expect(imageEnhancementCta).toContainText("From $1 / image");
   await expect(imageEnhancementCta).not.toContainText(".00");
+  await expect(imageEnhancementCta.locator("svg")).toHaveCount(0);
   await expect(
-    heroFooter.getByRole("tab", { selected: true }).locator("span"),
-  ).toHaveClass(/bg-white/);
+    heroDots.getByRole("tab", { selected: true }).locator("span"),
+  ).toHaveClass(/bg-\[#C7A94E\]/);
   await expect(
-    heroFooter.getByRole("tab", { selected: false }).first().locator("span"),
-  ).toHaveClass(/bg-white\/40/);
-  await expect(
-    hero.getByRole("button", { name: "Next slide" }).locator("span"),
-  ).toHaveClass(/bg-primary\/25/);
+    heroDots.getByRole("tab", { selected: false }).first().locator("span"),
+  ).toHaveClass(/bg-primary\/50/);
 
   const heroGeometry = await hero.evaluate((element) => {
     const frame = element.querySelector('[data-testid="homepage-hero-frame"]');
     const stage = element.querySelector('[data-testid="homepage-hero-image-stage"]');
     const footer = element.querySelector('[data-testid="hero-service-footer"]');
-    if (!frame || !stage || !footer) return null;
+    const dots = element.querySelector('[data-testid="hero-slide-dots"]');
+    const cta = footer?.querySelector("a");
+    if (!frame || !stage || !footer || !dots || !cta) return null;
     const frameRect = frame.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const footerRect = footer.getBoundingClientRect();
+    const dotsRect = dots.getBoundingClientRect();
+    const ctaRect = cta.getBoundingClientRect();
     return {
       footerPosition: getComputedStyle(footer).position,
+      footerHeight: footerRect.height,
       stageBottom: stageRect.bottom,
       footerTop: footerRect.top,
       frameBottom: frameRect.bottom,
       footerBottom: footerRect.bottom,
+      dotsLeft: dotsRect.left - stageRect.left,
+      stageCenterY: stageRect.top + stageRect.height / 2,
+      dotsCenterY: dotsRect.top + dotsRect.height / 2,
+      footerCenter: footerRect.left + footerRect.width / 2,
+      ctaCenter: ctaRect.left + ctaRect.width / 2,
+      footerColumns: getComputedStyle(footer).gridTemplateColumns
+        .trim()
+        .split(/\s+/).length,
+      footerRows: getComputedStyle(footer).gridTemplateRows.trim().split(/\s+/).length,
     };
   });
   expect(heroGeometry).not.toBeNull();
   expect(heroGeometry?.footerPosition).not.toBe("absolute");
+  expect(heroGeometry?.footerHeight).toBeGreaterThanOrEqual(56);
+  expect(heroGeometry?.footerHeight).toBeLessThanOrEqual(58);
   expect(Math.abs((heroGeometry?.stageBottom ?? 0) - (heroGeometry?.footerTop ?? 0))).toBeLessThanOrEqual(1);
   expect(Math.abs((heroGeometry?.frameBottom ?? 0) - (heroGeometry?.footerBottom ?? 0))).toBeLessThanOrEqual(1);
+  expect(heroGeometry?.dotsLeft).toBeGreaterThanOrEqual(19);
+  expect(heroGeometry?.dotsLeft).toBeLessThanOrEqual(21);
+  expect(Math.abs((heroGeometry?.stageCenterY ?? 0) - (heroGeometry?.dotsCenterY ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((heroGeometry?.footerCenter ?? 0) - (heroGeometry?.ctaCenter ?? 0))).toBeLessThanOrEqual(1);
+  expect(heroGeometry?.footerColumns).toBe(3);
+  expect(heroGeometry?.footerRows).toBe(1);
 
   const desktopHeroFontSizes = await hero.evaluate((element) => {
-    const labels = Array.from(element.querySelectorAll("span")).filter(
+    const footer = element.querySelector('[data-testid="hero-service-footer"]');
+    const labels = Array.from(footer?.querySelectorAll("span") ?? []).filter(
       (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
     );
-    const serviceName = element.querySelector(
-      '[data-testid="hero-service-footer"] > span',
-    );
+    const serviceName = footer?.querySelector("a > span:first-child");
+    const price = footer?.querySelector("a > span:last-child");
     return {
       labels: labels.map((label) => Number.parseFloat(getComputedStyle(label).fontSize)),
       serviceName: serviceName
         ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
-        : 0,
+      : 0,
+      serviceColor: serviceName ? getComputedStyle(serviceName).color : "",
+      priceColor: price ? getComputedStyle(price).color : "",
     };
   });
-  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(14);
-  expect(desktopHeroFontSizes.serviceName).toBeGreaterThanOrEqual(14);
+  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(16);
+  expect(Math.max(...desktopHeroFontSizes.labels)).toBeLessThanOrEqual(16);
+  expect(desktopHeroFontSizes.serviceName).toBe(15);
+  expect(desktopHeroFontSizes.serviceColor).toBe("rgb(199, 169, 78)");
+  expect(desktopHeroFontSizes.priceColor).toBe("rgb(255, 255, 255)");
 
+  await hero.hover();
   const marketSelector = page.getByRole("button", {
     name: "Select market, currency, and language",
   });
@@ -104,7 +144,24 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await page.getByRole("button", { name: /Europe — EUR/ }).click();
   await expect(imageEnhancementCta).toContainText("From €1 / image");
 
-  await hero.getByRole("button", { name: "Next slide" }).click();
+  await page.mouse.move(0, 0);
+  const dayToDuskTab = heroDots.getByRole("tab", {
+    name: "Show slide 2 of 9",
+  });
+  await expect(dayToDuskTab).toHaveAttribute("aria-selected", "true", {
+    timeout: 7000,
+  });
+
+  const virtualStagingTab = heroDots.getByRole("tab", {
+    name: "Show slide 3 of 9",
+  });
+  await virtualStagingTab.focus();
+  await expect(virtualStagingTab).toBeFocused();
+  await virtualStagingTab.press("Enter");
+  await expect(virtualStagingTab).toHaveAttribute("aria-selected", "true");
+
+  await dayToDuskTab.focus();
+  await dayToDuskTab.press("Space");
   const dayToDuskCta = hero.getByRole("link", {
     name: "View Day to Dusk pricing",
   });
@@ -119,30 +176,96 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   response = await page.goto("/");
   expectNavigationResponseOk(response, "/");
   const mobileHero = page.getByRole("region", { name: "Before and after slider" });
-  await mobileHero
-    .getByRole("tab", { name: "Show slide 4 of 9" })
-    .click();
+  const mobileFooter = mobileHero.getByTestId("hero-service-footer");
+  const mobileStage = mobileHero.getByTestId("homepage-hero-image-stage");
+  const mobileDots = mobileStage.getByRole("tablist");
+  await expect(mobileDots).toBeVisible();
+  await expect(mobileFooter.getByRole("tab")).toHaveCount(0);
+  await expect(mobileDots.getByRole("tab")).toHaveCount(9);
+  const firstMobileDot = mobileDots.getByRole("tab").first();
+  await firstMobileDot.focus();
+  await expect(firstMobileDot).toBeFocused();
+  await expect(firstMobileDot.locator("span")).toHaveCSS(
+    "outline-color",
+    "rgb(199, 169, 78)",
+  );
+  await expect(mobileStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
+  await expect(mobileStage.getByText("AFTER", { exact: true })).toHaveCount(0);
+  await expect(mobileFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(mobileFooter.getByText("AFTER", { exact: true })).toBeVisible();
+
+  const stageBox = await mobileStage.boundingBox();
+  expect(stageBox).not.toBeNull();
+  for (let index = 1; index <= 3; index += 1) {
+    await page.mouse.move(
+      (stageBox?.x ?? 0) + (stageBox?.width ?? 0) * 0.75,
+      (stageBox?.y ?? 0) + (stageBox?.height ?? 0) * 0.5,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      (stageBox?.x ?? 0) + (stageBox?.width ?? 0) * 0.25,
+      (stageBox?.y ?? 0) + (stageBox?.height ?? 0) * 0.5,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    await expect(
+      mobileFooter.locator(
+        `[role="tab"][aria-label="Show slide ${index + 1} of 9"]`,
+      ),
+    ).toHaveCount(0);
+    await expect(
+      mobileStage.locator(
+        `[role="tab"][aria-label="Show slide ${index + 1} of 9"]`,
+      ),
+    ).toHaveAttribute("aria-selected", "true");
+  }
+
   const itemRemovalCta = mobileHero.getByRole("link", {
     name: "View Item Removal & Virtual Cleaning pricing",
   });
   await expect(itemRemovalCta).toHaveAttribute("href", "/pricing/photo-editing");
 
   const mobileHeroFontSizes = await mobileHero.evaluate((element) => {
-    const labels = Array.from(element.querySelectorAll("span")).filter(
+    const footer = element.querySelector('[data-testid="hero-service-footer"]');
+    const labels = Array.from(footer?.querySelectorAll("span") ?? []).filter(
       (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
     );
-    const serviceName = element.querySelector(
-      '[data-testid="hero-service-footer"] > span',
-    );
+    const serviceName = footer?.querySelector("a > span:first-child");
+    const price = footer?.querySelector("a > span:last-child");
+    const footerRect = footer?.getBoundingClientRect();
+    const ctaRect = footer?.querySelector("a")?.getBoundingClientRect();
     return {
       labels: labels.map((label) => Number.parseFloat(getComputedStyle(label).fontSize)),
       serviceName: serviceName
         ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
         : 0,
+      serviceColor: serviceName ? getComputedStyle(serviceName).color : "",
+      priceColor: price ? getComputedStyle(price).color : "",
+      footerHeight: footerRect?.height ?? 0,
+      footerColumns: footer
+        ? getComputedStyle(footer).gridTemplateColumns.trim().split(/\s+/).length
+        : 0,
+      footerRows: footer
+        ? getComputedStyle(footer).gridTemplateRows.trim().split(/\s+/).length
+        : 0,
+      centerDelta:
+        footerRect && ctaRect
+          ? Math.abs(
+              footerRect.left + footerRect.width / 2 -
+                (ctaRect.left + ctaRect.width / 2),
+            )
+          : Number.POSITIVE_INFINITY,
     };
   });
-  expect(Math.min(...mobileHeroFontSizes.labels)).toBeGreaterThanOrEqual(12);
-  expect(mobileHeroFontSizes.serviceName).toBeGreaterThanOrEqual(12);
+  expect(Math.min(...mobileHeroFontSizes.labels)).toBe(14);
+  expect(mobileHeroFontSizes.serviceName).toBe(13);
+  expect(mobileHeroFontSizes.serviceColor).toBe("rgb(199, 169, 78)");
+  expect(mobileHeroFontSizes.priceColor).toBe("rgb(255, 255, 255)");
+  expect(mobileHeroFontSizes.footerHeight).toBeGreaterThanOrEqual(60);
+  expect(mobileHeroFontSizes.footerHeight).toBeLessThanOrEqual(64);
+  expect(mobileHeroFontSizes.footerColumns).toBe(2);
+  expect(mobileHeroFontSizes.footerRows).toBe(2);
+  expect(mobileHeroFontSizes.centerDelta).toBeLessThanOrEqual(1);
 
   const pageWidth = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -153,6 +276,7 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await itemRemovalCta.click();
   await expect(page).toHaveURL(/\/pricing\/photo-editing$/);
 
+  await page.setViewportSize({ width: 768, height: 900 });
   response = await page.goto("/");
   expectNavigationResponseOk(response, "/");
   const unknownHero = page.getByRole("region", {
@@ -161,10 +285,121 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await unknownHero.getByRole("tab", { name: "Show slide 9 of 9" }).click();
   const unknownFooter = unknownHero.getByTestId("hero-service-footer");
   await expect(unknownFooter).toBeVisible();
-  await expect(unknownFooter.getByRole("tab")).toHaveCount(9);
+  await expect(unknownFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(unknownFooter.getByText("AFTER", { exact: true })).toBeVisible();
+  await expect(unknownFooter.getByRole("tab")).toHaveCount(0);
+  await expect(
+    unknownHero.getByTestId("homepage-hero-image-stage").getByRole("tab"),
+  ).toHaveCount(9);
   await expect(unknownFooter.getByRole("link")).toHaveCount(0);
 
   await guard.expectClean();
+});
+
+test.describe("homepage hero touch input", () => {
+  test.use({ hasTouch: true });
+
+  test("horizontal touch swipes change slides while vertical touch scroll and cancellation remain safe", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(45000);
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+
+    const response = await page.goto("/");
+    expectNavigationResponseOk(response, "/");
+
+    const stage = page.getByTestId("homepage-hero-image-stage");
+    const dots = stage.getByRole("tablist");
+    await expect(stage).toHaveCSS("touch-action", "pan-y");
+    await expect(dots).toBeVisible();
+
+    const stageBox = await stage.boundingBox();
+    expect(stageBox).not.toBeNull();
+    if (!stageBox) throw new Error("Homepage hero stage has no bounding box.");
+
+    const client = await page.context().newCDPSession(page);
+    const dispatchTouch = async (
+      type: "touchStart" | "touchMove" | "touchEnd" | "touchCancel",
+      x?: number,
+      y?: number,
+    ) => {
+      await client.send("Input.dispatchTouchEvent", {
+        type,
+        touchPoints:
+          type === "touchEnd" || type === "touchCancel"
+            ? []
+            : [
+                {
+                  x: x ?? 0,
+                  y: y ?? 0,
+                  id: 1,
+                  radiusX: 5,
+                  radiusY: 5,
+                  force: 1,
+                },
+              ],
+      });
+    };
+    const swipe = async (
+      fromX: number,
+      fromY: number,
+      toX: number,
+      toY: number,
+    ) => {
+      await dispatchTouch("touchStart", fromX, fromY);
+      for (let step = 1; step <= 5; step += 1) {
+        await dispatchTouch(
+          "touchMove",
+          fromX + ((toX - fromX) * step) / 5,
+          fromY + ((toY - fromY) * step) / 5,
+        );
+      }
+      await dispatchTouch("touchEnd");
+    };
+
+    const leftX = stageBox.x + stageBox.width * 0.25;
+    const rightX = stageBox.x + stageBox.width * 0.75;
+    const centerY = stageBox.y + stageBox.height * 0.5;
+
+    await swipe(rightX, centerY, leftX, centerY);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await dispatchTouch("touchStart", rightX, centerY);
+    await dispatchTouch("touchMove", rightX - 30, centerY);
+    await dispatchTouch("touchCancel");
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await swipe(rightX, centerY, leftX, centerY);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 3 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await swipe(leftX, centerY, rightX, centerY);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const verticalStartY = Math.min(
+      stageBox.y + stageBox.height - 16,
+      824,
+    );
+    const verticalEndY = Math.max(stageBox.y + 16, verticalStartY - 130);
+    await swipe(rightX, verticalStartY, rightX, verticalEndY);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await client.detach();
+    await guard.expectClean();
+  });
 });
 
 test("Spanish homepage hero localizes its comparison labels and service route", async ({
@@ -176,8 +411,12 @@ test("Spanish homepage hero localizes its comparison labels and service route", 
   expectNavigationResponseOk(response, "/es");
 
   const hero = page.getByRole("region", { name: "Before and after slider" });
-  await expect(hero.getByText("ANTES", { exact: true })).toBeVisible();
-  await expect(hero.getByText("DESPUÉS", { exact: true })).toBeVisible();
+  const stage = hero.getByTestId("homepage-hero-image-stage");
+  const footer = hero.getByTestId("hero-service-footer");
+  await expect(stage.getByText("ANTES", { exact: true })).toHaveCount(0);
+  await expect(stage.getByText("DESPUÉS", { exact: true })).toHaveCount(0);
+  await expect(footer.getByText("ANTES", { exact: true })).toBeVisible();
+  await expect(footer.getByText("DESPUÉS", { exact: true })).toBeVisible();
   await expect(
     hero.getByRole("link", { name: "Ver precios de Mejora de imagen" }),
   ).toHaveAttribute("href", "/es/pricing/image-enhancement");
@@ -224,6 +463,187 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
         exact: true,
       }),
     ).toHaveCount(0);
+
+    const responsiveHero = page.getByRole("region", {
+      name: "Before and after slider",
+    });
+    const responsiveStage = responsiveHero.getByTestId(
+      "homepage-hero-image-stage",
+    );
+    const responsiveFooter = responsiveHero.getByTestId("hero-service-footer");
+    const responsiveDots = responsiveStage.getByRole("tablist");
+    await expect(responsiveHero.getByRole("button", { name: "Previous slide" })).toHaveCount(0);
+    await expect(responsiveHero.getByRole("button", { name: "Next slide" })).toHaveCount(0);
+    await expect(responsiveStage.getByRole("button")).toHaveCount(0);
+    await expect(responsiveStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
+    await expect(responsiveStage.getByText("AFTER", { exact: true })).toHaveCount(0);
+    await expect(responsiveStage.getByTestId("hero-comparison-divider")).toBeVisible();
+    await expect(responsiveFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+    await expect(responsiveFooter.getByText("AFTER", { exact: true })).toBeVisible();
+    await expect(responsiveDots).toBeVisible();
+    await expect(responsiveDots.getByRole("tab")).toHaveCount(9);
+    await expect(responsiveFooter.getByRole("tablist")).toHaveCount(0);
+
+    const responsiveHeroGeometry = await responsiveHero.evaluate((element) => {
+      const stage = element.querySelector('[data-testid="homepage-hero-image-stage"]');
+      const footer = element.querySelector('[data-testid="hero-service-footer"]');
+      const dots = element.querySelector('[data-testid="hero-slide-dots"]');
+      const cta = footer?.querySelector("a");
+      const activeDot = dots?.querySelector('[role="tab"][aria-selected="true"]');
+      const inactiveDot = dots?.querySelector('[role="tab"][aria-selected="false"]');
+      const activeVisual = activeDot?.querySelector("span");
+      const inactiveVisual = inactiveDot?.querySelector("span");
+      const labels = Array.from(footer?.querySelectorAll("span") ?? []).filter(
+        (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
+      );
+      const serviceName = footer?.querySelector("a > span:first-child");
+      const price = footer?.querySelector("a > span:last-child");
+      if (
+        !stage ||
+        !footer ||
+        !dots ||
+        !cta ||
+        !activeDot ||
+        !inactiveDot ||
+        !activeVisual ||
+        !inactiveVisual
+      ) {
+        return null;
+      }
+      const stageRect = stage.getBoundingClientRect();
+      const footerRect = footer.getBoundingClientRect();
+      const dotsRect = dots.getBoundingClientRect();
+      const ctaRect = cta.getBoundingClientRect();
+      const activeDotRect = activeDot.getBoundingClientRect();
+      const inactiveDotRect = inactiveDot.getBoundingClientRect();
+      const activeVisualRect = activeVisual.getBoundingClientRect();
+      const inactiveVisualRect = inactiveVisual.getBoundingClientRect();
+      const targetRects = Array.from(dots.querySelectorAll('[role="tab"]')).map(
+        (target) => target.getBoundingClientRect(),
+      );
+      return {
+        footerHeight: footerRect.height,
+        footerBackground: getComputedStyle(footer).backgroundColor,
+        footerColumns: getComputedStyle(footer).gridTemplateColumns
+          .trim()
+          .split(/\s+/).length,
+        footerRows: getComputedStyle(footer).gridTemplateRows
+          .trim()
+          .split(/\s+/).length,
+        footerCenter: footerRect.left + footerRect.width / 2,
+        ctaCenter: ctaRect.left + ctaRect.width / 2,
+        dotsLeft: dotsRect.left - stageRect.left,
+        dotsHeight: dotsRect.height,
+        stageHeight: stageRect.height,
+        stageCenterY: stageRect.top + stageRect.height / 2,
+        dotsCenterY: dotsRect.top + dotsRect.height / 2,
+        minimumTargetGap: Math.min(
+          ...targetRects.slice(1).map((rect, index) =>
+            rect.top - targetRects[index].bottom,
+          ),
+        ),
+        activeTarget: {
+          width: activeDotRect.width,
+          height: activeDotRect.height,
+        },
+        inactiveTarget: {
+          width: inactiveDotRect.width,
+          height: inactiveDotRect.height,
+        },
+        activeVisual: {
+          width: activeVisualRect.width,
+          height: activeVisualRect.height,
+          background: getComputedStyle(activeVisual).backgroundColor,
+          borderRadius: Number.parseFloat(
+            getComputedStyle(activeVisual).borderRadius,
+          ),
+        },
+        inactiveVisual: {
+          width: inactiveVisualRect.width,
+          height: inactiveVisualRect.height,
+          className: inactiveVisual.className,
+          borderRadius: Number.parseFloat(
+            getComputedStyle(inactiveVisual).borderRadius,
+          ),
+        },
+        labelSizes: labels.map((label) =>
+          Number.parseFloat(getComputedStyle(label).fontSize),
+        ),
+        serviceSize: serviceName
+          ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
+          : 0,
+        serviceColor: serviceName ? getComputedStyle(serviceName).color : "",
+        priceColor: price ? getComputedStyle(price).color : "",
+      };
+    });
+    expect(responsiveHeroGeometry).not.toBeNull();
+    const expectedFooterHeight = viewport.width >= 768 ? 56 : 60;
+    expect(responsiveHeroGeometry?.footerHeight).toBeGreaterThanOrEqual(
+      expectedFooterHeight,
+    );
+    expect(responsiveHeroGeometry?.footerHeight).toBeLessThanOrEqual(
+      expectedFooterHeight + 4,
+    );
+    expect(responsiveHeroGeometry?.footerBackground).toBe("rgb(7, 26, 43)");
+    expect(responsiveHeroGeometry?.footerColumns).toBe(
+      viewport.width >= 768 ? 3 : 2,
+    );
+    expect(responsiveHeroGeometry?.footerRows).toBe(
+      viewport.width >= 768 ? 1 : 2,
+    );
+    expect(
+      Math.abs(
+        (responsiveHeroGeometry?.footerCenter ?? 0) -
+          (responsiveHeroGeometry?.ctaCenter ?? 0),
+      ),
+    ).toBeLessThanOrEqual(1);
+    const expectedDotsLeft =
+      viewport.width >= 1024 ? 20 : viewport.width >= 768 ? 16 : 12;
+    expect(responsiveHeroGeometry?.dotsLeft).toBe(expectedDotsLeft);
+    expect(responsiveHeroGeometry?.dotsHeight).toBeLessThanOrEqual(
+      responsiveHeroGeometry?.stageHeight ?? 0,
+    );
+    expect(
+      Math.abs(
+        (responsiveHeroGeometry?.stageCenterY ?? 0) -
+          (responsiveHeroGeometry?.dotsCenterY ?? 0),
+      ),
+    ).toBeLessThanOrEqual(1);
+    const expectedTargetHeight =
+      viewport.width >= 1280 ? 32 : viewport.width >= 768 ? 26 : 20;
+    const expectedTargetWidth = viewport.width >= 768 ? 32 : 28;
+    expect(responsiveHeroGeometry?.activeTarget).toEqual({
+      width: expectedTargetWidth,
+      height: expectedTargetHeight,
+    });
+    expect(responsiveHeroGeometry?.inactiveTarget).toEqual({
+      width: expectedTargetWidth,
+      height: expectedTargetHeight,
+    });
+    expect(responsiveHeroGeometry?.minimumTargetGap).toBeGreaterThanOrEqual(0);
+    expect(responsiveHeroGeometry?.activeVisual).toMatchObject({
+      width: 12,
+      height: 12,
+      background: "rgb(199, 169, 78)",
+    });
+    expect(responsiveHeroGeometry?.activeVisual.borderRadius).toBeGreaterThanOrEqual(6);
+    expect(responsiveHeroGeometry?.inactiveVisual).toMatchObject({
+      width: 10,
+      height: 10,
+    });
+    expect(responsiveHeroGeometry?.inactiveVisual.className).toContain(
+      "bg-primary/50",
+    );
+    expect(responsiveHeroGeometry?.inactiveVisual.borderRadius).toBeGreaterThanOrEqual(5);
+    const expectedLabelSize = viewport.width >= 768 ? 16 : 14;
+    const expectedServiceSize = viewport.width >= 1536 ? 16 : viewport.width >= 768 ? 15 : 13;
+    expect(responsiveHeroGeometry?.labelSizes).toEqual([
+      expectedLabelSize,
+      expectedLabelSize,
+    ]);
+    expect(responsiveHeroGeometry?.serviceSize).toBe(expectedServiceSize);
+    expect(responsiveHeroGeometry?.serviceColor).toBe("rgb(199, 169, 78)");
+    expect(responsiveHeroGeometry?.priceColor).toBe("rgb(255, 255, 255)");
 
     const benefitGrid = page.getByTestId("benefits-grid");
     const columnCount = await benefitGrid.evaluate((element) =>
