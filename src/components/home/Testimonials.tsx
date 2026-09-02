@@ -88,7 +88,7 @@ export default function Testimonials({
     >
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-10 lg:mb-14">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
+          <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
           <h2

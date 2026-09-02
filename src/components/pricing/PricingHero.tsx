@@ -27,10 +27,10 @@ export default function PricingHero({
     <section className="bg-stone-50 relative overflow-hidden">
       <Wide className="py-16 lg:py-24">
         <div className="max-w-3xl">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-5">
+          <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-5">
             {eyebrow}
           </p>
-          <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-primary mb-6 leading-[1.05] tracking-tight">
+          <h1 className="text-4xl lg:text-5xl xl:text-[52px] font-bold text-primary mb-6 leading-[1.05] tracking-tight">
             {title}
           </h1>
           <p className="text-base lg:text-lg text-muted leading-relaxed mb-6">
@@ -49,7 +49,7 @@ export default function PricingHero({
                   analyticsLabel={primaryLabel}
                   analyticsLocation="pricing_hero"
                   analyticsEvent="pricing_cta"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-public-copy-sm shadow-sm"
                 >
                   {primaryLabel}
                   <ArrowRight className="w-4 h-4" />
@@ -60,7 +60,7 @@ export default function PricingHero({
                   href={secondaryHref}
                   analyticsLabel={secondaryLabel}
                   analyticsLocation="pricing_hero"
-                  className="inline-flex items-center justify-center px-7 py-3.5 border border-primary/25 text-primary font-semibold rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all text-sm"
+                  className="inline-flex items-center justify-center px-7 py-3.5 border border-primary/25 text-primary font-semibold rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all text-public-copy-sm"
                 >
                   {secondaryLabel}
                 </TrackedLink>

@@ -44,7 +44,7 @@ export default function CtaSection({
               analyticsLocation="cta_section"
               analyticsIntentType={primaryIntentType}
               analyticsEvent={primaryAnalyticsEvent}
-              className="px-8 py-3.5 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-sm"
+              className="px-8 py-3.5 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-public-copy-sm"
             >
               {primaryLabel}
             </TrackedLink>
@@ -54,7 +54,7 @@ export default function CtaSection({
               analyticsLocation="cta_section"
               analyticsIntentType={secondaryIntentType}
               analyticsEvent={secondaryAnalyticsEvent}
-              className="px-8 py-3.5 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-sm"
+              className="px-8 py-3.5 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-public-copy-sm"
             >
               {secondaryLabel}
             </TrackedLink>

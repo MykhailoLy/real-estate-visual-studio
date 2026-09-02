@@ -181,7 +181,7 @@ export default async function HomePage() {
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-10">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
             <div className="lg:max-w-2xl">
-              <p className="text-secondary-dark text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2">
+              <p className="text-secondary-dark text-public-kicker font-semibold uppercase mb-2">
                 Remote Digital Services
               </p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
@@ -195,14 +195,14 @@ export default async function HomePage() {
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
               <Link
                 href="/order"
-                className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
+                className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-public-copy-sm shadow-sm"
               >
                 Order Online
                 <ArrowRight className="w-4 h-4" aria-hidden />
               </Link>
               <Link
                 href="/services"
-                className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-bold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
+                className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-bold rounded-lg hover:border-primary hover:text-primary transition-colors text-public-copy-sm"
               >
                 View Services
               </Link>

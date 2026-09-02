@@ -106,10 +106,10 @@ export default function BenefitsRow({
                   strokeWidth={1.75}
                   aria-hidden
                 />
-                <h3 className={`mt-3 text-sm font-bold tracking-tight lg:text-[15px] ${presentation.titleClassName}`}>
+                <h3 className={`mt-3 text-public-copy-sm font-bold tracking-tight lg:text-base ${presentation.titleClassName}`}>
                   {b.title}
                 </h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted lg:text-[13px] lg:text-center">
+                <p className="mt-1.5 text-sm leading-6 text-muted lg:text-public-copy-sm lg:text-center">
                   {b.body}
                 </p>
               </div>

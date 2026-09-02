@@ -70,7 +70,7 @@ export default function PricingHubServiceTile({
             </p>
           </div>
 
-          <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase tracking-[0.12em] text-primary transition-colors group-hover:text-secondary-dark sm:text-sm sm:normal-case sm:tracking-normal">
+          <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 text-sm font-bold uppercase tracking-[0.10em] text-primary transition-colors group-hover:text-secondary-dark sm:text-public-copy-sm sm:normal-case sm:tracking-normal">
             <span className="hidden sm:inline">View pricing</span>
             <ArrowRight
               className="h-4 w-4 transition-transform group-hover:translate-x-1"

@@ -27,7 +27,7 @@ export default function ServiceCTA({
     <section className="bg-primary py-20 lg:py-28">
       <Wide>
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary mb-5">
+          <p className="text-public-kicker font-semibold uppercase text-secondary mb-5">
             Get Started
           </p>
           <h2 className="text-3xl lg:text-5xl font-bold text-white mb-5 tracking-tight">
@@ -44,7 +44,7 @@ export default function ServiceCTA({
               analyticsLabel={primaryLabel}
               analyticsLocation="cta_section"
               analyticsEvent="pricing_cta"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-sm shadow-sm"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-public-copy-sm shadow-sm"
             >
               {primaryLabel}
               <ArrowRight className="w-4 h-4" />
@@ -54,7 +54,7 @@ export default function ServiceCTA({
                 href={secondaryHref}
                 analyticsLabel={secondaryLabel}
                 analyticsLocation="cta_section"
-                className="inline-flex items-center justify-center px-8 py-4 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-sm"
+                className="inline-flex items-center justify-center px-8 py-4 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-public-copy-sm"
               >
                 {secondaryLabel}
               </TrackedLink>

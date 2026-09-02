@@ -287,7 +287,7 @@ export default async function ServicePage({
                   <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
                     {u.title}
                   </h3>
-                  <p className="text-sm text-muted leading-relaxed">
+                  <p className="text-public-copy-sm text-muted leading-relaxed">
                     {u.description}
                   </p>
                 </div>
@@ -302,7 +302,7 @@ export default async function ServicePage({
         <Wide className="py-10 lg:py-14">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
             <div className="lg:max-w-2xl">
-              <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
+              <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-2">
                 {eyebrow}
               </p>
               <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary leading-[1.05] tracking-tight">
@@ -315,7 +315,7 @@ export default async function ServicePage({
                 {priceLine}
               </p>
               {welcomeOfferDescription ? (
-                <p className="mt-3 max-w-xl text-sm leading-relaxed text-secondary-dark">
+                <p className="mt-3 max-w-xl text-public-copy-sm leading-relaxed text-secondary-dark">
                   {welcomeOfferDescription}
                 </p>
               ) : null}
@@ -326,14 +326,14 @@ export default async function ServicePage({
                 analyticsLabel={orderLabel}
                 analyticsLocation="pricing_intro"
                 analyticsEvent="pricing_cta"
-                className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
+                className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-public-copy-sm shadow-sm"
               >
                 {orderLabel}
                 <ArrowRight className="w-4 h-4" aria-hidden />
               </TrackedLink>
               <Link
                 href={labels?.backToServicesHref ?? "/services"}
-                className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
+                className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-public-copy-sm"
               >
                 {labels?.backToServices ?? "Back to Services"}
               </Link>
@@ -346,7 +346,7 @@ export default async function ServicePage({
       <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
           <div className="max-w-3xl mb-10 lg:mb-14">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+            <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               {labels?.whatItIsEyebrow ?? "What it is"}
             </p>
             <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
@@ -359,7 +359,7 @@ export default async function ServicePage({
               {whatItIsBullets.map((item) => (
                 <li
                   key={item}
-                  className="flex items-center gap-3 text-sm lg:text-base text-foreground"
+                  className="flex items-center gap-3 text-public-copy-sm lg:text-base text-foreground"
                 >
                   <span
                     aria-hidden
@@ -444,7 +444,7 @@ export default async function ServicePage({
                 }`}
               >
                 {card.isBase && (
-                  <span className="self-start inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-bold tracking-[0.18em] uppercase">
+                  <span className="self-start inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/20 text-white text-xs font-bold tracking-[0.12em] uppercase">
                     {labels?.basePriceBadge ?? "Base Price"}
                   </span>
                 )}
@@ -453,7 +453,7 @@ export default async function ServicePage({
                     {card.price}
                   </p>
                   {card.unit && (
-                    <p className={`text-xs font-medium mt-0.5 ${card.isBase ? "text-white/70" : "text-muted"}`}>
+                    <p className={`text-sm font-medium mt-0.5 ${card.isBase ? "text-white/70" : "text-muted"}`}>
                       {card.unit}
                     </p>
                   )}
@@ -462,7 +462,7 @@ export default async function ServicePage({
                   <p className={`text-sm lg:text-base font-semibold leading-tight ${card.isBase ? "text-white" : "text-foreground"}`}>
                     {card.label}
                   </p>
-                  <p className={`text-xs lg:text-sm mt-1 leading-relaxed ${card.isBase ? "text-white/75" : "text-muted"}`}>
+                  <p className={`text-sm lg:text-public-copy-sm mt-1 leading-relaxed ${card.isBase ? "text-white/75" : "text-muted"}`}>
                     {card.note}
                   </p>
                 </div>
@@ -470,11 +470,11 @@ export default async function ServicePage({
             ))}
           </div>
           {pricingFootnote && (
-            <p className="mt-6 text-xs lg:text-sm text-muted leading-relaxed max-w-2xl">
+            <p className="mt-6 text-sm lg:text-public-copy-sm text-muted leading-relaxed max-w-2xl">
               {pricingFootnote}
             </p>
           )}
-          <p className="mt-3 text-xs lg:text-sm text-muted leading-relaxed max-w-2xl">
+          <p className="mt-3 text-sm lg:text-public-copy-sm text-muted leading-relaxed max-w-2xl">
             {labels?.taxNotice ?? PUBLIC_TAX_NOTICE}
           </p>
           <div className="mt-8">
@@ -483,7 +483,7 @@ export default async function ServicePage({
               analyticsLabel={orderLabel}
               analyticsLocation="pricing_card"
               analyticsEvent="pricing_cta"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-public-copy-sm"
             >
               {orderLabel}
               <ArrowRight className="w-4 h-4" aria-hidden />
