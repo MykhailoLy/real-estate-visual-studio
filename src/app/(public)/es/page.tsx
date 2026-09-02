@@ -28,7 +28,7 @@ import {
 import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
 import { spanishMetadata } from "./seo";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
-import { getHomeHeroServicePresentation } from "@/lib/pricing/remote-service-presentation";
+import { getHeroServicePresentation } from "@/lib/pricing/remote-service-presentation";
 
 export const metadata = spanishMetadata({
   title: "PicchuSpot - Visuales inmobiliarios",
@@ -226,7 +226,7 @@ export default async function SpanishHomePage() {
       const beforeUrl = getSiteMediaPublicUrl(row.before_image_path);
       const afterUrl = getSiteMediaPublicUrl(row.after_image_path);
       if (!beforeUrl || !afterUrl) return null;
-      const service = getHomeHeroServicePresentation(row.service_slug, "es");
+      const service = getHeroServicePresentation(row.service_slug, "es");
       const alt = getBeforeAfterAlt({
         sharedAlt: row.alt_text,
         title: row.title,

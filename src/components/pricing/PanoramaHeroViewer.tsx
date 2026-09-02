@@ -2,7 +2,12 @@
 
 import "@photo-sphere-viewer/core/index.css";
 import { useEffect, useRef, useState } from "react";
-import { RotateCw } from "lucide-react";
+import { ComparisonHeroFooter } from "@/components/media/ComparisonHeroChrome";
+import type { PortfolioServiceSlug } from "@/lib/portfolio-service-meta";
+import {
+  getHeroServicePresentation,
+  type RemoteServiceLocale,
+} from "@/lib/pricing/remote-service-presentation";
 import { cn } from "@/lib/utils";
 import type { Viewer as PhotoSphereViewer } from "@photo-sphere-viewer/core";
 
@@ -10,6 +15,10 @@ interface PanoramaHeroViewerProps {
   imageUrl: string | null;
   title: string;
   fallbackLabel: string;
+  serviceSlug: PortfolioServiceSlug;
+  locale: RemoteServiceLocale;
+  orderHref: string;
+  orderLabel: string;
 }
 
 const AUTO_ROTATE_RADIANS_PER_SECOND = 0.035;
@@ -24,6 +33,10 @@ export default function PanoramaHeroViewer({
   imageUrl,
   title,
   fallbackLabel,
+  serviceSlug,
+  locale,
+  orderHref,
+  orderLabel,
 }: PanoramaHeroViewerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -170,22 +183,25 @@ export default function PanoramaHeroViewer({
         ? "loading"
         : "fallback";
   const hasViewer = state === "loading" || state === "ready";
+  const service = getHeroServicePresentation(serviceSlug, locale);
 
   return (
     <div
       ref={rootRef}
       className={cn(
-        "relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10",
-        "aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]",
+        "w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10",
         hasViewer ? "bg-stone-950" : "bg-primary"
       )}
       data-panorama-state={state}
       data-panorama-viewer="photo-sphere-viewer"
-      role="img"
-      aria-label={hasViewer ? title : fallbackLabel}
     >
-      {hasViewer ? (
-        <>
+      <div
+        className="relative aspect-[16/9] w-full overflow-hidden sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
+        role="img"
+        aria-label={hasViewer ? title : fallbackLabel}
+      >
+        {hasViewer ? (
+          <>
           <div
             ref={containerRef}
             className="absolute inset-0 [&_.psv-container]:!h-full [&_.psv-container]:!w-full [&_.psv-container]:!bg-stone-950 [&_.psv-container]:!font-sans [&_.psv-canvas-container]:!h-full [&_.psv-canvas-container]:!w-full"
@@ -197,27 +213,26 @@ export default function PanoramaHeroViewer({
               </span>
             </div>
           )}
-        </>
-      ) : (
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,#071f34_0%,#183d5d_46%,#d9c7a5_100%)]">
-          <div className="absolute inset-x-0 top-1/2 h-px bg-white/20" />
-          <div className="absolute left-[12%] top-[22%] h-20 w-28 rounded-full border border-white/20" />
-          <div className="absolute right-[16%] bottom-[20%] h-24 w-36 rounded-full border border-white/15" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(4,16,28,0.28)_75%)]" />
-        </div>
-      )}
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-2 text-white">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] backdrop-blur">
-            <RotateCw className="h-3.5 w-3.5" aria-hidden />
-            360 viewer
-          </span>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
-            {hasViewer ? "Drag to look around" : "Upload a Service hero panorama"}
-          </span>
-        </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-[linear-gradient(120deg,#071f34_0%,#183d5d_46%,#d9c7a5_100%)]">
+            <div className="absolute inset-x-0 top-1/2 h-px bg-white/20" />
+            <div className="absolute left-[12%] top-[22%] h-20 w-28 rounded-full border border-white/20" />
+            <div className="absolute right-[16%] bottom-[20%] h-24 w-36 rounded-full border border-white/15" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(4,16,28,0.28)_75%)]" />
+          </div>
+        )}
       </div>
+
+      <ComparisonHeroFooter
+        service={service}
+        locale={locale}
+        ctaHref={orderHref}
+        ctaLabel={orderLabel}
+        analyticsLocation="service_hero"
+        analyticsEvent="order_intent"
+        showComparisonLabels={false}
+      />
     </div>
   );
 }

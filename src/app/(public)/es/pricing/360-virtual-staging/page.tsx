@@ -55,6 +55,10 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
         beforeTitle={heroAlt.beforeAlt}
         afterTitle={heroAlt.afterAlt}
         fallbackLabel="Placeholder del hero antes y después de Virtual Staging 360"
+        serviceSlug="360-virtual-staging"
+        locale="es"
+        orderHref="/order/photo-editing"
+        orderLabel="Pedir online"
       />
     ) : (
       <PanoramaHeroViewer
@@ -65,6 +69,10 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
           "Panorama interactivo de Virtual Staging 360"
         }
         fallbackLabel="Placeholder del hero de Virtual Staging 360"
+        serviceSlug="360-virtual-staging"
+        locale="es"
+        orderHref="/order/photo-editing"
+        orderLabel="Pedir online"
       />
     );
 

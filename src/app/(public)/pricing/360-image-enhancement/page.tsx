@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Compass, SlidersHorizontal, ImageIcon, Globe } from "lucide-react";
+import PanoramaHeroViewer from "@/components/pricing/PanoramaHeroViewer";
 import ServicePage from "@/components/pricing/ServicePage";
 import SyncedPanoramaCompareViewer from "@/components/pricing/SyncedPanoramaCompareViewer";
 import {
   getServiceHeroBeforeAfterItem,
+  getServiceHeroPanoramaItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { localizedAlternates } from "@/lib/seo";
@@ -26,14 +28,19 @@ export const metadata: Metadata = {
 };
 
 export default async function ThreeSixtyImageEnhancementPricingPage() {
-  const heroBeforeAfter = await getServiceHeroBeforeAfterItem(
-    "360-image-enhancement"
-  );
+  const [heroBeforeAfter, heroPanoramas] = await Promise.all([
+    getServiceHeroBeforeAfterItem("360-image-enhancement"),
+    getServiceHeroPanoramaItems("360-image-enhancement"),
+  ]);
   const beforePanoramaUrl = getSiteMediaPublicUrl(
     heroBeforeAfter?.before_image_path
   );
   const afterPanoramaUrl = getSiteMediaPublicUrl(
     heroBeforeAfter?.after_image_path
+  );
+  const heroPanorama = heroPanoramas.find((item) => item.panorama_image_path);
+  const heroPanoramaUrl = getSiteMediaPublicUrl(
+    heroPanorama?.panorama_image_path,
   );
   const heroAlt = getBeforeAfterAlt({
     sharedAlt: heroBeforeAfter?.alt_text,
@@ -50,8 +57,26 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
         beforeTitle={heroAlt.beforeAlt}
         afterTitle={heroAlt.afterAlt}
         fallbackLabel="360 Image Enhancement before and after hero placeholder"
+        serviceSlug="360-image-enhancement"
+        locale="en"
+        orderHref="/order/photo-editing"
+        orderLabel="Order 360° Enhancement"
       />
-    ) : undefined;
+    ) : (
+      <PanoramaHeroViewer
+        imageUrl={heroPanoramaUrl}
+        title={
+          heroPanorama?.alt_text ??
+          heroPanorama?.title ??
+          "Interactive 360 image enhancement panorama"
+        }
+        fallbackLabel="360 Image Enhancement hero placeholder"
+        serviceSlug="360-image-enhancement"
+        locale="en"
+        orderHref="/order/photo-editing"
+        orderLabel="Order 360° Enhancement"
+      />
+    );
 
   return (
     <>

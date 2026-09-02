@@ -303,6 +303,10 @@ export default async function SpanishVirtualStagingPage() {
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
           <ServicePageSlider
             slides={sliderSlides}
+            serviceSlug="virtual-staging"
+            locale="es"
+            orderHref="/order/virtual-staging"
+            orderLabel="Pedir Virtual Staging"
             ariaLabel="Ejemplos antes y después de Virtual Staging"
           />
         </div>

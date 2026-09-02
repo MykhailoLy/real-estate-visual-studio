@@ -2,7 +2,12 @@
 
 import "@photo-sphere-viewer/core/index.css";
 import { useEffect, useRef, useState } from "react";
-import { MousePointer2, RotateCw } from "lucide-react";
+import { ComparisonHeroFooter } from "@/components/media/ComparisonHeroChrome";
+import type { PortfolioServiceSlug } from "@/lib/portfolio-service-meta";
+import {
+  getHeroServicePresentation,
+  type RemoteServiceLocale,
+} from "@/lib/pricing/remote-service-presentation";
 import { cn } from "@/lib/utils";
 import type { Viewer as PhotoSphereViewer } from "@photo-sphere-viewer/core";
 import type { RefObject } from "react";
@@ -13,6 +18,10 @@ interface SyncedPanoramaCompareViewerProps {
   beforeTitle: string;
   afterTitle: string;
   fallbackLabel: string;
+  serviceSlug: PortfolioServiceSlug;
+  locale: RemoteServiceLocale;
+  orderHref: string;
+  orderLabel: string;
 }
 
 const AUTO_ROTATE_RADIANS_PER_SECOND = 0.03;
@@ -28,6 +37,10 @@ export default function SyncedPanoramaCompareViewer({
   beforeTitle,
   afterTitle,
   fallbackLabel,
+  serviceSlug,
+  locale,
+  orderHref,
+  orderLabel,
 }: SyncedPanoramaCompareViewerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const beforeContainerRef = useRef<HTMLDivElement | null>(null);
@@ -259,12 +272,13 @@ export default function SyncedPanoramaCompareViewer({
   }, [afterImageUrl, beforeImageUrl]);
 
   const hasViewer = status === "loading" || status === "ready";
+  const service = getHeroServicePresentation(serviceSlug, locale);
 
   return (
     <div
       ref={rootRef}
       className={cn(
-        "relative w-full max-w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10",
+        "w-full max-w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10",
         hasViewer ? "bg-stone-950" : "bg-primary"
       )}
       data-panorama-state={status}
@@ -272,60 +286,53 @@ export default function SyncedPanoramaCompareViewer({
       role="group"
       aria-label={hasViewer ? "Synchronized 360 before and after comparison" : fallbackLabel}
     >
-      {hasViewer ? (
-        <div className="grid w-full min-w-0 grid-cols-1 gap-px bg-white/15 md:grid-cols-2">
-          <PanoramaPane
-            label="BEFORE"
-            title={beforeTitle}
-            containerRef={beforeContainerRef}
-          />
-          <PanoramaPane
-            label="AFTER"
-            title={afterTitle}
-            containerRef={afterContainerRef}
-          />
-        </div>
-      ) : (
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-[linear-gradient(120deg,#071f34_0%,#183d5d_46%,#d9c7a5_100%)] md:aspect-[32/9]">
-          <div className="absolute inset-x-0 top-1/2 h-px bg-white/20" />
-          <div className="absolute left-[12%] top-[22%] h-20 w-28 rounded-full border border-white/20" />
-          <div className="absolute right-[16%] bottom-[20%] h-24 w-36 rounded-full border border-white/15" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(4,16,28,0.28)_75%)]" />
-        </div>
-      )}
+      <div className="relative w-full overflow-hidden">
+        {hasViewer ? (
+          <div className="grid w-full min-w-0 grid-cols-1 gap-px bg-white/15 md:grid-cols-2">
+            <PanoramaPane
+              title={beforeTitle}
+              containerRef={beforeContainerRef}
+            />
+            <PanoramaPane
+              title={afterTitle}
+              containerRef={afterContainerRef}
+            />
+          </div>
+        ) : (
+          <div className="relative aspect-[16/9] w-full overflow-hidden bg-[linear-gradient(120deg,#071f34_0%,#183d5d_46%,#d9c7a5_100%)] md:aspect-[32/9]">
+            <div className="absolute inset-x-0 top-1/2 h-px bg-white/20" />
+            <div className="absolute left-[12%] top-[22%] h-20 w-28 rounded-full border border-white/20" />
+            <div className="absolute right-[16%] bottom-[20%] h-24 w-36 rounded-full border border-white/15" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,rgba(4,16,28,0.28)_75%)]" />
+          </div>
+        )}
 
-      {status === "loading" && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-stone-950/65 text-white">
-          <span className="text-xs font-bold uppercase tracking-[0.18em]">
-            Loading 360 comparison
-          </span>
-        </div>
-      )}
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-2 text-white">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] backdrop-blur">
-            <RotateCw className="h-3.5 w-3.5" aria-hidden />
-            Synced 360
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
-            <MousePointer2 className="h-3.5 w-3.5" aria-hidden />
-            {hasViewer
-              ? "Drag either view to compare"
-              : "Upload matching before/after 360 panoramas"}
-          </span>
-        </div>
+        {status === "loading" && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-stone-950/65 text-white">
+            <span className="text-xs font-bold uppercase tracking-[0.18em]">
+              Loading 360 comparison
+            </span>
+          </div>
+        )}
       </div>
+
+      <ComparisonHeroFooter
+        service={service}
+        locale={locale}
+        ctaHref={orderHref}
+        ctaLabel={orderLabel}
+        analyticsLocation="service_hero"
+        analyticsEvent="order_intent"
+        comparisonLabelsAriaHidden
+      />
     </div>
   );
 }
 
 function PanoramaPane({
-  label,
   title,
   containerRef,
 }: {
-  label: "BEFORE" | "AFTER";
   title: string;
   containerRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -337,9 +344,6 @@ function PanoramaPane({
         role="img"
         aria-label={title}
       />
-      <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white backdrop-blur">
-        {label}
-      </span>
     </div>
   );
 }

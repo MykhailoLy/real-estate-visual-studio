@@ -1,8 +1,10 @@
 import { Compass, Globe, ImageIcon, SlidersHorizontal } from "lucide-react";
+import PanoramaHeroViewer from "@/components/pricing/PanoramaHeroViewer";
 import ServicePage from "@/components/pricing/ServicePage";
 import SyncedPanoramaCompareViewer from "@/components/pricing/SyncedPanoramaCompareViewer";
 import {
   getServiceHeroBeforeAfterItem,
+  getServiceHeroPanoramaItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { spanishMetadata } from "../../seo";
@@ -23,14 +25,19 @@ export const metadata = spanishMetadata({
 });
 
 export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
-  const heroBeforeAfter = await getServiceHeroBeforeAfterItem(
-    "360-image-enhancement",
-  );
+  const [heroBeforeAfter, heroPanoramas] = await Promise.all([
+    getServiceHeroBeforeAfterItem("360-image-enhancement"),
+    getServiceHeroPanoramaItems("360-image-enhancement"),
+  ]);
   const beforePanoramaUrl = getSiteMediaPublicUrl(
     heroBeforeAfter?.before_image_path,
   );
   const afterPanoramaUrl = getSiteMediaPublicUrl(
     heroBeforeAfter?.after_image_path,
+  );
+  const heroPanorama = heroPanoramas.find((item) => item.panorama_image_path);
+  const heroPanoramaUrl = getSiteMediaPublicUrl(
+    heroPanorama?.panorama_image_path,
   );
   const heroAlt = getBeforeAfterAlt({
     sharedAlt: heroBeforeAfter?.alt_text,
@@ -48,8 +55,26 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
         beforeTitle={heroAlt.beforeAlt}
         afterTitle={heroAlt.afterAlt}
         fallbackLabel="Placeholder del hero antes y después de Mejora de imagen 360"
+        serviceSlug="360-image-enhancement"
+        locale="es"
+        orderHref="/order/photo-editing"
+        orderLabel="Pedir Mejora 360°"
       />
-    ) : undefined;
+    ) : (
+      <PanoramaHeroViewer
+        imageUrl={heroPanoramaUrl}
+        title={
+          heroPanorama?.alt_text ??
+          heroPanorama?.title ??
+          "Panorama interactivo de Mejora de imagen 360"
+        }
+        fallbackLabel="Placeholder del hero de Mejora de imagen 360"
+        serviceSlug="360-image-enhancement"
+        locale="es"
+        orderHref="/order/photo-editing"
+        orderLabel="Pedir Mejora 360°"
+      />
+    );
 
   return (
     <>

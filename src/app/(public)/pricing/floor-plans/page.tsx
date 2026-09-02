@@ -424,6 +424,10 @@ export default async function FloorPlansPage() {
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
           <ServicePageSlider
             slides={sliderSlides}
+            serviceSlug="floor-plans"
+            locale="en"
+            orderHref="/order/3d-floor-plans"
+            orderLabel="Order Floor Plan"
             ariaLabel="Floor plan before and after examples"
             imageFit="contain"
             imageBackground="bg-white"

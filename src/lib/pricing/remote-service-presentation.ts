@@ -194,7 +194,7 @@ export function getRemoteServicePresentation(
   );
 }
 
-export type HomeHeroServicePresentation = {
+export type HeroServicePresentation = {
   name: string;
   ctaLabel: string;
   href: string;
@@ -218,10 +218,10 @@ const UNIT_LABELS: Record<RemoteServiceUnit, Record<RemoteServiceLocale, string>
   panorama: { en: "panorama", es: "panorama" },
 };
 
-export function getHomeHeroServicePresentation(
+export function getHeroServicePresentation(
   serviceSlug: string | null | undefined,
   locale: RemoteServiceLocale,
-): HomeHeroServicePresentation | null {
+): HeroServicePresentation | null {
   const service = getRemoteServicePresentation(serviceSlug);
   if (!service) return null;
 
