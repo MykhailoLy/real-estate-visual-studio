@@ -108,8 +108,16 @@
   /* Existing semantic success token; not a brand accent. */
   --color-accent: #38a169;
 
-  /* Typography */
+  /* Public typography — semantic sizes keep marketing copy readable
+     without changing dense dashboard and order interfaces. */
   --font-sans: var(--font-geist-sans);
+  --text-public-kicker: 0.8125rem;
+  --text-public-kicker--line-height: 1.25rem;
+  --text-public-kicker--letter-spacing: 0.12em;
+  --text-public-copy-sm: 0.9375rem;
+  --text-public-copy-sm--line-height: 1.5rem;
+  --text-public-lead: 1.125rem;
+  --text-public-lead--line-height: 1.8125rem;
 
   /* Named wide-view breakpoints sort after Tailwind's standard screens.
      Use these rather than arbitrary min variants where a larger layout must
@@ -123,7 +131,7 @@
 body {
   background: var(--color-background);
   color: var(--color-foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

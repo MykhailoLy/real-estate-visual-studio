@@ -289,13 +289,13 @@ export default async function ServiceGrid({
     <section className="py-16 lg:py-28 bg-surface">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-12 lg:mb-16">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
+          <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
-          <h2 className="text-4xl lg:text-6xl font-bold text-primary tracking-tight leading-[1.02]">
+          <h2 className="text-3xl sm:text-4xl font-bold text-primary tracking-tight leading-[1.02]">
             {copy.title}
           </h2>
-          <p className="mt-6 text-base lg:text-xl text-muted leading-relaxed">
+          <p className="mt-6 text-public-lead text-muted leading-relaxed">
             {copy.description}
           </p>
         </div>
@@ -391,7 +391,7 @@ function ServiceCard({
             priceText
           )}
         </p>
-        <p className="mt-3 text-sm lg:text-base text-muted leading-relaxed flex-1">
+        <p className="mt-3 text-public-copy-sm lg:text-base text-muted leading-relaxed flex-1">
           {description}
         </p>
       </div>

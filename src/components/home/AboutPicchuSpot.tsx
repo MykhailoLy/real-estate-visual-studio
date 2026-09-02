@@ -126,10 +126,10 @@ export default function AboutPicchuSpot({
 
           {/* Narrative */}
           <div className="lg:col-span-5 order-1 lg:order-2">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
+            <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
               {copy.eyebrow}
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight leading-[1.05]">
               {copy.title}
             </h2>
             <div className="mt-6 lg:mt-8 space-y-5 text-base lg:text-lg text-muted leading-relaxed">

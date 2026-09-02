@@ -79,12 +79,12 @@ function ServicePlaceholder({ variant }: { variant: PlaceholderVariant }) {
       return (
         <div className="absolute inset-0 flex">
           <div className="w-1/2 bg-gradient-to-br from-stone-200 via-stone-200 to-stone-300 flex items-end justify-center pb-4">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-stone-700 uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold tracking-[0.12em] text-stone-700 uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
               Before
             </span>
           </div>
           <div className="w-1/2 bg-gradient-to-br from-amber-50 via-orange-100 to-stone-200 flex items-end justify-center pb-4">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-primary uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold tracking-[0.12em] text-primary uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
               After
             </span>
           </div>
@@ -95,12 +95,12 @@ function ServicePlaceholder({ variant }: { variant: PlaceholderVariant }) {
       return (
         <div className="absolute inset-0 flex">
           <div className="w-1/2 bg-gradient-to-br from-stone-300 via-stone-300 to-stone-400 flex items-end justify-center pb-4">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-stone-800 uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold tracking-[0.12em] text-stone-800 uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
               Existing
             </span>
           </div>
           <div className="w-1/2 bg-gradient-to-br from-emerald-50 via-sky-50 to-stone-100 flex items-end justify-center pb-4">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-primary uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold tracking-[0.12em] text-primary uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
               Renovated
             </span>
           </div>
@@ -133,12 +133,12 @@ function ServicePlaceholder({ variant }: { variant: PlaceholderVariant }) {
       return (
         <div className="absolute inset-0 flex">
           <div className="w-1/2 bg-gradient-to-br from-stone-500 via-stone-400 to-stone-500 flex items-end justify-center pb-4 saturate-50">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-white uppercase bg-stone-900/60 backdrop-blur px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold tracking-[0.12em] text-white uppercase bg-stone-900/60 backdrop-blur px-2.5 py-1 rounded-full">
               Original
             </span>
           </div>
           <div className="w-1/2 bg-gradient-to-br from-orange-100 via-amber-100 to-rose-100 flex items-end justify-center pb-4">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-primary uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold tracking-[0.12em] text-primary uppercase bg-white/85 backdrop-blur px-2.5 py-1 rounded-full">
               Enhanced
             </span>
           </div>
@@ -425,10 +425,10 @@ export default function ServicesPage() {
           <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 xl:gap-16 items-center">
             {/* Left: text content */}
             <div className="lg:col-span-5">
-              <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-5">
+              <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-5">
                 PicchuSpot Services
               </p>
-              <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-primary mb-6 leading-[1.05] tracking-tight">
+              <h1 className="text-4xl lg:text-5xl xl:text-[52px] font-bold text-primary mb-6 leading-[1.05] tracking-tight">
                 Real Estate Visual Marketing Services
               </h1>
               <p className="text-base lg:text-lg text-muted leading-relaxed mb-10">
@@ -439,14 +439,14 @@ export default function ServicesPage() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
                   href="/order"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-public-copy-sm shadow-sm"
                 >
                   Order Digital Services
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/contact"
-                  className="inline-flex items-center justify-center px-7 py-3.5 border border-primary/25 text-primary font-semibold rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all text-sm"
+                  className="inline-flex items-center justify-center px-7 py-3.5 border border-primary/25 text-primary font-semibold rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all text-public-copy-sm"
                 >
                   Request Local Quote
                 </Link>
@@ -465,7 +465,7 @@ export default function ServicesPage() {
                   <div className="aspect-[4/3] bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden relative">
                     <ServicePlaceholder variant="staging" />
                   </div>
-                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-[11px] font-semibold tracking-wide text-primary border border-stone-200">
+                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-xs font-semibold tracking-[0.08em] text-primary border border-stone-200">
                     Virtual Staging
                   </div>
                 </div>
@@ -478,7 +478,7 @@ export default function ServicesPage() {
                   <div className="aspect-[3/4] bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden relative">
                     <ServicePlaceholder variant="floor-plan" />
                   </div>
-                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-[11px] font-semibold tracking-wide text-primary border border-stone-200">
+                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-xs font-semibold tracking-[0.08em] text-primary border border-stone-200">
                     Floor Plan
                   </div>
                 </div>
@@ -492,7 +492,7 @@ export default function ServicesPage() {
                   <div className="aspect-[4/3] bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden relative">
                     <ServicePlaceholder variant="photography" />
                   </div>
-                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-[11px] font-semibold tracking-wide text-primary border border-stone-200">
+                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-xs font-semibold tracking-[0.08em] text-primary border border-stone-200">
                     Photography
                   </div>
                 </div>
@@ -505,7 +505,7 @@ export default function ServicesPage() {
                   <div className="aspect-[4/3] bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden relative">
                     <ServicePlaceholder variant="editing" />
                   </div>
-                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-[11px] font-semibold tracking-wide text-primary border border-stone-200">
+                  <div className="absolute -bottom-2.5 left-4 px-3 py-1 bg-white rounded-full shadow-md text-xs font-semibold tracking-[0.08em] text-primary border border-stone-200">
                     Photo Editing
                   </div>
                 </div>
@@ -520,10 +520,10 @@ export default function ServicesPage() {
       <section className="py-20 lg:py-28 bg-white">
         <Wide>
           <div className="max-w-3xl mb-14 lg:mb-16">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+            <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               Worldwide
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
               Remote Digital Services
             </h2>
             <p className="text-base lg:text-lg text-muted leading-relaxed">
@@ -559,14 +559,14 @@ export default function ServicesPage() {
                     <p className="text-base lg:text-lg font-semibold text-secondary-dark mb-5">
                       <RemotePrice service={svc} />
                     </p>
-                    <p className="text-sm lg:text-base text-muted leading-relaxed mb-6">
+                    <p className="text-public-copy-sm lg:text-base text-muted leading-relaxed mb-6">
                       {svc.description}
                     </p>
                     <ul className="space-y-2.5 mb-8">
                       {svc.highlights.map((point) => (
                         <li
                           key={point}
-                          className="flex items-start gap-2.5 text-sm lg:text-base text-foreground"
+                          className="flex items-start gap-2.5 text-public-copy-sm lg:text-base text-foreground"
                         >
                           <Check className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
                           <span>{point}</span>
@@ -576,13 +576,13 @@ export default function ServicesPage() {
                     <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-stone-100 mt-auto">
                       <Link
                         href={svc.pricingHref}
-                        className="flex-1 inline-flex items-center justify-center px-5 py-3 border border-stone-300 text-foreground text-sm font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors"
+                        className="flex-1 inline-flex items-center justify-center px-5 py-3 border border-stone-300 text-foreground text-public-copy-sm font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors"
                       >
                         View Pricing
                       </Link>
                       <Link
                         href={svc.orderHref}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-5 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-5 py-3 bg-primary text-white text-public-copy-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
                       >
                         Order Online
                         <ArrowRight className="w-4 h-4" />
@@ -601,10 +601,10 @@ export default function ServicesPage() {
       <section className="py-20 lg:py-28 bg-stone-50">
         <Wide>
           <div className="max-w-3xl mb-14 lg:mb-16">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+            <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               Alicante &amp; Costa Blanca
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
               Local Real Estate Media in Alicante &amp; Costa Blanca
             </h2>
             <p className="text-base lg:text-lg text-muted leading-relaxed">
@@ -630,7 +630,7 @@ export default function ServicesPage() {
                       </div>
                     </div>
                     <div className="absolute top-5 right-5 z-10">
-                      <span className="inline-flex items-center px-3 py-1.5 bg-white/95 backdrop-blur rounded-full text-[11px] font-semibold tracking-wide text-primary shadow-sm">
+                      <span className="inline-flex items-center px-3 py-1.5 bg-white/95 backdrop-blur rounded-full text-xs font-semibold tracking-[0.08em] text-primary shadow-sm">
                         On-Location
                       </span>
                     </div>
@@ -648,14 +648,14 @@ export default function ServicesPage() {
 
                     {svc.additionalPricing && (
                       <div className="mb-6 p-4 lg:p-5 bg-stone-50 border border-stone-200 rounded-xl">
-                        <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-muted mb-2.5">
+                        <p className="text-public-kicker font-semibold uppercase text-muted mb-2.5">
                           Pricing Tiers
                         </p>
                         <ul className="space-y-2">
                           {svc.additionalPricing.map((tier) => (
                             <li
                               key={tier}
-                              className="text-xs lg:text-sm text-foreground leading-relaxed flex gap-2"
+                              className="text-sm lg:text-public-copy-sm text-foreground leading-relaxed flex gap-2"
                             >
                               <span className="text-secondary-dark mt-0.5">•</span>
                               <span>{tier}</span>
@@ -665,12 +665,12 @@ export default function ServicesPage() {
                       </div>
                     )}
 
-                    <p className="text-sm lg:text-base text-muted leading-relaxed mb-5">
+                    <p className="text-public-copy-sm lg:text-base text-muted leading-relaxed mb-5">
                       {svc.description}
                     </p>
 
                     {svc.note && (
-                      <p className="text-sm text-foreground bg-stone-100 border border-stone-200 rounded-lg px-4 py-3 mb-5 italic">
+                      <p className="text-public-copy-sm text-foreground bg-stone-100 border border-stone-200 rounded-lg px-4 py-3 mb-5 italic">
                         {svc.note}
                       </p>
                     )}
@@ -678,7 +678,7 @@ export default function ServicesPage() {
                     <div className="mt-auto pt-6 border-t border-stone-100">
                       <Link
                         href="/contact"
-                        className="inline-flex items-center justify-center gap-1.5 w-full px-5 py-3 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
+                        className="inline-flex items-center justify-center gap-1.5 w-full px-5 py-3 bg-primary text-white text-public-copy-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
                       >
                         Request Quote
                         <ArrowRight className="w-4 h-4" />
@@ -690,7 +690,7 @@ export default function ServicesPage() {
             })}
           </div>
 
-          <p className="text-sm text-muted max-w-3xl leading-relaxed">
+          <p className="text-public-copy-sm text-muted max-w-3xl leading-relaxed">
             Local service prices are starting points. Final quotes are confirmed
             after reviewing the property details, location, required
             deliverables, and availability.
@@ -703,10 +703,10 @@ export default function ServicesPage() {
       <section className="py-20 lg:py-28 bg-white">
         <Wide>
           <div className="max-w-3xl mx-auto text-center mb-14 lg:mb-16">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
+            <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               Process
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary mb-4 tracking-tight">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight">
               How It Works
             </h2>
             <p className="text-base lg:text-lg text-muted leading-relaxed">
@@ -737,7 +737,7 @@ export default function ServicesPage() {
                             {step.title}
                           </h4>
                         </div>
-                        <p className="text-sm lg:text-base text-muted leading-relaxed">
+                        <p className="text-public-copy-sm lg:text-base text-muted leading-relaxed">
                           {step.description}
                         </p>
                       </div>
@@ -769,7 +769,7 @@ export default function ServicesPage() {
                             {step.title}
                           </h4>
                         </div>
-                        <p className="text-sm lg:text-base text-muted leading-relaxed">
+                        <p className="text-public-copy-sm lg:text-base text-muted leading-relaxed">
                           {step.description}
                         </p>
                       </div>
@@ -787,10 +787,10 @@ export default function ServicesPage() {
       <section className="bg-primary py-20 lg:py-28">
         <Wide>
           <div className="max-w-3xl mx-auto text-center">
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary mb-5">
+            <p className="text-public-kicker font-semibold uppercase text-secondary mb-5">
               Get Started
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-white mb-5 tracking-tight">
+            <h2 className="text-3xl lg:text-4xl font-bold text-white mb-5 tracking-tight">
               Ready to prepare your property visuals?
             </h2>
             <p className="text-white/70 text-base lg:text-xl mb-10 leading-relaxed">
@@ -800,14 +800,14 @@ export default function ServicesPage() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
                 href="/order"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-sm shadow-sm"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-secondary text-primary-dark font-semibold rounded-lg hover:bg-secondary-light transition-colors text-public-copy-sm shadow-sm"
               >
                 Start Online Order
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 href="/contact"
-                className="inline-flex items-center justify-center px-8 py-4 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-sm"
+                className="inline-flex items-center justify-center px-8 py-4 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-public-copy-sm"
               >
                 Request Local Quote
               </Link>

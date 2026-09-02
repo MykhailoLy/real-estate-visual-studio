@@ -424,7 +424,7 @@ export default function Header() {
                   key={entry.key}
                   href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
-                    "group relative inline-flex h-full items-center whitespace-nowrap px-1.5 text-[11px] font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white 2xl:px-2.5 2xl:text-[12px] 2xl:tracking-[0.08em]",
+                    "group relative inline-flex h-full items-center whitespace-nowrap px-1.5 text-[13px] font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white 2xl:px-2.5 2xl:text-sm 2xl:tracking-[0.06em]",
                     isActive
                       ? "text-white"
                       : "text-white/65 hover:text-white"
@@ -548,7 +548,7 @@ function GuestDesktopAuthActions({
         href={getLocaleAwareHref("/login", language)}
         onClick={() => trackLoginClick("header")}
         tabIndex={loading ? -1 : undefined}
-        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap px-2 text-[11px] font-bold uppercase tracking-[0.06em] text-white/80 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 md:text-[12px] 2xl:text-[13px] 2xl:tracking-[0.10em]"
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap px-2 text-[13px] font-bold uppercase tracking-[0.04em] text-white/80 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 2xl:text-sm 2xl:tracking-[0.06em]"
         aria-label={language === "es" ? "Iniciar sesión" : "Login"}
       >
         {language === "es" ? "Iniciar sesión" : "Login"}
@@ -557,7 +557,7 @@ function GuestDesktopAuthActions({
         href={getLocaleAwareHref("/signup", language)}
         onClick={() => trackSignUpClick("header")}
         tabIndex={loading ? -1 : undefined}
-        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-secondary px-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-primary transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 md:text-[12px] 2xl:px-4 2xl:text-[13px] 2xl:tracking-[0.10em]"
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-secondary px-2.5 text-[13px] font-bold uppercase tracking-[0.04em] text-primary transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 2xl:px-4 2xl:text-sm 2xl:tracking-[0.06em]"
         aria-label={language === "es" ? "Crear cuenta" : "Sign Up"}
       >
         {language === "es" ? "Crear cuenta" : "Sign Up"}
@@ -685,7 +685,7 @@ function MobileDrawer({
                             href={href}
                             onClick={onClose}
                             className={cn(
-                              "block px-3 py-2 rounded-md text-[12px] font-semibold tracking-[0.06em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                              "block px-3 py-2 rounded-md text-sm font-semibold tracking-[0.04em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                               isCurrent
                                 ? "text-primary bg-primary/5"
                                 : "text-foreground/65 hover:text-primary hover:bg-surface"
@@ -701,7 +701,7 @@ function MobileDrawer({
                       <Link
                         href={getLocaleAwareHref(entry.href, language)}
                         onClick={onClose}
-                        className="block px-3 py-2 rounded-md text-[12px] font-semibold tracking-[0.06em] text-foreground/65 hover:text-primary hover:bg-surface"
+                        className="block px-3 py-2 rounded-md text-sm font-semibold tracking-[0.04em] text-foreground/65 hover:text-primary hover:bg-surface"
                       >
                         {entry.label}
                       </Link>
@@ -760,7 +760,7 @@ function BurgerMenuPanel({
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary-dark">
+            <p className="text-public-kicker font-bold uppercase text-secondary-dark">
               PicchuSpot
             </p>
             <h2 className="text-lg font-bold text-primary">
@@ -781,7 +781,7 @@ function BurgerMenuPanel({
           <section className="xl:hidden">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+                <p className="text-public-kicker font-bold uppercase text-muted">
                   {copy.servicesEyebrow}
                 </p>
                 <h3 className="mt-1 text-xl font-bold text-primary">
@@ -847,7 +847,7 @@ function BurgerMenuPanel({
           </section>
 
           <section className="rounded-xl border border-stone-200 bg-surface/60 p-4 sm:hidden">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+            <p className="mb-3 text-public-kicker font-bold uppercase text-muted">
               {language === "es" ? "Preferencias" : "Preferences"}
             </p>
             <MarketLanguageSelector
@@ -862,7 +862,7 @@ function BurgerMenuPanel({
           </section>
 
           <section>
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
+            <p className="mb-3 text-public-kicker font-bold uppercase text-muted">
               {language === "es" ? "Explorar" : "Explore"}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1073,7 +1073,7 @@ export function MarketLanguageSelector({
       )}
     >
       <div className="border-b border-border p-2.5">
-        <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+        <p className="px-2 pb-1.5 text-public-kicker font-bold uppercase text-muted">
           {copy.market}
         </p>
         <div className="space-y-1">
@@ -1107,7 +1107,7 @@ export function MarketLanguageSelector({
                   </span>
                 </span>
                 {active && (
-                  <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-[0.12em]">
+                  <span className="flex-shrink-0 text-xs font-bold uppercase tracking-[0.10em]">
                     {copy.selected}
                   </span>
                 )}
@@ -1118,7 +1118,7 @@ export function MarketLanguageSelector({
       </div>
 
       <div className="p-2.5">
-        <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+        <p className="px-2 pb-1.5 text-public-kicker font-bold uppercase text-muted">
           {copy.language}
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -1188,7 +1188,7 @@ export function MarketLanguageSelector({
       >
         <span
           className={cn(
-            "inline-flex min-w-0 items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em] sm:gap-1.5 sm:text-xs sm:tracking-[0.08em]",
+            "inline-flex min-w-0 items-center gap-1 text-[13px] font-bold uppercase tracking-[0.04em] sm:gap-1.5 sm:text-sm sm:tracking-[0.06em]",
             darkHeaderTrigger ? "text-white" : "text-primary"
           )}
         >
@@ -1437,7 +1437,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
             <span
               key={`measure-${link.label}`}
               data-subnav-measure="link"
-              className="text-[11px] font-bold uppercase tracking-[0.06em] xl:text-[12px] xl:tracking-[0.10em]"
+              className="text-sm font-bold uppercase tracking-[0.04em] xl:text-[15px] xl:tracking-[0.06em]"
             >
               {getSubNavLabel(link.label, language)}
             </span>
@@ -1445,7 +1445,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
           <span
             ref={measureMoreRef}
             data-subnav-measure="more"
-            className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.06em] xl:text-[12px] xl:tracking-[0.10em]"
+            className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-[0.04em] xl:text-[15px] xl:tracking-[0.06em]"
           >
             {language === "es" ? "Más" : "More"}
             <ChevronDown className="w-3.5 h-3.5" aria-hidden />
@@ -1481,7 +1481,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
-                  "group relative inline-flex items-center gap-1.5 whitespace-nowrap py-2.5 text-[11px] font-bold uppercase tracking-[0.06em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
+                  "group relative inline-flex items-center gap-1.5 whitespace-nowrap py-2.5 text-sm font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[15px] xl:tracking-[0.06em]",
                   moreOpen
                     ? "text-primary"
                     : "text-foreground/65 hover:text-primary"
@@ -1580,7 +1580,7 @@ function MoreDropdown({
             aria-current={isCurrent ? "page" : undefined}
             onClick={onClose}
             className={cn(
-              "block px-4 py-2.5 text-[12px] font-bold uppercase tracking-[0.10em] transition-colors focus:outline-none focus-visible:bg-surface",
+              "block px-4 py-2.5 text-sm font-bold uppercase tracking-[0.06em] transition-colors focus:outline-none focus-visible:bg-surface",
               isCurrent
                 ? "text-primary bg-primary/5"
                 : "text-foreground/75 hover:text-primary hover:bg-surface"
@@ -1608,7 +1608,7 @@ function SubNavItem({ href, label, current }: SubNavItemProps) {
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "group relative inline-flex items-center whitespace-nowrap py-2.5 text-[11px] font-bold uppercase tracking-[0.06em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[12px] xl:tracking-[0.10em]",
+        "group relative inline-flex items-center whitespace-nowrap py-2.5 text-sm font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[15px] xl:tracking-[0.06em]",
         current ? "text-primary" : "text-foreground/65 hover:text-primary"
       )}
     >

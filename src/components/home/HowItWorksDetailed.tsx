@@ -55,13 +55,13 @@ export default function HowItWorksDetailed({
     <section className="py-16 lg:py-24 bg-white" id="how-it-works">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-12 lg:mb-16">
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
+          <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
-          <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
+          <h2 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight leading-[1.05]">
             {copy.title}
           </h2>
-          <p className="mt-6 text-base lg:text-xl text-muted leading-relaxed">
+          <p className="mt-6 text-public-lead lg:text-xl text-muted leading-relaxed">
             {copy.description}
           </p>
         </div>
@@ -77,7 +77,7 @@ export default function HowItWorksDetailed({
               >
                 <span
                   aria-hidden
-                  className="absolute -top-3 left-6 inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-primary text-white text-[10px] font-bold tracking-[0.18em]"
+                  className="absolute -top-3 left-6 inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-primary text-white text-xs font-bold tracking-[0.12em]"
                 >
                     {copy.stepLabel} {stepNumber}
                 </span>
@@ -87,7 +87,7 @@ export default function HowItWorksDetailed({
                 <h3 className="font-semibold text-foreground text-lg">
                   {step.title}
                 </h3>
-                <p className="mt-2 text-sm text-muted leading-relaxed">
+                <p className="mt-2 text-base text-muted leading-relaxed">
                   {step.body}
                 </p>
               </li>

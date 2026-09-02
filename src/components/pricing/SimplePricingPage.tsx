@@ -93,7 +93,7 @@ export default function SimplePricingPage({
             <ServicePlaceholder variant={variant} />
           </div>
           {visualCaption && (
-            <p className="mt-3 text-xs lg:text-sm text-muted leading-relaxed max-w-3xl">
+            <p className="mt-3 text-sm lg:text-public-copy-sm text-muted leading-relaxed max-w-3xl">
               {visualCaption}
             </p>
           )}
@@ -136,7 +136,7 @@ export default function SimplePricingPage({
                     >
                       <Check className="w-3.5 h-3.5" />
                     </span>
-                    <span className="text-sm lg:text-base text-foreground leading-relaxed">
+                    <span className="text-public-copy-sm lg:text-base text-foreground leading-relaxed">
                       {item}
                     </span>
                   </li>
@@ -163,7 +163,7 @@ export default function SimplePricingPage({
                 {whatToSend.map((item) => (
                   <li
                     key={item}
-                    className="flex items-start gap-3 text-sm lg:text-base text-muted leading-relaxed"
+                    className="flex items-start gap-3 text-public-copy-sm lg:text-base text-muted leading-relaxed"
                   >
                     <span
                       aria-hidden
@@ -182,7 +182,7 @@ export default function SimplePricingPage({
                   analyticsLabel={primaryLabel}
                   analyticsLocation="pricing_inline"
                   analyticsEvent="pricing_cta"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-sm"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-light transition-colors text-public-copy-sm"
                 >
                   {primaryLabel}
                   <ArrowRight className="w-4 h-4" />
@@ -192,7 +192,7 @@ export default function SimplePricingPage({
                     href={secondaryHref}
                     analyticsLabel={secondaryLabel}
                     analyticsLocation="pricing_inline"
-                    className="inline-flex items-center justify-center px-7 py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-all text-sm"
+                    className="inline-flex items-center justify-center px-7 py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-all text-public-copy-sm"
                   >
                     {secondaryLabel}
                   </TrackedLink>

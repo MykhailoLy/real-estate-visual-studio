@@ -19,6 +19,11 @@ test("home page loads without client or server smoke failures", async ({
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Order Online" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "View Services" }).first()).toBeVisible();
+
+  const bodyFontFamily = await page.locator("body").evaluate(
+    (element) => getComputedStyle(element).fontFamily,
+  );
+  expect(bodyFontFamily).toContain("Geist");
   await guard.expectClean();
 });
 
@@ -75,6 +80,23 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   expect(Math.abs((heroGeometry?.stageBottom ?? 0) - (heroGeometry?.footerTop ?? 0))).toBeLessThanOrEqual(1);
   expect(Math.abs((heroGeometry?.frameBottom ?? 0) - (heroGeometry?.footerBottom ?? 0))).toBeLessThanOrEqual(1);
 
+  const desktopHeroFontSizes = await hero.evaluate((element) => {
+    const labels = Array.from(element.querySelectorAll("span")).filter(
+      (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
+    );
+    const serviceName = element.querySelector(
+      '[data-testid="hero-service-footer"] > span',
+    );
+    return {
+      labels: labels.map((label) => Number.parseFloat(getComputedStyle(label).fontSize)),
+      serviceName: serviceName
+        ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
+        : 0,
+    };
+  });
+  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(14);
+  expect(desktopHeroFontSizes.serviceName).toBeGreaterThanOrEqual(14);
+
   const marketSelector = page.getByRole("button", {
     name: "Select market, currency, and language",
   });
@@ -104,6 +126,24 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
     name: "View Item Removal & Virtual Cleaning pricing",
   });
   await expect(itemRemovalCta).toHaveAttribute("href", "/pricing/photo-editing");
+
+  const mobileHeroFontSizes = await mobileHero.evaluate((element) => {
+    const labels = Array.from(element.querySelectorAll("span")).filter(
+      (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
+    );
+    const serviceName = element.querySelector(
+      '[data-testid="hero-service-footer"] > span',
+    );
+    return {
+      labels: labels.map((label) => Number.parseFloat(getComputedStyle(label).fontSize)),
+      serviceName: serviceName
+        ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
+        : 0,
+    };
+  });
+  expect(Math.min(...mobileHeroFontSizes.labels)).toBeGreaterThanOrEqual(12);
+  expect(mobileHeroFontSizes.serviceName).toBeGreaterThanOrEqual(12);
+
   const pageWidth = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -145,6 +185,7 @@ test("Spanish homepage hero localizes its comparison labels and service route", 
 });
 
 const HOMEPAGE_VIEWPORTS = [
+  { width: 360, height: 800, expectedBenefitColumns: 1 },
   { width: 390, height: 844, expectedBenefitColumns: 1 },
   { width: 768, height: 900, expectedBenefitColumns: 3 },
   { width: 960, height: 900, expectedBenefitColumns: 3 },
@@ -189,6 +230,44 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
       getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length,
     );
     expect(columnCount).toBe(viewport.expectedBenefitColumns);
+
+    const benefitFontSizes = await benefitGrid.evaluate((element) => {
+      const firstCard = element.firstElementChild;
+      const title = firstCard?.querySelector("h3");
+      const body = firstCard?.querySelector("p");
+      return {
+        title: title ? Number.parseFloat(getComputedStyle(title).fontSize) : 0,
+        body: body ? Number.parseFloat(getComputedStyle(body).fontSize) : 0,
+      };
+    });
+    const minimumBenefitTitle =
+      viewport.width >= 1280 ? 18 : viewport.width >= 1024 ? 16 : 15;
+    const minimumBenefitBody =
+      viewport.width >= 1280 ? 16 : viewport.width >= 1024 ? 15 : 14;
+    expect(benefitFontSizes.title).toBeGreaterThanOrEqual(minimumBenefitTitle);
+    expect(benefitFontSizes.body).toBeGreaterThanOrEqual(minimumBenefitBody);
+
+    if (viewport.width >= 1024) {
+      const publicSubnav = page.locator(
+        'nav[aria-label="Remote Digital Services services"]',
+      );
+      const firstSubnavLink = publicSubnav.getByRole("link").first();
+      await expect(firstSubnavLink).toBeVisible();
+      const subnavFontSize = await firstSubnavLink.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize),
+      );
+      const minimumSubnavSize = viewport.width >= 1280 ? 15 : 14;
+      expect(subnavFontSize).toBeGreaterThanOrEqual(minimumSubnavSize);
+
+      const sectionHeadingSizes = await page
+        .locator("main h2")
+        .evaluateAll((elements) =>
+          elements.map((element) =>
+            Number.parseFloat(getComputedStyle(element).fontSize),
+          ),
+        );
+      expect(Math.max(...sectionHeadingSizes)).toBeLessThanOrEqual(36);
+    }
 
     const pageWidth = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
@@ -537,6 +616,12 @@ for (const viewport of LEGAL_VIEWPORTS) {
       scrollWidth: document.documentElement.scrollWidth,
     }));
     expect(widths.scrollWidth).toBeLessThanOrEqual(widths.clientWidth);
+
+    const legalBodyFontSize = await page
+      .getByTestId("legal-body")
+      .first()
+      .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+    expect(legalBodyFontSize).toBeGreaterThanOrEqual(16);
     await guard.expectClean();
   });
 }

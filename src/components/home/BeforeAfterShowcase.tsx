@@ -357,10 +357,10 @@ function BeforeAfterLabels({
       aria-hidden
       className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between sm:inset-x-4 sm:top-3.5"
     >
-      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary backdrop-blur-sm sm:text-[11px]">
+      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[13px] font-bold uppercase tracking-[0.08em] text-primary sm:text-sm backdrop-blur-sm">
         {beforeLabel}
       </span>
-      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary backdrop-blur-sm sm:text-[11px]">
+      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[13px] font-bold uppercase tracking-[0.08em] text-primary sm:text-sm backdrop-blur-sm">
         {afterLabel}
       </span>
     </div>
@@ -389,7 +389,7 @@ function HeroServiceFooter({
           : "min-h-[3.25rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 sm:min-h-14 sm:px-4 lg:px-5",
       )}
     >
-      <span className="min-w-0 truncate text-[8px] font-bold uppercase leading-tight tracking-[0.08em] text-white sm:text-[9px] sm:tracking-[0.05em] lg:text-[11px] lg:tracking-[0.12em]">
+      <span className="min-w-0 truncate text-[13px] font-bold uppercase leading-tight tracking-[0.04em] text-white sm:tracking-[0.06em] lg:text-sm">
         {service?.name}
       </span>
 
@@ -409,7 +409,7 @@ function HeroServiceFooter({
           analyticsLocation="homepage_hero"
           analyticsEvent="pricing_cta"
           serviceSlug={service.mediaSlug}
-          className="col-start-2 row-start-1 inline-flex min-h-7 items-center justify-self-end gap-1.5 rounded-sm px-1 text-[11px] font-bold text-secondary transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary sm:col-start-3 sm:min-h-8 sm:text-xs"
+          className="col-start-2 row-start-1 inline-flex min-h-7 items-center justify-self-end gap-1.5 rounded-sm px-1 text-[13px] font-bold text-secondary transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary sm:col-start-3 sm:min-h-8 sm:text-sm"
         >
           {service.price.kind === "catalog" ? (
             <CatalogPriceText
