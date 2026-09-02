@@ -69,7 +69,7 @@ test("service sub-navigation stays available from lg with compact overflow measu
   assert.match(headerSource, /gap-x-4 xl:gap-x-7/);
   assert.match(
     headerSource,
-    /text-\[11px\][\s\S]*?xl:text-\[12px\][\s\S]*?xl:tracking-\[0\.10em\]/,
+    /data-subnav-measure="link"[\s\S]*?text-xs[\s\S]*?xl:text-\[13px\][\s\S]*?xl:tracking-\[0\.08em\]/,
   );
   assert.match(headerSource, /measureMoreRef/);
   assert.match(headerSource, /<MoreDropdown/);
