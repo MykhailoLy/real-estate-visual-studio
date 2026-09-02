@@ -450,10 +450,12 @@ function HeroSlideDots({
   activeIndex: number;
   onSelect: (index: number) => void;
 }) {
+  // Keep all nine targets non-overlapping inside the preserved short stage:
+  // full 28/32px widths, compact heights until the stage can fit 32px squares.
   return (
     <div
       data-testid="hero-slide-dots"
-      className="absolute top-1/2 left-3 z-20 flex -translate-y-1/2 flex-col items-center justify-center -space-y-[9px] md:left-4 md:-space-y-1.5 lg:left-5 xl:space-y-0"
+      className="absolute top-1/2 left-3 z-20 flex -translate-y-1/2 flex-col items-center justify-center md:left-4 lg:left-5"
       role="tablist"
       aria-label="Slide indicator"
     >
@@ -467,7 +469,7 @@ function HeroSlideDots({
             aria-selected={isActive}
             aria-label={`Show slide ${index + 1} of ${slides.length}`}
             onClick={() => onSelect(index)}
-            className="group flex h-7 w-7 items-center justify-center rounded-full focus:outline-none md:h-8 md:w-8"
+            className="group flex h-5 w-7 items-center justify-center rounded-full focus:outline-none md:h-[26px] md:w-8 xl:h-8"
           >
             <span
               aria-hidden

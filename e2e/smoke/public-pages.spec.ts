@@ -518,6 +518,9 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
       const inactiveDotRect = inactiveDot.getBoundingClientRect();
       const activeVisualRect = activeVisual.getBoundingClientRect();
       const inactiveVisualRect = inactiveVisual.getBoundingClientRect();
+      const targetRects = Array.from(dots.querySelectorAll('[role="tab"]')).map(
+        (target) => target.getBoundingClientRect(),
+      );
       return {
         footerHeight: footerRect.height,
         footerBackground: getComputedStyle(footer).backgroundColor,
@@ -534,6 +537,11 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
         stageHeight: stageRect.height,
         stageCenterY: stageRect.top + stageRect.height / 2,
         dotsCenterY: dotsRect.top + dotsRect.height / 2,
+        minimumTargetGap: Math.min(
+          ...targetRects.slice(1).map((rect, index) =>
+            rect.top - targetRects[index].bottom,
+          ),
+        ),
         activeTarget: {
           width: activeDotRect.width,
           height: activeDotRect.height,
@@ -601,7 +609,8 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
           (responsiveHeroGeometry?.dotsCenterY ?? 0),
       ),
     ).toBeLessThanOrEqual(1);
-    const expectedTargetHeight = viewport.width >= 768 ? 32 : 28;
+    const expectedTargetHeight =
+      viewport.width >= 1280 ? 32 : viewport.width >= 768 ? 26 : 20;
     const expectedTargetWidth = viewport.width >= 768 ? 32 : 28;
     expect(responsiveHeroGeometry?.activeTarget).toEqual({
       width: expectedTargetWidth,
@@ -611,6 +620,7 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
       width: expectedTargetWidth,
       height: expectedTargetHeight,
     });
+    expect(responsiveHeroGeometry?.minimumTargetGap).toBeGreaterThanOrEqual(0);
     expect(responsiveHeroGeometry?.activeVisual).toMatchObject({
       width: 12,
       height: 12,

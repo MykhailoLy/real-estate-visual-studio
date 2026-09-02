@@ -199,11 +199,12 @@ test("hero service metadata resolves canonical routes and display-only pricing",
   assert.doesNotMatch(heroFooterSource, /HeroSlideDots/);
   assert.match(
     heroSource,
-    /absolute top-1\/2 left-3[\s\S]*?-translate-y-1\/2 flex-col[\s\S]*?-space-y-\[9px\][\s\S]*?md:left-4 md:-space-y-1\.5 lg:left-5 xl:space-y-0/,
+    /absolute top-1\/2 left-3[\s\S]*?-translate-y-1\/2 flex-col[\s\S]*?md:left-4 lg:left-5/,
   );
   assert.match(heroSource, /\? "h-3 w-3 border-white\/90 bg-\[#C7A94E\]/);
   assert.match(heroSource, /bg-primary\/50 group-hover:bg-primary\/65/);
-  assert.match(heroSource, /h-7 w-7[\s\S]*?md:h-8 md:w-8/);
+  assert.match(heroSource, /h-5 w-7[\s\S]*?md:h-\[26px\] md:w-8 xl:h-8/);
+  assert.doesNotMatch(heroSource, /-space-y-/);
   assert.match(heroSource, /group-focus-visible:outline-\[#C7A94E\]/);
   assert.match(heroFooterSource, /bg-\[#071A2B\]/);
   assert.match(heroFooterSource, /grid-cols-2 grid-rows-\[auto_auto\]/);
