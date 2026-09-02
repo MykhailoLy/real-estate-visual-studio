@@ -30,6 +30,7 @@ test("home page loads without client or server smoke failures", async ({
 test("homepage hero keeps active-slide service context, regional pricing, and routes", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(45000);
   const guard = await installSmokeNetworkGuards(page, testInfo);
 
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -37,66 +38,90 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   expectNavigationResponseOk(response, "/");
 
   const hero = page.getByRole("region", { name: "Before and after slider" });
-  await expect(hero.getByText("BEFORE", { exact: true })).toBeVisible();
-  await expect(hero.getByText("AFTER", { exact: true })).toBeVisible();
   const heroFooter = hero.getByTestId("hero-service-footer");
+  const heroStage = hero.getByTestId("homepage-hero-image-stage");
+  await expect(heroStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
+  await expect(heroStage.getByText("AFTER", { exact: true })).toHaveCount(0);
+  await expect(heroStage.getByRole("button")).toHaveCount(0);
+  await expect(heroStage.getByTestId("hero-comparison-divider")).toBeVisible();
+  await expect(heroFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(heroFooter.getByText("AFTER", { exact: true })).toBeVisible();
+  await expect(hero.getByRole("button", { name: "Previous slide" })).toHaveCount(0);
+  await expect(hero.getByRole("button", { name: "Next slide" })).toHaveCount(0);
   await expect(heroFooter.getByRole("tablist")).toBeVisible();
-  await expect(heroFooter.getByRole("link")).toHaveCount(
-    1,
-  );
+  await expect(heroFooter.getByRole("link")).toHaveCount(1);
   const imageEnhancementCta = hero.getByRole("link", {
     name: "View Image Enhancement pricing",
   });
+  await expect(imageEnhancementCta).toContainText("Image Enhancement");
+  await expect(imageEnhancementCta.locator("span").first()).toHaveCSS(
+    "text-transform",
+    "uppercase",
+  );
   await expect(imageEnhancementCta).toContainText("From $1 / image");
   await expect(imageEnhancementCta).not.toContainText(".00");
+  await expect(imageEnhancementCta.locator("svg")).toHaveCount(0);
   await expect(
     heroFooter.getByRole("tab", { selected: true }).locator("span"),
   ).toHaveClass(/bg-white/);
   await expect(
     heroFooter.getByRole("tab", { selected: false }).first().locator("span"),
   ).toHaveClass(/bg-white\/40/);
-  await expect(
-    hero.getByRole("button", { name: "Next slide" }).locator("span"),
-  ).toHaveClass(/bg-primary\/25/);
 
   const heroGeometry = await hero.evaluate((element) => {
     const frame = element.querySelector('[data-testid="homepage-hero-frame"]');
     const stage = element.querySelector('[data-testid="homepage-hero-image-stage"]');
     const footer = element.querySelector('[data-testid="hero-service-footer"]');
-    if (!frame || !stage || !footer) return null;
+    const divider = element.querySelector('[data-testid="hero-comparison-divider"]');
+    const dots = element.querySelector('[data-testid="hero-slide-dots"]');
+    const cta = footer?.querySelector("a");
+    if (!frame || !stage || !footer || !divider || !dots || !cta) return null;
     const frameRect = frame.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const footerRect = footer.getBoundingClientRect();
+    const dividerRect = divider.getBoundingClientRect();
+    const dotsRect = dots.getBoundingClientRect();
+    const ctaRect = cta.getBoundingClientRect();
     return {
       footerPosition: getComputedStyle(footer).position,
+      footerHeight: footerRect.height,
       stageBottom: stageRect.bottom,
       footerTop: footerRect.top,
       frameBottom: frameRect.bottom,
       footerBottom: footerRect.bottom,
+      dividerCenter: dividerRect.left + dividerRect.width / 2,
+      dotsCenter: dotsRect.left + dotsRect.width / 2,
+      footerCenter: footerRect.left + footerRect.width / 2,
+      ctaCenter: ctaRect.left + ctaRect.width / 2,
     };
   });
   expect(heroGeometry).not.toBeNull();
   expect(heroGeometry?.footerPosition).not.toBe("absolute");
+  expect(heroGeometry?.footerHeight).toBeGreaterThanOrEqual(48);
+  expect(heroGeometry?.footerHeight).toBeLessThanOrEqual(52);
   expect(Math.abs((heroGeometry?.stageBottom ?? 0) - (heroGeometry?.footerTop ?? 0))).toBeLessThanOrEqual(1);
   expect(Math.abs((heroGeometry?.frameBottom ?? 0) - (heroGeometry?.footerBottom ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((heroGeometry?.dividerCenter ?? 0) - (heroGeometry?.dotsCenter ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((heroGeometry?.footerCenter ?? 0) - (heroGeometry?.ctaCenter ?? 0))).toBeLessThanOrEqual(1);
 
   const desktopHeroFontSizes = await hero.evaluate((element) => {
-    const labels = Array.from(element.querySelectorAll("span")).filter(
+    const footer = element.querySelector('[data-testid="hero-service-footer"]');
+    const labels = Array.from(footer?.querySelectorAll("span") ?? []).filter(
       (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
     );
-    const serviceName = element.querySelector(
-      '[data-testid="hero-service-footer"] > span',
-    );
+    const serviceName = footer?.querySelector("a > span:first-child");
     return {
       labels: labels.map((label) => Number.parseFloat(getComputedStyle(label).fontSize)),
       serviceName: serviceName
         ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
-        : 0,
+      : 0,
     };
   });
-  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(14);
-  expect(desktopHeroFontSizes.serviceName).toBeGreaterThanOrEqual(14);
+  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(10);
+  expect(Math.max(...desktopHeroFontSizes.labels)).toBeLessThanOrEqual(11);
+  expect(desktopHeroFontSizes.serviceName).toBeGreaterThanOrEqual(12);
 
+  await hero.hover();
   const marketSelector = page.getByRole("button", {
     name: "Select market, currency, and language",
   });
@@ -104,7 +129,24 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await page.getByRole("button", { name: /Europe — EUR/ }).click();
   await expect(imageEnhancementCta).toContainText("From €1 / image");
 
-  await hero.getByRole("button", { name: "Next slide" }).click();
+  await page.mouse.move(0, 0);
+  const dayToDuskTab = heroFooter.getByRole("tab", {
+    name: "Show slide 2 of 9",
+  });
+  await expect(dayToDuskTab).toHaveAttribute("aria-selected", "true", {
+    timeout: 7000,
+  });
+
+  const virtualStagingTab = heroFooter.getByRole("tab", {
+    name: "Show slide 3 of 9",
+  });
+  await virtualStagingTab.focus();
+  await expect(virtualStagingTab).toBeFocused();
+  await virtualStagingTab.press("Enter");
+  await expect(virtualStagingTab).toHaveAttribute("aria-selected", "true");
+
+  await dayToDuskTab.focus();
+  await dayToDuskTab.press("Enter");
   const dayToDuskCta = hero.getByRole("link", {
     name: "View Day to Dusk pricing",
   });
@@ -119,30 +161,77 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   response = await page.goto("/");
   expectNavigationResponseOk(response, "/");
   const mobileHero = page.getByRole("region", { name: "Before and after slider" });
-  await mobileHero
-    .getByRole("tab", { name: "Show slide 4 of 9" })
-    .click();
+  const mobileFooter = mobileHero.getByTestId("hero-service-footer");
+  const mobileStage = mobileHero.getByTestId("homepage-hero-image-stage");
+  await expect(mobileFooter.locator('[role="tablist"]')).toBeHidden();
+  await expect(mobileFooter.getByRole("tab")).toHaveCount(0);
+  const mobileDotCanReceiveFocus = await mobileFooter
+    .locator('[role="tab"]')
+    .first()
+    .evaluate((element) => {
+      (element as HTMLElement).focus();
+      return document.activeElement === element;
+    });
+  expect(mobileDotCanReceiveFocus).toBe(false);
+  await expect(mobileStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
+  await expect(mobileStage.getByText("AFTER", { exact: true })).toHaveCount(0);
+  await expect(mobileFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(mobileFooter.getByText("AFTER", { exact: true })).toBeVisible();
+
+  const stageBox = await mobileStage.boundingBox();
+  expect(stageBox).not.toBeNull();
+  for (let index = 1; index <= 3; index += 1) {
+    await page.mouse.move(
+      (stageBox?.x ?? 0) + (stageBox?.width ?? 0) * 0.75,
+      (stageBox?.y ?? 0) + (stageBox?.height ?? 0) * 0.5,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      (stageBox?.x ?? 0) + (stageBox?.width ?? 0) * 0.25,
+      (stageBox?.y ?? 0) + (stageBox?.height ?? 0) * 0.5,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    await expect(
+      mobileFooter.locator(
+        `[role="tab"][aria-label="Show slide ${index + 1} of 9"]`,
+      ),
+    ).toHaveAttribute("aria-selected", "true");
+  }
+
   const itemRemovalCta = mobileHero.getByRole("link", {
     name: "View Item Removal & Virtual Cleaning pricing",
   });
   await expect(itemRemovalCta).toHaveAttribute("href", "/pricing/photo-editing");
 
   const mobileHeroFontSizes = await mobileHero.evaluate((element) => {
-    const labels = Array.from(element.querySelectorAll("span")).filter(
+    const footer = element.querySelector('[data-testid="hero-service-footer"]');
+    const labels = Array.from(footer?.querySelectorAll("span") ?? []).filter(
       (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
     );
-    const serviceName = element.querySelector(
-      '[data-testid="hero-service-footer"] > span',
-    );
+    const serviceName = footer?.querySelector("a > span:first-child");
+    const footerRect = footer?.getBoundingClientRect();
+    const ctaRect = footer?.querySelector("a")?.getBoundingClientRect();
     return {
       labels: labels.map((label) => Number.parseFloat(getComputedStyle(label).fontSize)),
       serviceName: serviceName
         ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
         : 0,
+      footerHeight: footerRect?.height ?? 0,
+      centerDelta:
+        footerRect && ctaRect
+          ? Math.abs(
+              footerRect.left + footerRect.width / 2 -
+                (ctaRect.left + ctaRect.width / 2),
+            )
+          : Number.POSITIVE_INFINITY,
     };
   });
-  expect(Math.min(...mobileHeroFontSizes.labels)).toBeGreaterThanOrEqual(12);
-  expect(mobileHeroFontSizes.serviceName).toBeGreaterThanOrEqual(12);
+  expect(Math.min(...mobileHeroFontSizes.labels)).toBeGreaterThanOrEqual(10);
+  expect(mobileHeroFontSizes.serviceName).toBeGreaterThanOrEqual(11);
+  expect(mobileHeroFontSizes.footerHeight).toBeGreaterThanOrEqual(48);
+  expect(mobileHeroFontSizes.footerHeight).toBeLessThanOrEqual(56);
+  expect(mobileHeroFontSizes.centerDelta).toBeLessThanOrEqual(1);
 
   const pageWidth = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -153,6 +242,7 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await itemRemovalCta.click();
   await expect(page).toHaveURL(/\/pricing\/photo-editing$/);
 
+  await page.setViewportSize({ width: 768, height: 900 });
   response = await page.goto("/");
   expectNavigationResponseOk(response, "/");
   const unknownHero = page.getByRole("region", {
@@ -161,6 +251,8 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await unknownHero.getByRole("tab", { name: "Show slide 9 of 9" }).click();
   const unknownFooter = unknownHero.getByTestId("hero-service-footer");
   await expect(unknownFooter).toBeVisible();
+  await expect(unknownFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(unknownFooter.getByText("AFTER", { exact: true })).toBeVisible();
   await expect(unknownFooter.getByRole("tab")).toHaveCount(9);
   await expect(unknownFooter.getByRole("link")).toHaveCount(0);
 
@@ -176,8 +268,12 @@ test("Spanish homepage hero localizes its comparison labels and service route", 
   expectNavigationResponseOk(response, "/es");
 
   const hero = page.getByRole("region", { name: "Before and after slider" });
-  await expect(hero.getByText("ANTES", { exact: true })).toBeVisible();
-  await expect(hero.getByText("DESPUÉS", { exact: true })).toBeVisible();
+  const stage = hero.getByTestId("homepage-hero-image-stage");
+  const footer = hero.getByTestId("hero-service-footer");
+  await expect(stage.getByText("ANTES", { exact: true })).toHaveCount(0);
+  await expect(stage.getByText("DESPUÉS", { exact: true })).toHaveCount(0);
+  await expect(footer.getByText("ANTES", { exact: true })).toBeVisible();
+  await expect(footer.getByText("DESPUÉS", { exact: true })).toBeVisible();
   await expect(
     hero.getByRole("link", { name: "Ver precios de Mejora de imagen" }),
   ).toHaveAttribute("href", "/es/pricing/image-enhancement");
@@ -224,6 +320,67 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
         exact: true,
       }),
     ).toHaveCount(0);
+
+    const responsiveHero = page.getByRole("region", {
+      name: "Before and after slider",
+    });
+    const responsiveStage = responsiveHero.getByTestId(
+      "homepage-hero-image-stage",
+    );
+    const responsiveFooter = responsiveHero.getByTestId("hero-service-footer");
+    const responsiveDots = responsiveFooter.locator('[role="tablist"]');
+    await expect(responsiveHero.getByRole("button", { name: "Previous slide" })).toHaveCount(0);
+    await expect(responsiveHero.getByRole("button", { name: "Next slide" })).toHaveCount(0);
+    await expect(responsiveStage.getByRole("button")).toHaveCount(0);
+    await expect(responsiveStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
+    await expect(responsiveStage.getByText("AFTER", { exact: true })).toHaveCount(0);
+    await expect(responsiveStage.getByTestId("hero-comparison-divider")).toBeVisible();
+    await expect(responsiveFooter.getByText("BEFORE", { exact: true })).toBeVisible();
+    await expect(responsiveFooter.getByText("AFTER", { exact: true })).toBeVisible();
+
+    if (viewport.width >= 768) {
+      await expect(responsiveDots).toBeVisible();
+    } else {
+      await expect(responsiveDots).toBeHidden();
+    }
+
+    const responsiveHeroGeometry = await responsiveHero.evaluate((element) => {
+      const footer = element.querySelector('[data-testid="hero-service-footer"]');
+      const divider = element.querySelector('[data-testid="hero-comparison-divider"]');
+      const dots = element.querySelector('[data-testid="hero-slide-dots"]');
+      const cta = footer?.querySelector("a");
+      if (!footer || !divider || !dots || !cta) return null;
+      const footerRect = footer.getBoundingClientRect();
+      const dividerRect = divider.getBoundingClientRect();
+      const dotsRect = dots.getBoundingClientRect();
+      const ctaRect = cta.getBoundingClientRect();
+      return {
+        footerHeight: footerRect.height,
+        dividerCenter: dividerRect.left + dividerRect.width / 2,
+        dotsCenter: dotsRect.left + dotsRect.width / 2,
+        footerCenter: footerRect.left + footerRect.width / 2,
+        ctaCenter: ctaRect.left + ctaRect.width / 2,
+      };
+    });
+    expect(responsiveHeroGeometry).not.toBeNull();
+    expect(responsiveHeroGeometry?.footerHeight).toBeGreaterThanOrEqual(48);
+    expect(responsiveHeroGeometry?.footerHeight).toBeLessThanOrEqual(
+      viewport.width >= 768 ? 52 : 56,
+    );
+    expect(
+      Math.abs(
+        (responsiveHeroGeometry?.footerCenter ?? 0) -
+          (responsiveHeroGeometry?.ctaCenter ?? 0),
+      ),
+    ).toBeLessThanOrEqual(1);
+    if (viewport.width >= 768) {
+      expect(
+        Math.abs(
+          (responsiveHeroGeometry?.dividerCenter ?? 0) -
+            (responsiveHeroGeometry?.dotsCenter ?? 0),
+        ),
+      ).toBeLessThanOrEqual(1);
+    }
 
     const benefitGrid = page.getByTestId("benefits-grid");
     const columnCount = await benefitGrid.evaluate((element) =>

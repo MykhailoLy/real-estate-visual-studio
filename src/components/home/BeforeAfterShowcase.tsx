@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import TrackedLink from "@/components/analytics/TrackedLink";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
 import {
@@ -43,8 +42,7 @@ function isSlideMounted(
 // Wide cinematic banner under the nav.
 //
 // Controls:
-//   - Arrow buttons with subtle contrast backing
-//   - Dot indicator integrated into the navy service footer
+//   - Desktop/tablet dot indicator integrated into the navy service footer
 //   - Touch/pointer swipe: swipe left → next, swipe right → prev.
 //     A minimum horizontal displacement (SWIPE_MIN_X) prevents
 //     accidental slide changes during normal vertical scrolling.
@@ -210,13 +208,11 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
     };
   }, []);
 
-  const showNav = effective.length > 1;
   const activeSlide = effective[idx];
   const activeService = getHomeHeroServicePresentation(
     activeSlide?.serviceSlug,
     locale,
   );
-  const showFooter = showNav || Boolean(activeService);
 
   // ── Swipe handlers ──────────────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -311,58 +307,29 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
                   ) : (
                     <ServicePlaceholder
                       variant={slide.variant}
+                      showDivider={false}
                       showInnerLabels={false}
                     />
                   ))}
-                {active && (
-                  <BeforeAfterLabels
-                    beforeLabel={locale === "es" ? "ANTES" : "BEFORE"}
-                    afterLabel={locale === "es" ? "DESPUÉS" : "AFTER"}
-                  />
-                )}
               </div>
             );
           })}
 
-          {showNav && (
-            <>
-              <HeroArrowControl direction="previous" onClick={goPrev} />
-              <HeroArrowControl direction="next" onClick={goNext} />
-            </>
-          )}
+          <div
+            data-testid="hero-comparison-divider"
+            aria-hidden
+            className="absolute top-0 bottom-0 left-1/2 z-10 w-[2px] -translate-x-1/2 bg-white/85 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]"
+          />
         </div>
 
-        {showFooter && (
-          <HeroServiceFooter
-            service={activeService}
-            slides={effective}
-            activeIndex={idx}
-            onSelect={goTo}
-          />
-        )}
+        <HeroServiceFooter
+          service={activeService}
+          slides={effective}
+          activeIndex={idx}
+          locale={locale}
+          onSelect={goTo}
+        />
       </div>
-    </div>
-  );
-}
-
-function BeforeAfterLabels({
-  beforeLabel,
-  afterLabel,
-}: {
-  beforeLabel: string;
-  afterLabel: string;
-}) {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between sm:inset-x-4 sm:top-3.5"
-    >
-      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[13px] font-bold uppercase tracking-[0.08em] text-primary sm:text-sm backdrop-blur-sm">
-        {beforeLabel}
-      </span>
-      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[13px] font-bold uppercase tracking-[0.08em] text-primary sm:text-sm backdrop-blur-sm">
-        {afterLabel}
-      </span>
     </div>
   );
 }
@@ -371,35 +338,44 @@ function HeroServiceFooter({
   service,
   slides,
   activeIndex,
+  locale,
   onSelect,
 }: {
   service: HomeHeroServicePresentation | null;
   slides: ShowcaseSlide[];
   activeIndex: number;
+  locale: RemoteServiceLocale;
   onSelect: (index: number) => void;
 }) {
   const showNav = slides.length > 1;
+  const beforeLabel = locale === "es" ? "ANTES" : "BEFORE";
+  const afterLabel = locale === "es" ? "DESPUÉS" : "AFTER";
+
   return (
     <div
       data-testid="hero-service-footer"
-      className={cn(
-        "grid w-full bg-primary px-3 py-1 text-white",
-        showNav
-          ? "min-h-[4.25rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] gap-x-2 sm:min-h-14 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:grid-rows-1 sm:items-center sm:gap-x-3 sm:px-4 sm:py-2 lg:px-5"
-          : "min-h-[3.25rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 sm:min-h-14 sm:px-4 lg:px-5",
-      )}
+      className="grid min-h-[3.25rem] w-full grid-rows-[auto_auto] content-center bg-primary px-3 py-1 text-white md:px-4 lg:px-5"
     >
-      <span className="min-w-0 truncate text-[13px] font-bold uppercase leading-tight tracking-[0.04em] text-white sm:tracking-[0.06em] lg:text-sm">
-        {service?.name}
-      </span>
+      <div
+        data-testid="hero-comparison-footer-row"
+        className="grid grid-cols-[1fr_auto_1fr] items-center"
+      >
+        <span className="col-start-1 justify-self-start text-[10px] font-bold uppercase leading-none tracking-[0.1em] text-white/80 md:text-[11px]">
+          {beforeLabel}
+        </span>
 
-      {showNav && (
-        <HeroSlideDots
-          slides={slides}
-          activeIndex={activeIndex}
-          onSelect={onSelect}
-        />
-      )}
+        {showNav && (
+          <HeroSlideDots
+            slides={slides}
+            activeIndex={activeIndex}
+            onSelect={onSelect}
+          />
+        )}
+
+        <span className="col-start-3 justify-self-end text-[10px] font-bold uppercase leading-none tracking-[0.1em] text-white/80 md:text-[11px]">
+          {afterLabel}
+        </span>
+      </div>
 
       {service && (
         <TrackedLink
@@ -409,21 +385,30 @@ function HeroServiceFooter({
           analyticsLocation="homepage_hero"
           analyticsEvent="pricing_cta"
           serviceSlug={service.mediaSlug}
-          className="col-start-2 row-start-1 inline-flex min-h-7 items-center justify-self-end gap-1.5 rounded-sm px-1 text-[13px] font-bold text-secondary transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary sm:col-start-3 sm:min-h-8 sm:text-sm"
+          className="group inline-flex min-h-5 max-w-full flex-wrap items-center justify-center justify-self-center rounded-sm px-1 text-center text-xs leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary md:text-[13px]"
         >
-          {service.price.kind === "catalog" ? (
-            <CatalogPriceText
-              priceKey={service.price.priceKey}
-              prefix={service.price.prefix}
-              suffix={service.price.suffix}
-              trimWholeCents
-            />
-          ) : (
-            service.price.label
-          )}
-          <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="whitespace-nowrap font-bold uppercase tracking-[0.05em] text-white transition-colors group-hover:text-white/90">
+            {service.name}
+          </span>
+          <span className="inline-flex whitespace-nowrap items-baseline gap-1.5 font-bold text-secondary">
+            <span aria-hidden className="ml-1.5 text-white/40">
+              ·
+            </span>
+            {service.price.kind === "catalog" ? (
+              <CatalogPriceText
+                priceKey={service.price.priceKey}
+                prefix={service.price.prefix}
+                suffix={service.price.suffix}
+                trimWholeCents
+              />
+            ) : (
+              service.price.label
+            )}
+          </span>
         </TrackedLink>
       )}
+
+      {!service && <span aria-hidden className="min-h-5" />}
     </div>
   );
 }
@@ -440,7 +425,7 @@ function HeroSlideDots({
   return (
     <div
       data-testid="hero-slide-dots"
-      className="col-span-2 row-start-2 flex items-center justify-center gap-0 justify-self-center sm:col-span-1 sm:col-start-2 sm:row-start-1"
+      className="col-start-2 row-start-1 hidden items-center justify-center justify-self-center md:flex"
       role="tablist"
       aria-label="Slide indicator"
     >
@@ -454,48 +439,21 @@ function HeroSlideDots({
             aria-selected={isActive}
             aria-label={`Show slide ${index + 1} of ${slides.length}`}
             onClick={() => onSelect(index)}
-            className="group flex h-7 w-7 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2 focus-visible:ring-offset-primary sm:h-8 sm:w-8"
+            className="group flex h-6 w-6 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-primary"
           >
             <span
               aria-hidden
               className={cn(
-                "h-2 rounded-full transition-all duration-200",
+                "h-1.5 rounded-full transition-all duration-200",
                 isActive
-                  ? "w-6 bg-white"
-                  : "w-2 bg-white/40 group-hover:bg-white/60",
+                  ? "w-5 bg-white"
+                  : "w-1.5 bg-white/40 group-hover:bg-white/60",
               )}
             />
           </button>
         );
       })}
     </div>
-  );
-}
-
-function HeroArrowControl({
-  direction,
-  onClick,
-}: {
-  direction: "previous" | "next";
-  onClick: () => void;
-}) {
-  const isPrevious = direction === "previous";
-  const Icon = isPrevious ? ChevronLeft : ChevronRight;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={isPrevious ? "Previous slide" : "Next slide"}
-      className={cn(
-        "group absolute top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
-        isPrevious ? "left-2 lg:left-4" : "right-2 lg:right-4",
-      )}
-    >
-      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-primary/25 text-white backdrop-blur-sm transition-colors group-hover:bg-primary/40">
-        <Icon className="h-6 w-6 lg:h-7 lg:w-7" strokeWidth={2.2} aria-hidden />
-      </span>
-    </button>
   );
 }
 
@@ -535,10 +493,6 @@ function ImageBeforeAfter({
           className="object-cover"
         />
       </div>
-      <div
-        aria-hidden
-        className="absolute top-0 bottom-0 left-1/2 w-[2px] -translate-x-1/2 bg-white/85 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]"
-      />
     </div>
   );
 }
