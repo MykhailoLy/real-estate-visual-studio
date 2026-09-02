@@ -358,6 +358,10 @@ export default async function SpanishFloorPlansPage() {
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
           <ServicePageSlider
             slides={sliderSlides}
+            serviceSlug="floor-plans"
+            locale="es"
+            orderHref="/order/3d-floor-plans"
+            orderLabel="Pedir plano"
             ariaLabel="Ejemplos antes y después de planos"
             imageFit="contain"
             imageBackground="bg-white"

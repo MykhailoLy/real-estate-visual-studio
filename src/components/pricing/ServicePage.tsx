@@ -257,6 +257,10 @@ export default async function ServicePage({
           {heroContent ?? (
             <ServicePageSlider
               slides={sliderSlides ?? []}
+              serviceSlug={serviceSlug}
+              locale={altLocale}
+              orderHref={orderHref}
+              orderLabel={orderLabel}
               ariaLabel={
                 labels?.heroAriaLabel ?? `${title} before and after examples`
               }

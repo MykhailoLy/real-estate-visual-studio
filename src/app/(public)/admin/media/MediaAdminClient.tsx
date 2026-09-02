@@ -30,6 +30,10 @@ import {
   SERVICE_OPTION_MEDIA_PRESET_GROUPS,
   getServiceOptionMediaPresetDefaults,
 } from "@/lib/admin-media-presets";
+import {
+  PORTFOLIO_SERVICES,
+  isPortfolioServiceSlug,
+} from "@/lib/portfolio-service-meta";
 import { usesStandardPublicImageProfile } from "@/lib/admin-public-image-optimization";
 import {
   STANDARD_PUBLIC_IMAGE_PROFILE,
@@ -598,6 +602,10 @@ function MediaEditor({
     initial?.service_slug ?? "",
   );
   const [title, setTitle] = useState(initial?.title ?? "");
+  const usesCanonicalServiceSelect =
+    section === "homepage-slider" || section === "service-hero";
+  const hasLegacyServiceSlug =
+    serviceSlug.length > 0 && !isPortfolioServiceSlug(serviceSlug);
 
   // Per-slot file state. `null` means "no new file picked".
   const [files, setFiles] = useState<Record<SlotKey, File | null>>({
@@ -1062,55 +1070,84 @@ function MediaEditor({
             />
           </Field>
 
-          <Field label="Service slug (optional)" htmlFor="service_slug">
-            {section === "service-options" ? (
+          {usesCanonicalServiceSelect ? (
+            <Field label="Service" htmlFor="service_slug">
               <select
-                aria-label="Service option media key preset"
-                value={
-                  ORDER_OPTION_MEDIA_PRESET_KEYS.includes(serviceSlug)
-                    ? serviceSlug
-                    : ""
-                }
-                onChange={(event) => {
-                  if (event.target.value) {
-                    onServiceOptionPresetChange(event.target.value);
-                  }
-                }}
-                className="mb-2 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                id="service_slug"
+                name="service_slug"
+                value={serviceSlug}
+                onChange={(event) => setServiceSlug(event.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
-                <option value="">Service option preset (optional)</option>
-                {SERVICE_OPTION_MEDIA_PRESET_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.presets.map((preset) => (
-                      <option key={preset.mediaKey} value={preset.mediaKey}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </optgroup>
+                <option value="">No service — visual only</option>
+                {hasLegacyServiceSlug && (
+                  <option value={serviceSlug}>
+                    Legacy / custom: {serviceSlug}
+                  </option>
+                )}
+                {PORTFOLIO_SERVICES.map((service) => (
+                  <option key={service.slug} value={service.slug}>
+                    {service.label}
+                  </option>
                 ))}
               </select>
-            ) : null}
-            <input
-              id="service_slug"
-              name="service_slug"
-              type="text"
-              maxLength={100}
-              value={serviceSlug}
-              onChange={(event) => setServiceSlug(event.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              placeholder="e.g. virtual-staging"
-            />
-            <p className="mt-1 text-[11px] text-muted-light">
-              For order-form examples, choose a preset above and upload either
-              Image or Before / after media in Service options.
-              Manual keys remain supported. If this matches a portfolio service
-              slug, the matching pricing page will revalidate on save. For
-              synchronized 360 before/after hero use:
-              Section Service hero, Media type Before / after, Service slug
-              360-virtual-staging or 360-image-enhancement. Upload two matching
-              2:1 equirectangular panorama images.
-            </p>
-          </Field>
+              <p className="mt-1 text-[11px] text-muted-light">
+                {section === "homepage-slider"
+                  ? "Links this slide to its service, price and pricing page on the homepage."
+                  : "Select the service page this hero media belongs to. 360° comparison heroes use one published Before / after pair."}
+              </p>
+            </Field>
+          ) : (
+            <Field label="Service slug (optional)" htmlFor="service_slug">
+              {section === "service-options" ? (
+                <select
+                  aria-label="Service option media key preset"
+                  value={
+                    ORDER_OPTION_MEDIA_PRESET_KEYS.includes(serviceSlug)
+                      ? serviceSlug
+                      : ""
+                  }
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      onServiceOptionPresetChange(event.target.value);
+                    }
+                  }}
+                  className="mb-2 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Service option preset (optional)</option>
+                  {SERVICE_OPTION_MEDIA_PRESET_GROUPS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.presets.map((preset) => (
+                        <option key={preset.mediaKey} value={preset.mediaKey}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              ) : null}
+              <input
+                id="service_slug"
+                name="service_slug"
+                type="text"
+                maxLength={100}
+                value={serviceSlug}
+                onChange={(event) => setServiceSlug(event.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-white text-sm text-foreground placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                placeholder="e.g. virtual-staging"
+              />
+              <p className="mt-1 text-[11px] text-muted-light">
+                For order-form examples, choose a preset above and upload either
+                Image or Before / after media in Service options.
+                Manual keys remain supported. If this matches a portfolio service
+                slug, the matching pricing page will revalidate on save. For
+                synchronized 360 before/after hero use:
+                Section Service hero, Media type Before / after, Service slug
+                360-virtual-staging or 360-image-enhancement. Upload two matching
+                2:1 equirectangular panorama images.
+              </p>
+            </Field>
+          )}
 
           <Field label="Visibility">
             <div className="flex flex-wrap gap-4 pt-1">

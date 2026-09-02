@@ -178,17 +178,10 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   const mobileHero = page.getByRole("region", { name: "Before and after slider" });
   const mobileFooter = mobileHero.getByTestId("hero-service-footer");
   const mobileStage = mobileHero.getByTestId("homepage-hero-image-stage");
-  const mobileDots = mobileStage.getByRole("tablist");
-  await expect(mobileDots).toBeVisible();
+  const mobileDots = mobileStage.getByTestId("hero-slide-dots");
+  await expect(mobileDots).toBeHidden();
   await expect(mobileFooter.getByRole("tab")).toHaveCount(0);
-  await expect(mobileDots.getByRole("tab")).toHaveCount(9);
-  const firstMobileDot = mobileDots.getByRole("tab").first();
-  await firstMobileDot.focus();
-  await expect(firstMobileDot).toBeFocused();
-  await expect(firstMobileDot.locator("span")).toHaveCSS(
-    "outline-color",
-    "rgb(199, 169, 78)",
-  );
+  await expect(mobileDots.locator('[role="tab"]')).toHaveCount(9);
   await expect(mobileStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
   await expect(mobileStage.getByText("AFTER", { exact: true })).toHaveCount(0);
   await expect(mobileFooter.getByText("BEFORE", { exact: true })).toBeVisible();
@@ -311,9 +304,9 @@ test.describe("homepage hero touch input", () => {
     expectNavigationResponseOk(response, "/");
 
     const stage = page.getByTestId("homepage-hero-image-stage");
-    const dots = stage.getByRole("tablist");
+    const dots = stage.getByTestId("hero-slide-dots");
     await expect(stage).toHaveCSS("touch-action", "pan-y");
-    await expect(dots).toBeVisible();
+    await expect(dots).toBeHidden();
 
     const stageBox = await stage.boundingBox();
     expect(stageBox).not.toBeNull();
@@ -365,24 +358,24 @@ test.describe("homepage hero touch input", () => {
 
     await swipe(rightX, centerY, leftX, centerY);
     await expect(
-      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+      dots.locator('[role="tab"][aria-label="Show slide 2 of 9"]'),
     ).toHaveAttribute("aria-selected", "true");
 
     await dispatchTouch("touchStart", rightX, centerY);
     await dispatchTouch("touchMove", rightX - 30, centerY);
     await dispatchTouch("touchCancel");
     await expect(
-      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+      dots.locator('[role="tab"][aria-label="Show slide 2 of 9"]'),
     ).toHaveAttribute("aria-selected", "true");
 
     await swipe(rightX, centerY, leftX, centerY);
     await expect(
-      dots.getByRole("tab", { name: "Show slide 3 of 9" }),
+      dots.locator('[role="tab"][aria-label="Show slide 3 of 9"]'),
     ).toHaveAttribute("aria-selected", "true");
 
     await swipe(leftX, centerY, rightX, centerY);
     await expect(
-      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+      dots.locator('[role="tab"][aria-label="Show slide 2 of 9"]'),
     ).toHaveAttribute("aria-selected", "true");
 
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -394,12 +387,139 @@ test.describe("homepage hero touch input", () => {
     await swipe(rightX, verticalStartY, rightX, verticalEndY);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     await expect(
-      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+      dots.locator('[role="tab"][aria-label="Show slide 2 of 9"]'),
     ).toHaveAttribute("aria-selected", "true");
 
     await client.detach();
     await guard.expectClean();
   });
+});
+
+test("ordinary service heroes share the mobile-hidden indicator breakpoint", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const response = await page.goto("/pricing/virtual-staging");
+    expectNavigationResponseOk(response, "/pricing/virtual-staging");
+
+    const stage = page.getByTestId("service-hero-image-stage");
+    const rail = stage.getByTestId("hero-slide-dots");
+    await expect(stage).toHaveCSS("touch-action", "pan-y");
+    await expect(
+      page.getByRole("button", { name: "Previous slide" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Next slide" }),
+    ).toHaveCount(0);
+
+    if ((await rail.count()) > 0) {
+      if (viewport.width >= 768) {
+        await expect(rail).toBeVisible();
+        await expect(rail.getByRole("tab").first()).toBeVisible();
+      } else {
+        await expect(rail).toBeHidden();
+      }
+    }
+
+    const widths = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(widths.scrollWidth).toBeLessThanOrEqual(widths.clientWidth);
+  }
+
+  await guard.expectClean();
+});
+
+test("360 heroes keep responsive panorama semantics and a truthful single fallback", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(45000);
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 900 },
+    { width: 1440, height: 1000 },
+    { width: 1980, height: 1100 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const route = "/pricing/360-virtual-staging";
+    const response = await page.goto(route);
+    expectNavigationResponseOk(response, route);
+
+    const synced = page.locator(
+      '[data-panorama-viewer="photo-sphere-viewer-synced-compare"]',
+    );
+    const single = page.locator('[data-panorama-viewer="photo-sphere-viewer"]');
+    const viewer = (await synced.count()) > 0 ? synced : single;
+    const footer = viewer.getByTestId("hero-service-footer");
+
+    await expect(viewer).toBeVisible();
+    await expect(viewer.getByTestId("hero-slide-dots")).toHaveCount(0);
+    await expect(viewer).not.toHaveAttribute("aria-roledescription", "carousel");
+    await expect(
+      viewer.getByRole("button", { name: "Previous slide" }),
+    ).toHaveCount(0);
+    await expect(
+      viewer.getByRole("button", { name: "Next slide" }),
+    ).toHaveCount(0);
+
+    if ((await synced.count()) > 0) {
+      const strips = synced.getByTestId("panorama-mobile-label");
+      await expect(strips).toHaveCount(2);
+      const panes = synced.getByRole("img");
+      await expect(panes).toHaveCount(2);
+
+      if (viewport.width < 768) {
+        await expect(strips.nth(0)).toBeVisible();
+        await expect(strips.nth(1)).toBeVisible();
+        await expect(footer.getByText("BEFORE", { exact: true })).toBeHidden();
+        await expect(footer.getByText("AFTER", { exact: true })).toBeHidden();
+      } else {
+        await expect(strips.nth(0)).toBeHidden();
+        await expect(strips.nth(1)).toBeHidden();
+        await expect(footer.getByText("BEFORE", { exact: true })).toBeVisible();
+        await expect(footer.getByText("AFTER", { exact: true })).toBeVisible();
+      }
+
+      const geometry = await synced.evaluate((element) => {
+        const panes = Array.from(element.querySelectorAll('[role="img"]'));
+        const paneRects = panes.map((pane) => pane.getBoundingClientRect());
+        const footer = element
+          .querySelector('[data-testid="hero-service-footer"]')
+          ?.getBoundingClientRect();
+        return {
+          sameRow: Math.abs(paneRects[0].top - paneRects[1].top) <= 1,
+          secondBelowFirst: paneRects[1].top >= paneRects[0].bottom,
+          footerBelowPanes:
+            Boolean(footer) &&
+            footer!.top >= Math.max(paneRects[0].bottom, paneRects[1].bottom),
+        };
+      });
+      expect(geometry.sameRow).toBe(viewport.width >= 768);
+      expect(geometry.secondBelowFirst).toBe(viewport.width < 768);
+      expect(geometry.footerBelowPanes).toBe(true);
+    } else {
+      await expect(single.getByTestId("panorama-mobile-label")).toHaveCount(0);
+      await expect(footer.getByText("BEFORE", { exact: true })).toHaveCount(0);
+      await expect(footer.getByText("AFTER", { exact: true })).toHaveCount(0);
+    }
+
+    const widths = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(widths.scrollWidth).toBeLessThanOrEqual(widths.clientWidth);
+  }
+
+  await guard.expectClean();
 });
 
 test("Spanish homepage hero localizes its comparison labels and service route", async ({
@@ -471,7 +591,7 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
       "homepage-hero-image-stage",
     );
     const responsiveFooter = responsiveHero.getByTestId("hero-service-footer");
-    const responsiveDots = responsiveStage.getByRole("tablist");
+    const responsiveDots = responsiveStage.getByTestId("hero-slide-dots");
     await expect(responsiveHero.getByRole("button", { name: "Previous slide" })).toHaveCount(0);
     await expect(responsiveHero.getByRole("button", { name: "Next slide" })).toHaveCount(0);
     await expect(responsiveStage.getByRole("button")).toHaveCount(0);
@@ -480,8 +600,13 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
     await expect(responsiveStage.getByTestId("hero-comparison-divider")).toBeVisible();
     await expect(responsiveFooter.getByText("BEFORE", { exact: true })).toBeVisible();
     await expect(responsiveFooter.getByText("AFTER", { exact: true })).toBeVisible();
-    await expect(responsiveDots).toBeVisible();
-    await expect(responsiveDots.getByRole("tab")).toHaveCount(9);
+    if (viewport.width >= 768) {
+      await expect(responsiveDots).toBeVisible();
+      await expect(responsiveDots.getByRole("tab")).toHaveCount(9);
+    } else {
+      await expect(responsiveDots).toBeHidden();
+      await expect(responsiveDots.locator('[role="tab"]')).toHaveCount(9);
+    }
     await expect(responsiveFooter.getByRole("tablist")).toHaveCount(0);
 
     const responsiveHeroGeometry = await responsiveHero.evaluate((element) => {
@@ -522,6 +647,7 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
         (target) => target.getBoundingClientRect(),
       );
       return {
+        dotsDisplay: getComputedStyle(dots).display,
         footerHeight: footerRect.height,
         footerBackground: getComputedStyle(footer).backgroundColor,
         footerColumns: getComputedStyle(footer).gridTemplateColumns
@@ -597,44 +723,50 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
           (responsiveHeroGeometry?.ctaCenter ?? 0),
       ),
     ).toBeLessThanOrEqual(1);
-    const expectedDotsLeft =
-      viewport.width >= 1024 ? 20 : viewport.width >= 768 ? 16 : 12;
-    expect(responsiveHeroGeometry?.dotsLeft).toBe(expectedDotsLeft);
-    expect(responsiveHeroGeometry?.dotsHeight).toBeLessThanOrEqual(
-      responsiveHeroGeometry?.stageHeight ?? 0,
+    expect(responsiveHeroGeometry?.dotsDisplay).toBe(
+      viewport.width >= 768 ? "flex" : "none",
     );
-    expect(
-      Math.abs(
-        (responsiveHeroGeometry?.stageCenterY ?? 0) -
-          (responsiveHeroGeometry?.dotsCenterY ?? 0),
-      ),
-    ).toBeLessThanOrEqual(1);
-    const expectedTargetHeight =
-      viewport.width >= 1280 ? 32 : viewport.width >= 768 ? 26 : 20;
-    const expectedTargetWidth = viewport.width >= 768 ? 32 : 28;
-    expect(responsiveHeroGeometry?.activeTarget).toEqual({
-      width: expectedTargetWidth,
-      height: expectedTargetHeight,
-    });
-    expect(responsiveHeroGeometry?.inactiveTarget).toEqual({
-      width: expectedTargetWidth,
-      height: expectedTargetHeight,
-    });
-    expect(responsiveHeroGeometry?.minimumTargetGap).toBeGreaterThanOrEqual(0);
-    expect(responsiveHeroGeometry?.activeVisual).toMatchObject({
-      width: 12,
-      height: 12,
-      background: "rgb(199, 169, 78)",
-    });
-    expect(responsiveHeroGeometry?.activeVisual.borderRadius).toBeGreaterThanOrEqual(6);
-    expect(responsiveHeroGeometry?.inactiveVisual).toMatchObject({
-      width: 10,
-      height: 10,
-    });
-    expect(responsiveHeroGeometry?.inactiveVisual.className).toContain(
-      "bg-primary/50",
-    );
-    expect(responsiveHeroGeometry?.inactiveVisual.borderRadius).toBeGreaterThanOrEqual(5);
+    if (viewport.width >= 768) {
+      const expectedDotsLeft = viewport.width >= 1024 ? 20 : 16;
+      expect(responsiveHeroGeometry?.dotsLeft).toBe(expectedDotsLeft);
+      expect(responsiveHeroGeometry?.dotsHeight).toBeLessThanOrEqual(
+        responsiveHeroGeometry?.stageHeight ?? 0,
+      );
+      expect(
+        Math.abs(
+          (responsiveHeroGeometry?.stageCenterY ?? 0) -
+            (responsiveHeroGeometry?.dotsCenterY ?? 0),
+        ),
+      ).toBeLessThanOrEqual(1);
+      const expectedTargetHeight = viewport.width >= 1280 ? 32 : 26;
+      expect(responsiveHeroGeometry?.activeTarget).toEqual({
+        width: 32,
+        height: expectedTargetHeight,
+      });
+      expect(responsiveHeroGeometry?.inactiveTarget).toEqual({
+        width: 32,
+        height: expectedTargetHeight,
+      });
+      expect(responsiveHeroGeometry?.minimumTargetGap).toBeGreaterThanOrEqual(0);
+      expect(responsiveHeroGeometry?.activeVisual).toMatchObject({
+        width: 12,
+        height: 12,
+        background: "rgb(199, 169, 78)",
+      });
+      expect(responsiveHeroGeometry?.activeVisual.borderRadius).toBeGreaterThanOrEqual(6);
+      expect(responsiveHeroGeometry?.inactiveVisual).toMatchObject({
+        width: 10,
+        height: 10,
+      });
+      expect(responsiveHeroGeometry?.inactiveVisual.className).toContain(
+        "bg-primary/50",
+      );
+      expect(responsiveHeroGeometry?.inactiveVisual.borderRadius).toBeGreaterThanOrEqual(5);
+    } else {
+      expect(responsiveHeroGeometry?.dotsHeight).toBe(0);
+      expect(responsiveHeroGeometry?.activeTarget).toEqual({ width: 0, height: 0 });
+      expect(responsiveHeroGeometry?.inactiveTarget).toEqual({ width: 0, height: 0 });
+    }
     const expectedLabelSize = viewport.width >= 768 ? 16 : 14;
     const expectedServiceSize = viewport.width >= 1536 ? 16 : viewport.width >= 768 ? 15 : 13;
     expect(responsiveHeroGeometry?.labelSizes).toEqual([

@@ -14,6 +14,7 @@ import {
   VIRTUAL_RENOVATION_GUIDE_MEDIA_KEYS,
   VIRTUAL_RENOVATION_OPTION_MEDIA_KEYS,
 } from "../data/order-options.ts";
+import { PORTFOLIO_SERVICES } from "./portfolio-service-meta.ts";
 
 const adminClient = readFileSync(
   "src/app/(public)/admin/media/MediaAdminClient.tsx",
@@ -103,4 +104,60 @@ test("the existing admin editor applies preset defaults to its controlled fields
   assert.match(adminClient, /setServiceSlug\(defaults\.serviceSlug\)/);
   assert.match(adminClient, /setTitle\(defaults\.title\)/);
   assert.match(adminClient, /value=\{title\}/);
+});
+
+test("homepage and service hero media use the canonical service dropdown", () => {
+  assert.match(
+    adminClient,
+    /section === "homepage-slider" \|\| section === "service-hero"/,
+  );
+  assert.match(adminClient, /<Field label="Service" htmlFor="service_slug">/);
+  assert.match(adminClient, /<option value="">No service — visual only<\/option>/);
+  assert.match(adminClient, /PORTFOLIO_SERVICES\.map\(\(service\) =>/);
+  assert.match(adminClient, /<option key=\{service\.slug\} value=\{service\.slug\}>/);
+  assert.match(adminClient, /\{service\.label\}/);
+  assert.ok(PORTFOLIO_SERVICES.length > 0);
+  assert.match(
+    adminClient,
+    /Links this slide to its service, price and pricing page on the homepage\./,
+  );
+  assert.match(
+    adminClient,
+    /Select the service page this hero media belongs to\. 360° comparison heroes use one published Before \/ after pair\./,
+  );
+});
+
+test("canonical hero dropdowns preserve legacy service slugs until an explicit selection", () => {
+  assert.match(adminClient, /initial\?\.service_slug \?\? ""/);
+  assert.match(
+    adminClient,
+    /serviceSlug\.length > 0 && !isPortfolioServiceSlug\(serviceSlug\)/,
+  );
+  assert.match(
+    adminClient,
+    /hasLegacyServiceSlug && \([\s\S]*?<option value=\{serviceSlug\}>[\s\S]*?Legacy \/ custom: \{serviceSlug\}/,
+  );
+  assert.match(adminClient, /value=\{serviceSlug\}/);
+  assert.match(adminClient, /onChange=\{\(event\) => setServiceSlug\(event\.target\.value\)\}/);
+
+  const sectionHandler = adminClient.slice(
+    adminClient.indexOf('id="section"'),
+    adminClient.indexOf('className="w-full', adminClient.indexOf('id="section"')),
+  );
+  assert.match(sectionHandler, /setSection\(next\)/);
+  assert.doesNotMatch(sectionHandler, /setServiceSlug/);
+  assert.match(adminClient, /service_slug: serviceSlug \|\| null/);
+});
+
+test("service-options retains its preset picker and manual custom key input", () => {
+  const nonCanonicalField = adminClient.slice(
+    adminClient.indexOf('<Field label="Service slug (optional)"'),
+    adminClient.indexOf('<Field label="Visibility">'),
+  );
+
+  assert.match(nonCanonicalField, /section === "service-options"/);
+  assert.match(nonCanonicalField, /aria-label="Service option media key preset"/);
+  assert.match(nonCanonicalField, /SERVICE_OPTION_MEDIA_PRESET_GROUPS\.map/);
+  assert.match(nonCanonicalField, /<input[\s\S]*?name="service_slug"[\s\S]*?type="text"/);
+  assert.match(nonCanonicalField, /Manual keys remain supported\./);
 });

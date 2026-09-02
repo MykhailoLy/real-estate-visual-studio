@@ -291,6 +291,10 @@ export default async function VirtualStagingPage() {
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
           <ServicePageSlider
             slides={sliderSlides}
+            serviceSlug="virtual-staging"
+            locale="en"
+            orderHref="/order/virtual-staging"
+            orderLabel="Order Virtual Staging"
             ariaLabel="Virtual Staging before and after examples"
           />
         </div>

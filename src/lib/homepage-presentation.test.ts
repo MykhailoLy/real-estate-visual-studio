@@ -132,13 +132,16 @@ test("top-level header categories wait for the wide 3xl layout while the lg serv
 
 test("hero service metadata resolves canonical routes and display-only pricing", () => {
   const heroSource = readSource("src/components/home/BeforeAfterShowcase.tsx");
+  const chromeSource = readSource(
+    "src/components/media/ComparisonHeroChrome.tsx",
+  );
   const heroStageSource = heroSource.slice(
     heroSource.indexOf('data-testid="homepage-hero-image-stage"'),
-    heroSource.indexOf("<HeroServiceFooter"),
+    heroSource.indexOf("<ComparisonHeroFooter"),
   );
-  const heroFooterSource = heroSource.slice(
-    heroSource.indexOf("function HeroServiceFooter"),
-    heroSource.indexOf("function HeroSlideDots"),
+  const heroFooterSource = chromeSource.slice(
+    chromeSource.indexOf("export function ComparisonHeroFooter"),
+    chromeSource.indexOf("interface HeroSlideIndicatorRailProps"),
   );
   const englishHomeSource = readSource("src/app/(public)/page.tsx");
   const spanishHomeSource = readSource("src/app/(public)/es/page.tsx");
@@ -179,33 +182,35 @@ test("hero service metadata resolves canonical routes and display-only pricing",
   );
 
   assert.match(pricingHubSource, /REMOTE_SERVICE_GROUPS/);
-  assert.match(heroSource, /getHomeHeroServicePresentation/);
-  assert.match(heroSource, /CatalogPriceText/);
-  assert.match(heroSource, /prefetch=\{false\}/);
+  assert.match(presentationSource, /getHeroServicePresentation/);
+  assert.match(heroSource, /getHeroServicePresentation/);
+  assert.match(chromeSource, /CatalogPriceText/);
+  assert.match(chromeSource, /prefetch=\{false\}/);
   assert.match(heroSource, /data-testid="homepage-hero-frame"/);
   assert.match(heroSource, /data-testid="homepage-hero-image-stage"/);
-  assert.match(heroSource, /data-testid="hero-service-footer"/);
-  assert.match(heroSource, /<HeroServiceFooter/);
+  assert.match(chromeSource, /data-testid="hero-service-footer"/);
+  assert.match(heroSource, /<ComparisonHeroFooter/);
   assert.doesNotMatch(heroSource, /absolute inset-x-0 bottom-0 z-10/);
   assert.doesNotMatch(heroSource, /BeforeAfterLabels/);
   assert.doesNotMatch(heroSource, /HeroArrowControl/);
   assert.doesNotMatch(heroSource, /Previous slide|Next slide/);
   assert.doesNotMatch(heroSource, /ArrowRight|ChevronLeft|ChevronRight/);
   assert.match(heroSource, /showDivider=\{false\}/);
-  assert.match(heroSource, /data-testid="hero-comparison-divider"/);
-  assert.match(heroSource, /w-\[2px\].*bg-white\/85/);
-  assert.match(heroSource, /data-testid="hero-slide-dots"/);
-  assert.match(heroStageSource, /<HeroSlideDots/);
-  assert.doesNotMatch(heroFooterSource, /HeroSlideDots/);
+  assert.match(chromeSource, /data-testid="hero-comparison-divider"/);
+  assert.match(chromeSource, /w-\[2px\].*bg-white\/85/);
+  assert.match(heroSource, /<ComparisonHeroDivider/);
+  assert.match(chromeSource, /data-testid="hero-slide-dots"/);
+  assert.match(heroStageSource, /<HeroSlideIndicatorRail/);
+  assert.doesNotMatch(heroFooterSource, /HeroSlideIndicatorRail/);
   assert.match(
-    heroSource,
-    /absolute top-1\/2 left-3[\s\S]*?-translate-y-1\/2 flex-col[\s\S]*?md:left-4 lg:left-5/,
+    chromeSource,
+    /absolute top-1\/2 left-3[\s\S]*?hidden[\s\S]*?-translate-y-1\/2 flex-col[\s\S]*?md:left-4 md:flex lg:left-5/,
   );
-  assert.match(heroSource, /\? "h-3 w-3 border-white\/90 bg-\[#C7A94E\]/);
-  assert.match(heroSource, /bg-primary\/50 group-hover:bg-primary\/65/);
-  assert.match(heroSource, /h-5 w-7[\s\S]*?md:h-\[26px\] md:w-8 xl:h-8/);
-  assert.doesNotMatch(heroSource, /-space-y-/);
-  assert.match(heroSource, /group-focus-visible:outline-\[#C7A94E\]/);
+  assert.match(chromeSource, /\? "h-3 w-3 border-white\/90 bg-\[#C7A94E\]/);
+  assert.match(chromeSource, /bg-primary\/50 group-hover:bg-primary\/65/);
+  assert.match(chromeSource, /h-5 w-7[\s\S]*?md:h-\[26px\] md:w-8 xl:h-8/);
+  assert.doesNotMatch(chromeSource, /-space-y-/);
+  assert.match(chromeSource, /group-focus-visible:outline-\[#C7A94E\]/);
   assert.match(heroFooterSource, /bg-\[#071A2B\]/);
   assert.match(heroFooterSource, /grid-cols-2 grid-rows-\[auto_auto\]/);
   assert.match(heroFooterSource, /md:grid-cols-\[1fr_auto_1fr\] md:grid-rows-1/);
@@ -213,10 +218,10 @@ test("hero service metadata resolves canonical routes and display-only pricing",
   assert.match(heroFooterSource, /text-\[#C7A94E\][\s\S]*?text-white/);
   assert.doesNotMatch(heroSource, /M3 1L0 6l3 5V1/);
   assert.doesNotMatch(heroSource, /rounded-full bg-white shadow-md/);
-  assert.equal(heroSource.match(/<TrackedLink/g)?.length, 1);
-  assert.match(heroSource, /flex-wrap items-center justify-center justify-self-center/);
+  assert.equal(chromeSource.match(/<TrackedLink/g)?.length, 1);
+  assert.match(chromeSource, /flex-wrap items-center justify-center justify-self-center/);
   assert.match(heroFooterSource, /min-w-0 text-center font-bold uppercase/);
-  assert.match(heroSource, /text-white\/40[\s\S]*?·/);
+  assert.match(chromeSource, /text-white\/40[\s\S]*?·/);
   assert.match(heroSource, /touchAction: "pan-y"/);
   assert.doesNotMatch(heroSource, /touchAction: "none"/);
   assert.match(heroSource, /setPointerCapture\(pointerId\)/);
@@ -230,13 +235,178 @@ test("hero service metadata resolves canonical routes and display-only pricing",
     /handlePointerCancel[\s\S]*?dragStart\.current = null;[\s\S]*?safelyReleasePointer/,
   );
   assert.equal(heroSource.match(/draggable=\{false\}/g)?.length, 2);
-  assert.match(heroSource, /trimWholeCents/);
-  assert.match(heroSource, /locale === "es" \? "ANTES" : "BEFORE"/);
-  assert.match(heroSource, /locale === "es" \? "DESPUÉS" : "AFTER"/);
+  assert.match(chromeSource, /trimWholeCents/);
+  assert.match(chromeSource, /locale === "es" \? "ANTES" : "BEFORE"/);
+  assert.match(chromeSource, /locale === "es" \? "DESPUÉS" : "AFTER"/);
   assert.doesNotMatch(heroSource, /\$\d/);
   assert.match(englishHomeSource, /serviceSlug: row\.service_slug/);
   assert.match(spanishHomeSource, /serviceSlug: row\.service_slug/);
   assert.match(spanishHomeSource, /locale="es"/);
+});
+
+test("service comparison heroes reuse the homepage chrome and reliable swipe behavior", () => {
+  const sliderSource = readSource(
+    "src/components/pricing/ServicePageSlider.tsx",
+  );
+  const servicePageSource = readSource(
+    "src/components/pricing/ServicePage.tsx",
+  );
+  const chromeSource = readSource(
+    "src/components/media/ComparisonHeroChrome.tsx",
+  );
+  const floorPlansSource = readSource(
+    "src/app/(public)/pricing/floor-plans/page.tsx",
+  );
+  const spanishFloorPlansSource = readSource(
+    "src/app/(public)/es/pricing/floor-plans/page.tsx",
+  );
+  const virtualStagingSource = readSource(
+    "src/app/(public)/pricing/virtual-staging/page.tsx",
+  );
+  const spanishVirtualStagingSource = readSource(
+    "src/app/(public)/es/pricing/virtual-staging/page.tsx",
+  );
+
+  assert.match(sliderSource, /data-testid="service-hero-image-stage"/);
+  assert.match(sliderSource, /<ComparisonHeroDivider/);
+  assert.match(sliderSource, /<HeroSlideIndicatorRail/);
+  assert.match(sliderSource, /<ComparisonHeroFooter/);
+  assert.match(sliderSource, /analyticsLocation="service_hero"/);
+  assert.match(sliderSource, /ctaHref=\{orderHref\}/);
+  assert.match(sliderSource, /ctaLabel=\{orderLabel\}/);
+  assert.doesNotMatch(sliderSource, /ChevronLeft|ChevronRight/);
+  assert.doesNotMatch(sliderSource, /Previous slide|Next slide/);
+  assert.doesNotMatch(sliderSource, /M3 1L0 6l3 5V1/);
+  assert.doesNotMatch(sliderSource, /mt-1 lg:mt-2/);
+  assert.match(sliderSource, /showDivider=\{false\}/);
+  assert.match(chromeSource, /role="tablist"/);
+  assert.match(chromeSource, /role="tab"/);
+  assert.match(chromeSource, /aria-selected=\{isActive\}/);
+  assert.match(chromeSource, /hidden[\s\S]*?md:flex/);
+  assert.match(chromeSource, /event\.key === "Enter" \|\| event\.key === " "/);
+  assert.match(chromeSource, /bg-primary\/50 group-hover:bg-primary\/65/);
+  assert.match(chromeSource, /bg-\[#C7A94E\]/);
+  assert.match(chromeSource, /bg-\[#071A2B\]/);
+  assert.match(chromeSource, /text-sm font-bold uppercase[\s\S]*?text-white/);
+  assert.match(chromeSource, /font-bold uppercase[\s\S]*?text-\[#C7A94E\]/);
+  assert.match(chromeSource, /whitespace-nowrap[\s\S]*?font-bold text-white/);
+  assert.match(sliderSource, /touchAction: "pan-y"/);
+  assert.doesNotMatch(sliderSource, /touchAction: "none"|preventDefault/);
+  assert.match(sliderSource, /if \(!e\.isPrimary\) return/);
+  assert.match(sliderSource, /e\.pointerType === "mouse" && e\.button !== 0/);
+  assert.match(sliderSource, /setPointerCapture\(pointerId\)/);
+  assert.match(sliderSource, /hasPointerCapture\(pointerId\)/);
+  assert.match(sliderSource, /releasePointerCapture\(pointerId\)/);
+  assert.match(sliderSource, /onLostPointerCapture/);
+  assert.match(
+    sliderSource,
+    /handlePointerCancel[\s\S]*?dragStart\.current = null;[\s\S]*?safelyReleasePointer/,
+  );
+  assert.match(sliderSource, /const SWIPE_MIN_X = 40/);
+  assert.match(sliderSource, /if \(dx < 0\) goNext\(\);[\s\S]*?else goPrev\(\);/);
+  assert.match(sliderSource, /if \(ady > adx \* SWIPE_MAX_RATIO\) return/);
+  assert.equal(sliderSource.match(/draggable=\{false\}/g)?.length, 2);
+  assert.match(sliderSource, /prefers-reduced-motion/);
+  assert.match(sliderSource, /if \(paused \|\| reducedMotion \|\| total <= 1\) return/);
+  assert.match(sliderSource, /isSlideMounted/);
+
+  assert.match(
+    servicePageSource,
+    /<ServicePageSlider[\s\S]*?serviceSlug=\{serviceSlug\}[\s\S]*?locale=\{altLocale\}[\s\S]*?orderHref=\{orderHref\}[\s\S]*?orderLabel=\{orderLabel\}/,
+  );
+  for (const [source, locale, slug, orderHref] of [
+    [virtualStagingSource, "en", "virtual-staging", "/order/virtual-staging"],
+    [spanishVirtualStagingSource, "es", "virtual-staging", "/order/virtual-staging"],
+    [floorPlansSource, "en", "floor-plans", "/order/3d-floor-plans"],
+    [spanishFloorPlansSource, "es", "floor-plans", "/order/3d-floor-plans"],
+  ] as const) {
+    assert.match(source, new RegExp(`serviceSlug="${slug}"`));
+    assert.match(source, new RegExp(`locale="${locale}"`));
+    assert.match(source, new RegExp(`orderHref="${orderHref}"`));
+    assert.match(source, /orderLabel="[^"]+"/);
+  }
+
+  for (const source of [floorPlansSource, spanishFloorPlansSource]) {
+    assert.match(source, /imageFit="contain"/);
+    assert.match(source, /imageBackground="bg-white"/);
+    assert.match(source, /mobileAspect="aspect-\[16\/10\]"/);
+  }
+});
+
+test("360 service heroes stay synchronized comparisons with safe non-comparison fallbacks", () => {
+  const syncedSource = readSource(
+    "src/components/pricing/SyncedPanoramaCompareViewer.tsx",
+  );
+  const singleSource = readSource(
+    "src/components/pricing/PanoramaHeroViewer.tsx",
+  );
+  const siteMediaSource = readSource("src/lib/site-media.ts");
+  const routeSources = [
+    readSource("src/app/(public)/pricing/360-image-enhancement/page.tsx"),
+    readSource("src/app/(public)/es/pricing/360-image-enhancement/page.tsx"),
+    readSource("src/app/(public)/pricing/360-virtual-staging/page.tsx"),
+    readSource("src/app/(public)/es/pricing/360-virtual-staging/page.tsx"),
+  ];
+
+  const onePairHelper = siteMediaSource.slice(
+    siteMediaSource.indexOf("export async function getServiceHeroBeforeAfterItem"),
+    siteMediaSource.indexOf("export async function getServiceHeroPanoramaItems"),
+  );
+  assert.match(onePairHelper, /\.limit\(1\)/);
+  assert.match(onePairHelper, /\.not\("before_image_path", "is", null\)/);
+  assert.match(onePairHelper, /\.not\("after_image_path", "is", null\)/);
+
+  assert.equal(syncedSource.match(/new Viewer\(/g)?.length, 2);
+  assert.match(syncedSource, /position-updated/);
+  assert.match(syncedSource, /zoom-updated/);
+  assert.match(syncedSource, /syncFrom\("before"\)/);
+  assert.match(syncedSource, /syncFrom\("after"\)/);
+  assert.match(syncedSource, /touch-none/);
+  assert.match(syncedSource, /role="group"/);
+  assert.match(syncedSource, /role="img"/);
+  assert.match(syncedSource, /<ComparisonHeroFooter/);
+  assert.match(syncedSource, /showComparisonLabelsOnMobile=\{false\}/);
+  assert.match(syncedSource, /comparisonLabelsAriaHidden/);
+  assert.equal(syncedSource.match(/data-testid="panorama-mobile-label"/g)?.length, 1);
+  assert.match(syncedSource, /mobileLabel=\{beforeLabel\}/);
+  assert.match(syncedSource, /mobileLabel=\{afterLabel\}/);
+  assert.match(
+    syncedSource,
+    /panorama-mobile-label[\s\S]*?bg-\[#071A2B\][\s\S]*?text-\[13px\][\s\S]*?md:hidden/,
+  );
+  assert.match(
+    syncedSource,
+    /<PanoramaPane[\s\S]*?mobileLabel=\{beforeLabel\}[\s\S]*?<PanoramaPane[\s\S]*?mobileLabel=\{afterLabel\}/,
+  );
+  assert.match(syncedSource, /grid-cols-1[\s\S]*?md:grid-cols-2/);
+  assert.doesNotMatch(syncedSource, /role="tablist"|aria-roledescription="carousel"/);
+  assert.doesNotMatch(syncedSource, /ChevronLeft|ChevronRight|Previous slide|Next slide/);
+  assert.doesNotMatch(syncedSource, /handlePointerDown|SWIPE_MIN_X|touchAction: "pan-y"/);
+  assert.doesNotMatch(syncedSource, /Synced 360|Drag either view to compare/);
+  assert.doesNotMatch(syncedSource, /absolute left-3 top-3 rounded-full/);
+  assert.doesNotMatch(syncedSource, /bg-gradient-to-t from-black/);
+
+  assert.match(singleSource, /<ComparisonHeroFooter/);
+  assert.match(singleSource, /showComparisonLabels=\{false\}/);
+  assert.doesNotMatch(singleSource, /panorama-mobile-label/);
+  assert.doesNotMatch(singleSource, /role="tablist"|aria-roledescription="carousel"/);
+  assert.doesNotMatch(singleSource, />\s*(BEFORE|AFTER|ANTES|DESPUÉS)\s*</);
+  assert.doesNotMatch(singleSource, /bg-gradient-to-t from-black/);
+
+  for (const source of routeSources) {
+    assert.match(source, /getServiceHeroBeforeAfterItem\(/);
+    assert.match(source, /<SyncedPanoramaCompareViewer/);
+    assert.match(source, /<PanoramaHeroViewer/);
+    assert.match(source, /beforePanoramaUrl && afterPanoramaUrl/);
+    assert.match(source, /getServiceHeroPanoramaItems\(/);
+    assert.doesNotMatch(source, /<ServicePageSlider/);
+    assert.doesNotMatch(source, /\) : undefined/);
+  }
+
+  assert.match(routeSources[0], /locale="en"/);
+  assert.match(routeSources[1], /locale="es"/);
+  assert.match(routeSources[2], /locale="en"/);
+  assert.match(routeSources[3], /locale="es"/);
 });
 
 test("homepage and signup presentation use the authoritative English Welcome Offer copy", () => {

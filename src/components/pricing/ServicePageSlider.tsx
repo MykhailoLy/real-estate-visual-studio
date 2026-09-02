@@ -2,10 +2,19 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "@/components/home/ServicePlaceholder";
+import {
+  ComparisonHeroDivider,
+  ComparisonHeroFooter,
+  HeroSlideIndicatorRail,
+} from "@/components/media/ComparisonHeroChrome";
+import type { PortfolioServiceSlug } from "@/lib/portfolio-service-meta";
+import {
+  getHeroServicePresentation,
+  type RemoteServiceLocale,
+} from "@/lib/pricing/remote-service-presentation";
 import { cn } from "@/lib/utils";
 
 // Initial render mounts active slide content only. Neighbouring
@@ -31,8 +40,7 @@ function isSlideMounted(
 // Reusable before/after slider for individual service pages.
 //
 // Controls:
-//   - Arrow buttons (bare icons, no heavy white circle)
-//   - Dot indicator below
+//   - Vertical indicator rail inside the image stage
 //   - Touch/pointer swipe: swipe left → next, swipe right → prev.
 //     SWIPE_MIN_X prevents accidental slide changes. Vertical-
 //     dominant gestures are ignored so the page can still scroll.
@@ -57,6 +65,10 @@ export type ServicePageSlide =
 
 interface Props {
   slides: ServicePageSlide[];
+  serviceSlug: PortfolioServiceSlug;
+  locale?: RemoteServiceLocale;
+  orderHref: string;
+  orderLabel: string;
   autoplayMs?: number;
   ariaLabel?: string;
   /**
@@ -84,9 +96,38 @@ interface Props {
 const AUTOPLAY_MS = 5_500;
 const SWIPE_MIN_X = 40;
 const SWIPE_MAX_RATIO = 1.2;
+const HERO_HALF_SIZES =
+  "(min-width: 1024px) calc(50vw - 8px), (min-width: 640px) calc(50vw - 16px), calc(50vw - 12px)";
+
+function safelyCapturePointer(element: HTMLDivElement, pointerId: number) {
+  try {
+    if (typeof element.setPointerCapture === "function") {
+      element.setPointerCapture(pointerId);
+    }
+  } catch {
+    // Pointer capture can fail if the pointer is no longer active.
+  }
+}
+
+function safelyReleasePointer(element: HTMLDivElement, pointerId: number) {
+  try {
+    if (
+      typeof element.hasPointerCapture === "function" &&
+      element.hasPointerCapture(pointerId)
+    ) {
+      element.releasePointerCapture(pointerId);
+    }
+  } catch {
+    // A cancelled pointer may already have released capture implicitly.
+  }
+}
 
 export default function ServicePageSlider({
   slides,
+  serviceSlug,
+  locale = "en",
+  orderHref,
+  orderLabel,
   autoplayMs = AUTOPLAY_MS,
   ariaLabel = "Before and after examples",
   imageFit = "cover",
@@ -160,18 +201,29 @@ export default function ServicePageSlider({
   if (total === 0) return null;
 
   const showNav = total > 1;
+  const service = getHeroServicePresentation(serviceSlug, locale);
 
   // ── Swipe handlers ──────────────────────────────────────────
-  const handlePointerDown = (e: React.PointerEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!e.isPrimary) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+
+    setNeighborsReady(true);
     dragStart.current = { x: e.clientX, y: e.clientY };
+    safelyCapturePointer(e.currentTarget, e.pointerId);
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (!e.isPrimary || !dragStart.current) return;
-    const dx = e.clientX - dragStart.current.x;
-    const dy = e.clientY - dragStart.current.y;
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.isPrimary) return;
+
+    const start = dragStart.current;
     dragStart.current = null;
+    safelyReleasePointer(e.currentTarget, e.pointerId);
+    if (!start) return;
+
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
 
     const adx = Math.abs(dx);
     const ady = Math.abs(dy);
@@ -183,8 +235,9 @@ export default function ServicePageSlider({
     else goPrev();
   };
 
-  const handlePointerCancel = () => {
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
     dragStart.current = null;
+    safelyReleasePointer(e.currentTarget, e.pointerId);
   };
 
   return (
@@ -198,126 +251,85 @@ export default function ServicePageSlider({
       aria-roledescription="carousel"
       aria-label={ariaLabel}
     >
-      {/* ── Slide stage ── */}
-      {/*
-        Aspect chain:
-          [mobileAspect] e.g. aspect-[16/9] for photos, aspect-[16/10] for plans
-          sm:aspect-[21/9]  small tablets
-          md:aspect-[3/1]   medium viewports
-          lg:aspect-[4/1]   wide desktop hero
-      */}
       <div
-        className={cn(
-          "relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100",
-          mobileAspect,
-          "sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
-        )}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
-        style={{ userSelect: "none", WebkitUserSelect: "none" }}
+        data-testid="service-hero-frame"
+        className="w-full overflow-hidden rounded-xl bg-primary shadow-xl ring-1 ring-black/10 lg:rounded-2xl"
       >
-        {slides.map((slide, i) => {
-          const active = i === idx;
-          const mounted = isSlideMounted(i, idx, total, neighborsReady);
-          return (
-            <div
-              key={slide.id}
-              className={cn(
-                "absolute inset-0 transition-opacity duration-700 ease-in-out",
-                active ? "opacity-100" : "opacity-0"
-              )}
-              aria-hidden={!active}
-            >
-              {mounted &&
-                (slide.kind === "image" ? (
-                  <RealSlide
-                    beforeUrl={slide.beforeUrl}
-                    afterUrl={slide.afterUrl}
-                    beforeAlt={slide.beforeAlt}
-                    afterAlt={slide.afterAlt}
-                    eager={i === 0}
-                    imageFit={imageFit}
-                    imageBackground={imageBackground}
-                  />
-                ) : (
-                  <ServicePlaceholder
-                    variant={slide.variant}
-                    showInnerLabels={false}
-                  />
-                ))}
-            </div>
-          );
-        })}
-
-        {/* ── Arrow controls — bare icons, no white circle ── */}
-        {showNav && (
-          <>
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="Previous slide"
-              className={cn(
-                "absolute left-2 lg:left-4 top-1/2 -translate-y-1/2",
-                "w-11 h-11 flex items-center justify-center",
-                "text-white/80 hover:text-white",
-                "drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]",
-                "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent rounded"
-              )}
-            >
-              <ChevronLeft className="w-7 h-7 lg:w-8 lg:h-8" strokeWidth={2.2} aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="Next slide"
-              className={cn(
-                "absolute right-2 lg:right-4 top-1/2 -translate-y-1/2",
-                "w-11 h-11 flex items-center justify-center",
-                "text-white/80 hover:text-white",
-                "drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]",
-                "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent rounded"
-              )}
-            >
-              <ChevronRight className="w-7 h-7 lg:w-8 lg:h-8" strokeWidth={2.2} aria-hidden />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* ── Dot indicator ── */}
-      {showNav && (
+        {/* Keep the original image-stage aspect chain; the footer sits below it. */}
         <div
-          className="mt-1 lg:mt-2 flex items-center justify-center gap-0"
-          role="tablist"
-          aria-label="Slide indicators"
+          data-testid="service-hero-image-stage"
+          className={cn(
+            "relative w-full overflow-hidden bg-stone-100",
+            mobileAspect,
+            "sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]",
+          )}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onLostPointerCapture={() => {
+            dragStart.current = null;
+          }}
+          style={{
+            touchAction: "pan-y",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
         >
           {slides.map((slide, i) => {
-            const isActive = i === idx;
+            const active = i === idx;
+            const mounted = isSlideMounted(i, idx, total, neighborsReady);
             return (
-              <button
+              <div
                 key={slide.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-label={`Show slide ${i + 1} of ${total}`}
-                onClick={() => goTo(i)}
-                className="group flex h-11 w-11 items-center justify-center rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                className={cn(
+                  "absolute inset-0 transition-opacity duration-700 ease-in-out",
+                  active ? "opacity-100" : "opacity-0",
+                )}
+                aria-hidden={!active}
               >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "h-2.5 rounded-full transition-all duration-200",
-                    isActive
-                      ? "w-9 bg-primary"
-                      : "w-2.5 bg-stone-300 group-hover:bg-stone-400"
-                  )}
-                />
-              </button>
+                {mounted &&
+                  (slide.kind === "image" ? (
+                    <RealSlide
+                      beforeUrl={slide.beforeUrl}
+                      afterUrl={slide.afterUrl}
+                      beforeAlt={slide.beforeAlt}
+                      afterAlt={slide.afterAlt}
+                      eager={i === 0}
+                      imageFit={imageFit}
+                      imageBackground={imageBackground}
+                    />
+                  ) : (
+                    <ServicePlaceholder
+                      variant={slide.variant}
+                      showDivider={false}
+                      showInnerLabels={false}
+                    />
+                  ))}
+              </div>
             );
           })}
+
+          <ComparisonHeroDivider />
+
+          {showNav && (
+            <HeroSlideIndicatorRail
+              slides={slides}
+              activeIndex={idx}
+              onSelect={goTo}
+              locale={locale}
+            />
+          )}
         </div>
-      )}
+
+        <ComparisonHeroFooter
+          service={service}
+          locale={locale}
+          ctaHref={orderHref}
+          ctaLabel={orderLabel}
+          analyticsLocation="service_hero"
+          analyticsEvent="order_intent"
+        />
+      </div>
     </div>
   );
 }
@@ -353,10 +365,12 @@ function RealSlide({
         <Image
           src={beforeUrl}
           alt={beforeAlt}
-          fill
-          sizes="50vw"
-          className={imgCls}
-          priority={eager}
+        fill
+        sizes={HERO_HALF_SIZES}
+        className={imgCls}
+        loading={eager ? "eager" : undefined}
+        fetchPriority={eager ? "high" : undefined}
+        draggable={false}
         />
       </div>
 
@@ -365,29 +379,12 @@ function RealSlide({
         <Image
           src={afterUrl}
           alt={afterAlt}
-          fill
-          sizes="50vw"
-          className={imgCls}
-          priority={eager}
-        />
-      </div>
-
-      {/* Centerline divider */}
-      <div
-        aria-hidden
-        className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[3px] bg-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.06)]"
-      >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center">
-          <svg
-            viewBox="0 0 12 12"
-            className="w-3 h-3 text-primary"
-            fill="currentColor"
-            aria-hidden
-          >
-            <path d="M3 1L0 6l3 5V1zm6 0v10l3-5-3-5z" />
-          </svg>
-        </div>
-      </div>
+        fill
+        sizes={HERO_HALF_SIZES}
+        className={imgCls}
+        draggable={false}
+      />
+    </div>
     </div>
   );
 }
