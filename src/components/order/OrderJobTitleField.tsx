@@ -86,7 +86,7 @@ export default function OrderJobTitleField({
             id={helpId}
             className={cn(
               "mt-0.5 text-muted",
-              comfortable ? "text-sm leading-6" : "text-xs",
+              "text-dashboard-body",
             )}
           >
             Give this order a name so you can find it later. This appears as
@@ -110,7 +110,7 @@ export default function OrderJobTitleField({
         aria-describedby={displayError ? `${helpId} ${errorId}` : helpId}
         className={cn(
           "w-full rounded-lg border px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60",
-          comfortable ? "text-base" : "text-sm",
+          comfortable ? "text-base" : "text-dashboard-mobile-control md:text-sm",
           displayError ? "border-red-300" : "border-border",
         )}
       />
@@ -119,18 +119,18 @@ export default function OrderJobTitleField({
         {displayError ? (
           <p
             id={errorId}
-            className={comfortable ? "text-sm text-red-500" : "text-xs text-red-500"}
+            className="text-dashboard-metadata text-red-500"
             role="alert"
           >
             {errorMessage}
           </p>
         ) : (
-          <span aria-hidden className="text-xs text-muted-light">
+          <span aria-hidden className="text-dashboard-metadata text-muted-light">
             &nbsp;
           </span>
         )}
         <span
-          className="text-[11px] tabular-nums text-muted-light flex-shrink-0"
+          className="flex-shrink-0 text-dashboard-metadata tabular-nums text-muted-light"
           aria-hidden
         >
           {trimmedLength}/{JOB_TITLE_MAX}

@@ -112,14 +112,14 @@ export default async function DashboardPage() {
               Welcome back, {welcomeName}
             </h1>
             {companyLine && (
-              <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              <p className="mt-1.5 text-dashboard-body text-muted">
                 {companyLine}
               </p>
             )}
           </div>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex min-h-11 flex-shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 flex-shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-dashboard-action font-bold text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <Plus className="h-4 w-4" aria-hidden />
             New Order

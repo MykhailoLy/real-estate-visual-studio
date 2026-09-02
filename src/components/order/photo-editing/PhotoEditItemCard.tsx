@@ -140,7 +140,7 @@ export default function PhotoEditItemCard({
           <label className="block text-sm font-medium text-foreground mb-2">
             Editing Options <span className="text-red-500">*</span>
           </label>
-          <p className="text-xs text-muted mb-3">
+          <p className="text-dashboard-body text-muted mb-3">
             Select all editing options needed for this photo.
           </p>
           <div className="space-y-1.5">
@@ -190,7 +190,7 @@ export default function PhotoEditItemCard({
             }
             placeholder="Describe any specific editing instructions for this photo..."
             rows={2}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full px-3 py-2.5 border border-border rounded-lg text-dashboard-mobile-control md:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
         </div>
 
@@ -199,7 +199,7 @@ export default function PhotoEditItemCard({
           <button
             type="button"
             onClick={onApplyToAll}
-            className="text-xs font-medium text-primary hover:text-primary-light underline transition-colors"
+            className="text-dashboard-action font-medium text-primary hover:text-primary-light underline transition-colors"
           >
             Apply above options to all remaining photos
           </button>

@@ -84,7 +84,7 @@ export default function DashboardActivityRail({
           <div className="border-b border-border px-4 py-4">
             <h2
               id="recently-completed-heading"
-              className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
+              className="text-dashboard-section font-bold text-primary lg:text-lg"
             >
               Recently completed
             </h2>
@@ -98,20 +98,26 @@ export default function DashboardActivityRail({
                     className="group flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2.5 transition-colors hover:bg-ivory focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary">
+                      <span
+                        data-dashboard-critical-title
+                        className="block line-clamp-2 break-words text-dashboard-action font-bold leading-snug text-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary"
+                      >
                         {job.title}
                       </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-muted">
+                      <span
+                        data-dashboard-metadata
+                        className="mt-0.5 block line-clamp-2 break-words text-dashboard-metadata text-muted"
+                      >
                         {job.serviceType} · {job.reference}
                       </span>
-                      <span className="mt-0.5 block text-[11px] text-muted">
+                      <span data-dashboard-metadata className="mt-0.5 block text-dashboard-metadata text-muted">
                         Submitted{" "}
                         <time dateTime={job.submittedDate}>
                           {formatCompactDate(job.submittedDate)}
                         </time>
                       </span>
                     </span>
-                    <span className="hidden items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition-colors group-hover:text-primary group-focus-visible:text-primary sm:inline-flex">
+                    <span className="hidden items-center gap-1 text-dashboard-action font-bold text-muted transition-colors group-hover:text-primary group-focus-visible:text-primary sm:inline-flex">
                       Open
                     </span>
                     <ArrowRight
@@ -123,14 +129,14 @@ export default function DashboardActivityRail({
               ))}
             </ul>
           ) : (
-            <p className="px-4 py-5 text-xs leading-relaxed text-muted">
+            <p className="px-4 py-5 text-dashboard-body text-muted">
               Completed orders will appear here for quick access.
             </p>
           )}
           <div className="border-t border-border px-3 py-2">
             <ClientPortalLink
               href="/dashboard/jobs"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               View all jobs
               <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -146,7 +152,7 @@ export default function DashboardActivityRail({
           <div className="border-b border-border px-4 py-4">
             <h2
               id="getting-started-heading"
-              className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+              className="text-dashboard-section font-bold text-primary lg:text-lg"
             >
               How to get started
             </h2>
@@ -159,17 +165,17 @@ export default function DashboardActivityRail({
                   key={step.label}
                   className="flex items-start gap-3 px-4 py-3"
                 >
-                  <span className="mt-1 font-mono text-xs font-bold tabular-nums text-secondary-dark">
+                  <span className="mt-1 font-mono text-dashboard-metadata font-bold tabular-nums text-secondary-dark">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-primary/5 text-primary">
                     <Icon className="h-3.5 w-3.5" aria-hidden />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-foreground">
+                    <span className="block text-dashboard-action font-semibold text-foreground">
                       {step.label}
                     </span>
-                    <span className="mt-0.5 block text-xs leading-relaxed text-muted">
+                    <span className="mt-0.5 block text-dashboard-body text-muted">
                       {step.description}
                     </span>
                   </span>

@@ -48,7 +48,7 @@ export default function DeliveryPreferences({
           <h2 className="text-lg font-semibold text-foreground leading-tight">
             Delivery Preferences
           </h2>
-          <p className="text-sm text-muted mt-0.5">
+          <p className="mt-0.5 text-dashboard-body text-muted">
             Optional preferences that apply to the whole order.
           </p>
         </div>
@@ -57,10 +57,10 @@ export default function DeliveryPreferences({
       <div className="space-y-4">
         {/* File Size Limit */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="mb-1.5 block text-dashboard-action font-medium text-foreground">
             File Size Limit (MLS and other online websites)
           </label>
-          <p className="text-xs text-muted mb-2">
+          <p className="mb-2 text-dashboard-body text-muted">
             Many listing portals cap individual file uploads. Pick a target if
             your portal has a strict limit.
           </p>
@@ -69,7 +69,7 @@ export default function DeliveryPreferences({
             onChange={(e) =>
               onChange({ ...data, fileSizeLimit: e.target.value })
             }
-            className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="">Please Select...</option>
             {FILE_SIZE_LIMIT_OPTIONS.map((opt) => (
@@ -82,10 +82,10 @@ export default function DeliveryPreferences({
 
         {/* Disclaimer Text */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="mb-1.5 block text-dashboard-action font-medium text-foreground">
             Your Disclaimer Text
           </label>
-          <p className="text-xs text-muted mb-2">
+          <p className="mb-2 text-dashboard-body text-muted">
             Optional text to include with delivered files or listing materials
             if required.
           </p>
@@ -97,7 +97,7 @@ export default function DeliveryPreferences({
             placeholder="Enter any required disclaimer text..."
             rows={3}
             maxLength={2000}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>

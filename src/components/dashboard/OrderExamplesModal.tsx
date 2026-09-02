@@ -103,11 +103,12 @@ export default function OrderExamplesModal({
           <div className="min-w-0">
             <h2
               id={headingId}
-              className="truncate text-lg font-bold text-white"
+              data-dashboard-critical-title
+              className="line-clamp-2 break-words text-lg font-bold text-white"
             >
               {title} examples
             </h2>
-            <p className="mt-0.5 text-xs text-white/60">
+            <p className="mt-0.5 text-dashboard-metadata text-white/70">
               {count} {count === 1 ? "example" : "examples"}
             </p>
           </div>

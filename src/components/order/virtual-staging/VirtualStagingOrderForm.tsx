@@ -2799,7 +2799,7 @@ export default function VirtualStagingOrderForm({
       <section className="py-16 bg-surface min-h-screen">
         <Container>
           <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            <p className="text-dashboard-metadata font-semibold uppercase tracking-[0.12em] text-muted">
               Virtual Staging
             </p>
             <h1 className="mt-2 text-xl font-semibold text-foreground">
@@ -2984,7 +2984,7 @@ export default function VirtualStagingOrderForm({
       ) : (
         <>
       {saveStatus === "saving" && (
-        <p role="status" className="text-xs font-medium text-muted">
+        <p role="status" className="text-dashboard-metadata font-medium text-muted">
           {copy.saving}
         </p>
       )}
@@ -3003,7 +3003,7 @@ export default function VirtualStagingOrderForm({
               type="button"
               onClick={() => void saveDraftNow({ force: true })}
               disabled={isSubmitting || hasActiveDraftFileOperation}
-              className="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-red-800 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               {copy.retry}
             </button>
@@ -3018,7 +3018,7 @@ export default function VirtualStagingOrderForm({
             type="button"
             onClick={handleRetryDraftFiles}
             disabled={hasFinalizationRetryContext}
-            className="inline-flex w-full items-center justify-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {copy.retryFiles}
           </button>
@@ -3032,7 +3032,7 @@ export default function VirtualStagingOrderForm({
             <button
               type="button"
               onClick={handleReloadLatestDraft}
-              className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-xs font-semibold text-white hover:bg-red-800"
+              className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-dashboard-action font-semibold text-white hover:bg-red-800"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               {copy.reloadLatest}
@@ -3044,7 +3044,7 @@ export default function VirtualStagingOrderForm({
                   copy.keepEditingActive,
                 )
               }
-              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-50"
+              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-red-800 hover:bg-red-50"
             >
               {copy.keepEditing}
             </button>
@@ -3079,7 +3079,7 @@ export default function VirtualStagingOrderForm({
           <button
             type="button"
             onClick={() => setSupportRecommendationNoticeVisible(false)}
-            className="inline-flex w-full items-center justify-center rounded-lg border border-primary/20 bg-white px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-primary/20 bg-white px-3 py-2 text-dashboard-action font-semibold text-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto"
           >
             {copy.supportRecommendationDismiss}
           </button>

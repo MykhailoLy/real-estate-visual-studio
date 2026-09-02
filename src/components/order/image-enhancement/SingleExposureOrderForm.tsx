@@ -1093,7 +1093,7 @@ export default function SingleExposureOrderForm({
         </div>
       ) : null}
 
-      <p className="text-xs text-muted" aria-live="polite">
+      <p className="text-dashboard-metadata text-muted" aria-live="polite">
         {saveStatus === "saving"
           ? "Saving draft..."
           : saveStatus === "saved"

@@ -48,7 +48,7 @@ export default function SelectorMediaTile({
           aria-hidden
         >
           <ImageIcon className="w-8 h-8" />
-          <span className="text-[11px] font-medium uppercase tracking-[0.15em]">
+          <span className="text-dashboard-metadata font-medium uppercase tracking-[0.08em]">
             Example coming soon
           </span>
         </div>

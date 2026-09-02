@@ -23,7 +23,7 @@ export default function VirtualRenovationOverview({
     <section className="bg-surface py-10 lg:py-16">
       <Container>
         <div className="max-w-3xl">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark">
+          <p className="mb-1.5 text-dashboard-kicker uppercase font-bold text-secondary-dark">
             New Order
           </p>
           <h1 className="text-3xl font-bold text-primary lg:text-4xl">
@@ -36,7 +36,7 @@ export default function VirtualRenovationOverview({
         </div>
 
         <div className="mt-9 space-y-10">
-          <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+          <h2 className="text-dashboard-section lg:text-lg font-bold text-primary">
             What we need
           </h2>
 
@@ -79,7 +79,7 @@ export default function VirtualRenovationOverview({
                         <h4 className="text-base font-semibold text-foreground">
                           {item.title}
                         </h4>
-                        <p className="mt-1.5 text-sm leading-6 text-muted">
+                        <p className="mt-1.5 text-dashboard-body text-muted">
                           {item.description}
                         </p>
                       </div>

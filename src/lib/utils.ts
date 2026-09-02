@@ -1,5 +1,21 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+// Register dashboard font sizes so cn() keeps them alongside text colors.
+const twMerge = extendTailwindMerge({
+  extend: {
+    theme: {
+      text: [
+        "dashboard-section",
+        "dashboard-body",
+        "dashboard-action",
+        "dashboard-metadata",
+        "dashboard-kicker",
+        "dashboard-mobile-control",
+      ],
+    },
+  },
+});
 
 /**
  * Merge Tailwind classes with clsx for conditional class names

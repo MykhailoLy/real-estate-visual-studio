@@ -92,7 +92,7 @@ export default function RemovalTaskSelector({
                 >
                   {task.label}
                 </span>
-                <span className="mt-0.5 block text-[12px] leading-snug text-muted">
+                <span className="mt-0.5 block text-dashboard-body text-muted">
                   {task.description}
                 </span>
               </span>
@@ -102,7 +102,7 @@ export default function RemovalTaskSelector({
       </div>
 
       {error && (
-        <p id={errorId} role="alert" className="mt-1.5 text-xs text-red-500">
+        <p id={errorId} role="alert" className="mt-1.5 text-dashboard-metadata text-red-500">
           Please select at least one task for this photo.
         </p>
       )}

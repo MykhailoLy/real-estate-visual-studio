@@ -230,7 +230,7 @@ export default function DeliverableReviewActions({
   return (
     <div className="flex flex-col gap-2">
       {status === "rework_delivered" && (
-        <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-2.5 py-1.5">
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-dashboard-metadata font-semibold text-purple-700">
           <Sparkles className="w-3 h-3 flex-shrink-0" aria-hidden />
           {getReviewStatusLabel("rework_delivered")}
         </div>
@@ -239,7 +239,7 @@ export default function DeliverableReviewActions({
       {badgeCfg && (
         <div className="flex flex-col gap-1">
           <span
-            className={`inline-flex items-center gap-1 text-[11px] font-semibold border rounded-full px-2.5 py-1 ${V[badgeCfg.variant]}`}
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-dashboard-metadata font-semibold ${V[badgeCfg.variant]}`}
           >
             {badgeCfg.icon}
             {badgeCfg.label}
@@ -247,7 +247,7 @@ export default function DeliverableReviewActions({
           {status === "rework_requested" && comment && (
             <div className="space-y-1">
               <p
-                className="text-[10px] text-muted leading-snug max-w-[200px] truncate"
+                className="line-clamp-2 max-w-sm break-words text-dashboard-body text-muted"
                 title={comment}
               >
                 <MessageSquare
@@ -257,7 +257,7 @@ export default function DeliverableReviewActions({
                 {comment}
               </p>
               {referenceFileCount !== null && referenceFileCount > 0 && (
-                <p className="inline-flex items-center gap-1 text-[10px] text-muted">
+                <p className="inline-flex items-center gap-1 text-dashboard-metadata text-muted">
                   <Paperclip className="w-2.5 h-2.5" aria-hidden />
                   {referenceFileCount} reference file
                   {referenceFileCount !== 1 ? "s" : ""}
@@ -280,7 +280,7 @@ export default function DeliverableReviewActions({
               setUploadWarning(null);
             }}
             disabled={loading !== null}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-60 ${
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-dashboard-action font-semibold transition-colors disabled:opacity-60 ${
               isCompact
                 ? "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
                 : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
@@ -291,7 +291,7 @@ export default function DeliverableReviewActions({
             Request rework
           </button>
           {!isCompact && (
-            <p className="text-[10px] text-muted leading-snug">
+            <p className="text-dashboard-body text-muted">
               Need changes? Request a rework for this file.
             </p>
           )}
@@ -300,7 +300,7 @@ export default function DeliverableReviewActions({
 
       {showForm && (
         <div className="border border-amber-200 bg-amber-50/60 rounded-xl p-3 space-y-2.5 w-full max-w-sm">
-          <p className="text-[11px] font-semibold text-foreground">
+          <p className="text-dashboard-action font-semibold text-foreground">
             Describe what needs to change:
           </p>
           <textarea
@@ -313,20 +313,20 @@ export default function DeliverableReviewActions({
             }}
             disabled={loading === "rework"}
             placeholder="e.g. The lighting feels too dark on the left side..."
-            className="w-full text-[12px] border border-border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 disabled:opacity-60 bg-white"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-dashboard-mobile-control md:text-sm resize-none focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/40 disabled:opacity-60"
             aria-label="Rework request comment"
           />
-          <span className="text-[10px] text-muted tabular-nums">
+          <span className="text-dashboard-metadata tabular-nums text-muted">
             {draft.length}/1000
           </span>
 
           <div className="rounded-lg border border-amber-200/70 bg-white/70 p-2.5 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-[11px] font-semibold text-foreground">
+                <p className="text-dashboard-action font-semibold text-foreground">
                   Attach reference files
                 </p>
-                <p className="text-[10px] text-muted leading-snug">
+                <p className="text-dashboard-metadata text-muted">
                   Optional images or PDFs, up to {REWORK_REFERENCES_MAX_FILES} files.
                 </p>
               </div>
@@ -342,7 +342,7 @@ export default function DeliverableReviewActions({
               />
               <label
                 htmlFor={`rework-reference-files-${deliverableId}`}
-                className="inline-flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-lg text-[11px] font-semibold text-foreground/70 hover:text-primary hover:border-primary/40 bg-white transition-colors"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
               >
                 <Paperclip className="w-3 h-3" aria-hidden />
                 Choose files
@@ -357,10 +357,10 @@ export default function DeliverableReviewActions({
                     className="flex items-center justify-between gap-2 rounded-md border border-border bg-white px-2 py-1.5"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-[11px] font-semibold text-foreground">
+                      <p className="truncate text-dashboard-metadata font-semibold text-foreground" title={file.name}>
                         {file.name}
                       </p>
-                      <p className="text-[10px] text-muted">
+                      <p className="text-dashboard-metadata text-muted">
                         {formatBytes(file.size)}
                       </p>
                     </div>
@@ -380,23 +380,23 @@ export default function DeliverableReviewActions({
           </div>
 
           {formError && (
-            <p className="flex items-center gap-1 text-[11px] text-red-600">
+            <p className="flex items-center gap-1 text-dashboard-metadata text-red-600">
               <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden />
               {formError}
             </p>
           )}
           {uploadStatus && (
-            <p className="flex items-center gap-1 text-[11px] text-amber-800">
+            <p className="flex items-center gap-1 text-dashboard-metadata text-amber-800">
               <Loader2 className="w-3 h-3 flex-shrink-0 animate-spin" aria-hidden />
               {uploadStatus}
             </p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleSubmitRework}
               disabled={loading === "rework"}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-[11px] font-semibold hover:bg-amber-700 transition-colors shadow-sm disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-dashboard-action font-semibold text-white shadow-sm transition-colors hover:bg-amber-700 disabled:opacity-60"
             >
               {loading === "rework" ? (
                 <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
@@ -409,7 +409,7 @@ export default function DeliverableReviewActions({
               type="button"
               onClick={resetForm}
               disabled={loading === "rework"}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-lg text-[11px] font-semibold text-foreground/60 hover:text-foreground bg-white transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-dashboard-action font-semibold text-foreground/60 transition-colors hover:text-foreground disabled:opacity-60"
             >
               <X className="w-3 h-3" aria-hidden />
               Cancel
@@ -419,13 +419,13 @@ export default function DeliverableReviewActions({
       )}
 
       {apiError && (
-        <p className="flex items-center gap-1 text-[11px] text-red-600 mt-0.5">
+        <p className="mt-0.5 flex items-center gap-1 text-dashboard-metadata text-red-600">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden />
           {apiError}
         </p>
       )}
       {uploadWarning && (
-        <p className="flex items-start gap-1 text-[11px] text-amber-700 mt-0.5 max-w-[240px] leading-snug">
+        <p className="mt-0.5 flex max-w-[240px] items-start gap-1 text-dashboard-metadata text-amber-700">
           <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" aria-hidden />
           {uploadWarning}
         </p>

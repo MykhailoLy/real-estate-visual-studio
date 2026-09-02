@@ -154,7 +154,7 @@ export default function FilePreviewCard({
             onClick={openPreview}
             disabled={!previewable}
             className={[
-              "block max-w-full break-words text-left text-[13px] font-semibold leading-snug text-foreground",
+              "block max-w-full break-words text-left text-[13px] font-semibold leading-snug text-foreground [[data-dashboard-scroll-container]_&]:text-dashboard-action",
               previewable ? "transition-colors hover:text-primary" : "cursor-default",
             ].join(" ")}
             title={filename}
@@ -163,17 +163,17 @@ export default function FilePreviewCard({
           </button>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
             {badgeLabel && (
-              <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+              <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] font-semibold text-primary [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
                 {badgeLabel}
               </span>
             )}
-            {fileSizeLabel && <span className="text-[11px] text-muted">{fileSizeLabel}</span>}
-            <span className="text-[11px] font-semibold text-foreground/70">{typeLabel}</span>
-            {!previewable && <span className="text-[11px] text-muted">Preview not available</span>}
+            {fileSizeLabel && <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{fileSizeLabel}</span>}
+            <span className="text-[11px] font-semibold text-foreground/70 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{typeLabel}</span>
+            {!previewable && <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">Preview not available</span>}
           </div>
           {meta && <div className="mt-2">{meta}</div>}
           {error && (
-            <p className="mt-2 flex items-center gap-1 text-[11px] text-red-600">
+            <p className="mt-2 flex items-center gap-1 text-[11px] text-red-600 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
               <AlertCircle className="h-3 w-3 flex-shrink-0" aria-hidden />
               {error}
             </p>
@@ -182,7 +182,7 @@ export default function FilePreviewCard({
             type="button"
             onClick={handleDownload}
             disabled={downloadLoading}
-            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-primary-light disabled:opacity-60"
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-primary-light disabled:opacity-60 [[data-dashboard-scroll-container]_&]:text-dashboard-action"
             title={`Download ${filename}`}
           >
             {downloadLoading ? (
@@ -225,7 +225,7 @@ export default function FilePreviewCard({
             onClick={openPreview}
             disabled={!previewable}
             className={[
-              "block text-left text-[13px] font-semibold text-foreground truncate",
+              "block text-left text-[13px] font-semibold text-foreground truncate [[data-dashboard-scroll-container]_&]:text-dashboard-action [[data-dashboard-scroll-container]_&]:max-w-full",
               previewable ? "hover:text-primary transition-colors" : "cursor-default",
             ].join(" ")}
             title={filename}
@@ -234,23 +234,23 @@ export default function FilePreviewCard({
           </button>
           <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
             {badgeLabel && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full border border-primary/15 bg-primary/8 text-[10px] font-semibold text-primary">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full border border-primary/15 bg-primary/8 text-[10px] font-semibold text-primary [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
                 {badgeLabel}
               </span>
             )}
             {fileSizeLabel && (
-              <span className="text-[11px] text-muted">{fileSizeLabel}</span>
+              <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{fileSizeLabel}</span>
             )}
-            <span className="text-[11px] font-semibold text-foreground/70">
+            <span className="text-[11px] font-semibold text-foreground/70 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
               {typeLabel}
             </span>
             {!previewable && (
-              <span className="text-[11px] text-muted">Preview not available</span>
+              <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">Preview not available</span>
             )}
           </div>
           {meta && <div className="mt-1">{meta}</div>}
           {error && (
-            <p className="mt-1.5 flex items-center gap-1 text-[11px] text-red-600">
+            <p className="mt-1.5 flex items-center gap-1 text-[11px] text-red-600 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
               <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden />
               {error}
             </p>
@@ -262,7 +262,7 @@ export default function FilePreviewCard({
             type="button"
             onClick={handleDownload}
             disabled={downloadLoading}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm disabled:opacity-60"
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm disabled:opacity-60 [[data-dashboard-scroll-container]_&]:text-dashboard-action"
             title={`Download ${filename}`}
           >
             {downloadLoading ? (
@@ -296,8 +296,8 @@ export default function FilePreviewCard({
           >
             <div className={`static-image-viewer-panel-header flex items-center justify-between gap-3 border-b px-4 py-3 ${previewKind === "image" ? "border-transparent bg-transparent text-white" : "border-border bg-surface/70"}`}>
               <div className="min-w-0">
-                <p className={`truncate text-[13px] font-bold ${previewKind === "image" ? "text-white" : "text-foreground"}`}>{filename}</p>
-                <p className={`text-[11px] ${previewKind === "image" ? "text-white/60" : "text-muted"}`}>{typeLabel} preview</p>
+                <p className={`truncate text-[13px] font-bold [[data-dashboard-scroll-container]_&]:text-dashboard-action ${previewKind === "image" ? "text-white" : "text-foreground"}`} title={filename}>{filename}</p>
+                <p className={`text-[11px] [[data-dashboard-scroll-container]_&]:text-dashboard-metadata ${previewKind === "image" ? "text-white/60" : "text-muted"}`}>{typeLabel} preview</p>
               </div>
               <button
                 type="button"
@@ -348,7 +348,7 @@ function PreviewSurface({
     return (
       <div className="w-full h-full flex flex-col items-center justify-center text-muted">
         <Loader2 className="w-5 h-5 animate-spin" aria-hidden />
-        <span className="mt-1 text-[10px] font-semibold">Loading</span>
+        <span className="mt-1 text-[10px] font-semibold [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">Loading</span>
       </div>
     );
   }
@@ -378,7 +378,7 @@ function PreviewSurface({
   return (
     <div className="w-full h-full flex flex-col items-center justify-center px-3 text-center">
       {icon}
-      <span className="mt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-foreground/70">
+      <span className="mt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-foreground/70 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
         {kind === "unsupported" ? "No preview" : getFileTypeLabel(filename)}
       </span>
     </div>

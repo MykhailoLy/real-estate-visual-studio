@@ -109,7 +109,7 @@ export default function ClientDashboardMobileNav({
         <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-primary-dark/40 bg-primary px-4">
           <div className="flex items-center gap-2">
             <span className="text-white font-bold text-[15px] tracking-tight">PicchuSpot</span>
-            <span className="inline-flex items-center px-1.5 py-0.5 bg-white/10 border border-white/15 rounded text-secondary text-[9px] font-bold uppercase tracking-[0.18em]">
+            <span className="inline-flex items-center rounded border border-white/15 bg-white/10 px-1.5 py-0.5 text-dashboard-kicker font-bold uppercase text-secondary">
               Portal
             </span>
           </div>
@@ -127,18 +127,18 @@ export default function ClientDashboardMobileNav({
         {/* Identity strip */}
         <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] font-bold text-white">{initials}</span>
+            <span className="text-xs font-bold text-white">{initials}</span>
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold leading-tight text-foreground">{user?.profileName || displayName}</p>
-            <p className="truncate text-xs text-muted">{email || "Not signed in"}</p>
+            <p className="line-clamp-2 break-words text-dashboard-action font-bold text-foreground">{user?.profileName || displayName}</p>
+            <p className="break-all text-dashboard-metadata text-muted">{email || "Not signed in"}</p>
           </div>
           {isLiveUser ? (
-            <span className="ml-auto flex-shrink-0 inline-flex items-center px-1.5 py-0.5 bg-emerald-50 border border-emerald-200/60 rounded text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-700">
+            <span className="ml-auto inline-flex flex-shrink-0 items-center rounded border border-emerald-200/60 bg-emerald-50 px-1.5 py-0.5 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-emerald-700">
               Live
             </span>
           ) : (
-            <span className="ml-auto flex-shrink-0 inline-flex items-center px-1.5 py-0.5 bg-amber-50 border border-amber-200/60 rounded text-[9px] font-bold uppercase tracking-[0.12em] text-amber-600">
+            <span className="ml-auto inline-flex flex-shrink-0 items-center rounded border border-amber-200/60 bg-amber-50 px-1.5 py-0.5 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-amber-700">
               Demo
             </span>
           )}
@@ -146,7 +146,7 @@ export default function ClientDashboardMobileNav({
 
         <div className="flex-1 overflow-y-auto">
           <nav aria-label="Dashboard navigation" className="space-y-0.5 px-2 py-3">
-            <p className="mb-1.5 select-none px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light">Menu</p>
+            <p className="mb-1.5 select-none px-3 text-dashboard-kicker font-bold uppercase text-muted-light">Menu</p>
             {DASHBOARD_NAV_ITEMS.map((item) => {
               const active = isActive(item.href, item.exact);
               const isNewOrder = item.href === "/dashboard/orders/new";
@@ -157,7 +157,7 @@ export default function ClientDashboardMobileNav({
                   onClick={onClose}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-dashboard-action font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     isNewOrder
                       ? cn(
                           "mt-1 border border-secondary/35 bg-secondary/15 text-secondary-dark hover:bg-secondary/25",
@@ -184,14 +184,14 @@ export default function ClientDashboardMobileNav({
 
           <div className="mx-4 border-t border-border" />
           <div className="px-4 py-4">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-light">
+            <p className="mb-2 text-dashboard-kicker font-bold uppercase text-muted-light">
               Market, currency & language
             </p>
             <MarketLanguageSelector
               pathname={pathname}
               currentLanguage={language}
               placement="panel"
-              className="w-full"
+              className="w-full [&>button>span]:text-dashboard-action"
               onNavigate={onClose}
               onLanguageChange={onLanguageChange}
               getLanguageOptionHref={() => pathname}
@@ -205,7 +205,7 @@ export default function ClientDashboardMobileNav({
           <ClientPortalLink
             href="/dashboard/profile"
             onClick={onClose}
-            className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-dashboard-action font-semibold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <User className="h-4 w-4 flex-shrink-0" aria-hidden />
             My Account
@@ -213,13 +213,13 @@ export default function ClientDashboardMobileNav({
           <Link
             href="/"
             onClick={onClose}
-            className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-dashboard-action font-semibold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ArrowUpRight className="w-4 h-4 flex-shrink-0" aria-hidden />
             Back to website
           </Link>
           <SignOutButton
-            className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+            className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-dashboard-action font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
           />
         </div>
       </div>

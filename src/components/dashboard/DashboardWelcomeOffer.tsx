@@ -32,11 +32,11 @@ export default function DashboardWelcomeOffer({
           <div>
             <h2
               id="dashboard-welcome-offer-heading"
-              className="text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+              className="text-dashboard-section font-bold text-secondary lg:text-lg"
             >
               Welcome Offer
             </h2>
-            <p className="mt-1 text-xs leading-relaxed text-white/75">
+            <p className="mt-1 text-dashboard-body text-white/75">
               Your available welcome benefits.
             </p>
           </div>
@@ -53,10 +53,10 @@ export default function DashboardWelcomeOffer({
                 className="h-4 w-4 flex-shrink-0 text-secondary"
                 aria-hidden
               />
-              <span className="min-w-0 flex-1 text-sm font-semibold text-white transition-colors group-hover:text-secondary group-focus-visible:text-secondary">
+              <span className="min-w-0 flex-1 text-dashboard-body font-semibold text-white transition-colors group-hover:text-secondary group-focus-visible:text-secondary">
                 {benefit.label}
               </span>
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-secondary">
+              <span className="inline-flex items-center gap-1 text-dashboard-action font-bold text-secondary">
                 Use offer
                 <ArrowRight
                   className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-focus-visible:translate-x-0.5"

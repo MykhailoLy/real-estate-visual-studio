@@ -74,7 +74,7 @@ function PortfolioPreview({
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             loading="lazy"
           />
-          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-[9px] font-bold uppercase tracking-[0.14em] text-white">
+          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-white">
             {beforeLabel}
           </span>
         </div>
@@ -87,7 +87,7 @@ function PortfolioPreview({
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             loading="lazy"
           />
-          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-[9px] font-bold uppercase tracking-[0.14em] text-white">
+          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-white">
             {afterLabel}
           </span>
         </div>
@@ -128,7 +128,7 @@ function FallbackVisual({ service }: { service: OrderServiceCardData }) {
         className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 via-surface to-secondary/10"
       >
         <Icon className="h-9 w-9 text-primary/60" />
-        <span className="px-4 text-center text-xs font-semibold tracking-wide text-primary/70">
+        <span className="px-4 text-center text-dashboard-action font-semibold text-primary/70">
           {service.title}
         </span>
       </div>
@@ -191,7 +191,7 @@ export default function OrderServiceCard({
         )}
 
         {service.badge && (
-          <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-primary/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm">
+          <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-primary/90 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.08em] text-white shadow-sm">
             {service.badge}
           </span>
         )}
@@ -202,7 +202,7 @@ export default function OrderServiceCard({
             onClick={() => setModalOpen(true)}
             aria-label={`View ${service.title} examples`}
             title="View examples"
-            className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-xs font-semibold text-primary shadow-sm backdrop-blur transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-dashboard-action font-semibold text-primary shadow-sm backdrop-blur transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <Images className="h-4 w-4" aria-hidden />
             <span className="hidden sm:inline">Examples</span>
@@ -212,8 +212,8 @@ export default function OrderServiceCard({
 
       {/* ── Body ── */}
       <div className="flex flex-1 flex-col p-5">
-        <h2 className="text-lg font-semibold text-foreground transition-colors group-hover:text-primary group-focus-within:text-primary">{service.title}</h2>
-        <p className="mt-1.5 line-clamp-3 flex-1 text-sm text-muted">
+        <h2 data-dashboard-critical-title className="text-lg font-semibold text-foreground transition-colors group-hover:text-primary group-focus-within:text-primary">{service.title}</h2>
+        <p className="mt-1.5 line-clamp-3 flex-1 text-dashboard-body text-muted">
           {service.description}
         </p>
 
@@ -221,14 +221,14 @@ export default function OrderServiceCard({
           <div className="min-w-0">
             <p
               className={cn(
-                "truncate text-sm font-semibold",
-                isDashboard ? "text-secondary" : "text-primary",
+                "line-clamp-2 break-words text-dashboard-body font-semibold",
+                isDashboard ? "text-secondary-dark" : "text-primary",
               )}
             >
               {getOrderServicePriceLabel(service, currency)}
             </p>
             {service.turnaroundLabel && (
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
+              <p data-dashboard-metadata className="mt-0.5 flex items-center gap-1 text-dashboard-metadata text-muted">
                 <Clock className="h-3 w-3" aria-hidden />
                 {service.turnaroundLabel}
               </p>
@@ -238,14 +238,14 @@ export default function OrderServiceCard({
           {isActive && !isDashboard ? (
             <ClientPortalLink
               href={service.route as string}
-              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-dashboard-action font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Start Order
               <ArrowRight className="h-4 w-4" aria-hidden />
             </ClientPortalLink>
           ) : !isActive ? (
             <span
-              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-stone-100 px-3.5 py-2 text-sm font-semibold text-muted"
+              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-stone-100 px-3.5 py-2 text-dashboard-action font-semibold text-muted"
               aria-disabled="true"
             >
               <Lock className="h-3.5 w-3.5" aria-hidden />

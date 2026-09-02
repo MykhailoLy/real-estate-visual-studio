@@ -276,18 +276,14 @@ export default function SavedDraftsSection({
           {isRail ? (
             <h2
               id={headingId}
-              className={cn(
-                panel
-                  ? "text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
-                  : "text-sm font-bold text-primary",
-              )}
+              className="text-dashboard-section font-bold text-primary lg:text-lg"
             >
               {resolvedHeading}
             </h2>
           ) : (
             <h2
               id={headingId}
-              className="text-lg font-bold leading-tight text-primary"
+              className="text-dashboard-section font-bold text-primary lg:text-lg"
             >
               {resolvedHeading}
             </h2>
@@ -295,8 +291,8 @@ export default function SavedDraftsSection({
           {resolvedHelper && (
             <p
               className={cn(
-                "text-muted",
-                isRail ? "mt-1 text-xs leading-relaxed" : "text-sm",
+                "text-dashboard-body text-muted",
+                isRail && "mt-1",
               )}
             >
               {resolvedHelper}
@@ -309,8 +305,8 @@ export default function SavedDraftsSection({
             className={cn(
               "inline-flex min-h-11 w-fit flex-shrink-0 items-center rounded-lg font-bold text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
               isRail
-                ? "px-2 text-xs hover:bg-surface"
-                : "border border-primary/20 bg-white px-3.5 py-2 text-sm hover:bg-primary hover:text-white",
+                ? "px-2 text-dashboard-action hover:bg-surface"
+                : "border border-primary/20 bg-white px-3.5 py-2 text-dashboard-action hover:bg-primary hover:text-white",
             )}
           >
             {copy.viewAll}
@@ -324,7 +320,7 @@ export default function SavedDraftsSection({
       {deletion.statusMessage && (
         <p
           className={cn(
-            "text-sm font-medium text-muted",
+            "text-dashboard-body font-medium text-muted",
             panel
               ? "border-b border-border px-4 py-3"
               : "mb-3 rounded-lg border border-border bg-white p-3",
@@ -362,11 +358,11 @@ export default function SavedDraftsSection({
               : "flex-col rounded-lg border border-border bg-white p-4 sm:flex-row sm:items-center sm:justify-between",
           )}
         >
-          <p className="text-sm font-medium text-muted">{copy.error}</p>
+          <p className="text-dashboard-body font-medium text-muted">{copy.error}</p>
           <button
             type="button"
             onClick={retry}
-            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <RotateCcw className="h-4 w-4" aria-hidden />
             {copy.retry}
@@ -377,7 +373,7 @@ export default function SavedDraftsSection({
       {visibleLoadState === "success" && visibleDrafts.length === 0 && isRail && (
         <p
           className={cn(
-            "bg-surface text-xs leading-relaxed text-muted",
+            "bg-surface text-dashboard-body text-muted",
             panel ? "px-4 py-5" : "rounded-lg p-3",
           )}
         >
@@ -415,7 +411,7 @@ export default function SavedDraftsSection({
         <div className="border-t border-border px-3 py-2">
           <ClientPortalLink
             href="/dashboard/drafts"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {copy.viewAll}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -428,7 +424,7 @@ export default function SavedDraftsSection({
       {deletion.toastMessage && (
         <div
           role="status"
-          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
+          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-primary px-4 py-2 text-dashboard-action font-semibold text-white shadow-lg"
         >
           {deletion.toastMessage}
         </div>
@@ -494,20 +490,26 @@ function SavedDraftItem({
                 className="dashboard-pointer-hover group flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2 transition-colors active:bg-ivory focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="dashboard-pointer-hover-title block truncate text-sm font-bold leading-snug text-foreground transition-colors group-focus-visible:text-primary">
+                  <span
+                    data-dashboard-critical-title
+                    className="dashboard-pointer-hover-title block line-clamp-2 break-words text-dashboard-action font-bold leading-snug text-foreground transition-colors group-focus-visible:text-primary"
+                  >
                     {title}
                   </span>
-                  <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-muted">
-                    <span className="max-w-[45%] truncate font-medium text-primary">
+                  <span
+                    data-dashboard-metadata
+                    className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-dashboard-metadata text-muted"
+                  >
+                    <span className="break-words font-medium text-primary">
                       {serviceName}
                     </span>
                     <span aria-hidden>·</span>
-                    <span className="min-w-0 truncate">
+                    <span className="min-w-0 break-words">
                       {copy.updated} {updatedAt}
                     </span>
                   </span>
                 </span>
-                <span className="hidden items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition-colors group-focus-visible:text-primary sm:inline-flex">
+                <span className="hidden items-center gap-1 text-dashboard-action font-bold text-muted transition-colors group-focus-visible:text-primary sm:inline-flex">
                   {actionLabel}
                 </span>
                 <ArrowRight
@@ -517,10 +519,16 @@ function SavedDraftItem({
               </ClientPortalLink>
             ) : (
               <div className="min-h-11 min-w-0 flex-1 px-2 py-1">
-                <p className="truncate text-sm font-bold leading-snug text-foreground">
+                <p
+                  data-dashboard-critical-title
+                  className="line-clamp-2 break-words text-dashboard-action font-bold leading-snug text-foreground"
+                >
                   {title}
                 </p>
-                <p className="mt-0.5 truncate text-[11px] text-muted">
+                <p
+                  data-dashboard-metadata
+                  className="mt-0.5 break-words text-dashboard-metadata text-muted"
+                >
                   {serviceName} · {copy.updated} {updatedAt}
                 </p>
               </div>
@@ -539,7 +547,7 @@ function SavedDraftItem({
             )}
           </div>
           {error && (
-            <p aria-live="polite" className="mt-2 text-xs font-medium text-red-700">
+            <p aria-live="polite" className="mt-2 text-dashboard-body font-medium text-red-700">
               {error}
             </p>
           )}
@@ -557,7 +565,7 @@ function SavedDraftItem({
             <div className="mb-3 flex items-center justify-between gap-3">
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase",
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em]",
                   isFinishing
                     ? "bg-amber-100 text-amber-800"
                     : "bg-secondary/10 text-secondary-dark",
@@ -567,26 +575,26 @@ function SavedDraftItem({
                 {badgeLabel}
               </span>
             </div>
-            <h3 className="line-clamp-2 text-base font-bold text-foreground">
+            <h3 data-dashboard-critical-title className="line-clamp-2 break-words text-base font-bold text-foreground">
               {title}
             </h3>
-            <p className="mt-1 text-sm font-medium text-primary">
+            <p className="mt-1 break-words text-dashboard-action font-medium text-primary">
               {serviceName}
             </p>
             {draft.finalization && (
-              <p className="mt-1 text-xs font-medium text-muted">
+              <p data-dashboard-metadata className="mt-1 text-dashboard-metadata font-medium text-muted">
                 {copy.order}: {draft.finalization.orderNumber}
               </p>
             )}
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
-              <Clock3 className="h-3.5 w-3.5" aria-hidden />
+            <p data-dashboard-metadata className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-dashboard-metadata text-muted">
+              <Clock3 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
               <span className="font-semibold">{copy.updated}</span>
               <span>{updatedAt}</span>
             </p>
             {resumeUrl && (
               <ClientPortalLink
                 href={resumeUrl}
-                className="mt-4 inline-flex w-fit items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="mt-4 inline-flex w-fit items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {actionLabel}
               </ClientPortalLink>

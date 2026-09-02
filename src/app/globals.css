@@ -119,6 +119,22 @@
   --text-public-lead: 1.125rem;
   --text-public-lead--line-height: 1.8125rem;
 
+  /* Dashboard typography — compact, readable roles for the client workspace. */
+  --text-dashboard-section: 1rem;
+  --text-dashboard-section--line-height: 1.5rem;
+  --text-dashboard-section--letter-spacing: 0.03em;
+  --text-dashboard-body: 0.9375rem;
+  --text-dashboard-body--line-height: 1.5rem;
+  --text-dashboard-action: 0.875rem;
+  --text-dashboard-action--line-height: 1.25rem;
+  --text-dashboard-metadata: 0.8125rem;
+  --text-dashboard-metadata--line-height: 1.25rem;
+  --text-dashboard-kicker: 0.8125rem;
+  --text-dashboard-kicker--line-height: 1.25rem;
+  --text-dashboard-kicker--letter-spacing: 0.08em;
+  --text-dashboard-mobile-control: 1rem;
+  --text-dashboard-mobile-control--line-height: 1.5rem;
+
   /* Named wide-view breakpoints sort after Tailwind's standard screens.
      Use these rather than arbitrary min variants where a larger layout must
      override sm/xl/2xl utilities at the same specificity. */

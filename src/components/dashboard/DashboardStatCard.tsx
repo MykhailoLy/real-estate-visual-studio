@@ -49,7 +49,7 @@ export default function DashboardStatCard({
         />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light mb-1 leading-none">
+        <p className="mb-1 text-dashboard-kicker font-bold uppercase text-muted-light">
           {label}
         </p>
         <p
@@ -63,7 +63,7 @@ export default function DashboardStatCard({
         {note && (
           <p
             className={cn(
-              "text-[11px] text-muted mt-1.5 leading-snug",
+              "mt-1.5 text-dashboard-metadata text-muted",
               compact && "hidden sm:block",
             )}
           >

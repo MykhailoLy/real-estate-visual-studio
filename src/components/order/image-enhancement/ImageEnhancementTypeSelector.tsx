@@ -31,7 +31,7 @@ export default async function ImageEnhancementTypeSelector() {
     <section className="py-10 lg:py-16 bg-surface min-h-screen">
       <Container>
         <div className="mb-8 max-w-2xl">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-1.5">
+          <p className="mb-1.5 text-dashboard-kicker uppercase font-bold text-secondary-dark">
             New Order
           </p>
           <h1 className="text-3xl lg:text-4xl font-bold text-primary mb-2">
@@ -65,7 +65,7 @@ export default async function ImageEnhancementTypeSelector() {
                       {type.title}
                     </h2>
                     {!isActive && (
-                      <span className="inline-flex items-center gap-1 flex-shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700">
+                      <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-amber-700">
                         <Lock className="w-3 h-3" aria-hidden />
                         Coming Soon
                       </span>
@@ -76,7 +76,7 @@ export default async function ImageEnhancementTypeSelector() {
                     {type.description}
                   </p>
 
-                  <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-lg bg-primary/5 border border-primary/10 px-3 py-1.5 text-[12px] font-semibold text-primary">
+                  <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-3 py-1.5 text-dashboard-metadata font-semibold text-primary">
                     {type.relationship}
                   </div>
 
@@ -97,7 +97,7 @@ export default async function ImageEnhancementTypeSelector() {
                     </span>
 
                     {isActive ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-white transition-colors group-hover:bg-primary-light">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-dashboard-action font-semibold text-white transition-colors group-hover:bg-primary-light">
                         {type.ctaLabel}
                         <ArrowRight className="w-4 h-4" aria-hidden />
                       </span>
@@ -106,7 +106,7 @@ export default async function ImageEnhancementTypeSelector() {
                         type="button"
                         disabled
                         aria-disabled="true"
-                        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2.5 text-[13px] font-semibold text-muted-light"
+                        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2.5 text-dashboard-action font-semibold text-muted-light"
                       >
                         {type.ctaLabel}
                       </button>
@@ -145,7 +145,7 @@ export default async function ImageEnhancementTypeSelector() {
           })}
         </div>
 
-        <p className="mt-6 text-[12px] text-muted-light max-w-2xl">
+        <p className="mt-6 max-w-2xl text-dashboard-body text-muted-light">
           HDR / Bracketed Images pricing is being finalised. Once confirmed,
           you&apos;ll be able to upload multiple exposures per final image.
         </p>

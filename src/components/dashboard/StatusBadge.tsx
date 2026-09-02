@@ -68,8 +68,8 @@ export default function StatusBadge({ status, compact = false, className }: Stat
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full font-semibold border whitespace-nowrap",
-        compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
+        "inline-flex max-w-full items-center gap-1.5 rounded-full border font-semibold whitespace-normal",
+        compact ? "px-2 py-0.5 text-dashboard-metadata" : "px-2.5 py-1 text-dashboard-metadata",
         c.bg,
         c.text,
         c.border,

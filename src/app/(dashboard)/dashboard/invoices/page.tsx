@@ -67,7 +67,7 @@ function StatusPill({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-dashboard-metadata font-semibold whitespace-nowrap",
         config.className,
       )}
     >
@@ -94,7 +94,7 @@ function SummaryCard({
     <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light mb-1">
+          <p className="text-dashboard-kicker font-bold uppercase text-muted-light mb-1">
             {label}
           </p>
           <p className="text-2xl font-bold text-foreground tabular-nums">
@@ -105,7 +105,7 @@ function SummaryCard({
           <Icon className={cn("h-4 w-4", iconClassName)} aria-hidden />
         </div>
       </div>
-      <p className="text-[11px] text-muted mt-2">{note}</p>
+      <p className="text-dashboard-metadata text-muted mt-2">{note}</p>
     </div>
   );
 }
@@ -121,15 +121,15 @@ function InvoiceOrderCard({ order }: { order: ClientOrder }) {
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-bold text-foreground text-sm leading-snug">
+              <h2 className="font-bold text-foreground text-dashboard-action">
                 {order.order_number}
               </h2>
               <StatusPill status={order.status} />
             </div>
-            <p className="text-[13px] text-muted mt-1">
+            <p className="text-dashboard-metadata text-muted mt-1">
               {getServiceLabel(order.service_type)}
             </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-muted">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-dashboard-metadata text-muted">
               <span className="inline-flex items-center gap-1">
                 <CalendarDays className="w-3 h-3" aria-hidden />
                 {formatDate(order.created_at)}
@@ -142,7 +142,7 @@ function InvoiceOrderCard({ order }: { order: ClientOrder }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-[minmax(140px,1fr)_auto_auto] lg:grid-cols-[150px_auto_auto] gap-3 sm:items-center">
           <div className="rounded-lg bg-surface border border-border px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+            <p className="text-dashboard-kicker font-bold uppercase text-muted-light">
               Estimated total
             </p>
             <p className="text-sm font-bold text-foreground tabular-nums mt-0.5">
@@ -155,7 +155,7 @@ function InvoiceOrderCard({ order }: { order: ClientOrder }) {
 
           <ClientPortalLink
             href={`/dashboard/jobs/${order.id}`}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12px] font-bold text-white hover:bg-primary-light transition-colors"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-dashboard-action font-bold text-white hover:bg-primary-light transition-colors"
           >
             View order
             <ArrowRight className="w-3.5 h-3.5" aria-hidden />
@@ -166,7 +166,7 @@ function InvoiceOrderCard({ order }: { order: ClientOrder }) {
             disabled
             aria-disabled="true"
             title="Official downloadable invoices will be available here later."
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[12px] font-semibold text-muted-light cursor-not-allowed bg-white"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-dashboard-action font-semibold text-muted-light cursor-not-allowed bg-white"
           >
             <Download className="w-3.5 h-3.5" aria-hidden />
             Coming soon
@@ -209,7 +209,7 @@ export default async function DashboardInvoicesPage() {
   return (
     <ClientDashboardLayout>
       <div className="mb-7">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-1.5">
+        <p className="text-dashboard-kicker font-bold uppercase text-secondary-dark mb-1.5">
           Client Portal
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -217,16 +217,16 @@ export default async function DashboardInvoicesPage() {
             <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
               Invoices
             </h1>
-            <p className="text-muted mt-1 text-sm">
+            <p className="text-dashboard-body text-muted mt-1 md:text-base">
               View billing summaries for your PicchuSpot orders.
             </p>
-            <p className="text-[12px] text-muted-light mt-1">
+            <p className="text-dashboard-metadata text-muted-light mt-1">
               Official downloadable invoices will be available here later.
             </p>
           </div>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-dashboard-action font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             New Order
@@ -238,10 +238,10 @@ export default async function DashboardInvoicesPage() {
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-dashboard-body font-semibold text-amber-800">
               Sign in to view billing summaries.
             </p>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-dashboard-metadata text-amber-700 mt-1">
               Your order summaries are loaded from your authenticated client account.
             </p>
           </div>
@@ -252,10 +252,10 @@ export default async function DashboardInvoicesPage() {
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-dashboard-body font-semibold text-amber-800">
               Billing summaries are temporarily unavailable.
             </p>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-dashboard-metadata text-amber-700 mt-1">
               Please check back shortly or contact support if you need an order summary.
             </p>
           </div>
@@ -305,13 +305,13 @@ export default async function DashboardInvoicesPage() {
             <Receipt className="w-5 h-5 text-primary" aria-hidden />
           </div>
           <h2 className="text-lg font-bold text-foreground">No invoices yet</h2>
-          <p className="text-sm text-muted leading-relaxed max-w-md mx-auto mt-2">
+          <p className="text-dashboard-body text-muted max-w-md mx-auto mt-2">
             Billing summaries will appear here after orders are placed. They are
             read-only summaries for now, not official tax invoices.
           </p>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
+            className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-dashboard-action font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             Place an order
@@ -320,10 +320,10 @@ export default async function DashboardInvoicesPage() {
       )}
 
       <div className="bg-surface border border-border rounded-xl p-5">
-        <p className="text-[13px] font-semibold text-foreground mb-1">
+        <p className="text-dashboard-action font-semibold text-foreground mb-1">
           Billing portal coming later
         </p>
-        <p className="text-xs text-muted leading-relaxed">
+        <p className="text-dashboard-body text-muted">
           This page currently shows read-only order billing summaries. Official
           downloadable invoices, tax details, and payment history will be added
           when the payment system is connected.

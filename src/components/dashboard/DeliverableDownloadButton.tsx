@@ -75,7 +75,7 @@ export default function DeliverableDownloadButton({ deliverableId, filename }: P
         type="button"
         onClick={handleDownload}
         disabled={loading}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-[12px] font-semibold hover:bg-primary-light transition-colors shadow-sm disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-dashboard-action font-semibold text-white shadow-sm transition-colors hover:bg-primary-light disabled:opacity-60"
         title={`Download ${filename}`}
       >
         {loading
@@ -84,7 +84,7 @@ export default function DeliverableDownloadButton({ deliverableId, filename }: P
         }
       </button>
       {error && (
-        <p className="flex items-center gap-1 text-[11px] text-red-600">
+        <p className="flex items-center gap-1 text-dashboard-metadata text-red-600">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden />
           {error}
         </p>

@@ -23,7 +23,7 @@ export default function ClientJobsStatusFilters({
     >
       <h3
         id="jobs-status-filters-title"
-        className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-secondary"
+        className="mb-2 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark"
       >
         Filter jobs by status
       </h3>
@@ -43,7 +43,7 @@ export default function ClientJobsStatusFilters({
               aria-pressed={active}
               onClick={() => onStatusFilter(filter.value)}
               className={cn(
-                "inline-flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                "inline-flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-dashboard-action font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                 active
                   ? "border-primary bg-primary text-white shadow-sm"
                   : "border-border bg-white text-foreground/70 hover:border-primary/40 hover:text-primary",

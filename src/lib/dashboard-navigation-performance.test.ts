@@ -12,6 +12,7 @@ import {
   safeDashboardRequestPath,
 } from "./dashboard-request-path.ts";
 import { getOrderServiceCatalog } from "./order-service-catalog.ts";
+import { cn } from "./utils.ts";
 import {
   filterDashboardJobs,
   getDistinctJobSecondaryLabel,
@@ -67,6 +68,22 @@ function makeDashboardJob(
     ...overrides,
   };
 }
+
+test("dashboard font utilities survive cn colors and retain font-size override behavior", () => {
+  for (const size of [
+    "dashboard-section",
+    "dashboard-body",
+    "dashboard-action",
+    "dashboard-metadata",
+    "dashboard-kicker",
+    "dashboard-mobile-control",
+  ]) {
+    const utility = `text-${size}`;
+    assert.equal(cn("text-sm", utility, "text-muted"), `${utility} text-muted`);
+    assert.equal(cn(utility, "text-muted", "md:text-sm"), `${utility} text-muted md:text-sm`);
+    assert.equal(cn(utility, "text-muted", "text-base", "text-primary"), "text-base text-primary");
+  }
+});
 
 test("proxy matcher and pass-through exclude public auth pages from Supabase work", () => {
   const proxySource = source("proxy.ts");
@@ -495,11 +512,11 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
   assert.match(welcomeOfferSource, /Use offer/);
   assert.match(
     savedDraftsSource,
-    /text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary/,
+    /text-dashboard-section font-bold text-primary lg:text-lg/,
   );
   assert.match(
     railSource,
-    /id="recently-completed-heading"\s*className="text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary"/,
+    /id="recently-completed-heading"\s*className="text-dashboard-section font-bold text-primary lg:text-lg"/,
   );
 
   assert.match(savedDraftsSource, /data-dashboard-section=\{panel/);
@@ -551,7 +568,7 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(quickStartSource, /layout="dashboard"/);
   assert.match(
     quickStartSource,
-    /text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary/,
+    /text-dashboard-section font-bold text-primary lg:text-lg/,
   );
   assert.match(quickStartSource, /href="\/dashboard\/orders\/new"/);
   assert.match(
@@ -567,7 +584,7 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(globalsSource, /--breakpoint-5xl: 150rem/);
   assert.match(globalsSource, /--breakpoint-6xl: 200rem/);
   assert.match(serviceCardSource, /getOrderServicePriceLabel\(service, currency\)/);
-  assert.match(serviceCardSource, /isDashboard \? "text-secondary" : "text-primary"/);
+  assert.match(serviceCardSource, /isDashboard \? "text-secondary-dark" : "text-primary"/);
   assert.match(priceLabelSource, /getCatalogPrice\(service\.priceKey, currency\)/);
   assert.match(serviceCardSource, /const isDashboard = layout === "dashboard"/);
   assert.match(serviceCardSource, /isDashboard && isActive/);
@@ -590,7 +607,7 @@ test("dashboard services are registry-driven and portfolio-enriched", () => {
   assert.match(mobileSelectorSource, /getOrderServicePriceLabel\(service, currency\)/);
   assert.match(
     mobileSelectorSource,
-    /text-\[11px\] font-bold uppercase tracking-\[0\.18em\] text-secondary/,
+    /text-dashboard-section font-bold text-primary/,
   );
   assert.match(mobileSelectorSource, /services\.map/);
   assert.match(mobileSelectorSource, /href=\{service\.route\}/);
@@ -797,7 +814,10 @@ test("Jobs uses one status controller and distinct mobile and desktop results", 
   assert.equal(tableSource.match(/<JobSecondaryLabel/g)?.length, 1);
   assert.doesNotMatch(tableSource, /\{job\.secondaryLabel && \(/);
   assert.match(tableSource, /hidden[\s\S]*?lg:block/);
-  assert.match(tableSource, /min-w-\[1200px\] w-full table-fixed text-sm/);
+  assert.match(
+    tableSource,
+    /min-w-\[1200px\] w-full table-fixed text-dashboard-action/,
+  );
   assert.match(tableSource, /<col className="w-\[18%\]" \/>/);
   assert.match(tableSource, /<col className="w-\[11%\]" \/>/);
   assert.match(tableSource, />\s*Job title\s*</);

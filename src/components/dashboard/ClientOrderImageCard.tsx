@@ -145,7 +145,7 @@ export default function ClientOrderImageCard({
 
       {referenceSources.length > 0 && (
         <div className="mt-5 border-t border-border pt-5">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+          <p className="mb-2 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted">
             Reference files
           </p>
           <ul className="divide-y divide-border">
@@ -186,12 +186,12 @@ export default function ClientOrderImageCard({
                 meta={
                   <div className="space-y-1">
                     {isReplacement && (
-                      <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
+                      <span className="inline-flex rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-dashboard-metadata font-semibold text-purple-700">
                         New version
                       </span>
                     )}
                     {previousFilename && (
-                      <p className="text-[10px] text-muted">Replaces {previousFilename}</p>
+                      <p className="text-dashboard-metadata text-muted">Replaces {previousFilename}</p>
                     )}
                   </div>
                 }
@@ -219,17 +219,17 @@ export default function ClientOrderImageCard({
     <article className="overflow-hidden rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h3 className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary">
+          <h3 className="text-dashboard-action font-bold uppercase tracking-[0.08em] text-primary">
             Image {imageNumber} of {imageCount}
           </h3>
           {subtotalLabel && (
-            <p className="mt-1 text-[12px] font-semibold tabular-nums text-muted">
+            <p className="mt-1 text-dashboard-metadata font-semibold tabular-nums text-muted">
               Subtotal · {subtotalLabel}
             </p>
           )}
         </div>
         <span
-          className={`inline-flex self-start items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold sm:self-center ${statusConfig.className}`}
+          className={`inline-flex self-start items-center gap-1.5 rounded-full border px-2.5 py-1 text-dashboard-metadata font-semibold sm:self-center ${statusConfig.className}`}
         >
           {statusConfig.icon}
           {statusConfig.label}
@@ -258,7 +258,7 @@ export default function ClientOrderImageCard({
 
         {COMMENT_STATUSES.has(status) && latestComment && (
           <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3">
-            <p className="flex items-start gap-2 text-[13px] leading-relaxed text-amber-900">
+            <p className="flex items-start gap-2 text-dashboard-body text-amber-900">
               <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />
               <span>
                 <span className="font-semibold">Latest rework note:</span> {latestComment}
@@ -290,10 +290,10 @@ function PreferencesPanel({
 }) {
   return (
     <section className={`min-w-0 ${className}`} aria-label="Editing preferences">
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">Edit</p>
+      <p className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted">Edit</p>
       <p className="mt-1 text-[14px] font-semibold leading-snug text-foreground">{editLabel}</p>
       <details open className="group mt-5 border-t border-border pt-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-dashboard-action font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
           Preferences / options
           <ChevronDown
             className="h-4 w-4 flex-shrink-0 text-muted transition-transform group-open:rotate-180"
@@ -321,8 +321,8 @@ function CompletedReworkArea({
 }) {
   return (
     <section aria-label={`Request changes for ${filename}`}>
-      <p className="text-[13px] font-semibold text-foreground">Need any changes?</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+      <p className="text-dashboard-action font-semibold text-foreground">Need any changes?</p>
+      <p className="mt-1 text-dashboard-body text-muted">
         Request adjustments to the delivered result.
       </p>
       <div className="mt-3">
@@ -342,8 +342,8 @@ function SourcePlaceholder() {
   return (
     <div className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface/60 px-4 py-5 text-center">
       <FileImage className="h-8 w-8 text-muted-light" aria-hidden />
-      <p className="mt-2 text-[13px] font-semibold text-foreground">Original uploaded file</p>
-      <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-muted">Preview coming soon</p>
+      <p className="mt-2 text-dashboard-action font-semibold text-foreground">Original uploaded file</p>
+      <p className="mt-1 max-w-xs text-dashboard-body text-muted">Preview coming soon</p>
     </div>
   );
 }
@@ -352,8 +352,8 @@ function DeliveredPlaceholder() {
   return (
     <div className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-lg border border-blue-100 bg-blue-50/60 px-5 py-6 text-center">
       <Clock className="h-7 w-7 text-blue-600/80" aria-hidden />
-      <p className="mt-2 text-[13px] font-semibold text-blue-900">Awaiting delivery</p>
-      <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-blue-800/75">
+      <p className="mt-2 text-dashboard-action font-semibold text-blue-900">Awaiting delivery</p>
+      <p className="mt-1 max-w-xs text-dashboard-body text-blue-800/75">
         The finished file for this image will appear here when it is ready.
       </p>
     </div>
@@ -369,7 +369,7 @@ function WorkflowPanel({
 }) {
   return (
     <section className="min-w-0">
-      <h4 className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+      <h4 className="mb-2 text-dashboard-action font-bold uppercase tracking-[0.06em] text-muted">
         {title}
       </h4>
       {children}

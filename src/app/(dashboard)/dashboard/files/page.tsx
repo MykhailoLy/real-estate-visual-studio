@@ -50,7 +50,7 @@ function SummaryCard({
     <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-light mb-1">
+          <p className="text-dashboard-kicker font-bold uppercase text-muted-light mb-1">
             {label}
           </p>
           <p className="text-2xl font-bold text-foreground tabular-nums">
@@ -61,7 +61,7 @@ function SummaryCard({
           <Icon className={cn("h-4 w-4", iconClassName)} aria-hidden />
         </div>
       </div>
-      <p className="text-[11px] text-muted mt-2">{note}</p>
+      <p className="text-dashboard-metadata text-muted mt-2">{note}</p>
     </div>
   );
 }
@@ -70,7 +70,7 @@ function ViewOrderAction({ orderId }: { orderId: string }) {
   return (
     <ClientPortalLink
       href={`/dashboard/jobs/${orderId}`}
-      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[12px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
+      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-dashboard-action font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
     >
       View order
       <ArrowRight className="w-3.5 h-3.5" aria-hidden />
@@ -92,16 +92,16 @@ function FileMeta({
   status: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-dashboard-metadata text-muted">
       <span className="font-mono bg-surface px-1.5 py-0.5 rounded">
         {orderNumber}
       </span>
-      <span className="max-w-[180px] truncate" title={serviceLabel}>
+      <span className="line-clamp-2 break-words" title={serviceLabel}>
         {serviceLabel}
       </span>
       <span>{item}</span>
       <span>{dateLabel}</span>
-      <span className="inline-flex items-center rounded-full border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
+      <span className="inline-flex items-center rounded-full border border-border bg-surface px-1.5 py-0.5 text-dashboard-metadata font-semibold text-foreground/70">
         {getOrderStatusLabel(status)}
       </span>
     </div>
@@ -171,8 +171,8 @@ function SectionEmptyState({
 }) {
   return (
     <div className="bg-white border border-dashed border-border rounded-xl p-6 text-center">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="text-xs text-muted leading-relaxed mt-1 max-w-md mx-auto">
+      <p className="text-dashboard-action font-semibold text-foreground">{title}</p>
+      <p className="text-dashboard-body text-muted mt-1 max-w-md mx-auto">
         {body}
       </p>
     </div>
@@ -209,7 +209,7 @@ export default async function DashboardFilesPage() {
   return (
     <ClientDashboardLayout>
       <div className="mb-7">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-1.5">
+        <p className="text-dashboard-kicker font-bold uppercase text-secondary-dark mb-1.5">
           Client Portal
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -217,13 +217,13 @@ export default async function DashboardFilesPage() {
             <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
               Files
             </h1>
-            <p className="text-muted mt-1 text-sm">
+            <p className="text-dashboard-body text-muted mt-1 md:text-base">
               Access your uploaded originals and delivered files across all orders.
             </p>
           </div>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-dashboard-action font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             New Order
@@ -235,10 +235,10 @@ export default async function DashboardFilesPage() {
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-dashboard-body font-semibold text-amber-800">
               Sign in to view your files.
             </p>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-dashboard-metadata text-amber-700 mt-1">
               Files are loaded from your authenticated client account.
             </p>
           </div>
@@ -249,10 +249,10 @@ export default async function DashboardFilesPage() {
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-dashboard-body font-semibold text-amber-800">
               Files are temporarily unavailable.
             </p>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-dashboard-metadata text-amber-700 mt-1">
               Please check back shortly or contact support if you need a file link.
             </p>
           </div>
@@ -296,13 +296,13 @@ export default async function DashboardFilesPage() {
             <FolderOpen className="w-5 h-5 text-primary" aria-hidden />
           </div>
           <h2 className="text-lg font-bold text-foreground">No files yet</h2>
-          <p className="text-sm text-muted leading-relaxed max-w-md mx-auto mt-2">
+          <p className="text-dashboard-body text-muted max-w-md mx-auto mt-2">
             Files will appear here after you place an order or receive completed
             deliverables from the PicchuSpot team.
           </p>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
+            className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-dashboard-action font-bold hover:bg-primary-light transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" aria-hidden />
             Place an order
@@ -315,15 +315,15 @@ export default async function DashboardFilesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <FileImage className="w-4 h-4 text-primary" aria-hidden />
-                  <h2 className="text-sm font-bold text-foreground">
+                  <h2 className="text-dashboard-section font-bold text-foreground lg:text-lg">
                     Delivered files
                   </h2>
                 </div>
-                <p className="mt-1 text-xs text-muted">
+                <p className="mt-1 text-dashboard-body text-muted">
                   Current delivered versions ready to preview or download.
                 </p>
               </div>
-              <span className="text-[11px] text-muted-light">
+              <span className="text-dashboard-metadata text-muted-light">
                 {deliveredFiles.length} file{deliveredFiles.length === 1 ? "" : "s"}
               </span>
             </div>
@@ -346,15 +346,15 @@ export default async function DashboardFilesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-primary" aria-hidden />
-                  <h2 className="text-sm font-bold text-foreground">
+                  <h2 className="text-dashboard-section font-bold text-foreground lg:text-lg">
                     Uploaded files
                   </h2>
                 </div>
-                <p className="mt-1 text-xs text-muted">
+                <p className="mt-1 text-dashboard-body text-muted">
                   Original and reference files attached to your orders.
                 </p>
               </div>
-              <span className="text-[11px] text-muted-light">
+              <span className="text-dashboard-metadata text-muted-light">
                 {uploadedFiles.length} file{uploadedFiles.length === 1 ? "" : "s"}
               </span>
             </div>
@@ -378,9 +378,9 @@ export default async function DashboardFilesPage() {
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
-            <h3 className="text-sm font-bold text-foreground">Private file access</h3>
+            <h3 className="text-dashboard-action font-bold text-foreground">Private file access</h3>
           </div>
-          <p className="text-xs text-muted leading-relaxed">
+          <p className="text-dashboard-body text-muted">
             Download and preview links are generated only when you request them
             and expire shortly after use.
           </p>
@@ -388,15 +388,15 @@ export default async function DashboardFilesPage() {
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <PlusCircle className="w-4 h-4 text-secondary-dark" aria-hidden />
-            <h3 className="text-sm font-bold text-foreground">Need more visuals?</h3>
+            <h3 className="text-dashboard-action font-bold text-foreground">Need more visuals?</h3>
           </div>
-          <p className="text-xs text-muted leading-relaxed mb-3">
+          <p className="text-dashboard-body text-muted mb-3">
             Place a new order and your uploaded files and delivered results will
             appear in this hub.
           </p>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex items-center gap-1.5 text-[12px] font-bold text-primary hover:text-primary-light transition-colors"
+            className="inline-flex items-center gap-1.5 text-dashboard-action font-bold text-primary hover:text-primary-light transition-colors"
           >
             Create a new order
             <ArrowRight className="w-3.5 h-3.5" aria-hidden />

@@ -561,10 +561,10 @@ export default function SupportChatWidget({
             <MessageCircle className="h-5 w-5" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="truncate text-base font-bold">
+            <h2 id={titleId} className="line-clamp-2 break-words text-base font-bold">
               {copy.headerTitle}
             </h2>
-            <p className="mt-0.5 flex items-center gap-2 text-xs font-semibold text-white/80">
+            <p className="mt-0.5 flex items-center gap-2 text-dashboard-metadata font-semibold text-white/80">
               <span
                 className="h-2 w-2 rounded-full bg-secondary"
                 aria-hidden
@@ -600,7 +600,7 @@ export default function SupportChatWidget({
             ))}
             {sending && (
               <div
-                className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-sm text-muted"
+                className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-dashboard-body text-muted"
                 aria-live="polite"
               >
                 <Loader2
@@ -625,13 +625,13 @@ export default function SupportChatWidget({
               }}
             >
               <div>
-                <h3 className="text-sm font-bold text-primary">
+                <h3 className="text-dashboard-section font-bold text-primary">
                   {copy.handoff.heading}
                 </h3>
-                <p className="mt-1 text-xs leading-relaxed text-muted">
+                <p className="mt-1 text-dashboard-body text-muted">
                   {copy.handoff.explanation}
                 </p>
-                <p className="mt-2 text-xs leading-relaxed text-muted">
+                <p className="mt-2 text-dashboard-body text-muted">
                   {copy.handoff.continuityNote}
                 </p>
               </div>
@@ -639,7 +639,7 @@ export default function SupportChatWidget({
               <div className="space-y-1.5">
                 <label
                   htmlFor={nameInputId}
-                  className="flex items-center justify-between gap-2 text-xs font-bold text-primary"
+                  className="flex items-center justify-between gap-2 text-dashboard-action font-bold text-primary"
                 >
                   <span>{copy.handoff.nameLabel}</span>
                   <span className="font-medium text-muted">
@@ -663,12 +663,12 @@ export default function SupportChatWidget({
                   disabled={connectingToCrisp}
                   aria-invalid={Boolean(handoffErrors.name)}
                   aria-describedby={handoffErrors.name ? nameErrorId : undefined}
-                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground shadow-sm transition-colors focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:bg-surface"
+                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-dashboard-mobile-control text-foreground shadow-sm transition-colors focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:bg-surface md:text-sm"
                 />
                 {handoffErrors.name && (
                   <p
                     id={nameErrorId}
-                    className="text-xs font-semibold text-red-700"
+                    className="text-dashboard-metadata font-semibold text-red-700"
                   >
                     {handoffErrors.name}
                   </p>
@@ -678,7 +678,7 @@ export default function SupportChatWidget({
               <div className="space-y-1.5">
                 <label
                   htmlFor={emailInputId}
-                  className="text-xs font-bold text-primary"
+                  className="text-dashboard-action font-bold text-primary"
                 >
                   {copy.handoff.emailLabel}
                 </label>
@@ -701,12 +701,12 @@ export default function SupportChatWidget({
                   aria-describedby={
                     handoffErrors.email ? emailErrorId : undefined
                   }
-                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground shadow-sm transition-colors focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:bg-surface"
+                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-dashboard-mobile-control text-foreground shadow-sm transition-colors focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:bg-surface md:text-sm"
                 />
                 {handoffErrors.email && (
                   <p
                     id={emailErrorId}
-                    className="text-xs font-semibold text-red-700"
+                    className="text-dashboard-metadata font-semibold text-red-700"
                   >
                     {handoffErrors.email}
                   </p>
@@ -716,7 +716,7 @@ export default function SupportChatWidget({
               <div
                 id={handoffStatusId}
                 aria-live="polite"
-                className="min-h-5 text-xs font-semibold text-primary"
+                className="min-h-5 text-dashboard-metadata font-semibold text-primary"
               >
                 {connectingToCrisp ? copy.handoff.connecting : handoffStatus}
               </div>
@@ -726,14 +726,14 @@ export default function SupportChatWidget({
                   type="button"
                   onClick={cancelIdentityCollection}
                   disabled={connectingToCrisp}
-                  className="min-h-10 rounded-lg border border-primary/20 bg-white px-3 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-10 rounded-lg border border-primary/20 bg-white px-3 py-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {copy.handoff.cancelButton}
                 </button>
                 <button
                   type="submit"
                   disabled={connectingToCrisp}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-dashboard-action font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {connectingToCrisp && (
                     <Loader2
@@ -759,7 +759,7 @@ export default function SupportChatWidget({
               <button
                 type="button"
                 onClick={() => handleQuickAction("chooseService")}
-                className="mb-2 min-h-11 w-full rounded-lg bg-primary px-3 py-2.5 text-left text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="mb-2 min-h-11 w-full rounded-lg bg-primary px-3 py-2.5 text-left text-dashboard-action font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {copy.quickActions.chooseService}
               </button>
@@ -773,7 +773,7 @@ export default function SupportChatWidget({
                       type="button"
                       onClick={() => handleQuickAction(action)}
                       disabled={isApiAction && (sending || cooldownRemaining > 0)}
-                      className="min-h-10 rounded-lg border border-primary/15 bg-surface px-3 py-2 text-left text-xs font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-55"
+                      className="min-h-10 rounded-lg border border-primary/15 bg-surface px-3 py-2 text-left text-dashboard-action font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-55"
                     >
                       {copy.quickActions[action]}
                     </button>
@@ -783,7 +783,7 @@ export default function SupportChatWidget({
 
               {errorMessage && (
                 <div
-                  className="mb-3 rounded-lg border border-secondary/35 bg-secondary/10 px-3 py-2 text-sm text-primary"
+                  className="mb-3 rounded-lg border border-secondary/35 bg-secondary/10 px-3 py-2 text-dashboard-body text-primary"
                   aria-live="polite"
                 >
                   {errorMessage}
@@ -805,12 +805,12 @@ export default function SupportChatWidget({
                   maxLength={MAX_MESSAGE_LENGTH}
                   rows={2}
                   placeholder={copy.composerPlaceholder}
-                  className="block max-h-28 min-h-12 w-full resize-none rounded-t-xl border-0 bg-transparent px-3 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-light focus:outline-none"
+                  className="block max-h-28 min-h-12 w-full resize-none rounded-t-xl border-0 bg-transparent px-3 py-3 text-dashboard-mobile-control text-foreground placeholder:text-muted-light focus:outline-none md:text-sm"
                 />
                 <div className="flex items-center justify-between gap-3 px-3 pb-3">
                   <span
                     className={cn(
-                      "text-[11px] text-muted",
+                      "text-dashboard-metadata text-muted",
                       nearLimit && "font-semibold text-secondary-dark",
                     )}
                   >
@@ -854,7 +854,7 @@ export default function SupportChatWidget({
           aria-controls={dialogId}
           aria-label={copy.launcherAriaLabel}
           className={cn(
-            "fixed right-6 z-[70] hidden min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-secondary px-4 py-3 text-sm font-bold text-primary-dark shadow-xl shadow-primary/30 transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark focus-visible:ring-offset-2 lg:inline-flex",
+            "fixed right-6 z-[70] hidden min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-secondary px-4 py-3 text-dashboard-action font-bold text-primary-dark shadow-xl shadow-primary/30 transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark focus-visible:ring-offset-2 lg:inline-flex",
             isPropertyShowcasePage ? "bottom-24" : "bottom-6",
           )}
         >
@@ -897,14 +897,14 @@ function MessageBubble({
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[86%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
+          "max-w-[86%] rounded-2xl px-3.5 py-2.5 text-dashboard-body shadow-sm",
           isUser
             ? "rounded-br-md bg-primary text-white"
             : "rounded-bl-md border border-border bg-white text-foreground",
         )}
       >
         {!isUser && (
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase text-secondary-dark">
+          <div className="mb-1 flex items-center gap-1.5 text-dashboard-metadata font-bold uppercase text-secondary-dark">
             <Sparkles className="h-3 w-3" aria-hidden />
             PicchuSpot
           </div>
@@ -914,7 +914,7 @@ function MessageBubble({
           <Link
             href={contactHref}
             onClick={onContactClick}
-            className="mt-2 inline-flex text-sm font-bold text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:text-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="mt-2 inline-flex text-dashboard-action font-bold text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:text-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {contactLabel}
           </Link>
@@ -924,7 +924,7 @@ function MessageBubble({
             type="button"
             aria-label={orderActionAriaLabel}
             onClick={() => onOrderAction(activeOrderAction)}
-            className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-primary/20 bg-primary px-3 py-2 text-center text-sm font-bold leading-snug text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-primary/20 bg-primary px-3 py-2 text-center text-dashboard-action font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <span className="min-w-0 break-words">{orderActionLabel}</span>
           </button>

@@ -59,13 +59,13 @@ export default function NewOrderHubPage() {
   return (
     <ClientDashboardLayout>
       <div className="mb-8 max-w-3xl">
-        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark">
+        <p className="mb-1.5 text-dashboard-kicker font-bold uppercase text-secondary-dark">
           Client Portal
         </p>
         <h1 className="text-2xl font-bold leading-tight text-primary sm:text-[28px]">
           Start a new order
         </h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-dashboard-body text-muted">
           Choose a service to begin. Upload your photos, pick options, and
           receive professional results, typically within 24-48 hours.
         </p>

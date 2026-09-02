@@ -104,7 +104,7 @@ export default function DedicatedPhotoEditItemCard({
             }
             placeholder={config.notesPlaceholder}
             rows={notesRequired ? 3 : 2}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full px-3 py-2.5 border border-border rounded-lg text-dashboard-mobile-control md:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
         </div>
 

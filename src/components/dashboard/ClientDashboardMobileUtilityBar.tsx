@@ -43,8 +43,8 @@ export default function ClientDashboardMobileUtilityBar() {
         >
           <div className="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
             <div>
-              <p className="text-sm font-bold text-primary">Account</p>
-              <p className="mt-0.5 text-xs text-muted">Manage your PicchuSpot profile.</p>
+              <p className="text-dashboard-action font-bold text-primary">Account</p>
+              <p className="mt-0.5 text-dashboard-metadata text-muted">Manage your PicchuSpot profile.</p>
             </div>
             <button
               ref={accountMenuCloseRef}
@@ -65,14 +65,14 @@ export default function ClientDashboardMobileUtilityBar() {
             >
               <User className="h-4 w-4 flex-shrink-0 text-secondary-dark" aria-hidden />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold">My Account</span>
-                <span className="mt-0.5 block text-xs text-muted">Edit account</span>
+                <span className="block text-dashboard-action font-bold">My Account</span>
+                <span className="mt-0.5 block text-dashboard-metadata text-muted">Edit account</span>
               </span>
             </ClientPortalLink>
             <SignOutButton
               label="Log Out"
               loadingLabel="Logging out..."
-              className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-ivory hover:text-primary focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+              className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-dashboard-action font-semibold text-muted transition-colors hover:bg-ivory hover:text-primary focus:outline-none focus-visible:bg-ivory focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
             />
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function ClientDashboardMobileUtilityBar() {
           aria-expanded={accountOpen}
           aria-haspopup="menu"
           aria-controls="client-dashboard-mobile-account-menu"
-          className="inline-flex h-[calc(2.875rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 border-r border-white/15 px-3 pb-[env(safe-area-inset-bottom)] text-sm font-bold transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+          className="inline-flex h-[calc(2.875rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 border-r border-white/15 px-3 pb-[env(safe-area-inset-bottom)] text-dashboard-action font-bold transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
         >
           <User className="h-4 w-4 flex-shrink-0 text-secondary" aria-hidden />
           <span>Account</span>
@@ -110,7 +110,7 @@ export default function ClientDashboardMobileUtilityBar() {
           className="inline-flex h-[calc(2.875rem+env(safe-area-inset-bottom))] min-w-0 items-center justify-center gap-2 bg-surface px-3 pb-[env(safe-area-inset-bottom)] text-primary transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         >
           <MessageCircle className="h-4 w-4 flex-shrink-0 text-primary" aria-hidden />
-          <span className="truncate text-xs font-bold uppercase tracking-[0.10em]">Chat</span>
+          <span className="text-dashboard-action font-bold">Chat</span>
         </button>
       </div>
     </>

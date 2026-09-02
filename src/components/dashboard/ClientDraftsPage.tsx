@@ -418,12 +418,12 @@ export function OrderDraftDeletionDialog({
         </h2>
         <p
           id="delete-draft-description"
-          className="mt-2 text-sm leading-relaxed text-muted"
+          className="mt-2 text-dashboard-body text-muted"
         >
           {copy.confirmMessage}
         </p>
         {cardErrors[confirmDraft.id] && (
-          <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-3 text-dashboard-body font-medium text-red-700">
             {cardErrors[confirmDraft.id]}
           </p>
         )}
@@ -433,7 +433,7 @@ export function OrderDraftDeletionDialog({
             type="button"
             onClick={cancelDelete}
             disabled={deletingDraftId === confirmDraft.id}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-white px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
           >
             {copy.cancel}
           </button>
@@ -441,7 +441,7 @@ export function OrderDraftDeletionDialog({
             type="button"
             onClick={() => void confirmDelete(confirmDraft)}
             disabled={deletingDraftId === confirmDraft.id}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-dashboard-action font-bold text-white transition-colors hover:bg-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
           >
             <Trash2 className="h-4 w-4" aria-hidden />
             {deletingDraftId === confirmDraft.id
@@ -541,14 +541,14 @@ export default function ClientDraftsPage() {
         >
           {copy.heading}
         </h1>
-        <p className="mt-1 text-sm text-muted">{copy.helper}</p>
+        <p className="mt-1 text-dashboard-body text-muted">{copy.helper}</p>
       </div>
 
       <div aria-live="polite" className="sr-only">
         {statusMessage}
       </div>
       {statusMessage && (
-        <p className="rounded-lg border border-border bg-white p-3 text-sm font-medium text-muted">
+        <p className="rounded-lg border border-border bg-white p-3 text-dashboard-body font-medium text-muted">
           {statusMessage}
         </p>
       )}
@@ -566,11 +566,11 @@ export default function ClientDraftsPage() {
 
       {loadState === "error" && (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-medium text-muted">{copy.loadError}</p>
+          <p className="text-dashboard-body font-medium text-muted">{copy.loadError}</p>
           <button
             type="button"
             onClick={retry}
-            className="inline-flex w-fit items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="inline-flex w-fit items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <RotateCcw className="h-4 w-4" aria-hidden />
             {copy.retry}
@@ -581,12 +581,12 @@ export default function ClientDraftsPage() {
       {loadState === "success" && drafts.length === 0 && (
         <div className="rounded-lg border border-border bg-white p-6 text-center">
           <h2 className="text-lg font-bold text-primary">{copy.emptyTitle}</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+          <p className="mx-auto mt-2 max-w-md text-dashboard-body text-muted">
             {copy.emptyMessage}
           </p>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="mt-5 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="mt-5 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-dashboard-action font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {copy.startOrder}
           </ClientPortalLink>
@@ -615,7 +615,7 @@ export default function ClientDraftsPage() {
       {toastMessage && (
         <div
           role="status"
-          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg"
+          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-primary px-4 py-2 text-dashboard-action font-semibold text-white shadow-lg"
         >
           {toastMessage}
         </div>
@@ -673,7 +673,7 @@ function DraftCard({
           <div className="mb-3 flex items-center justify-between gap-3">
             <span
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase",
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em]",
                 isFinishing
                   ? "bg-amber-100 text-amber-800"
                   : "bg-secondary/10 text-secondary-dark",
@@ -684,17 +684,17 @@ function DraftCard({
             </span>
           </div>
 
-          <h2 className="line-clamp-2 text-base font-bold text-foreground">
+          <h2 data-dashboard-critical-title className="line-clamp-2 break-words text-base font-bold text-foreground">
             {title}
           </h2>
-          <p className="mt-1 text-sm font-medium text-primary">{serviceName}</p>
+          <p className="mt-1 break-words text-dashboard-action font-medium text-primary">{serviceName}</p>
           {draft.finalization && (
-            <p className="mt-1 text-xs font-medium text-muted">
+            <p data-dashboard-metadata className="mt-1 text-dashboard-metadata font-medium text-muted">
               {copy.order}: {draft.finalization.orderNumber}
             </p>
           )}
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
-            <Clock3 className="h-3.5 w-3.5" aria-hidden />
+          <p data-dashboard-metadata className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-dashboard-metadata text-muted">
+            <Clock3 className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
             <span className="font-semibold">{copy.updated}</span>
             <span>{updatedAt}</span>
           </p>
@@ -704,7 +704,7 @@ function DraftCard({
               {resumeUrl && (
                 <ClientPortalLink
                   href={resumeUrl}
-                  className="inline-flex items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="inline-flex items-center rounded-lg border border-primary/20 bg-white px-3.5 py-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   {actionLabel}
                 </ClientPortalLink>
@@ -714,7 +714,7 @@ function DraftCard({
                   type="button"
                   onClick={(event) => onDelete(event.currentTarget)}
                   disabled={deleteInteractionDisabled}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3.5 py-2 text-dashboard-action font-bold text-muted transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden />
                   {copy.delete}
@@ -725,7 +725,7 @@ function DraftCard({
             {error && (
               <p
                 aria-live="polite"
-                className="mt-3 text-sm font-medium text-red-600"
+                className="mt-3 text-dashboard-body font-medium text-red-600"
               >
                 {error}
               </p>
