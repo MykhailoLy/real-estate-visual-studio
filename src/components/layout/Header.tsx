@@ -424,7 +424,7 @@ export default function Header() {
                   key={entry.key}
                   href={getLocaleAwareHref(entry.href, currentLanguage)}
                   className={cn(
-                    "group relative inline-flex h-full items-center whitespace-nowrap px-1.5 text-xs font-bold uppercase tracking-[0.05em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white 2xl:px-2.5 2xl:text-[13px] 2xl:tracking-[0.08em]",
+                    "group relative inline-flex h-full items-center whitespace-nowrap px-1.5 text-[13px] font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white 2xl:px-2.5 2xl:text-sm 2xl:tracking-[0.06em]",
                     isActive
                       ? "text-white"
                       : "text-white/65 hover:text-white"
@@ -548,7 +548,7 @@ function GuestDesktopAuthActions({
         href={getLocaleAwareHref("/login", language)}
         onClick={() => trackLoginClick("header")}
         tabIndex={loading ? -1 : undefined}
-        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap px-2 text-xs font-bold uppercase tracking-[0.05em] text-white/80 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 md:text-[13px] 2xl:tracking-[0.08em]"
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap px-2 text-[13px] font-bold uppercase tracking-[0.04em] text-white/80 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 2xl:text-sm 2xl:tracking-[0.06em]"
         aria-label={language === "es" ? "Iniciar sesión" : "Login"}
       >
         {language === "es" ? "Iniciar sesión" : "Login"}
@@ -557,7 +557,7 @@ function GuestDesktopAuthActions({
         href={getLocaleAwareHref("/signup", language)}
         onClick={() => trackSignUpClick("header")}
         tabIndex={loading ? -1 : undefined}
-        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-secondary px-2.5 text-xs font-bold uppercase tracking-[0.05em] text-primary transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 md:text-[13px] 2xl:px-4 2xl:tracking-[0.08em]"
+        className="inline-flex h-9 min-w-0 items-center justify-center whitespace-nowrap rounded-md bg-secondary px-2.5 text-[13px] font-bold uppercase tracking-[0.04em] text-primary transition-colors hover:bg-secondary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-white md:px-3 2xl:px-4 2xl:text-sm 2xl:tracking-[0.06em]"
         aria-label={language === "es" ? "Crear cuenta" : "Sign Up"}
       >
         {language === "es" ? "Crear cuenta" : "Sign Up"}
@@ -1188,7 +1188,7 @@ export function MarketLanguageSelector({
       >
         <span
           className={cn(
-            "inline-flex min-w-0 items-center gap-1 text-xs font-bold uppercase tracking-[0.05em] sm:gap-1.5 sm:text-[13px] sm:tracking-[0.08em]",
+            "inline-flex min-w-0 items-center gap-1 text-[13px] font-bold uppercase tracking-[0.04em] sm:gap-1.5 sm:text-sm sm:tracking-[0.06em]",
             darkHeaderTrigger ? "text-white" : "text-primary"
           )}
         >
@@ -1437,7 +1437,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
             <span
               key={`measure-${link.label}`}
               data-subnav-measure="link"
-              className="text-xs font-bold uppercase tracking-[0.05em] xl:text-[13px] xl:tracking-[0.08em]"
+              className="text-sm font-bold uppercase tracking-[0.04em] xl:text-[15px] xl:tracking-[0.06em]"
             >
               {getSubNavLabel(link.label, language)}
             </span>
@@ -1445,7 +1445,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
           <span
             ref={measureMoreRef}
             data-subnav-measure="more"
-            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.05em] xl:text-[13px] xl:tracking-[0.08em]"
+            className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-[0.04em] xl:text-[15px] xl:tracking-[0.06em]"
           >
             {language === "es" ? "Más" : "More"}
             <ChevronDown className="w-3.5 h-3.5" aria-hidden />
@@ -1481,7 +1481,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 className={cn(
-                  "group relative inline-flex items-center gap-1.5 whitespace-nowrap py-2.5 text-xs font-bold uppercase tracking-[0.05em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[13px] xl:tracking-[0.08em]",
+                  "group relative inline-flex items-center gap-1.5 whitespace-nowrap py-2.5 text-sm font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[15px] xl:tracking-[0.06em]",
                   moreOpen
                     ? "text-primary"
                     : "text-foreground/65 hover:text-primary"
@@ -1580,7 +1580,7 @@ function MoreDropdown({
             aria-current={isCurrent ? "page" : undefined}
             onClick={onClose}
             className={cn(
-              "block px-4 py-2.5 text-[13px] font-bold uppercase tracking-[0.08em] transition-colors focus:outline-none focus-visible:bg-surface",
+              "block px-4 py-2.5 text-sm font-bold uppercase tracking-[0.06em] transition-colors focus:outline-none focus-visible:bg-surface",
               isCurrent
                 ? "text-primary bg-primary/5"
                 : "text-foreground/75 hover:text-primary hover:bg-surface"
@@ -1608,7 +1608,7 @@ function SubNavItem({ href, label, current }: SubNavItemProps) {
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "group relative inline-flex items-center whitespace-nowrap py-2.5 text-xs font-bold uppercase tracking-[0.05em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[13px] xl:tracking-[0.08em]",
+        "group relative inline-flex items-center whitespace-nowrap py-2.5 text-sm font-bold uppercase tracking-[0.04em] transition-colors focus:outline-none focus-visible:text-primary xl:text-[15px] xl:tracking-[0.06em]",
         current ? "text-primary" : "text-foreground/65 hover:text-primary"
       )}
     >

@@ -93,7 +93,7 @@ export default function Testimonials({
           </p>
           <h2
             id="testimonials-heading"
-            className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]"
+            className="text-3xl lg:text-4xl font-bold text-primary tracking-tight leading-[1.05]"
           >
             {copy.title}
           </h2>

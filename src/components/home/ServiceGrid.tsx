@@ -292,7 +292,7 @@ export default async function ServiceGrid({
           <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.02]">
+          <h2 className="text-3xl sm:text-4xl font-bold text-primary tracking-tight leading-[1.02]">
             {copy.title}
           </h2>
           <p className="mt-6 text-public-lead text-muted leading-relaxed">

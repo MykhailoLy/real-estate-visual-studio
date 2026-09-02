@@ -30,7 +30,7 @@ export default function ServiceCTA({
           <p className="text-public-kicker font-semibold uppercase text-secondary mb-5">
             Get Started
           </p>
-          <h2 className="text-3xl lg:text-5xl font-bold text-white mb-5 tracking-tight">
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-5 tracking-tight">
             {title}
           </h2>
           {subtitle && (

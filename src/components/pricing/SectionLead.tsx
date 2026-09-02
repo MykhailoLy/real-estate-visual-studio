@@ -28,7 +28,7 @@ export default function SectionLead({
           {eyebrow}
         </p>
       )}
-      <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+      <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
         {title}
       </h2>
       {description && (

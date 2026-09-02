@@ -287,7 +287,7 @@ export default async function ServicePage({
                   <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
                     {u.title}
                   </h3>
-                  <p className="text-public-copy-sm text-muted leading-relaxed">
+                  <p className="text-base text-muted leading-relaxed">
                     {u.description}
                   </p>
                 </div>
@@ -349,7 +349,7 @@ export default async function ServicePage({
             <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               {labels?.whatItIsEyebrow ?? "What it is"}
             </p>
-            <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
               {whatItIsTitle}
             </h2>
             <p className="text-base lg:text-lg text-muted leading-relaxed mb-6">

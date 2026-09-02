@@ -94,8 +94,8 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
         : 0,
     };
   });
-  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(12);
-  expect(desktopHeroFontSizes.serviceName).toBeGreaterThanOrEqual(13);
+  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(14);
+  expect(desktopHeroFontSizes.serviceName).toBeGreaterThanOrEqual(14);
 
   const marketSelector = page.getByRole("button", {
     name: "Select market, currency, and language",
@@ -185,6 +185,7 @@ test("Spanish homepage hero localizes its comparison labels and service route", 
 });
 
 const HOMEPAGE_VIEWPORTS = [
+  { width: 360, height: 800, expectedBenefitColumns: 1 },
   { width: 390, height: 844, expectedBenefitColumns: 1 },
   { width: 768, height: 900, expectedBenefitColumns: 3 },
   { width: 960, height: 900, expectedBenefitColumns: 3 },
@@ -239,8 +240,12 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
         body: body ? Number.parseFloat(getComputedStyle(body).fontSize) : 0,
       };
     });
-    expect(benefitFontSizes.title).toBeGreaterThanOrEqual(15);
-    expect(benefitFontSizes.body).toBeGreaterThanOrEqual(14);
+    const minimumBenefitTitle =
+      viewport.width >= 1280 ? 18 : viewport.width >= 1024 ? 16 : 15;
+    const minimumBenefitBody =
+      viewport.width >= 1280 ? 16 : viewport.width >= 1024 ? 15 : 14;
+    expect(benefitFontSizes.title).toBeGreaterThanOrEqual(minimumBenefitTitle);
+    expect(benefitFontSizes.body).toBeGreaterThanOrEqual(minimumBenefitBody);
 
     if (viewport.width >= 1024) {
       const publicSubnav = page.locator(
@@ -251,7 +256,17 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
       const subnavFontSize = await firstSubnavLink.evaluate((element) =>
         Number.parseFloat(getComputedStyle(element).fontSize),
       );
-      expect(subnavFontSize).toBeGreaterThanOrEqual(12);
+      const minimumSubnavSize = viewport.width >= 1280 ? 15 : 14;
+      expect(subnavFontSize).toBeGreaterThanOrEqual(minimumSubnavSize);
+
+      const sectionHeadingSizes = await page
+        .locator("main h2")
+        .evaluateAll((elements) =>
+          elements.map((element) =>
+            Number.parseFloat(getComputedStyle(element).fontSize),
+          ),
+        );
+      expect(Math.max(...sectionHeadingSizes)).toBeLessThanOrEqual(36);
     }
 
     const pageWidth = await page.evaluate(() => ({

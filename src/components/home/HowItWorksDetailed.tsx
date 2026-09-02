@@ -58,7 +58,7 @@ export default function HowItWorksDetailed({
           <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
-          <h2 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05]">
+          <h2 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight leading-[1.05]">
             {copy.title}
           </h2>
           <p className="mt-6 text-public-lead lg:text-xl text-muted leading-relaxed">
@@ -87,7 +87,7 @@ export default function HowItWorksDetailed({
                 <h3 className="font-semibold text-foreground text-lg">
                   {step.title}
                 </h3>
-                <p className="mt-2 text-public-copy-sm text-muted leading-relaxed">
+                <p className="mt-2 text-base text-muted leading-relaxed">
                   {step.body}
                 </p>
               </li>

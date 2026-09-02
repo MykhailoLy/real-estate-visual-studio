@@ -523,7 +523,7 @@ export default function ServicesPage() {
             <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               Worldwide
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
               Remote Digital Services
             </h2>
             <p className="text-base lg:text-lg text-muted leading-relaxed">
@@ -604,7 +604,7 @@ export default function ServicesPage() {
             <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               Alicante &amp; Costa Blanca
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight leading-[1.1]">
               Local Real Estate Media in Alicante &amp; Costa Blanca
             </h2>
             <p className="text-base lg:text-lg text-muted leading-relaxed">
@@ -706,7 +706,7 @@ export default function ServicesPage() {
             <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-3">
               Process
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-primary mb-4 tracking-tight">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary mb-4 tracking-tight">
               How It Works
             </h2>
             <p className="text-base lg:text-lg text-muted leading-relaxed">
@@ -790,7 +790,7 @@ export default function ServicesPage() {
             <p className="text-public-kicker font-semibold uppercase text-secondary mb-5">
               Get Started
             </p>
-            <h2 className="text-3xl lg:text-5xl font-bold text-white mb-5 tracking-tight">
+            <h2 className="text-3xl lg:text-4xl font-bold text-white mb-5 tracking-tight">
               Ready to prepare your property visuals?
             </h2>
             <p className="text-white/70 text-base lg:text-xl mb-10 leading-relaxed">
