@@ -40,6 +40,7 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   const hero = page.getByRole("region", { name: "Before and after slider" });
   const heroFooter = hero.getByTestId("hero-service-footer");
   const heroStage = hero.getByTestId("homepage-hero-image-stage");
+  const heroDots = heroStage.getByRole("tablist");
   await expect(heroStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
   await expect(heroStage.getByText("AFTER", { exact: true })).toHaveCount(0);
   await expect(heroStage.getByRole("button")).toHaveCount(0);
@@ -48,7 +49,9 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await expect(heroFooter.getByText("AFTER", { exact: true })).toBeVisible();
   await expect(hero.getByRole("button", { name: "Previous slide" })).toHaveCount(0);
   await expect(hero.getByRole("button", { name: "Next slide" })).toHaveCount(0);
-  await expect(heroFooter.getByRole("tablist")).toBeVisible();
+  await expect(heroDots).toBeVisible();
+  await expect(heroDots.getByRole("tab")).toHaveCount(9);
+  await expect(heroFooter.getByRole("tablist")).toHaveCount(0);
   await expect(heroFooter.getByRole("link")).toHaveCount(1);
   const imageEnhancementCta = hero.getByRole("link", {
     name: "View Image Enhancement pricing",
@@ -62,24 +65,22 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await expect(imageEnhancementCta).not.toContainText(".00");
   await expect(imageEnhancementCta.locator("svg")).toHaveCount(0);
   await expect(
-    heroFooter.getByRole("tab", { selected: true }).locator("span"),
-  ).toHaveClass(/bg-white/);
+    heroDots.getByRole("tab", { selected: true }).locator("span"),
+  ).toHaveClass(/bg-\[#C7A94E\]/);
   await expect(
-    heroFooter.getByRole("tab", { selected: false }).first().locator("span"),
-  ).toHaveClass(/bg-white\/40/);
+    heroDots.getByRole("tab", { selected: false }).first().locator("span"),
+  ).toHaveClass(/bg-primary\/50/);
 
   const heroGeometry = await hero.evaluate((element) => {
     const frame = element.querySelector('[data-testid="homepage-hero-frame"]');
     const stage = element.querySelector('[data-testid="homepage-hero-image-stage"]');
     const footer = element.querySelector('[data-testid="hero-service-footer"]');
-    const divider = element.querySelector('[data-testid="hero-comparison-divider"]');
     const dots = element.querySelector('[data-testid="hero-slide-dots"]');
     const cta = footer?.querySelector("a");
-    if (!frame || !stage || !footer || !divider || !dots || !cta) return null;
+    if (!frame || !stage || !footer || !dots || !cta) return null;
     const frameRect = frame.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const footerRect = footer.getBoundingClientRect();
-    const dividerRect = divider.getBoundingClientRect();
     const dotsRect = dots.getBoundingClientRect();
     const ctaRect = cta.getBoundingClientRect();
     return {
@@ -89,20 +90,29 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
       footerTop: footerRect.top,
       frameBottom: frameRect.bottom,
       footerBottom: footerRect.bottom,
-      dividerCenter: dividerRect.left + dividerRect.width / 2,
-      dotsCenter: dotsRect.left + dotsRect.width / 2,
+      dotsLeft: dotsRect.left - stageRect.left,
+      stageCenterY: stageRect.top + stageRect.height / 2,
+      dotsCenterY: dotsRect.top + dotsRect.height / 2,
       footerCenter: footerRect.left + footerRect.width / 2,
       ctaCenter: ctaRect.left + ctaRect.width / 2,
+      footerColumns: getComputedStyle(footer).gridTemplateColumns
+        .trim()
+        .split(/\s+/).length,
+      footerRows: getComputedStyle(footer).gridTemplateRows.trim().split(/\s+/).length,
     };
   });
   expect(heroGeometry).not.toBeNull();
   expect(heroGeometry?.footerPosition).not.toBe("absolute");
-  expect(heroGeometry?.footerHeight).toBeGreaterThanOrEqual(48);
-  expect(heroGeometry?.footerHeight).toBeLessThanOrEqual(52);
+  expect(heroGeometry?.footerHeight).toBeGreaterThanOrEqual(56);
+  expect(heroGeometry?.footerHeight).toBeLessThanOrEqual(58);
   expect(Math.abs((heroGeometry?.stageBottom ?? 0) - (heroGeometry?.footerTop ?? 0))).toBeLessThanOrEqual(1);
   expect(Math.abs((heroGeometry?.frameBottom ?? 0) - (heroGeometry?.footerBottom ?? 0))).toBeLessThanOrEqual(1);
-  expect(Math.abs((heroGeometry?.dividerCenter ?? 0) - (heroGeometry?.dotsCenter ?? 0))).toBeLessThanOrEqual(1);
+  expect(heroGeometry?.dotsLeft).toBeGreaterThanOrEqual(19);
+  expect(heroGeometry?.dotsLeft).toBeLessThanOrEqual(21);
+  expect(Math.abs((heroGeometry?.stageCenterY ?? 0) - (heroGeometry?.dotsCenterY ?? 0))).toBeLessThanOrEqual(1);
   expect(Math.abs((heroGeometry?.footerCenter ?? 0) - (heroGeometry?.ctaCenter ?? 0))).toBeLessThanOrEqual(1);
+  expect(heroGeometry?.footerColumns).toBe(3);
+  expect(heroGeometry?.footerRows).toBe(1);
 
   const desktopHeroFontSizes = await hero.evaluate((element) => {
     const footer = element.querySelector('[data-testid="hero-service-footer"]');
@@ -110,16 +120,21 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
       (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
     );
     const serviceName = footer?.querySelector("a > span:first-child");
+    const price = footer?.querySelector("a > span:last-child");
     return {
       labels: labels.map((label) => Number.parseFloat(getComputedStyle(label).fontSize)),
       serviceName: serviceName
         ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
       : 0,
+      serviceColor: serviceName ? getComputedStyle(serviceName).color : "",
+      priceColor: price ? getComputedStyle(price).color : "",
     };
   });
-  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(10);
-  expect(Math.max(...desktopHeroFontSizes.labels)).toBeLessThanOrEqual(11);
-  expect(desktopHeroFontSizes.serviceName).toBeGreaterThanOrEqual(12);
+  expect(Math.min(...desktopHeroFontSizes.labels)).toBeGreaterThanOrEqual(16);
+  expect(Math.max(...desktopHeroFontSizes.labels)).toBeLessThanOrEqual(16);
+  expect(desktopHeroFontSizes.serviceName).toBe(15);
+  expect(desktopHeroFontSizes.serviceColor).toBe("rgb(199, 169, 78)");
+  expect(desktopHeroFontSizes.priceColor).toBe("rgb(255, 255, 255)");
 
   await hero.hover();
   const marketSelector = page.getByRole("button", {
@@ -130,14 +145,14 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await expect(imageEnhancementCta).toContainText("From €1 / image");
 
   await page.mouse.move(0, 0);
-  const dayToDuskTab = heroFooter.getByRole("tab", {
+  const dayToDuskTab = heroDots.getByRole("tab", {
     name: "Show slide 2 of 9",
   });
   await expect(dayToDuskTab).toHaveAttribute("aria-selected", "true", {
     timeout: 7000,
   });
 
-  const virtualStagingTab = heroFooter.getByRole("tab", {
+  const virtualStagingTab = heroDots.getByRole("tab", {
     name: "Show slide 3 of 9",
   });
   await virtualStagingTab.focus();
@@ -163,16 +178,17 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   const mobileHero = page.getByRole("region", { name: "Before and after slider" });
   const mobileFooter = mobileHero.getByTestId("hero-service-footer");
   const mobileStage = mobileHero.getByTestId("homepage-hero-image-stage");
-  await expect(mobileFooter.locator('[role="tablist"]')).toBeHidden();
+  const mobileDots = mobileStage.getByRole("tablist");
+  await expect(mobileDots).toBeVisible();
   await expect(mobileFooter.getByRole("tab")).toHaveCount(0);
-  const mobileDotCanReceiveFocus = await mobileFooter
-    .locator('[role="tab"]')
-    .first()
-    .evaluate((element) => {
-      (element as HTMLElement).focus();
-      return document.activeElement === element;
-    });
-  expect(mobileDotCanReceiveFocus).toBe(false);
+  await expect(mobileDots.getByRole("tab")).toHaveCount(9);
+  const firstMobileDot = mobileDots.getByRole("tab").first();
+  await firstMobileDot.focus();
+  await expect(firstMobileDot).toBeFocused();
+  await expect(firstMobileDot.locator("span")).toHaveCSS(
+    "outline-color",
+    "rgb(199, 169, 78)",
+  );
   await expect(mobileStage.getByText("BEFORE", { exact: true })).toHaveCount(0);
   await expect(mobileStage.getByText("AFTER", { exact: true })).toHaveCount(0);
   await expect(mobileFooter.getByText("BEFORE", { exact: true })).toBeVisible();
@@ -196,6 +212,11 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
       mobileFooter.locator(
         `[role="tab"][aria-label="Show slide ${index + 1} of 9"]`,
       ),
+    ).toHaveCount(0);
+    await expect(
+      mobileStage.locator(
+        `[role="tab"][aria-label="Show slide ${index + 1} of 9"]`,
+      ),
     ).toHaveAttribute("aria-selected", "true");
   }
 
@@ -210,6 +231,7 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
       (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
     );
     const serviceName = footer?.querySelector("a > span:first-child");
+    const price = footer?.querySelector("a > span:last-child");
     const footerRect = footer?.getBoundingClientRect();
     const ctaRect = footer?.querySelector("a")?.getBoundingClientRect();
     return {
@@ -217,7 +239,15 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
       serviceName: serviceName
         ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
         : 0,
+      serviceColor: serviceName ? getComputedStyle(serviceName).color : "",
+      priceColor: price ? getComputedStyle(price).color : "",
       footerHeight: footerRect?.height ?? 0,
+      footerColumns: footer
+        ? getComputedStyle(footer).gridTemplateColumns.trim().split(/\s+/).length
+        : 0,
+      footerRows: footer
+        ? getComputedStyle(footer).gridTemplateRows.trim().split(/\s+/).length
+        : 0,
       centerDelta:
         footerRect && ctaRect
           ? Math.abs(
@@ -227,10 +257,14 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
           : Number.POSITIVE_INFINITY,
     };
   });
-  expect(Math.min(...mobileHeroFontSizes.labels)).toBeGreaterThanOrEqual(10);
-  expect(mobileHeroFontSizes.serviceName).toBeGreaterThanOrEqual(11);
-  expect(mobileHeroFontSizes.footerHeight).toBeGreaterThanOrEqual(48);
-  expect(mobileHeroFontSizes.footerHeight).toBeLessThanOrEqual(56);
+  expect(Math.min(...mobileHeroFontSizes.labels)).toBe(14);
+  expect(mobileHeroFontSizes.serviceName).toBe(13);
+  expect(mobileHeroFontSizes.serviceColor).toBe("rgb(199, 169, 78)");
+  expect(mobileHeroFontSizes.priceColor).toBe("rgb(255, 255, 255)");
+  expect(mobileHeroFontSizes.footerHeight).toBeGreaterThanOrEqual(60);
+  expect(mobileHeroFontSizes.footerHeight).toBeLessThanOrEqual(64);
+  expect(mobileHeroFontSizes.footerColumns).toBe(2);
+  expect(mobileHeroFontSizes.footerRows).toBe(2);
   expect(mobileHeroFontSizes.centerDelta).toBeLessThanOrEqual(1);
 
   const pageWidth = await page.evaluate(() => ({
@@ -253,10 +287,119 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   await expect(unknownFooter).toBeVisible();
   await expect(unknownFooter.getByText("BEFORE", { exact: true })).toBeVisible();
   await expect(unknownFooter.getByText("AFTER", { exact: true })).toBeVisible();
-  await expect(unknownFooter.getByRole("tab")).toHaveCount(9);
+  await expect(unknownFooter.getByRole("tab")).toHaveCount(0);
+  await expect(
+    unknownHero.getByTestId("homepage-hero-image-stage").getByRole("tab"),
+  ).toHaveCount(9);
   await expect(unknownFooter.getByRole("link")).toHaveCount(0);
 
   await guard.expectClean();
+});
+
+test.describe("homepage hero touch input", () => {
+  test.use({ hasTouch: true });
+
+  test("horizontal touch swipes change slides while vertical touch scroll and cancellation remain safe", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(45000);
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+
+    const response = await page.goto("/");
+    expectNavigationResponseOk(response, "/");
+
+    const stage = page.getByTestId("homepage-hero-image-stage");
+    const dots = stage.getByRole("tablist");
+    await expect(stage).toHaveCSS("touch-action", "pan-y");
+    await expect(dots).toBeVisible();
+
+    const stageBox = await stage.boundingBox();
+    expect(stageBox).not.toBeNull();
+    if (!stageBox) throw new Error("Homepage hero stage has no bounding box.");
+
+    const client = await page.context().newCDPSession(page);
+    const dispatchTouch = async (
+      type: "touchStart" | "touchMove" | "touchEnd" | "touchCancel",
+      x?: number,
+      y?: number,
+    ) => {
+      await client.send("Input.dispatchTouchEvent", {
+        type,
+        touchPoints:
+          type === "touchEnd" || type === "touchCancel"
+            ? []
+            : [
+                {
+                  x: x ?? 0,
+                  y: y ?? 0,
+                  id: 1,
+                  radiusX: 5,
+                  radiusY: 5,
+                  force: 1,
+                },
+              ],
+      });
+    };
+    const swipe = async (
+      fromX: number,
+      fromY: number,
+      toX: number,
+      toY: number,
+    ) => {
+      await dispatchTouch("touchStart", fromX, fromY);
+      for (let step = 1; step <= 5; step += 1) {
+        await dispatchTouch(
+          "touchMove",
+          fromX + ((toX - fromX) * step) / 5,
+          fromY + ((toY - fromY) * step) / 5,
+        );
+      }
+      await dispatchTouch("touchEnd");
+    };
+
+    const leftX = stageBox.x + stageBox.width * 0.25;
+    const rightX = stageBox.x + stageBox.width * 0.75;
+    const centerY = stageBox.y + stageBox.height * 0.5;
+
+    await swipe(rightX, centerY, leftX, centerY);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await dispatchTouch("touchStart", rightX, centerY);
+    await dispatchTouch("touchMove", rightX - 30, centerY);
+    await dispatchTouch("touchCancel");
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await swipe(rightX, centerY, leftX, centerY);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 3 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await swipe(leftX, centerY, rightX, centerY);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const verticalStartY = Math.min(
+      stageBox.y + stageBox.height - 16,
+      824,
+    );
+    const verticalEndY = Math.max(stageBox.y + 16, verticalStartY - 130);
+    await swipe(rightX, verticalStartY, rightX, verticalEndY);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await expect(
+      dots.getByRole("tab", { name: "Show slide 2 of 9" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await client.detach();
+    await guard.expectClean();
+  });
 });
 
 test("Spanish homepage hero localizes its comparison labels and service route", async ({
@@ -328,7 +471,7 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
       "homepage-hero-image-stage",
     );
     const responsiveFooter = responsiveHero.getByTestId("hero-service-footer");
-    const responsiveDots = responsiveFooter.locator('[role="tablist"]');
+    const responsiveDots = responsiveStage.getByRole("tablist");
     await expect(responsiveHero.getByRole("button", { name: "Previous slide" })).toHaveCount(0);
     await expect(responsiveHero.getByRole("button", { name: "Next slide" })).toHaveCount(0);
     await expect(responsiveStage.getByRole("button")).toHaveCount(0);
@@ -337,35 +480,108 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
     await expect(responsiveStage.getByTestId("hero-comparison-divider")).toBeVisible();
     await expect(responsiveFooter.getByText("BEFORE", { exact: true })).toBeVisible();
     await expect(responsiveFooter.getByText("AFTER", { exact: true })).toBeVisible();
-
-    if (viewport.width >= 768) {
-      await expect(responsiveDots).toBeVisible();
-    } else {
-      await expect(responsiveDots).toBeHidden();
-    }
+    await expect(responsiveDots).toBeVisible();
+    await expect(responsiveDots.getByRole("tab")).toHaveCount(9);
+    await expect(responsiveFooter.getByRole("tablist")).toHaveCount(0);
 
     const responsiveHeroGeometry = await responsiveHero.evaluate((element) => {
+      const stage = element.querySelector('[data-testid="homepage-hero-image-stage"]');
       const footer = element.querySelector('[data-testid="hero-service-footer"]');
-      const divider = element.querySelector('[data-testid="hero-comparison-divider"]');
       const dots = element.querySelector('[data-testid="hero-slide-dots"]');
       const cta = footer?.querySelector("a");
-      if (!footer || !divider || !dots || !cta) return null;
+      const activeDot = dots?.querySelector('[role="tab"][aria-selected="true"]');
+      const inactiveDot = dots?.querySelector('[role="tab"][aria-selected="false"]');
+      const activeVisual = activeDot?.querySelector("span");
+      const inactiveVisual = inactiveDot?.querySelector("span");
+      const labels = Array.from(footer?.querySelectorAll("span") ?? []).filter(
+        (span) => span.textContent === "BEFORE" || span.textContent === "AFTER",
+      );
+      const serviceName = footer?.querySelector("a > span:first-child");
+      const price = footer?.querySelector("a > span:last-child");
+      if (
+        !stage ||
+        !footer ||
+        !dots ||
+        !cta ||
+        !activeDot ||
+        !inactiveDot ||
+        !activeVisual ||
+        !inactiveVisual
+      ) {
+        return null;
+      }
+      const stageRect = stage.getBoundingClientRect();
       const footerRect = footer.getBoundingClientRect();
-      const dividerRect = divider.getBoundingClientRect();
       const dotsRect = dots.getBoundingClientRect();
       const ctaRect = cta.getBoundingClientRect();
+      const activeDotRect = activeDot.getBoundingClientRect();
+      const inactiveDotRect = inactiveDot.getBoundingClientRect();
+      const activeVisualRect = activeVisual.getBoundingClientRect();
+      const inactiveVisualRect = inactiveVisual.getBoundingClientRect();
       return {
         footerHeight: footerRect.height,
-        dividerCenter: dividerRect.left + dividerRect.width / 2,
-        dotsCenter: dotsRect.left + dotsRect.width / 2,
+        footerBackground: getComputedStyle(footer).backgroundColor,
+        footerColumns: getComputedStyle(footer).gridTemplateColumns
+          .trim()
+          .split(/\s+/).length,
+        footerRows: getComputedStyle(footer).gridTemplateRows
+          .trim()
+          .split(/\s+/).length,
         footerCenter: footerRect.left + footerRect.width / 2,
         ctaCenter: ctaRect.left + ctaRect.width / 2,
+        dotsLeft: dotsRect.left - stageRect.left,
+        dotsHeight: dotsRect.height,
+        stageHeight: stageRect.height,
+        stageCenterY: stageRect.top + stageRect.height / 2,
+        dotsCenterY: dotsRect.top + dotsRect.height / 2,
+        activeTarget: {
+          width: activeDotRect.width,
+          height: activeDotRect.height,
+        },
+        inactiveTarget: {
+          width: inactiveDotRect.width,
+          height: inactiveDotRect.height,
+        },
+        activeVisual: {
+          width: activeVisualRect.width,
+          height: activeVisualRect.height,
+          background: getComputedStyle(activeVisual).backgroundColor,
+          borderRadius: Number.parseFloat(
+            getComputedStyle(activeVisual).borderRadius,
+          ),
+        },
+        inactiveVisual: {
+          width: inactiveVisualRect.width,
+          height: inactiveVisualRect.height,
+          className: inactiveVisual.className,
+          borderRadius: Number.parseFloat(
+            getComputedStyle(inactiveVisual).borderRadius,
+          ),
+        },
+        labelSizes: labels.map((label) =>
+          Number.parseFloat(getComputedStyle(label).fontSize),
+        ),
+        serviceSize: serviceName
+          ? Number.parseFloat(getComputedStyle(serviceName).fontSize)
+          : 0,
+        serviceColor: serviceName ? getComputedStyle(serviceName).color : "",
+        priceColor: price ? getComputedStyle(price).color : "",
       };
     });
     expect(responsiveHeroGeometry).not.toBeNull();
-    expect(responsiveHeroGeometry?.footerHeight).toBeGreaterThanOrEqual(48);
+    const expectedFooterHeight = viewport.width >= 768 ? 56 : 60;
+    expect(responsiveHeroGeometry?.footerHeight).toBeGreaterThanOrEqual(
+      expectedFooterHeight,
+    );
     expect(responsiveHeroGeometry?.footerHeight).toBeLessThanOrEqual(
-      viewport.width >= 768 ? 52 : 56,
+      expectedFooterHeight + 4,
+    );
+    expect(responsiveHeroGeometry?.footerBackground).toBe("rgb(7, 26, 43)");
+    expect(responsiveHeroGeometry?.footerColumns).toBe(
+      viewport.width >= 768 ? 3 : 2,
+    );
+    expect(responsiveHeroGeometry?.footerRows).toBe(
+      viewport.width >= 768 ? 1 : 2,
     );
     expect(
       Math.abs(
@@ -373,14 +589,51 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
           (responsiveHeroGeometry?.ctaCenter ?? 0),
       ),
     ).toBeLessThanOrEqual(1);
-    if (viewport.width >= 768) {
-      expect(
-        Math.abs(
-          (responsiveHeroGeometry?.dividerCenter ?? 0) -
-            (responsiveHeroGeometry?.dotsCenter ?? 0),
-        ),
-      ).toBeLessThanOrEqual(1);
-    }
+    const expectedDotsLeft =
+      viewport.width >= 1024 ? 20 : viewport.width >= 768 ? 16 : 12;
+    expect(responsiveHeroGeometry?.dotsLeft).toBe(expectedDotsLeft);
+    expect(responsiveHeroGeometry?.dotsHeight).toBeLessThanOrEqual(
+      responsiveHeroGeometry?.stageHeight ?? 0,
+    );
+    expect(
+      Math.abs(
+        (responsiveHeroGeometry?.stageCenterY ?? 0) -
+          (responsiveHeroGeometry?.dotsCenterY ?? 0),
+      ),
+    ).toBeLessThanOrEqual(1);
+    const expectedTargetHeight = viewport.width >= 768 ? 32 : 28;
+    const expectedTargetWidth = viewport.width >= 768 ? 32 : 28;
+    expect(responsiveHeroGeometry?.activeTarget).toEqual({
+      width: expectedTargetWidth,
+      height: expectedTargetHeight,
+    });
+    expect(responsiveHeroGeometry?.inactiveTarget).toEqual({
+      width: expectedTargetWidth,
+      height: expectedTargetHeight,
+    });
+    expect(responsiveHeroGeometry?.activeVisual).toMatchObject({
+      width: 12,
+      height: 12,
+      background: "rgb(199, 169, 78)",
+    });
+    expect(responsiveHeroGeometry?.activeVisual.borderRadius).toBeGreaterThanOrEqual(6);
+    expect(responsiveHeroGeometry?.inactiveVisual).toMatchObject({
+      width: 10,
+      height: 10,
+    });
+    expect(responsiveHeroGeometry?.inactiveVisual.className).toContain(
+      "bg-primary/50",
+    );
+    expect(responsiveHeroGeometry?.inactiveVisual.borderRadius).toBeGreaterThanOrEqual(5);
+    const expectedLabelSize = viewport.width >= 1536 ? 17 : viewport.width >= 768 ? 16 : 14;
+    const expectedServiceSize = viewport.width >= 1536 ? 16 : viewport.width >= 768 ? 15 : 13;
+    expect(responsiveHeroGeometry?.labelSizes).toEqual([
+      expectedLabelSize,
+      expectedLabelSize,
+    ]);
+    expect(responsiveHeroGeometry?.serviceSize).toBe(expectedServiceSize);
+    expect(responsiveHeroGeometry?.serviceColor).toBe("rgb(199, 169, 78)");
+    expect(responsiveHeroGeometry?.priceColor).toBe("rgb(255, 255, 255)");
 
     const benefitGrid = page.getByTestId("benefits-grid");
     const columnCount = await benefitGrid.evaluate((element) =>

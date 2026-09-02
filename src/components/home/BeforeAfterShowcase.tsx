@@ -42,7 +42,7 @@ function isSlideMounted(
 // Wide cinematic banner under the nav.
 //
 // Controls:
-//   - Desktop/tablet dot indicator integrated into the navy service footer
+//   - Vertical dot navigation over the left side of the image stage
 //   - Touch/pointer swipe: swipe left → next, swipe right → prev.
 //     A minimum horizontal displacement (SWIPE_MIN_X) prevents
 //     accidental slide changes during normal vertical scrolling.
@@ -137,6 +137,29 @@ const SWIPE_MAX_RATIO = 1.2;
 const HERO_HALF_SIZES =
   "(min-width: 1024px) calc(50vw - 8px), (min-width: 640px) calc(50vw - 16px), calc(50vw - 12px)";
 
+function safelyCapturePointer(element: HTMLDivElement, pointerId: number) {
+  try {
+    if (typeof element.setPointerCapture === "function") {
+      element.setPointerCapture(pointerId);
+    }
+  } catch {
+    // Pointer capture can fail if the pointer is no longer active.
+  }
+}
+
+function safelyReleasePointer(element: HTMLDivElement, pointerId: number) {
+  try {
+    if (
+      typeof element.hasPointerCapture === "function" &&
+      element.hasPointerCapture(pointerId)
+    ) {
+      element.releasePointerCapture(pointerId);
+    }
+  } catch {
+    // A cancelled pointer may already have released capture implicitly.
+  }
+}
+
 export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
   const effective: ShowcaseSlide[] =
     slides && slides.length > 0 ? slides : FALLBACK_SLIDES;
@@ -152,7 +175,6 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
   // Pointer-drag state for swipe detection.
   // Using refs avoids re-render on every pointermove.
   const dragStart = useRef<{ x: number; y: number } | null>(null);
-  const isDragging = useRef(false);
 
   // prefers-reduced-motion
   useEffect(() => {
@@ -215,19 +237,27 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
   );
 
   // ── Swipe handlers ──────────────────────────────────────────
-  const handlePointerDown = (e: React.PointerEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // Only track primary pointer (finger or mouse left-button).
     if (!e.isPrimary) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+
     setPreparePrev(true);
     dragStart.current = { x: e.clientX, y: e.clientY };
-    isDragging.current = false;
+    safelyCapturePointer(e.currentTarget, e.pointerId);
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (!e.isPrimary || !dragStart.current) return;
-    const dx = e.clientX - dragStart.current.x;
-    const dy = e.clientY - dragStart.current.y;
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.isPrimary) return;
+
+    const start = dragStart.current;
     dragStart.current = null;
+    safelyReleasePointer(e.currentTarget, e.pointerId);
+    if (!start) return;
+
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
 
     const adx = Math.abs(dx);
     const ady = Math.abs(dy);
@@ -242,8 +272,9 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
     else goPrev();
   };
 
-  const handlePointerCancel = () => {
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
     dragStart.current = null;
+    safelyReleasePointer(e.currentTarget, e.pointerId);
   };
 
   return (
@@ -274,8 +305,15 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
+          onLostPointerCapture={() => {
+            dragStart.current = null;
+          }}
           // Prevent text/image selection while swiping
-          style={{ userSelect: "none", WebkitUserSelect: "none" }}
+          style={{
+            touchAction: "pan-y",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
         >
           {effective.map((slide, i) => {
             const active = i === idx;
@@ -320,14 +358,19 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
             aria-hidden
             className="absolute top-0 bottom-0 left-1/2 z-10 w-[2px] -translate-x-1/2 bg-white/85 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]"
           />
+
+          {effective.length > 1 && (
+            <HeroSlideDots
+              slides={effective}
+              activeIndex={idx}
+              onSelect={goTo}
+            />
+          )}
         </div>
 
         <HeroServiceFooter
           service={activeService}
-          slides={effective}
-          activeIndex={idx}
           locale={locale}
-          onSelect={goTo}
         />
       </div>
     </div>
@@ -336,46 +379,26 @@ export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
 
 function HeroServiceFooter({
   service,
-  slides,
-  activeIndex,
   locale,
-  onSelect,
 }: {
   service: HomeHeroServicePresentation | null;
-  slides: ShowcaseSlide[];
-  activeIndex: number;
   locale: RemoteServiceLocale;
-  onSelect: (index: number) => void;
 }) {
-  const showNav = slides.length > 1;
   const beforeLabel = locale === "es" ? "ANTES" : "BEFORE";
   const afterLabel = locale === "es" ? "DESPUÉS" : "AFTER";
 
   return (
     <div
       data-testid="hero-service-footer"
-      className="grid min-h-[3.25rem] w-full grid-rows-[auto_auto] content-center bg-primary px-3 py-1 text-white md:px-4 lg:px-5"
+      className="grid min-h-[3.75rem] w-full grid-cols-2 grid-rows-[auto_auto] content-center items-center gap-y-0.5 bg-[#071A2B] px-3 py-1 text-white md:min-h-14 md:grid-cols-[1fr_auto_1fr] md:grid-rows-1 md:gap-y-0 md:px-4 md:py-2 lg:px-5"
     >
-      <div
-        data-testid="hero-comparison-footer-row"
-        className="grid grid-cols-[1fr_auto_1fr] items-center"
-      >
-        <span className="col-start-1 justify-self-start text-[10px] font-bold uppercase leading-none tracking-[0.1em] text-white/80 md:text-[11px]">
-          {beforeLabel}
-        </span>
+      <span className="col-start-1 row-start-1 justify-self-start text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:text-base 2xl:text-[17px]">
+        {beforeLabel}
+      </span>
 
-        {showNav && (
-          <HeroSlideDots
-            slides={slides}
-            activeIndex={activeIndex}
-            onSelect={onSelect}
-          />
-        )}
-
-        <span className="col-start-3 justify-self-end text-[10px] font-bold uppercase leading-none tracking-[0.1em] text-white/80 md:text-[11px]">
-          {afterLabel}
-        </span>
-      </div>
+      <span className="col-start-2 row-start-1 justify-self-end text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:col-start-3 md:text-base 2xl:text-[17px]">
+        {afterLabel}
+      </span>
 
       {service && (
         <TrackedLink
@@ -385,12 +408,12 @@ function HeroServiceFooter({
           analyticsLocation="homepage_hero"
           analyticsEvent="pricing_cta"
           serviceSlug={service.mediaSlug}
-          className="group inline-flex min-h-5 max-w-full flex-wrap items-center justify-center justify-self-center rounded-sm px-1 text-center text-xs leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary md:text-[13px]"
+          className="group col-span-2 col-start-1 row-start-2 inline-flex min-h-5 max-w-full flex-wrap items-center justify-center justify-self-center rounded-sm px-1 text-center text-[13px] leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C7A94E] md:col-span-1 md:col-start-2 md:row-start-1 md:text-[15px] 2xl:text-base"
         >
-          <span className="whitespace-nowrap font-bold uppercase tracking-[0.05em] text-white transition-colors group-hover:text-white/90">
+          <span className="min-w-0 text-center font-bold uppercase tracking-[0.04em] text-[#C7A94E] transition-colors group-hover:text-[#d8bf72]">
             {service.name}
           </span>
-          <span className="inline-flex whitespace-nowrap items-baseline gap-1.5 font-bold text-secondary">
+          <span className="inline-flex whitespace-nowrap items-baseline gap-1.5 font-bold text-white">
             <span aria-hidden className="ml-1.5 text-white/40">
               ·
             </span>
@@ -408,7 +431,12 @@ function HeroServiceFooter({
         </TrackedLink>
       )}
 
-      {!service && <span aria-hidden className="min-h-5" />}
+      {!service && (
+        <span
+          aria-hidden
+          className="col-span-2 col-start-1 row-start-2 min-h-5 md:col-span-1 md:col-start-2 md:row-start-1"
+        />
+      )}
     </div>
   );
 }
@@ -425,7 +453,7 @@ function HeroSlideDots({
   return (
     <div
       data-testid="hero-slide-dots"
-      className="col-start-2 row-start-1 hidden items-center justify-center justify-self-center md:flex"
+      className="absolute top-1/2 left-3 z-20 flex -translate-y-1/2 flex-col items-center justify-center -space-y-[9px] md:left-4 md:-space-y-1.5 lg:left-5 xl:space-y-0"
       role="tablist"
       aria-label="Slide indicator"
     >
@@ -439,15 +467,15 @@ function HeroSlideDots({
             aria-selected={isActive}
             aria-label={`Show slide ${index + 1} of ${slides.length}`}
             onClick={() => onSelect(index)}
-            className="group flex h-6 w-6 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-primary"
+            className="group flex h-7 w-7 items-center justify-center rounded-full focus:outline-none md:h-8 md:w-8"
           >
             <span
               aria-hidden
               className={cn(
-                "h-1.5 rounded-full transition-all duration-200",
+                "rounded-full border shadow-[0_1px_4px_rgba(0,0,0,0.4)] transition-all duration-200 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[#C7A94E]",
                 isActive
-                  ? "w-5 bg-white"
-                  : "w-1.5 bg-white/40 group-hover:bg-white/60",
+                  ? "h-3 w-3 border-white/90 bg-[#C7A94E] ring-1 ring-[#071A2B]/35"
+                  : "h-2.5 w-2.5 border-white/70 bg-primary/50 group-hover:bg-primary/65",
               )}
             />
           </button>
@@ -482,6 +510,7 @@ function ImageBeforeAfter({
           className="object-cover"
           loading={eager ? "eager" : undefined}
           fetchPriority={eager ? "high" : undefined}
+          draggable={false}
         />
       </div>
       <div className="relative w-1/2 overflow-hidden bg-stone-200">
@@ -491,6 +520,7 @@ function ImageBeforeAfter({
           fill
           sizes={HERO_HALF_SIZES}
           className="object-cover"
+          draggable={false}
         />
       </div>
     </div>

@@ -132,6 +132,14 @@ test("top-level header categories wait for the wide 3xl layout while the lg serv
 
 test("hero service metadata resolves canonical routes and display-only pricing", () => {
   const heroSource = readSource("src/components/home/BeforeAfterShowcase.tsx");
+  const heroStageSource = heroSource.slice(
+    heroSource.indexOf('data-testid="homepage-hero-image-stage"'),
+    heroSource.indexOf("<HeroServiceFooter"),
+  );
+  const heroFooterSource = heroSource.slice(
+    heroSource.indexOf("function HeroServiceFooter"),
+    heroSource.indexOf("function HeroSlideDots"),
+  );
   const englishHomeSource = readSource("src/app/(public)/page.tsx");
   const spanishHomeSource = readSource("src/app/(public)/es/page.tsx");
   const pricingHubSource = readSource("src/app/(public)/pricing/page.tsx");
@@ -186,18 +194,41 @@ test("hero service metadata resolves canonical routes and display-only pricing",
   assert.match(heroSource, /showDivider=\{false\}/);
   assert.match(heroSource, /data-testid="hero-comparison-divider"/);
   assert.match(heroSource, /w-\[2px\].*bg-white\/85/);
-  assert.match(heroSource, /data-testid="hero-comparison-footer-row"/);
-  assert.match(heroSource, /grid-cols-\[1fr_auto_1fr\]/);
   assert.match(heroSource, /data-testid="hero-slide-dots"/);
-  assert.match(heroSource, /hidden items-center justify-center justify-self-center md:flex/);
-  assert.doesNotMatch(heroSource, /mt-2 lg:mt-3 flex items-center justify-center/);
-  assert.match(heroSource, /\? "w-5 bg-white"/);
-  assert.match(heroSource, /"w-1\.5 bg-white\/40 group-hover:bg-white\/60"/);
+  assert.match(heroStageSource, /<HeroSlideDots/);
+  assert.doesNotMatch(heroFooterSource, /HeroSlideDots/);
+  assert.match(
+    heroSource,
+    /absolute top-1\/2 left-3[\s\S]*?-translate-y-1\/2 flex-col[\s\S]*?-space-y-\[9px\][\s\S]*?md:left-4 md:-space-y-1\.5 lg:left-5 xl:space-y-0/,
+  );
+  assert.match(heroSource, /\? "h-3 w-3 border-white\/90 bg-\[#C7A94E\]/);
+  assert.match(heroSource, /bg-primary\/50 group-hover:bg-primary\/65/);
+  assert.match(heroSource, /h-7 w-7[\s\S]*?md:h-8 md:w-8/);
+  assert.match(heroSource, /group-focus-visible:outline-\[#C7A94E\]/);
+  assert.match(heroFooterSource, /bg-\[#071A2B\]/);
+  assert.match(heroFooterSource, /grid-cols-2 grid-rows-\[auto_auto\]/);
+  assert.match(heroFooterSource, /md:grid-cols-\[1fr_auto_1fr\] md:grid-rows-1/);
+  assert.match(heroFooterSource, /text-sm font-bold uppercase[\s\S]*?md:text-base/);
+  assert.match(heroFooterSource, /text-\[#C7A94E\][\s\S]*?text-white/);
   assert.doesNotMatch(heroSource, /M3 1L0 6l3 5V1/);
   assert.doesNotMatch(heroSource, /rounded-full bg-white shadow-md/);
   assert.equal(heroSource.match(/<TrackedLink/g)?.length, 1);
   assert.match(heroSource, /flex-wrap items-center justify-center justify-self-center/);
+  assert.match(heroFooterSource, /min-w-0 text-center font-bold uppercase/);
   assert.match(heroSource, /text-white\/40[\s\S]*?·/);
+  assert.match(heroSource, /touchAction: "pan-y"/);
+  assert.doesNotMatch(heroSource, /touchAction: "none"/);
+  assert.match(heroSource, /setPointerCapture\(pointerId\)/);
+  assert.match(heroSource, /hasPointerCapture\(pointerId\)/);
+  assert.match(heroSource, /releasePointerCapture\(pointerId\)/);
+  assert.match(heroSource, /dragStart\.current = \{ x: e\.clientX, y: e\.clientY \}/);
+  assert.match(heroSource, /if \(dx < 0\) goNext\(\);[\s\S]*?else goPrev\(\);/);
+  assert.match(heroSource, /if \(ady > adx \* SWIPE_MAX_RATIO\) return/);
+  assert.match(
+    heroSource,
+    /handlePointerCancel[\s\S]*?dragStart\.current = null;[\s\S]*?safelyReleasePointer/,
+  );
+  assert.equal(heroSource.match(/draggable=\{false\}/g)?.length, 2);
   assert.match(heroSource, /trimWholeCents/);
   assert.match(heroSource, /locale === "es" \? "ANTES" : "BEFORE"/);
   assert.match(heroSource, /locale === "es" \? "DESPUÉS" : "AFTER"/);
