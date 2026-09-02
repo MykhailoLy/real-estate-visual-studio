@@ -204,7 +204,7 @@ test("hero service metadata resolves canonical routes and display-only pricing",
   assert.doesNotMatch(heroFooterSource, /HeroSlideIndicatorRail/);
   assert.match(
     chromeSource,
-    /absolute top-1\/2 left-3[\s\S]*?-translate-y-1\/2 flex-col[\s\S]*?md:left-4 lg:left-5/,
+    /absolute top-1\/2 left-3[\s\S]*?hidden[\s\S]*?-translate-y-1\/2 flex-col[\s\S]*?md:left-4 md:flex lg:left-5/,
   );
   assert.match(chromeSource, /\? "h-3 w-3 border-white\/90 bg-\[#C7A94E\]/);
   assert.match(chromeSource, /bg-primary\/50 group-hover:bg-primary\/65/);
@@ -282,6 +282,7 @@ test("service comparison heroes reuse the homepage chrome and reliable swipe beh
   assert.match(chromeSource, /role="tablist"/);
   assert.match(chromeSource, /role="tab"/);
   assert.match(chromeSource, /aria-selected=\{isActive\}/);
+  assert.match(chromeSource, /hidden[\s\S]*?md:flex/);
   assert.match(chromeSource, /event\.key === "Enter" \|\| event\.key === " "/);
   assert.match(chromeSource, /bg-primary\/50 group-hover:bg-primary\/65/);
   assert.match(chromeSource, /bg-\[#C7A94E\]/);
@@ -364,7 +365,20 @@ test("360 service heroes stay synchronized comparisons with safe non-comparison 
   assert.match(syncedSource, /role="group"/);
   assert.match(syncedSource, /role="img"/);
   assert.match(syncedSource, /<ComparisonHeroFooter/);
+  assert.match(syncedSource, /showComparisonLabelsOnMobile=\{false\}/);
   assert.match(syncedSource, /comparisonLabelsAriaHidden/);
+  assert.equal(syncedSource.match(/data-testid="panorama-mobile-label"/g)?.length, 1);
+  assert.match(syncedSource, /mobileLabel=\{beforeLabel\}/);
+  assert.match(syncedSource, /mobileLabel=\{afterLabel\}/);
+  assert.match(
+    syncedSource,
+    /panorama-mobile-label[\s\S]*?bg-\[#071A2B\][\s\S]*?text-\[13px\][\s\S]*?md:hidden/,
+  );
+  assert.match(
+    syncedSource,
+    /<PanoramaPane[\s\S]*?mobileLabel=\{beforeLabel\}[\s\S]*?<PanoramaPane[\s\S]*?mobileLabel=\{afterLabel\}/,
+  );
+  assert.match(syncedSource, /grid-cols-1[\s\S]*?md:grid-cols-2/);
   assert.doesNotMatch(syncedSource, /role="tablist"|aria-roledescription="carousel"/);
   assert.doesNotMatch(syncedSource, /ChevronLeft|ChevronRight|Previous slide|Next slide/);
   assert.doesNotMatch(syncedSource, /handlePointerDown|SWIPE_MIN_X|touchAction: "pan-y"/);
@@ -374,6 +388,7 @@ test("360 service heroes stay synchronized comparisons with safe non-comparison 
 
   assert.match(singleSource, /<ComparisonHeroFooter/);
   assert.match(singleSource, /showComparisonLabels=\{false\}/);
+  assert.doesNotMatch(singleSource, /panorama-mobile-label/);
   assert.doesNotMatch(singleSource, /role="tablist"|aria-roledescription="carousel"/);
   assert.doesNotMatch(singleSource, />\s*(BEFORE|AFTER|ANTES|DESPUÉS)\s*</);
   assert.doesNotMatch(singleSource, /bg-gradient-to-t from-black/);

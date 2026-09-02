@@ -273,6 +273,8 @@ export default function SyncedPanoramaCompareViewer({
 
   const hasViewer = status === "loading" || status === "ready";
   const service = getHeroServicePresentation(serviceSlug, locale);
+  const beforeLabel = locale === "es" ? "ANTES" : "BEFORE";
+  const afterLabel = locale === "es" ? "DESPUÉS" : "AFTER";
 
   return (
     <div
@@ -291,10 +293,12 @@ export default function SyncedPanoramaCompareViewer({
           <div className="grid w-full min-w-0 grid-cols-1 gap-px bg-white/15 md:grid-cols-2">
             <PanoramaPane
               title={beforeTitle}
+              mobileLabel={beforeLabel}
               containerRef={beforeContainerRef}
             />
             <PanoramaPane
               title={afterTitle}
+              mobileLabel={afterLabel}
               containerRef={afterContainerRef}
             />
           </div>
@@ -323,6 +327,7 @@ export default function SyncedPanoramaCompareViewer({
         ctaLabel={orderLabel}
         analyticsLocation="service_hero"
         analyticsEvent="order_intent"
+        showComparisonLabelsOnMobile={false}
         comparisonLabelsAriaHidden
       />
     </div>
@@ -331,13 +336,22 @@ export default function SyncedPanoramaCompareViewer({
 
 function PanoramaPane({
   title,
+  mobileLabel,
   containerRef,
 }: {
   title: string;
+  mobileLabel: string;
   containerRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="relative min-w-0 overflow-hidden bg-stone-950">
+      <div
+        data-testid="panorama-mobile-label"
+        aria-hidden
+        className="flex min-h-7 items-center bg-[#071A2B] px-3 text-[13px] font-bold uppercase leading-none tracking-[0.08em] text-white md:hidden"
+      >
+        {mobileLabel}
+      </div>
       <div
         ref={containerRef}
         className="aspect-[16/9] w-full min-w-0 touch-none [&_.psv-canvas-container]:!h-full [&_.psv-canvas-container]:!w-full [&_.psv-container]:!h-full [&_.psv-container]:!w-full [&_.psv-container]:!bg-stone-950 [&_.psv-container]:!font-sans"

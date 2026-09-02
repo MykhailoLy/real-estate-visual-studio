@@ -18,6 +18,7 @@ interface ComparisonHeroFooterProps {
   analyticsLocation?: string;
   analyticsEvent?: HeroAnalyticsEvent;
   showComparisonLabels?: boolean;
+  showComparisonLabelsOnMobile?: boolean;
   comparisonLabelsAriaHidden?: boolean;
 }
 
@@ -29,6 +30,7 @@ export function ComparisonHeroFooter({
   analyticsLocation,
   analyticsEvent,
   showComparisonLabels = true,
+  showComparisonLabelsOnMobile = true,
   comparisonLabelsAriaHidden = false,
 }: ComparisonHeroFooterProps) {
   const beforeLabel = locale === "es" ? "ANTES" : "BEFORE";
@@ -58,7 +60,10 @@ export function ComparisonHeroFooter({
   const centerClassName = cn(
     "group inline-flex min-h-5 max-w-full flex-wrap items-center justify-center justify-self-center rounded-sm px-1 text-center text-[13px] leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C7A94E] md:text-[15px] 2xl:text-base",
     showComparisonLabels
-      ? "col-span-2 col-start-1 row-start-2 md:col-span-1 md:col-start-2 md:row-start-1"
+      ? cn(
+          "col-span-2 col-start-1 md:col-span-1 md:col-start-2 md:row-start-1",
+          showComparisonLabelsOnMobile ? "row-start-2" : "row-start-1",
+        )
       : "col-span-2 col-start-1 row-start-1 md:col-span-3",
   );
 
@@ -67,7 +72,7 @@ export function ComparisonHeroFooter({
       data-testid="hero-service-footer"
       className={cn(
         "grid w-full content-center items-center bg-[#071A2B] px-3 py-1 text-white md:min-h-14 md:grid-cols-[1fr_auto_1fr] md:grid-rows-1 md:px-4 md:py-2 lg:px-5",
-        showComparisonLabels
+        showComparisonLabels && showComparisonLabelsOnMobile
           ? "min-h-[3.75rem] grid-cols-2 grid-rows-[auto_auto] gap-y-0.5 md:gap-y-0"
           : "min-h-14 grid-cols-2 grid-rows-1",
       )}
@@ -76,13 +81,19 @@ export function ComparisonHeroFooter({
         <>
           <span
             aria-hidden={comparisonLabelsAriaHidden || undefined}
-            className="col-start-1 row-start-1 justify-self-start text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:text-base"
+            className={cn(
+              "col-start-1 row-start-1 justify-self-start text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:text-base",
+              !showComparisonLabelsOnMobile && "hidden md:block",
+            )}
           >
             {beforeLabel}
           </span>
           <span
             aria-hidden={comparisonLabelsAriaHidden || undefined}
-            className="col-start-2 row-start-1 justify-self-end text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:col-start-3 md:text-base"
+            className={cn(
+              "col-start-2 row-start-1 justify-self-end text-sm font-bold uppercase leading-none tracking-[0.08em] text-white md:col-start-3 md:text-base",
+              !showComparisonLabelsOnMobile && "hidden md:block",
+            )}
           >
             {afterLabel}
           </span>
@@ -128,7 +139,7 @@ export function HeroSlideIndicatorRail({
   return (
     <div
       data-testid="hero-slide-dots"
-      className="absolute top-1/2 left-3 z-20 flex -translate-y-1/2 flex-col items-center justify-center md:left-4 lg:left-5"
+      className="absolute top-1/2 left-3 z-20 hidden -translate-y-1/2 flex-col items-center justify-center md:left-4 md:flex lg:left-5"
       role="tablist"
       aria-label={railLabel}
     >
