@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import TrackedLink from "@/components/analytics/TrackedLink";
+import { CatalogPriceText } from "@/components/pricing/currency-client";
+import {
+  getHomeHeroServicePresentation,
+  type HomeHeroServicePresentation,
+  type RemoteServiceLocale,
+} from "@/lib/pricing/remote-service-presentation";
 import ServicePlaceholder, {
   type ServiceVariant,
 } from "./ServicePlaceholder";
@@ -36,8 +43,8 @@ function isSlideMounted(
 // Wide cinematic banner under the nav.
 //
 // Controls:
-//   - Arrow buttons (bare icons, no heavy white circle)
-//   - Dot indicator below
+//   - Arrow buttons with subtle contrast backing
+//   - Dot indicator integrated into the navy service footer
 //   - Touch/pointer swipe: swipe left → next, swipe right → prev.
 //     A minimum horizontal displacement (SWIPE_MIN_X) prevents
 //     accidental slide changes during normal vertical scrolling.
@@ -54,25 +61,69 @@ export type ShowcaseSlide =
       afterUrl: string;
       beforeAlt: string;
       afterAlt: string;
+      serviceSlug?: string | null;
     }
   | {
       kind: "placeholder";
       id: string;
       variant: ServiceVariant;
+      serviceSlug?: string;
     };
 
 interface Props {
   slides?: ShowcaseSlide[];
+  locale?: RemoteServiceLocale;
 }
 
 const FALLBACK_SLIDES: ShowcaseSlide[] = [
-  { kind: "placeholder", id: "image-enhancement", variant: "image-enhancement" },
-  { kind: "placeholder", id: "day-to-dusk", variant: "day-to-dusk" },
-  { kind: "placeholder", id: "virtual-staging", variant: "virtual-staging" },
-  { kind: "placeholder", id: "floor-plans", variant: "floor-plans" },
-  { kind: "placeholder", id: "virtual-renovation", variant: "virtual-renovation" },
-  { kind: "placeholder", id: "panorama-staging", variant: "panorama-staging" },
-  { kind: "placeholder", id: "aerial-editing", variant: "aerial-editing" },
+  {
+    kind: "placeholder",
+    id: "image-enhancement",
+    variant: "image-enhancement",
+    serviceSlug: "image-enhancement",
+  },
+  {
+    kind: "placeholder",
+    id: "day-to-dusk",
+    variant: "day-to-dusk",
+    serviceSlug: "day-to-dusk",
+  },
+  {
+    kind: "placeholder",
+    id: "virtual-staging",
+    variant: "virtual-staging",
+    serviceSlug: "virtual-staging",
+  },
+  {
+    kind: "placeholder",
+    id: "item-removal",
+    variant: "item-removal",
+    serviceSlug: "item-removal-virtual-cleaning",
+  },
+  {
+    kind: "placeholder",
+    id: "floor-plans",
+    variant: "floor-plans",
+    serviceSlug: "floor-plans",
+  },
+  {
+    kind: "placeholder",
+    id: "virtual-renovation",
+    variant: "virtual-renovation",
+    serviceSlug: "virtual-renovation",
+  },
+  {
+    kind: "placeholder",
+    id: "panorama-staging",
+    variant: "panorama-staging",
+    serviceSlug: "360-virtual-staging",
+  },
+  {
+    kind: "placeholder",
+    id: "aerial-editing",
+    variant: "aerial-editing",
+    serviceSlug: "aerial-editing",
+  },
   { kind: "placeholder", id: "local-package", variant: "local-package" },
 ];
 
@@ -88,7 +139,7 @@ const SWIPE_MAX_RATIO = 1.2;
 const HERO_HALF_SIZES =
   "(min-width: 1024px) calc(50vw - 8px), (min-width: 640px) calc(50vw - 16px), calc(50vw - 12px)";
 
-export default function BeforeAfterShowcase({ slides }: Props) {
+export default function BeforeAfterShowcase({ slides, locale = "en" }: Props) {
   const effective: ShowcaseSlide[] =
     slides && slides.length > 0 ? slides : FALLBACK_SLIDES;
 
@@ -160,6 +211,12 @@ export default function BeforeAfterShowcase({ slides }: Props) {
   }, []);
 
   const showNav = effective.length > 1;
+  const activeSlide = effective[idx];
+  const activeService = getHomeHeroServicePresentation(
+    activeSlide?.serviceSlug,
+    locale,
+  );
+  const showFooter = showNav || Boolean(activeService);
 
   // ── Swipe handlers ──────────────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -210,123 +267,235 @@ export default function BeforeAfterShowcase({ slides }: Props) {
       aria-roledescription="carousel"
       aria-label="Before and after slider"
     >
-      {/* ── Slide stage ── */}
       <div
-        className="relative w-full overflow-hidden rounded-xl lg:rounded-2xl shadow-xl ring-1 ring-black/10 bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
-        // Prevent text/image selection while swiping
-        style={{ userSelect: "none", WebkitUserSelect: "none" }}
+        data-testid="homepage-hero-frame"
+        className="w-full overflow-hidden rounded-xl bg-primary shadow-xl ring-1 ring-black/10 lg:rounded-2xl"
       >
-        {effective.map((slide, i) => {
-          const active = i === idx;
-          const mounted = isSlideMounted(
-            i,
-            idx,
-            effective.length,
-            neighborsReady,
-            preparePrev
-          );
-          return (
-            <div
-              key={slide.id}
-              className={cn(
-                "absolute inset-0 transition-opacity duration-700 ease-in-out",
-                active ? "opacity-100" : "opacity-0"
-              )}
-              aria-hidden={!active}
-            >
-              {mounted &&
-                (slide.kind === "image" ? (
-                  <ImageBeforeAfter
-                    beforeUrl={slide.beforeUrl}
-                    afterUrl={slide.afterUrl}
-                    beforeAlt={slide.beforeAlt}
-                    afterAlt={slide.afterAlt}
-                    eager={i === 0}
-                  />
-                ) : (
-                  <ServicePlaceholder
-                    variant={slide.variant}
-                    showInnerLabels={false}
-                  />
-                ))}
-            </div>
-          );
-        })}
-
-        {/* ── Arrow controls — bare icons, no white circle ── */}
-        {showNav && (
-          <>
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="Previous slide"
-              className={cn(
-                // Generous tap target (44×44 minimum), centred on the icon
-                "absolute left-2 lg:left-4 top-1/2 -translate-y-1/2",
-                "w-11 h-11 flex items-center justify-center",
-                // Visually only the icon — no background circle
-                "text-white/80 hover:text-white",
-                "drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]",
-                "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent rounded"
-              )}
-            >
-              <ChevronLeft className="w-7 h-7 lg:w-8 lg:h-8" strokeWidth={2.2} aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="Next slide"
-              className={cn(
-                "absolute right-2 lg:right-4 top-1/2 -translate-y-1/2",
-                "w-11 h-11 flex items-center justify-center",
-                "text-white/80 hover:text-white",
-                "drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]",
-                "transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent rounded"
-              )}
-            >
-              <ChevronRight className="w-7 h-7 lg:w-8 lg:h-8" strokeWidth={2.2} aria-hidden />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* ── Dot indicators ── */}
-      {showNav && (
+        {/* ── Slide stage ── */}
         <div
-          className="mt-2 lg:mt-3 flex items-center justify-center gap-0"
-          role="tablist"
-          aria-label="Slide indicator"
+          data-testid="homepage-hero-image-stage"
+          className="relative w-full overflow-hidden bg-stone-100 aspect-[16/9] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1]"
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          // Prevent text/image selection while swiping
+          style={{ userSelect: "none", WebkitUserSelect: "none" }}
         >
           {effective.map((slide, i) => {
-            const isActive = i === idx;
+            const active = i === idx;
+            const mounted = isSlideMounted(
+              i,
+              idx,
+              effective.length,
+              neighborsReady,
+              preparePrev
+            );
             return (
-              <button
+              <div
                 key={slide.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-label={`Show slide ${i + 1} of ${effective.length}`}
-                onClick={() => goTo(i)}
-                className="group flex h-11 w-11 items-center justify-center rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                className={cn(
+                  "absolute inset-0 transition-opacity duration-700 ease-in-out",
+                  active ? "opacity-100" : "opacity-0"
+                )}
+                aria-hidden={!active}
               >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "h-2.5 rounded-full transition-all duration-200",
-                    isActive
-                      ? "w-9 bg-primary"
-                      : "w-2.5 bg-stone-300 group-hover:bg-stone-400"
-                  )}
-                />
-              </button>
+                {mounted &&
+                  (slide.kind === "image" ? (
+                    <ImageBeforeAfter
+                      beforeUrl={slide.beforeUrl}
+                      afterUrl={slide.afterUrl}
+                      beforeAlt={slide.beforeAlt}
+                      afterAlt={slide.afterAlt}
+                      eager={i === 0}
+                    />
+                  ) : (
+                    <ServicePlaceholder
+                      variant={slide.variant}
+                      showInnerLabels={false}
+                    />
+                  ))}
+                {active && (
+                  <BeforeAfterLabels
+                    beforeLabel={locale === "es" ? "ANTES" : "BEFORE"}
+                    afterLabel={locale === "es" ? "DESPUÉS" : "AFTER"}
+                  />
+                )}
+              </div>
             );
           })}
+
+          {showNav && (
+            <>
+              <HeroArrowControl direction="previous" onClick={goPrev} />
+              <HeroArrowControl direction="next" onClick={goNext} />
+            </>
+          )}
         </div>
+
+        {showFooter && (
+          <HeroServiceFooter
+            service={activeService}
+            slides={effective}
+            activeIndex={idx}
+            onSelect={goTo}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BeforeAfterLabels({
+  beforeLabel,
+  afterLabel,
+}: {
+  beforeLabel: string;
+  afterLabel: string;
+}) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between sm:inset-x-4 sm:top-3.5"
+    >
+      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary backdrop-blur-sm sm:text-[11px]">
+        {beforeLabel}
+      </span>
+      <span className="rounded-md border border-white/55 bg-white/85 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary backdrop-blur-sm sm:text-[11px]">
+        {afterLabel}
+      </span>
+    </div>
+  );
+}
+
+function HeroServiceFooter({
+  service,
+  slides,
+  activeIndex,
+  onSelect,
+}: {
+  service: HomeHeroServicePresentation | null;
+  slides: ShowcaseSlide[];
+  activeIndex: number;
+  onSelect: (index: number) => void;
+}) {
+  const showNav = slides.length > 1;
+  return (
+    <div
+      data-testid="hero-service-footer"
+      className={cn(
+        "grid w-full bg-primary px-3 py-1 text-white",
+        showNav
+          ? "min-h-[4.25rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] gap-x-2 sm:min-h-14 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:grid-rows-1 sm:items-center sm:gap-x-3 sm:px-4 sm:py-2 lg:px-5"
+          : "min-h-[3.25rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 sm:min-h-14 sm:px-4 lg:px-5",
+      )}
+    >
+      <span className="min-w-0 truncate text-[8px] font-bold uppercase leading-tight tracking-[0.08em] text-white sm:text-[9px] sm:tracking-[0.05em] lg:text-[11px] lg:tracking-[0.12em]">
+        {service?.name}
+      </span>
+
+      {showNav && (
+        <HeroSlideDots
+          slides={slides}
+          activeIndex={activeIndex}
+          onSelect={onSelect}
+        />
+      )}
+
+      {service && (
+        <TrackedLink
+          href={service.href}
+          prefetch={false}
+          analyticsLabel={service.ctaLabel}
+          analyticsLocation="homepage_hero"
+          analyticsEvent="pricing_cta"
+          serviceSlug={service.mediaSlug}
+          className="col-start-2 row-start-1 inline-flex min-h-7 items-center justify-self-end gap-1.5 rounded-sm px-1 text-[11px] font-bold text-secondary transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary sm:col-start-3 sm:min-h-8 sm:text-xs"
+        >
+          {service.price.kind === "catalog" ? (
+            <CatalogPriceText
+              priceKey={service.price.priceKey}
+              prefix={service.price.prefix}
+              suffix={service.price.suffix}
+              trimWholeCents
+            />
+          ) : (
+            service.price.label
+          )}
+          <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        </TrackedLink>
       )}
     </div>
+  );
+}
+
+function HeroSlideDots({
+  slides,
+  activeIndex,
+  onSelect,
+}: {
+  slides: ShowcaseSlide[];
+  activeIndex: number;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <div
+      data-testid="hero-slide-dots"
+      className="col-span-2 row-start-2 flex items-center justify-center gap-0 justify-self-center sm:col-span-1 sm:col-start-2 sm:row-start-1"
+      role="tablist"
+      aria-label="Slide indicator"
+    >
+      {slides.map((slide, index) => {
+        const isActive = index === activeIndex;
+        return (
+          <button
+            key={slide.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            aria-label={`Show slide ${index + 1} of ${slides.length}`}
+            onClick={() => onSelect(index)}
+            className="group flex h-7 w-7 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2 focus-visible:ring-offset-primary sm:h-8 sm:w-8"
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "h-2 rounded-full transition-all duration-200",
+                isActive
+                  ? "w-6 bg-white"
+                  : "w-2 bg-white/40 group-hover:bg-white/60",
+              )}
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HeroArrowControl({
+  direction,
+  onClick,
+}: {
+  direction: "previous" | "next";
+  onClick: () => void;
+}) {
+  const isPrevious = direction === "previous";
+  const Icon = isPrevious ? ChevronLeft : ChevronRight;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={isPrevious ? "Previous slide" : "Next slide"}
+      className={cn(
+        "group absolute top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
+        isPrevious ? "left-2 lg:left-4" : "right-2 lg:right-4",
+      )}
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-primary/25 text-white backdrop-blur-sm transition-colors group-hover:bg-primary/40">
+        <Icon className="h-6 w-6 lg:h-7 lg:w-7" strokeWidth={2.2} aria-hidden />
+      </span>
+    </button>
   );
 }
 
@@ -368,19 +537,8 @@ function ImageBeforeAfter({
       </div>
       <div
         aria-hidden
-        className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[3px] bg-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.06)]"
-      >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center">
-          <svg
-            viewBox="0 0 12 12"
-            className="w-3 h-3 text-primary"
-            fill="currentColor"
-            aria-hidden
-          >
-            <path d="M3 1L0 6l3 5V1zm6 0v10l3-5-3-5z" />
-          </svg>
-        </div>
-      </div>
+        className="absolute top-0 bottom-0 left-1/2 w-[2px] -translate-x-1/2 bg-white/85 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]"
+      />
     </div>
   );
 }

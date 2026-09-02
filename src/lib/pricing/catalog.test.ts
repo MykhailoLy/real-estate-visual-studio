@@ -6,6 +6,7 @@ import {
   PRICING_VERSION,
   STAGING_ADDON_PRICE_KEYS,
 } from "./catalog.ts";
+import { formatMoney } from "./format.ts";
 import { getOrderServiceCatalogEntry } from "../order-service-catalog.ts";
 import { STANDARD_VOLUME_DISCOUNT_EXCLUDED_PRICE_KEYS } from "./discounts.ts";
 import type { PriceKey, TransactionalCurrency } from "./types.ts";
@@ -79,6 +80,27 @@ test("Floor Plan catalog prices remain unchanged", () => {
   });
 });
 
+test("compact hero formatting trims only zero cents without changing catalog values", () => {
+  assert.equal(formatMoney(1500, "USD"), "$15.00");
+  assert.equal(
+    formatMoney(1500, "USD", { trimWholeCents: true }),
+    "$15",
+  );
+  assert.equal(
+    formatMoney(1500, "EUR", { trimWholeCents: true }),
+    "€15",
+  );
+  assert.equal(
+    formatMoney(450, "USD", { trimWholeCents: true }),
+    "$4.50",
+  );
+  assert.deepEqual(PRICE_CATALOG["virtual-staging"], {
+    USD: 1500,
+    EUR: 1400,
+    CAD: 1900,
+  });
+});
+
 test("Virtual Renovation synchronized operations match their canonical services", () => {
   for (const priceKey of [
     "renovation-staging-residential",
@@ -136,6 +158,10 @@ test("public pricing sources keep renovation option-based and structured prices 
     new URL("../../app/(public)/pricing/page.tsx", import.meta.url),
     "utf8",
   );
+  const remotePresentationSource = readFileSync(
+    new URL("./remote-service-presentation.ts", import.meta.url),
+    "utf8",
+  );
   const serviceGridSource = readFileSync(
     new URL("../../components/home/ServiceGrid.tsx", import.meta.url),
     "utf8",
@@ -155,8 +181,9 @@ test("public pricing sources keep renovation option-based and structured prices 
     "utf8",
   );
 
-  assert.match(pricingHubSource, /priceKey: "aerial-colour-fade"/);
-  assert.match(pricingHubSource, /label: "Option-based pricing"/);
+  assert.match(pricingHubSource, /REMOTE_SERVICE_GROUPS/);
+  assert.match(remotePresentationSource, /priceKey: "aerial-colour-fade"/);
+  assert.match(remotePresentationSource, /label: \{ en: "Option-based pricing"/);
   assert.match(serviceGridSource, /customPriceLabel: "Option-based pricing"/);
   assert.doesNotMatch(
     serviceGridSource,

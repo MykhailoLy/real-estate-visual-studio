@@ -14,13 +14,19 @@ export function isTransactionalCurrency(
 
 export function formatMoney(
   cents: number,
-  currency: TransactionalCurrency
+  currency: TransactionalCurrency,
+  options?: {
+    /** Presentation-only option for compact displays such as the homepage hero. */
+    trimWholeCents?: boolean;
+  },
 ): string {
+  const fractionDigits = options?.trimWholeCents && cents % 100 === 0 ? 0 : 2;
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(cents / 100);
 }
 

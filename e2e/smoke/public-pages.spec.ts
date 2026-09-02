@@ -22,6 +22,282 @@ test("home page loads without client or server smoke failures", async ({
   await guard.expectClean();
 });
 
+test("homepage hero keeps active-slide service context, regional pricing, and routes", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  let response = await page.goto("/");
+  expectNavigationResponseOk(response, "/");
+
+  const hero = page.getByRole("region", { name: "Before and after slider" });
+  await expect(hero.getByText("BEFORE", { exact: true })).toBeVisible();
+  await expect(hero.getByText("AFTER", { exact: true })).toBeVisible();
+  const heroFooter = hero.getByTestId("hero-service-footer");
+  await expect(heroFooter.getByRole("tablist")).toBeVisible();
+  await expect(heroFooter.getByRole("link")).toHaveCount(
+    1,
+  );
+  const imageEnhancementCta = hero.getByRole("link", {
+    name: "View Image Enhancement pricing",
+  });
+  await expect(imageEnhancementCta).toContainText("From $1 / image");
+  await expect(imageEnhancementCta).not.toContainText(".00");
+  await expect(
+    heroFooter.getByRole("tab", { selected: true }).locator("span"),
+  ).toHaveClass(/bg-white/);
+  await expect(
+    heroFooter.getByRole("tab", { selected: false }).first().locator("span"),
+  ).toHaveClass(/bg-white\/40/);
+  await expect(
+    hero.getByRole("button", { name: "Next slide" }).locator("span"),
+  ).toHaveClass(/bg-primary\/25/);
+
+  const heroGeometry = await hero.evaluate((element) => {
+    const frame = element.querySelector('[data-testid="homepage-hero-frame"]');
+    const stage = element.querySelector('[data-testid="homepage-hero-image-stage"]');
+    const footer = element.querySelector('[data-testid="hero-service-footer"]');
+    if (!frame || !stage || !footer) return null;
+    const frameRect = frame.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const footerRect = footer.getBoundingClientRect();
+    return {
+      footerPosition: getComputedStyle(footer).position,
+      stageBottom: stageRect.bottom,
+      footerTop: footerRect.top,
+      frameBottom: frameRect.bottom,
+      footerBottom: footerRect.bottom,
+    };
+  });
+  expect(heroGeometry).not.toBeNull();
+  expect(heroGeometry?.footerPosition).not.toBe("absolute");
+  expect(Math.abs((heroGeometry?.stageBottom ?? 0) - (heroGeometry?.footerTop ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((heroGeometry?.frameBottom ?? 0) - (heroGeometry?.footerBottom ?? 0))).toBeLessThanOrEqual(1);
+
+  const marketSelector = page.getByRole("button", {
+    name: "Select market, currency, and language",
+  });
+  await marketSelector.click();
+  await page.getByRole("button", { name: /Europe — EUR/ }).click();
+  await expect(imageEnhancementCta).toContainText("From €1 / image");
+
+  await hero.getByRole("button", { name: "Next slide" }).click();
+  const dayToDuskCta = hero.getByRole("link", {
+    name: "View Day to Dusk pricing",
+  });
+  await expect(dayToDuskCta).toBeVisible();
+  await expect(hero.getByTestId("hero-service-footer").getByRole("link")).toHaveCount(
+    1,
+  );
+  await dayToDuskCta.click();
+  await expect(page).toHaveURL(/\/pricing\/day-to-dusk$/);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  response = await page.goto("/");
+  expectNavigationResponseOk(response, "/");
+  const mobileHero = page.getByRole("region", { name: "Before and after slider" });
+  await mobileHero
+    .getByRole("tab", { name: "Show slide 4 of 9" })
+    .click();
+  const itemRemovalCta = mobileHero.getByRole("link", {
+    name: "View Item Removal & Virtual Cleaning pricing",
+  });
+  await expect(itemRemovalCta).toHaveAttribute("href", "/pricing/photo-editing");
+  const pageWidth = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+
+  await itemRemovalCta.click();
+  await expect(page).toHaveURL(/\/pricing\/photo-editing$/);
+
+  response = await page.goto("/");
+  expectNavigationResponseOk(response, "/");
+  const unknownHero = page.getByRole("region", {
+    name: "Before and after slider",
+  });
+  await unknownHero.getByRole("tab", { name: "Show slide 9 of 9" }).click();
+  const unknownFooter = unknownHero.getByTestId("hero-service-footer");
+  await expect(unknownFooter).toBeVisible();
+  await expect(unknownFooter.getByRole("tab")).toHaveCount(9);
+  await expect(unknownFooter.getByRole("link")).toHaveCount(0);
+
+  await guard.expectClean();
+});
+
+test("Spanish homepage hero localizes its comparison labels and service route", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  const response = await page.goto("/es");
+  expectNavigationResponseOk(response, "/es");
+
+  const hero = page.getByRole("region", { name: "Before and after slider" });
+  await expect(hero.getByText("ANTES", { exact: true })).toBeVisible();
+  await expect(hero.getByText("DESPUÉS", { exact: true })).toBeVisible();
+  await expect(
+    hero.getByRole("link", { name: "Ver precios de Mejora de imagen" }),
+  ).toHaveAttribute("href", "/es/pricing/image-enhancement");
+  await guard.expectClean();
+});
+
+const HOMEPAGE_VIEWPORTS = [
+  { width: 390, height: 844, expectedBenefitColumns: 1 },
+  { width: 768, height: 900, expectedBenefitColumns: 3 },
+  { width: 960, height: 900, expectedBenefitColumns: 3 },
+  { width: 1024, height: 900, expectedBenefitColumns: 6 },
+  { width: 1180, height: 900, expectedBenefitColumns: 6 },
+  { width: 1280, height: 900, expectedBenefitColumns: 6 },
+  { width: 1440, height: 1000, expectedBenefitColumns: 6 },
+  { width: 1980, height: 1100, expectedBenefitColumns: 6 },
+  { width: 3840, height: 1200, expectedBenefitColumns: 6 },
+] as const;
+
+test("homepage keeps its compact Welcome Offer benefits responsive and ordered", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60000);
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  for (const viewport of HOMEPAGE_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    const response = await page.goto("/");
+
+    expectNavigationResponseOk(response, "/");
+    await expect(
+      page.getByRole("heading", {
+        name: "Real Estate Photo Editing, Virtual Staging & Floor Plans",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Welcome Offer", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Why work with PicchuSpot", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Built for listings - not generic photo work.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+
+    const benefitGrid = page.getByTestId("benefits-grid");
+    const columnCount = await benefitGrid.evaluate((element) =>
+      getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length,
+    );
+    expect(columnCount).toBe(viewport.expectedBenefitColumns);
+
+    const pageWidth = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+  }
+
+  await guard.expectClean();
+});
+
+const SIGNUP_VIEWPORTS = [
+  { width: 390, height: 844 },
+  { width: 768, height: 900 },
+  { width: 1024, height: 900 },
+  { width: 1440, height: 1000 },
+  { width: 1980, height: 1100 },
+  { width: 3840, height: 1200 },
+] as const;
+
+test("signup uses public chrome and keeps its Welcome Offer compact across viewports", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  for (const viewport of SIGNUP_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    const response = await page.goto("/signup");
+    expectNavigationResponseOk(response, "/signup");
+
+    const header = page.getByRole("banner");
+    await expect(header).toBeVisible();
+    await expect(page.getByTestId("public-header-primary-row")).toHaveClass(
+      /bg-primary/,
+    );
+    await expect(
+      header.getByRole("link", { name: "Login", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("footer")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Create your account", exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      page.getByRole("heading", { name: "Welcome Offer", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("1 Image Enhancement free", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("1 Day to Dusk free", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("50% off your first Virtual Staging image", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Full name")).toBeVisible();
+    await expect(page.getByText("Back to website", { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByText("Each benefit can be used once per account.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("signup-welcome-offer"),
+    ).toHaveClass(/bg-primary/);
+
+    if (viewport.width >= 1024) {
+      await expect(
+        page.locator('nav[aria-label="Remote Digital Services services"]'),
+      ).toBeVisible();
+    }
+
+    const pageWidth = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
+  }
+
+  const response = await page.goto("/es/signup");
+  expectNavigationResponseOk(response, "/es/signup");
+  const spanishHeader = page.getByRole("banner");
+  await expect(spanishHeader).toBeVisible();
+  await expect(page.getByTestId("public-header-primary-row")).toHaveClass(
+    /bg-primary/,
+  );
+  await expect(
+    spanishHeader.getByRole("link", { name: "Iniciar sesión", exact: true }),
+  ).toBeVisible();
+  const spanishFooter = page.locator("footer");
+  await expect(spanishFooter).toBeVisible();
+  await expect(
+    spanishFooter.getByRole("link", { name: "Aviso legal", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Oferta de bienvenida", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("1 mejora de imagen gratis", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Nombre completo")).toBeVisible();
+  await expect(page.getByText("Volver al sitio", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("Cada ventaja puede utilizarse una sola vez por cuenta.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await guard.expectClean();
+});
+
 const publicRoutes = [
   {
     route: "/pricing",

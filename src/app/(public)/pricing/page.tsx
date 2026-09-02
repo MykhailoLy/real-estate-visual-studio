@@ -12,7 +12,10 @@ import { getOrderServiceExamples } from "@/lib/order-card-examples";
 import type { PortfolioServiceSlug } from "@/lib/portfolio";
 import { PUBLIC_TAX_NOTICE } from "@/lib/pricing/public";
 import { getLocalPricingPresentation } from "@/lib/pricing/local-catalog";
-import type { PriceKey } from "@/lib/pricing/types";
+import {
+  REMOTE_SERVICE_GROUPS,
+  type RemoteServicePrice,
+} from "@/lib/pricing/remote-service-presentation";
 import { publicPageMetadata } from "@/lib/seo";
 import type { LocalServiceType } from "@/types";
 import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
@@ -25,156 +28,12 @@ export const metadata: Metadata = publicPageMetadata({
   spanishPath: "/es/pricing",
 });
 
-type HubPrice =
-  | {
-      kind: "catalog";
-      priceKey: PriceKey;
-      unit: string;
-    }
-  | {
-      kind: "label";
-      label: string;
-    };
-
-interface RemoteHubService {
-  name: string;
-  href: string;
-  price: HubPrice;
-  mediaSlug: PortfolioServiceSlug;
-  fallbackVariant: ServiceVariant;
-}
-
-interface RemoteServiceGroup {
-  title: string;
-  services: readonly RemoteHubService[];
-}
-
 interface LocalHubService {
   serviceId: LocalServiceType;
   href: string;
   mediaSlug: PortfolioServiceSlug;
   fallbackVariant: ServiceVariant;
 }
-
-const REMOTE_SERVICE_GROUPS: readonly RemoteServiceGroup[] = [
-  {
-    title: "Photo Editing",
-    services: [
-      {
-        name: "Image Enhancement",
-        href: "/pricing/image-enhancement",
-        price: {
-          kind: "catalog",
-          priceKey: "image-enhancement",
-          unit: "image",
-        },
-        mediaSlug: "image-enhancement",
-        fallbackVariant: "image-enhancement",
-      },
-      {
-        name: "Day to Dusk",
-        href: "/pricing/day-to-dusk",
-        price: {
-          kind: "catalog",
-          priceKey: "day-to-dusk",
-          unit: "image",
-        },
-        mediaSlug: "day-to-dusk",
-        fallbackVariant: "day-to-dusk",
-      },
-      {
-        name: "Item Removal & Virtual Cleaning",
-        href: "/pricing/photo-editing",
-        price: {
-          kind: "catalog",
-          priceKey: "item-removal-virtual-cleaning",
-          unit: "image",
-        },
-        mediaSlug: "item-removal-virtual-cleaning",
-        fallbackVariant: "item-removal",
-      },
-      {
-        name: "Aerial Editing",
-        href: "/pricing/aerial-editing",
-        price: {
-          kind: "catalog",
-          priceKey: "aerial-colour-fade",
-          unit: "image",
-        },
-        mediaSlug: "aerial-editing",
-        fallbackVariant: "aerial-editing",
-      },
-    ],
-  },
-  {
-    title: "Staging & Renovation",
-    services: [
-      {
-        name: "Virtual Staging",
-        href: "/pricing/virtual-staging",
-        price: {
-          kind: "catalog",
-          priceKey: "virtual-staging",
-          unit: "image",
-        },
-        mediaSlug: "virtual-staging",
-        fallbackVariant: "virtual-staging",
-      },
-      {
-        name: "Virtual Renovation",
-        href: "/pricing/virtual-renovation",
-        price: { kind: "label", label: "Option-based pricing" },
-        mediaSlug: "virtual-renovation",
-        fallbackVariant: "virtual-renovation",
-      },
-      {
-        name: "360° Virtual Staging",
-        href: "/pricing/360-virtual-staging",
-        price: {
-          kind: "catalog",
-          priceKey: "360-virtual-staging",
-          unit: "panorama",
-        },
-        mediaSlug: "360-virtual-staging",
-        fallbackVariant: "panorama-staging",
-      },
-      {
-        name: "360° Image Enhancement",
-        href: "/pricing/360-image-enhancement",
-        price: {
-          kind: "catalog",
-          priceKey: "360-image-enhancement",
-          unit: "panorama",
-        },
-        mediaSlug: "360-image-enhancement",
-        fallbackVariant: "panorama-enhancement",
-      },
-    ],
-  },
-  {
-    title: "Plans & Property Visuals",
-    services: [
-      {
-        name: "2D / 3D Floor Plans",
-        href: "/pricing/floor-plans",
-        price: {
-          kind: "catalog",
-          priceKey: "floor-plan-2d-bw",
-          unit: "floor",
-        },
-        mediaSlug: "floor-plans",
-        fallbackVariant: "floor-plans",
-      },
-      {
-        name: "Development Site Plans",
-        href: "/pricing/development-site-plans",
-        price: { kind: "label", label: "Quote on request" },
-        mediaSlug: "development-site-plans",
-        fallbackVariant: "site-plans",
-      },
-    ],
-  },
-] as const;
 
 const LOCAL_HUB_SERVICES: readonly LocalHubService[] = [
   {
@@ -220,8 +79,8 @@ const PRICING_NOTES = [
   },
 ] as const;
 
-function renderPriceLabel(price: HubPrice) {
-  if (price.kind === "label") return price.label;
+function renderPriceLabel(price: RemoteServicePrice) {
+  if (price.kind === "label") return price.label.en;
 
   return (
     <CatalogPriceText
@@ -324,7 +183,7 @@ export default async function PricingPage() {
                       <PricingHubServiceTile
                         key={service.href}
                         href={service.href}
-                        name={service.name}
+                        name={service.name.en}
                         priceLabel={renderPriceLabel(service.price)}
                         image={resolveImage(service.mediaSlug)}
                         fallbackVariant={service.fallbackVariant}

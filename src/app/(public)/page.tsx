@@ -22,6 +22,7 @@ import { publicPageMetadata } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
 import { organizationSchema, webSiteSchema } from "@/lib/structured-data";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
+import { getHomeHeroServicePresentation } from "@/lib/pricing/remote-service-presentation";
 
 export const revalidate = 300;
 
@@ -52,10 +53,10 @@ export const metadata: Metadata = publicPageMetadata({
 //   1. Header / two-level nav (sticky, owned by PublicLayout)
 //   2. Before/After slider — visual demonstration banner strip
 //   3. SEO intro — visible H1 + supporting paragraph
-//   4. Remote Digital Services — service grid (what we do)
-//   5. Why Work with PicchuSpot — benefits row
-//   6. Help Your Listings Stand Out — results / CTA strip
-//   7. How It Works
+//   4. Compact benefits row
+//   5. Remote Digital Services — service grid (what we do)
+//   6. How It Works
+//   7. Help Your Listings Stand Out — results / CTA strip
 //   8. About PicchuSpot — collage + narrative
 //   9. Testimonials carousel
 //  10. Final CTA — navy block
@@ -87,10 +88,12 @@ export default async function HomePage() {
       // path, but a local check makes the URL fallback explicit
       // and keeps TypeScript happy.
       if (!beforeUrl || !afterUrl) return null;
+      const service = getHomeHeroServicePresentation(row.service_slug, "en");
       const alt = getBeforeAfterAlt({
         sharedAlt: row.alt_text,
         title: row.title,
         description: row.description,
+        serviceLabel: service?.name,
         serviceSlug: row.service_slug,
       });
       return {
@@ -100,6 +103,7 @@ export default async function HomePage() {
         afterUrl,
         beforeAlt: alt.beforeAlt,
         afterAlt: alt.afterAlt,
+        serviceSlug: row.service_slug,
       };
     })
     .filter((s): s is ShowcaseSlide => s !== null);
@@ -140,7 +144,7 @@ export default async function HomePage() {
 
       {/* 1. Slider — wide banner strip directly under the nav. */}
       <section className="bg-white overflow-hidden">
-        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
+        <div className="px-3 pt-3 sm:px-4 lg:px-2 lg:pt-4">
           <BeforeAfterShowcase slides={sliderSlides} />
         </div>
       </section>
@@ -163,15 +167,16 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. Remote Digital Services — service grid (what we do). */}
-      <ServiceGrid />
-
-      {/* 4. Why Work with PicchuSpot — benefits row. */}
+      {/* 3. Compact supporting proof strip. */}
       <BenefitsRow />
 
-      {/* 5. Help Your Listings Stand Out — results / CTA strip.
-            Positioned after the service grid and benefits so users have
-            already seen what we do and why before the conversion prompt. */}
+      {/* 4. Remote Digital Services — service grid (what we do). */}
+      <ServiceGrid />
+
+      {/* 5. How It Works. */}
+      <HowItWorksDetailed />
+
+      {/* 6. Help Your Listings Stand Out — results / CTA strip. */}
       <section className="bg-white border-y border-border">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-8 lg:py-10">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
@@ -205,9 +210,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* 6. How It Works. */}
-      <HowItWorksDetailed />
 
       {/* 7. About PicchuSpot — collage + narrative. */}
       <AboutPicchuSpot tiles={collageTiles} />

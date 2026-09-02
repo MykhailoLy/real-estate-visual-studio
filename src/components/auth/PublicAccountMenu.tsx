@@ -27,6 +27,7 @@ const accountMenuItems = [
 interface PublicAccountMenuProps {
   placement?: "bottom" | "top";
   variant?: "header" | "mobile-action";
+  theme?: "light" | "dark";
   className?: string;
 }
 
@@ -64,6 +65,7 @@ function PublicAccountAvatar({
 export default function PublicAccountMenu({
   placement = "bottom",
   variant = "header",
+  theme = "light",
   className,
 }: PublicAccountMenuProps) {
   const pathname = usePathname() ?? "/";
@@ -157,6 +159,7 @@ export default function PublicAccountMenu({
   };
 
   const mobileAction = variant === "mobile-action";
+  const darkHeader = theme === "dark" && !mobileAction;
 
   return (
     <div
@@ -177,10 +180,12 @@ export default function PublicAccountMenu({
         aria-haspopup="menu"
         aria-label={`Account menu for ${firstName}`}
         className={cn(
-          "inline-flex min-w-0 items-center text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+          "inline-flex min-w-0 items-center text-primary transition-colors focus:outline-none focus-visible:ring-2",
           mobileAction
-            ? "h-[calc(3.5rem+env(safe-area-inset-bottom))] w-full gap-2 bg-primary px-4 pb-[env(safe-area-inset-bottom)] text-white hover:bg-primary-light focus-visible:ring-inset"
-            : "h-9 min-w-[8.5rem] max-w-[10.5rem] gap-1.5 rounded-lg border border-stone-200 bg-white px-1.5 pr-2 shadow-sm hover:border-primary/30 hover:bg-surface"
+            ? "h-[calc(3.5rem+env(safe-area-inset-bottom))] w-full gap-2 bg-primary px-4 pb-[env(safe-area-inset-bottom)] text-white hover:bg-primary-light focus-visible:ring-inset focus-visible:ring-primary"
+            : darkHeader
+              ? "h-9 min-w-[8.5rem] max-w-[10.5rem] gap-1.5 rounded-md border border-white/15 bg-white/5 px-1.5 pr-2 text-white hover:bg-white/10 focus-visible:ring-white"
+              : "h-9 min-w-[8.5rem] max-w-[10.5rem] gap-1.5 rounded-lg border border-stone-200 bg-white px-1.5 pr-2 shadow-sm hover:border-primary/30 hover:bg-surface focus-visible:ring-primary"
         )}
       >
         <PublicAccountAvatar
@@ -199,7 +204,11 @@ export default function PublicAccountMenu({
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 flex-shrink-0 transition-transform",
-            mobileAction ? "text-white/75" : "text-primary/60",
+            mobileAction
+              ? "text-white/75"
+              : darkHeader
+                ? "text-white/70"
+                : "text-primary/60",
             open && "rotate-180"
           )}
           aria-hidden
