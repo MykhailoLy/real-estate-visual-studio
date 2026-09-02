@@ -443,17 +443,22 @@ export function CatalogPriceText({
   prefix,
   suffix,
   className,
+  trimWholeCents = false,
 }: {
   priceKey: PriceKey;
   prefix?: string;
   suffix?: string;
   className?: string;
+  /** Keeps whole-number hero prices compact without changing other displays. */
+  trimWholeCents?: boolean;
 }) {
   const currency = useDisplayCurrency();
   return (
     <span className={className}>
       {prefix ?? ""}
-      {formatMoney(getCatalogPrice(priceKey, currency), currency)}
+      {formatMoney(getCatalogPrice(priceKey, currency), currency, {
+        trimWholeCents,
+      })}
       {suffix ?? ""}
     </span>
   );

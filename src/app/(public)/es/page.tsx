@@ -277,7 +277,7 @@ export default async function SpanishHomePage() {
   return (
     <>
       <section className="bg-white overflow-hidden">
-        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-2 lg:pb-3">
+        <div className="px-3 pt-3 sm:px-4 lg:px-2 lg:pt-4">
           <BeforeAfterShowcase slides={sliderSlides} locale="es" />
         </div>
       </section>

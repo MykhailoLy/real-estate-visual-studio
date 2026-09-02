@@ -6,6 +6,7 @@ import {
   PRICING_VERSION,
   STAGING_ADDON_PRICE_KEYS,
 } from "./catalog.ts";
+import { formatMoney } from "./format.ts";
 import { getOrderServiceCatalogEntry } from "../order-service-catalog.ts";
 import { STANDARD_VOLUME_DISCOUNT_EXCLUDED_PRICE_KEYS } from "./discounts.ts";
 import type { PriceKey, TransactionalCurrency } from "./types.ts";
@@ -76,6 +77,27 @@ test("Floor Plan catalog prices remain unchanged", () => {
     "floor-plan-2d-colour": { USD: 2000, EUR: 1800, CAD: 2800 },
     "floor-plan-3d": { USD: 3500, EUR: 3150, CAD: 4900 },
     "floor-plan-2d-3d-bundle": { USD: 4500, EUR: 4050, CAD: 6300 },
+  });
+});
+
+test("compact hero formatting trims only zero cents without changing catalog values", () => {
+  assert.equal(formatMoney(1500, "USD"), "$15.00");
+  assert.equal(
+    formatMoney(1500, "USD", { trimWholeCents: true }),
+    "$15",
+  );
+  assert.equal(
+    formatMoney(1500, "EUR", { trimWholeCents: true }),
+    "€15",
+  );
+  assert.equal(
+    formatMoney(450, "USD", { trimWholeCents: true }),
+    "$4.50",
+  );
+  assert.deepEqual(PRICE_CATALOG["virtual-staging"], {
+    USD: 1500,
+    EUR: 1400,
+    CAD: 1900,
   });
 });
 

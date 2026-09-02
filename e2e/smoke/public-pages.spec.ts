@@ -34,27 +34,60 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   const hero = page.getByRole("region", { name: "Before and after slider" });
   await expect(hero.getByText("BEFORE", { exact: true })).toBeVisible();
   await expect(hero.getByText("AFTER", { exact: true })).toBeVisible();
-  await expect(hero.getByTestId("hero-service-cta").getByRole("link")).toHaveCount(
+  const heroFooter = hero.getByTestId("hero-service-footer");
+  await expect(heroFooter.getByRole("tablist")).toBeVisible();
+  await expect(heroFooter.getByRole("link")).toHaveCount(
     1,
   );
   const imageEnhancementCta = hero.getByRole("link", {
     name: "View Image Enhancement pricing",
   });
-  await expect(imageEnhancementCta).toContainText(/From .*\/ image/);
+  await expect(imageEnhancementCta).toContainText("From $1 / image");
+  await expect(imageEnhancementCta).not.toContainText(".00");
+  await expect(
+    heroFooter.getByRole("tab", { selected: true }).locator("span"),
+  ).toHaveClass(/bg-white/);
+  await expect(
+    heroFooter.getByRole("tab", { selected: false }).first().locator("span"),
+  ).toHaveClass(/bg-white\/40/);
+  await expect(
+    hero.getByRole("button", { name: "Next slide" }).locator("span"),
+  ).toHaveClass(/bg-primary\/25/);
+
+  const heroGeometry = await hero.evaluate((element) => {
+    const frame = element.querySelector('[data-testid="homepage-hero-frame"]');
+    const stage = element.querySelector('[data-testid="homepage-hero-image-stage"]');
+    const footer = element.querySelector('[data-testid="hero-service-footer"]');
+    if (!frame || !stage || !footer) return null;
+    const frameRect = frame.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const footerRect = footer.getBoundingClientRect();
+    return {
+      footerPosition: getComputedStyle(footer).position,
+      stageBottom: stageRect.bottom,
+      footerTop: footerRect.top,
+      frameBottom: frameRect.bottom,
+      footerBottom: footerRect.bottom,
+    };
+  });
+  expect(heroGeometry).not.toBeNull();
+  expect(heroGeometry?.footerPosition).not.toBe("absolute");
+  expect(Math.abs((heroGeometry?.stageBottom ?? 0) - (heroGeometry?.footerTop ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((heroGeometry?.frameBottom ?? 0) - (heroGeometry?.footerBottom ?? 0))).toBeLessThanOrEqual(1);
 
   const marketSelector = page.getByRole("button", {
     name: "Select market, currency, and language",
   });
   await marketSelector.click();
   await page.getByRole("button", { name: /Europe — EUR/ }).click();
-  await expect(imageEnhancementCta).toContainText("€");
+  await expect(imageEnhancementCta).toContainText("From €1 / image");
 
   await hero.getByRole("button", { name: "Next slide" }).click();
   const dayToDuskCta = hero.getByRole("link", {
     name: "View Day to Dusk pricing",
   });
   await expect(dayToDuskCta).toBeVisible();
-  await expect(hero.getByTestId("hero-service-cta").getByRole("link")).toHaveCount(
+  await expect(hero.getByTestId("hero-service-footer").getByRole("link")).toHaveCount(
     1,
   );
   await dayToDuskCta.click();
@@ -86,7 +119,10 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
     name: "Before and after slider",
   });
   await unknownHero.getByRole("tab", { name: "Show slide 9 of 9" }).click();
-  await expect(unknownHero.getByTestId("hero-service-cta")).toHaveCount(0);
+  const unknownFooter = unknownHero.getByTestId("hero-service-footer");
+  await expect(unknownFooter).toBeVisible();
+  await expect(unknownFooter.getByRole("tab")).toHaveCount(9);
+  await expect(unknownFooter.getByRole("link")).toHaveCount(0);
 
   await guard.expectClean();
 });
