@@ -4,6 +4,17 @@ import {
   installSmokeNetworkGuards,
 } from "../support/network";
 
+type JsonLdObject = Record<string, unknown>;
+
+function parseJsonLdObjects(html: string): JsonLdObject[] {
+  return Array.from(
+    html.matchAll(
+      /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+    ),
+    (match) => JSON.parse(match[1]) as JsonLdObject | JsonLdObject[],
+  ).flatMap((payload) => (Array.isArray(payload) ? payload : [payload]));
+}
+
 test("home page loads without client or server smoke failures", async ({
   page,
 }, testInfo) => {
@@ -545,6 +556,71 @@ test("Spanish homepage hero localizes its comparison labels and service route", 
     hero.getByRole("link", { name: "Ver precios de Mejora de imagen" }),
   ).toHaveAttribute("href", "/es/pricing/image-enhancement");
   await guard.expectClean();
+});
+
+test("site-level Organization JSON-LD uses the official canonical logo once", async ({
+  request,
+}) => {
+  const schemasByPath = new Map<string, JsonLdObject[]>();
+
+  for (const path of [
+    "/",
+    "/es",
+    "/pricing",
+    "/es/pricing",
+    "/pricing/virtual-staging",
+  ]) {
+    const response = await request.get(path);
+    expect(response.ok(), path).toBe(true);
+    schemasByPath.set(path, parseJsonLdObjects(await response.text()));
+  }
+
+  const homepageSchemas = schemasByPath.get("/") ?? [];
+  const organizations = homepageSchemas.filter(
+    (schema) => schema["@type"] === "Organization",
+  );
+  expect(organizations).toHaveLength(1);
+
+  const organization = organizations[0];
+  expect(organization.name).toBe("PicchuSpot");
+  expect(organization.url).toBe("https://picchuspot.com");
+  expect(Object.keys(organization).filter((key) => key === "logo")).toHaveLength(1);
+
+  const logo = organization.logo as JsonLdObject;
+  expect(logo).toEqual({
+    "@type": "ImageObject",
+    url: "https://picchuspot.com/brand/picchuspot-logo-800.png",
+    contentUrl: "https://picchuspot.com/brand/picchuspot-logo-800.png",
+    width: 800,
+    height: 600,
+    caption: "PicchuSpot",
+  });
+
+  const logoUrl = new URL(String(logo.url));
+  expect(logoUrl.protocol).toBe("https:");
+  expect(logoUrl.hostname).toBe("picchuspot.com");
+  expect(logoUrl.hostname.startsWith("www.")).toBe(false);
+
+  const logoResponse = await request.get(logoUrl.pathname);
+  expect(logoResponse.status()).toBe(200);
+  expect(logoResponse.headers()["content-type"]).toContain("image/png");
+  const logoBytes = await logoResponse.body();
+  expect(logoBytes.subarray(1, 4).toString("ascii")).toBe("PNG");
+  expect(logoBytes.readUInt32BE(16)).toBe(800);
+  expect(logoBytes.readUInt32BE(20)).toBe(600);
+
+  for (const path of ["/es", "/pricing", "/es/pricing", "/pricing/virtual-staging"]) {
+    const siteLevelOrganizations = (schemasByPath.get(path) ?? []).filter(
+      (schema) => schema["@type"] === "Organization",
+    );
+    expect(siteLevelOrganizations, path).toHaveLength(0);
+  }
+
+  const serviceSchemas = schemasByPath.get("/pricing/virtual-staging") ?? [];
+  expect(serviceSchemas.some((schema) => schema["@type"] === "Service")).toBe(true);
+  expect(
+    serviceSchemas.some((schema) => schema["@type"] === "BreadcrumbList"),
+  ).toBe(true);
 });
 
 test("homepage, footer, and language switch use canonical pricing routes", async ({
