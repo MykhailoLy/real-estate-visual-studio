@@ -481,27 +481,34 @@ async function expectAvailableServiceExamplesDoNotOverlap(
 }
 
 async function expectAvailableVirtualStagingExamplesModal(page: Page, testInfo: TestInfo) {
-  const trigger = page.locator("[data-dashboard-services]").getByRole("button", {
-    name: "View Virtual Staging examples",
-    exact: true,
-  });
-  if (await trigger.count() === 0) {
-    testInfo.annotations.push({
-      type: "coverage",
-      description: "1440px and 390px examples modal checks unavailable: QA has no Virtual Staging portfolio examples.",
-    });
-    return;
-  }
-
-  await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Virtual Staging examples", exact: true });
-  await expect(dialog).toBeVisible();
-
   for (const viewport of [
     { width: 1440, height: 1000 },
     { width: 390, height: 844 },
   ]) {
     await page.setViewportSize(viewport);
+    if (viewport.width === 390) {
+      // The Dashboard replaces desktop service cards below its breakpoint.
+      // The New Order catalog keeps Examples available on mobile.
+      await openQaDashboardRoute(page, "/dashboard/orders/new");
+    }
+    const trigger = (viewport.width === 1440
+      ? page.locator("[data-dashboard-services]")
+      : page
+    ).getByRole("button", {
+      name: "View Virtual Staging examples",
+      exact: true,
+    });
+    if (await trigger.count() === 0) {
+      testInfo.annotations.push({
+        type: "coverage",
+        description: `${viewport.width}px examples modal check unavailable: QA has no Virtual Staging portfolio examples.`,
+      });
+      continue;
+    }
+
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "Virtual Staging examples", exact: true });
+    await expect(dialog).toBeVisible();
     await expectVisibleFontSizeAtLeast(
       dialog.locator("figure span"),
       13,
@@ -527,11 +534,12 @@ async function expectAvailableVirtualStagingExamplesModal(page: Page, testInfo: 
       .toBeLessThanOrEqual(layout.clientWidth);
     expect(layout.overflowingFigures, `${viewport.width}px examples should stay inside the modal`).toEqual([]);
     await expectNoDocumentOverflow(page, viewport.width);
+    await dialog.getByRole("button", { name: "Close examples", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
   }
 
-  await dialog.getByRole("button", { name: "Close examples", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await openQaDashboardRoute(page, "/dashboard");
 }
 
 async function expectVisibleFontSizeAtLeast(
