@@ -41,7 +41,7 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
         </div>
         <ClientPortalLink
           href="/dashboard/orders/new"
-          className="inline-flex min-h-11 flex-shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 flex-shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-dashboard-action font-bold text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           <PlusCircle className="h-4 w-4" aria-hidden />
           New Order
@@ -63,11 +63,11 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
             <div className="flex flex-wrap items-end justify-between gap-2">
               <h2
                 id="all-jobs-heading"
-                className="text-lg font-bold uppercase tracking-[0.04em] text-primary"
+                className="text-dashboard-section font-bold text-primary lg:text-lg"
               >
                 All jobs
               </h2>
-              <p className="text-xs font-semibold text-muted">
+              <p data-dashboard-metadata className="text-dashboard-metadata font-semibold text-muted">
                 {jobs.length} submitted {jobs.length === 1 ? "order" : "orders"}
               </p>
             </div>
@@ -100,13 +100,13 @@ export default function ClientJobsShell({ jobs }: ClientJobsShellProps) {
               <h3 className="text-base font-bold text-foreground">
                 No submitted jobs yet
               </h3>
-              <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">
+              <p className="mt-2 max-w-sm text-dashboard-body text-muted">
                 Submit a new order when you are ready. Saved drafts remain in
                 the working rail until they are finished.
               </p>
               <ClientPortalLink
                 href="/dashboard/orders/new"
-                className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-dashboard-action font-bold text-white shadow-sm transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <PlusCircle className="h-4 w-4" aria-hidden />
                 Start a new order

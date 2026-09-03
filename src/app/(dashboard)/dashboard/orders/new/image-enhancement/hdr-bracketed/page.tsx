@@ -40,7 +40,7 @@ export default async function HdrBracketedComingSoonPage() {
           <div className="mb-6">
             <ClientPortalLink
               href="/dashboard/orders/new/image-enhancement"
-              className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1.5 text-dashboard-action font-semibold text-muted hover:text-primary transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
               Back to Image Enhancement types
@@ -48,7 +48,7 @@ export default async function HdrBracketedComingSoonPage() {
           </div>
 
           <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-amber-700">
               <Clock className="w-3.5 h-3.5" aria-hidden />
               Coming Soon — Pricing to be confirmed
             </span>
@@ -65,13 +65,13 @@ export default async function HdrBracketedComingSoonPage() {
             <div className="mt-8 rounded-2xl border border-border bg-white p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Layers className="w-4 h-4 text-primary" aria-hidden />
-                <h2 className="text-[13px] font-bold text-foreground">
+                <h2 className="text-dashboard-section font-bold text-foreground lg:text-lg">
                   How it will work
                 </h2>
               </div>
               <ul className="space-y-3">
                 {PLANNED_WORKFLOW.map((line) => (
-                  <li key={line} className="flex items-start gap-2.5 text-sm text-foreground/80">
+                  <li key={line} className="flex items-start gap-2.5 text-dashboard-body text-foreground/80">
                     <span
                       className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-secondary"
                       aria-hidden
@@ -82,7 +82,7 @@ export default async function HdrBracketedComingSoonPage() {
               </ul>
             </div>
 
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-blue-200/60 bg-blue-50 px-4 py-3 text-[13px] text-blue-800">
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-blue-200/60 bg-blue-50 px-4 py-3 text-dashboard-body text-blue-800">
               <Info className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden />
               <p className="leading-relaxed">
                 Need standard listing photos enhanced now? Use{" "}
@@ -99,7 +99,7 @@ export default async function HdrBracketedComingSoonPage() {
             <div className="mt-8">
               <ClientPortalLink
                 href="/dashboard/orders/new/image-enhancement"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2.5 text-[13px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2.5 text-dashboard-action font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
               >
                 <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
                 Back to options

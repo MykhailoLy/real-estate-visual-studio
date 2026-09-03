@@ -72,7 +72,7 @@ function DraftThumbnailContent({
         </div>
       )}
       {extraCount > 0 && (
-        <span className="absolute bottom-2 right-2 rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-white shadow-sm">
+        <span className="absolute bottom-2 right-2 rounded-full bg-primary px-2 py-0.5 text-dashboard-metadata font-bold text-white shadow-sm">
           +{extraCount}
         </span>
       )}

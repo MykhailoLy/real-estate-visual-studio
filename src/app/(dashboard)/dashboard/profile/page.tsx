@@ -40,13 +40,13 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
     <ClientDashboardLayout>
       {/* Page header */}
       <div className="mb-7">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-1.5">
+        <p className="text-dashboard-kicker font-bold uppercase text-secondary-dark mb-1.5">
           Client Portal
         </p>
         <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
           {isOnboarding ? "Complete your client profile" : "Profile"}
         </h1>
-        <p className="text-muted mt-1 text-sm">
+        <p className="text-dashboard-body text-muted mt-1 md:text-base">
           {isOnboarding
             ? "Tell us a bit about yourself to get started."
             : "Manage your account details and preferences."}

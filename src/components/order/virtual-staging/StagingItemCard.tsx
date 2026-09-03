@@ -627,7 +627,7 @@ function CurrentPhotoPreview({
       </div>
       <figcaption className="flex min-w-0 flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          <p className="text-dashboard-metadata font-semibold uppercase tracking-[0.08em] text-primary">
             Current original
           </p>
           <p className="mt-1 truncate text-sm text-muted" title={filename}>

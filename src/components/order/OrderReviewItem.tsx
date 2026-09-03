@@ -86,7 +86,7 @@ export default function OrderReviewItem({
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground hover:border-primary/40 hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-dashboard-action font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
           aria-label={`Edit photo ${index + 1}`}
         >
           <Pencil className="h-3.5 w-3.5" aria-hidden />
@@ -108,21 +108,21 @@ export default function OrderReviewItem({
               alt={`Photo ${index + 1} preview`}
             />
           ) : (
-            <div className="aspect-video w-full rounded-lg border border-border bg-surface flex items-center justify-center text-[11px] font-semibold text-muted">
+            <div className="aspect-video w-full rounded-lg border border-border bg-surface flex items-center justify-center text-dashboard-metadata font-semibold text-muted">
               No file
             </div>
           )}
           {primaryFilename && primaryFileSize !== null && (
             <div className="mt-2">
               <p
-                className={`text-[12px] font-semibold text-foreground ${
+                className={`text-dashboard-metadata font-semibold text-foreground ${
                   wrapFileNames ? "break-all" : "truncate"
                 }`}
                 title={primaryFilename}
               >
                 {primaryFilename}
               </p>
-              <p className="text-[11px] text-muted">
+              <p className="text-dashboard-metadata text-muted">
                 {formatFileSize(primaryFileSize)}
               </p>
             </div>
@@ -130,7 +130,7 @@ export default function OrderReviewItem({
 
           {(secondaryFile || persistedSecondaryFile) && (
             <div className="mt-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light mb-1">
+              <p className="mb-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
                 {secondaryLabel}
               </p>
               {secondaryFile ? (
@@ -148,14 +148,14 @@ export default function OrderReviewItem({
               {secondaryFilename && secondaryFileSize !== null && (
                 <>
                   <p
-                    className={`mt-1 text-[12px] font-semibold text-foreground ${
+                    className={`mt-1 text-dashboard-metadata font-semibold text-foreground ${
                       wrapFileNames ? "break-all" : "truncate"
                     }`}
                     title={secondaryFilename}
                   >
                     {secondaryFilename}
                   </p>
-                  <p className="text-[11px] text-muted">
+                  <p className="text-dashboard-metadata text-muted">
                     {formatFileSize(secondaryFileSize)}
                   </p>
                 </>
@@ -168,10 +168,10 @@ export default function OrderReviewItem({
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
             {rows.map((r) => (
               <div key={r.label} className="min-w-0">
-                <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light mb-0.5">
+                <dt className="mb-0.5 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
                   {r.label}
                 </dt>
-                <dd className="text-[13px] text-foreground/80 break-words">
+                <dd className="break-words text-dashboard-metadata text-foreground/80">
                   {r.value}
                 </dd>
               </div>
@@ -221,7 +221,7 @@ function PersistedReviewFilePreview({
     <div className={frameClass}>
       <div className="flex flex-col items-center justify-center gap-1.5 px-2 text-center text-muted">
         <FileImage className="h-7 w-7 text-primary" aria-hidden />
-        <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
+        <span className="text-dashboard-metadata font-semibold uppercase tracking-[0.08em]">
           No preview
         </span>
       </div>

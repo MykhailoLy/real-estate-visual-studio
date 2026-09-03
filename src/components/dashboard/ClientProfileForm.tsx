@@ -164,13 +164,13 @@ export default function ClientProfileForm({
   }
 
   const inputClass =
-    "w-full px-3 py-2.5 rounded-lg border border-border bg-white text-foreground text-sm placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60 transition-colors";
+    "w-full px-3 py-2.5 rounded-lg border border-border bg-white text-foreground text-dashboard-mobile-control placeholder:text-muted-light focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60 transition-colors md:text-sm";
 
   const selectClass =
-    "w-full px-3 py-2.5 rounded-lg border border-border bg-white text-foreground text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60 transition-colors";
+    "w-full px-3 py-2.5 rounded-lg border border-border bg-white text-foreground text-dashboard-mobile-control focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60 transition-colors md:text-sm";
 
   const labelClass =
-    "block text-[10px] font-bold uppercase tracking-[0.13em] text-muted-light mb-1.5";
+    "block text-dashboard-action font-bold uppercase tracking-[0.06em] text-muted-light mb-1.5";
 
   return (
     <form onSubmit={handleSubmit} noValidate>
@@ -178,7 +178,7 @@ export default function ClientProfileForm({
       {/* ── Onboarding banner ── */}
       {isOnboarding && (
         <div className="mb-6 p-4 bg-primary/5 border border-primary/15 rounded-xl">
-          <p className="text-sm text-foreground/80 leading-relaxed">
+          <p className="text-dashboard-body text-foreground/80">
             This helps us personalise your orders, send delivery notifications to
             the right contact, and keep your project communication organised.
             You can update these details any time from your profile.
@@ -190,7 +190,7 @@ export default function ClientProfileForm({
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden mb-4">
         <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
           <User className="w-4 h-4 text-primary" aria-hidden />
-          <h3 className="text-[13px] font-bold text-foreground">Personal Information</h3>
+          <h3 className="text-dashboard-section font-bold text-foreground lg:text-lg">Personal Information</h3>
         </div>
         <div className="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -236,7 +236,7 @@ export default function ClientProfileForm({
               className={`${inputClass} bg-surface cursor-default`}
               title="Email address cannot be changed here"
             />
-            <p className="mt-1 text-[11px] text-muted-light">
+            <p className="mt-1 text-dashboard-metadata text-muted-light">
               To change your email address, contact support.
             </p>
           </div>
@@ -287,7 +287,7 @@ export default function ClientProfileForm({
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden mb-4">
         <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
           <Building2 className="w-4 h-4 text-primary" aria-hidden />
-          <h3 className="text-[13px] font-bold text-foreground">Company Details</h3>
+          <h3 className="text-dashboard-section font-bold text-foreground lg:text-lg">Company Details</h3>
         </div>
         <div className="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -337,8 +337,8 @@ export default function ClientProfileForm({
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden mb-5">
         <div className="px-5 py-3.5 border-b border-border bg-surface/60 flex items-center gap-2">
           <Megaphone className="w-4 h-4 text-primary" aria-hidden />
-          <h3 className="text-[13px] font-bold text-foreground">How did you find us?</h3>
-          <span className="ml-auto text-[10px] text-muted-light font-medium">Optional</span>
+          <h3 className="text-dashboard-section font-bold text-foreground lg:text-lg">How did you find us?</h3>
+          <span className="ml-auto text-dashboard-metadata text-muted-light font-medium">Optional</span>
         </div>
         <div className="px-5 py-5">
           <select
@@ -360,7 +360,7 @@ export default function ClientProfileForm({
       {errorMsg && (
         <div
           role="alert"
-          className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-3.5 py-3 leading-relaxed mb-4"
+          className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-dashboard-body px-3.5 py-3 mb-4"
         >
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden />
           {errorMsg}
@@ -369,7 +369,7 @@ export default function ClientProfileForm({
       {success && !isOnboarding && (
         <div
           role="status"
-          className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm px-3.5 py-3 leading-relaxed mb-4"
+          className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-dashboard-body px-3.5 py-3 mb-4"
         >
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" aria-hidden />
           Profile saved successfully.
@@ -381,7 +381,7 @@ export default function ClientProfileForm({
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm"
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-dashboard-action font-bold hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm"
         >
           {loading ? (
             <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />Saving…</>

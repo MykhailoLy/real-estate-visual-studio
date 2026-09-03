@@ -50,7 +50,7 @@ export default function OrderStepIndicator({
               >
                 <span
                   className={[
-                    "inline-flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold transition-colors",
+                    "inline-flex h-7 w-7 items-center justify-center rounded-full text-dashboard-metadata font-bold transition-colors",
                     isActive
                       ? "bg-primary text-white ring-2 ring-primary/30 ring-offset-1"
                       : isComplete
@@ -66,7 +66,7 @@ export default function OrderStepIndicator({
                 </span>
                 <span
                   className={[
-                    "text-[13px] leading-tight",
+                    "text-dashboard-action leading-tight",
                     isActive
                       ? "font-bold text-foreground"
                       : isComplete

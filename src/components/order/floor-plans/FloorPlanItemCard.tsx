@@ -197,7 +197,7 @@ export default function FloorPlanItemCard({
             <select
               value={data.planType}
               onChange={(e) => onChange({ ...data, planType: e.target.value })}
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">Select plan type...</option>
               {FLOOR_PLAN_TYPES.map((type) => (
@@ -225,7 +225,7 @@ export default function FloorPlanItemCard({
                 if (numberOfFloors === null) return;
                 onChange({ ...data, numberOfFloors });
               }}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
         </div>
@@ -250,7 +250,7 @@ export default function FloorPlanItemCard({
               <select
                 value={data.style3d}
                 onChange={(e) => onChange({ ...data, style3d: e.target.value })}
-                className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Select style...</option>
                 {FLOOR_PLAN_3D_STYLES.map((s) => (
@@ -269,7 +269,7 @@ export default function FloorPlanItemCard({
                 onChange={(e) =>
                   onChange({ ...data, planView3d: e.target.value })
                 }
-                className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Select view...</option>
                 {FLOOR_PLAN_3D_VIEWS.map((v) => (
@@ -293,7 +293,7 @@ export default function FloorPlanItemCard({
               onChange={(e) =>
                 onChange({ ...data, pageOrientation: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">Select...</option>
               {FLOOR_PLAN_ORIENTATIONS.map((o) => (
@@ -312,7 +312,7 @@ export default function FloorPlanItemCard({
               onChange={(e) =>
                 onChange({ ...data, planOrientation: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">Select...</option>
               {FLOOR_PLAN_ORIENTATIONS.map((o) => (
@@ -332,13 +332,13 @@ export default function FloorPlanItemCard({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {FLOOR_PLAN_ROOMS.map((room) => (
               <div key={room}>
-                <label className="block text-xs font-medium text-muted mb-1">
+                <label className="mb-1 block text-dashboard-action font-medium text-muted">
                   {room}
                 </label>
                 <select
                   value={data.flooringByRoom[room] || ""}
                   onChange={(e) => updateFlooring(room, e.target.value)}
-                  className="w-full px-2.5 py-2 border border-border rounded-lg bg-white text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Not specified</option>
                   {FLOOR_PLAN_FLOORING_OPTIONS.map((f) => (
@@ -375,7 +375,7 @@ export default function FloorPlanItemCard({
                 onChange({ ...data, streetAddress: e.target.value })
               }
               placeholder="Street / Building Address"
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           )}
 
@@ -400,7 +400,7 @@ export default function FloorPlanItemCard({
                 onChange({ ...data, projectTitle: e.target.value })
               }
               placeholder="Project Title / Property Name"
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           )}
         </div>
@@ -415,7 +415,7 @@ export default function FloorPlanItemCard({
             onChange={(e) =>
               onChange({ ...data, disclaimerOption: e.target.value })
             }
-            className="w-full px-3 py-2.5 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             {FLOOR_PLAN_DISCLAIMER_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -431,7 +431,7 @@ export default function FloorPlanItemCard({
               }
               placeholder="Enter your custom disclaimer text..."
               rows={2}
-              className="mt-2 w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="mt-2 w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           )}
         </div>
@@ -448,7 +448,7 @@ export default function FloorPlanItemCard({
               onChange({ ...data, referenceLink: e.target.value })
             }
             placeholder="https://example.com/sample-plan"
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
@@ -489,7 +489,7 @@ export default function FloorPlanItemCard({
             }
             placeholder="Any specific requirements, measurements, or notes..."
             rows={3}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            className="w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 

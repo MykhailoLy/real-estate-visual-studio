@@ -90,7 +90,7 @@ export default function OrderSummary({
         {items.length > 0 && (
           <div className="border-t border-border pt-3 space-y-2">
             {items.map((item, i) => (
-              <div key={i} className="flex justify-between gap-4 text-xs">
+              <div key={i} className="flex justify-between gap-4 text-dashboard-action">
                 <span className="min-w-0 break-words text-muted">
                   {item.label}
                 </span>
@@ -151,13 +151,13 @@ export default function OrderSummary({
               </p>
             )}
             {supportingCopy.map((line) => (
-              <p key={line} className="text-[11px] text-muted">
+              <p key={line} className="text-dashboard-metadata text-muted">
                 {line}
               </p>
             ))}
           </div>
         ) : (
-          <div className="border-t border-border pt-3 mt-3 text-xs text-muted">
+          <div className="mt-3 border-t border-border pt-3 text-dashboard-metadata text-muted">
             Complete the service selections to calculate the estimate.
           </div>
         )}
@@ -182,13 +182,13 @@ export default function OrderSummary({
       )}
 
       {submitHelper != null && (
-        <div className="mt-3 text-xs leading-relaxed text-muted">
+        <div className="mt-3 text-dashboard-metadata text-muted">
           {submitHelper}
         </div>
       )}
 
       {resolvedFooterNote != null && (
-        <p className="text-xs text-muted text-center mt-3">
+        <p className="mt-3 text-center text-dashboard-metadata text-muted">
           {resolvedFooterNote}
         </p>
       )}

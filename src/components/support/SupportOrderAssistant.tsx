@@ -62,7 +62,7 @@ export default function SupportOrderAssistant({
     return (
       <div className="space-y-3" aria-live="polite">
         <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-secondary-dark">
+          <p className="text-dashboard-kicker font-bold uppercase text-secondary-dark">
             {copy.recommendedHeading}
           </p>
           <h3
@@ -72,7 +72,7 @@ export default function SupportOrderAssistant({
           >
             {recommendation.label}
           </h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
+          <p className="mt-2 text-dashboard-body text-muted">
             {recommendation.reason}
           </p>
         </div>
@@ -81,7 +81,7 @@ export default function SupportOrderAssistant({
           <button
             type="button"
             onClick={() => onNavigate(recommendation.orderHref)}
-            className="min-h-10 rounded-lg bg-primary px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="min-h-10 rounded-lg bg-primary px-3 py-2 text-dashboard-action font-bold text-white transition-colors hover:bg-primary-light focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {copy.startOrder}
           </button>
@@ -93,7 +93,7 @@ export default function SupportOrderAssistant({
                 event.preventDefault();
                 onNavigate(recommendation.detailHref as string);
               }}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-primary/20 bg-white px-3 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-primary/20 bg-white px-3 py-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {copy.viewDetails}
             </a>
@@ -103,14 +103,14 @@ export default function SupportOrderAssistant({
             <button
               type="button"
               onClick={resetChooser}
-              className="min-h-10 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="min-h-10 rounded-lg border border-border bg-surface px-3 py-2 text-dashboard-action font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {copy.chooseAnother}
             </button>
             <button
               type="button"
               onClick={onBackToChat}
-              className="min-h-10 rounded-lg border border-border bg-white px-3 py-2 text-sm font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="min-h-10 rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {copy.backToChat}
             </button>
@@ -125,8 +125,8 @@ export default function SupportOrderAssistant({
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-sm leading-relaxed text-muted">{copy.intro}</p>
-        <h3 className="mt-2 text-sm font-bold text-primary">
+        <p className="text-dashboard-body text-muted">{copy.intro}</p>
+        <h3 className="mt-2 text-dashboard-section font-bold text-primary">
           {question.label}
         </h3>
       </div>
@@ -137,7 +137,7 @@ export default function SupportOrderAssistant({
             key={choice.id}
             type="button"
             onClick={() => handleChoice(choice)}
-            className="min-h-10 rounded-lg border border-primary/15 bg-surface px-3 py-2 text-left text-sm font-bold leading-snug text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="min-h-10 rounded-lg border border-primary/15 bg-surface px-3 py-2 text-left text-dashboard-action font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {choice.label}
           </button>
@@ -148,7 +148,7 @@ export default function SupportOrderAssistant({
         <button
           type="button"
           onClick={onBackToChat}
-          className="min-h-10 rounded-lg border border-border bg-white px-3 py-2 text-sm font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="min-h-10 rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-bold text-primary transition-colors hover:border-primary/30 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {copy.backToChat}
         </button>

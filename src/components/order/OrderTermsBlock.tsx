@@ -140,7 +140,7 @@ export default function OrderTermsBlock({
           <p
             id={requiredErrorId}
             role="alert"
-            className="text-xs text-red-600"
+            className="text-dashboard-metadata text-red-600"
           >
             {resolvedError}
           </p>
@@ -165,7 +165,7 @@ export default function OrderTermsBlock({
           />
           <span className="text-sm text-foreground leading-relaxed">
             {portfolioCopy.label}
-            <span className="block text-xs text-muted mt-1">
+            <span className="block text-dashboard-metadata text-muted mt-1">
               {portfolioCopy.supporting}
             </span>
           </span>

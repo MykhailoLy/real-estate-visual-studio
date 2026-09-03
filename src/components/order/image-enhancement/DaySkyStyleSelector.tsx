@@ -104,7 +104,7 @@ export default function DaySkyStyleSelector({
               )}
 
               <span
-                className={`px-2.5 py-2 text-center text-[12px] font-semibold leading-tight ${
+                className={`px-2.5 py-2 text-center text-dashboard-action font-semibold leading-tight ${
                   selected ? "text-secondary-dark" : "text-foreground/75"
                 }`}
               >

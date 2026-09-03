@@ -1333,7 +1333,7 @@ export default function FloorPlansOrderForm({
       ) : null}
 
       <div className="flex min-h-5 flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted" aria-live="polite">
+        <p className="text-dashboard-metadata text-muted" aria-live="polite">
           {saveStatus === "saving"
             ? "Saving draft..."
             : saveStatus === "saved"
@@ -1349,7 +1349,7 @@ export default function FloorPlansOrderForm({
             type="button"
             onClick={startNewOrder}
             disabled={startNewDisabled}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-border px-3 py-1.5 text-dashboard-action font-semibold text-muted transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             Start New
           </button>

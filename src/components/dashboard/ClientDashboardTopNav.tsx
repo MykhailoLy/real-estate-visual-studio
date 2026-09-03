@@ -87,7 +87,7 @@ export default function ClientDashboardTopNav() {
         </Link>
 
         {user?.isQaPreview && (
-          <span className="ml-auto inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-800">
+          <span className="ml-auto inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-amber-800">
             QA Preview
           </span>
         )}
@@ -102,6 +102,7 @@ export default function ClientDashboardTopNav() {
           <MarketLanguageSelector
             pathname={pathname}
             currentLanguage={language}
+            className="[&>button>span]:text-dashboard-action"
             compact
             tight
             onLanguageChange={setLanguage}
@@ -155,7 +156,7 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
             : pathname.startsWith(item.href);
           const isNewOrder = item.href === "/dashboard/orders/new";
           const itemClassName = cn(
-            "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+            "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-dashboard-action font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
             isNewOrder
               ? cn(
                   "bg-secondary text-primary-dark shadow-sm hover:bg-secondary-light",
@@ -292,7 +293,7 @@ function PublicResourcesMenu({ language }: { language: SiteLanguage }) {
                   href={href}
                   role="menuitem"
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-dashboard-action font-semibold text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"
                 >
                   <Icon className="h-4 w-4 text-secondary-dark" aria-hidden />
                   {language === "es"
@@ -323,7 +324,7 @@ function DashboardAccountAvatar({
     <span
       className={cn(
         "flex flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-secondary to-secondary-dark bg-cover bg-center font-bold text-primary-dark shadow-sm",
-        large ? "h-9 w-9 text-xs" : "h-7 w-7 text-[10px]"
+        large ? "h-9 w-9 text-dashboard-metadata" : "h-7 w-7 text-xs"
       )}
       style={avatarUrl ? { backgroundImage: `url("${avatarUrl}")` } : undefined}
       aria-hidden
@@ -427,9 +428,10 @@ export function DashboardAccountMenu({
           initials={initials}
         />
         <span
+          title={firstName}
           className={cn(
             "min-w-0 truncate font-semibold",
-            "hidden max-w-24 text-xs sm:block"
+            "hidden max-w-24 text-dashboard-action sm:block"
           )}
         >
           {firstName}
@@ -470,11 +472,11 @@ export function DashboardAccountMenu({
                   large
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-foreground">
+                  <p className="line-clamp-2 break-words text-dashboard-action font-bold text-foreground">
                     {displayName}
                   </p>
                   {user?.email && (
-                    <p className="truncate text-[11px] text-muted">{user.email}</p>
+                    <p className="break-all text-dashboard-metadata text-muted">{user.email}</p>
                   )}
                 </div>
               </div>
@@ -487,7 +489,7 @@ export function DashboardAccountMenu({
                   href={item.href}
                   role="menuitem"
                   onClick={() => setOpenPath(null)}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-dashboard-action text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"
                 >
                   <item.icon className="h-4 w-4 text-muted" aria-hidden />
                   {item.label}
@@ -499,7 +501,7 @@ export function DashboardAccountMenu({
               <SignOutButton
                 label="Log Out"
                 loadingLabel="Logging out..."
-                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-muted transition-colors hover:bg-surface hover:text-foreground focus:outline-none focus-visible:bg-surface focus-visible:text-foreground disabled:opacity-60"
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-dashboard-action text-muted transition-colors hover:bg-surface hover:text-foreground focus:outline-none focus-visible:bg-surface focus-visible:text-foreground disabled:opacity-60"
               />
             </div>
           </div>,

@@ -60,7 +60,7 @@ export default function BulkDownloadButton({
         type="button"
         onClick={handleDownload}
         disabled={loading || disabled}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white text-[11px] font-semibold text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white text-[11px] font-semibold text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed [[data-dashboard-scroll-container]_&]:text-dashboard-action"
         title={disabled ? emptyLabel : label}
       >
         {loading ? (
@@ -76,13 +76,13 @@ export default function BulkDownloadButton({
         )}
       </button>
       {error && (
-        <p className="flex items-center gap-1 text-[11px] text-red-600 text-right max-w-[220px]">
+        <p className="flex items-center gap-1 text-[11px] text-red-600 text-right max-w-[220px] [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
           <AlertCircle className="w-3 h-3 flex-shrink-0" aria-hidden />
           {error}
         </p>
       )}
       {!disabled && (
-        <p className="text-[10px] text-muted-light text-right">
+        <p className="text-[10px] text-muted-light text-right [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
           Downloads as ZIP.
         </p>
       )}

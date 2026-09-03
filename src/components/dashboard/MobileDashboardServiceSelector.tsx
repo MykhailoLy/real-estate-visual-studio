@@ -31,11 +31,11 @@ export default function MobileDashboardServiceSelector() {
       <div className="border-b border-border px-4 py-4">
         <h2
           id="mobile-dashboard-services-heading"
-          className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
+          className="text-dashboard-section font-bold text-primary"
         >
           Services
         </h2>
-        <p className="mt-1 text-xs leading-relaxed text-muted">
+        <p className="mt-1 text-dashboard-body text-muted">
           Choose a service to start a new order.
         </p>
       </div>
@@ -53,10 +53,16 @@ export default function MobileDashboardServiceSelector() {
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-foreground transition-colors group-hover:text-primary">
+                  <span
+                    data-dashboard-critical-title
+                    className="block line-clamp-2 break-words text-dashboard-action font-bold text-foreground transition-colors group-hover:text-primary"
+                  >
                     {service.title}
                   </span>
-                  <span className="mt-0.5 block truncate text-[11px] text-muted">
+                  <span
+                    data-dashboard-metadata
+                    className="mt-0.5 block break-words text-dashboard-body font-semibold text-secondary-dark"
+                  >
                     {getOrderServicePriceLabel(service, currency)}
                   </span>
                 </span>
@@ -73,7 +79,7 @@ export default function MobileDashboardServiceSelector() {
       <div className="border-t border-border px-3 py-2">
         <ClientPortalLink
           href="/dashboard/orders/new"
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           View all services
           <ArrowRight className="h-3.5 w-3.5" aria-hidden />

@@ -186,7 +186,7 @@ function StyleCard({
               />
             ) : (
               <span className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200">
-                <span className="px-2 text-center text-[10px] font-semibold uppercase tracking-[0.15em] text-foreground/75">
+                <span className="px-2 text-center text-dashboard-metadata font-semibold uppercase tracking-[0.08em] text-foreground/75">
                   {card.label}
                 </span>
               </span>
@@ -198,7 +198,7 @@ function StyleCard({
             "flex w-full flex-1 items-center px-3 pr-11 font-medium leading-5",
             compact
               ? hasVisual
-                ? "min-h-10 border-t py-1.5 text-xs"
+                ? "min-h-10 border-t py-1.5 text-dashboard-action"
                 : "min-h-20 py-3 text-sm"
               : "min-h-12 border-t py-2 text-sm",
             selected

@@ -79,7 +79,7 @@ export default function LocalFilePreview({
     <div className={frameClass}>
       <div className="flex flex-col items-center justify-center gap-1.5 px-2 text-center text-muted">
         <FileImage className="h-7 w-7 text-primary" aria-hidden />
-        <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
+        <span className="text-dashboard-metadata font-semibold uppercase tracking-[0.08em]">
           No preview
         </span>
       </div>

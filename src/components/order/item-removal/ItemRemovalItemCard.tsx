@@ -152,12 +152,12 @@ export default function ItemRemovalItemCard({
             aria-required="true"
             aria-invalid={instructionsError || undefined}
             aria-describedby={instructionsError ? notesErrorId : undefined}
-            className={`w-full px-3 py-2.5 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+            className={`w-full px-3 py-2.5 border rounded-lg text-dashboard-mobile-control md:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
               instructionsError ? "border-red-400" : "border-border"
             }`}
           />
           {instructionsError && (
-            <p id={notesErrorId} role="alert" className="mt-1.5 text-xs text-red-500">
+            <p id={notesErrorId} role="alert" className="mt-1.5 text-dashboard-metadata text-red-500">
               Please describe what should be removed or cleaned (at least{" "}
               {ITEM_REMOVAL_MIN_INSTRUCTIONS} characters).
             </p>

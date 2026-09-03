@@ -20,7 +20,7 @@ export default function ReferenceFilesReview({
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface/40 p-3">
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
+      <p className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
         References
       </p>
       {normalizedLink && (
@@ -28,7 +28,7 @@ export default function ReferenceFilesReview({
           href={normalizedLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex max-w-full items-center gap-1.5 break-all text-xs font-medium text-primary underline-offset-2 hover:underline"
+          className="inline-flex max-w-full items-center gap-1.5 break-all text-dashboard-action font-medium text-primary underline-offset-2 hover:underline"
         >
           {normalizedLink}
           <ExternalLink className="h-3.5 w-3.5 flex-none" aria-hidden />
@@ -48,10 +48,10 @@ export default function ReferenceFilesReview({
                   iconClassName="h-4 w-4"
                 />
                 <div className="min-w-0">
-                  <p className="break-all text-[11px] font-medium text-foreground">
+                  <p className="break-all text-dashboard-metadata font-medium text-foreground">
                     {reference.filename}
                   </p>
-                  <p className="text-[10px] text-muted">
+                  <p className="text-dashboard-metadata text-muted">
                     {formatReferenceFileSize(reference.fileSize)}
                   </p>
                 </div>

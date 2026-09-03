@@ -36,17 +36,17 @@ export default function DashboardQuickStart({
         <div>
           <h2
             id="start-new-order-heading"
-            className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
+            className="text-dashboard-section font-bold text-primary lg:text-lg"
           >
             Services
           </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
+          <p className="mt-2 max-w-2xl text-dashboard-body text-muted lg:text-base">
             Choose a service to upload your photos and start a new order.
           </p>
         </div>
         <ClientPortalLink
           href="/dashboard/orders/new"
-          className="inline-flex min-h-11 flex-shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 flex-shrink-0 items-center gap-1.5 rounded-lg px-2 text-dashboard-action font-bold text-primary transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           View all services
           <ArrowRight className="h-4 w-4" aria-hidden />

@@ -81,7 +81,7 @@ export default function ReferenceFilesUploader({
         <p
           className={cn(
             "mt-1 leading-relaxed text-muted",
-            comfortable ? "text-sm" : "text-xs",
+            comfortable ? "text-sm" : "text-dashboard-metadata",
           )}
         >
           {HELPER}
@@ -89,7 +89,7 @@ export default function ReferenceFilesUploader({
         <p
           className={cn(
             "mt-1 leading-relaxed text-muted",
-            comfortable ? "text-sm" : "text-xs",
+            comfortable ? "text-sm" : "text-dashboard-metadata",
           )}
         >
           {ORDER_HELPER}
@@ -141,7 +141,7 @@ export default function ReferenceFilesUploader({
         >
           Choose files or drag and drop
         </span>
-        <span className={cn("mt-1 text-muted", comfortable ? "text-sm" : "text-xs")}>
+        <span className={cn("mt-1 text-muted", comfortable ? "text-sm" : "text-dashboard-metadata")}>
           JPG, JPEG, PNG, WebP or PDF
         </span>
       </label>
@@ -149,7 +149,7 @@ export default function ReferenceFilesUploader({
       <p
         className={cn(
           "font-medium text-muted",
-          comfortable ? "text-sm" : "text-xs",
+          comfortable ? "text-sm" : "text-dashboard-metadata",
         )}
         aria-live="polite"
       >
@@ -164,7 +164,7 @@ export default function ReferenceFilesUploader({
               key={error}
               className={cn(
                 "font-medium text-red-700",
-                comfortable ? "text-sm" : "text-xs",
+                comfortable ? "text-sm" : "text-dashboard-metadata",
               )}
             >
               {error}
@@ -174,7 +174,7 @@ export default function ReferenceFilesUploader({
       )}
       {operationStatus && (
         <p
-          className={cn("text-muted", comfortable ? "text-sm" : "text-xs")}
+          className={cn("text-muted", comfortable ? "text-sm" : "text-dashboard-metadata")}
           aria-live="polite"
         >
           {operationStatus}
@@ -198,12 +198,12 @@ export default function ReferenceFilesUploader({
                   <p
                     className={cn(
                       "break-all font-medium text-foreground",
-                      comfortable ? "text-sm" : "text-xs",
+                      comfortable ? "text-sm" : "text-dashboard-metadata",
                     )}
                   >
                     {reference.filename}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-muted">
+                  <p className="mt-0.5 text-dashboard-metadata text-muted">
                     {formatReferenceFileSize(reference.fileSize)}
                   </p>
                 </div>

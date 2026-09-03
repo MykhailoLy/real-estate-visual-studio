@@ -194,7 +194,7 @@ function JobDetailsCard({
       <div className="border-b border-border px-5 py-3.5">
         <h2
           id="job-details-heading"
-          className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary"
+          className="text-dashboard-section lg:text-lg font-bold text-primary"
         >
           Job details
         </h2>
@@ -211,10 +211,10 @@ function JobDetailsCard({
         )}
         <div className="border-t border-border px-5 py-4 sm:col-span-2">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <dt className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+            <dt className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted">
               Progress
             </dt>
-            <dd className="text-right text-[12px] leading-relaxed text-muted">
+            <dd className="text-right text-dashboard-body text-muted">
               {progressMessage}
             </dd>
           </div>
@@ -253,12 +253,12 @@ function DeliveryCard({
       <div>
         <h2
           id="delivery-heading"
-          className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary"
+          className="text-dashboard-section lg:text-lg font-bold text-primary"
         >
           Deliverables
         </h2>
         {paymentMessage && (
-          <p className="mt-1 text-[13px] font-medium text-muted">
+          <p className="mt-1 text-dashboard-metadata font-medium text-muted">
             {paymentMessage}
           </p>
         )}
@@ -268,7 +268,7 @@ function DeliveryCard({
           <p className="text-sm font-semibold text-foreground">
             Delivered files available
           </p>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+          <p className="mt-1 text-dashboard-body text-muted">
             Download the available delivered files as a ZIP.
           </p>
           <BulkDownloadButton
@@ -278,7 +278,7 @@ function DeliveryCard({
           />
         </div>
       ) : (
-        <p className="mt-5 text-[13px] leading-relaxed text-muted">
+        <p className="mt-5 text-dashboard-body text-muted">
           Files will appear here when ready.
         </p>
       )}
@@ -294,14 +294,14 @@ function PaymentDetailsUnavailableCard() {
     >
       <h2
         id="payment-unavailable-heading"
-        className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary"
+        className="text-dashboard-section lg:text-lg font-bold text-primary"
       >
         Payment
       </h2>
       <p className="mt-5 text-sm font-semibold text-foreground">
         Payment details unavailable
       </p>
-      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+      <p className="mt-1 text-dashboard-body text-muted">
         We could not retrieve an authoritative payment status for this order.
       </p>
     </section>
@@ -425,7 +425,7 @@ export default async function OrderDetailPage({
       <div className="mb-6">
         <ClientPortalLink
           href="/dashboard/jobs"
-          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-primary transition-colors"
+          className="inline-flex items-center gap-1.5 text-dashboard-action font-semibold text-muted hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
           Back to jobs
@@ -434,7 +434,7 @@ export default async function OrderDetailPage({
 
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-secondary">
+          <p className="mb-1.5 text-dashboard-kicker uppercase font-bold text-secondary-dark">
             Order detail
           </p>
           <h1 className="text-2xl font-bold leading-tight text-primary sm:text-[28px]">
@@ -444,7 +444,7 @@ export default async function OrderDetailPage({
             <p className="mt-1 text-sm font-medium text-muted">{serviceLabel}</p>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded border border-border bg-white px-2 py-0.5 font-mono text-[12px] text-muted">
+            <span className="rounded border border-border bg-white px-2 py-0.5 font-mono text-dashboard-metadata text-muted">
               {order.order_number}
             </span>
             <CopyOrderNumberButton orderNumber={order.order_number} />
@@ -455,14 +455,14 @@ export default async function OrderDetailPage({
         <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           <ClientPortalLink
             href="/dashboard/support"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <LifeBuoy className="w-3.5 h-3.5" aria-hidden />
             Contact support
           </ClientPortalLink>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             New order
@@ -474,7 +474,7 @@ export default async function OrderDetailPage({
         <section aria-labelledby="action-required-heading" className="mb-8">
           <p
             id="action-required-heading"
-            className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
+            className="mb-2 text-dashboard-section lg:text-lg font-bold text-secondary-dark"
           >
             Action required
           </p>
@@ -492,7 +492,7 @@ export default async function OrderDetailPage({
         className="min-w-0 space-y-5"
       >
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary">
+          <p className="text-dashboard-kicker uppercase font-bold text-secondary-dark">
             Your images
           </p>
           <h2
@@ -545,7 +545,7 @@ export default async function OrderDetailPage({
             <p className="text-sm font-semibold text-foreground mb-1">
               Item details not yet available
             </p>
-            <p className="text-xs text-muted max-w-xs leading-relaxed">
+            <p className="max-w-xs text-dashboard-body text-muted">
               Item-level details will appear here once your order has been confirmed.
             </p>
           </div>
@@ -555,10 +555,10 @@ export default async function OrderDetailPage({
           <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
             <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
               <FolderOpen className="w-4 h-4 text-primary" aria-hidden />
-              <h3 className="text-[12px] font-bold uppercase tracking-[0.14em] text-primary">
+              <h3 className="text-dashboard-section lg:text-lg font-bold text-primary">
                 Order files
               </h3>
-              <span className="ml-auto text-[11px] text-muted-light text-right">
+              <span className="ml-auto text-right text-dashboard-metadata text-muted-light">
                 {orderLevelDeliverables.length} file{orderLevelDeliverables.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -576,17 +576,17 @@ export default async function OrderDetailPage({
                     meta={
                       <div className="space-y-1">
                         {isReplacement && (
-                          <span className="inline-flex items-center text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
+                          <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-dashboard-metadata font-semibold text-purple-700">
                             New version
                           </span>
                         )}
                         {previousFilename && (
-                          <p className="text-[10px] text-muted">
+                          <p className="text-dashboard-metadata text-muted">
                             Replaces {previousFilename}
                           </p>
                         )}
                         {review?.comment && (
-                          <p className="text-[10px] text-muted truncate max-w-xs" title={review.comment}>
+                          <p className="line-clamp-2 max-w-xs break-words text-dashboard-body text-muted" title={review.comment}>
                             {review.comment}
                           </p>
                         )}
@@ -595,10 +595,10 @@ export default async function OrderDetailPage({
                     actions={
                       canShowCompletedRework ? (
                         <div className="w-full border-t border-border pt-3">
-                          <p className="text-[12px] font-semibold text-foreground">
+                          <p className="text-dashboard-action font-semibold text-foreground">
                             Need any changes?
                           </p>
-                          <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                          <p className="mt-1 text-dashboard-body text-muted">
                             Request adjustments to the delivered result.
                           </p>
                           <div className="mt-3">
@@ -644,7 +644,7 @@ export default async function OrderDetailPage({
           <div>
             <h2
               id="order-activity-heading"
-              className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted"
+              className="text-dashboard-section lg:text-lg font-bold text-muted"
             >
               Activity
             </h2>
@@ -657,14 +657,14 @@ export default async function OrderDetailPage({
         <div className="flex flex-wrap gap-2">
           <ClientPortalLink
             href="/dashboard/jobs"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
             All jobs
           </ClientPortalLink>
           <ClientPortalLink
             href="/dashboard/orders/new"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <PlusCircle className="w-3.5 h-3.5" aria-hidden />
             Place another order
@@ -688,13 +688,13 @@ function JobDetailsRow({
 }) {
   return (
     <div className="min-w-0 border-b border-border px-5 py-3 sm:even:border-l">
-      <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+      <dt className="mb-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
         {label}
       </dt>
       <dd
         className={[
           "min-w-0 leading-snug",
-          mono ? "font-mono text-[12px] text-foreground" : "text-[13px] text-foreground",
+          mono ? "font-mono text-dashboard-metadata text-foreground" : "text-dashboard-metadata text-foreground",
           strong ? "font-bold" : "font-medium",
         ].join(" ")}
       >

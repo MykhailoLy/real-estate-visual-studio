@@ -106,7 +106,7 @@ export default function OrderItemDetails({ details, variant = "default" }: Props
 
   if (entries.length === 0) {
     return (
-      <p className="text-[12px] text-muted italic">
+      <p className="text-[12px] text-muted italic [[data-dashboard-scroll-container]_&]:text-dashboard-body">
         No additional details available for this item.
       </p>
     );
@@ -117,7 +117,7 @@ export default function OrderItemDetails({ details, variant = "default" }: Props
       <dl className="divide-y divide-border">
         {entries.map(([key, value]) => (
           <div key={key} className="min-w-0 py-2.5 first:pt-0 last:pb-0">
-            <dt className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+            <dt className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata [[data-dashboard-scroll-container]_&]:tracking-[0.08em]">
               {KEY_LABELS[key] ?? toTitleLabel(key)}
             </dt>
             <dd>{renderValue(value, key, true)}</dd>
@@ -131,7 +131,7 @@ export default function OrderItemDetails({ details, variant = "default" }: Props
     <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
       {entries.map(([key, value]) => (
         <div key={key} className="min-w-0">
-          <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light">
+          <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-light [[data-dashboard-scroll-container]_&]:text-dashboard-metadata [[data-dashboard-scroll-container]_&]:tracking-[0.08em]">
             {KEY_LABELS[key] ?? toTitleLabel(key)}
           </dt>
           <dd>{renderValue(value, key)}</dd>
@@ -152,7 +152,7 @@ function renderValue(
         {value.map((item, index) => (
           <span
             key={index}
-            className="inline-flex items-center px-2 py-0.5 bg-primary/8 border border-primary/15 rounded-full text-[11px] font-semibold text-primary"
+            className="inline-flex items-center px-2 py-0.5 bg-primary/8 border border-primary/15 rounded-full text-[11px] font-semibold text-primary [[data-dashboard-scroll-container]_&]:text-dashboard-metadata"
           >
             {customerFacing ? humanizeValue(String(item)) : String(item)}
           </span>
@@ -170,7 +170,7 @@ function renderValue(
             className={
               customerFacing
                 ? "text-[13px] leading-relaxed text-foreground/80"
-                : "text-[12px] text-foreground/75"
+                : "text-[12px] text-foreground/75 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata"
             }
           >
             <span className="font-semibold">
@@ -192,7 +192,7 @@ function renderValue(
         href={value}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-primary hover:text-primary-light transition-colors text-[12px] font-semibold truncate max-w-[240px]"
+        className="inline-flex items-center gap-1 text-primary hover:text-primary-light transition-colors text-[12px] font-semibold truncate max-w-[240px] [[data-dashboard-scroll-container]_&]:text-dashboard-action [[data-dashboard-scroll-container]_&]:overflow-visible [[data-dashboard-scroll-container]_&]:text-clip [[data-dashboard-scroll-container]_&]:whitespace-normal [[data-dashboard-scroll-container]_&]:max-w-none"
       >
         <ExternalLink className="w-3 h-3 flex-shrink-0" aria-hidden />
         View reference

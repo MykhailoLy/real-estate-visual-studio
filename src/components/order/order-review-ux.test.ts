@@ -137,7 +137,7 @@ test("summary rows keep labels and long values separated at narrow widths", () =
     summary,
     /min-w-0 break-words text-right font-medium text-foreground/,
   );
-  assert.match(summary, /flex justify-between gap-4 text-xs/);
+  assert.match(summary, /flex justify-between gap-4 text-dashboard-action/);
   assert.doesNotMatch(
     summary,
     /No payment now\. We confirm & invoice after review\./,

@@ -27,7 +27,7 @@ export default function CopyOrderNumberButton({
     <button
       type="button"
       onClick={handleCopy}
-      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white px-2 py-1 text-[11px] font-semibold text-foreground/70 hover:border-primary/40 hover:text-primary transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white px-2 py-1 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
       aria-label={`Copy order number ${orderNumber}`}
     >
       {copied ? (

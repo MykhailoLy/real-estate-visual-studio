@@ -84,7 +84,7 @@ export default function ItemDeliveryFields({
         <p
           className={cn(
             "mb-2 text-muted",
-            comfortable ? "text-sm leading-6" : "text-xs",
+            "text-dashboard-body",
           )}
         >
           Many listing portals cap individual file uploads. Pick a target if
@@ -99,7 +99,7 @@ export default function ItemDeliveryFields({
           }
           className={cn(
             "w-full rounded-lg border border-border bg-white px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60",
-            comfortable ? "text-base" : "text-sm",
+            comfortable ? "text-base" : "text-dashboard-mobile-control md:text-sm",
           )}
         >
           <option value="">Please Select...</option>
@@ -124,7 +124,7 @@ export default function ItemDeliveryFields({
         <p
           className={cn(
             "mb-2 text-muted",
-            comfortable ? "text-sm leading-6" : "text-xs",
+            "text-dashboard-body",
           )}
         >
           Optional text to include with delivered files or listing materials
@@ -142,7 +142,7 @@ export default function ItemDeliveryFields({
           maxLength={2000}
           className={cn(
             "w-full resize-none rounded-lg border border-border px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60",
-            comfortable ? "text-base leading-6" : "text-sm",
+            comfortable ? "text-base leading-6" : "text-dashboard-mobile-control md:text-sm",
           )}
         />
       </div>

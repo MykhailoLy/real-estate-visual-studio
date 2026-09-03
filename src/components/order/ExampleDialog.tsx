@@ -28,7 +28,7 @@ function PreviewImage({
   return (
     <figure className="min-w-0">
       {label ? (
-        <figcaption className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-primary/70">
+        <figcaption className="mb-2 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-primary/70">
           {label}
         </figcaption>
       ) : null}
@@ -153,7 +153,7 @@ export default function ExampleDialog({
           ) : showMissingMediaPlaceholder ? (
             <div className="mx-auto flex aspect-[4/3] max-w-3xl flex-col items-center justify-center gap-2 rounded-xl border border-border bg-gradient-to-br from-primary/10 via-surface to-secondary/10 px-6 text-center text-muted-light">
               <ImageIcon className="h-8 w-8" aria-hidden="true" />
-              <p className="text-xs font-semibold uppercase tracking-[0.14em]">
+              <p className="text-dashboard-metadata font-semibold uppercase tracking-[0.08em]">
                 Example media coming soon
               </p>
             </div>

@@ -34,7 +34,7 @@ export default function JobsWorkspaceRail({ jobs }: JobsWorkspaceRailProps) {
         <div>
           <h3
             id="open-jobs-heading"
-            className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary"
+            className="text-dashboard-section font-bold text-primary lg:text-lg"
           >
             Open jobs
           </h3>
@@ -56,13 +56,13 @@ export default function JobsWorkspaceRail({ jobs }: JobsWorkspaceRailProps) {
                       aria-hidden
                     />
                   </span>
-                  <span className="dashboard-pointer-hover-title mt-2 block line-clamp-2 break-words text-sm font-bold leading-snug text-primary transition-colors group-focus-visible:text-primary-light">
+                  <span data-dashboard-critical-title className="dashboard-pointer-hover-title mt-2 block line-clamp-2 break-words text-dashboard-action font-bold leading-snug text-primary transition-colors group-focus-visible:text-primary-light">
                     {job.title}
                   </span>
-                  <span className="mt-1 block break-words text-xs font-medium leading-snug text-foreground/80">
+                  <span data-dashboard-metadata className="mt-1 block break-words text-dashboard-metadata font-medium leading-snug text-foreground/80">
                     {job.serviceType}
                   </span>
-                  <span className="mt-1.5 block truncate font-mono text-[10px] font-semibold text-foreground/80">
+                  <span data-dashboard-metadata title={job.reference} className="mt-1.5 block truncate font-mono text-dashboard-metadata font-semibold text-foreground/80">
                     {job.reference}
                   </span>
                 </ClientPortalLink>
@@ -70,7 +70,7 @@ export default function JobsWorkspaceRail({ jobs }: JobsWorkspaceRailProps) {
             ))}
           </ul>
         ) : (
-          <p className="mt-3 rounded-lg bg-surface p-3 text-xs leading-relaxed text-muted">
+          <p className="mt-3 rounded-lg bg-surface p-3 text-dashboard-body text-muted">
             No open jobs right now.
           </p>
         )}

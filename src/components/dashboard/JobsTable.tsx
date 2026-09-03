@@ -86,7 +86,7 @@ function ProgressBar({ value, status }: { value: number; status: DashboardJobSta
           style={{ width: `${value}%` }}
         />
       </div>
-      <span className="w-7 flex-shrink-0 text-right text-[11px] tabular-nums text-foreground">
+      <span data-dashboard-metadata className="w-9 flex-shrink-0 text-right text-dashboard-metadata tabular-nums text-foreground">
         {value}%
       </span>
     </div>
@@ -140,7 +140,7 @@ export default function JobsTable({
               placeholder="Search by title, reference or service..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="min-h-11 w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-4 text-sm transition-colors placeholder:text-muted-light focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="min-h-11 w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-4 text-dashboard-mobile-control transition-colors placeholder:text-muted-light focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 md:text-sm"
             />
           </div>
 
@@ -155,7 +155,7 @@ export default function JobsTable({
               onChange={(e) =>
                 handleStatusFilterChange(e.target.value as DashboardJobStatus | "all")
               }
-              className="min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-border bg-white py-2.5 pl-9 pr-8 text-sm text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-auto"
+              className="min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-border bg-white py-2.5 pl-9 pr-8 text-dashboard-mobile-control text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-auto md:text-sm"
               aria-label="Filter by status"
             >
               <option value="all">All statuses</option>
@@ -171,7 +171,7 @@ export default function JobsTable({
 
       {/* Results summary */}
       {showControls && (
-        <p className="text-[11px] text-muted" aria-live="polite">
+        <p data-dashboard-metadata className="text-dashboard-metadata text-muted" aria-live="polite">
           {displayed.length === 0
             ? "No jobs match your search or filters"
             : `Showing ${displayed.length} of ${jobs.length} job${jobs.length !== 1 ? "s" : ""}`}
@@ -207,7 +207,7 @@ export default function JobsTable({
         className="hidden overflow-x-auto rounded-xl border border-border bg-white shadow-sm lg:block"
         tabIndex={0}
       >
-        <table className="min-w-[1200px] w-full table-fixed text-sm">
+        <table className="min-w-[1200px] w-full table-fixed text-dashboard-action">
           <caption className="sr-only">All submitted jobs</caption>
           <colgroup>
             <col className="w-[18%]" />
@@ -221,29 +221,29 @@ export default function JobsTable({
           </colgroup>
           <thead>
             <tr className="border-b border-border bg-surface">
-              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+              <th className="align-middle px-4 py-3 text-left text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                 Job title
               </th>
-              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+              <th className="align-middle px-4 py-3 text-left text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                 Job reference
               </th>
-              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+              <th className="align-middle px-4 py-3 text-left text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                 Status
               </th>
-              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+              <th className="align-middle px-4 py-3 text-left text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                 Job submitted
               </th>
-              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+              <th className="align-middle px-4 py-3 text-left text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                 Job complete
               </th>
-              <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+              <th className="align-middle px-4 py-3 text-left text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                 Job type
               </th>
-              <th className="align-middle px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+              <th className="align-middle px-4 py-3 text-right text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                 Job cost
               </th>
               {showProgress && (
-                <th className="align-middle px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-secondary">
+                <th className="align-middle px-4 py-3 text-left text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
                   Progress
                 </th>
               )}
@@ -275,7 +275,7 @@ export default function JobsTable({
         <div className="text-center pt-1">
           <ClientPortalLink
             href="/dashboard/jobs"
-            className="text-sm font-semibold text-primary hover:text-primary-light transition-colors inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-dashboard-action font-semibold text-primary transition-colors hover:text-primary-light"
           >
             View all {filtered.length} jobs
             <span aria-hidden>→</span>
@@ -322,33 +322,33 @@ function DesktopJobRow({
           href={jobHref}
           className="group/link inline-flex min-h-11 max-w-full flex-col justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
-          <span className="dashboard-pointer-hover-title inline-block line-clamp-2 break-words text-[13px] font-bold leading-snug text-primary transition-colors group-focus-visible/link:text-primary-light">
+          <span data-dashboard-critical-title className="dashboard-pointer-hover-title inline-block line-clamp-2 break-words text-dashboard-action font-bold leading-snug text-primary transition-colors group-focus-visible/link:text-primary-light">
             {job.title}
           </span>
           <JobSecondaryLabel
             job={job}
-            className="mt-0.5 line-clamp-1 break-words text-[11px] text-muted"
+            className="mt-0.5 line-clamp-2 break-words text-dashboard-metadata text-muted"
           />
         </ClientPortalLink>
       </td>
       <td className="align-middle px-4 py-3.5">
-        <span className="block w-fit max-w-full truncate rounded-md bg-primary/8 px-2 py-1 font-mono text-[11px] font-semibold text-primary">
+        <span data-dashboard-metadata title={job.reference} className="block w-fit max-w-full truncate rounded-md bg-primary/8 px-2 py-1 font-mono text-dashboard-metadata font-semibold text-primary">
           {job.reference}
         </span>
       </td>
       <td className="align-middle px-4 py-3.5">
         <StatusBadge status={job.status} compact />
       </td>
-      <td className="align-middle whitespace-nowrap px-4 py-3.5 text-[12px] font-medium text-foreground">
+      <td data-dashboard-metadata className="align-middle whitespace-nowrap px-4 py-3.5 text-dashboard-metadata font-medium text-foreground">
         {formatDate(job.submittedDate)}
       </td>
-      <td className="align-middle whitespace-nowrap px-4 py-3.5 text-[12px] font-medium text-muted">
+      <td data-dashboard-metadata className="align-middle whitespace-nowrap px-4 py-3.5 text-dashboard-metadata font-medium text-muted">
         {JOB_COMPLETE_VALUE}
       </td>
-      <td className="align-middle break-words px-4 py-3.5 text-[13px] font-medium leading-snug text-foreground">
+      <td data-dashboard-metadata className="align-middle break-words px-4 py-3.5 text-dashboard-metadata font-medium leading-snug text-foreground">
         {job.serviceType}
       </td>
-      <td className="align-middle whitespace-nowrap px-4 py-3.5 text-right text-[13px] font-bold tabular-nums text-foreground">
+      <td data-dashboard-cost className="align-middle whitespace-nowrap px-4 py-3.5 text-right text-dashboard-action font-bold tabular-nums text-foreground">
         {formatStoredMoney(job.costCents, job.currency)}
       </td>
       {showProgress && (
@@ -384,16 +384,16 @@ function MobileJobRow({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <span className="line-clamp-2 break-words text-sm font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
+              <span data-dashboard-critical-title className="line-clamp-2 break-words text-dashboard-action font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
                 {job.title}
               </span>
             </div>
             <StatusBadge status={job.status} compact />
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-3 text-xs">
+          <div data-dashboard-metadata className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-3 text-dashboard-metadata">
             <JobMetadataItem label="Job reference">
-              <span className="block w-fit max-w-full truncate rounded-md bg-primary/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
+              <span title={job.reference} className="block w-fit max-w-full truncate rounded-md bg-primary/8 px-1.5 py-0.5 font-mono text-dashboard-metadata font-semibold text-primary">
                 {job.reference}
               </span>
             </JobMetadataItem>
@@ -404,7 +404,7 @@ function MobileJobRow({
               {JOB_COMPLETE_VALUE}
             </JobMetadataItem>
             <JobMetadataItem label="Job cost">
-              <span className="font-bold tabular-nums">
+              <span data-dashboard-cost className="text-dashboard-action font-bold tabular-nums">
                 {formatStoredMoney(job.costCents, job.currency)}
               </span>
             </JobMetadataItem>
@@ -434,7 +434,7 @@ function JobMetadataItem({
 }) {
   return (
     <div className={cn("min-w-0 text-foreground", className)}>
-      <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-secondary">
+      <span className="block text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-secondary-dark">
         {label}
       </span>
       <div className="mt-0.5 break-words font-medium leading-snug">
@@ -465,8 +465,8 @@ function EmptyJobsMessage({ isFiltered }: { isFiltered: boolean }) {
         <FileX className="h-5 w-5 text-muted-light" aria-hidden />
       </div>
       <div>
-        <p className="text-sm font-semibold text-foreground">No jobs found</p>
-        <p className="mt-1 text-xs text-muted">
+        <p className="text-dashboard-action font-semibold text-foreground">No jobs found</p>
+        <p className="mt-1 text-dashboard-body text-muted">
           {isFiltered
             ? "Try adjusting your search or filter."
             : "Your jobs will appear here once you place an order."}

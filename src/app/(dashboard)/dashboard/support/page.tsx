@@ -47,15 +47,15 @@ function SupportCard({
           <Icon className={cn("h-4.5 w-4.5", iconClassName)} aria-hidden />
         </div>
         <div>
-          <h2 className="text-[15px] font-bold text-foreground leading-snug">
+          <h2 className="text-dashboard-section font-bold text-foreground lg:text-lg">
             {title}
           </h2>
-          <p className="text-sm text-muted leading-relaxed mt-1">{body}</p>
+          <p className="text-dashboard-body text-muted mt-1 md:text-base">{body}</p>
         </div>
       </div>
       <ClientPortalLink
         href={href}
-        className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-primary-light transition-colors"
+        className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-dashboard-action font-bold text-white hover:bg-primary-light transition-colors"
       >
         {cta}
         <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -80,10 +80,10 @@ function FaqCard({
           <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
         </div>
         <div>
-          <h3 className="text-[13px] font-bold text-foreground leading-snug">
+          <h3 className="text-dashboard-action font-bold text-foreground">
             {question}
           </h3>
-          <p className="text-xs text-muted leading-relaxed mt-1">{answer}</p>
+          <p className="text-dashboard-body text-muted mt-1 md:text-base">{answer}</p>
         </div>
       </div>
     </div>
@@ -96,7 +96,7 @@ export default async function DashboardSupportPage() {
   return (
     <ClientDashboardLayout>
       <div className="mb-7">
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-dark mb-1.5">
+        <p className="text-dashboard-kicker font-bold uppercase text-secondary-dark mb-1.5">
           Client Portal
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -104,16 +104,16 @@ export default async function DashboardSupportPage() {
             <h1 className="text-2xl sm:text-[28px] font-bold text-primary leading-tight">
               Support
             </h1>
-            <p className="text-muted mt-1 text-sm">
+            <p className="text-dashboard-body text-muted mt-1 md:text-base">
               Get help with orders, files, revisions, and account questions.
             </p>
-            <p className="text-[12px] text-muted-light mt-1">
+            <p className="text-dashboard-metadata text-muted-light mt-1">
               For order-specific questions, include your order number so we can help faster.
             </p>
           </div>
           <Link
             href="/contact"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-dashboard-action font-bold hover:bg-primary-light transition-colors shadow-sm whitespace-nowrap"
           >
             <MessageCircle className="w-4 h-4" aria-hidden />
             Contact us
@@ -126,17 +126,17 @@ export default async function DashboardSupportPage() {
           <div className="flex items-start gap-3">
             <UserCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" aria-hidden />
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
+              <p className="text-dashboard-kicker font-bold uppercase text-muted-light">
                 Signed in as
               </p>
-              <p className="text-sm font-semibold text-foreground break-all">
+              <p className="text-dashboard-action font-semibold text-foreground break-all">
                 {user.email}
               </p>
             </div>
           </div>
           <ClientPortalLink
             href="/dashboard/jobs"
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] font-semibold text-foreground/75 hover:border-primary/40 hover:text-primary transition-colors"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-dashboard-action font-semibold text-foreground/75 hover:border-primary/40 hover:text-primary transition-colors"
           >
             Need help with a specific order?
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -146,10 +146,10 @@ export default async function DashboardSupportPage() {
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
+            <p className="text-dashboard-body font-semibold text-amber-800">
               Sign in to access order-specific support.
             </p>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-dashboard-metadata text-amber-700 mt-1">
               You can still contact us through the public contact page.
             </p>
           </div>
@@ -187,10 +187,10 @@ export default async function DashboardSupportPage() {
               <LifeBuoy className="h-4.5 w-4.5 text-emerald-600" aria-hidden />
             </div>
             <div>
-              <h2 className="text-[15px] font-bold text-foreground leading-snug">
+              <h2 className="text-dashboard-section font-bold text-foreground lg:text-lg">
                 General contact
               </h2>
-              <p className="text-sm text-muted leading-relaxed mt-1">
+              <p className="text-dashboard-body text-muted mt-1 md:text-base">
                 Contact us through the contact page, or email us if you prefer a direct message.
               </p>
             </div>
@@ -198,14 +198,14 @@ export default async function DashboardSupportPage() {
           <div className="mt-auto flex flex-col sm:flex-row gap-2">
             <Link
               href="/contact"
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-primary-light transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-dashboard-action font-bold text-white hover:bg-primary-light transition-colors"
             >
               Contact page
               <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-[13px] font-bold text-foreground/75 hover:border-primary/40 hover:text-primary transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-bold text-foreground/75 hover:border-primary/40 hover:text-primary transition-colors"
             >
               <Mail className="h-3.5 w-3.5" aria-hidden />
               Email support
@@ -217,7 +217,7 @@ export default async function DashboardSupportPage() {
       <section className="mb-7">
         <div className="flex items-center gap-2 mb-3">
           <FileQuestion className="w-4 h-4 text-primary" aria-hidden />
-          <h2 className="text-sm font-bold text-foreground">Quick FAQ</h2>
+          <h2 className="text-dashboard-section font-bold text-foreground lg:text-lg">Quick FAQ</h2>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <FaqCard
@@ -252,10 +252,10 @@ export default async function DashboardSupportPage() {
         <div className="flex items-start gap-3">
           <HelpCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" aria-hidden />
           <div>
-            <p className="text-[13px] font-semibold text-foreground mb-1">
+            <p className="text-dashboard-action font-semibold text-foreground mb-1">
               Faster support checklist
             </p>
-            <p className="text-xs text-muted leading-relaxed">
+            <p className="text-dashboard-body text-muted md:text-base">
               Include your order number, the file name if relevant, what you expected to happen,
               and what you see instead. Clear details help us resolve the issue faster.
             </p>

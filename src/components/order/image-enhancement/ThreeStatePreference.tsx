@@ -48,7 +48,7 @@ export default function ThreeStatePreference({
             <label
               key={option}
               htmlFor={id}
-              className={`relative flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 text-center text-[12px] font-semibold transition-colors focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 ${
+              className={`relative flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2 text-center text-dashboard-action font-semibold transition-colors focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 ${
                 selected
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-white text-foreground/70 hover:border-primary/40"

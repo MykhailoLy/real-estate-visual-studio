@@ -283,7 +283,7 @@ export default function FileUpload({
           id={helperTextId}
           className={cn(
             "mb-2 text-foreground/75",
-            comfortable ? "text-sm leading-6" : "text-xs",
+            comfortable ? "text-sm leading-6" : "text-dashboard-metadata",
           )}
         >
           {helperText}
@@ -332,14 +332,14 @@ export default function FileUpload({
           )}
           <div className="min-w-0 flex-1 flex flex-col justify-center">
             <FilenameText filename={file.name} />
-            <p className="text-xs text-foreground/75">
+            <p className="text-dashboard-metadata text-foreground/75">
               {(file.size / 1024 / 1024).toFixed(2)} MB
             </p>
             {operationStatusText && (
               <p
                 id={operationStatusId}
                 aria-live="polite"
-                className="mt-1 text-xs text-foreground/75"
+                className="mt-1 text-dashboard-metadata text-foreground/75"
               >
                 {operationStatusText}
               </p>
@@ -348,7 +348,7 @@ export default function FileUpload({
               <p
                 id={operationErrorId}
                 role="alert"
-                className="mt-1 text-xs text-red-700"
+                className="mt-1 text-dashboard-metadata text-red-700"
               >
                 {operationErrorText}
               </p>
@@ -359,7 +359,7 @@ export default function FileUpload({
               type="button"
               onClick={openPicker}
               disabled={disabled}
-              className="flex-shrink-0 rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-shrink-0 rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               {replaceLabel}
             </button>
@@ -369,7 +369,7 @@ export default function FileUpload({
               type="button"
               onClick={onRetry}
               disabled={retryDisabled}
-              className="flex-shrink-0 self-start rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-shrink-0 self-start rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {retryLabel}
             </button>
@@ -400,17 +400,17 @@ export default function FileUpload({
           )}
           <div className="min-w-0 flex-1">
             <FilenameText filename={persistedFile.filename} />
-            <p className="text-xs text-foreground/75">
+            <p className="text-dashboard-metadata text-foreground/75">
               {formatFileSize(persistedFile.fileSize)}
             </p>
-            <p className="mt-1 text-xs font-medium text-primary">
+            <p className="mt-1 text-dashboard-metadata font-medium text-primary">
               {persistedFile.statusLabel ?? "Saved in draft"}
             </p>
             {operationStatusText && (
               <p
                 id={operationStatusId}
                 aria-live="polite"
-                className="mt-1 text-xs text-foreground/75"
+                className="mt-1 text-dashboard-metadata text-foreground/75"
               >
                 {operationStatusText}
               </p>
@@ -419,7 +419,7 @@ export default function FileUpload({
               <p
                 id={operationErrorId}
                 role="alert"
-                className="mt-1 text-xs text-red-700"
+                className="mt-1 text-dashboard-metadata text-red-700"
               >
                 {operationErrorText}
               </p>
@@ -430,7 +430,7 @@ export default function FileUpload({
               type="button"
               onClick={openPicker}
               disabled={disabled}
-              className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-semibold text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
             >
               {replaceLabel}
             </button>
@@ -439,7 +439,7 @@ export default function FileUpload({
                 type="button"
                 onClick={onRetry}
                 disabled={retryDisabled}
-                className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {retryLabel}
               </button>
@@ -449,7 +449,7 @@ export default function FileUpload({
                 type="button"
                 onClick={onRemovePersisted}
                 disabled={removeDisabled}
-                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {removePersistedLabel}
               </button>
@@ -495,7 +495,7 @@ export default function FileUpload({
             id={maxSizeId}
             className={cn(
               "mt-1 block text-foreground/75",
-              comfortable ? "text-sm" : "text-xs",
+              comfortable ? "text-sm" : "text-dashboard-metadata",
             )}
           >
             Max {Math.round(maxSize / 1024 / 1024)}MB
@@ -509,7 +509,7 @@ export default function FileUpload({
           role="alert"
           className={cn(
             "mt-1 text-red-700",
-            comfortable ? "text-sm" : "text-xs",
+            comfortable ? "text-sm" : "text-dashboard-metadata",
           )}
         >
           File rejected. Please check format and size.
@@ -521,7 +521,7 @@ export default function FileUpload({
           aria-live="polite"
           className={cn(
             "mt-1 text-foreground/75",
-            comfortable ? "text-sm" : "text-xs",
+            comfortable ? "text-sm" : "text-dashboard-metadata",
           )}
         >
           {operationStatusText}
@@ -533,7 +533,7 @@ export default function FileUpload({
           role="alert"
           className={cn(
             "mt-1 text-red-700",
-            comfortable ? "text-sm" : "text-xs",
+            comfortable ? "text-sm" : "text-dashboard-metadata",
           )}
         >
           {operationErrorText}
@@ -545,7 +545,7 @@ export default function FileUpload({
           role="alert"
           className={cn(
             "mt-1.5 text-red-600",
-            comfortable ? "text-sm" : "text-xs",
+            comfortable ? "text-sm" : "text-dashboard-metadata",
           )}
         >
           {validationError}
@@ -631,7 +631,7 @@ function PersistedFilePreviewContent({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-2 text-xs font-semibold text-primary hover:text-primary-light"
+          className="mt-2 text-dashboard-action font-semibold text-primary hover:text-primary-light"
         >
           Open preview
         </button>
@@ -650,7 +650,7 @@ function PersistedFilePreviewContent({
             onClick={(event) => event.stopPropagation()}
           >
             <div className="static-image-viewer-panel-header flex min-w-0 items-center justify-between gap-3 pb-3">
-              <p className="truncate text-sm font-semibold text-white">
+              <p className="truncate text-sm font-semibold text-white" title={`${label}: ${filename}`}>
                 {label}: {filename}
               </p>
               <button

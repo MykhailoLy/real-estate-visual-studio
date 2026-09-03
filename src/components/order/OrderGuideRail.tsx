@@ -42,10 +42,10 @@ function GuideSteps({ steps, layout }: GuideStepsProps) {
             {String(index + 1).padStart(2, "0")}
           </span>
           <div className={layout === "horizontal" ? "mt-1" : "min-w-0"}>
-            <h3 className="text-sm font-bold uppercase tracking-[0.07em] text-primary">
+            <h3 className="text-dashboard-action font-bold uppercase tracking-[0.07em] text-primary">
               {step.title}
             </h3>
-            <p className="mt-1.5 text-sm leading-6 text-muted">
+            <p className="mt-1.5 text-dashboard-body text-muted">
               {step.description}
             </p>
           </div>
@@ -64,10 +64,10 @@ function GuideInformation({
 }) {
   return (
     <section className="mt-6 border-t border-border pt-5 lg:mt-9 lg:pt-7">
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary lg:text-[12px]">
+      <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
         {title}
       </h2>
-      <div className="mt-3 space-y-3 text-sm leading-6 text-muted lg:mt-4">
+      <div className="mt-3 space-y-3 text-dashboard-body text-muted lg:mt-4">
         {children}
       </div>
     </section>
@@ -92,8 +92,8 @@ export default function OrderGuideRail({
     <>
       <details className="group rounded-lg border border-border bg-white px-4 shadow-sm md:hidden">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-          <span className="text-sm font-semibold">Before you start</span>
-          <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em]">
+          <span className="text-dashboard-action font-semibold">Before you start</span>
+          <span className="flex items-center gap-2 text-dashboard-kicker uppercase font-bold">
             Order guide
             <ChevronDown
               className="h-4 w-4 transition-transform group-open:rotate-180"
@@ -102,7 +102,7 @@ export default function OrderGuideRail({
           </span>
         </summary>
         <div className="border-t border-border pb-5 pt-5">
-          <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+          <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
             {title}
           </h2>
           <GuideSteps steps={steps} layout="vertical" />
@@ -118,20 +118,20 @@ export default function OrderGuideRail({
         aria-label="Order guide"
         className="hidden border-y border-border bg-white/70 px-5 py-5 text-foreground md:block lg:hidden"
       >
-        <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+        <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
           {title}
         </h2>
         <GuideSteps steps={steps} layout="horizontal" />
         {information != null && (
           <details className="group mt-4 border-t border-border pt-2">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-dashboard-action font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
               {informationTitle}
               <ChevronDown
                 className="h-4 w-4 transition-transform group-open:rotate-180"
                 aria-hidden="true"
               />
             </summary>
-            <div className="space-y-2 pb-2 text-sm leading-6 text-muted">
+            <div className="space-y-2 pb-2 text-dashboard-body text-muted">
               {information}
             </div>
           </details>
@@ -142,7 +142,7 @@ export default function OrderGuideRail({
         aria-label="Order guide"
         className="hidden border-l border-border pl-6 text-foreground lg:block"
       >
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.18em] text-primary">
+        <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
           {title}
         </h2>
         <GuideSteps steps={steps} layout="vertical" />

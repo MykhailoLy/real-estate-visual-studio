@@ -257,9 +257,9 @@ export default function SingleExposureItemCard({
               onChange({ ...data, referenceLink: event.target.value })
             }
             placeholder="https://example.com/reference"
-            className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-1 text-dashboard-body text-muted">
             Add a link to an online example, brand guide or shared reference.
           </p>
         </div>
@@ -290,7 +290,7 @@ export default function SingleExposureItemCard({
         />
 
         <div className="space-y-4 rounded-xl border border-border bg-surface/40 p-4">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-light">
+          <p className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
             Image Preferences
           </p>
           {PREF_FIELDS.map((pref) => (
@@ -377,7 +377,7 @@ export default function SingleExposureItemCard({
                     aerialEditing: event.target.value as AerialEditingId,
                   })
                 }
-                className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 {AERIAL_EDITING_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -396,7 +396,7 @@ export default function SingleExposureItemCard({
             </button>
           </div>
           {selectedAerial.priceKey ? (
-            <p className="mt-2 text-xs font-semibold text-primary">
+            <p className="mt-2 text-dashboard-action font-semibold text-primary">
               +
               <RegionalCentsText
                 cents={getCatalogPrice(selectedAerial.priceKey, currency)}
@@ -404,7 +404,7 @@ export default function SingleExposureItemCard({
               {" per photo"}
             </p>
           ) : (
-            <p className="mt-2 text-xs text-muted">No additional charge</p>
+            <p className="mt-2 text-dashboard-metadata text-muted">No additional charge</p>
           )}
 
           {data.aerialEditing !== AERIAL_EDITING_DEFAULT ? (
@@ -419,7 +419,7 @@ export default function SingleExposureItemCard({
                 >
                   Aerial Editing Instructions
                 </label>
-                <p className="mt-1 text-xs leading-5 text-foreground/75">
+                <p className="mt-1 text-dashboard-body text-foreground/75">
                   Describe the property location, required marker position or
                   areas that should be highlighted.
                 </p>
@@ -434,20 +434,20 @@ export default function SingleExposureItemCard({
                   }
                   rows={3}
                   aria-invalid={aerialDetailsMissing || undefined}
-                  className={`mt-2 w-full resize-none rounded-lg border px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  className={`mt-2 w-full resize-none rounded-lg border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
                     aerialDetailsMissing ? "border-red-400" : "border-border"
                   }`}
                 />
               </div>
 
               {aerialDetailsMissing ? (
-                <p className="text-xs font-medium text-red-700" role="alert">
+                <p className="text-dashboard-metadata font-medium text-red-700" role="alert">
                   Add meaningful instructions or at least one Reference File.
                 </p>
               ) : null}
 
               {data.aerialEditing === "multiple-lot-highlight" ? (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-dashboard-body text-amber-900">
                   Includes up to 5 lots. Contact PicchuSpot for larger or more
                   complex site plans.
                 </p>
@@ -480,7 +480,7 @@ export default function SingleExposureItemCard({
             }
             placeholder="Optional: any specific enhancement notes for this photo (e.g. brighten interior, recover window view)..."
             rows={2}
-            className="w-full resize-none rounded-lg border border-border px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
@@ -488,7 +488,7 @@ export default function SingleExposureItemCard({
           <button
             type="button"
             onClick={onApplyToAll}
-            className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary transition-colors hover:text-primary-light"
+            className="inline-flex items-center gap-1.5 text-dashboard-action font-semibold text-primary transition-colors hover:text-primary-light"
           >
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
             Apply these preferences to all remaining photos
