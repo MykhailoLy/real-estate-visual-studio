@@ -100,6 +100,10 @@ test("dashboard typography keeps its hierarchy at every control width", async ({
     await expectNoLightSurfaceGoldText(page.locator("body"), viewport.width);
     await expectNoDocumentOverflow(page, viewport.width);
 
+    if (viewport.width >= 1024) {
+      await expectAvailableServiceExamplesDoNotOverlap(page, viewport.width, testInfo);
+    }
+
     if (viewport.width <= 390) {
       await expectCriticalTextCanWrap(page, viewport.width);
       await expectVisibleFontSizeAtLeast(
@@ -151,6 +155,7 @@ test("dashboard typography keeps its hierarchy at every control width", async ({
         "account dropdown email",
       );
       await page.keyboard.press("Escape");
+      await expectAvailableVirtualStagingExamplesModal(page, testInfo);
     }
   }
 
@@ -421,6 +426,112 @@ function visibleTextControls(page: Page) {
       "textarea",
     ].join(", "),
   );
+}
+
+async function expectAvailableServiceExamplesDoNotOverlap(
+  page: Page,
+  viewportWidth: number,
+  testInfo: TestInfo,
+) {
+  const buttons = page.locator("[data-dashboard-services]").getByRole("button", {
+    name: /^View .+ examples$/,
+  });
+  const samples = await buttons.evaluateAll((elements) =>
+    elements.map((button) => {
+      const buttonRect = button.getBoundingClientRect();
+      const captions = button.closest("article")?.querySelectorAll(
+        "[data-dashboard-service-caption]",
+      );
+      return {
+        service: button.getAttribute("aria-label"),
+        captions: Array.from(captions ?? []).map((caption) => {
+          const captionRect = caption.getBoundingClientRect();
+          const overlapWidth = Math.min(buttonRect.right, captionRect.right) -
+            Math.max(buttonRect.left, captionRect.left);
+          const overlapHeight = Math.min(buttonRect.bottom, captionRect.bottom) -
+            Math.max(buttonRect.top, captionRect.top);
+          return {
+            text: caption.textContent?.trim(),
+            fontSize: Number.parseFloat(getComputedStyle(caption).fontSize),
+            visible: captionRect.width > 0 && captionRect.height > 0,
+            overlapsButton: overlapWidth > 1 && overlapHeight > 1,
+          };
+        }),
+      };
+    }),
+  );
+
+  if (samples.length === 0) {
+    testInfo.annotations.push({
+      type: "coverage",
+      description: `${viewportWidth}px service example overlap check unavailable: QA has no portfolio examples.`,
+    });
+    return;
+  }
+
+  for (const sample of samples) {
+    expect(sample.captions, `${sample.service} should expose both preview captions`).toHaveLength(2);
+    for (const caption of sample.captions) {
+      const label = `${viewportWidth}px ${sample.service}: ${caption.text}`;
+      expect(caption.visible, `${label} should be rendered`).toBe(true);
+      expect(caption.fontSize, `${label} should be at least 13px`).toBeGreaterThanOrEqual(13);
+      expect(caption.overlapsButton, `${label} should not overlap the Examples button`).toBe(false);
+    }
+  }
+}
+
+async function expectAvailableVirtualStagingExamplesModal(page: Page, testInfo: TestInfo) {
+  const trigger = page.locator("[data-dashboard-services]").getByRole("button", {
+    name: "View Virtual Staging examples",
+    exact: true,
+  });
+  if (await trigger.count() === 0) {
+    testInfo.annotations.push({
+      type: "coverage",
+      description: "1440px and 390px examples modal checks unavailable: QA has no Virtual Staging portfolio examples.",
+    });
+    return;
+  }
+
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Virtual Staging examples", exact: true });
+  await expect(dialog).toBeVisible();
+
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectVisibleFontSizeAtLeast(
+      dialog.locator("figure span"),
+      13,
+      `${viewport.width}px examples modal figure captions`,
+      2,
+    );
+    const layout = await dialog.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        fitsViewport: rect.left >= 0 && rect.right <= window.innerWidth,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflowingFigures: Array.from(element.querySelectorAll("figure")).flatMap((figure) => {
+          const figureRect = figure.getBoundingClientRect();
+          return figureRect.left < rect.left - 1 || figureRect.right > rect.right + 1
+            ? [figure.textContent?.trim()]
+            : [];
+        }),
+      };
+    });
+    expect(layout.fitsViewport, `${viewport.width}px examples modal should fit the viewport`).toBe(true);
+    expect(layout.scrollWidth, `${viewport.width}px examples modal should not overflow horizontally`)
+      .toBeLessThanOrEqual(layout.clientWidth);
+    expect(layout.overflowingFigures, `${viewport.width}px examples should stay inside the modal`).toEqual([]);
+    await expectNoDocumentOverflow(page, viewport.width);
+  }
+
+  await dialog.getByRole("button", { name: "Close examples", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.setViewportSize({ width: 1440, height: 1000 });
 }
 
 async function expectVisibleFontSizeAtLeast(

@@ -63,7 +63,7 @@ function PortfolioPreview({
   sizes: string;
 }) {
   return (
-    <div className="relative aspect-[3/1] w-full overflow-hidden bg-stone-100">
+    <div className="relative aspect-[3/1] min-h-24 w-full overflow-hidden bg-stone-100">
       <div className="grid h-full grid-cols-2">
         <div className="relative h-full overflow-hidden">
           <Image
@@ -74,7 +74,7 @@ function PortfolioPreview({
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             loading="lazy"
           />
-          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-white">
+          <span data-dashboard-service-caption className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-white">
             {beforeLabel}
           </span>
         </div>
@@ -87,7 +87,7 @@ function PortfolioPreview({
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             loading="lazy"
           />
-          <span className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-white">
+          <span data-dashboard-service-caption className="absolute inset-x-0 bottom-0 bg-primary/90 py-1 text-center text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-white">
             {afterLabel}
           </span>
         </div>
