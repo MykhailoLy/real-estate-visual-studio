@@ -20,8 +20,8 @@ export default function PricingHero({
   priceLine,
   primaryHref,
   primaryLabel,
-  secondaryHref = "/services",
-  secondaryLabel = "Back to Services",
+  secondaryHref = "/pricing",
+  secondaryLabel = "Back to Pricing",
 }: PricingHeroProps) {
   return (
     <section className="bg-stone-50 relative overflow-hidden">

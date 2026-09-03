@@ -15,8 +15,8 @@ export function translatePricingExampleDescription(description: string): string 
 
 export const spanishServicePageLabels = {
   bestForEyebrow: "Ideal para",
-  backToServices: "Volver a servicios",
-  backToServicesHref: "/es/services",
+  backToServices: "Volver a precios",
+  backToServicesHref: "/es/pricing",
   whatItIsEyebrow: "Qué es",
   beforeYouOrderEyebrow: "Antes de pedir",
   beforeYouOrderTitle: "Qué necesitamos de ti",

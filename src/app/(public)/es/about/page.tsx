@@ -89,7 +89,7 @@ export default function SpanishAboutPage() {
                 <ArrowRight className="w-4 h-4" aria-hidden />
               </Link>
               <Link
-                href="/es/services"
+                href="/es/pricing"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
               >
                 Ver servicios

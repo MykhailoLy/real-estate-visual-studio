@@ -1,6 +1,5 @@
 export const localizedRoutes = [
   { englishPath: "/", spanishPath: "/es", priority: 1 },
-  { englishPath: "/services", spanishPath: "/es/services", priority: 0.9 },
   { englishPath: "/pricing", spanishPath: "/es/pricing", priority: 0.9 },
   { englishPath: "/contact", spanishPath: "/es/contact", priority: 0.8 },
   { englishPath: "/about", spanishPath: "/es/about", priority: 0.7 },

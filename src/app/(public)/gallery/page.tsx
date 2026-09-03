@@ -107,7 +107,7 @@ export default async function GalleryPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
-                  href="/services"
+                  href="/pricing"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
                 >
                   View Services

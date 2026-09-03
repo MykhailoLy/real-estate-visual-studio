@@ -423,8 +423,8 @@ export default function SpanishPricingPage() {
         primaryLabel="Pedir online"
         primaryHref="/order"
         primaryAnalyticsEvent="pricing_cta"
-        secondaryLabel="Ver servicios"
-        secondaryHref="/es/services"
+        secondaryLabel="Contactar"
+        secondaryHref="/es/contact"
       />
     </>
   );

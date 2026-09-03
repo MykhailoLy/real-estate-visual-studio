@@ -201,10 +201,10 @@ export default async function HomePage() {
                 <ArrowRight className="w-4 h-4" aria-hidden />
               </Link>
               <Link
-                href="/services"
+                href="/pricing"
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-bold rounded-lg hover:border-primary hover:text-primary transition-colors text-public-copy-sm"
               >
-                View Services
+                Services &amp; Pricing
               </Link>
             </div>
           </div>
