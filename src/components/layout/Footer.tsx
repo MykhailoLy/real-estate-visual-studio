@@ -23,11 +23,11 @@ const footerCopy = {
     rights: "All rights reserved.",
     cookieSettings: "Cookie settings",
     services: [
-      { href: "/services#virtual-staging", label: "Virtual Staging" },
-      { href: "/services#virtual-renovation", label: "Virtual Renovation" },
-      { href: "/services#floor-plans", label: "3D Floor Plans" },
-      { href: "/services#photo-editing", label: "Photo Editing" },
-      { href: "/services#photography", label: "Photography" },
+      { href: "/pricing/virtual-staging", label: "Virtual Staging" },
+      { href: "/pricing/virtual-renovation", label: "Virtual Renovation" },
+      { href: "/pricing/floor-plans", label: "3D Floor Plans" },
+      { href: "/pricing/photo-editing", label: "Photo Editing" },
+      { href: "/local#real-estate-photography", label: "Photography" },
     ],
     pages: [
       { href: "/gallery", label: "Gallery" },
@@ -55,11 +55,11 @@ const footerCopy = {
     rights: "Todos los derechos reservados.",
     cookieSettings: "Configuración de cookies",
     services: [
-      { href: "/es/services#virtual-staging", label: "Virtual Staging" },
-      { href: "/es/services#virtual-renovation", label: "Renovación virtual" },
-      { href: "/es/services#floor-plans", label: "Planos 3D" },
-      { href: "/es/services#photo-editing", label: "Edición fotográfica" },
-      { href: "/es/services#photography", label: "Fotografía" },
+      { href: "/es/pricing/virtual-staging", label: "Virtual Staging" },
+      { href: "/es/pricing/virtual-renovation", label: "Renovación virtual" },
+      { href: "/es/pricing/floor-plans", label: "Planos 3D" },
+      { href: "/es/pricing/photo-editing", label: "Edición fotográfica" },
+      { href: "/es/pricing", label: "Fotografía" },
     ],
     pages: [
       { href: "/es/gallery", label: "Galería" },

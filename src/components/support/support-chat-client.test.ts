@@ -57,12 +57,12 @@ test("detects English and Spanish languages from pathname", () => {
   assert.equal(detectSupportChatLanguage("/es/services"), "es");
 });
 
-test("returns localized pricing, services, and contact links", () => {
+test("returns canonical localized pricing and contact links", () => {
   assert.equal(getSupportChatLink("en", "pricing"), "/pricing");
-  assert.equal(getSupportChatLink("en", "services"), "/services");
+  assert.equal(getSupportChatLink("en", "services"), "/pricing");
   assert.equal(getSupportChatLink("en", "contact"), "/contact");
   assert.equal(getSupportChatLink("es", "pricing"), "/es/pricing");
-  assert.equal(getSupportChatLink("es", "services"), "/es/services");
+  assert.equal(getSupportChatLink("es", "services"), "/es/pricing");
   assert.equal(getSupportChatLink("es", "contact"), "/es/contact");
 });
 

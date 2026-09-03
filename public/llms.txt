@@ -21,7 +21,7 @@
 ## Primary pages
 
 - [Homepage](https://picchuspot.com/)
-- [Services](https://picchuspot.com/services)
+- [Services & Pricing](https://picchuspot.com/pricing)
 - [Pricing](https://picchuspot.com/pricing)
 - [Local real estate media](https://picchuspot.com/local)
 - [Gallery](https://picchuspot.com/gallery)
@@ -45,7 +45,7 @@
 ## Spanish pages
 
 - [Inicio](https://picchuspot.com/es)
-- [Servicios](https://picchuspot.com/es/services)
+- [Servicios y precios](https://picchuspot.com/es/pricing)
 - [Precios](https://picchuspot.com/es/pricing)
 - [Preguntas frecuentes](https://picchuspot.com/es/faq)
 - [Contacto](https://picchuspot.com/es/contact)

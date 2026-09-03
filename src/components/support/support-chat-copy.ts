@@ -159,7 +159,7 @@ export const supportChatCopy = {
 
 const localizedPaths = {
   pricing: "/pricing",
-  services: "/services",
+  services: "/pricing",
   contact: "/contact",
 } as const satisfies Record<SupportChatLinkKey, string>;
 

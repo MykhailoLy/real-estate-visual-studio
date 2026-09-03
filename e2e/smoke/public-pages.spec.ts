@@ -18,7 +18,11 @@ test("home page loads without client or server smoke failures", async ({
     }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Order Online" }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "View Services" }).first()).toBeVisible();
+  const servicesAndPricing = page
+    .getByRole("link", { name: "Services & Pricing" })
+    .first();
+  await expect(servicesAndPricing).toBeVisible();
+  await expect(servicesAndPricing).toHaveAttribute("href", "/pricing");
 
   const bodyFontFamily = await page.locator("body").evaluate(
     (element) => getComputedStyle(element).fontFamily,
@@ -543,6 +547,81 @@ test("Spanish homepage hero localizes its comparison labels and service route", 
   await guard.expectClean();
 });
 
+test("homepage, footer, and language switch use canonical pricing routes", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("picchuspot_cookie_consent", "rejected");
+  });
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("link", { name: "Services & Pricing" }).first(),
+  ).toHaveAttribute("href", "/pricing");
+
+  const englishFooter = page.locator("footer");
+  for (const [label, href] of [
+    ["Virtual Staging", "/pricing/virtual-staging"],
+    ["Virtual Renovation", "/pricing/virtual-renovation"],
+    ["3D Floor Plans", "/pricing/floor-plans"],
+    ["Photo Editing", "/pricing/photo-editing"],
+    ["Photography", "/local#real-estate-photography"],
+  ] as const) {
+    await expect(
+      englishFooter.getByRole("link", { name: label, exact: true }),
+    ).toHaveAttribute("href", href);
+  }
+  const englishFooterHrefs = await englishFooter.locator("a").evaluateAll((links) =>
+    links.map((link) => link.getAttribute("href") ?? ""),
+  );
+
+  await page.goto("/es");
+  await expect(
+    page.getByRole("link", { name: "Servicios y precios" }).first(),
+  ).toHaveAttribute("href", "/es/pricing");
+
+  const spanishFooter = page.locator("footer");
+  for (const [label, href] of [
+    ["Virtual Staging", "/es/pricing/virtual-staging"],
+    ["Renovación virtual", "/es/pricing/virtual-renovation"],
+    ["Planos 3D", "/es/pricing/floor-plans"],
+    ["Edición fotográfica", "/es/pricing/photo-editing"],
+    ["Fotografía", "/es/pricing"],
+  ] as const) {
+    await expect(
+      spanishFooter.getByRole("link", { name: label, exact: true }),
+    ).toHaveAttribute("href", href);
+  }
+  const spanishFooterHrefs = await spanishFooter.locator("a").evaluateAll((links) =>
+    links.map((link) => link.getAttribute("href") ?? ""),
+  );
+
+  for (const hrefs of [englishFooterHrefs, spanishFooterHrefs]) {
+    expect(hrefs.some((href) => /^\/es\/services(?:#|$)/.test(href))).toBe(false);
+    expect(hrefs.some((href) => /^\/services(?:#|$)/.test(href))).toBe(false);
+  }
+
+  await page.goto("/pricing");
+  await page
+    .getByRole("button", { name: "Select market, currency, and language" })
+    .click();
+  await expect(page.getByRole("link", { name: "Spanish", exact: true })).toHaveAttribute(
+    "href",
+    "/es/pricing",
+  );
+
+  await page.goto("/es/pricing");
+  await page
+    .getByRole("button", { name: "Seleccionar mercado, moneda e idioma" })
+    .click();
+  await expect(page.getByRole("link", { name: "Inglés", exact: true })).toHaveAttribute(
+    "href",
+    "/pricing",
+  );
+  await guard.expectClean();
+});
+
 const HOMEPAGE_VIEWPORTS = [
   { width: 360, height: 800, expectedBenefitColumns: 1 },
   { width: 390, height: 844, expectedBenefitColumns: 1 },
@@ -943,14 +1022,36 @@ const publicRoutes = [
     heading: "Image Enhancement Pricing",
   },
   {
-    route: "/services",
-    heading: "Real Estate Visual Marketing Services",
-  },
-  {
     route: "/es/pricing",
     heading: "Precios claros, sin suscripciones",
   },
 ] as const;
+
+test("legacy Services routes permanently redirect to Pricing", async ({ request }) => {
+  for (const [source, destination] of [
+    ["/services", "/pricing"],
+    ["/es/services", "/es/pricing"],
+  ] as const) {
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status(), source).toBe(308);
+    const location = response.headers().location;
+    expect(location, source).toBeTruthy();
+    expect(new URL(location!, "http://localhost").pathname).toBe(destination);
+  }
+});
+
+test("sitemap exposes canonical Pricing routes without legacy Services URLs", async ({
+  request,
+}) => {
+  const response = await request.get("/sitemap.xml");
+  expect(response.ok()).toBe(true);
+  const xml = await response.text();
+
+  expect(xml).toContain("<loc>https://picchuspot.com/pricing</loc>");
+  expect(xml).toContain("<loc>https://picchuspot.com/es/pricing</loc>");
+  expect(xml).not.toContain("<loc>https://picchuspot.com/services</loc>");
+  expect(xml).not.toContain("<loc>https://picchuspot.com/es/services</loc>");
+});
 
 for (const { route, heading } of publicRoutes) {
   test(`public route ${route} renders expected content`, async ({

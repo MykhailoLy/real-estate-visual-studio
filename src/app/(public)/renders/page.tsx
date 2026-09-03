@@ -87,7 +87,7 @@ export default function RendersPage() {
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
-                href="/services"
+                href="/pricing"
                 className="inline-flex items-center px-7 py-3.5 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition-colors text-sm"
               >
                 See All Services

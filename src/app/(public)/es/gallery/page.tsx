@@ -103,7 +103,7 @@ export default async function SpanishGalleryPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
-                  href="/es/services"
+                  href="/es/pricing"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
                 >
                   Ver servicios

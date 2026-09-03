@@ -381,10 +381,10 @@ export default async function SpanishVirtualStagingPage() {
                 <ArrowRight className="w-4 h-4" aria-hidden />
               </Link>
               <Link
-                href="/es/services"
+                href="/es/pricing"
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
               >
-                Volver a servicios
+                Volver a precios
               </Link>
             </div>
           </div>
