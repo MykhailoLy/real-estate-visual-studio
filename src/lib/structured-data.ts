@@ -8,6 +8,8 @@
 
 import { SITE_URL } from "@/lib/seo";
 
+const ORGANIZATION_LOGO_URL = `${SITE_URL}/brand/picchuspot-logo-800.png`;
+
 // ── Shared provider reference ────────────────────────────────────────────────
 
 const PROVIDER = {
@@ -25,6 +27,14 @@ export function organizationSchema(): Record<string, unknown> {
     "@type": "Organization",
     name: "PicchuSpot",
     url: SITE_URL,
+    logo: {
+      "@type": "ImageObject",
+      url: ORGANIZATION_LOGO_URL,
+      contentUrl: ORGANIZATION_LOGO_URL,
+      width: 800,
+      height: 600,
+      caption: "PicchuSpot",
+    },
     description:
       "Real estate visual services including virtual staging, virtual renovation, floor plans, photo editing, day-to-dusk, 360° image enhancement, aerial editing, and development site plans.",
     contactPoint: {
