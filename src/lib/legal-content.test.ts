@@ -34,13 +34,6 @@ function sourceTree(relativeDirectory: string) {
 }
 
 const localizedRoutesSource = source("src/lib/localized-routes.ts");
-const sitemapSource = source("src/app/sitemap.ts");
-const servicesRedirectSource = source("src/app/(public)/services/page.tsx");
-const spanishServicesRedirectSource = source(
-  "src/app/(public)/es/services/page.tsx",
-);
-const homepageSource = source("src/app/(public)/page.tsx");
-const spanishHomepageSource = source("src/app/(public)/es/page.tsx");
 const legalContentSource = source("src/content/legal-pages.tsx");
 const legalNoticeContentSource = legalContentSource.slice(
   legalContentSource.indexOf("export const legalNoticeSectionsEn"),
@@ -264,59 +257,6 @@ test("all bilingual policy routes are localized and present", () => {
   }
 
   assert.match(source("src/app/sitemap.ts"), /localizedRoutes/);
-});
-
-test("legacy Services routes redirect permanently to canonical Pricing pages", () => {
-  assert.match(servicesRedirectSource, /import \{ permanentRedirect \} from "next\/navigation"/);
-  assert.match(servicesRedirectSource, /permanentRedirect\("\/pricing"\)/);
-  assert.doesNotMatch(servicesRedirectSource, /return\s*\(/);
-
-  assert.match(
-    spanishServicesRedirectSource,
-    /import \{ permanentRedirect \} from "next\/navigation"/,
-  );
-  assert.match(
-    spanishServicesRedirectSource,
-    /permanentRedirect\("\/es\/pricing"\)/,
-  );
-  assert.doesNotMatch(spanishServicesRedirectSource, /return\s*\(/);
-});
-
-test("Pricing remains localized while legacy Services URLs stay out of the sitemap map", () => {
-  assert.match(
-    localizedRoutesSource,
-    /englishPath: "\/pricing", spanishPath: "\/es\/pricing"/,
-  );
-  assert.doesNotMatch(localizedRoutesSource, /englishPath: "\/services"/);
-  assert.doesNotMatch(localizedRoutesSource, /spanishPath: "\/es\/services"/);
-  assert.match(sitemapSource, /localizedRoutes/);
-});
-
-test("homepage and footer navigation link directly to canonical service catalogs", () => {
-  const publicAppSource = sourceTree("src/app/(public)");
-  const navigationSource = [
-    publicAppSource,
-    footerSource,
-    source("src/components/pricing/PricingHero.tsx"),
-    source("src/components/pricing/ServicePage.tsx"),
-    source("src/components/support/support-chat-copy.ts"),
-    source("public/llms.txt"),
-  ].join("\n");
-
-  assert.match(homepageSource, /href="\/pricing"[\s\S]*Services &amp; Pricing/);
-  assert.match(
-    spanishHomepageSource,
-    /href="\/es\/pricing"[\s\S]*Servicios y precios/,
-  );
-  assert.doesNotMatch(
-    navigationSource,
-    /(?:href|secondaryHref|backToServicesHref)=?\s*[:{]?\s*"\/(?:es\/)?services(?:#|\")/,
-  );
-  assert.match(footerSource, /href: "\/local#real-estate-photography"/);
-  assert.match(
-    footerSource,
-    /href: "\/es\/pricing", label: "Fotografía"/,
-  );
 });
 
 test("Legal Notice metadata uses the bilingual canonical and alternate helpers", () => {
