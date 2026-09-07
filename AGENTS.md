@@ -75,8 +75,6 @@ Always include:
 
 ## Scope discipline
 
-Make the smallest focused change that satisfies the task.
-
 Do not refactor unrelated code.
 
 Do not rename routes, files, database columns, API fields, storage paths, or public URLs unless explicitly requested.
@@ -90,6 +88,69 @@ Preserve:
 * authentication redirects
 * SEO metadata
 * existing mobile and desktop behavior
+
+## Engineering principles
+
+Use this priority when making implementation decisions:
+
+**KISS → YAGNI → DRY → Abstraction only when justified**
+
+### KISS — Keep It Simple
+
+Prefer the simplest correct implementation that satisfies the current requirement and preserves existing behavior. Prefer a small local change to existing code over new architecture.
+
+When results are effectively equivalent, choose fewer moving parts, files, and concepts, with lower maintenance cost.
+
+### YAGNI — You Aren't Gonna Need It
+
+Do not add functionality, extensibility, configuration, APIs, components, data structures, or architectural layers for hypothetical future requirements. Future-proof only for a concrete current requirement.
+
+### DRY — Don't Repeat Yourself
+
+Avoid meaningful duplication, but do not trade small or incidental duplication for additional complexity. Two simple explicit implementations may be better than one complicated general-purpose abstraction.
+
+Extract shared logic only when there is real current reuse and the extraction makes the system simpler overall.
+
+### Avoid Premature Abstraction
+
+Do not introduce factories, generic frameworks, service layers, wrapper components, context providers, hooks, utilities, configuration systems, interfaces, generalized APIs, or other abstractions unless the current task clearly requires them.
+
+Before creating an abstraction, verify:
+
+1. What concrete current problem does it solve?
+2. How many existing call sites need it now?
+3. Does it reduce total complexity?
+4. Can the existing architecture solve the problem cleanly instead?
+
+If the answers do not justify the abstraction, do not create it.
+
+### Existing architecture first
+
+Before creating a component, utility, hook, API, service, or data model:
+
+1. Search the repository for an existing implementation.
+2. Reuse or minimally extend it where appropriate.
+3. Create something new only when the existing architecture cannot cleanly support the requirement.
+
+Do not create parallel implementations of an existing system.
+
+### Important exception
+
+KISS does not justify brittle hardcoded service-name conditionals. Where several services genuinely require different presentation or behavior, prefer the project's existing capability/data-shape driven architecture over duplicated pages, duplicated components, or service-name branching.
+
+Preserve generic, legacy, null, missing, and partially populated data fallbacks where applicable.
+
+### Final self-check
+
+Before completing an implementation, ask:
+
+* Did this task introduce anything not required by the request?
+* Did it introduce a new abstraction?
+* Could the same result be achieved with a smaller reliable change?
+* Did it duplicate an existing component, data flow, or system?
+* Did it add complexity mainly for hypothetical future requirements?
+
+If a simpler implementation gives the same result without increasing risk, use it.
 
 ## Protected systems
 
@@ -172,10 +233,11 @@ Preserve this behavior:
 
 ## Brand
 
-Brand colors:
+The PicchuSpot `@theme` in `src/app/globals.css` is the authoritative source of truth for brand colors. This document does not maintain a separate palette; the current site implementation and theme take precedence over historical color guidance.
 
-* Navy: `#0B1F3A`
-* Gold: `#B88A44`
+Reuse existing semantic/theme tokens rather than inventing or hardcoding alternative brand colors.
+
+Before changing any brand color, inspect the current theme tokens and existing rendered design. Do not change the palette unless the user explicitly requests a palette change.
 
 Visible wordmark:
 
@@ -213,8 +275,6 @@ Avoid unnecessary image duplication.
 ## Code quality
 
 Follow the existing project style and architecture.
-
-Reuse existing components and utilities before creating new ones.
 
 Keep TypeScript types explicit.
 
