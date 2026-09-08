@@ -783,7 +783,10 @@ test("Gemini request builder uses the required Interactions API fields", () => {
     },
   ]);
   assert.deepEqual(
-    request.tools.map((tool) => tool.name),
+    request.tools.map((tool) => {
+      assert.equal(tool.type, "function");
+      return tool.name;
+    }),
     ["get_remote_service_quote", "get_local_service_pricing"],
   );
   assert.equal(Object.hasOwn(request, "previous_interaction_id"), false);

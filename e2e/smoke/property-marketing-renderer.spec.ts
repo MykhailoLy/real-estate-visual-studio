@@ -40,7 +40,7 @@ async function fixturePng(
 
 async function preparedAssets(
   template: PropertyMarketingBrochureTemplate,
-  colorOrder = fixtureColors,
+  colorOrder: readonly (typeof fixtureColors)[number][] = fixtureColors,
   preview = true,
   supportingMediaIds = colorOrder.slice(1).map(({ id }) => id),
   failedMediaIds: readonly string[] = [],
@@ -100,7 +100,7 @@ async function preparedAssets(
 
 async function render(
   template: PropertyMarketingBrochureTemplate,
-  colorOrder = fixtureColors,
+  colorOrder: readonly (typeof fixtureColors)[number][] = fixtureColors,
   preview = true,
 ) {
   const response = renderPropertyMarketingPng(
@@ -129,14 +129,15 @@ async function socialInput(
     { key: "custom-orientation", label: { en: "Orientation" }, value: "South East", sortOrder: 1001 },
   );
   const images = await Promise.all(fixtureColors.slice(0, imageCount).map(async ({ id, rgb }) => {
-    const bytes = await fixturePng(rgb);
+    // Prepared social images are JPEGs; keep the fixture bytes and MIME in sync.
+    const bytes = await sharp(await fixturePng(rgb)).jpeg().toBuffer();
     return {
       imageId: id,
-      imageUrl: `data:image/png;base64,${bytes.toString("base64")}`,
+      imageUrl: `data:image/jpeg;base64,${bytes.toString("base64")}`,
       imageAlt: id,
       focalPoint: { x: 0.5, y: 0.5 },
       byteLength: bytes.byteLength,
-      contentType: "image/png" as const,
+      contentType: "image/jpeg" as const,
     };
   }));
   return {
@@ -239,7 +240,7 @@ async function brochurePalette(buffer: Buffer) {
 
 test("Hero + supporting renders the selected primary and both supporting fixtures", async () => {
   const counts = await colorPixelCounts(await render("hero-two-square"));
-  for (const id of ["primary-red", "support-green", "support-blue"]) {
+  for (const id of ["primary-red", "support-green", "support-blue"] as const) {
     expect(counts.get(id), `${id} should be visible`).toBeGreaterThan(500);
   }
 });

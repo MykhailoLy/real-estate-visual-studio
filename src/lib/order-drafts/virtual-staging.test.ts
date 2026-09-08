@@ -202,27 +202,26 @@ test("stable item IDs and original filename metadata are preserved", () => {
 });
 
 test("unsupported schema and wrong service are rejected on resume", () => {
-  assert.equal(
-    validateVirtualStagingDraftForResume({
-      ...draftRow(),
-      serviceType: "photo-editing",
-    }).code,
-    "wrong_service",
-  );
-  assert.equal(
-    validateVirtualStagingDraftForResume({
-      ...draftRow(),
-      stateSchemaVersion: 99,
-    }).code,
-    "unsupported_schema",
-  );
-  assert.equal(
-    validateVirtualStagingDraftForResume({
-      ...draftRow(),
-      route: "/dashboard/orders/new/photo-editing",
-    }).code,
-    "wrong_route",
-  );
+  const wrongService = validateVirtualStagingDraftForResume({
+    ...draftRow(),
+    serviceType: "photo-editing",
+  });
+  assert.equal(wrongService.ok, false);
+  assert.equal(wrongService.code, "wrong_service");
+
+  const unsupportedSchema = validateVirtualStagingDraftForResume({
+    ...draftRow(),
+    stateSchemaVersion: 99,
+  });
+  assert.equal(unsupportedSchema.ok, false);
+  assert.equal(unsupportedSchema.code, "unsupported_schema");
+
+  const wrongRoute = validateVirtualStagingDraftForResume({
+    ...draftRow(),
+    route: "/dashboard/orders/new/photo-editing",
+  });
+  assert.equal(wrongRoute.ok, false);
+  assert.equal(wrongRoute.code, "wrong_route");
 });
 
 test("valid resume returns current optimistic version", () => {
@@ -411,7 +410,7 @@ test("resume resolves region from consistent region/currency and normalizes mism
       ...draftRow(),
       currency: "EUR",
       region: "EU",
-    } as OrderDraftRow),
+    }),
     "EU",
   );
   assert.equal(
@@ -419,7 +418,7 @@ test("resume resolves region from consistent region/currency and normalizes mism
       ...draftRow(),
       currency: "EUR",
       region: "US",
-    } as OrderDraftRow),
+    }),
     "EU",
   );
   assert.equal(
@@ -427,7 +426,7 @@ test("resume resolves region from consistent region/currency and normalizes mism
       ...draftRow(),
       currency: "CAD",
       region: null,
-    } as OrderDraftRow),
+    }),
     "CA",
   );
 });

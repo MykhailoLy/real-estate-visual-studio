@@ -16,6 +16,7 @@ import { LEGAL_VERSION as TERMS_VERSION } from "../legal.ts";
 import { EARLY_PERFORMANCE_VERSION } from "../early-performance.ts";
 import { PRICING_VERSION, getCatalogPrice } from "../pricing/catalog.ts";
 import { WELCOME_OFFER_VERSION } from "../welcome-offer.ts";
+import type { PricingSnapshot } from "../pricing/types.ts";
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -189,6 +190,7 @@ type ProductionOrderResultForTest =
       code: string;
       status: number;
       message: string;
+      currentPricingSnapshot?: PricingSnapshot;
     };
 
 interface VerificationResultForTest<T> {

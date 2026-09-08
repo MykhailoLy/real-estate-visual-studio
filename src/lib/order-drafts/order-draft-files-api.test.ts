@@ -17,7 +17,10 @@ import {
   unauthenticatedDraftFileResponse,
   validateDraftFileRouteId,
 } from "./files-api.ts";
-import { parseSoftDeleteOrderDraftFileRpcResult } from "./files.ts";
+import {
+  parseSoftDeleteOrderDraftFileRpcResult,
+  type PrepareOrderDraftFileUploadInput,
+} from "./files.ts";
 
 const DRAFT_ID = "22222222-2222-4222-8222-222222222222";
 const FILE_ID = "33333333-3333-4333-8333-333333333333";
@@ -34,7 +37,7 @@ function validPrepareBody() {
     filename: "room.jpg",
     contentType: "image/jpeg",
     size: 123456,
-  };
+  } satisfies PrepareOrderDraftFileUploadInput;
 }
 
 test("success responses use the data envelope and no-store cache header", async () => {

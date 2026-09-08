@@ -393,7 +393,7 @@ test("social preview keeps ordered visible highlights and custom facts for the s
 
 test("social image selection enforces three photos and supports ordered photos", () => {
   const property = cloneProperty();
-  let gallery = property.gallery.map((image, index) => ({
+  let gallery: PropertyShowcase["gallery"] = property.gallery.map((image, index) => ({
     ...image,
     featuredForSharing: index < 3,
     primarySocialPreview: index === 0,

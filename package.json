@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck:test": "tsc -p tsconfig.test.json",
     "e2e:smoke": "playwright test",
     "e2e:smoke:headed": "playwright test --headed",
     "test:pricing": "node --experimental-strip-types --test src/lib/pricing/catalog.test.ts src/lib/pricing/calculate.test.ts src/lib/pricing/welcome-offer.test.ts src/lib/pricing/local-catalog.test.ts src/components/order/welcome-offer-ui.test.ts",
@@ -96,7 +97,7 @@
   "devDependencies": {
     "@playwright/test": "1.61.1",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.13.3",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
