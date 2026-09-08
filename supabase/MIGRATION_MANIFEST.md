@@ -1,0 +1,385 @@
+# PicchuSpot Supabase Migration Manifest
+
+> Documentation only. This file does not authorize replaying, reordering, or executing any SQL.
+
+## Purpose
+
+PicchuSpot currently has historical SQL files directly under `supabase/`, while the live Supabase migration ledger contains only a small subset of those changes. This manifest records the best-supported migration lineage, replay hazards, and current repository authority so future database work does not rely on alphabetical file order or memory.
+
+This manifest is pinned to the repository state audited at:
+
+`2398239d963483c914c30d49c8da16838d926f67`
+
+All file classifications below refer to the content present at that commit unless a later migration explicitly supersedes this document.
+
+## Safety rules
+
+1. **Do not run all files in `supabase/` alphabetically.** That order is known to fail on a clean database and can regress an existing database.
+2. **Do not replay a file marked `UNSAFE`.** These files contain historical definitions, policies, constraints, or storage behavior that can overwrite newer state.
+3. **Treat `CONDITIONAL` as requiring explicit preflight.** Verify prerequisites, live catalog state, and data compatibility before execution.
+4. **Do not edit historical SQL in place for new production changes.** Going forward, create a new timestamped immutable migration for each database change.
+5. **Do not infer production state from this manifest alone.** The official ledger is incomplete and some historical SQL was applied manually.
+6. **Never weaken RLS or add browser policies merely to silence Supabase Advisor.** Several tables are intentionally service-role/server-only.
+7. **Never execute a migration automatically from an agent task.** Database execution requires a separately reviewed, explicit production action.
+
+## Evidence model
+
+`Production evidence` uses these values:
+
+- `ledger` — confirmed by the live Supabase migration ledger.
+- `repository-doc-claim` — repository documentation claims manual application, but the live catalog was not independently matched to the exact file hash.
+- `unknown` — no authoritative production application record is tracked.
+
+`Replay safety` uses:
+
+- `SAFE` — no known target-state regression when prerequisites exist.
+- `CONDITIONAL` — requires exact prerequisites, state/data checks, or one-time preflight.
+- `UNSAFE` — known to regress current repository semantics or recreate intentionally removed state.
+- `UNKNOWN` — insufficient evidence.
+
+## Confirmed live migration ledger
+
+At the audit commit, the live Supabase ledger contained only:
+
+| Version | Name | Repository file |
+| --- | --- | --- |
+| `20260730142053` | `add_property_showcase_foundation` | `add-property-showcase-foundation.sql` |
+| `20260824002916` | `add_atomic_order_submissions` | `add-atomic-order-submissions.sql` |
+| `20260825082925` | `add_payment_confirmation_email` | `add-payment-confirmation-email.sql` |
+| `20260830053216` | `fix_welcome_offer_rpc_coalesce` | `fix-welcome-offer-rpc-coalesce.sql` |
+
+The ledger is **not** a complete representation of the schema currently required by production application code.
+
+## SQL inventory and lineage
+
+The logical IDs below follow the best-supported historical repository chronology. They are documentation IDs only; they are not Supabase migration versions.
+
+| ID | File | Role | Depends on | Superseded / followed by | Production evidence | Replay safety |
+| --- | --- | --- | --- | --- | --- | --- |
+| `PS-SQL-001` | `schema.sql` | Consolidated base for orders, items, sequences, numbering, ownership, job title, pricing snapshot, triggers, RLS and grants | Auth schema | Security overlays and later order/draft/submission migrations | `unknown` | `UNSAFE` |
+| `PS-SQL-002` | `portfolio.sql` | Consolidated portfolio table, public-read RLS, grants, public bucket UPSERT and storage listing policy | `update_updated_at()`, Storage | Gallery/display-location content absorbed; storage listing later hardened | `unknown` | `UNSAFE` |
+| `PS-SQL-003` | `site-media.sql` | Consolidated site media schema, current section check, RLS, grants, public bucket UPSERT and storage listing policy | `update_updated_at()`, Storage | Section patches absorbed; storage listing later hardened | `unknown` | `UNSAFE` |
+| `PS-SQL-004` | `add-service-options-section.sql` | Historical site-media section widening for `service-options` | Site media | `add-order-card-section.sql`, current `site-media.sql` | `unknown` | `UNSAFE` |
+| `PS-SQL-005` | `add-client-profiles.sql` | Client profile table, own-row policies and update trigger | `auth.users` | Security hardening adjusts policy/function configuration | `unknown` | `UNSAFE` after hardening |
+| `PS-SQL-006` | `add-order-deliverables.sql` | Deliverable metadata, indexes, client read policy, service-role writes | Orders | RLS optimization overlay | `unknown` | `CONDITIONAL` |
+| `PS-SQL-007` | `add-deliverable-reviews.sql` | Deliverable reviews, active-rework uniqueness, trigger, client read policy | Deliverables, orders, update helper | Policy optimization and replacement-deliverable FK index | `unknown` | `CONDITIONAL` |
+| `PS-SQL-008` | `add-deliverable-review-files.sql` | Review-file metadata, FKs/indexes, client read policy, service-role writes | Reviews, deliverables, orders | Policy optimization | `unknown` | `CONDITIONAL` |
+| `PS-SQL-009` | `portfolio-gallery-filter.sql` | Historical portfolio gallery filter column/index | Portfolio | Current `portfolio.sql` | `unknown` | `SAFE` |
+| `PS-SQL-010` | `portfolio-display-locations.sql` | Historical gallery/service-page flags, backfill and indexes | Portfolio | Current `portfolio.sql` | `unknown` | `CONDITIONAL` |
+| `PS-SQL-011` | `order-account-ownership-foundation.sql` | Historical `orders.user_id`, ownership backfill and policies | Orders, `auth.users` | Current `schema.sql`, security hardening | `unknown` | `UNSAFE` |
+| `PS-SQL-012` | `add-order-card-section.sql` | Historical site-media section widening for `order-card` | Site media, service-options state | Current `site-media.sql` | `unknown` | `CONDITIONAL` |
+| `PS-SQL-013` | `add-order-job-title.sql` | Historical `orders.job_title` and length check | Orders | Current `schema.sql` | `unknown` | `CONDITIONAL` |
+| `PS-SQL-014` | `add-order-pricing-snapshot.sql` | Historical immutable pricing snapshot column/check | Orders | Current `schema.sql` | `unknown` | `SAFE` |
+| `PS-SQL-015` | `add-order-drafts.sql` | Drafts/files foundation, finalization fields, historical slot uniqueness, RLS/grants | Orders, update helper | Upload foundation replaces old uniqueness; policies later hardened | `unknown` | `UNSAFE` |
+| `PS-SQL-016` | `add-order-draft-file-upload-foundation.sql` | Current draft upload RPCs and uploaded-only uniqueness | Draft tables, update helper | Current for upload RPC/index behavior | `unknown` | `CONDITIONAL` |
+| `PS-SQL-017` | `add-order-draft-finalization.sql` | `orders.source_draft_id`; claim/release/recover/complete finalization RPCs | Orders, drafts, files | Compatibility chain widens claim behavior; complete ambiguity fix | `unknown` | `UNSAFE` |
+| `PS-SQL-018` | `fix-order-draft-finalization-complete-ambiguity.sql` | Historical qualified-reference fix for complete-finalization RPC | Draft finalization | Current foundation body is semantically equivalent | `unknown` | `SAFE` |
+| `PS-SQL-019` | `security-hardening-function-and-table-grants.sql` | Function search-path and execute/table privilege hardening with strict preflight | Named tables/helpers; external `rls_auto_enable()` assumption | Current security overlay | `unknown` | `CONDITIONAL` |
+| `PS-SQL-020` | `security-hardening-public-bucket-listing.sql` | Removes broad public `storage.objects` listing policies without privatizing public buckets | Exact bucket/policy state | Current security overlay | `unknown` | `CONDITIONAL` |
+| `PS-SQL-021` | `security-hardening-rls-auth-init-plan.sql` | Rewrites auth policy expressions to scalar subqueries | Exact pre-hardening policies | Current security overlay | `unknown` | `CONDITIONAL` |
+| `PS-SQL-022` | `performance-add-deliverable-replacement-fk-index.sql` | Fail-closed preflight and replacement-deliverable FK index | Deliverable reviews | Current | `unknown` | `CONDITIONAL` |
+| `PS-SQL-023` | `add-stripe-payment-data-model.sql` | Payment records and Stripe webhook idempotency tables; RLS-zero-policy server-only design | Orders, update helper | Current | `unknown` | `SAFE` on expected schema |
+| `PS-SQL-024` | `add-property-showcase-foundation.sql` | Property Showcase document table, update trigger and published-read policy | `pgcrypto` | Leads and analytics extensions | `ledger` | `SAFE` |
+| `PS-SQL-025` | `add-property-leads.sql` | Private property lead table, checks/indexes, RLS-zero-policy | Property Showcase | Current | `unknown` | `SAFE` |
+| `PS-SQL-026` | `add-property-showcase-analytics.sql` | Private property analytics events, checks/indexes, RLS-zero-policy | Property Showcase | Current | `unknown` | `SAFE` |
+| `PS-SQL-027` | `add-multi-reference-files.sql` | Normalized draft/final reference tables, constraints, backfills, RLS/grants | Drafts/files, orders/items, update helper | Current; atomic commit depends on it | `unknown` | `CONDITIONAL` |
+| `PS-SQL-028` | `add-atomic-order-submissions.sql` | Durable submission ledger, outbox, claim/release/commit RPCs, leases/idempotency and server-only tables | Current orders/drafts/source-draft state, normalized references, numbering | Photo → renovation → floor-plan compatibility chain replaces commit definition | `ledger` | `UNSAFE` |
+| `PS-SQL-029` | `add-payment-confirmation-email.sql` | Extends outbox kind check and adds verified-paid enqueue RPC | Atomic outbox, payment tables | Current | `ledger` | `CONDITIONAL` |
+| `PS-SQL-030` | `allow-photo-editing-draft-finalization.sql` | Widens claim/commit support from staging to staging + photo editing | Atomic + draft finalization | Renovation then floor-plan compatibility | `unknown` | `UNSAFE` |
+| `PS-SQL-031` | `allow-virtual-renovation-draft-finalization.sql` | Widens claim/commit to staging + photo editing + renovation | Previous compatibility state | Floor-plan compatibility | `unknown` | `UNSAFE` |
+| `PS-SQL-032` | `allow-floor-plan-draft-finalization.sql` | Final four-service claim/commit compatibility | Atomic + prior compatibility + normalized references | Current repository authority for claim/commit allowlists | `unknown` | `SAFE` with prerequisites |
+| `PS-SQL-033` | `add-welcome-offer-redemptions.sql` | Welcome Offer redemption table, uniqueness and versioned commit wrapper | Atomic submission, orders, final commit definition | Historical COALESCE hotfix; current file body already corrected | `repository-doc-claim` | `CONDITIONAL` |
+| `PS-SQL-034` | `fix-welcome-offer-rpc-coalesce.sql` | Historical hotfix for Welcome Offer wrapper plus grants | Welcome table, atomic/final commit | Current historical authority; current foundation body is equivalent | `ledger` | `SAFE` with prerequisites |
+
+## Historical repository lineage
+
+This is chronology documentation, **not a replay instruction**:
+
+1. `schema.sql`
+2. `portfolio.sql`
+3. `site-media.sql`
+4. `add-service-options-section.sql`
+5. `add-client-profiles.sql`
+6. `add-order-deliverables.sql`
+7. `add-deliverable-reviews.sql`
+8. `add-deliverable-review-files.sql`
+9. `portfolio-gallery-filter.sql`
+10. `portfolio-display-locations.sql`
+11. `order-account-ownership-foundation.sql`
+12. `add-order-card-section.sql`
+13. `add-order-job-title.sql`
+14. `add-order-pricing-snapshot.sql`
+15. `add-order-drafts.sql`
+16. `add-order-draft-file-upload-foundation.sql`
+17. `add-order-draft-finalization.sql`
+18. `fix-order-draft-finalization-complete-ambiguity.sql`
+19. `security-hardening-function-and-table-grants.sql`
+20. `security-hardening-public-bucket-listing.sql`
+21. `security-hardening-rls-auth-init-plan.sql`
+22. `performance-add-deliverable-replacement-fk-index.sql`
+23. `add-stripe-payment-data-model.sql`
+24. `add-property-showcase-foundation.sql`
+25. `add-property-leads.sql`
+26. `add-property-showcase-analytics.sql`
+27. `add-multi-reference-files.sql`
+28. `add-atomic-order-submissions.sql`
+29. `add-payment-confirmation-email.sql`
+30. `allow-photo-editing-draft-finalization.sql`
+31. `allow-virtual-renovation-draft-finalization.sql`
+32. `allow-floor-plan-draft-finalization.sql`
+33. `add-welcome-offer-redemptions.sql`
+34. `fix-welcome-offer-rpc-coalesce.sql`
+
+The exact production execution order for non-ledgered files is **unknown**.
+
+## Provisional clean-database effective sequence
+
+This is the smallest non-regressive sequence supported by the audited repository structure. It remains **provisional until a read-only live catalog comparison and an empty-database integration exercise are completed**.
+
+1. `schema.sql`
+2. `portfolio.sql`
+3. `site-media.sql`
+4. `add-client-profiles.sql`
+5. `add-order-deliverables.sql`
+6. `add-deliverable-reviews.sql`
+7. `add-deliverable-review-files.sql`
+8. `performance-add-deliverable-replacement-fk-index.sql`
+9. `add-order-drafts.sql`
+10. `add-order-draft-file-upload-foundation.sql`
+11. `add-order-draft-finalization.sql`
+12. `add-multi-reference-files.sql`
+13. `add-stripe-payment-data-model.sql`
+14. `add-property-showcase-foundation.sql`
+15. `add-property-leads.sql`
+16. `add-property-showcase-analytics.sql`
+17. `add-atomic-order-submissions.sql`
+18. `add-payment-confirmation-email.sql`
+19. `allow-photo-editing-draft-finalization.sql`
+20. `allow-virtual-renovation-draft-finalization.sql`
+21. `allow-floor-plan-draft-finalization.sql`
+22. `add-welcome-offer-redemptions.sql`
+23. Apply security overlays only after their exact preconditions are verified.
+24. Apply `security-hardening-public-bucket-listing.sql` only after all expected buckets exist and their intended visibility is verified.
+
+Historical files whose current content has been absorbed into consolidated foundations should be omitted from a future clean baseline:
+
+- `order-account-ownership-foundation.sql`
+- `add-order-job-title.sql`
+- `add-order-pricing-snapshot.sql`
+- `portfolio-gallery-filter.sql`
+- `portfolio-display-locations.sql`
+- `add-service-options-section.sql`
+- `add-order-card-section.sql`
+
+The two fix files remain important historical evidence even where the amended foundation currently contains equivalent logic.
+
+## Why alphabetical replay is prohibited
+
+Concrete known failures include:
+
+- `add-atomic-order-submissions.sql` sorts before its required order/draft/reference foundations and cannot initialize an empty database.
+- `add-order-draft-file-upload-foundation.sql` sorts before `add-order-drafts.sql` even though it alters draft indexes/functions.
+- Replaying `add-order-drafts.sql` after the upload foundation recreates the obsolete `order_draft_files_one_active_kind_per_item` restriction.
+- Finalization compatibility must end with floor-plan support. Alphabetical order does not preserve the photo → renovation → floor-plan lineage.
+- `add-service-options-section.sql` can remove `order-card` support if replayed after the later order-card state.
+- `site-media.sql` and `portfolio.sql` can recreate broad storage listing policies removed by later security hardening.
+
+## Authoritative function lineage
+
+### `claim_order_draft_finalization(uuid, uuid, integer, uuid)`
+
+Lineage:
+
+1. `add-order-draft-finalization.sql` — Virtual Staging only.
+2. `allow-photo-editing-draft-finalization.sql` — adds Photo Editing.
+3. `allow-virtual-renovation-draft-finalization.sql` — adds Virtual Renovation.
+4. `allow-floor-plan-draft-finalization.sql` — adds Floor Plans.
+
+**Current repository authority:** `allow-floor-plan-draft-finalization.sql`.
+
+Replaying any earlier definition afterward narrows supported draft services.
+
+### `commit_order_submission(...)`
+
+The current function has the established 13-argument application contract; see the SQL source for the exact parameter list.
+
+Lineage:
+
+1. `add-atomic-order-submissions.sql` — staging draft compatibility.
+2. `allow-photo-editing-draft-finalization.sql` — adds Photo Editing.
+3. `allow-virtual-renovation-draft-finalization.sql` — adds Virtual Renovation.
+4. `allow-floor-plan-draft-finalization.sql` — final four-service behavior.
+
+**Current repository authority:** `allow-floor-plan-draft-finalization.sql`.
+
+Replaying the atomic foundation or an earlier compatibility file afterward is a known regression.
+
+### `complete_order_draft_finalization(uuid, uuid, uuid, uuid, jsonb)`
+
+Lineage:
+
+1. `add-order-draft-finalization.sql`
+2. `fix-order-draft-finalization-complete-ambiguity.sql`
+
+**Historical authority:** `fix-order-draft-finalization-complete-ambiguity.sql`.
+
+The current audited foundation body is semantically equivalent, so the fix file should be retained as history rather than replayed blindly.
+
+### `commit_order_submission_with_welcome_offer_v1(...)`
+
+Lineage:
+
+1. `add-welcome-offer-redemptions.sql`
+2. `fix-welcome-offer-rpc-coalesce.sql`
+
+**Historical authority:** `fix-welcome-offer-rpc-coalesce.sql`.
+
+The current audited Welcome Offer foundation already contains the corrected body, but production historically required the hotfix.
+
+### Baseline helpers affected by hardening
+
+`generate_order_number(text)`, `update_updated_at()`, and `update_client_profile_updated_at()` have functional bodies in their foundation files and later security configuration in `security-hardening-function-and-table-grants.sql`.
+
+Replaying a foundation after that overlay can undo terminal hardening even if the function body appears unchanged.
+
+## Access and RLS expectations
+
+Zero-policy RLS is intentional for several server-only tables. Do not add browser policies merely to remove Advisor informational findings.
+
+| Table | Expected access | Repository policy intent |
+| --- | --- | --- |
+| `orders` | Primarily trusted server; authenticated own-row read as defense-in-depth | Own-order read policy |
+| `order_items` | Primarily trusted server; owned-order read | Read through owned order |
+| `order_sequences` | Service-role/server only | No repository browser policy; live RLS provenance remains untracked |
+| `client_profiles` | Authenticated own-row read/write | Own SELECT/INSERT/UPDATE |
+| `order_deliverables` | Server writes; client read via server/signed URL path | Client read policy, service-role writes |
+| `deliverable_reviews` | Server-controlled writes | Client read defense-in-depth |
+| `deliverable_review_files` | Server-controlled writes and signed access | Client read defense-in-depth |
+| `order_drafts` | Server mutations; optional authenticated own read | Own read, service-role writes |
+| `order_draft_files` | Server mutations; signed upload/preview | Owned read, service-role writes |
+| `order_draft_item_reference_files` | Server mutations | Owned read, service-role writes |
+| `order_item_reference_files` | Server/admin and signed download flow | Owned read, service-role writes |
+| `order_submissions` | Service-role/server only | RLS + zero policies + browser revoke |
+| `order_email_deliveries` | Internal worker/service-role only | RLS + zero policies + browser revoke |
+| `order_payments` | Service-role/server only | RLS + zero policies + browser revoke |
+| `stripe_webhook_events` | Webhook/server only | RLS + zero policies + browser revoke |
+| `welcome_offer_redemptions` | Service-role/server only | RLS + zero policies + browser revoke |
+| `portfolio_items` | Public published reads; admin server writes | Published-read policy |
+| `site_media_items` | Public published reads; admin server writes | Published-read policy |
+| `property_showcases` | Public published reads; admin server writes | Published-read policy |
+| `property_leads` | Validated server endpoint only | RLS + zero policies + browser revoke |
+| `property_analytics_events` | Validated server endpoint only | RLS + zero policies + browser revoke |
+
+## Storage expectations and replay hazards
+
+| Bucket | Intended state | Tracked repository behavior | Governance note |
+| --- | --- | --- | --- |
+| `portfolio` | Public | `portfolio.sql` UPSERTs `public=true` and historically creates a broad listing policy | Replay can restore a policy removed by hardening |
+| `site-media` | Public | `site-media.sql` UPSERTs `public=true` and historically creates a broad listing policy | Same replay hazard |
+| `order-files` | Private | Creation/configuration is not tracked as a reproducible migration | Production reproducibility gap |
+| `deliverables` | Private | Creation/configuration is not tracked as a reproducible migration | Production reproducibility gap |
+
+Review reference files use `order-files`; there is no separate review bucket in the audited design.
+
+## Order, draft, and submission invariants
+
+Current repository behavior relies on multiple complementary idempotency boundaries:
+
+- `order_drafts.finalization_key` is unique when non-null.
+- `order_drafts.converted_order_id` is unique when non-null.
+- `orders.source_draft_id` is uniquely indexed when non-null.
+- `order_submissions.submission_id` is the logical request key.
+- Reserved order IDs, reserved order numbers, and committed order IDs are unique.
+- A draft can have at most one submission claim through `order_submissions.source_draft_id`.
+- Submission claims use advisory and row locks plus leases for safe retry/recovery.
+- Atomic commit creates the order, items, normalized references, draft conversion and initial email outbox records in one transaction.
+- Welcome Offer redemption is guarded by `(user_id, benefit_key)` uniqueness around ordinary atomic commit behavior.
+
+These invariants are part of the reason historical finalization/submission SQL must not be replayed out of order.
+
+## Known separate order-number risk
+
+The audited `generate_order_number()` formats the numeric suffix with a fixed width of four using `LPAD(..., 4, '0')`.
+
+PostgreSQL truncates input longer than the target width, so counter `10000` would format as `1000` and collide with a previously issued order number. Unique constraints should fail closed rather than issue a duplicate, but order creation for that service would then be blocked.
+
+This is **not** fixed by this manifest.
+
+Before any service counter approaches 10,000, create a separate reviewed migration that preserves four-digit padding below 10,000 while allowing wider numbers above it, and test the 9,998–10,001 boundary without renumbering historical orders.
+
+## Production reproducibility gaps
+
+The audit identified these unresolved gaps:
+
+1. No immutable timestamped migration directory or complete tracked manifest existed before this file.
+2. Historical foundation files were amended after initial introduction.
+3. The four-entry live ledger cannot rebuild the prerequisites of atomic submission.
+4. The ledgered Welcome Offer hotfix depends on a non-ledgered redemption foundation.
+5. The ledgered payment-email migration depends on non-ledgered Stripe payment tables.
+6. Photo Editing, Virtual Renovation and Floor Plan draft compatibility are non-ledgered.
+7. Multi-reference tables required by current commit logic are non-ledgered.
+8. Private bucket creation/configuration is manual and untracked.
+9. Live RLS on `order_sequences` has no corresponding repository statement.
+10. `rls_auto_enable()` and its event trigger are referenced by hardening SQL but not defined by tracked repository SQL.
+11. No test currently proves the effective clean sequence against an empty PostgreSQL/Supabase database.
+12. Exact live function bodies, constraints, indexes, policies, grants, triggers and bucket visibility have not yet been matched read-only against this repository state.
+
+## Read-only production verification checklist
+
+Before any future migration-governance or schema-changing PR, capture and compare the live catalog **without writing to production**:
+
+- [ ] Confirm live migration ledger entries and timestamps.
+- [ ] Export exact definitions for repeated RPCs, especially `claim_order_draft_finalization`, `commit_order_submission`, `complete_order_draft_finalization`, and the Welcome Offer wrapper.
+- [ ] Verify `generate_order_number()` and helper function configuration/search paths.
+- [ ] Record current `order_sequences.last_number` values without modifying them.
+- [ ] Export relevant table constraints and CHECK definitions.
+- [ ] Export current indexes, especially draft uniqueness, source-draft uniqueness, submission uniqueness and replacement-deliverable FK indexes.
+- [ ] Export RLS enabled state and all policies for the public application tables.
+- [ ] Export grants/revokes for `anon`, `authenticated`, `service_role` and relevant functions/tables.
+- [ ] Export triggers and confirm the origin/state of `rls_auto_enable()` and any associated event trigger.
+- [ ] Record bucket existence and public/private state for `portfolio`, `site-media`, `order-files`, and `deliverables`.
+- [ ] Export relevant `storage.objects` policies and compare them with hardening expectations.
+- [ ] Confirm whether the three security-hardening scripts are reflected in live catalog state.
+- [ ] Do not mutate data, policies, grants, buckets, Auth configuration or migration history during verification.
+
+## Supabase Advisor interpretation at audit time
+
+The audit classified the current Advisor findings as:
+
+| Finding | Classification | Reason |
+| --- | --- | --- |
+| `order_email_deliveries` — RLS enabled, zero policies | Expected | Internal worker only |
+| `order_payments` — RLS enabled, zero policies | Expected | Server-only payment state |
+| `order_sequences` — RLS enabled, zero policies | Likely expected | Server-only numbering; RLS origin still untracked |
+| `order_submissions` — RLS enabled, zero policies | Expected | Server-only submission ledger |
+| `property_analytics_events` — RLS enabled, zero policies | Expected | Validated server endpoint |
+| `property_leads` — RLS enabled, zero policies | Expected | Contains private contact data |
+| `stripe_webhook_events` — RLS enabled, zero policies | Expected | Server webhook idempotency/audit |
+| `welcome_offer_redemptions` — RLS enabled, zero policies | Expected | Server-controlled eligibility/redemption |
+| Supabase Auth leaked-password protection disabled | Real separate issue | Auth configuration hardening, not a migration-policy defect |
+
+The leaked-password setting must be handled as a separate reviewed Auth configuration task; this manifest makes no Auth change.
+
+## Going-forward migration governance
+
+The minimum governance rule is intentionally simple:
+
+1. Existing historical SQL files remain in place as evidence.
+2. This manifest records their lineage and replay status.
+3. New production database changes use new timestamped immutable migration files; do not amend an already-applied historical migration.
+4. Each new migration documents dependencies, rollback/fail-closed behavior, and whether browser/service-role access changes.
+5. Schema/RLS/storage/Auth changes require production compatibility review before execution.
+6. A future integration test should prove a clean effective sequence in an ephemeral environment; do not use production as the migration test environment.
+
+A new migration framework is not required merely to satisfy this documentation step.
+
+## Next safe database step
+
+Do **not** execute or reorganize SQL based on this manifest yet.
+
+The next database-governance step is a **read-only live catalog comparison** against the audit commit/current `main`. Only after that comparison should the project decide whether to:
+
+- freeze a clean baseline,
+- add timestamped forward-only migrations,
+- add an ephemeral migration integration test,
+- or fix a confirmed production/schema drift item.
