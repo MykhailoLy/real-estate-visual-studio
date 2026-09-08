@@ -54,7 +54,6 @@ function message(
   overrides: Partial<SupportChatMessage> & Pick<SupportChatMessage, "id">,
 ): SupportChatMessage {
   return {
-    id: overrides.id,
     role: "assistant",
     content: "Hello",
     origin: "remote",

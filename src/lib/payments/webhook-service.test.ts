@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import test from "node:test";
+import type { WebhookPaymentRecord, WebhookRepository } from "./webhook-repository.ts";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -22,7 +23,7 @@ const now = new Date("2026-07-14T12:00:00.000Z");
 const { handleStripeWebhookRequest } = await import("./webhook-request.ts");
 const { processVerifiedStripeWebhook } = await import("./webhook-service.ts");
 
-function payment(overrides: Record<string, unknown> = {}) {
+function payment(overrides: Partial<WebhookPaymentRecord> = {}): WebhookPaymentRecord {
   return {
     id: "22222222-2222-4222-8222-222222222222",
     order_id: orderId,
@@ -45,7 +46,7 @@ function payment(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function paidPayment(overrides: Record<string, unknown> = {}) {
+function paidPayment(overrides: Partial<WebhookPaymentRecord> = {}) {
   return payment({
     payment_status: "paid",
     tax_cents: 100,
@@ -152,7 +153,7 @@ type EventRecord = {
   error: string | null;
 };
 
-class FakeRepository {
+class FakeRepository implements WebhookRepository {
   currentPayment: ReturnType<typeof payment> | null = payment();
   events = new Map<string, EventRecord>();
   registrations: Array<Record<string, unknown>> = [];

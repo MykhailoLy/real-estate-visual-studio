@@ -272,7 +272,10 @@ test("tool executor uses an explicit allowlist", () => {
 
 test("Gemini tool schemas use strict enumerated read-only arguments", () => {
   assert.deepEqual(
-    GEMINI_SUPPORT_PRICING_TOOLS.map((tool) => tool.name),
+    GEMINI_SUPPORT_PRICING_TOOLS.map((tool) => {
+      assert.equal(tool.type, "function");
+      return tool.name;
+    }),
     ["get_remote_service_quote", "get_local_service_pricing"],
   );
   for (const tool of GEMINI_SUPPORT_PRICING_TOOLS) {

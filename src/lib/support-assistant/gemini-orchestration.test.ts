@@ -360,7 +360,10 @@ test("final completed interactions return the visible answer", async () => {
     false,
   );
   assert.deepEqual(
-    requests[0]?.tools.map((tool) => tool.name),
+    requests[0]?.tools.map((tool) => {
+      assert.equal(tool.type, "function");
+      return tool.name;
+    }),
     ["get_remote_service_quote", "get_local_service_pricing"],
   );
 });

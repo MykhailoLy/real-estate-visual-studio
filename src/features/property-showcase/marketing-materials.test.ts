@@ -176,10 +176,17 @@ test("marketing and preview schemas reject unsafe values and arbitrary URLs", ()
   const invalid = cloneProperty();
   invalid.gallery[0].focalPoint = { x: -1, y: 2 };
   assert.equal(PropertyShowcaseSchema.safeParse(invalid).success, false);
-  const invalidTemplate = configuredProperty() as PropertyShowcase & {
-    marketingMaterials: { brochure: { template: string } };
+  const templateFixture = configuredProperty();
+  const invalidTemplate = {
+    ...templateFixture,
+    marketingMaterials: {
+      ...templateFixture.marketingMaterials,
+      brochure: {
+        ...templateFixture.marketingMaterials?.brochure,
+        template: "arbitrary-template",
+      },
+    },
   };
-  invalidTemplate.marketingMaterials.brochure.template = "arbitrary-template";
   assert.equal(PropertyShowcaseSchema.safeParse(invalidTemplate).success, false);
   assert.equal(PropertyMarketingPreviewDraftSchema.safeParse({
     marketingMaterials: {

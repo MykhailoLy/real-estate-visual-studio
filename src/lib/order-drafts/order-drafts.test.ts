@@ -47,6 +47,13 @@ import {
   sanitizeOrderDraftFilename,
 } from "./storage-paths.ts";
 
+import type { DraftUpdateResult } from "./types.ts";
+
+function draftFailureCode(result: DraftUpdateResult<unknown>) {
+  assert.equal(result.ok, false);
+  return result.code;
+}
+
 const UUID_A = "11111111-1111-4111-8111-111111111111";
 const UUID_B = "22222222-2222-4222-8222-222222222222";
 const UUID_C = "33333333-3333-4333-8333-333333333333";
@@ -457,50 +464,50 @@ test("lifecycle transition helper only allows active to deleted", () => {
 
 test("zero-row diagnostic classifies safe public outcomes", () => {
   const now = new Date("2026-06-26T10:00:00.000Z");
-  assert.equal(classifyZeroRowDraftUpdate(null, 3, now).code, "not_found");
+  assert.equal(draftFailureCode(classifyZeroRowDraftUpdate(null, 3, now)), "not_found");
   assert.equal(
-    classifyZeroRowDraftUpdate({
+    draftFailureCode(classifyZeroRowDraftUpdate({
       version: 4,
       status: "active",
       deleted_at: null,
       expires_at: "2026-07-26T10:00:00.000Z",
-    }, 3, now).code,
+    }, 3, now)),
     "version_conflict",
   );
   assert.equal(
-    classifyZeroRowDraftUpdate({
+    draftFailureCode(classifyZeroRowDraftUpdate({
       version: 3,
       status: "converted",
       deleted_at: null,
       expires_at: "2026-07-26T10:00:00.000Z",
-    }, 3, now).code,
+    }, 3, now)),
     "invalid_status",
   );
   assert.equal(
-    classifyZeroRowDraftUpdate({
+    draftFailureCode(classifyZeroRowDraftUpdate({
       version: 3,
       status: "active",
       deleted_at: null,
       expires_at: "2026-06-26T09:59:59.999Z",
-    }, 3, now).code,
+    }, 3, now)),
     "invalid_status",
   );
   assert.equal(
-    classifyZeroRowDraftUpdate({
+    draftFailureCode(classifyZeroRowDraftUpdate({
       version: 3,
       status: "active",
       deleted_at: "2026-06-26T09:00:00.000Z",
       expires_at: "2026-07-26T10:00:00.000Z",
-    }, 3, now).code,
+    }, 3, now)),
     "invalid_status",
   );
   assert.equal(
-    classifyZeroRowDraftUpdate({
+    draftFailureCode(classifyZeroRowDraftUpdate({
       version: 3,
       status: "active",
       deleted_at: null,
       expires_at: "2026-07-26T10:00:00.000Z",
-    }, 3, now).code,
+    }, 3, now)),
     "database_error",
   );
 });
@@ -795,15 +802,15 @@ test("optimistic concurrency result mapping is safe", () => {
     internalDiagnostic: "not_found",
   });
   assert.equal(
-    mapDraftUpdateOutcome({ kind: "version_conflict" }).code,
+    draftFailureCode(mapDraftUpdateOutcome({ kind: "version_conflict" })),
     "version_conflict",
   );
   assert.equal(
-    mapDraftUpdateOutcome({ kind: "invalid_status", status: "converted" }).code,
+    draftFailureCode(mapDraftUpdateOutcome({ kind: "invalid_status", status: "converted" })),
     "invalid_status",
   );
   assert.equal(
-    mapDraftUpdateOutcome({ kind: "database_error", message: "boom" }).code,
+    draftFailureCode(mapDraftUpdateOutcome({ kind: "database_error", message: "boom" })),
     "database_error",
   );
 });

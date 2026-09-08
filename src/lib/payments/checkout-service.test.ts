@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import test from "node:test";
+import type Stripe from "stripe";
+import type { CheckoutEligibleOrder } from "./checkout-eligibility.ts";
+import type { CheckoutRepository, OrderPaymentRecord } from "./checkout-repository.ts";
+import type { CheckoutServiceDependencies, CheckoutStripeClient } from "./checkout-service.ts";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -30,7 +34,7 @@ const { createCheckoutSession, checkoutInternals, CheckoutServiceError } =
 const { handleCheckoutRequest } = await import("./checkout-request.ts");
 const { PRICING_VERSION } = await import("../pricing/catalog.ts");
 
-function validOrder(overrides: Record<string, unknown> = {}) {
+function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEligibleOrder {
   const currency = typeof overrides.currency === "string" ? overrides.currency : "USD";
   return {
     id: orderId,
@@ -166,7 +170,7 @@ function partiallyDiscountedWelcomeOfferOrder() {
   });
 }
 
-function payment(overrides: Record<string, unknown> = {}) {
+function payment(overrides: Partial<OrderPaymentRecord> = {}): OrderPaymentRecord {
   return {
     id: "33333333-3333-4333-8333-333333333333",
     order_id: orderId,
@@ -188,7 +192,7 @@ function payment(overrides: Record<string, unknown> = {}) {
   };
 }
 
-class FakeRepository {
+class FakeRepository implements CheckoutRepository {
   order: ReturnType<typeof validOrder> | null = validOrder();
   currentPayment: ReturnType<typeof payment> | null = null;
   created: Array<Record<string, unknown>> = [];
@@ -213,7 +217,7 @@ class FakeRepository {
     return this.currentPayment;
   }
 
-  async createPayment(input: Record<string, unknown>) {
+  async createPayment(input: Parameters<CheckoutRepository["createPayment"]>[0]) {
     this.created.push(input);
     this.currentPayment = payment({
       order_id: input.orderId,
@@ -300,12 +304,16 @@ class FakeRepository {
   }
 }
 
-function fakeStripe(overrides: Record<string, unknown> = {}) {
-  const calls: Array<{ params: Record<string, unknown>; options: { idempotencyKey: string } }> = [];
-  const stripe = {
+type CheckoutSessionFixture = Awaited<
+  ReturnType<CheckoutStripeClient["checkout"]["sessions"]["create"]>
+>;
+
+function fakeStripe(overrides: Partial<CheckoutSessionFixture> = {}) {
+  const calls: Array<{ params: Stripe.Checkout.SessionCreateParams; options: { idempotencyKey: string } }> = [];
+  const stripe: CheckoutStripeClient = {
     checkout: {
       sessions: {
-        async create(params: Record<string, unknown>, options: { idempotencyKey: string }) {
+        async create(params, options) {
           calls.push({ params, options });
           return {
             id: "cs_test_123",
@@ -330,7 +338,10 @@ function fakeStripe(overrides: Record<string, unknown> = {}) {
   return { stripe, calls };
 }
 
-function dependencies(repository: FakeRepository, stripe = fakeStripe().stripe) {
+function dependencies(
+  repository: FakeRepository,
+  stripe = fakeStripe().stripe,
+): CheckoutServiceDependencies {
   return {
     repository,
     getStripeClient: () => stripe,
@@ -484,7 +495,7 @@ test("creates USD, EUR, and CAD Checkout from the stored snapshot only", async (
 });
 
 test("rejects quote, historical, large, unsupported, completed, unsupported-currency, and mismatched orders", async () => {
-  const cases: Array<[string, Record<string, unknown>]> = [
+  const cases: Array<[string, Partial<CheckoutEligibleOrder>]> = [
     ["quote", { pricing_snapshot: { ...validOrder().pricing_snapshot as Record<string, unknown>, customQuote: true } }],
     ["historical", { pricing_snapshot: null }],
     ["large", { pricing_snapshot: { ...validOrder().pricing_snapshot as Record<string, unknown>, eligibleUnits: 50, customQuote: true, totalCents: null, subtotalAfterDiscountCents: null } }],

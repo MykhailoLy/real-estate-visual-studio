@@ -97,7 +97,7 @@ test("chooser order routes come from the canonical registry", () => {
 test("photo-editing is not present in chooser services", () => {
   assert.equal(getOrderAssistantService("photo-editing"), null);
   assert.equal(
-    getOrderAssistantServices().some((service) => service.id === "photo-editing"),
+    getOrderAssistantServices().some((service: { id: string }) => service.id === "photo-editing"),
     false,
   );
 });
