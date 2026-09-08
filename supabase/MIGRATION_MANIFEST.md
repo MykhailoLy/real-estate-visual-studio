@@ -383,3 +383,82 @@ The next database-governance step is a **read-only live catalog comparison** aga
 - add timestamped forward-only migrations,
 - add an ephemeral migration integration test,
 - or fix a confirmed production/schema drift item.
+
+## Live catalog comparison — 2026-09-08
+
+The read-only production comparison described above was completed against repository `main` at:
+
+`42bb46524f60ce2474a5982492011ba05a784498`
+
+No SQL migration, DDL, data mutation, RLS change, grant change, Storage change, Auth change, or production configuration change was performed during this comparison.
+
+### Confirmed live state
+
+- The Supabase migration ledger still contains exactly the four entries listed in this manifest.
+- The current application surface contains 21 relevant `public` tables, with RLS enabled on all 21.
+- The live policy set matches the repository access model: public published-read policies exist for portfolio/site-media/Property Showcase, authenticated ownership policies exist where expected, and the eight server-only tables reported by Advisor have zero browser policies.
+- Critical order RPC execution is denied to `PUBLIC`, `anon`, and `authenticated` and available to `service_role` where expected.
+- Live `claim_order_draft_finalization(...)` and `commit_order_submission(...)` include Virtual Staging, Photo Editing, Virtual Renovation, and 3D Floor Plans, matching the final four-service repository authority in `allow-floor-plan-draft-finalization.sql`.
+- Live `commit_order_submission_with_welcome_offer_v1(...)` matches the corrected Welcome Offer behavior represented by `fix-welcome-offer-rpc-coalesce.sql`.
+- The current `generate_order_number(text)` body still uses fixed-width `LPAD(..., 4, '0')`; the >9999 risk therefore remains real but non-urgent at current counters.
+- At comparison time the counters were: `virtual-staging=21`, `photo-editing=9`, `virtual-renovation=2`, `3d-floor-plans=2`.
+- Live bucket visibility is: `portfolio` public, `site-media` public, `order-files` private, `deliverables` private.
+- No `storage.objects` policies remain, matching the public-bucket-listing hardening intent.
+- The function/table grant hardening is reflected in live privileges, and browser-facing RLS predicates use the optimized scalar `auth.uid()` / `auth.email()` form expected by the RLS hardening overlay.
+
+### Confirmed untracked production dependency
+
+Production contains:
+
+- `public.rls_auto_enable()` — `SECURITY DEFINER`, fixed `search_path`, no browser/service-role EXECUTE grant.
+- enabled event trigger `ensure_rls` on `ddl_command_end`, owned by `postgres`, invoking `public.rls_auto_enable()`.
+
+The function automatically enables RLS for newly created tables in the `public` schema.
+
+Neither the function definition nor creation of `ensure_rls` is present in the tracked repository SQL. The repository hardening script only requires `rls_auto_enable()` to already exist. This is therefore a **confirmed reproducibility gap**, not merely an inference.
+
+Do not recreate, replace, or drop either object until its provenance and desired forward-governance treatment are reviewed separately.
+
+### Drift verdict
+
+No critical schema drift was found in the inspected order, draft, reference-file, submission, payment, email-outbox, Welcome Offer, portfolio, site-media, Property Showcase, leads, analytics, deliverable, or review database surfaces.
+
+The important remaining gaps are governance/reproducibility gaps rather than evidence of a currently broken production schema:
+
+1. The migration ledger remains incomplete relative to live production.
+2. `rls_auto_enable()` and `ensure_rls` exist in production but are untracked by repository SQL.
+3. Private bucket creation/configuration remains outside a reproducible tracked migration.
+4. The provisional clean-database sequence still has not been proven in an ephemeral Supabase/PostgreSQL environment.
+5. The order-number >9999 boundary remains a separate future migration issue.
+
+### Advisor interpretation after live comparison
+
+The eight `RLS Enabled No Policy` findings are confirmed as expected server-only behavior under the current architecture:
+
+- `order_email_deliveries`
+- `order_payments`
+- `order_sequences`
+- `order_submissions`
+- `property_analytics_events`
+- `property_leads`
+- `stripe_webhook_events`
+- `welcome_offer_redemptions`
+
+Do not add browser policies merely to remove these informational findings.
+
+Supabase Auth leaked-password protection remains disabled and is still a real, separate Auth configuration hardening item. It was not changed during this comparison.
+
+### Updated next safe database step
+
+The read-only comparison is complete. The preceding `Next safe database step` section is now historical context.
+
+Do **not** execute database changes merely because the live catalog is better understood.
+
+The next database-governance decision should be whether PicchuSpot wants to make the existing `rls_auto_enable()` + `ensure_rls` protection reproducible as a reviewed forward-only migration. Before any such DDL is written or applied:
+
+1. confirm that these objects are intended PicchuSpot infrastructure rather than externally managed state;
+2. design a migration that is a no-op when the exact expected objects already exist and fails closed on mismatched definitions;
+3. test it only in an ephemeral Supabase/PostgreSQL environment first;
+4. keep production execution manual and separately approved.
+
+The Auth leaked-password setting and the order-number boundary should remain separate tasks.
