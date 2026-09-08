@@ -134,7 +134,7 @@ The exact production execution order for non-ledgered files is **unknown**.
 
 ## Provisional clean-database effective sequence
 
-This is the smallest non-regressive sequence supported by the audited repository structure. It remains **provisional until a read-only live catalog comparison and an empty-database integration exercise are completed**.
+This is the smallest non-regressive sequence supported by the audited repository structure. The read-only live catalog comparison was completed on 2026-09-08; this sequence remains **provisional until an empty-database integration exercise is completed**.
 
 1. `schema.sql`
 2. `portfolio.sql`
@@ -309,7 +309,7 @@ Before any service counter approaches 10,000, create a separate reviewed migrati
 
 ## Production reproducibility gaps
 
-The audit identified these unresolved gaps:
+The audit identified these gaps. Item 12 was resolved by the read-only live comparison completed on 2026-09-08; the remaining items are still open unless explicitly noted otherwise:
 
 1. No immutable timestamped migration directory or complete tracked manifest existed before this file.
 2. Historical foundation files were amended after initial introduction.
@@ -322,25 +322,25 @@ The audit identified these unresolved gaps:
 9. Live RLS on `order_sequences` has no corresponding repository statement.
 10. `rls_auto_enable()` and its event trigger are referenced by hardening SQL but not defined by tracked repository SQL.
 11. No test currently proves the effective clean sequence against an empty PostgreSQL/Supabase database.
-12. Exact live function bodies, constraints, indexes, policies, grants, triggers and bucket visibility have not yet been matched read-only against this repository state.
+12. **Resolved 2026-09-08:** exact live function bodies, constraints, indexes, policies, grants, triggers and bucket visibility were matched read-only against this repository state; see the live comparison below.
 
-## Read-only production verification checklist
+## Historical read-only production verification checklist — completed 2026-09-08
 
-Before any future migration-governance or schema-changing PR, capture and compare the live catalog **without writing to production**:
+This point-in-time checklist was completed during the read-only live catalog comparison. Future migration-governance or schema-changing work must repeat the relevant checks against then-current production state.
 
-- [ ] Confirm live migration ledger entries and timestamps.
-- [ ] Export exact definitions for repeated RPCs, especially `claim_order_draft_finalization`, `commit_order_submission`, `complete_order_draft_finalization`, and the Welcome Offer wrapper.
-- [ ] Verify `generate_order_number()` and helper function configuration/search paths.
-- [ ] Record current `order_sequences.last_number` values without modifying them.
-- [ ] Export relevant table constraints and CHECK definitions.
-- [ ] Export current indexes, especially draft uniqueness, source-draft uniqueness, submission uniqueness and replacement-deliverable FK indexes.
-- [ ] Export RLS enabled state and all policies for the public application tables.
-- [ ] Export grants/revokes for `anon`, `authenticated`, `service_role` and relevant functions/tables.
-- [ ] Export triggers and confirm the origin/state of `rls_auto_enable()` and any associated event trigger.
-- [ ] Record bucket existence and public/private state for `portfolio`, `site-media`, `order-files`, and `deliverables`.
-- [ ] Export relevant `storage.objects` policies and compare them with hardening expectations.
-- [ ] Confirm whether the three security-hardening scripts are reflected in live catalog state.
-- [ ] Do not mutate data, policies, grants, buckets, Auth configuration or migration history during verification.
+- [x] Confirm live migration ledger entries and timestamps.
+- [x] Export exact definitions for repeated RPCs, especially `claim_order_draft_finalization`, `commit_order_submission`, `complete_order_draft_finalization`, and the Welcome Offer wrapper.
+- [x] Verify `generate_order_number()` and helper function configuration/search paths.
+- [x] Record current `order_sequences.last_number` values without modifying them.
+- [x] Export relevant table constraints and CHECK definitions.
+- [x] Export current indexes, especially draft uniqueness, source-draft uniqueness, submission uniqueness and replacement-deliverable FK indexes.
+- [x] Export RLS enabled state and all policies for the public application tables.
+- [x] Export grants/revokes for `anon`, `authenticated`, `service_role` and relevant functions/tables.
+- [x] Export triggers and confirm the origin/state of `rls_auto_enable()` and any associated event trigger.
+- [x] Record bucket existence and public/private state for `portfolio`, `site-media`, `order-files`, and `deliverables`.
+- [x] Export relevant `storage.objects` policies and compare them with hardening expectations.
+- [x] Confirm whether the three security-hardening scripts are reflected in live catalog state.
+- [x] Do not mutate data, policies, grants, buckets, Auth configuration or migration history during verification.
 
 ## Supabase Advisor interpretation at audit time
 
@@ -373,11 +373,11 @@ The minimum governance rule is intentionally simple:
 
 A new migration framework is not required merely to satisfy this documentation step.
 
-## Next safe database step
+## Historical next safe database step — completed 2026-09-08
 
-Do **not** execute or reorganize SQL based on this manifest yet.
+The previously required read-only live catalog comparison against the audit commit/current `main` was completed on 2026-09-08. The options below are retained as historical context; the current recommendation is in `Updated next safe database step` below.
 
-The next database-governance step is a **read-only live catalog comparison** against the audit commit/current `main`. Only after that comparison should the project decide whether to:
+The completed comparison was intended to determine whether the project should later:
 
 - freeze a clean baseline,
 - add timestamped forward-only migrations,
@@ -450,7 +450,7 @@ Supabase Auth leaked-password protection remains disabled and is still a real, s
 
 ### Updated next safe database step
 
-The read-only comparison is complete. The preceding `Next safe database step` section is now historical context.
+The read-only comparison is complete. The preceding `Historical next safe database step` section is retained only as context.
 
 Do **not** execute database changes merely because the live catalog is better understood.
 
