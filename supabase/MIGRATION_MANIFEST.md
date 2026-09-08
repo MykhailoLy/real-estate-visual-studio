@@ -462,3 +462,23 @@ The next database-governance decision should be whether PicchuSpot wants to make
 4. keep production execution manual and separately approved.
 
 The Auth leaked-password setting and the order-number boundary should remain separate tasks.
+
+## Deferred ephemeral validation decision — 2026-09-08
+
+Managed ephemeral Supabase/PostgreSQL validation is intentionally deferred while PicchuSpot remains early-stage and the additional branch cost is not justified. This is a budget decision, not evidence that production should be used as a substitute test environment.
+
+Until this decision is revisited:
+
+- do not create a paid Supabase development branch merely for migration-governance validation;
+- do not use production as the clean-database or migration test environment;
+- continue repository review and read-only production inspection where necessary;
+- require explicit manual approval before any production database execution;
+- do not add or apply forward DDL for `rls_auto_enable()` / `ensure_rls` before isolated validation is available.
+
+Re-evaluate ephemeral validation before the first significant future schema migration, migration-baseline consolidation, or broader database-governance rollout. At that point the isolated environment should prove the effective clean sequence, verify forward-only migrations, validate RLS/grants/triggers/RPC assumptions, and test the `rls_auto_enable()` + `ensure_rls` behavior without production writes.
+
+### `rls_auto_enable()` / `ensure_rls` provenance note
+
+The live `public.rls_auto_enable()` function and `ensure_rls` event trigger match the documented Supabase pattern for automatically enabling RLS on newly created `public` tables. Their exact creation event in this project remains historically untracked: they are absent from the repository migration history and the official production migration ledger, but they were already present by the 2026-07-03 security-hardening audit.
+
+Treat both objects as existing PicchuSpot production security infrastructure for operational purposes, but do not recreate, replace, drop, or claim repository reproducibility for them until their forward-only treatment has been tested in an isolated environment. This section supersedes the preceding `Updated next safe database step` only with respect to timing: the proposed forward DDL remains deferred until ephemeral validation is economically justified.
