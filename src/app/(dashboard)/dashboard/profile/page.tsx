@@ -2,6 +2,7 @@ import {
   getDashboardRequestProfile,
   getDashboardRequestUser,
 } from "@/lib/dashboard-request-context";
+import { isProfileComplete } from "@/lib/profile-completion";
 import { safeInternalPath } from "@/lib/safe-redirect";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import ClientProfileForm from "@/components/dashboard/ClientProfileForm";
@@ -16,7 +17,6 @@ interface ProfilePageProps {
 
 export default async function DashboardProfilePage({ searchParams }: ProfilePageProps) {
   const { onboarding, next } = await searchParams;
-  const isOnboarding = onboarding === "1";
   // Where to send the client after completing their profile (e.g. back to
   // the selected order form). Sanitized to an internal path.
   const nextPath = next ? safeInternalPath(next) : null;
@@ -26,6 +26,10 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
     getDashboardRequestProfile(),
   ]);
 
+  // An existing but incomplete historical row is still onboarding. This keeps
+  // the profile screen aligned with the order boundary instead of relying on
+  // row existence alone.
+  const isOnboarding = onboarding === "1" || !isProfileComplete(profile);
   const authEmail = user?.email ?? "";
 
   // user.displayName is: user_metadata.full_name if set, otherwise email-prefix.

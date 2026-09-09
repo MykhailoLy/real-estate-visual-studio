@@ -29,6 +29,7 @@ import { getReviewsForClient } from "@/lib/client-reviews";
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { getOrderCardImages } from "@/lib/order-card-media";
 import { getOrderServiceExamples } from "@/lib/order-card-examples";
+import { isProfileComplete } from "@/lib/profile-completion";
 import {
   CLIENT_PORTAL_QA_COMPLETED_JOBS,
 } from "@/lib/client-portal-qa-fixtures";
@@ -62,8 +63,9 @@ export default async function DashboardPage() {
     getDashboardRequestProfile(),
   ]);
 
-  // Onboarding gate (from PR #33): no profile row → redirect to onboarding.
-  if (user && profile === null) {
+  // Keep this page-local guard aligned with the route-group boundary and the
+  // order API. QA uses a fixed complete in-memory profile.
+  if (user && !user.isQaPreview && !isProfileComplete(profile)) {
     redirect("/dashboard/profile?onboarding=1");
   }
 

@@ -1,5 +1,5 @@
 // ============================================================
-// PROFILE COMPLETION — server-side identity resolution
+// PROFILE COMPLETION — server-side contract
 //
 // An authenticated client can only place an order once their
 // client_profiles row has the minimum fields an order needs:
@@ -8,16 +8,21 @@
 // Company is optional. Email + verified session come from Supabase
 // Auth, never from the profile row.
 //
-// This module is the single source of truth for:
-//   - whether a profile is "complete enough" to order
-//   - how to resolve the snapshot identity written onto an order
-//
-// Server-only. The order form (client) must never import this; it
-// learns about incompleteness from the API's 422 response instead.
+// This module is the single server source of truth for onboarding,
+// profile saves, and order identity resolution.
 // ============================================================
 
 import "server-only";
-import type { ClientProfile } from "@/lib/client-profile";
+
+export interface ProfileCompletionFields {
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
+  company_name?: string | null;
+}
+
+export type MissingProfileField = "name" | "phone";
 
 /** Snapshot identity written onto an order (and used for emails). */
 export interface ResolvedClientIdentity {
@@ -33,7 +38,9 @@ export interface ResolvedClientIdentity {
  *   2. trimmed first_name + last_name joined by a space.
  * Returns "" when nothing usable is present.
  */
-export function resolveProfileName(profile: ClientProfile | null): string {
+export function resolveProfileName(
+  profile: ProfileCompletionFields | null,
+): string {
   if (!profile) return "";
   const full = (profile.full_name ?? "").trim();
   if (full) return full;
@@ -44,15 +51,26 @@ export function resolveProfileName(profile: ClientProfile | null): string {
     .trim();
 }
 
+/** Return the exact order-blocking fields still missing from a profile. */
+export function getMissingProfileCompletionFields(
+  profile: ProfileCompletionFields | null,
+): MissingProfileField[] {
+  if (!profile) return ["name", "phone"];
+
+  const missing: MissingProfileField[] = [];
+  if (!resolveProfileName(profile)) missing.push("name");
+  if (!(profile.phone ?? "").trim()) missing.push("phone");
+  return missing;
+}
+
 /**
  * True when the profile has the minimum fields required to order:
  * a non-empty resolved name AND a non-empty phone. Company is optional.
  */
-export function isProfileComplete(profile: ClientProfile | null): boolean {
-  if (!profile) return false;
-  const name = resolveProfileName(profile);
-  const phone = (profile.phone ?? "").trim();
-  return name.length > 0 && phone.length > 0;
+export function isProfileComplete(
+  profile: ProfileCompletionFields | null,
+): boolean {
+  return getMissingProfileCompletionFields(profile).length === 0;
 }
 
 /**
@@ -65,16 +83,14 @@ export function isProfileComplete(profile: ClientProfile | null): boolean {
  */
 export function resolveClientIdentity(
   email: string,
-  profile: ClientProfile | null,
+  profile: ProfileCompletionFields | null,
 ): ResolvedClientIdentity | null {
-  if (!email || !profile) return null;
-  const name = resolveProfileName(profile);
-  const phone = (profile.phone ?? "").trim();
-  if (!name || !phone) return null;
+  if (!email || !profile || !isProfileComplete(profile)) return null;
+
   return {
-    name,
+    name: resolveProfileName(profile),
     email,
-    phone,
+    phone: (profile.phone ?? "").trim(),
     company: (profile.company_name ?? "").trim() || null,
   };
 }
