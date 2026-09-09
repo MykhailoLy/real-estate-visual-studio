@@ -6,6 +6,8 @@ import {
   getResendClient,
 } from "./resend-client";
 import { escapeHtml } from "./format";
+import { absoluteUrl } from "@/lib/seo";
+import { dispatchOrderEmailOutbox } from "./send-order-emails";
 
 export type ReviewWorkflowEvent =
   | "client_rework_requested"
@@ -58,6 +60,26 @@ export async function sendReviewWorkflowEmail(
   args: ReviewWorkflowEmailArgs
 ): Promise<ReviewWorkflowEmailResult> {
   try {
+    if (args.event === "admin_replacement_ready") {
+      // Attachment already committed this review's event to the shared outbox.
+      // Keep this existing lifecycle entry point; never send a second direct email.
+      const supabase = createServerClient();
+      const { data: review, error } = await supabase.from("deliverable_reviews")
+        .select("order_id,status,replacement_deliverable_id")
+        .eq("id", args.reviewId).maybeSingle();
+      if (error || !review || review.status !== "rework_delivered" ||
+          !review.replacement_deliverable_id ||
+          (args.replacementDeliverableId && args.replacementDeliverableId !== review.replacement_deliverable_id)) {
+        return { sent: false, error: "Replacement is not finalized." };
+      }
+      await dispatchOrderEmailOutbox({ supabase, orderId: review.order_id });
+      const { data: delivery } = await supabase.from("order_email_deliveries")
+        .select("status,last_error_code")
+        .eq("order_id", review.order_id)
+        .eq("delivery_kind", `admin_replacement_ready:${args.reviewId}`).maybeSingle();
+      return { sent: delivery?.status === "sent", error: delivery?.last_error_code ?? undefined };
+    }
+
     const resendCheck = getResendClient();
     if (!resendCheck.ok) {
       console.warn(
@@ -111,7 +133,7 @@ export async function sendReviewWorkflowEmail(
 
 async function loadReviewContext(
   reviewId: string,
-  replacementDeliverableId?: string
+  replacementDeliverableId?: string,
 ): Promise<LoadedContext | null> {
   const supabase = createServerClient();
 
@@ -132,6 +154,9 @@ async function loadReviewContext(
   }
 
   const review = reviewData as unknown as ReviewContext;
+  if (replacementDeliverableId && replacementDeliverableId !== review.replacement_deliverable_id) {
+    return null;
+  }
   const replacementId = replacementDeliverableId ?? review.replacement_deliverable_id ?? null;
   const ids = [review.deliverable_id, replacementId].filter((id): id is string => Boolean(id));
 
@@ -213,26 +238,6 @@ function renderReviewWorkflowEmail(
     });
   }
 
-  if (event === "admin_replacement_ready") {
-    const subject = `New version ready: ${context.review.order_number} - ${item}`;
-    const dashboardUrl = absoluteUrl(`/dashboard/jobs/${context.review.order_id}`);
-
-    return renderEmail({
-      to: context.review.client_email,
-      replyTo: adminEmail,
-      subject,
-      heading: "New version ready",
-      intro: "Your revised file is ready to review. Please download the new version, then approve it or request another rework if needed.",
-      rows: [
-        ["Order", context.review.order_number],
-        ["Item", item],
-        ["New file", context.replacementDeliverable?.filename ?? "Replacement file"],
-        ["Previous file", context.originalDeliverable?.filename ?? ""],
-        ["Review in dashboard", dashboardUrl],
-      ],
-    });
-  }
-
   return null;
 }
 
@@ -295,11 +300,6 @@ function renderEmail(input: {
 
 function itemLabel(itemIndex: number | null): string {
   return itemIndex === null ? "Order-level file" : `Image ${itemIndex + 1}`;
-}
-
-function absoluteUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://picchuspot.com";
-  return `${base.replace(/\/$/, "")}${path}`;
 }
 
 function formatHtmlValue(value: string): string {

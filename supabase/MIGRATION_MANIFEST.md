@@ -1,5 +1,75 @@
 # PicchuSpot Supabase Migration Manifest
 
+## Client work-ready emails — 2026-09-09
+
+**Manual Supabase migration required before deploying the application code.**
+
+New migration: `20260909210000_add_order_delivered_email.sql`.
+Production application status: **not executed by this task**.
+
+Prerequisites are the current `orders`, `order_deliverables`, `deliverable_reviews`
+and `order_email_deliveries` tables, their existing updated-at triggers, and the
+outbox claim/completion functions. The outbox definitions originate in
+`add-atomic-order-submissions.sql` and `add-payment-confirmation-email.sql`.
+Verify prerequisites; do not replay those historical scripts to install this change.
+
+The migration expands the allowed delivery kinds and adds two service-role-only,
+`SECURITY INVOKER` functions with a fixed search path:
+
+- `mark_order_delivered_with_email(UUID)` locks the order and atomically updates
+  its status and enqueues `order_delivered` on its first observed non-delivered
+  to delivered transition. An already-delivered request cannot enqueue a new event.
+  The existing unique `(order_id, delivery_kind)` constraint prevents duplicates,
+  including later status toggles. The admin route still applies its existing
+  authentication and payment gate before calling this function.
+- `attach_replacement_with_email(UUID, UUID)` conditionally attaches a replacement
+  to an active rework review and enqueues the existing `admin_replacement_ready`
+  event in the same transaction. The route verifies the persisted Storage object
+  exists with its expected size first; SQL rechecks status, empty replacement slot,
+  same order/image assignment, a different original file, and expiry. Its delivery
+  kind is `admin_replacement_ready:<review UUID>` so each review cycle has one
+  delivery while preserving existing outbox uniqueness and enqueue functions.
+
+Neither function runs at migration installation. There are no new triggers,
+historical email backfills, new tables, RLS changes, table-grant changes, Storage
+changes, or changes to payment, order submission, or customer upload functions.
+Reapplying the migration preserves existing rows and delivery state.
+
+Both routes dispatch after responding through the existing outbox; rework retains
+the `sendReviewWorkflowEmail` lifecycle entry point and has no second direct send.
+Both payloads use the persisted order's name/email and canonical direct order URL.
+The new work-ready renderer uses only public brand artwork, the current theme,
+four verified service routes, one primary CTA, and an equivalent plain-text body.
+
+### Recovery and validation limits
+
+The existing outbox retains pending/failed/unknown outcomes, stable Resend keys,
+payload hashes, five-minute claim leases and its three-attempt limit. Unknown
+outcomes are only reclaimed within the existing 24-hour idempotency window.
+This change adds no scheduler or cron. Recovery uses the existing dispatcher or
+authenticated `POST /api/internal/order-email-outbox` operational path; a repeated
+delivered status request also drains existing retryable events. Do not clear sent
+rows or regenerate keys to retry. Expired unknown outcomes, exhausted attempts,
+and payload-hash mismatches require operator review before any resend.
+
+Repository tests cover rendering, mocked route/claim concurrency, persisted
+recipients, failed/unknown provider outcomes, retry keys, separate rework cycles,
+and Storage/finalization gating. SQL contracts are checked statically; the migration
+has not been executed against PostgreSQL or Supabase. Browser rendering was checked
+at 360, 390, 768, 1024 and 1440 px, including keyboard focus and content without
+images. Actual Gmail/Outlook delivery and SQL transaction behavior remain manual
+rollout checks; no client test email was sent.
+
+Manual rollout checks after migration/application deployment:
+
+- Confirm one outbox event and one email for a test order's first delivery;
+  repeated delivered and later status toggles must not duplicate it.
+- Finalize a test rework: pending/missing/partial Storage objects must not attach
+  or notify; completed attachment must create one event per review cycle.
+- Verify provider-failure recovery via the existing worker without changing order
+  or review state; confirm both CTA links open the correct authenticated order.
+- Inspect both emails in Gmail/Outlook with images enabled and blocked.
+
 > Documentation only. This file does not authorize replaying, reordering, or executing any SQL.
 
 ## Purpose

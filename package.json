@@ -57,7 +57,7 @@
     "test:payment-summary": "node --experimental-strip-types --test src/lib/payments/payment-summary.test.ts",
     "test:payment-client": "node --experimental-strip-types --test src/lib/payments/client-checkout.test.ts",
     "test:admin-payment-gate": "node --experimental-strip-types --test src/lib/payments/admin-status-gate.test.ts",
-    "test:order-emails": "node --experimental-strip-types --test src/lib/email/order-emails.test.ts",
+    "test:order-emails": "node --experimental-strip-types --test src/lib/email/order-emails.test.ts src/lib/email/work-ready.test.ts",
     "test:order-integrity": "node --experimental-strip-types --test src/lib/orders/canonical-json.test.ts src/lib/orders/submission-recovery.test.ts src/lib/orders/atomic-order-migration.test.ts src/lib/orders/welcome-offer-migration.test.ts src/lib/orders/direct-order-file-integrity.test.ts src/lib/welcome-offer-server.test.ts src/lib/account-pricing-server.test.ts src/lib/uploads/file-signature.test.ts",
     "media:backfill:dry-run": "node --conditions=react-server --experimental-strip-types scripts/backfill-public-images.ts --dry-run",
     "media:backfill:apply": "node --conditions=react-server --experimental-strip-types scripts/backfill-public-images.ts --apply",
