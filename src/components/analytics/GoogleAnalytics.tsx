@@ -61,6 +61,7 @@ function GoogleAnalyticsPageViews({
 }
 
 export default function GoogleAnalytics() {
+  const pathname = usePathname();
   const [isReady, setIsReady] = useState(false);
   const [consentChoice, setConsentChoice] =
     useState<CookieConsentChoice | null>(null);
@@ -104,7 +105,9 @@ export default function GoogleAnalytics() {
     }
   }, [consentChoice, isReady]);
 
-  if (!GA_MEASUREMENT_ID) return null;
+  // The standard Auth invite arrives with session tokens in its fragment.
+  // Keep analytics scripts/page views off this landing page entirely.
+  if (!GA_MEASUREMENT_ID || pathname === "/auth/invite") return null;
 
   const measurementId = JSON.stringify(GA_MEASUREMENT_ID);
   const consentStorageKey = JSON.stringify(COOKIE_CONSENT_STORAGE_KEY);

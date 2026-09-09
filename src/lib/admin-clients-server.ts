@@ -8,13 +8,54 @@ import { getPartnerClient } from "./account-pricing-server.ts";
 
 export const ADMIN_CLIENTS_PAGE_SIZE = 50;
 export const PartnerPricingBody = z.object({ partnerClient: z.boolean() }).strict();
+export const PartnerInviteBody = z.object({ email: z.string().trim().toLowerCase().pipe(z.email()) }).strict();
 
 export class AdminClientsError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  readonly code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "AdminClientsError";
     this.status = status;
+    this.code = code;
+  }
+}
+
+/** Supabase sends the only invitation email; the returned Auth ID owns pricing. */
+export async function inviteAdminPartnerClient(body: unknown): Promise<void> {
+  if (!(await isAdminAuthenticated())) throw new AdminClientsError(401, "Unauthorized.");
+  const parsed = PartnerInviteBody.safeParse(body);
+  if (!parsed.success) throw new AdminClientsError(400, "A valid email address is required. Send only email.");
+
+  let invitationCreated = false;
+  try {
+    const supabase = getSupabaseAdminClient();
+    // Use trusted deployment configuration, never the request Host/Origin/body.
+    const redirectTo = new URL("/auth/invite", process.env.NEXT_PUBLIC_SITE_URL || "https://picchuspot.com").toString();
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(parsed.data.email, { redirectTo });
+    if (error) {
+      if (error.code === "email_exists" || error.code === "user_already_exists") {
+        throw new AdminClientsError(409, "This email already has an account. Enable Partner Pricing from the client row.", "account-exists");
+      }
+      throw error;
+    }
+    invitationCreated = true;
+    if (!data.user || data.user.is_anonymous || data.user.email?.trim().toLowerCase() !== parsed.data.email) {
+      throw new Error("Invitation identity could not be confirmed");
+    }
+    // Reuses the same authenticated, identity-checked, account-only upsert as
+    // Clients and Order Detail. Re-inviting an unconfirmed account is safe.
+    await setAdminClientPartner(data.user.id, true, supabase);
+  } catch (error) {
+    if (invitationCreated) {
+      throw new AdminClientsError(503,
+        "Invitation created, but Partner Pricing could not be confirmed. Reload Admin Clients and enable Partner Pricing before the client places an order.",
+        "partner-assignment-unconfirmed");
+    }
+    if (error instanceof AdminClientsError) throw error;
+    throw new AdminClientsError(503,
+      "Invitation could not be confirmed. Check Admin Clients before retrying; an invitation or account may already exist.",
+      "invite-unconfirmed");
   }
 }
 

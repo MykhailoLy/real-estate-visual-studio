@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Loader2, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 // ============================================================
 // ResetPasswordForm
@@ -15,7 +16,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 // session — supabase.auth.updateUser() replaces their password.
 // ============================================================
 
-export default function ResetPasswordForm() {
+export default function ResetPasswordForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
@@ -54,7 +55,7 @@ export default function ResetPasswordForm() {
       setDone(true);
       // Give the user a moment to read the success message, then redirect
       setTimeout(() => {
-        router.replace("/dashboard");
+        router.replace(safeInternalPath(nextPath));
         router.refresh();
       }, 2000);
     } catch {
@@ -72,7 +73,7 @@ export default function ResetPasswordForm() {
         </div>
         <div>
           <h2 className="text-base font-bold text-foreground mb-1">Password updated</h2>
-          <p className="text-sm text-muted">Taking you to your dashboard…</p>
+          <p className="text-sm text-muted">{nextPath === "/dashboard" ? "Taking you to your dashboard…" : "Continuing to your account…"}</p>
         </div>
       </div>
     );

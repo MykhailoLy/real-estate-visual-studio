@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 //   - Email confirmation  (type=signup  / code=…)
 //   - Password reset link (type=recovery / code=…)
 //   - Magic link          (code=…)
+//   - Accepted admin invite (type=invite / verified session cookie)
 //
 // We exchange the PKCE `code` for a session server-side using
 // the @supabase/ssr server client. This writes the session
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
 
   const code  = searchParams.get("code");
-  const type  = searchParams.get("type");   // "recovery" | "signup" | null
+  const type  = searchParams.get("type");   // "recovery" | "signup" | "invite" | null
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── No code — nothing to exchange ────────────────────────
-  if (!code) {
+  if (!code && type !== "invite") {
     return NextResponse.redirect(new URL("/login", origin));
   }
 
@@ -79,12 +80,28 @@ export async function GET(req: NextRequest) {
   });
 
   // ── Exchange the code for a session ──────────────────────
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  // /auth/invite consumes the standard invite fragment in the browser. An
+  // invite query parameter alone is never authentication: verify its cookies
+  // with Auth before reading the profile or sending it to the dashboard.
+  const { error: exchangeError } = code
+    ? await supabase.auth.exchangeCodeForSession(code)
+    : { error: null };
 
   if (exchangeError) {
     const target = new URL("/login", origin);
     target.searchParams.set("error", exchangeError.message);
     return NextResponse.redirect(target);
+  }
+
+  if (type === "invite") {
+    try {
+      const { data, error: userError } = await supabase.auth.getUser();
+      if (userError || !data.user || data.user.is_anonymous) {
+        return NextResponse.redirect(new URL("/login", origin));
+      }
+    } catch {
+      return NextResponse.redirect(new URL("/login", origin));
+    }
   }
 
   // ── Route based on flow type ──────────────────────────────
@@ -97,7 +114,7 @@ export async function GET(req: NextRequest) {
   // Email confirmation (type=signup or default after signUp) →
   // check whether the profile is complete enough to place an order. Existing
   // incomplete historical rows must return to onboarding just like missing rows.
-  if (type === "signup" || !type) {
+  if (type === "signup" || type === "invite" || !type) {
     try {
       const { data: profile } = await supabase
         .from("client_profiles")
@@ -111,6 +128,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(onboarding);
       }
     } catch {
+      if (type === "invite") {
+        const onboarding = new URL("/dashboard/profile", origin);
+        onboarding.searchParams.set("onboarding", "1");
+        if (hasNext) onboarding.searchParams.set("next", nextPath);
+        return NextResponse.redirect(onboarding);
+      }
       // DB unavailable (e.g. env missing in build) — fall through.
     }
   }

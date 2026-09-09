@@ -20,6 +20,9 @@ let pricingError: boolean;
 let profileError: boolean;
 let writeError: boolean;
 let wrongIdentity: boolean;
+let inviteError: { code?: string; message: string } | null;
+let inviteThrows: boolean;
+let inviteUser: AuthFixture | null;
 const committedOrder = Object.freeze({ user_id: userId, estimated_total_cents: 11685 });
 
 function user(id = userId): AuthFixture {
@@ -28,6 +31,14 @@ function user(id = userId): AuthFixture {
 }
 const supabase = {
   auth: { admin: {
+    async inviteUserByEmail(email: string, options: { redirectTo: string }) {
+      calls.push(`invite:${email}`);
+      assert.equal(new URL(options.redirectTo).pathname, "/auth/invite");
+      assert.deepEqual(Object.keys(options), ["redirectTo"]);
+      if (inviteThrows) throw new Error("private Auth details");
+      if (!inviteError && inviteUser) users = users.filter((entry) => entry.id !== inviteUser!.id).concat(inviteUser);
+      return { data: { user: inviteUser }, error: inviteError };
+    },
     async listUsers({ page, perPage }: { page: number; perPage: number }) {
       assert.equal(perPage, 50);
       calls.push(`list:${page}`);
@@ -87,11 +98,123 @@ const { getPartnerClient } = await import("./account-pricing-server.ts");
 const { calculateOrderQuote } = await import("./pricing/calculate.ts");
 const { POST } = await import("../app/(public)/api/admin/clients/[userId]/partner-pricing/route.ts");
 const { POST: orderPOST } = await import("../app/(public)/api/admin/orders/[orderId]/partner-pricing/route.ts");
+const { POST: invitePOST } = await import("../app/(public)/api/admin/clients/invite-partner/route.ts");
+const { inviteAdminPartnerClient } = await import("./admin-clients-server.ts");
 
 beforeEach(() => {
   process.env.ADMIN_PASSWORD = "isolated-admin-clients-test-password";
   cookies.clear(); users = [user()]; profiles = []; pricing = []; calls = []; writes = [];
   listError = false; authError = null; pricingError = false; profileError = false; writeError = false; wrongIdentity = false;
+  inviteError = null; inviteThrows = false; inviteUser = { ...user(otherId), email: "future@example.com" };
+});
+
+async function invite(body: unknown = { email: "future@example.com" }) {
+  const response = await invitePOST(new Request("http://localhost/api/admin/clients/invite-partner", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }));
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  return response;
+}
+
+test("unauthenticated, ordinary customer and forged sessions cannot invite through the endpoint or helper", async () => {
+  for (const cookie of [null, "customer-session", "9999999999.forged"]) {
+    cookies.clear();
+    if (cookie === "customer-session") cookies.set("sb-test-auth-token", { value: cookie });
+    else if (cookie) cookies.set(ADMIN_COOKIE_NAME, { value: cookie });
+    assert.equal((await invite()).status, 401);
+    await assert.rejects(inviteAdminPartnerClient({ email: "future@example.com" }),
+      (error: unknown) => error instanceof AdminClientsError && error.status === 401);
+    assert.deepEqual(calls, []);
+  }
+});
+
+test("invite accepts only an email, rejecting malformed JSON, invalid emails and browser pricing/identity fields", async () => {
+  admin();
+  for (const body of [null, {}, [], { email: 7 }, { email: "bad" }, { email: "a@" }, { email: "a@b.com\nBcc:x@y.com" },
+    ...["percentage", "partnerClient", "partner_client", "user_id", "role", "redirectTo"].map((key) => ({ email: "future@example.com", [key]: true }))]) {
+    assert.equal((await invite(body)).status, 400);
+  }
+  assert.equal((await invitePOST(new Request("http://localhost", { method: "POST", body: "{" }))).status, 400);
+  assert.deepEqual(calls, []);
+});
+
+test("normalized invite email assigns only the authoritative returned Auth ID without an order or metadata response", async () => {
+  admin(); users = [];
+  const response = await invite({ email: "  FuTuRe@Example.com  " });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { success: true });
+  assert.deepEqual(calls, ["invite:future@example.com", `auth:${otherId}`, "account_pricing", "account_pricing"]);
+  assert.equal(writes[0].user_id, otherId);
+  assert.equal(writes[0].partner_client, true);
+  assert.equal((await listAdminClients(1)).clients[0].partnerClient, true);
+  assert.equal(calls.includes("orders"), false);
+});
+
+test("existing-account provider codes return a safe conflict without a Partner write", async () => {
+  admin();
+  for (const code of ["email_exists", "user_already_exists"]) {
+    inviteError = { code, message: "private Auth metadata" };
+    const response = await invite();
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), {
+      error: "This email already has an account. Enable Partner Pricing from the client row.", code: "account-exists",
+    });
+  }
+  assert.equal(writes.length, 0);
+  assert.ok(calls.every((call) => call.startsWith("invite:")));
+});
+
+test("invite errors and ambiguous transport failures never write Partner or expose provider data", async () => {
+  admin();
+  for (const throws of [false, true]) {
+    inviteThrows = throws; inviteError = { code: "unexpected_failure", message: "private Auth metadata" };
+    const response = await invite();
+    assert.equal(response.status, 503);
+    const body = await response.json();
+    assert.equal(body.code, "invite-unconfirmed");
+    assert.match(body.error, /may already exist/);
+    assert.doesNotMatch(JSON.stringify(body), /private|metadata|user_metadata/);
+  }
+  assert.equal(writes.length, 0);
+  assert.ok(calls.every((call) => call.startsWith("invite:")));
+});
+
+test("successful invitation followed by pricing failure is explicit, leaves the account, and supports Clients repair", async () => {
+  admin(); users = []; writeError = true;
+  const response = await invite();
+  assert.equal(response.status, 503);
+  const body = await response.json();
+  assert.equal(body.code, "partner-assignment-unconfirmed");
+  assert.match(body.error, /Invitation created.*Partner Pricing could not be confirmed.*before the client places an order/);
+  assert.doesNotMatch(JSON.stringify(body), /private|user_metadata|identities/);
+  assert.equal(users.length, 1);
+  assert.equal(writes.length, 0);
+  writeError = false;
+  assert.equal((await request({ partnerClient: true }, otherId)).status, 200);
+  assert.equal(await getPartnerClient(otherId, supabase as never), true);
+});
+
+test("missing, mismatched or unverified invite identities and unreadable pricing are partial failures, never wrong-account writes", async () => {
+  admin();
+  for (const candidate of [null, { ...user(otherId), email: "wrong@example.com" },
+    { ...user(otherId), email: "future@example.com", is_anonymous: true },
+    { ...user("invalid"), email: "future@example.com" }]) {
+    inviteUser = candidate;
+    const response = await invite();
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, "partner-assignment-unconfirmed");
+  }
+  inviteUser = { ...user(otherId), email: "future@example.com" }; pricingError = true;
+  assert.equal((await invite()).status, 503);
+  assert.equal(writes.length, 0);
+});
+
+test("re-inviting a Supabase-returned unconfirmed account keeps one account and one Partner row", async () => {
+  admin(); users = [];
+  assert.equal((await invite()).status, 200);
+  assert.equal((await invite()).status, 200);
+  assert.equal(users.length, 1); assert.equal(pricing.length, 1);
+  assert.equal(pricing[0].user_id, otherId); assert.equal(pricing[0].partner_client, true);
 });
 after(() => {
   if (originalPassword === undefined) delete process.env.ADMIN_PASSWORD; else process.env.ADMIN_PASSWORD = originalPassword;
