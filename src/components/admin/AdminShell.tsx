@@ -14,6 +14,7 @@ import {
   PictureInPicture2,
   RotateCcw,
   X,
+  Users,
 } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
@@ -30,6 +31,12 @@ const adminNav = [
     href: "/admin/orders",
     icon: Briefcase,
     description: "Customer orders and files",
+  },
+  {
+    label: "Clients",
+    href: "/admin/clients",
+    icon: Users,
+    description: "Accounts and Partner pricing",
   },
   {
     label: "Properties",
@@ -147,7 +154,7 @@ export default function AdminShell({
 
             <nav
               aria-label="Admin navigation"
-              className="hidden lg:flex items-center gap-1"
+              className="hidden xl:flex items-center gap-1"
             >
               {adminNav.map((item) => {
                 const active = activeFor(pathname, item.href);
@@ -169,11 +176,11 @@ export default function AdminShell({
               })}
             </nav>
 
-            <div className="hidden lg:block">
+            <div className="hidden xl:block">
               <AdminLogoutButton />
             </div>
 
-            <div className="lg:hidden">
+            <div className="xl:hidden">
               <button
                 type="button"
                 onClick={() =>

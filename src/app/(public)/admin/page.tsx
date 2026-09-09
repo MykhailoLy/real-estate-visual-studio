@@ -6,6 +6,7 @@ import {
   Briefcase,
   ImagePlus,
   PictureInPicture2,
+  Users,
 } from "lucide-react";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 
@@ -24,6 +25,13 @@ const cards = [
     href: "/admin/orders",
     cta: "Open orders",
     icon: Briefcase,
+  },
+  {
+    title: "Clients",
+    description: "Manage registered client accounts and Partner pricing.",
+    href: "/admin/clients",
+    cta: "Manage clients",
+    icon: Users,
   },
   {
     title: "Portfolio",
@@ -61,7 +69,7 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <Link
             key={card.href}

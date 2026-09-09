@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { AdminClientsError, PartnerPricingBody, setAdminClientPartner } from "@/lib/admin-clients-server";
 
 export const runtime = "nodejs";
-const Body = z.object({ partnerClient: z.boolean() }).strict();
 const headers = { "Cache-Control": "no-store" };
 
 export async function POST(
@@ -17,7 +17,7 @@ export async function POST(
   if (!z.string().uuid().safeParse(orderId).success) {
     return Response.json({ error: "Invalid order ID." }, { status: 400, headers });
   }
-  const parsed = Body.safeParse(await request.json().catch(() => null));
+  const parsed = PartnerPricingBody.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return Response.json({ error: "A Partner client toggle is required." }, { status: 400, headers });
   }
@@ -32,15 +32,12 @@ export async function POST(
     if (!order.user_id) {
       return Response.json({ error: "This order is not linked to an authenticated account." }, { status: 409, headers });
     }
-    // The browser supplies only the desired boolean, never the account identity.
-    const { error: updateError } = await supabase.from("account_pricing").upsert({
-      user_id: order.user_id,
-      partner_client: parsed.data.partnerClient,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id" });
-    if (updateError) throw new Error("Account pricing update failed");
+    await setAdminClientPartner(order.user_id, parsed.data.partnerClient, supabase);
     return Response.json({ partnerClient: parsed.data.partnerClient }, { headers });
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminClientsError) {
+      return Response.json({ error: error.message }, { status: error.status, headers });
+    }
     return Response.json({ error: "Could not update Partner pricing. Please retry." }, { status: 503, headers });
   }
 }

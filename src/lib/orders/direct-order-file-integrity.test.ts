@@ -90,6 +90,9 @@ registerHooks({
     if (specifier === "@/lib/supabase-admin") {
       return { url: SUPABASE_ADMIN_MOCK_URL, shortCircuit: true };
     }
+    if (specifier === "@/lib/admin-auth") {
+      return { url: "data:text/javascript,export async function isAdminAuthenticated(){return true}", shortCircuit: true };
+    }
     if (specifier === "@/lib/client-auth") {
       return { url: CLIENT_AUTH_MOCK_URL, shortCircuit: true };
     }
@@ -298,6 +301,9 @@ interface MockSupabaseOptions {
 }
 
 class MockSupabase {
+  readonly auth = { admin: { async getUserById(id: string) {
+    return { data: { user: id === USER_ID ? { id } : null }, error: null };
+  } } };
   partnerClient: boolean | null = null;
   partnerPricingLookupError = false;
   readonly partnerLookupUsers: unknown[] = [];
@@ -657,6 +663,14 @@ class MockTableQuery {
       };
     }
     return { data: null, error: null };
+  }
+
+  async upsert(row: { user_id: string; partner_client: boolean }, options: { onConflict: string }) {
+    assert.equal(this.table, "account_pricing");
+    assert.equal(row.user_id, USER_ID);
+    assert.equal(options.onConflict, "user_id");
+    this.supabase.partnerClient = row.partner_client;
+    return { error: null };
   }
 
   delete() {
@@ -2689,6 +2703,29 @@ test("account pricing lookup failure blocks submission before storage or databas
   assert.equal(!result.ok && result.status, 503);
   assert.equal(supabase.rpcCalls.length, 0);
   assert.equal(supabase.copies.length, 0);
+});
+
+test("admin can enable a zero-order account before its first authoritative Partner order", async () => {
+  const supabase = new MockSupabase();
+  installSupabaseMock(supabase);
+  const { setAdminClientPartner } = await import("../admin-clients-server.ts");
+  await setAdminClientPartner(USER_ID, true);
+  assert.equal(supabase.fromCalls.includes("orders"), false);
+  assert.equal(supabase.rpcCalls.length, 0);
+  assert.equal(supabase.inserts.length, 0);
+
+  const itemFiles = itemFilesForDirectOrder(2);
+  addStoredObjects(supabase, itemFiles);
+  const { createProductionOrder } = await loadOrderModule();
+  const result = await createProductionOrder(orderInput({ itemFiles,
+    pricingExpectation: pricingExpectation("virtual-staging-first-image-50", 2100),
+  }));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.pricingSnapshot.partnerClient, true);
+  assert.equal(result.pricingSnapshot.partnerDiscountCents, 150);
+  assert.equal(result.pricingSnapshot.totalCents, 2100);
+  assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
 });
 
 test("browser Partner flag and rate cannot authorize a discount", async () => {
