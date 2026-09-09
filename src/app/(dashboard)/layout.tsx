@@ -21,6 +21,7 @@ import {
   DASHBOARD_REQUEST_PATH_HEADER,
   safeDashboardRequestPath,
 } from "@/lib/dashboard-request-path";
+import { isProfileComplete } from "@/lib/profile-completion";
 import DashboardDocumentScrollLock from "@/components/dashboard/DashboardDocumentScrollLock";
 import { DashboardUserProvider } from "@/components/dashboard/DashboardUserContext";
 import type { DashboardUser } from "@/components/dashboard/DashboardUserContext";
@@ -43,12 +44,29 @@ export default async function DashboardGroupLayout({
     getDashboardRequestProfile(),
   ]);
 
+  const requestHeaders = await headers();
+  const destination = safeDashboardRequestPath(
+    requestHeaders.get(DASHBOARD_REQUEST_PATH_HEADER),
+  );
+
   if (!rawUser) {
-    const requestHeaders = await headers();
-    const destination = safeDashboardRequestPath(
-      requestHeaders.get(DASHBOARD_REQUEST_PATH_HEADER),
-    );
     redirect(`/login?redirectTo=${encodeURIComponent(destination)}`);
+  }
+
+  // Keep the same profile-completeness contract at the portal boundary that
+  // order submission enforces. The profile page itself remains reachable so
+  // an incomplete historical row can be repaired without a redirect loop.
+  const destinationPathname = destination.split("?", 1)[0];
+  if (
+    !rawUser.isQaPreview &&
+    !isProfileComplete(profile) &&
+    destinationPathname !== "/dashboard/profile"
+  ) {
+    const params = new URLSearchParams({ onboarding: "1" });
+    if (destination !== "/dashboard") {
+      params.set("next", destination);
+    }
+    redirect(`/dashboard/profile?${params.toString()}`);
   }
 
   const user: DashboardUser | null = rawUser

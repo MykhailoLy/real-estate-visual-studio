@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isProfileComplete } from "@/lib/profile-completion";
 import { safeInternalPath } from "@/lib/safe-redirect";
 
 export const runtime = "nodejs";
@@ -20,8 +21,8 @@ export const runtime = "nodejs";
 // needed, no redirect loop.
 //
 // After email confirmation (type=signup):
-//   - If the user has no client_profiles row yet → /dashboard/profile?onboarding=1
-//   - If they already have a profile (e.g. re-confirming) → /dashboard
+//   - If the user has no complete client_profiles row yet → onboarding
+//   - If they already have a complete profile (e.g. re-confirming) → /dashboard
 // ============================================================
 
 export async function GET(req: NextRequest) {
@@ -94,17 +95,16 @@ export async function GET(req: NextRequest) {
   }
 
   // Email confirmation (type=signup or default after signUp) →
-  // check if the user already has a profile row. If not, send them to
-  // onboarding, preserving the intended destination so they return to
-  // the selected order form after completing their profile.
+  // check whether the profile is complete enough to place an order. Existing
+  // incomplete historical rows must return to onboarding just like missing rows.
   if (type === "signup" || !type) {
     try {
       const { data: profile } = await supabase
         .from("client_profiles")
-        .select("id")
+        .select("first_name, last_name, full_name, phone")
         .maybeSingle();
 
-      if (!profile) {
+      if (!isProfileComplete(profile)) {
         const onboarding = new URL("/dashboard/profile", origin);
         onboarding.searchParams.set("onboarding", "1");
         if (hasNext) onboarding.searchParams.set("next", nextPath);
@@ -115,6 +115,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Profile exists or unrecognised flow → intended destination (or dashboard).
+  // Complete profile or unrecognised flow → intended destination (or dashboard).
   return NextResponse.redirect(new URL(nextPath, origin));
 }

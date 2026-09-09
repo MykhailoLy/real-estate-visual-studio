@@ -1,6 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { upsertClientProfile } from "@/lib/client-profile";
+import {
+  getClientProfile,
+  upsertClientProfile,
+} from "@/lib/client-profile";
 import type { UpsertProfileData } from "@/lib/client-profile";
+import {
+  getMissingProfileCompletionFields,
+  type ProfileCompletionFields,
+} from "@/lib/profile-completion";
 
 export const runtime = "nodejs";
 
@@ -41,6 +48,45 @@ export async function POST(req: NextRequest) {
     industry:     field(body.industry),
     how_found_us: field(body.how_found_us),
   };
+
+  // Partial API callers may omit fields, so validate the effective profile
+  // rather than only the request body. This keeps profile editing compatible
+  // while making the server the authoritative completeness gate.
+  const currentProfile = await getClientProfile();
+  const candidate: ProfileCompletionFields = {
+    first_name:
+      data.first_name === undefined
+        ? currentProfile?.first_name ?? null
+        : data.first_name,
+    last_name:
+      data.last_name === undefined
+        ? currentProfile?.last_name ?? null
+        : data.last_name,
+    full_name:
+      data.full_name === undefined
+        ? currentProfile?.full_name ?? null
+        : data.full_name,
+    phone:
+      data.phone === undefined
+        ? currentProfile?.phone ?? null
+        : data.phone,
+    company_name:
+      data.company_name === undefined
+        ? currentProfile?.company_name ?? null
+        : data.company_name,
+  };
+
+  const missingFields = getMissingProfileCompletionFields(candidate);
+  if (missingFields.length > 0) {
+    return NextResponse.json(
+      {
+        error: "Please complete your profile (name and phone) before continuing.",
+        code: "profile-incomplete",
+        fields: missingFields,
+      },
+      { status: 422 },
+    );
+  }
 
   const saved = await upsertClientProfile(data);
 
