@@ -389,6 +389,13 @@ compatibility bridge: it prevents migration-first deployment from hiding valid
 uploads created by the old writer. Phase 1 does not change any application read
 or write path.
 
+The `DEFAULT 'uploaded'` exists only to protect the pre-Phase-2 writer during
+this migration-first rollout. It is not the desired long-term fail-safe default.
+After Phase 2 is fully deployed and every production writer explicitly creates
+new upload slots as `pending`, a separate manually reviewed forward migration
+should change the default to `pending` or remove the default. PR #299 must not
+perform that follow-up migration.
+
 The later Phase 2 application PR must:
 
 1. Make new rework-file rows explicitly use `pending`.

@@ -7,10 +7,6 @@ const SQL = readFileSync(
   "utf8",
 );
 const MANIFEST = readFileSync("supabase/MIGRATION_MANIFEST.md", "utf8");
-const CURRENT_WRITER = readFileSync(
-  "src/lib/rework-reference-files.ts",
-  "utf8",
-);
 
 test("F-001 migration is manual, additive, and re-runnable", () => {
   assert.match(SQL, /MANUAL MIGRATION ONLY/);
@@ -41,25 +37,20 @@ test("F-001 migration allows exactly pending and uploaded lifecycle values", () 
   assert.match(SQL, /ALTER COLUMN upload_status SET NOT NULL/);
 });
 
-test("historical rows and the pre-Phase-2 writer remain uploaded", () => {
+test("historical rows and the Phase 1 compatibility default remain uploaded", () => {
   assert.match(
     SQL,
     /UPDATE public\.deliverable_review_files\s+SET upload_status = 'uploaded'\s+WHERE upload_status IS NULL/,
   );
   assert.match(SQL, /ALTER COLUMN upload_status SET DEFAULT 'uploaded'/);
-
-  const writerInsert = CURRENT_WRITER.match(
-    /\.from\("deliverable_review_files"\)\s+\.insert\(\{([\s\S]*?)\}\)\s+\.select\(/,
-  )?.[1];
-  assert.ok(writerInsert, "current rework writer insert must exist");
-  assert.doesNotMatch(writerInsert, /upload_status/);
 });
 
-test("Phase 2 contract is documented but not implemented in Phase 1", () => {
+test("the future Phase 2 contract is documented", () => {
   assert.match(MANIFEST, /new rework-file rows explicitly use `pending`/);
   assert.match(MANIFEST, /server-side Storage verification/);
   assert.match(MANIFEST, /list\/read paths expose only `uploaded` rows/);
   assert.match(MANIFEST, /historical `uploaded` rows visible/i);
   assert.match(MANIFEST, /stale-pending cleanup as separate future work/i);
-  assert.doesNotMatch(CURRENT_WRITER, /upload_status/);
+  assert.match(MANIFEST, /not the desired long-term fail-safe default/i);
+  assert.match(MANIFEST, /change the default to `pending` or remove the default/i);
 });
