@@ -314,6 +314,7 @@ export default async function AdminOrderDetailPage({
               "filename, file_size, mime_type, created_at",
           )
           .eq("order_id", orderId)
+          .eq("upload_status", "uploaded")
           .order("created_at", { ascending: true });
 
         if (refFileErr) {
