@@ -49,7 +49,7 @@ function order(overrides: Record<string, unknown> = {}) {
       taxCents: 0,
       totalCents: 1500,
       customQuote: false,
-      items: [],
+      items: [{ itemIndex: 0, quantity: 1, priceKey: "virtual-staging", unitPriceCents: 1500, baseSubtotalCents: 1500, addOns: [], addOnSubtotalCents: 0, lineSubtotalCents: 1500 }],
       pricedAt: "2026-08-24T12:00:00.000Z",
     },
     ...overrides,
@@ -184,6 +184,17 @@ test("tampered zero-total snapshot cannot use the production exemption", () => {
     () => paymentGate(zeroTotalOrder(99), null, "confirmed"),
     AdminPaymentGateError,
   );
+});
+
+test("malformed supported historical snapshots cannot bypass the payment gate", () => {
+  for (const version of ["2026-06-25-v1", "2026-08-18-v1", "2026-08-23-v1", "2026-08-29-v2"]) {
+    const current = order();
+    current.pricing_snapshot = { ...current.pricing_snapshot, pricingVersion: version, totalCents: 99 };
+    assert.throws(() => paymentGate(current, null, "confirmed"), AdminPaymentGateError);
+  }
+  const tamperedFree = zeroTotalOrder(99);
+  tamperedFree.pricing_snapshot.pricingVersion = "2026-08-29-v2";
+  assert.throws(() => paymentGate(tamperedFree, null, "confirmed"), AdminPaymentGateError);
 });
 
 test("mismatched paid payment cannot advance", () => {

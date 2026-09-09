@@ -9,7 +9,7 @@ import {
   STAGING_ADDON_PRICE_KEYS,
   getCatalogPrice,
 } from "./catalog.ts";
-import { getVolumeDiscount } from "./discounts.ts";
+import { getVolumeDiscount, percentageOfCents } from "./discounts.ts";
 import {
   WELCOME_OFFER_BENEFIT_RULES,
   WELCOME_OFFER_VERSION,
@@ -255,12 +255,6 @@ function calculatePhotoEditingItems(
   });
 }
 
-function percentageOfCents(cents: number, percent: number): number {
-  return Number(
-    (BigInt(cents) * BigInt(percent) + BigInt(50)) / BigInt(100),
-  );
-}
-
 function getWelcomeOfferBenefitKey(
   input: OrderPricingInput,
   availability: WelcomeOfferAvailability | undefined,
@@ -386,8 +380,12 @@ export function calculateOrderQuote(
   const discountedItemIndexes = new Set(
     welcomeOffer.benefits.map((benefit) => benefit.itemIndex),
   );
+  // Staging's half-price image still counts toward the tier. The two free
+  // standalone benefits retain their existing paid-image quantity policy.
   const volumeEligibleUnits =
-    welcomeOffer.benefits.length > 0 ? eligibleUnits - 1 : eligibleUnits;
+    welcomeOffer.benefits.length > 0 && input.serviceType !== "virtual-staging"
+      ? eligibleUnits - 1
+      : eligibleUnits;
   const volume = originalVolume.customQuote
     ? originalVolume
     : getVolumeDiscount(volumeEligibleUnits);

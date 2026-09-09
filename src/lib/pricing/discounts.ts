@@ -5,6 +5,13 @@ export interface VolumeDiscount {
   customQuote: boolean;
 }
 
+/** Round a percentage discount once, half up, in integer minor units. */
+export function percentageOfCents(cents: number, percent: number): number {
+  return Number(
+    (BigInt(cents) * BigInt(percent) + BigInt(50)) / BigInt(100),
+  );
+}
+
 /**
  * Catalog-only 360 services are not accepted by the standard order calculator
  * and remain outside its automatic 5% / 10% / 15% discount tiers.
