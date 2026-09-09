@@ -84,13 +84,13 @@ test("stateless orchestration preserves model steps and returns the final answer
     createSequence(
       [
         requiresAction([thoughtStep, callStep]),
-        completed("The authoritative total is US$45.00."),
+        completed("The authoritative total is US$57.00."),
       ],
       requests,
     ),
   );
 
-  assert.equal(output, "The authoritative total is US$45.00.");
+  assert.equal(output, "The authoritative total is US$57.00.");
   assert.equal(requests.length, 2);
   assert.deepEqual(requests[0]?.input, [
     {
@@ -119,15 +119,15 @@ test("stateless orchestration preserves model steps and returns the final answer
     service: "virtual-staging",
     currency: "USD",
     quantity: 3,
-    unitPriceCents: 1_500,
-    baseSubtotalCents: 4_500,
+    unitPriceCents: 1_900,
+    baseSubtotalCents: 5_700,
     addOnSubtotalCents: 0,
     discountEligibility: "eligible",
     discountExplanation:
       "Eligible for standard volume discounts; no discount applies at this quantity.",
     discountPercent: 0,
     discountAmountCents: 0,
-    finalSubtotalBeforeTaxCents: 4_500,
+    finalSubtotalBeforeTaxCents: 5_700,
     taxCalculated: false,
     currencyPolicy: "fixed-catalog-prices-not-live-conversion",
     pricingVersion: PRICING_VERSION,
@@ -135,8 +135,8 @@ test("stateless orchestration preserves model steps and returns the final answer
       {
         id: "virtual-staging",
         quantity: 3,
-        unitPriceCents: 1_500,
-        subtotalCents: 4_500,
+        unitPriceCents: 1_900,
+        subtotalCents: 5_700,
       },
     ],
   });
@@ -161,13 +161,13 @@ test("completed interactions with function calls remain supported", async () => 
             },
           },
         ]),
-        completed("The authoritative total is US$45.00."),
+        completed("The authoritative total is US$57.00."),
       ],
       requests,
     ),
   );
 
-  assert.equal(output, "The authoritative total is US$45.00.");
+  assert.equal(output, "The authoritative total is US$57.00.");
   assert.equal(requests.length, 2);
   assert.equal(
     functionResultStep(requests[1]!).call_id,

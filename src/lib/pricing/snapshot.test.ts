@@ -4,6 +4,7 @@ import { PRICING_VERSION } from "./catalog.ts";
 import { calculateOrderQuote } from "./calculate.ts";
 import { createPricingSnapshot, isSupportedPricingVersion, parsePricingSnapshot } from "./snapshot.ts";
 import type { PricingSnapshot } from "./types.ts";
+import { historicalEnhancementSnapshot, historicalStagingSnapshot } from "./historical-snapshots.fixture.ts";
 
 function currentSnapshot() {
   return createPricingSnapshot(calculateOrderQuote(
@@ -31,10 +32,14 @@ function preWelcomeSnapshot(pricingVersion: string) {
 }
 
 function v2Snapshot(): PricingSnapshot {
+  const historical = historicalStagingSnapshot("2026-08-29-v2");
   return {
-    ...currentSnapshot(), pricingVersion: "2026-08-29-v2",
-    volumeEligibleUnits: 9, volumeDiscountPercent: 5, volumeDiscountCents: 675,
+    ...historical, addOnSubtotalCents: 1000,
     subtotalAfterDiscountCents: 14575, totalCents: 14575,
+    items: historical.items.map((item) => ({ ...item,
+      addOns: [{ id: "image-enhancement", priceKey: "image-enhancement", quantity: 1, unitPriceCents: 100, subtotalCents: 100 }],
+      addOnSubtotalCents: 100, lineSubtotalCents: 1600,
+    })),
   };
 }
 
@@ -42,7 +47,22 @@ test("current snapshots validate without losing any stored pricing evidence", ()
   assert.equal(isSupportedPricingVersion(PRICING_VERSION), true);
   const snapshot = currentSnapshot();
   assert.deepEqual(parsePricingSnapshot(snapshot), snapshot);
-  assert.equal(snapshot.totalCents, 13900);
+  assert.equal(snapshot.pricingVersion, "2026-09-09-v5");
+  assert.equal(snapshot.totalCents, 17540);
+});
+
+test("v2/v3/v4 preserve the original staging and enhancement prices and Partner evidence", () => {
+  for (const version of ["2026-08-29-v2", "2026-09-09-v3", "2026-09-09-v4"] as const) {
+    for (const snapshot of [historicalStagingSnapshot(version), historicalEnhancementSnapshot(version),
+      ...(version === "2026-09-09-v4" ? [historicalStagingSnapshot(version, true)] : []),
+    ]) {
+      const original = structuredClone(snapshot);
+      assert.deepEqual(parsePricingSnapshot(snapshot), original);
+      assert.deepEqual(snapshot, original);
+      assert.equal(parsePricingSnapshot(snapshot)?.items[0].unitPriceCents,
+        snapshot.serviceType === "virtual-staging" ? 1500 : 100);
+    }
+  }
 });
 
 test("v2 preserves Welcome and its original volume rule without repricing", () => {
@@ -75,7 +95,7 @@ for (const version of ["2026-06-25-v1", "2026-08-18-v1", "2026-08-23-v1"]) {
 }
 
 test("unknown, future, missing and malformed snapshot versions are rejected", () => {
-  for (const version of [undefined, null, "", "legacy", "2026-08-29-v3", "2099-01-01-v1", 3]) {
+  for (const version of [undefined, null, "", "legacy", "2026-08-29-v3", "2026-09-09-v6", "2099-01-01-v1", 3]) {
     assert.equal(parsePricingSnapshot({ ...currentSnapshot(), pricingVersion: version }), null);
     assert.equal(isSupportedPricingVersion(version), false);
   }

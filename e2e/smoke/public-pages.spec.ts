@@ -76,7 +76,7 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
     "text-transform",
     "uppercase",
   );
-  await expect(imageEnhancementCta).toContainText("From $1 / image");
+  await expect(imageEnhancementCta).toContainText("From $1.20 / image");
   await expect(imageEnhancementCta).not.toContainText(".00");
   await expect(imageEnhancementCta.locator("svg")).toHaveCount(0);
   await expect(
@@ -1102,6 +1102,46 @@ const publicRoutes = [
     heading: "Precios claros, sin suscripciones",
   },
 ] as const;
+
+for (const locale of ["en", "es"] as const) {
+  for (const [market, staging, enhancement] of [
+    ["US", "$19.00", "$1.20"], ["EU", "€16.00", "€1.00"], ["CA", "CA$26.00", "CA$1.65"],
+  ] as const) {
+    test(`v5 pricing catalogue displays ${market} prices and canonical SEO in ${locale}`, async ({ page }, testInfo) => {
+      test.setTimeout(90000);
+      const guard = await installSmokeNetworkGuards(page, testInfo);
+      await page.addInitScript((region) => {
+        localStorage.setItem("picchuspot-region", region);
+        localStorage.setItem("picchuspot_cookie_consent", "rejected");
+      }, market);
+      const prefix = locale === "es" ? "/es" : "";
+      for (const [service, price, seoPrice] of [
+        ["virtual-staging", staging, "19.00"], ["image-enhancement", enhancement, "1.20"],
+      ]) {
+        const response = await page.goto(`${prefix}/pricing/${service}`);
+        expectNavigationResponseOk(response, service);
+        const offers = parseJsonLdObjects(await page.content())
+          .filter((schema) => schema["@type"] === "Service").map((schema) => schema.offers);
+        expect(offers).toContainEqual(expect.objectContaining({ price: seoPrice, priceCurrency: "USD" }));
+        for (const width of [360, 390, 768, 1024, 1440]) {
+          await page.setViewportSize({ width, height: 900 });
+          await expect(page.locator("main")).toContainText(price);
+          const oldHeadline = `${locale === "es" ? "Desde" : "From"} ${service === "virtual-staging" ? "$15.00" : "$1.00"} / ${locale === "es" ? "imagen" : "image"}`;
+          await expect(page.getByText(oldHeadline, { exact: true })).toHaveCount(0);
+          const dimensions = await page.evaluate(() => ({
+            content: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth,
+          }));
+          expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
+        }
+      }
+      await page.goto(`${prefix}/pricing`);
+      await expect(page.locator("main")).toContainText(staging);
+      await expect(page.locator("main")).toContainText(enhancement);
+      await guard.expectNoPageErrorsOrServerErrors();
+      await guard.expectNoForbiddenApiCalls();
+    });
+  }
+}
 
 test("legacy Services routes permanently redirect to Pricing", async ({ request }) => {
   for (const [source, destination] of [

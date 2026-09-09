@@ -5,6 +5,7 @@ import type Stripe from "stripe";
 import type { CheckoutEligibleOrder } from "./checkout-eligibility.ts";
 import type { CheckoutRepository, OrderPaymentRecord } from "./checkout-repository.ts";
 import type { CheckoutServiceDependencies, CheckoutStripeClient } from "./checkout-service.ts";
+import { historicalEnhancementSnapshot, historicalStagingSnapshot } from "../pricing/historical-snapshots.fixture.ts";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -37,7 +38,7 @@ const { isNoPaymentRequiredOrder } = await import("./checkout-eligibility.ts");
 const { calculateOrderQuote } = await import("../pricing/calculate.ts");
 const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
 
-test("Partner accounts retain the exact free Welcome payment exemption in v4", () => {
+test("Partner accounts retain the exact free Welcome payment exemption in v5", () => {
   for (const currency of ["USD", "EUR", "CAD"] as const) {
     for (const [dedicatedSubService, baseOptionId] of [
       ["image-enhancement-single-exposure", "image-enhancement-re"],
@@ -57,6 +58,55 @@ test("Partner accounts retain the exact free Welcome payment exemption in v4", (
   }
 });
 
+test("free Welcome evidence stays exact for each historical version and v5 currency", () => {
+  for (const [currency, oldBase, newBase] of [["USD", 100, 120], ["EUR", 100, 100], ["CAD", 150, 165]] as const) {
+    const current = createPricingSnapshot(calculateOrderQuote({ serviceType: "photo-editing", currency, items: [{
+      dedicatedSubService: "image-enhancement-single-exposure", baseOptionId: "image-enhancement-re",
+      selectedOptions: ["image-enhancement-re"],
+    }] }, { welcomeOfferAvailability: { imageEnhancementAvailable: true, virtualStagingAvailable: false, dayToDuskAvailable: false } }));
+    for (const version of ["2026-08-29-v2", "2026-09-09-v3", "2026-09-09-v4", "2026-09-09-v5"]) {
+      const base = version === "2026-09-09-v5" ? newBase : oldBase;
+      for (const evidence of [base, base + 1, ...(oldBase !== newBase ? [version === "2026-09-09-v5" ? oldBase : newBase] : [])]) {
+        const snapshot = structuredClone(current);
+        snapshot.pricingVersion = version;
+        snapshot.volumeEligibleUnits = version.endsWith("v2") || version.endsWith("v3") ? 0 : 1;
+        snapshot.baseSubtotalCents = snapshot.welcomeDiscountCents = evidence;
+        snapshot.welcomeOffer.totalDiscountCents = snapshot.welcomeOffer.benefits[0].discountCents = evidence;
+        snapshot.items[0].unitPriceCents = snapshot.items[0].baseSubtotalCents = snapshot.items[0].lineSubtotalCents = evidence;
+        assert.equal(isNoPaymentRequiredOrder({ service_type: "photo-editing", currency,
+          estimated_total_cents: 0, pricing_snapshot: snapshot,
+        }), evidence === base, `${version} ${currency} ${evidence}`);
+      }
+    }
+  }
+});
+
+test("new v5 catalogue totals reach Stripe in all currencies for ordinary and Partner accounts", async () => {
+  for (const [currency, stagingBase, enhancementBase, stagingPartner, enhancementPartner] of [
+    ["USD", 1900, 120, 1710, 108], ["EUR", 1600, 100, 1440, 90], ["CAD", 2600, 165, 2340, 148],
+  ] as const) {
+    for (const partnerClient of [false, true]) {
+      const quotes = [
+        [calculateOrderQuote({ serviceType: "virtual-staging", currency, items: [{ selectedAddons: [] }] }, { partnerClient }), partnerClient ? stagingPartner : stagingBase],
+        [calculateOrderQuote({ serviceType: "photo-editing", currency, items: [{ selectedOptions: ["image-enhancement-re"] }] }, { partnerClient }), partnerClient ? enhancementPartner : enhancementBase],
+      ] as const;
+      for (const [quote, expected] of quotes) {
+        const snapshot = createPricingSnapshot(quote);
+        assert.equal(snapshot.pricingVersion, "2026-09-09-v5");
+        const repository = new FakeRepository();
+        repository.order = validOrder({ currency, service_type: snapshot.serviceType,
+          estimated_total_cents: expected, pricing_snapshot: snapshot });
+        const { stripe, calls } = fakeStripe();
+        await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+        assert.equal(calls[0]?.params.line_items?.[0]?.price_data?.unit_amount, expected);
+        assert.equal(calls[0]?.params.line_items?.[0]?.price_data?.currency, currency.toLowerCase());
+        assert.equal(repository.currentPayment?.subtotal_cents, expected);
+        assert.deepEqual(repository.order.pricing_snapshot, snapshot);
+      }
+    }
+  }
+});
+
 function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEligibleOrder {
   const currency = typeof overrides.currency === "string" ? overrides.currency : "USD";
   return {
@@ -70,7 +120,7 @@ function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEli
     estimated_total_cents: 1350,
     currency,
     pricing_snapshot: {
-      pricingVersion: PRICING_VERSION,
+      pricingVersion: "2026-06-25-v1",
       partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency,
       serviceType: "virtual-staging",
@@ -80,7 +130,7 @@ function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEli
       addOnSubtotalCents: 0,
       welcomeDiscountCents: 0,
       welcomeOffer: {
-        version: "2026-08-29",
+        version: "legacy-none",
         totalDiscountCents: 0,
         benefits: [],
       },
@@ -103,7 +153,7 @@ function noPaymentRequiredOrder() {
     service_type: "photo-editing",
     estimated_total_cents: 0,
     pricing_snapshot: {
-      pricingVersion: PRICING_VERSION,
+      pricingVersion: "2026-09-09-v4",
       partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "photo-editing",
@@ -163,7 +213,7 @@ function partiallyDiscountedWelcomeOfferOrder() {
     estimated_total_cents: totalCents,
     item_count: 2,
     pricing_snapshot: {
-      pricingVersion: PRICING_VERSION,
+      pricingVersion: "2026-09-09-v4",
       partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "virtual-staging",
@@ -506,12 +556,8 @@ test("v2 Welcome Checkout retains its original total while new orders use the co
     { serviceType: "virtual-staging", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedAddons: [] })) },
     { welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: false, dayToDuskAvailable: false } },
   ));
-  const historical = {
-    ...current, pricingVersion: "2026-08-29-v2", volumeEligibleUnits: 9,
-    volumeDiscountPercent: 5, volumeDiscountCents: 675,
-    subtotalAfterDiscountCents: 13575, totalCents: 13575,
-  };
-  for (const [snapshot, cents] of [[historical, 13575], [current, 12900]] as const) {
+  const historical = historicalStagingSnapshot("2026-08-29-v2");
+  for (const [snapshot, cents] of [[historical, 13575], [current, 16340]] as const) {
     const repository = new FakeRepository();
     repository.order = validOrder({ item_count: 10, estimated_total_cents: cents, pricing_snapshot: snapshot });
     const { stripe, calls } = fakeStripe();
@@ -579,7 +625,8 @@ test("Partner Checkout uses immutable committed cents and keeps inclusive tax se
     const { stripe, calls } = fakeStripe();
     await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
     const params = calls[0]?.params;
-    assert.equal(params?.line_items?.[0]?.price_data?.unit_amount, partnerClient ? 11685 : 12900);
+    assert.equal(snapshot.pricingVersion, PRICING_VERSION);
+    assert.equal(params?.line_items?.[0]?.price_data?.unit_amount, partnerClient ? 14801 : 16340);
     assert.equal(repository.currentPayment?.subtotal_cents, snapshot.totalCents);
     assert.equal(params?.line_items?.[0]?.price_data?.tax_behavior, "inclusive");
     assert.deepEqual(params?.automatic_tax, { enabled: true });
@@ -587,23 +634,19 @@ test("Partner Checkout uses immutable committed cents and keeps inclusive tax se
   }
 });
 
-test("v3 Welcome staging and free editing orders preserve their respective historical tiers at Checkout", async () => {
-  const staging = createPricingSnapshot(calculateOrderQuote({ serviceType: "virtual-staging", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedAddons: [] })) }, {
-    welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: true, dayToDuskAvailable: true },
-  }));
-  const editing = createPricingSnapshot(calculateOrderQuote({ serviceType: "photo-editing", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedOptions: ["image-enhancement-re"], baseOptionId: "image-enhancement-re", dedicatedSubService: "image-enhancement-single-exposure" })) }, {
-    welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: true, dayToDuskAvailable: true },
-  }));
+test("v2/v3/v4 Welcome and Partner orders retain their old catalogue amounts at Checkout", async () => {
   for (const snapshot of [
-    { ...staging, pricingVersion: "2026-09-09-v3" },
-    { ...editing, pricingVersion: "2026-09-09-v3", volumeEligibleUnits: 9, volumeDiscountPercent: 5, volumeDiscountCents: 45, subtotalAfterDiscountCents: 855, totalCents: 855 },
+    ...(["2026-08-29-v2", "2026-09-09-v3", "2026-09-09-v4"] as const).flatMap((version) =>
+      [historicalStagingSnapshot(version), historicalEnhancementSnapshot(version)]),
+    historicalStagingSnapshot("2026-09-09-v4", true),
   ]) {
     const repository = new FakeRepository();
     repository.order = validOrder({ service_type: snapshot.serviceType, item_count: 10, estimated_total_cents: snapshot.totalCents!, pricing_snapshot: snapshot });
     const { stripe, calls } = fakeStripe();
     await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
     assert.equal(calls[0]?.params.line_items?.[0]?.price_data?.unit_amount, snapshot.totalCents);
-    assert.equal(snapshot.partnerDiscountCents, 0);
+    assert.equal(repository.currentPayment?.subtotal_cents, snapshot.totalCents);
+    assert.deepEqual(repository.order.pricing_snapshot, snapshot);
   }
 });
 

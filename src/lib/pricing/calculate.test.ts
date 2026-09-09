@@ -37,6 +37,9 @@ test("volume discount thresholds are exact", () => {
     assert.equal(quote.volumeDiscountPercent, percent);
     assert.equal(quote.customQuote, customQuote);
     assert.equal(quote.totalCents === null, customQuote);
+    assert.equal(quote.baseSubtotalCents, count * 1900);
+    assert.equal(quote.volumeDiscountCents, customQuote ? 0 : count * 1900 * percent / 100);
+    assert.equal(quote.totalCents, customQuote ? null : count * 1900 - quote.volumeDiscountCents);
   }
 });
 
@@ -47,11 +50,11 @@ test("discount applies to base only and add-ons remain undiscounted", () => {
     items: stagingItems(11, ["day-to-dusk"]),
   });
 
-  assert.equal(quote.baseSubtotalCents, 15_400);
+  assert.equal(quote.baseSubtotalCents, 17_600);
   assert.equal(quote.addOnSubtotalCents, 3_300);
   assert.equal(quote.volumeDiscountPercent, 10);
-  assert.equal(quote.volumeDiscountCents, 1_540);
-  assert.equal(quote.totalCents, 17_160);
+  assert.equal(quote.volumeDiscountCents, 1_760);
+  assert.equal(quote.totalCents, 19_140);
 });
 
 test("generic Photo Editing uses the highest-priced option as the discounted base", () => {
@@ -72,10 +75,10 @@ test("generic Photo Editing uses the highest-priced option as the discounted bas
     ["image-enhancement", "turn-on-lights"]
   );
   assert.equal(quote.baseSubtotalCents, 5_000);
-  assert.equal(quote.addOnSubtotalCents, 1_500);
+  assert.equal(quote.addOnSubtotalCents, 1_700);
   assert.equal(quote.volumeDiscountPercent, 10);
   assert.equal(quote.volumeDiscountCents, 500);
-  assert.equal(quote.totalCents, 6_000);
+  assert.equal(quote.totalCents, 6_200);
 });
 
 test("Single Exposure pins Image Enhancement as base and discounts no add-ons", () => {
@@ -91,10 +94,10 @@ test("Single Exposure pins Image Enhancement as base and discounts no add-ons", 
       baseOptionId: "image-enhancement-re",
     })),
   });
-  assert.equal(quote.baseSubtotalCents, 1_000);
+  assert.equal(quote.baseSubtotalCents, 1_200);
   assert.equal(quote.addOnSubtotalCents, 10_500);
-  assert.equal(quote.volumeDiscountCents, 100);
-  assert.equal(quote.totalCents, 11_400);
+  assert.equal(quote.volumeDiscountCents, 120);
+  assert.equal(quote.totalCents, 11_580);
 });
 
 test("Shadow Removal uses approved USD, EUR and CAD prices in both services", () => {
@@ -164,7 +167,7 @@ test("USD, EUR, and CAD use fixed catalog prices", () => {
         items: photoItems(1, ["image-enhancement-re"]),
       }).totalCents
   );
-  assert.deepEqual(totals, [100, 100, 150]);
+  assert.deepEqual(totals, [120, 100, 165]);
 });
 
 test("Virtual Staging base and every supported add-on use final catalog prices", () => {
@@ -177,9 +180,9 @@ test("Virtual Staging base and every supported add-on use final catalog prices",
     "colour-change",
   ];
   const expected = {
-    USD: { base: 1_500, addOns: [100, 350, 500, 500, 50, 200] },
-    EUR: { base: 1_400, addOns: [100, 300, 450, 450, 50, 150] },
-    CAD: { base: 1_900, addOns: [150, 450, 650, 650, 100, 250] },
+    USD: { base: 1_900, addOns: [120, 350, 500, 500, 50, 200] },
+    EUR: { base: 1_600, addOns: [100, 300, 450, 450, 50, 150] },
+    CAD: { base: 2_600, addOns: [165, 450, 650, 650, 100, 250] },
   } as const;
 
   for (const currency of ["USD", "EUR", "CAD"] as const) {

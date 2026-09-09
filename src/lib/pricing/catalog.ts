@@ -3,16 +3,16 @@ import type {
   TransactionalCurrency,
 } from "./types.ts";
 
-export const PRICING_VERSION = "2026-09-09-v4";
+export const PRICING_VERSION = "2026-09-09-v5";
 export const FLOOR_PLAN_MIN_FLOORS = 1;
 export const FLOOR_PLAN_MAX_FLOORS = 20;
 
 type FixedCurrencyPrice = Record<TransactionalCurrency, number>;
 
 export const PRICE_CATALOG: Record<PriceKey, FixedCurrencyPrice> = {
-  "image-enhancement": { USD: 100, EUR: 100, CAD: 150 },
+  "image-enhancement": { USD: 120, EUR: 100, CAD: 165 },
   "day-to-dusk": { USD: 350, EUR: 300, CAD: 450 },
-  "virtual-staging": { USD: 1500, EUR: 1400, CAD: 1900 },
+  "virtual-staging": { USD: 1900, EUR: 1600, CAD: 2600 },
   "item-removal-virtual-cleaning": { USD: 500, EUR: 450, CAD: 650 },
   "shadow-removal": { USD: 500, EUR: 450, CAD: 650 },
   "background-removal": { USD: 150, EUR: 150, CAD: 200 },

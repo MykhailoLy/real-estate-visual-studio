@@ -22,9 +22,9 @@ function assertPrices(
 }
 
 test("transactional pricing version and general editing catalog are final", () => {
-  assert.equal(PRICING_VERSION, "2026-09-09-v4");
+  assert.equal(PRICING_VERSION, "2026-09-09-v5");
   assertPrices({
-    "image-enhancement": { USD: 100, EUR: 100, CAD: 150 },
+    "image-enhancement": { USD: 120, EUR: 100, CAD: 165 },
     "day-to-dusk": { USD: 350, EUR: 300, CAD: 450 },
     "item-removal-virtual-cleaning": { USD: 500, EUR: 450, CAD: 650 },
     "shadow-removal": { USD: 500, EUR: 450, CAD: 650 },
@@ -48,7 +48,7 @@ test("Aerial Editing keeps every approved fixed currency price", () => {
 
 test("Virtual Staging uses the approved base and shared operation add-ons", () => {
   assertPrices({
-    "virtual-staging": { USD: 1500, EUR: 1400, CAD: 1900 },
+    "virtual-staging": { USD: 1900, EUR: 1600, CAD: 2600 },
   });
   assert.deepEqual(STAGING_ADDON_PRICE_KEYS, {
     "image-enhancement": "image-enhancement",
@@ -95,20 +95,20 @@ test("compact hero formatting trims only zero cents without changing catalog val
     "$4.50",
   );
   assert.deepEqual(PRICE_CATALOG["virtual-staging"], {
-    USD: 1500,
-    EUR: 1400,
-    CAD: 1900,
+    USD: 1900,
+    EUR: 1600,
+    CAD: 2600,
   });
 });
 
-test("Virtual Renovation synchronized operations match their canonical services", () => {
+test("Virtual Renovation operations retain their separately approved prices", () => {
   for (const priceKey of [
     "renovation-staging-residential",
     "renovation-staging-commercial-office",
     "renovation-staging-commercial-non-office",
     "renovation-exterior-staging",
   ] as const) {
-    assert.deepEqual(PRICE_CATALOG[priceKey], PRICE_CATALOG["virtual-staging"]);
+    assert.deepEqual(PRICE_CATALOG[priceKey], { USD: 1500, EUR: 1400, CAD: 1900 });
   }
   assert.deepEqual(
     PRICE_CATALOG["renovation-item-removal-cleaning"],

@@ -24,6 +24,13 @@ const FREE_WELCOME_BASE_CENTS = {
   "day-to-dusk-free": { USD: 350, EUR: 300, CAD: 450 },
 } as const;
 
+// Exact v5 evidence, not a discount calculation. Freeze it separately so later
+// catalogue updates cannot change eligibility for committed free v5 orders.
+const V5_FREE_WELCOME_BASE_CENTS = {
+  ...FREE_WELCOME_BASE_CENTS,
+  "image-enhancement-free": { USD: 120, EUR: 100, CAD: 165 },
+} as const;
+
 export interface StoredCheckoutPriceOrder {
   service_type: string;
   estimated_total_cents: number;
@@ -100,7 +107,9 @@ export function isNoPaymentRequiredOrder(
     return false;
   }
   const rule = WELCOME_OFFER_BENEFIT_RULES[benefit.key];
-  const originalBasePrice = FREE_WELCOME_BASE_CENTS[benefit.key][snapshot.currency];
+  const originalPrices = snapshot.pricingVersion === "2026-09-09-v5"
+    ? V5_FREE_WELCOME_BASE_CENTS : FREE_WELCOME_BASE_CENTS;
+  const originalBasePrice = originalPrices[benefit.key][snapshot.currency];
   const item = snapshot.items[0];
   return (
     benefit.itemIndex === 0 &&

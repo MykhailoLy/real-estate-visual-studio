@@ -16,6 +16,7 @@ const SUPPORTED_PRICING_VERSIONS = [
   "2026-08-29-v2",
   "2026-09-09-v3",
   "2026-09-09-v4",
+  "2026-09-09-v5",
 ] as const;
 
 export function isSupportedPricingVersion(value: unknown): value is (typeof SUPPORTED_PRICING_VERSIONS)[number] {
@@ -116,7 +117,8 @@ export function parsePricingSnapshot(value: unknown): PricingSnapshot | null {
   const volume = originalVolume.customQuote ? originalVolume : getVolumeDiscount(volumeUnits);
   const volumeBase = base - (benefit ? normalized.items[benefit.itemIndex].baseSubtotalCents : 0);
   const volumeDiscount = volume.customQuote ? 0 : percentageOfCents(volumeBase, volume.percent);
-  if (normalized.pricingVersion !== "2026-09-09-v4") {
+  if (normalized.pricingVersion !== "2026-09-09-v4" &&
+      normalized.pricingVersion !== "2026-09-09-v5") {
     // Older formats never had Partner pricing. Never add it retroactively.
     const absent = normalized.partnerClient === undefined &&
       normalized.partnerDiscountPercent === undefined &&

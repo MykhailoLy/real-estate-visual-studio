@@ -44,28 +44,33 @@ for (const currency of ["USD", "EUR", "CAD"] as const) {
 }
 
 test("verified USD examples use current catalogue prices and exclude the entire Welcome base", () => {
-  assert.equal(getCatalogPrice("virtual-staging", "USD"), 1500);
-  assert.equal(calculateOrderQuote(staging(1), { partnerClient: true }).totalCents, 1350);
-  assert.equal(calculateOrderQuote(staging(10), { partnerClient: true }).totalCents, 12150);
-  assert.equal(calculateOrderQuote(staging(1, "USD", ["image-enhancement"]), { partnerClient: true }).totalCents, 1440);
+  assert.equal(getCatalogPrice("virtual-staging", "USD"), 1900);
+  assert.equal(calculateOrderQuote(staging(1)).totalCents, 1900);
+  assert.equal(calculateOrderQuote(staging(1), { partnerClient: true }).totalCents, 1710);
+  assert.equal(calculateOrderQuote(staging(1), { welcomeOfferAvailability }).totalCents, 950);
+  assert.equal(calculateOrderQuote(staging(10)).totalCents, 17100);
+  assert.equal(calculateOrderQuote(staging(10), { partnerClient: true }).totalCents, 15390);
+  assert.equal(calculateOrderQuote(staging(1, "USD", ["image-enhancement"]), { partnerClient: true }).totalCents, 1818);
   const welcomeOnly = calculateOrderQuote(staging(1), { partnerClient: true, welcomeOfferAvailability });
-  assert.equal(welcomeOnly.totalCents, 750);
+  assert.equal(welcomeOnly.totalCents, 950);
   assert.equal(welcomeOnly.partnerEligibleSubtotalCents, 0);
   const combined = calculateOrderQuote(staging(10), { partnerClient: true, welcomeOfferAvailability });
-  assert.equal(combined.welcomeDiscountCents, 750);
-  assert.equal(combined.volumeDiscountCents, 1350);
-  assert.equal(combined.partnerDiscountCents, 1215);
-  assert.equal(combined.totalCents, 11685);
+  assert.equal(combined.baseSubtotalCents, 19000);
+  assert.equal(combined.welcomeDiscountCents, 950);
+  assert.equal(combined.volumeDiscountCents, 1710);
+  assert.equal(combined.partnerEligibleSubtotalCents, 15390);
+  assert.equal(combined.partnerDiscountCents, 1539);
+  assert.equal(combined.totalCents, 14801);
   const addon = calculateOrderQuote(staging(1, "USD", ["image-enhancement"]), { partnerClient: true, welcomeOfferAvailability });
-  assert.equal(addon.partnerEligibleSubtotalCents, 100);
-  assert.equal(addon.partnerDiscountCents, 10);
-  assert.equal(addon.totalCents, 840);
+  assert.equal(addon.partnerEligibleSubtotalCents, 120);
+  assert.equal(addon.partnerDiscountCents, 12);
+  assert.equal(addon.totalCents, 1058);
 });
 
 test("free Welcome bases stay free while paid digital add-ons receive Partner", () => {
   for (const [dedicatedSubService, baseOptionId, addon, expected] of [
     ["image-enhancement-single-exposure", "image-enhancement-re", "day-to-dusk-pe", 315],
-    ["day-to-dusk", "day-to-dusk-pe", "image-enhancement-re", 90],
+    ["day-to-dusk", "day-to-dusk-pe", "image-enhancement-re", 108],
   ] as const) {
     const quote = calculateOrderQuote({ serviceType: "photo-editing", currency: "USD", items: [
       { dedicatedSubService, baseOptionId, selectedOptions: [baseOptionId, addon] },
@@ -96,8 +101,23 @@ test("rounds Volume first and Partner second, both half up in cents", () => {
   assert.equal(quote.partnerEligibleSubtotalCents, 1662);
   assert.equal(quote.partnerDiscountCents, 166);
   assert.equal(quote.totalCents, 1496);
-  assert.equal(calculateOrderQuote(staging(5), { partnerClient: true }).partnerDiscountCents, 713);
+  assert.equal(calculateOrderQuote(staging(5), { partnerClient: true }).partnerDiscountCents, 903);
   assert.equal(percentageOfCents(5, 10), 1);
+});
+
+test("Image Enhancement Partner uses fixed prices and rounds CAD 16.5 cents half up to 17", () => {
+  for (const [currency, base, discount, total] of [
+    ["USD", 120, 12, 108], ["EUR", 100, 10, 90], ["CAD", 165, 17, 148],
+  ] as const) {
+    const quote = calculateOrderQuote({ serviceType: "photo-editing", currency, items: [{
+      dedicatedSubService: "image-enhancement-single-exposure", baseOptionId: "image-enhancement-re",
+      selectedOptions: ["image-enhancement-re"],
+    }] }, { partnerClient: true });
+    assert.equal(quote.baseSubtotalCents, base);
+    assert.equal(quote.partnerDiscountCents, discount);
+    assert.equal(quote.totalCents, total);
+    assert.deepEqual(parsePricingSnapshot(createPricingSnapshot(quote))?.totalCents, total);
+  }
 });
 
 test("Partner toggles require a new review across every automatic service", () => {

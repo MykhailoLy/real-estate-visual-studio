@@ -21,6 +21,7 @@ import {
   REMOTE_SUPPORT_PRICING_SECTION,
   SUPPORT_360_NO_DISCOUNT_EXAMPLE,
   SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
+  SUPPORT_STAGING_SUMMARY_EXAMPLE,
 } from "./pricing-prompt.ts";
 
 const supportPromptSource = readFileSync(
@@ -995,7 +996,7 @@ test("support prompt states the inclusive Checkout tax policy without tax advice
   assert.doesNotMatch(supportPromptSource, /Prices exclude applicable taxes\./);
   assert.match(
     SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
-    /Combined catalog price before any applicable volume discount: €15\.00/,
+    /Combined catalog price before any applicable volume discount: €17\.00/,
   );
   assert.doesNotMatch(
     SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
@@ -1031,9 +1032,10 @@ test("support prompt requires clean plain-text customer responses", () => {
     /Simple plain-text bullets\s+using • are allowed when a list genuinely helps/,
   );
   assert.match(
-    supportPromptSource,
-    /Quantity: 8 images\s+Unit price: €14\.00 per image\s+Base subtotal: €112\.00\s+Volume discount \(5%\): −€5\.60\s+Estimated total: €106\.40/,
+    SUPPORT_STAGING_SUMMARY_EXAMPLE,
+    /Quantity: 8 images\s+Unit price: €16\.00 per image\s+Base subtotal: €128\.00\s+Volume discount \(5%\): −€6\.40\s+Estimated total: €121\.60/,
   );
+  assert.match(supportPromptSource, /\$\{SUPPORT_STAGING_SUMMARY_EXAMPLE\}/);
   assert.match(
     supportPromptSource,
     /Please contact our support team at hello@picchuspot\.com/,
@@ -1052,7 +1054,7 @@ test("support prompt requires clean plain-text customer responses", () => {
 test("support pricing output is generated from the final remote catalog", () => {
   assert.match(
     REMOTE_SUPPORT_PRICING_SECTION,
-    /Image Enhancement:\nUS\$1\.00 \/ €1\.00 \/ CA\$1\.50 per image/,
+    /Image Enhancement:\nUS\$1\.20 \/ €1\.00 \/ CA\$1\.65 per image/,
   );
   assert.match(
     REMOTE_SUPPORT_PRICING_SECTION,
@@ -1068,7 +1070,7 @@ test("support pricing output is generated from the final remote catalog", () => 
   );
   assert.match(
     REMOTE_SUPPORT_PRICING_SECTION,
-    /Base Virtual Staging:\nUS\$15\.00 \/ €14\.00 \/ CA\$19\.00 per image/,
+    /Base Virtual Staging:\nUS\$19\.00 \/ €16\.00 \/ CA\$26\.00 per image/,
   );
   assert.match(
     REMOTE_SUPPORT_PRICING_SECTION,
@@ -1092,7 +1094,7 @@ test("support pricing output is generated from the final remote catalog", () => 
   );
   assert.match(
     SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
-    /Base Virtual Staging: €14\.00[\s\S]*Image Enhancement add-on: €1\.00[\s\S]*Combined catalog price[^\n]*€15\.00/,
+    /Base Virtual Staging: €16\.00[\s\S]*Image Enhancement add-on: €1\.00[\s\S]*Combined catalog price[^\n]*€17\.00/,
   );
   assert.match(SUPPORT_360_NO_DISCOUNT_EXAMPLE, /Estimated total: €168\.00/);
 

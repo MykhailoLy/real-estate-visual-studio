@@ -271,7 +271,9 @@ test("50 original eligible units remain custom quote and do not consume the offe
 });
 
 test("catalog-derived Welcome Offer works in USD, EUR, and CAD", () => {
-  for (const currency of ["USD", "EUR", "CAD"] as const) {
+  for (const [currency, stagingWelcome, enhancementWelcome] of [
+    ["USD", 950, 120], ["EUR", 800, 100], ["CAD", 1300, 165],
+  ] as const) {
     const quote = calculateOrderQuote(
       {
         serviceType: "virtual-staging",
@@ -284,6 +286,15 @@ test("catalog-derived Welcome Offer works in USD, EUR, and CAD", () => {
       quote.welcomeDiscountCents,
       Math.round(getCatalogPrice("virtual-staging", currency) / 2),
     );
+    assert.equal(quote.welcomeDiscountCents, stagingWelcome);
+    assert.equal(quote.totalCents, stagingWelcome);
+    const enhancement = calculateOrderQuote({
+      serviceType: "photo-editing", currency,
+      items: dedicatedItems(1, "image-enhancement-single-exposure"),
+    }, { welcomeOfferAvailability: AVAILABLE });
+    assert.equal(enhancement.welcomeDiscountCents, getCatalogPrice("image-enhancement", currency));
+    assert.equal(enhancement.welcomeDiscountCents, enhancementWelcome);
+    assert.equal(enhancement.totalCents, 0);
   }
 });
 

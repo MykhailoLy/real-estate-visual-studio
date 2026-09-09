@@ -25,11 +25,11 @@ test("remote tool quotes 3 USD Virtual Staging images canonically", () => {
     }),
   );
 
-  assert.equal(result.unitPriceCents, 1_500);
-  assert.equal(result.baseSubtotalCents, 4_500);
+  assert.equal(result.unitPriceCents, 1_900);
+  assert.equal(result.baseSubtotalCents, 5_700);
   assert.equal(result.discountPercent, 0);
   assert.equal(result.discountAmountCents, 0);
-  assert.equal(result.finalSubtotalBeforeTaxCents, 4_500);
+  assert.equal(result.finalSubtotalBeforeTaxCents, 5_700);
   assert.equal(result.pricingVersion, PRICING_VERSION);
 });
 
@@ -42,10 +42,10 @@ test("remote tool quotes 8 EUR Virtual Staging images with the canonical discoun
     }),
   );
 
-  assert.equal(result.baseSubtotalCents, 11_200);
+  assert.equal(result.baseSubtotalCents, 12_800);
   assert.equal(result.discountPercent, 5);
-  assert.equal(result.discountAmountCents, 560);
-  assert.equal(result.finalSubtotalBeforeTaxCents, 10_640);
+  assert.equal(result.discountAmountCents, 640);
+  assert.equal(result.finalSubtotalBeforeTaxCents, 12_160);
 });
 
 test("remote tool quotes 10 USD Image Enhancement images", () => {
@@ -57,11 +57,11 @@ test("remote tool quotes 10 USD Image Enhancement images", () => {
     }),
   );
 
-  assert.equal(result.unitPriceCents, 100);
-  assert.equal(result.baseSubtotalCents, 1_000);
+  assert.equal(result.unitPriceCents, 120);
+  assert.equal(result.baseSubtotalCents, 1_200);
   assert.equal(result.discountPercent, 10);
-  assert.equal(result.discountAmountCents, 100);
-  assert.equal(result.finalSubtotalBeforeTaxCents, 900);
+  assert.equal(result.discountAmountCents, 120);
+  assert.equal(result.finalSubtotalBeforeTaxCents, 1080);
 });
 
 test("Virtual Staging add-ons remain full price", () => {
@@ -74,10 +74,10 @@ test("Virtual Staging add-ons remain full price", () => {
     }),
   );
 
-  assert.equal(result.baseSubtotalCents, 11_200);
+  assert.equal(result.baseSubtotalCents, 12_800);
   assert.equal(result.addOnSubtotalCents, 800);
-  assert.equal(result.discountAmountCents, 560);
-  assert.equal(result.finalSubtotalBeforeTaxCents, 11_440);
+  assert.equal(result.discountAmountCents, 640);
+  assert.equal(result.finalSubtotalBeforeTaxCents, 12_960);
   assert.deepEqual(result.lineItems[1], {
     id: "image-enhancement",
     quantity: 8,
@@ -230,7 +230,7 @@ test("customer-provided fake price fields cannot override the canonical result",
       currency: "USD",
     }),
   );
-  assert.equal(result.finalSubtotalBeforeTaxCents, 4_500);
+  assert.equal(result.finalSubtotalBeforeTaxCents, 5_700);
 });
 
 test("50 or more eligible units return a typed manual-review result", () => {
