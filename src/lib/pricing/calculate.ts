@@ -9,7 +9,7 @@ import {
   STAGING_ADDON_PRICE_KEYS,
   getCatalogPrice,
 } from "./catalog.ts";
-import { getVolumeDiscount, percentageOfCents } from "./discounts.ts";
+import { getVolumeDiscount, PARTNER_DISCOUNT_PERCENT, percentageOfCents } from "./discounts.ts";
 import {
   WELCOME_OFFER_BENEFIT_RULES,
   WELCOME_OFFER_VERSION,
@@ -29,6 +29,8 @@ import type {
 export interface CalculateOrderQuoteOptions {
   /** Presentation may pass this value, but order submission resolves it again server-side. */
   welcomeOfferAvailability?: WelcomeOfferAvailability;
+  /** Preview only in the browser; submission reloads the authenticated account. */
+  partnerClient?: boolean;
 }
 
 export class PricingValidationError extends Error {
@@ -380,12 +382,8 @@ export function calculateOrderQuote(
   const discountedItemIndexes = new Set(
     welcomeOffer.benefits.map((benefit) => benefit.itemIndex),
   );
-  // Staging's half-price image still counts toward the tier. The two free
-  // standalone benefits retain their existing paid-image quantity policy.
-  const volumeEligibleUnits =
-    welcomeOffer.benefits.length > 0 && input.serviceType !== "virtual-staging"
-      ? eligibleUnits - 1
-      : eligibleUnits;
+  // Welcome bases count toward the tier but never its monetary discount basis.
+  const volumeEligibleUnits = eligibleUnits;
   const volume = originalVolume.customQuote
     ? originalVolume
     : getVolumeDiscount(volumeEligibleUnits);
@@ -399,12 +397,22 @@ export function calculateOrderQuote(
   const volumeDiscountCents = volume.customQuote
     ? 0
     : percentageOfCents(volumeDiscountBaseCents, volume.percent);
+  const partnerClient = options.partnerClient === true;
+  const partnerDiscountPercent = partnerClient && !volume.customQuote
+    ? PARTNER_DISCOUNT_PERCENT : 0;
+  const partnerEligibleSubtotalCents = partnerDiscountPercent > 0
+    ? volumeDiscountBaseCents - volumeDiscountCents + addOnSubtotalCents : 0;
+  const partnerDiscountCents = percentageOfCents(
+    partnerEligibleSubtotalCents,
+    partnerDiscountPercent,
+  );
   const subtotalAfterDiscountCents = volume.customQuote
     ? null
     : baseSubtotalCents +
       addOnSubtotalCents -
       welcomeOffer.totalDiscountCents -
-      volumeDiscountCents;
+      volumeDiscountCents -
+      partnerDiscountCents;
 
   return {
     pricingVersion: PRICING_VERSION,
@@ -418,6 +426,10 @@ export function calculateOrderQuote(
     welcomeOffer,
     volumeDiscountPercent: volume.percent,
     volumeDiscountCents,
+    partnerClient,
+    partnerDiscountPercent,
+    partnerEligibleSubtotalCents,
+    partnerDiscountCents,
     subtotalAfterDiscountCents,
     taxCalculated: false,
     taxCents: 0,

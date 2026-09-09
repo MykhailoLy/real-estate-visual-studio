@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { ArrowLeft, Info } from "lucide-react";
 import OrderReviewHeader from "@/components/order/OrderReviewHeader";
 import OrderReviewItem, {
@@ -77,13 +79,14 @@ export default function ItemRemovalReview({
   submitError,
 }: ItemRemovalReviewProps) {
   const currency = useDisplayCurrency();
+  const { partnerClient } = usePartnerPricing();
   const quote = calculateOrderQuote({
     serviceType: "photo-editing",
     currency,
     items: items.map(() => ({
       selectedOptions: [ITEM_REMOVAL_OPTION_ID],
     })),
-  });
+  }, { partnerClient });
   const perItem = calculatePhotoEditItemTotal(
     [ITEM_REMOVAL_OPTION_ID],
     currency

@@ -67,7 +67,7 @@ for (const service of [
     );
     assert.equal(one.welcomeDiscountCents, unit);
     assert.equal(one.totalCents, 0);
-    assert.equal(one.volumeEligibleUnits, 0);
+    assert.equal(one.volumeEligibleUnits, 1);
     assert.deepEqual(one.welcomeOffer.benefits, [
       {
         key: service.benefitKey,
@@ -87,7 +87,7 @@ for (const service of [
       { welcomeOfferAvailability: AVAILABLE },
     );
     assert.equal(six.eligibleUnits, 6);
-    assert.equal(six.volumeEligibleUnits, 5);
+    assert.equal(six.volumeEligibleUnits, 6);
     assert.equal(six.volumeDiscountPercent, 5);
     assert.equal(six.volumeDiscountCents, Math.round((unit * 5 * 5) / 100));
     assert.equal(
@@ -203,15 +203,15 @@ for (const currency of ["USD", "EUR", "CAD"] as const) {
   });
 }
 
-test("the two free Welcome benefits retain paid-image thresholds", () => {
+test("the two free Welcome bases count toward the original volume thresholds", () => {
   for (const subService of ["image-enhancement-single-exposure", "day-to-dusk"] as const) {
-    for (const [count, percent] of [[4, 0], [5, 0], [9, 5], [10, 5], [19, 10], [20, 10], [49, 15], [50, 0]] as const) {
+    for (const [count, percent] of [[4, 0], [5, 5], [9, 5], [10, 10], [19, 10], [20, 15], [49, 15], [50, 0]] as const) {
       const quote = calculateOrderQuote(
         { serviceType: "photo-editing", currency: "USD", items: dedicatedItems(count, subService) },
         { welcomeOfferAvailability: AVAILABLE },
       );
       assert.equal(quote.volumeDiscountPercent, percent);
-      assert.equal(quote.volumeEligibleUnits, count === 50 ? count : count - 1);
+      assert.equal(quote.volumeEligibleUnits, count);
       assert.equal(quote.customQuote, count === 50);
       assert.equal(quote.welcomeOffer.benefits.length, count === 50 ? 0 : 1);
     }

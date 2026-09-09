@@ -63,6 +63,7 @@ for (const version of ["2026-06-25-v1", "2026-08-18-v1", "2026-08-23-v1"]) {
     assert.ok(parsed);
     assert.deepEqual(parsed, {
       ...snapshot, volumeEligibleUnits: 10, welcomeDiscountCents: 0,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       welcomeOffer: { version: "legacy-none", totalDiscountCents: 0, benefits: [] },
     });
     assert.deepEqual(parsePricingSnapshot(parsed), parsed);

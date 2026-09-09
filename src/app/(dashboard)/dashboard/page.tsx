@@ -37,6 +37,7 @@ import {
   CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY,
 } from "@/lib/client-portal-qa";
 import { getWelcomeOfferAvailability } from "@/lib/welcome-offer-server";
+import { getPartnerClient } from "@/lib/account-pricing-server";
 
 export const metadata = {
   title: "Dashboard | PicchuSpot Client Portal",
@@ -104,6 +105,8 @@ export default async function DashboardPage() {
     "there";
 
   const companyLine = profile?.company_name?.trim() || null;
+  const partnerClient = user && !user.isQaPreview
+    ? await getPartnerClient(user.id).catch(() => null) : false;
 
   return (
     <ClientDashboardLayout>
@@ -116,6 +119,12 @@ export default async function DashboardPage() {
             {companyLine && (
               <p className="mt-1.5 text-dashboard-body text-muted">
                 {companyLine}
+              </p>
+            )}
+            {partnerClient === true && (
+              <p className="mt-2 text-dashboard-body text-primary">
+                <span className="font-semibold">Partner pricing</span>
+                {" · "}10% off eligible digital services.
               </p>
             )}
           </div>

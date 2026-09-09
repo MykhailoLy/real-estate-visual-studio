@@ -35,6 +35,7 @@ function order(overrides: Record<string, unknown> = {}) {
     currency: "USD",
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "virtual-staging",
       eligibleUnits: 1,
@@ -67,10 +68,11 @@ function noPaymentOrder(overrides: Record<string, unknown> = {}) {
     estimated_total_cents: 0,
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "photo-editing",
       eligibleUnits: 1,
-      volumeEligibleUnits: 0,
+      volumeEligibleUnits: 1,
       baseSubtotalCents: 100,
       addOnSubtotalCents: 0,
       welcomeDiscountCents: 100,
@@ -154,6 +156,7 @@ test("v2 paid and free orders keep their historical payment recognition", async 
   assert.equal(summary?.finalTotalCents, 1500);
   const historicalFree = noPaymentOrder();
   historicalFree.pricing_snapshot.pricingVersion = "2026-08-29-v2";
+  historicalFree.pricing_snapshot.volumeEligibleUnits = 0;
   const free = await getAuthoritativePaymentSummary(orderId, userId, {
     repository: repository(historicalFree, null) as never, expectedStripeLivemode: false,
   });

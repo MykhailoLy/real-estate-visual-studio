@@ -1,5 +1,10 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { createPricingExpectation } from "@/lib/pricing/expectation";
+
 import { useState } from "react";
 import { Plus, Info } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
@@ -45,6 +50,8 @@ export default function DedicatedPhotoEditingOrderForm({
   clientEmail,
   orderRoute,
 }: DedicatedPhotoEditingOrderFormProps) {
+  const currency = useDisplayCurrency();
+  const { partnerClient, applyPartnerSnapshot } = usePartnerPricing();
   const [items, setItems] = useState<DedicatedPhotoEditItemData[]>([
     emptyDedicatedPhotoEditItem(),
   ]);
@@ -93,7 +100,12 @@ export default function DedicatedPhotoEditingOrderForm({
       itemsMetadata,
       files,
       orderTerms,
-      jobTitle
+      jobTitle,
+      undefined,
+      createPricingExpectation(calculateOrderQuote({
+        serviceType: "photo-editing", currency,
+        items: items.map(() => ({ selectedOptions: [config.optionId] })),
+      }, { partnerClient })),
     );
 
     if (result.success && result.orderId && result.orderNumber) {
@@ -106,6 +118,7 @@ export default function DedicatedPhotoEditingOrderForm({
     }
 
     if (redirectOnOrderAuthError(result, orderRoute)) return;
+    if (result.errorCode === "pricing-changed") applyPartnerSnapshot(result.currentPricingSnapshot);
 
     setIsSubmitting(false);
     setSubmitError(result.error || "Submission failed. Please try again.");

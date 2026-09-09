@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { ArrowLeft } from "lucide-react";
 import OrderReviewHeader from "@/components/order/OrderReviewHeader";
 import OrderReviewItem from "@/components/order/OrderReviewItem";
@@ -40,7 +42,8 @@ export default function PhotoEditingReview({
   disabled = false,
 }: PhotoEditingReviewProps) {
   const currency = useDisplayCurrency();
-  const quote = calculatePhotoEditingReviewQuote(items, currency);
+  const { partnerClient } = usePartnerPricing();
+  const quote = calculatePhotoEditingReviewQuote(items, currency, partnerClient);
 
   return (
     <div className="space-y-5">

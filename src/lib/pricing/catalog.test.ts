@@ -22,7 +22,7 @@ function assertPrices(
 }
 
 test("transactional pricing version and general editing catalog are final", () => {
-  assert.equal(PRICING_VERSION, "2026-09-09-v3");
+  assert.equal(PRICING_VERSION, "2026-09-09-v4");
   assertPrices({
     "image-enhancement": { USD: 100, EUR: 100, CAD: 150 },
     "day-to-dusk": { USD: 350, EUR: 300, CAD: 450 },

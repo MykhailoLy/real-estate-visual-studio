@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { ArrowLeft } from "lucide-react";
 import OrderReviewHeader from "@/components/order/OrderReviewHeader";
 import OrderReviewItem, {
@@ -70,6 +72,7 @@ export default function DayToDuskReview({
   welcomeOfferAvailability,
 }: DayToDuskReviewProps) {
   const currency = useDisplayCurrency();
+  const { partnerClient } = usePartnerPricing();
   const quote = calculateOrderQuote(
     {
       serviceType: "photo-editing",
@@ -80,7 +83,7 @@ export default function DayToDuskReview({
         dedicatedSubService: "day-to-dusk",
       })),
     },
-    { welcomeOfferAvailability },
+    { welcomeOfferAvailability, partnerClient },
   );
   const perItem = calculatePhotoEditItemTotal(
     [DAY_TO_DUSK_OPTION_ID],

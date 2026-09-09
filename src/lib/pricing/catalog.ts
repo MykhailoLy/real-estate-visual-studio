@@ -3,7 +3,7 @@ import type {
   TransactionalCurrency,
 } from "./types.ts";
 
-export const PRICING_VERSION = "2026-09-09-v3";
+export const PRICING_VERSION = "2026-09-09-v4";
 export const FLOOR_PLAN_MIN_FLOORS = 1;
 export const FLOOR_PLAN_MAX_FLOORS = 20;
 

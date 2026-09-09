@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { ArrowLeft } from "lucide-react";
 import OrderReviewHeader from "@/components/order/OrderReviewHeader";
 import OrderReviewItem, {
@@ -64,6 +66,7 @@ export default function SingleExposureReview({
   welcomeOfferAvailability,
 }: SingleExposureReviewProps) {
   const currency = useDisplayCurrency();
+  const { partnerClient } = usePartnerPricing();
   const pricingItems = items.map((item) => ({
     selectedOptions: getSingleExposureSelectedOptions(
       item.selectedAddons,
@@ -78,7 +81,7 @@ export default function SingleExposureReview({
       currency,
       items: pricingItems,
     },
-    { welcomeOfferAvailability },
+    { welcomeOfferAvailability, partnerClient },
   );
 
   return (

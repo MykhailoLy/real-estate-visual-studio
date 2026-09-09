@@ -68,6 +68,7 @@ export function buildPhotoEditingReviewRows(
 export function calculatePhotoEditingReviewQuote(
   items: PhotoEditingReviewItemSource[],
   currency: TransactionalCurrency,
+  partnerClient = false,
 ): OrderQuote {
   return calculateOrderQuote({
     serviceType: "photo-editing",
@@ -75,7 +76,7 @@ export function calculatePhotoEditingReviewQuote(
     items: items.map((item) => ({
       selectedOptions: item.selectedOptions,
     })),
-  });
+  }, { partnerClient });
 }
 
 /**

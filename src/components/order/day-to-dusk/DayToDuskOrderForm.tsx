@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -185,6 +187,7 @@ export default function DayToDuskOrderForm({
     !requestedDraftId || UuidSchema.safeParse(requestedDraftId).success;
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
+  const { partnerClient, applyPartnerSnapshot } = usePartnerPricing();
   const [step, setStep] = useState<DayToDuskFormStep>("configure");
   const [items, setItems] = useState<DayToDuskItemData[]>([
     emptyDayToDuskItem(),
@@ -895,7 +898,7 @@ export default function DayToDuskOrderForm({
                 dedicatedSubService: DAY_TO_DUSK_SUB_SERVICE,
               })),
             },
-            { welcomeOfferAvailability: activeWelcomeOfferAvailability },
+            { welcomeOfferAvailability: activeWelcomeOfferAvailability, partnerClient },
           ),
         ),
       );
@@ -917,6 +920,7 @@ export default function DayToDuskOrderForm({
       }
       if (redirectOnOrderAuthError(result, orderRoute)) return;
       if (result.errorCode === "pricing-changed") {
+        applyPartnerSnapshot(result.currentPricingSnapshot);
         setActiveWelcomeOfferAvailability((current) =>
           applyAuthoritativeWelcomeOfferSnapshot(
             current,

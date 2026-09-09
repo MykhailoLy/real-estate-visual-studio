@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { ArrowLeft } from "lucide-react";
 import OrderReviewHeader from "@/components/order/OrderReviewHeader";
 import OrderReviewItem, {
@@ -53,6 +55,7 @@ export default function VirtualRenovationReview({
   disabled = false,
 }: VirtualRenovationReviewProps) {
   const currency = useDisplayCurrency();
+  const { partnerClient } = usePartnerPricing();
   const quote = calculateOrderQuote({
     serviceType: "virtual-renovation",
     currency,
@@ -60,7 +63,7 @@ export default function VirtualRenovationReview({
       selectedInternal: item.selectedInternal,
       selectedExternal: item.selectedExternal,
     })),
-  });
+  }, { partnerClient });
 
   return (
     <div className="space-y-5">

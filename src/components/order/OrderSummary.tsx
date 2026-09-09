@@ -9,6 +9,7 @@ import type {
   OrderQuote,
 } from "@/lib/pricing/types";
 import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
+import { usePartnerPricing } from "./PartnerPricingContext";
 import {
   getOrderSubmitFooterCopy,
   getOrderSummarySupportingCopy,
@@ -50,11 +51,12 @@ export default function OrderSummary({
   footerNote,
 }: OrderSummaryProps) {
   const currency = useDisplayCurrency();
+  const { partnerClient } = usePartnerPricing();
   let quote: OrderQuote | null = null;
   try {
     quote = calculateOrderQuote(
       { ...pricingInput, currency },
-      { welcomeOfferAvailability },
+      { welcomeOfferAvailability, partnerClient },
     );
   } catch {
     // Incomplete form selections are expected while the client is editing.
@@ -133,6 +135,12 @@ export default function OrderSummary({
                 <span className="font-semibold">
                   −{formatMoney(quote.volumeDiscountCents, currency)}
                 </span>
+              </div>
+            )}
+            {quote.partnerDiscountCents > 0 && (
+              <div className="flex justify-between gap-4 text-primary">
+                <span>Partner pricing · {quote.partnerDiscountPercent}%</span>
+                <span className="font-semibold">−{formatMoney(quote.partnerDiscountCents, currency)}</span>
               </div>
             )}
             <div className="flex justify-between gap-4 border-t border-border pt-3">

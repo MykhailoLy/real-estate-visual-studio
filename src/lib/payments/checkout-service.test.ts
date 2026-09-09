@@ -37,6 +37,26 @@ const { isNoPaymentRequiredOrder } = await import("./checkout-eligibility.ts");
 const { calculateOrderQuote } = await import("../pricing/calculate.ts");
 const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
 
+test("Partner accounts retain the exact free Welcome payment exemption in v4", () => {
+  for (const currency of ["USD", "EUR", "CAD"] as const) {
+    for (const [dedicatedSubService, baseOptionId] of [
+      ["image-enhancement-single-exposure", "image-enhancement-re"],
+      ["day-to-dusk", "day-to-dusk-pe"],
+    ]) {
+      const quote = calculateOrderQuote({ serviceType: "photo-editing", currency,
+        items: [{ dedicatedSubService, baseOptionId, selectedOptions: [baseOptionId] }],
+      }, { partnerClient: true, welcomeOfferAvailability: {
+        virtualStagingAvailable: true, imageEnhancementAvailable: true, dayToDuskAvailable: true,
+      } });
+      assert.equal(quote.volumeEligibleUnits, 1);
+      assert.equal(quote.partnerDiscountCents, 0);
+      assert.equal(isNoPaymentRequiredOrder({ service_type: "photo-editing", currency,
+        estimated_total_cents: 0, pricing_snapshot: createPricingSnapshot(quote),
+      }), true);
+    }
+  }
+});
+
 function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEligibleOrder {
   const currency = typeof overrides.currency === "string" ? overrides.currency : "USD";
   return {
@@ -51,6 +71,7 @@ function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEli
     currency,
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency,
       serviceType: "virtual-staging",
       eligibleUnits: 1,
@@ -83,10 +104,11 @@ function noPaymentRequiredOrder() {
     estimated_total_cents: 0,
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "photo-editing",
       eligibleUnits: 1,
-      volumeEligibleUnits: 0,
+      volumeEligibleUnits: 1,
       baseSubtotalCents: 100,
       addOnSubtotalCents: 0,
       welcomeDiscountCents: 100,
@@ -142,6 +164,7 @@ function partiallyDiscountedWelcomeOfferOrder() {
     item_count: 2,
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "virtual-staging",
       eligibleUnits: 2,
@@ -537,10 +560,51 @@ test("historical snapshots retain ownership, amount, service, currency and payme
 
 test("historical free Welcome orders remain payment-free and reject altered free-price evidence", () => {
   const original = noPaymentRequiredOrder();
-  const snapshot = original.pricing_snapshot as Record<string, unknown>;
+  const snapshot = { ...original.pricing_snapshot as Record<string, unknown>, volumeEligibleUnits: 0 };
   assert.equal(isNoPaymentRequiredOrder({ ...original, pricing_snapshot: { ...snapshot, pricingVersion: "2026-08-29-v2" } }), true);
   assert.equal(isNoPaymentRequiredOrder({ ...original, pricing_snapshot: { ...snapshot, pricingVersion: "future" } }), false);
   assert.equal(isNoPaymentRequiredOrder({ ...original, pricing_snapshot: { ...snapshot, welcomeDiscountCents: 99 } }), false);
+});
+
+test("Partner Checkout uses immutable committed cents and keeps inclusive tax settings", async () => {
+  const input = { serviceType: "virtual-staging", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedAddons: [] })) } as const;
+  const welcomeOfferAvailability = { virtualStagingAvailable: true, imageEnhancementAvailable: false, dayToDuskAvailable: false };
+  for (const partnerClient of [true, false]) {
+    const snapshot = createPricingSnapshot(calculateOrderQuote(input, { partnerClient, welcomeOfferAvailability }));
+    const currentAccountQuote = calculateOrderQuote(input, { partnerClient: !partnerClient, welcomeOfferAvailability });
+    assert.notEqual(snapshot.totalCents, currentAccountQuote.totalCents);
+    const repository = new FakeRepository();
+    repository.order = validOrder({ item_count: 10, estimated_total_cents: snapshot.totalCents!, pricing_snapshot: snapshot });
+    const original = structuredClone(snapshot);
+    const { stripe, calls } = fakeStripe();
+    await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+    const params = calls[0]?.params;
+    assert.equal(params?.line_items?.[0]?.price_data?.unit_amount, partnerClient ? 11685 : 12900);
+    assert.equal(repository.currentPayment?.subtotal_cents, snapshot.totalCents);
+    assert.equal(params?.line_items?.[0]?.price_data?.tax_behavior, "inclusive");
+    assert.deepEqual(params?.automatic_tax, { enabled: true });
+    assert.deepEqual(repository.order.pricing_snapshot, original);
+  }
+});
+
+test("v3 Welcome staging and free editing orders preserve their respective historical tiers at Checkout", async () => {
+  const staging = createPricingSnapshot(calculateOrderQuote({ serviceType: "virtual-staging", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedAddons: [] })) }, {
+    welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: true, dayToDuskAvailable: true },
+  }));
+  const editing = createPricingSnapshot(calculateOrderQuote({ serviceType: "photo-editing", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedOptions: ["image-enhancement-re"], baseOptionId: "image-enhancement-re", dedicatedSubService: "image-enhancement-single-exposure" })) }, {
+    welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: true, dayToDuskAvailable: true },
+  }));
+  for (const snapshot of [
+    { ...staging, pricingVersion: "2026-09-09-v3" },
+    { ...editing, pricingVersion: "2026-09-09-v3", volumeEligibleUnits: 9, volumeDiscountPercent: 5, volumeDiscountCents: 45, subtotalAfterDiscountCents: 855, totalCents: 855 },
+  ]) {
+    const repository = new FakeRepository();
+    repository.order = validOrder({ service_type: snapshot.serviceType, item_count: 10, estimated_total_cents: snapshot.totalCents!, pricing_snapshot: snapshot });
+    const { stripe, calls } = fakeStripe();
+    await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+    assert.equal(calls[0]?.params.line_items?.[0]?.price_data?.unit_amount, snapshot.totalCents);
+    assert.equal(snapshot.partnerDiscountCents, 0);
+  }
 });
 
 test("rejects unauthenticated, malformed, extra client price fields, and non-owned orders", async () => {

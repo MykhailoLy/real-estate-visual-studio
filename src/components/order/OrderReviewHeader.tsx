@@ -91,6 +91,16 @@ export default function OrderReviewHeader({
               </dd>
             </>
           )}
+          {quote.partnerDiscountCents > 0 && (
+            <>
+              <dt className="text-dashboard-metadata font-bold text-primary">
+                Partner pricing · {quote.partnerDiscountPercent}%
+              </dt>
+              <dd className="text-right font-semibold text-primary">
+                −{formatMoney(quote.partnerDiscountCents, quote.currency)}
+              </dd>
+            </>
+          )}
           <dt className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
             Estimated total
           </dt>

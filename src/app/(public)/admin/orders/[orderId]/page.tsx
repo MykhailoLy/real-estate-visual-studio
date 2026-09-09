@@ -39,6 +39,8 @@ import {
 } from "@/lib/display/status-labels";
 import { formatStoredMoney } from "@/lib/pricing/format";
 import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
+import { getPartnerClient } from "@/lib/account-pricing-server";
+import AdminPartnerPricingControl from "@/components/admin/AdminPartnerPricingControl";
 import type { PricingSnapshot } from "@/lib/pricing/types";
 import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
 
@@ -157,6 +159,7 @@ export default async function AdminOrderDetailPage({
   // ── Data types ────────────────────────────────────────────
   type OrderRow = {
     id: string;
+    user_id: string | null;
     order_number: string;
     service_type: string;
     status: string;
@@ -180,6 +183,7 @@ export default async function AdminOrderDetailPage({
 
   // ── State ─────────────────────────────────────────────────
   let order: OrderRow | null = null;
+  let partnerClient: boolean | null = null;
   let deliverables: DeliverableRow[] = [];
   let sourceFiles: AdminSourceFile[] = [];
   let orderItems: OrderItem[] = [];
@@ -201,7 +205,7 @@ export default async function AdminOrderDetailPage({
       const { data: orderData, error: orderErr } = await supabase
         .from("orders")
         .select(
-          "id, order_number, service_type, status, " +
+          "id, user_id, order_number, service_type, status, " +
             "client_name, client_email, client_company, " +
             "item_count, estimated_total_cents, currency, pricing_snapshot, job_title, created_at, updated_at",
         )
@@ -215,6 +219,9 @@ export default async function AdminOrderDetailPage({
       }
 
       if (order) {
+        if (order.user_id) {
+          partnerClient = await getPartnerClient(order.user_id, supabase).catch(() => null);
+        }
         // Deliverables (all, sorted newest-first)
         const { data: delivData, error: delivErr } = await supabase
           .from("order_deliverables")
@@ -488,7 +495,7 @@ export default async function AdminOrderDetailPage({
                     ["Company", order.client_company ?? "—"],
                     ["Images", String(order.item_count)],
                     [
-                      "Est. total before tax",
+                      "Order total",
                       formatStoredMoney(
                         order.estimated_total_cents,
                         order.currency
@@ -510,6 +517,13 @@ export default async function AdminOrderDetailPage({
                     </div>
                   ))}
                 </dl>
+                {order.user_id && (partnerClient !== null ? (
+                  <AdminPartnerPricingControl orderId={order.id} partnerClient={partnerClient} />
+                ) : (
+                  <p className="border-t border-border px-5 py-4 text-sm text-muted" role="status">
+                    Partner pricing is unavailable. Reload to try again.
+                  </p>
+                ))}
                 {pricing && (
                   <div className="border-t border-border px-5 py-4 text-xs text-muted">
                     <div className="flex justify-between gap-4">
@@ -556,8 +570,14 @@ export default async function AdminOrderDetailPage({
                         </span>
                       </div>
                     )}
+                    {pricing.partnerDiscountCents > 0 && (
+                      <div className="mt-1 flex justify-between gap-4 text-primary">
+                        <span>Partner pricing · {pricing.partnerDiscountPercent}%</span>
+                        <span>−{formatStoredMoney(pricing.partnerDiscountCents, pricing.currency)}</span>
+                      </div>
+                    )}
                     <p className="mt-2">
-                      Taxes calculated separately where applicable.
+                      Applicable tax is included and identified at Checkout.
                     </p>
                   </div>
                 )}
