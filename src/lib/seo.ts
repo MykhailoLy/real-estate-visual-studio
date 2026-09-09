@@ -11,10 +11,10 @@ export const SITE_URL =
 export const SITE_NAME = "PicchuSpot";
 
 export const SOCIAL_IMAGE = {
-  url: absoluteUrl("/brand/picchuspot-mark-1200.png"),
+  url: absoluteUrl("/brand/picchuspot-social-preview-1200x630.jpg"),
   width: 1200,
-  height: 600,
-  alt: "PicchuSpot brand mark",
+  height: 630,
+  alt: "PicchuSpot real estate visuals — Fast, precise, reliable",
 };
 
 export type { EnglishLocalizedPath, SpanishLocalizedPath };
