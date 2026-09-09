@@ -11,12 +11,18 @@ const orderId = "22222222-2222-4222-8222-222222222222";
 const globals = globalThis as typeof globalThis & { __partnerAdmin?: () => boolean; __partnerSupabase?: unknown };
 globals.__partnerAdmin = () => admin;
 globals.__partnerSupabase = {
+  auth: { admin: { async getUserById(id: string) {
+    assert.equal(id, accountUserId);
+    return { data: { user: { id } }, error: null };
+  } } },
   from(table: string) {
     if (table === "orders") return { select() { return this; }, eq(column: string, value: string) {
       assert.equal(column, "id"); assert.equal(value, orderId); return this;
     }, async maybeSingle() { return { data: { user_id: accountUserId }, error: null }; } };
     assert.equal(table, "account_pricing");
-    return { async upsert(row: Record<string, unknown>, options: { onConflict: string }) {
+    return { select() { return this; }, eq() { return this; },
+      async maybeSingle() { return { data: null, error: null }; },
+      async upsert(row: Record<string, unknown>, options: { onConflict: string }) {
       assert.equal(options.onConflict, "user_id");
       if (!failWrite) updates.push(row);
       return { error: failWrite ? { message: "offline" } : null };
@@ -31,6 +37,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
     "@/lib/supabase-admin": "export function getSupabaseAdminClient() { return globalThis.__partnerSupabase; }",
   };
   if (mocks[specifier]) return { url: `data:text/javascript,${encodeURIComponent(mocks[specifier])}`, shortCircuit: true };
+  if (specifier === "@/lib/admin-clients-server") return { url: new URL("./admin-clients-server.ts", import.meta.url).href, shortCircuit: true };
   return nextResolve(specifier, context);
 } });
 const { getPartnerClient, AccountPricingError } = await import("./account-pricing-server.ts");

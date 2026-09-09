@@ -4,8 +4,13 @@ import { useState } from "react";
 
 export default function AdminPartnerPricingControl({
   orderId,
+  userId,
   partnerClient,
-}: { orderId: string; partnerClient: boolean }) {
+  compact = false,
+}: ({ orderId: string; userId?: never } | { userId: string; orderId?: never }) & {
+  partnerClient: boolean;
+  compact?: boolean;
+}) {
   const [enabled, setEnabled] = useState(partnerClient);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -17,7 +22,8 @@ export default function AdminPartnerPricingControl({
     setMessage("");
     setFailed(false);
     try {
-      const response = await fetch(`/api/admin/orders/${orderId}/partner-pricing`, {
+      const endpoint = userId ? `/api/admin/clients/${userId}/partner-pricing` : `/api/admin/orders/${orderId}/partner-pricing`;
+      const response = await fetch(endpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -38,7 +44,7 @@ export default function AdminPartnerPricingControl({
   }
 
   return (
-    <div className="border-t border-border px-5 py-4 text-sm">
+    <div className={compact ? "text-sm" : "border-t border-border px-5 py-4 text-sm"}>
       <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 font-semibold text-foreground">
         Partner client
         <input

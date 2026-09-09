@@ -1,40 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { renderComponentFixture } from "../support/render-component-fixture";
 
 // Render the actual components with local fixtures and production CSS. No real
 // account, order, payment, upload or database mutation is used by these checks.
 function pricingMarkup(partnerClient: boolean, count: number, welcome = true) {
-  // Playwright transforms JSX into component-test descriptors. A separate Node
-  // renderer keeps React's real JSX runtime without changing application files.
-  return execFileSync(process.execPath, ["--input-type=module", "-e", `
-  import { registerHooks } from "node:module";
-  import { readFileSync, existsSync } from "node:fs";
-  import { pathToFileURL } from "node:url";
-  import ts from "typescript";
-  import { createElement } from "react";
-  import { renderToStaticMarkup } from "react-dom/server";
-  const root = pathToFileURL(process.cwd() + "/");
-  registerHooks({
-    resolve(specifier, context, nextResolve) {
-      if (specifier.startsWith("@/") || specifier.startsWith(".")) {
-        const base = specifier.startsWith("@/")
-          ? new URL("src/" + specifier.slice(2), root) : new URL(specifier, context.parentURL);
-        for (const extension of ["", ".ts", ".tsx"]) {
-          const url = new URL(base.href + extension);
-          if (/\\.tsx?$/.test(url.pathname) && existsSync(url)) return { url: url.href, shortCircuit: true };
-        }
-      }
-      return nextResolve(specifier === "next/link" ? "next/link.js" : specifier, context);
-    },
-    load(url, context, nextLoad) {
-      if (/\\.tsx?$/.test(url)) return { format: "module", shortCircuit: true,
-        source: ts.transpileModule(readFileSync(new URL(url), "utf8"), { compilerOptions: {
-          module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
-        } }).outputText,
-      };
-      return nextLoad(url, context);
-    },
-  });
+  return renderComponentFixture(`
   const { default: OrderReviewHeader } = await import("./src/components/order/OrderReviewHeader.tsx");
   const { default: OrderSummary } = await import("./src/components/order/OrderSummary.tsx");
   const { PartnerPricingProvider } = await import("./src/components/order/PartnerPricingContext.tsx");
@@ -58,7 +28,7 @@ function pricingMarkup(partnerClient: boolean, count: number, welcome = true) {
     createElement(OrderReviewHeader, { jobTitle: "Partner pricing review", serviceName: "Virtual Staging", photoCount: count, quote }),
     createElement(AdminPartnerPricingControl, { orderId: "11111111-1111-4111-8111-111111111111", partnerClient }),
   )));
-  `, JSON.stringify({ partnerClient, count, welcome })], { encoding: "utf8", timeout: 15000 });
+  `, { partnerClient, count, welcome });
 }
 
 test("Partner summary and review agree without overflow at supported widths", async ({ page, request, baseURL }) => {
