@@ -1,10 +1,12 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { after, type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { sendReviewWorkflowEmail } from "@/lib/email/review-workflow-notifications";
 import { createServerClient } from "@/lib/supabase";
+import { DELIVERABLES_BUCKET } from "@/lib/deliverables-config";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const Body = z.object({
   replacementDeliverableId: z.string().uuid("Invalid replacement deliverable ID."),
@@ -46,7 +48,7 @@ export async function PATCH(
 
   const { data: review, error: reviewErr } = await supabase
     .from("deliverable_reviews")
-    .select("id, status, order_id, item_index, replacement_deliverable_id")
+    .select("id, deliverable_id, status, order_id, item_index, replacement_deliverable_id")
     .eq("id", reviewId)
     .maybeSingle();
 
@@ -56,6 +58,7 @@ export async function PATCH(
 
   const reviewRow = review as unknown as {
     id: string;
+    deliverable_id: string;
     status: string;
     order_id: string;
     item_index: number | null;
@@ -79,7 +82,7 @@ export async function PATCH(
   const { replacementDeliverableId } = parsed.data;
   const { data: deliverable, error: deliverableErr } = await supabase
     .from("order_deliverables")
-    .select("id, order_id, item_index")
+    .select("id, order_id, item_index, storage_path, file_size, expires_at")
     .eq("id", replacementDeliverableId)
     .maybeSingle();
 
@@ -91,6 +94,9 @@ export async function PATCH(
     id: string;
     order_id: string;
     item_index: number | null;
+    storage_path: string;
+    file_size: number;
+    expires_at: string | null;
   };
 
   if (deliverableRow.order_id !== reviewRow.order_id) {
@@ -107,24 +113,47 @@ export async function PATCH(
     );
   }
 
-  const { error: updateErr } = await supabase
-    .from("deliverable_reviews")
-    .update({
-      replacement_deliverable_id: replacementDeliverableId,
-      status: "rework_delivered",
-      updated_at: new Date().toISOString(),
+  if (deliverableRow.id === reviewRow.deliverable_id ||
+      (deliverableRow.expires_at && new Date(deliverableRow.expires_at).getTime() <= Date.now())) {
+    return NextResponse.json({ error: "A new, accessible replacement file is required." }, { status: 409 });
+  }
+
+  // A metadata row alone is not proof of a completed upload. Verify the
+  // persisted private object before attaching it or firing the existing event.
+  try {
+    const { data: object, error: storageError } = await supabase.storage
+      .from(DELIVERABLES_BUCKET).info(deliverableRow.storage_path);
+    if (storageError || !object || deliverableRow.file_size < 1 || Number(object.size) !== deliverableRow.file_size) {
+      return NextResponse.json({ error: "Replacement upload is not ready. Complete the upload and try again." }, { status: 409 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Could not verify replacement upload. Please try again." }, { status: 503 });
+  }
+
+  // Conditional attachment and the existing replacement-ready event commit
+  // together. A crash or provider outage cannot lose the notification.
+  const { data: linkedReview, error: updateErr } = await supabase
+    .rpc("attach_replacement_with_email", {
+      p_review_id: reviewId,
+      p_replacement_deliverable_id: replacementDeliverableId,
     })
-    .eq("id", reviewId);
+    .maybeSingle();
 
   if (updateErr) {
     console.error("[admin/reviews/replacement] Update error:", updateErr.message);
     return NextResponse.json({ error: "Could not link replacement deliverable." }, { status: 500 });
   }
 
-  await sendReviewWorkflowEmail({
-    event: "admin_replacement_ready",
-    reviewId,
-    replacementDeliverableId,
+  if (!linkedReview) {
+    return NextResponse.json({ error: "This review was already updated. Refresh the order." }, { status: 409 });
+  }
+
+  after(async () => {
+    await sendReviewWorkflowEmail({
+      event: "admin_replacement_ready",
+      reviewId,
+      replacementDeliverableId,
+    });
   });
 
   return NextResponse.json({

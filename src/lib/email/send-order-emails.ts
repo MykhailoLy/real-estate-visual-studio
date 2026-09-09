@@ -15,9 +15,13 @@ import {
 import { renderClientConfirmation, type ClientConfirmationItem } from "./order-client-confirmation";
 import { renderAdminNotification, type AdminOrderItem } from "./order-admin-notification";
 import { renderPaymentConfirmation } from "./order-payment-confirmation";
+import { renderWorkReadyEmail } from "./order-work-ready";
 import { getAdminAddress, getFromAddress, getResendClient } from "./resend-client";
 
-type DeliveryKind = "client_confirmation" | "admin_notification" | "payment_confirmation";
+// Rework is scoped to its existing review cycle. This preserves the outbox's
+// (order_id, delivery_kind) uniqueness and all existing enqueue/claim contracts.
+type DeliveryKind = "client_confirmation" | "admin_notification" | "payment_confirmation"
+  | "order_delivered" | `admin_replacement_ready:${string}`;
 interface ClaimedDelivery {
   delivery_id: string;
   order_id: string;
@@ -199,6 +203,46 @@ async function buildPersistedEmailPayload(
   | { ok: true; value: { from: string; to: string; replyTo: string; subject: string; html: string; text: string } }
   | { ok: false; code: string }
 > {
+  // Ready notifications also support historical/manual-price orders without a
+  // pricing snapshot. They need only the persisted order's recipient and name.
+  const reworkReady = delivery.delivery_kind.startsWith("admin_replacement_ready:");
+  if (delivery.delivery_kind === "order_delivered" || reworkReady) {
+    if (reworkReady) {
+      const reviewId = delivery.delivery_kind.slice("admin_replacement_ready:".length);
+      const { data: review, error: reviewError } = await supabase.from("deliverable_reviews")
+        .select("id,status,replacement_deliverable_id")
+        .eq("id", reviewId).eq("order_id", delivery.order_id).maybeSingle();
+      if (reviewError || !review || review.status !== "rework_delivered" || !review.replacement_deliverable_id) {
+        return { ok: false, code: "replacement_not_finalized" };
+      }
+      const { data: replacement, error: replacementError } = await supabase.from("order_deliverables")
+        .select("id,expires_at").eq("id", review.replacement_deliverable_id)
+        .eq("order_id", delivery.order_id).maybeSingle();
+      if (replacementError || !replacement ||
+          (replacement.expires_at && new Date(replacement.expires_at).getTime() <= Date.now())) {
+        return { ok: false, code: "replacement_unavailable" };
+      }
+    }
+    const { data: order, error } = await supabase.from("orders")
+      .select("id,order_number,client_name,client_email")
+      .eq("id", delivery.order_id).maybeSingle();
+    if (error || !order) return { ok: false, code: "persisted_order_unavailable" };
+    return {
+      ok: true,
+      value: {
+        from: getFromAddress(),
+        to: order.client_email,
+        replyTo: getAdminAddress(),
+        ...renderWorkReadyEmail({
+          event: reworkReady ? "admin_replacement_ready" : "order_delivered",
+          orderId: order.id,
+          orderNumber: order.order_number,
+          clientName: order.client_name,
+        }),
+      },
+    };
+  }
+
   const [
     { data: orderData, error: orderError },
     { data: itemsData, error: itemsError },

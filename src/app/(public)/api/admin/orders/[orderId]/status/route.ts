@@ -1,7 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { after, type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
+import { dispatchOrderEmailOutbox } from "@/lib/email/send-order-emails";
 import {
   AdminPaymentGateError,
   assertAdminOrderStatusTransitionAllowed,
@@ -46,6 +47,7 @@ import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 // ============================================================
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // The 5 values enforced by the DB CHECK constraint on orders.status
 const VALID_STATUSES = [
@@ -166,14 +168,17 @@ export async function POST(
     }
   }
 
-  // Only update `status`. `updated_at` is refreshed automatically
-  // by the orders_updated_at trigger in the DB schema.
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: newStatus })
-    .eq("id", orderId)
-    .select("id, status, updated_at")
-    .maybeSingle();
+  // Delivery and its first email event commit together. Other statuses keep
+  // the existing update path; the payment/auth gates above apply to both.
+  const { data, error } = newStatus === "delivered"
+    ? await supabase.rpc("mark_order_delivered_with_email", { p_order_id: orderId })
+      .maybeSingle<{ id: string; status: OrderStatus; updated_at: string }>()
+    : await supabase
+      .from("orders")
+      .update({ status: newStatus })
+      .eq("id", orderId)
+      .select("id, status, updated_at")
+      .maybeSingle();
 
   if (error) {
     console.error("[admin/orders/status] Update error:", error.message);
@@ -184,6 +189,15 @@ export async function POST(
   }
 
   if (!data) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+  if (newStatus === "delivered") {
+    // The DB function enqueues atomically with the status update. Repeated
+    // delivered requests only drain an existing retryable event, never enqueue.
+    // Resend availability must not delay or undo the committed status response.
+    after(async () => {
+      await dispatchOrderEmailOutbox({ supabase, orderId });
+    });
+  }
 
   return NextResponse.json({
     ok: true,
