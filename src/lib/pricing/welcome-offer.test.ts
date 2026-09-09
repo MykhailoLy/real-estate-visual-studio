@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getCatalogPrice } from "./catalog.ts";
+import { percentageOfCents } from "./discounts.ts";
 import { calculateOrderQuote } from "./calculate.ts";
 import type {
   OrderPricingInput,
@@ -153,34 +154,80 @@ test("generic and mixed Photo Editing cannot receive a standalone benefit", () =
   }
 });
 
-test("Virtual Staging discounts exactly one base and tiers only paid images", () => {
-  for (const [count, paidCount, percent] of [
-    [1, 0, 0],
-    [2, 1, 0],
-    [5, 4, 0],
-    [6, 5, 5],
-    [10, 9, 5],
-    [20, 19, 10],
-  ] as const) {
-    const unit = getCatalogPrice("virtual-staging", "EUR");
-    const quote = calculateOrderQuote(
-      {
-        serviceType: "virtual-staging",
-        currency: "EUR",
-        items: stagingItems(count),
-      },
-      { welcomeOfferAvailability: AVAILABLE },
-    );
-    const welcome = Math.round(unit / 2);
-    const volume = Math.round((unit * paidCount * percent) / 100);
-    assert.equal(quote.volumeEligibleUnits, paidCount);
-    assert.equal(quote.welcomeDiscountCents, welcome);
-    assert.equal(quote.volumeDiscountPercent, percent);
-    assert.equal(quote.volumeDiscountCents, volume);
-    assert.equal(quote.totalCents, unit * count - welcome - volume);
-    assert.equal(quote.welcomeOffer.benefits[0]?.itemIndex, 0);
-    assert.equal(quote.welcomeOffer.benefits[0]?.discountPercent, 50);
+for (const currency of ["USD", "EUR", "CAD"] as const) {
+  test(`Virtual Staging Welcome preserves original volume thresholds in ${currency}`, () => {
+    const unit = getCatalogPrice("virtual-staging", currency);
+    for (const [count, percent] of [
+      [1, 0], [4, 0], [5, 5], [9, 5], [10, 10],
+      [19, 10], [20, 15], [49, 15], [50, 0],
+    ] as const) {
+      const input = { serviceType: "virtual-staging", currency, items: stagingItems(count) } as const;
+      const ordinary = calculateOrderQuote(input);
+      const quote = calculateOrderQuote(input, { welcomeOfferAvailability: AVAILABLE });
+      assert.equal(ordinary.volumeDiscountPercent, percent);
+      assert.equal(quote.volumeDiscountPercent, percent);
+      assert.equal(quote.volumeEligibleUnits, count);
+      assert.equal(quote.customQuote, count === 50);
+      if (count === 50) {
+        assert.equal(ordinary.totalCents, null);
+        assert.equal(quote.totalCents, null);
+        assert.equal(quote.welcomeDiscountCents, 0);
+        assert.deepEqual(quote.welcomeOffer.benefits, []);
+        continue;
+      }
+      const welcome = percentageOfCents(unit, 50);
+      const volume = percentageOfCents(unit * (count - 1), percent);
+      assert.equal(quote.welcomeDiscountCents, welcome);
+      assert.equal(quote.volumeDiscountCents, volume);
+      assert.equal(quote.totalCents, unit * count - welcome - volume);
+      assert.equal(ordinary.totalCents, unit * count - percentageOfCents(unit * count, percent));
+      assert.ok(quote.totalCents! <= ordinary.totalCents!);
+      assert.equal(quote.welcomeOffer.benefits[0]?.itemIndex, 0);
+      assert.equal(quote.welcomeOffer.benefits[0]?.discountPercent, 50);
+    }
+  });
+
+  test(`Virtual Staging Welcome never increases any fixed-price quantity in ${currency}`, () => {
+    for (let count = 1; count < 50; count++) {
+      const input = { serviceType: "virtual-staging", currency, items: stagingItems(count, ["image-enhancement", "day-to-dusk"]) } as const;
+      const ordinary = calculateOrderQuote(input);
+      const welcome = calculateOrderQuote(input, { welcomeOfferAvailability: AVAILABLE });
+      const withoutAddOns = calculateOrderQuote(
+        { ...input, items: stagingItems(count) }, { welcomeOfferAvailability: AVAILABLE },
+      );
+      assert.ok(welcome.totalCents! <= ordinary.totalCents!);
+      assert.equal(welcome.volumeDiscountCents, withoutAddOns.volumeDiscountCents);
+      assert.equal(welcome.welcomeDiscountCents, withoutAddOns.welcomeDiscountCents);
+      assert.equal(welcome.totalCents! - withoutAddOns.totalCents!, welcome.addOnSubtotalCents);
+    }
+  });
+}
+
+test("the two free Welcome benefits retain paid-image thresholds", () => {
+  for (const subService of ["image-enhancement-single-exposure", "day-to-dusk"] as const) {
+    for (const [count, percent] of [[4, 0], [5, 0], [9, 5], [10, 5], [19, 10], [20, 10], [49, 15], [50, 0]] as const) {
+      const quote = calculateOrderQuote(
+        { serviceType: "photo-editing", currency: "USD", items: dedicatedItems(count, subService) },
+        { welcomeOfferAvailability: AVAILABLE },
+      );
+      assert.equal(quote.volumeDiscountPercent, percent);
+      assert.equal(quote.volumeEligibleUnits, count === 50 ? count : count - 1);
+      assert.equal(quote.customQuote, count === 50);
+      assert.equal(quote.welcomeOffer.benefits.length, count === 50 ? 0 : 1);
+    }
   }
+});
+
+test("percentage discounts round half up once on aggregate integer cents", () => {
+  assert.equal(percentageOfCents(49, 50), 25);
+  assert.equal(percentageOfCents(1, 15), 0);
+  assert.equal(percentageOfCents(10, 15), 2);
+  const quote = calculateOrderQuote({
+    serviceType: "photo-editing", currency: "USD", items: dedicatedItems(5, "day-to-dusk"),
+  });
+  assert.equal(quote.baseSubtotalCents, 1750);
+  assert.equal(quote.volumeDiscountCents, 88);
+  assert.equal(quote.totalCents, 1662);
 });
 
 test("Virtual Staging add-ons stay full price and an used benefit restores standard volume pricing", () => {

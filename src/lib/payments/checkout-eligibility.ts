@@ -1,6 +1,4 @@
 import { getVolumeDiscount } from "@/lib/pricing/discounts";
-import { PRICING_VERSION } from "@/lib/pricing/catalog";
-import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import {
   WELCOME_OFFER_BENEFIT_RULES,
@@ -17,6 +15,14 @@ const SUPPORTED_CHECKOUT_SERVICES = new Set([
   "3d-floor-plans",
   "photo-editing",
 ]);
+
+// Frozen evidence for Welcome Offer version 2026-08-29, used by both v2 and
+// v3 snapshots. Keep the free-order exemption independent of future catalogue
+// prices while retaining its exact-price check. These are not charge prices.
+const FREE_WELCOME_BASE_CENTS = {
+  "image-enhancement-free": { USD: 100, EUR: 100, CAD: 150 },
+  "day-to-dusk-free": { USD: 350, EUR: 300, CAD: 450 },
+} as const;
 
 export interface StoredCheckoutPriceOrder {
   service_type: string;
@@ -54,7 +60,7 @@ export interface CheckoutPrice {
 
 /**
  * Narrow, fail-closed exemption for a committed one-image free Welcome Offer
- * order. It uses only the immutable current-version server snapshot; it never
+ * order. It uses only an immutable supported server snapshot; it never
  * accepts a browser total or manufactures a payment record.
  */
 export function isNoPaymentRequiredOrder(
@@ -69,7 +75,6 @@ export function isNoPaymentRequiredOrder(
   const snapshot = parsePricingSnapshot(order.pricing_snapshot);
   if (
     !snapshot ||
-    snapshot.pricingVersion !== PRICING_VERSION ||
     snapshot.serviceType !== order.service_type ||
     snapshot.currency !== order.currency ||
     !toStripeCheckoutCurrency(snapshot.currency) ||
@@ -96,22 +101,22 @@ export function isNoPaymentRequiredOrder(
     return false;
   }
   const rule = WELCOME_OFFER_BENEFIT_RULES[benefit.key];
-  const catalogPrice = getCatalogPrice(rule.priceKey, snapshot.currency);
+  const originalBasePrice = FREE_WELCOME_BASE_CENTS[benefit.key][snapshot.currency];
   const item = snapshot.items[0];
   return (
     benefit.itemIndex === 0 &&
     benefit.priceKey === rule.priceKey &&
     benefit.discountPercent === 100 &&
-    benefit.discountCents === catalogPrice &&
-    snapshot.welcomeDiscountCents === catalogPrice &&
-    snapshot.welcomeOffer.totalDiscountCents === catalogPrice &&
-    snapshot.baseSubtotalCents === catalogPrice &&
+    benefit.discountCents === originalBasePrice &&
+    snapshot.welcomeDiscountCents === originalBasePrice &&
+    snapshot.welcomeOffer.totalDiscountCents === originalBasePrice &&
+    snapshot.baseSubtotalCents === originalBasePrice &&
     item.priceKey === rule.priceKey &&
-    item.unitPriceCents === catalogPrice &&
-    item.baseSubtotalCents === catalogPrice &&
+    item.unitPriceCents === originalBasePrice &&
+    item.baseSubtotalCents === originalBasePrice &&
     item.addOnSubtotalCents === 0 &&
     item.addOns.length === 0 &&
-    item.lineSubtotalCents === catalogPrice
+    item.lineSubtotalCents === originalBasePrice
   );
 }
 
@@ -157,13 +162,12 @@ export function getStoredCheckoutPrice(
   const snapshot = parsePricingSnapshot(order.pricing_snapshot);
   if (
     !snapshot ||
-    snapshot.pricingVersion !== PRICING_VERSION ||
     snapshot.serviceType !== order.service_type ||
     snapshot.currency !== order.currency
   ) {
     throw new CheckoutEligibilityError(
       "ineligible",
-      "This order does not have a current fixed-price snapshot.",
+      "This order does not have a supported fixed-price snapshot.",
     );
   }
 

@@ -54,7 +54,7 @@ function order(overrides: Record<string, unknown> = {}) {
       taxCents: 0,
       totalCents: 1500,
       customQuote: false,
-      items: [],
+      items: [{ itemIndex: 0, quantity: 1, priceKey: "virtual-staging", unitPriceCents: 1500, baseSubtotalCents: 1500, addOns: [], addOnSubtotalCents: 0, lineSubtotalCents: 1500 }],
       pricedAt: "2026-08-24T12:00:00.000Z",
     },
     ...overrides,
@@ -140,6 +140,24 @@ test("returns an authoritative fixed-price payment-required summary", async () =
     paymentStatus: null,
     state: "payment_required",
   });
+});
+
+test("v2 paid and free orders keep their historical payment recognition", async () => {
+  const historicalPaid = order({ status: "delivered" });
+  historicalPaid.pricing_snapshot.pricingVersion = "2026-08-29-v2";
+  const paid = payment({ payment_status: "paid", paid_at: "2026-08-30T12:00:00.000Z",
+    tax_cents: 260, total_cents: 1500, stripe_checkout_session_id: "cs_test_old", stripe_payment_intent_id: "pi_test_old" });
+  const summary = await getAuthoritativePaymentSummary(orderId, userId, {
+    repository: repository(historicalPaid, paid) as never, expectedStripeLivemode: false,
+  });
+  assert.equal(summary?.state, "paid");
+  assert.equal(summary?.finalTotalCents, 1500);
+  const historicalFree = noPaymentOrder();
+  historicalFree.pricing_snapshot.pricingVersion = "2026-08-29-v2";
+  const free = await getAuthoritativePaymentSummary(orderId, userId, {
+    repository: repository(historicalFree, null) as never, expectedStripeLivemode: false,
+  });
+  assert.equal(free?.state, "no_payment_required");
 });
 
 test("reports trusted zero-total Welcome Offer as no payment required without a paid record", async () => {

@@ -33,6 +33,9 @@ const { createCheckoutSession, checkoutInternals, CheckoutServiceError } =
   await import("./checkout-service.ts");
 const { handleCheckoutRequest } = await import("./checkout-request.ts");
 const { PRICING_VERSION } = await import("../pricing/catalog.ts");
+const { isNoPaymentRequiredOrder } = await import("./checkout-eligibility.ts");
+const { calculateOrderQuote } = await import("../pricing/calculate.ts");
+const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
 
 function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEligibleOrder {
   const currency = typeof overrides.currency === "string" ? overrides.currency : "USD";
@@ -67,7 +70,7 @@ function validOrder(overrides: Partial<CheckoutEligibleOrder> = {}): CheckoutEli
       taxCents: 0,
       totalCents: 1350,
       customQuote: false,
-      items: [],
+      items: [{ itemIndex: 0, quantity: 1, priceKey: "virtual-staging", unitPriceCents: 1350, baseSubtotalCents: 1350, addOns: [], addOnSubtotalCents: 0, lineSubtotalCents: 1350 }],
       pricedAt: "2026-07-13T11:00:00.000Z",
     },
     ...overrides,
@@ -142,7 +145,7 @@ function partiallyDiscountedWelcomeOfferOrder() {
       currency: "USD",
       serviceType: "virtual-staging",
       eligibleUnits: 2,
-      volumeEligibleUnits: 1,
+      volumeEligibleUnits: 2,
       baseSubtotalCents: unitPriceCents * 2,
       addOnSubtotalCents: 0,
       welcomeDiscountCents,
@@ -442,6 +445,102 @@ test("partially discounted Welcome Offer uses the exact immutable snapshot total
   assert.equal(calls[0]?.params.allow_promotion_codes, false);
   assert.deepEqual(calls[0]?.params.automatic_tax, { enabled: true });
   assert.deepEqual(calls[0]?.params.tax_id_collection, { enabled: true });
+});
+
+test("known pre-Welcome orders charge their stored historical prices in every currency", async () => {
+  for (const version of ["2026-06-25-v1", "2026-08-18-v1", "2026-08-23-v1"]) {
+    for (const currency of ["USD", "EUR", "CAD"] as const) {
+      // Approved prices in those versions, read from main's catalogue history.
+      const prices = version === "2026-08-23-v1"
+        ? { USD: 1500, EUR: 1400, CAD: 1900 }
+        : { USD: 1350, EUR: 1200, CAD: 1900 };
+      const cents = prices[currency];
+      const snapshot = { ...validOrder({ currency }).pricing_snapshot as Record<string, unknown> };
+      delete snapshot.volumeEligibleUnits;
+      delete snapshot.welcomeDiscountCents;
+      delete snapshot.welcomeOffer;
+      Object.assign(snapshot, {
+        pricingVersion: version, baseSubtotalCents: cents,
+        subtotalAfterDiscountCents: cents, totalCents: cents,
+        items: [{ itemIndex: 0, quantity: 1, priceKey: "virtual-staging", unitPriceCents: cents,
+          baseSubtotalCents: cents, addOns: [], addOnSubtotalCents: 0, lineSubtotalCents: cents }],
+      });
+      const original = structuredClone(snapshot);
+      const repository = new FakeRepository();
+      repository.order = validOrder({ currency, estimated_total_cents: cents, pricing_snapshot: snapshot });
+      const { stripe, calls } = fakeStripe();
+      await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+      assert.equal(calls[0]?.params.line_items?.[0]?.price_data?.unit_amount, cents);
+      assert.equal(calls[0]?.params.line_items?.[0]?.price_data?.currency, currency.toLowerCase());
+      assert.equal(repository.currentPayment?.subtotal_cents, cents);
+      assert.deepEqual(repository.order.pricing_snapshot, original);
+    }
+  }
+});
+
+test("v2 Welcome Checkout retains its original total while new orders use the corrected total", async () => {
+  const current = createPricingSnapshot(calculateOrderQuote(
+    { serviceType: "virtual-staging", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedAddons: [] })) },
+    { welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: false, dayToDuskAvailable: false } },
+  ));
+  const historical = {
+    ...current, pricingVersion: "2026-08-29-v2", volumeEligibleUnits: 9,
+    volumeDiscountPercent: 5, volumeDiscountCents: 675,
+    subtotalAfterDiscountCents: 13575, totalCents: 13575,
+  };
+  for (const [snapshot, cents] of [[historical, 13575], [current, 12900]] as const) {
+    const repository = new FakeRepository();
+    repository.order = validOrder({ item_count: 10, estimated_total_cents: cents, pricing_snapshot: snapshot });
+    const { stripe, calls } = fakeStripe();
+    await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+    assert.equal(calls[0]?.params.line_items?.[0]?.price_data?.unit_amount, cents);
+    assert.equal(repository.currentPayment?.subtotal_cents, cents);
+    assert.deepEqual(repository.order.pricing_snapshot, snapshot);
+  }
+});
+
+test("historical snapshots retain ownership, amount, service, currency and payment constraints", async () => {
+  const original = partiallyDiscountedWelcomeOfferOrder();
+  original.pricing_snapshot = {
+    ...original.pricing_snapshot as Record<string, unknown>,
+    pricingVersion: "2026-08-29-v2", volumeEligibleUnits: 1,
+  };
+  for (const patch of [
+    { user_id: "44444444-4444-4444-8444-444444444444" },
+    { estimated_total_cents: 2249 }, { currency: "EUR" }, { service_type: "photo-editing" },
+    { pricing_snapshot: { ...original.pricing_snapshot as Record<string, unknown>, totalCents: 2249 } },
+    { pricing_snapshot: { ...original.pricing_snapshot as Record<string, unknown>, items: [] } },
+    { pricing_snapshot: { ...original.pricing_snapshot as Record<string, unknown>, pricingVersion: "unknown" } },
+    { pricing_snapshot: { ...original.pricing_snapshot as Record<string, unknown>, pricingVersion: "2099-01-01-v1" } },
+  ]) {
+    const repository = new FakeRepository();
+    repository.order = { ...original, ...patch };
+    const { stripe, calls } = fakeStripe();
+    await assert.rejects(createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe)), CheckoutServiceError);
+    assert.equal(calls.length, 0);
+    assert.equal(repository.created.length, 0);
+  }
+  for (const existingPayment of [
+    payment({ subtotal_cents: 2249 }),
+    payment({ subtotal_cents: 2250, currency: "eur" }),
+    payment({ subtotal_cents: 2250, payment_status: "paid", paid_at: now.toISOString() }),
+    payment({ subtotal_cents: 2250, stripe_livemode: true }),
+  ]) {
+    const repository = new FakeRepository();
+    repository.order = original;
+    repository.currentPayment = existingPayment;
+    const { stripe, calls } = fakeStripe();
+    await assert.rejects(createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe)), CheckoutServiceError);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test("historical free Welcome orders remain payment-free and reject altered free-price evidence", () => {
+  const original = noPaymentRequiredOrder();
+  const snapshot = original.pricing_snapshot as Record<string, unknown>;
+  assert.equal(isNoPaymentRequiredOrder({ ...original, pricing_snapshot: { ...snapshot, pricingVersion: "2026-08-29-v2" } }), true);
+  assert.equal(isNoPaymentRequiredOrder({ ...original, pricing_snapshot: { ...snapshot, pricingVersion: "future" } }), false);
+  assert.equal(isNoPaymentRequiredOrder({ ...original, pricing_snapshot: { ...snapshot, welcomeDiscountCents: 99 } }), false);
 });
 
 test("rejects unauthenticated, malformed, extra client price fields, and non-owned orders", async () => {
