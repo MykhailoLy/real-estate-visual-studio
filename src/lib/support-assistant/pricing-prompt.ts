@@ -7,6 +7,7 @@ import {
   getCatalogPrice,
 } from "../pricing/catalog.ts";
 import { STANDARD_VOLUME_DISCOUNT_EXCLUDED_PRICE_KEYS } from "../pricing/discounts.ts";
+import { calculateOrderQuote } from "../pricing/calculate.ts";
 import type {
   PriceKey,
   TransactionalCurrency,
@@ -400,6 +401,17 @@ export const SUPPORT_MONEY_FORMATTING_EXAMPLES = SUPPORT_CURRENCIES.map(
 
 const stagingEur = getCatalogPrice("virtual-staging", "EUR");
 const enhancementEur = getCatalogPrice("image-enhancement", "EUR");
+
+const stagingSummary = calculateOrderQuote({
+  serviceType: "virtual-staging", currency: "EUR",
+  items: Array.from({ length: 8 }, () => ({ selectedAddons: [] })),
+});
+
+export const SUPPORT_STAGING_SUMMARY_EXAMPLE = `Quantity: 8 images
+Unit price: ${formatSupportAmount(stagingEur, "EUR")} per image
+Base subtotal: ${formatSupportAmount(stagingSummary.baseSubtotalCents, "EUR")}
+Volume discount (${stagingSummary.volumeDiscountPercent}%): −${formatSupportAmount(stagingSummary.volumeDiscountCents, "EUR")}
+Estimated total: ${formatSupportAmount(stagingSummary.totalCents!, "EUR")}`;
 
 export const SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE = `* Base Virtual Staging: ${formatSupportAmount(stagingEur, "EUR")} per image
 * Image Enhancement add-on: ${formatSupportAmount(enhancementEur, "EUR")} per image

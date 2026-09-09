@@ -29,7 +29,7 @@ function order(overrides: Record<string, unknown> = {}) {
     estimated_total_cents: 1500,
     currency: "USD",
     pricing_snapshot: {
-      pricingVersion: PRICING_VERSION,
+      pricingVersion: "2026-09-09-v4",
       partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "virtual-staging",
@@ -57,7 +57,7 @@ function order(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function zeroTotalOrder(catalogPrice = 100) {
+function zeroTotalOrder(catalogPrice = 120) {
   return order({
     service_type: "photo-editing",
     estimated_total_cents: 0,

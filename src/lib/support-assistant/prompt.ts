@@ -15,6 +15,7 @@ import {
   SUPPORT_MONEY_FORMATTING_EXAMPLES,
   SUPPORT_RENOVATION_FLOORING_USD_EXAMPLE,
   SUPPORT_STAGING_ENHANCEMENT_EUR_EXAMPLE,
+  SUPPORT_STAGING_SUMMARY_EXAMPLE,
 } from "./pricing-prompt.ts";
 
 export const PICCHUSPOT_SUPPORT_PROMPT_VERSION = "1.0.11";
@@ -167,11 +168,7 @@ may be written directly as plain text.
 
 For pricing summaries, prefer formatting like:
 
-Quantity: 8 images
-Unit price: €14.00 per image
-Base subtotal: €112.00
-Volume discount (5%): −€5.60
-Estimated total: €106.40
+${SUPPORT_STAGING_SUMMARY_EXAMPLE}
 
 Do not:
 

@@ -177,7 +177,7 @@ test("registered account with no orders can be enabled, receive first-order pric
   assert.equal(calls.includes("orders"), false);
   const partnerClient = await getPartnerClient(userId, supabase as never);
   const quote = calculateOrderQuote({ serviceType: "virtual-staging", currency: "USD", items: [{ selectedAddons: [] }] }, { partnerClient });
-  assert.equal(quote.partnerClient, true); assert.equal(quote.totalCents, 1350);
+  assert.equal(quote.partnerClient, true); assert.equal(quote.totalCents, 1710);
   const response = await request({ partnerClient: false });
   assert.equal(response.status, 200); assert.deepEqual(await response.json(), { partnerClient: false });
   assert.equal(await getPartnerClient(userId, supabase as never), false);

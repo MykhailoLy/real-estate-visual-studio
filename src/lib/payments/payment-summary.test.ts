@@ -18,7 +18,8 @@ registerHooks({
 });
 
 const { getAuthoritativePaymentSummary } = await import("./payment-summary.ts");
-const { PRICING_VERSION } = await import("../pricing/catalog.ts");
+const { calculateOrderQuote } = await import("../pricing/calculate.ts");
+const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
 const orderId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
 
@@ -34,7 +35,7 @@ function order(overrides: Record<string, unknown> = {}) {
     estimated_total_cents: 1500,
     currency: "USD",
     pricing_snapshot: {
-      pricingVersion: PRICING_VERSION,
+      pricingVersion: "2026-09-09-v4",
       partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "virtual-staging",
@@ -67,7 +68,7 @@ function noPaymentOrder(overrides: Record<string, unknown> = {}) {
     service_type: "photo-editing",
     estimated_total_cents: 0,
     pricing_snapshot: {
-      pricingVersion: PRICING_VERSION,
+      pricingVersion: "2026-09-09-v4",
       partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "photo-editing",
@@ -164,8 +165,14 @@ test("v2 paid and free orders keep their historical payment recognition", async 
 });
 
 test("reports trusted zero-total Welcome Offer as no payment required without a paid record", async () => {
+  const snapshot = createPricingSnapshot(calculateOrderQuote({
+    serviceType: "photo-editing", currency: "USD", items: [{
+      dedicatedSubService: "image-enhancement-single-exposure", baseOptionId: "image-enhancement-re",
+      selectedOptions: ["image-enhancement-re"],
+    }],
+  }, { welcomeOfferAvailability: { imageEnhancementAvailable: true, virtualStagingAvailable: false, dayToDuskAvailable: false } }));
   const summary = await getAuthoritativePaymentSummary(orderId, userId, {
-    repository: repository(noPaymentOrder(), null) as never,
+    repository: repository(noPaymentOrder({ pricing_snapshot: snapshot }), null) as never,
     expectedStripeLivemode: false,
   });
   assert.deepEqual(summary, {

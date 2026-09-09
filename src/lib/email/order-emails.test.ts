@@ -24,7 +24,6 @@ registerHooks({
 const { renderClientConfirmation } = await import("./order-client-confirmation.ts");
 const { renderAdminNotification } = await import("./order-admin-notification.ts");
 const { renderPaymentConfirmation } = await import("./order-payment-confirmation.ts");
-const { PRICING_VERSION } = await import("../pricing/catalog.ts");
 const { calculateOrderQuote } = await import("../pricing/calculate.ts");
 const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
 const PAYMENT_EMAIL_MIGRATION = readFileSync(
@@ -38,7 +37,7 @@ const SEND_ORDER_EMAILS_SOURCE = readFileSync(
 
 function snapshot(customQuote = false) {
   return {
-    pricingVersion: PRICING_VERSION,
+    pricingVersion: "2026-09-09-v4",
       partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
     currency: "USD" as const,
     serviceType: "virtual-staging" as const,
@@ -98,8 +97,8 @@ test("client and admin confirmations display committed Partner, Welcome and Volu
   ]) {
     for (const content of [rendered.text, rendered.html]) {
       assert.match(content, /Partner pricing · 10%/);
-      assert.match(content, /12\.15/);
-      assert.match(content, /116\.85/);
+      assert.match(content, /15\.39/);
+      assert.match(content, /148\.01/);
       assert.match(content, /Welcome Offer/);
       assert.match(content, /Volume discount/);
       assert.match(content, /Any applicable tax is included/);

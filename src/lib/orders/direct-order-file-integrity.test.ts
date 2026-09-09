@@ -2718,13 +2718,13 @@ test("admin can enable a zero-order account before its first authoritative Partn
   addStoredObjects(supabase, itemFiles);
   const { createProductionOrder } = await loadOrderModule();
   const result = await createProductionOrder(orderInput({ itemFiles,
-    pricingExpectation: pricingExpectation("virtual-staging-first-image-50", 2100),
+    pricingExpectation: pricingExpectation("virtual-staging-first-image-50", 2660),
   }));
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.pricingSnapshot.partnerClient, true);
-  assert.equal(result.pricingSnapshot.partnerDiscountCents, 150);
-  assert.equal(result.pricingSnapshot.totalCents, 2100);
+  assert.equal(result.pricingSnapshot.partnerDiscountCents, 190);
+  assert.equal(result.pricingSnapshot.totalCents, 2660);
   assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
 });
 
@@ -2734,10 +2734,10 @@ test("browser Partner flag and rate cannot authorize a discount", async () => {
   addStoredObjects(supabase, itemFiles);
   installSupabaseMock(supabase);
   const { createProductionOrder } = await loadOrderModule();
-  const untrusted = { ...orderInput({ itemFiles, pricingExpectation: pricingExpectation("virtual-staging-first-image-50", 2100) }), partnerClient: true, partnerDiscountPercent: 10 };
+  const untrusted = { ...orderInput({ itemFiles, pricingExpectation: pricingExpectation("virtual-staging-first-image-50", 2660) }), partnerClient: true, partnerDiscountPercent: 10 };
   const result = await createProductionOrder(untrusted);
   assertFailure(result, "pricing_changed");
   assert.equal(!result.ok && result.currentPricingSnapshot?.partnerClient, false);
-  assert.equal(!result.ok && result.currentPricingSnapshot?.totalCents, 2250);
+  assert.equal(!result.ok && result.currentPricingSnapshot?.totalCents, 2850);
   assert.equal(supabase.rpcCalls.length, 0);
 });
