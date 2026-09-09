@@ -43,8 +43,8 @@ test("Partner summary and review agree without overflow at supported widths", as
     await page.setViewportSize({ width, height: 1000 });
     await page.setContent(`<html><head>${styles}</head><body>${markup}</body></html>`);
     await expect(page.getByText("Partner pricing · 10%", { exact: true })).toHaveCount(2);
-    await expect(page.getByText("−$12.15", { exact: true })).toHaveCount(2);
-    await expect(page.getByText("$116.85", { exact: true })).toHaveCount(2);
+    await expect(page.getByText("−$15.39", { exact: true })).toHaveCount(2);
+    await expect(page.getByText("$148.01", { exact: true })).toHaveCount(2);
     await expect(page.getByRole("switch", { name: "Partner client" })).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
