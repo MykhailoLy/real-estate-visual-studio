@@ -17,7 +17,7 @@ const SUPPORTED_CHECKOUT_SERVICES = new Set([
 ]);
 
 // Frozen evidence for Welcome Offer version 2026-08-29, used by both v2 and
-// v3 snapshots. Keep the free-order exemption independent of future catalogue
+// v3/v4 snapshots. Keep the free-order exemption independent of future catalogue
 // prices while retaining its exact-price check. These are not charge prices.
 const FREE_WELCOME_BASE_CENTS = {
   "image-enhancement-free": { USD: 100, EUR: 100, CAD: 150 },
@@ -80,7 +80,6 @@ export function isNoPaymentRequiredOrder(
     !toStripeCheckoutCurrency(snapshot.currency) ||
     snapshot.customQuote ||
     snapshot.eligibleUnits !== 1 ||
-    snapshot.volumeEligibleUnits !== 0 ||
     snapshot.volumeDiscountPercent !== 0 ||
     snapshot.volumeDiscountCents !== 0 ||
     snapshot.addOnSubtotalCents !== 0 ||

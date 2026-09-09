@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -135,6 +137,7 @@ export default function SingleExposureOrderForm({
     !requestedDraftId || UuidSchema.safeParse(requestedDraftId).success;
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
+  const { partnerClient, applyPartnerSnapshot } = usePartnerPricing();
   const [items, setItems] = useState<SingleExposureItemData[]>([
     emptySingleExposureItem(),
   ]);
@@ -912,7 +915,7 @@ export default function SingleExposureOrderForm({
                 dedicatedSubService: SINGLE_EXPOSURE_SUB_SERVICE,
               })),
             },
-            { welcomeOfferAvailability: activeWelcomeOfferAvailability },
+            { welcomeOfferAvailability: activeWelcomeOfferAvailability, partnerClient },
           ),
         ),
       );
@@ -934,6 +937,7 @@ export default function SingleExposureOrderForm({
       }
       if (redirectOnOrderAuthError(result, orderRoute)) return;
       if (result.errorCode === "pricing-changed") {
+        applyPartnerSnapshot(result.currentPricingSnapshot);
         setActiveWelcomeOfferAvailability((current) =>
           applyAuthoritativeWelcomeOfferSnapshot(
             current,

@@ -30,6 +30,7 @@ function order(overrides: Record<string, unknown> = {}) {
     currency: "USD",
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "virtual-staging",
       eligibleUnits: 1,
@@ -62,10 +63,11 @@ function zeroTotalOrder(catalogPrice = 100) {
     estimated_total_cents: 0,
     pricing_snapshot: {
       pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
       currency: "USD",
       serviceType: "photo-editing",
       eligibleUnits: 1,
-      volumeEligibleUnits: 0,
+      volumeEligibleUnits: 1,
       baseSubtotalCents: catalogPrice,
       addOnSubtotalCents: 0,
       welcomeDiscountCents: catalogPrice,
@@ -194,6 +196,7 @@ test("malformed supported historical snapshots cannot bypass the payment gate", 
   }
   const tamperedFree = zeroTotalOrder(99);
   tamperedFree.pricing_snapshot.pricingVersion = "2026-08-29-v2";
+  tamperedFree.pricing_snapshot.volumeEligibleUnits = 0;
   assert.throws(() => paymentGate(tamperedFree, null, "confirmed"), AdminPaymentGateError);
 });
 

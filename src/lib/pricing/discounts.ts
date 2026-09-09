@@ -1,5 +1,8 @@
 import type { PriceKey } from "./types.ts";
 
+/** Fixed policy; an account can enable this rate but cannot configure it. */
+export const PARTNER_DISCOUNT_PERCENT = 10;
+
 export interface VolumeDiscount {
   percent: number;
   customQuote: boolean;

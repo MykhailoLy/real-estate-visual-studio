@@ -1,5 +1,10 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+import { useDisplayCurrency } from "@/components/pricing/currency-client";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { createPricingExpectation } from "@/lib/pricing/expectation";
+
 import { useEffect, useRef, useState } from "react";
 import { Plus, Info } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
@@ -85,6 +90,8 @@ export default function ItemRemovalOrderForm({
   clientEmail,
   orderRoute,
 }: ItemRemovalOrderFormProps) {
+  const currency = useDisplayCurrency();
+  const { partnerClient, applyPartnerSnapshot } = usePartnerPricing();
   const [step, setStep] = useState<ItemRemovalFormStep>("configure");
   const [items, setItems] = useState<ItemRemovalItemData[]>([
     emptyItemRemovalItem(),
@@ -184,7 +191,12 @@ export default function ItemRemovalOrderForm({
       itemsMetadata,
       files,
       orderTerms,
-      jobTitle
+      jobTitle,
+      undefined,
+      createPricingExpectation(calculateOrderQuote({
+        serviceType: "photo-editing", currency,
+        items: items.map(() => ({ selectedOptions: [ITEM_REMOVAL_OPTION_ID] })),
+      }, { partnerClient })),
     );
 
     if (result.success && result.orderId && result.orderNumber) {
@@ -197,6 +209,7 @@ export default function ItemRemovalOrderForm({
     }
 
     if (redirectOnOrderAuthError(result, orderRoute)) return;
+    if (result.errorCode === "pricing-changed") applyPartnerSnapshot(result.currentPricingSnapshot);
 
     // Stay on Review, surface the error, retain files + all selections.
     setIsSubmitting(false);

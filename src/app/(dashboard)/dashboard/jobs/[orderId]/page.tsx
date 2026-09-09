@@ -44,6 +44,7 @@ import {
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { formatBytes, itemLabel } from "@/lib/display/file-format";
 import { formatStoredMoney } from "@/lib/pricing/format";
+import { parsePricingSnapshot } from "@/lib/pricing/snapshot";
 import { getStaticImageViewerVariantForService } from "@/components/media/static-image-variant";
 import { createSupabaseCheckoutRepository } from "@/lib/payments/checkout-repository";
 import { getAuthoritativePaymentSummary } from "@/lib/payments/payment-summary";
@@ -320,6 +321,11 @@ export default async function OrderDetailPage({
   const ownership = toOrderOwnership(user);
   const order = await getOrderForClient(orderId, ownership);
   if (!order) notFound();
+  const storedPricing = parsePricingSnapshot(order.pricing_snapshot);
+  const pricing = storedPricing && !storedPricing.customQuote &&
+    storedPricing.totalCents === order.estimated_total_cents &&
+    storedPricing.currency === order.currency && storedPricing.serviceType === order.service_type
+    ? storedPricing : null;
 
   let expectedStripeLivemode: boolean | null = null;
   try {
@@ -470,6 +476,25 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
+      {pricing && pricing.partnerDiscountCents > 0 && (
+        <section aria-labelledby="order-pricing-heading" className="mb-6 rounded-xl border border-border bg-white p-5 text-sm">
+          <h2 id="order-pricing-heading" className="mb-3 font-semibold text-primary">Order pricing</h2>
+          <dl className="space-y-2">
+            {[
+              ["Subtotal", pricing.baseSubtotalCents + pricing.addOnSubtotalCents],
+              ...(pricing.welcomeDiscountCents > 0 ? [["Welcome Offer", -pricing.welcomeDiscountCents]] : []),
+              ...(pricing.volumeDiscountCents > 0 ? [[`Volume discount · ${pricing.volumeDiscountPercent}%`, -pricing.volumeDiscountCents]] : []),
+              ...(pricing.partnerDiscountCents > 0 ? [[`Partner pricing · ${pricing.partnerDiscountPercent}%`, -pricing.partnerDiscountCents]] : []),
+              ["Order total", pricing.totalCents!],
+            ].map(([label, cents]) => (
+              <div key={label} className="flex justify-between gap-4">
+                <dt className="text-muted">{label}</dt>
+                <dd className="font-medium text-foreground">{formatStoredMoney(Number(cents), pricing.currency)}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
       {hasPaymentAction ? (
         <section aria-labelledby="action-required-heading" className="mb-8">
           <p

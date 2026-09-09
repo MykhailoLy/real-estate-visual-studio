@@ -167,6 +167,10 @@ export interface OrderQuote {
   welcomeOffer: AppliedWelcomeOffer;
   volumeDiscountPercent: number;
   volumeDiscountCents: number;
+  partnerClient: boolean;
+  partnerDiscountPercent: number;
+  partnerEligibleSubtotalCents: number;
+  partnerDiscountCents: number;
   subtotalAfterDiscountCents: number | null;
   taxCalculated: false;
   taxCents: 0;

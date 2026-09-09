@@ -298,7 +298,11 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.doesNotMatch(detail, /label="Service"/);
   assert.match(detail, /paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"[\s\S]*?\? null/);
   assert.match(detail, /aria-label=\{`Order progress: \$\{value\}%`\}/);
-  assert.doesNotMatch(detail, /OrderDetailContext|data-order-context|deriveEstimatedCompletion|parsePricingSnapshot/);
+  assert.doesNotMatch(detail, /OrderDetailContext|data-order-context|deriveEstimatedCompletion|calculateOrderQuote|getPartnerClient/);
+  assert.match(detail, /pricing && pricing\.partnerDiscountCents > 0 &&/);
+  assert.match(detail, /parsePricingSnapshot\(order\.pricing_snapshot\)/);
+  assert.match(detail, /storedPricing\.totalCents === order\.estimated_total_cents/);
+  assert.match(detail, /pricing\.partnerDiscountCents/);
   assert.equal((detail.match(/<OrderPaymentPanel/g) ?? []).length, 1);
   assert.doesNotMatch(detail, /secondaryHref="\/dashboard\/jobs"/);
   assert.match(

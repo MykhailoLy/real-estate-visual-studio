@@ -1,5 +1,9 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { createPricingExpectation } from "@/lib/pricing/expectation";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -148,6 +152,7 @@ export default function FloorPlansOrderForm({
     !requestedDraftId || UuidSchema.safeParse(requestedDraftId).success;
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
+  const { partnerClient, applyPartnerSnapshot } = usePartnerPricing();
 
   const [items, setItems] = useState<FloorPlanItemData[]>([
     emptyFloorPlanItem(),
@@ -1025,9 +1030,10 @@ export default function FloorPlansOrderForm({
       ) {
         clearFinalizationRetryContext(context.draftId);
       }
+      if (result.code === "pricing_changed") applyPartnerSnapshot(result.currentPricingSnapshot);
       setSubmitError(result.message);
     },
-    [clearFinalizationRetryContext, orderRoute],
+    [clearFinalizationRetryContext, orderRoute, applyPartnerSnapshot],
   );
 
   const submitWithContext = useCallback(
@@ -1044,10 +1050,14 @@ export default function FloorPlansOrderForm({
         context.draftId,
         context.expectedVersion,
         context.finalizationKey,
+        createPricingExpectation(calculateOrderQuote({
+          serviceType: "3d-floor-plans", currency,
+          items: itemsRef.current.map((item) => ({ planType: item.planType, numberOfFloors: item.numberOfFloors })),
+        }, { partnerClient })),
       );
       applyFinalizationResult(result, context, startedSession);
     },
-    [applyFinalizationResult],
+    [applyFinalizationResult, currency, partnerClient],
   );
 
   const handleSubmit = async () => {

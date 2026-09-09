@@ -1,5 +1,9 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+import { calculateOrderQuote } from "@/lib/pricing/calculate";
+import { createPricingExpectation } from "@/lib/pricing/expectation";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Info, Plus } from "lucide-react";
@@ -155,6 +159,7 @@ export default function PhotoEditingOrderForm({
     !requestedDraftId || UuidSchema.safeParse(requestedDraftId).success;
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
+  const { partnerClient, applyPartnerSnapshot } = usePartnerPricing();
 
   const [items, setItems] = useState<PhotoEditItemData[]>([
     emptyPhotoEditItem(),
@@ -999,9 +1004,10 @@ export default function PhotoEditingOrderForm({
       ) {
         clearFinalizationRetryContext(context.draftId);
       }
+      if (result.code === "pricing_changed") applyPartnerSnapshot(result.currentPricingSnapshot);
       setSubmitError(result.message);
     },
-    [clearFinalizationRetryContext, orderRoute],
+    [clearFinalizationRetryContext, orderRoute, applyPartnerSnapshot],
   );
 
   const submitWithContext = useCallback(
@@ -1018,10 +1024,14 @@ export default function PhotoEditingOrderForm({
         context.draftId,
         context.expectedVersion,
         context.finalizationKey,
+        createPricingExpectation(calculateOrderQuote({
+          serviceType: "photo-editing", currency,
+          items: itemsRef.current.map((item) => ({ selectedOptions: item.selectedOptions })),
+        }, { partnerClient })),
       );
       applyFinalizationResult(result, context, startedSession);
     },
-    [applyFinalizationResult],
+    [applyFinalizationResult, currency, partnerClient],
   );
 
   const goToReview = () => {

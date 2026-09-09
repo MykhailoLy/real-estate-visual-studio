@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Plus, RotateCcw } from "lucide-react";
@@ -523,6 +525,7 @@ export default function VirtualStagingOrderForm({
   const globalStyleHelperId = useId();
   const [region, setRegion] = useDisplayRegion();
   const currency = currencyForRegion(region);
+  const { partnerClient, applyPartnerSnapshot } = usePartnerPricing();
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
   const copy = DRAFT_COPY[language];
@@ -2324,7 +2327,7 @@ export default function VirtualStagingOrderForm({
             selectedAddons: item.selectedAddons,
           })),
         },
-        { welcomeOfferAvailability: activeWelcomeOfferAvailability },
+        { welcomeOfferAvailability: activeWelcomeOfferAvailability, partnerClient },
       ),
     );
   }
@@ -2511,6 +2514,7 @@ export default function VirtualStagingOrderForm({
     }
 
     if (result.code === "pricing_changed") {
+      applyPartnerSnapshot(result.currentPricingSnapshot);
       setActiveWelcomeOfferAvailability((current) =>
         applyAuthoritativeWelcomeOfferSnapshot(
           current,
@@ -2698,6 +2702,7 @@ export default function VirtualStagingOrderForm({
         return;
       }
       if (result.errorCode === "pricing-changed") {
+        applyPartnerSnapshot(result.currentPricingSnapshot);
         setActiveWelcomeOfferAvailability((current) =>
           applyAuthoritativeWelcomeOfferSnapshot(
             current,

@@ -39,6 +39,7 @@ import type {
 import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 import type { WelcomeOfferBenefitKey } from "@/lib/welcome-offer";
 import { comparePricingExpectation } from "@/lib/pricing/expectation";
+import { AccountPricingError, getPartnerClient } from "@/lib/account-pricing-server";
 import {
   getWelcomeOfferAvailability,
   WelcomeOfferEligibilityError,
@@ -372,6 +373,15 @@ export async function createProductionOrder(
   if (!aerialValidation.ok) return aerialValidation;
 
   const supabase = getSupabaseAdminClient();
+  let partnerClient: boolean;
+  try {
+    partnerClient = await getPartnerClient(input.ownerUserId, supabase);
+  } catch (error) {
+    if (error instanceof AccountPricingError) {
+      return { ok: false, code: "database_error", message: error.message, status: 503 };
+    }
+    throw error;
+  }
   const potentialWelcomeBenefitKey = getPotentialWelcomeOfferBenefitKey(
     input.serviceType,
     input.items,
@@ -403,6 +413,7 @@ export async function createProductionOrder(
       input.currency,
       input.items,
       welcomeOfferAvailability,
+      partnerClient,
     );
   } catch (error) {
     if (error instanceof PricingValidationError) {
@@ -425,30 +436,28 @@ export async function createProductionOrder(
     };
   }
 
-  if (potentialWelcomeBenefitKey) {
-    const expectationComparison = comparePricingExpectation(
-      input.pricingExpectation,
-      quote,
-    );
-    if (!expectationComparison.ok) {
-      if (expectationComparison.reason === "client_upgrade_required") {
-        return {
-          ok: false,
-          code: "client_upgrade_required",
-          message:
-            "Pricing information has changed. Refresh the page, review the current price, and submit again.",
-          status: 409,
-        };
-      }
+  const expectationComparison = comparePricingExpectation(
+    input.pricingExpectation,
+    quote,
+  );
+  if (!expectationComparison.ok) {
+    if (expectationComparison.reason === "client_upgrade_required") {
       return {
         ok: false,
-        code: "pricing_changed",
+        code: "client_upgrade_required",
         message:
-          "Welcome Offer eligibility or pricing changed. Review and confirm the current price.",
+          "Pricing information has changed. Refresh the page, review the current price, and submit again.",
         status: 409,
-        currentPricingSnapshot: createPricingSnapshot(quote),
       };
     }
+    return {
+      ok: false,
+      code: "pricing_changed",
+      message:
+        "Account benefits or pricing changed. Review and confirm the current price.",
+      status: 409,
+      currentPricingSnapshot: createPricingSnapshot(quote),
+    };
   }
 
   const requestHash = createOrderIntentHash({
@@ -936,6 +945,7 @@ function calculateServerQuote(
   currency: TransactionalCurrency,
   items: ValidatedOrderItem[],
   welcomeOfferAvailability?: WelcomeOfferAvailability,
+  partnerClient = false,
 ): OrderQuote {
   let input: OrderPricingInput;
   switch (serviceType) {
@@ -983,7 +993,7 @@ function calculateServerQuote(
       };
       break;
   }
-  return calculateOrderQuote(input, { welcomeOfferAvailability });
+  return calculateOrderQuote(input, { welcomeOfferAvailability, partnerClient });
 }
 
 export function getPotentialWelcomeOfferBenefitKey(

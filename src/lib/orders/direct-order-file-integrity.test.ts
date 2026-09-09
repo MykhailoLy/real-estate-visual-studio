@@ -16,7 +16,9 @@ import { LEGAL_VERSION as TERMS_VERSION } from "../legal.ts";
 import { EARLY_PERFORMANCE_VERSION } from "../early-performance.ts";
 import { PRICING_VERSION, getCatalogPrice } from "../pricing/catalog.ts";
 import { WELCOME_OFFER_VERSION } from "../welcome-offer.ts";
-import type { PricingSnapshot } from "../pricing/types.ts";
+import type { OrderPricingInput, PricingSnapshot } from "../pricing/types.ts";
+import { calculateOrderQuote } from "../pricing/calculate.ts";
+import { createPricingExpectation } from "../pricing/expectation.ts";
 
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -177,9 +179,7 @@ type ProductionOrderResultForTest =
       orderId: string;
       orderNumber: string;
       replayed: boolean;
-      pricingSnapshot: {
-        items: Array<{ lineSubtotalCents: number }>;
-      };
+      pricingSnapshot: PricingSnapshot;
       emailNotifications: {
         clientConfirmation: boolean;
         adminNotification: boolean;
@@ -298,6 +298,9 @@ interface MockSupabaseOptions {
 }
 
 class MockSupabase {
+  partnerClient: boolean | null = null;
+  partnerPricingLookupError = false;
+  readonly partnerLookupUsers: unknown[] = [];
   readonly objects = new Map<string, StoredObjectForTest>();
   readonly infoCalls: string[] = [];
   readonly signedReadPaths: string[] = [];
@@ -633,6 +636,13 @@ class MockTableQuery {
   }
 
   async maybeSingle() {
+    if (this.table === "account_pricing") {
+      this.supabase.partnerLookupUsers.push(this.filters.get("user_id"));
+      return {
+        data: this.supabase.partnerClient === null ? null : { partner_client: this.supabase.partnerClient },
+        error: this.supabase.partnerPricingLookupError ? databaseError("AccountPricingUnavailable") : null,
+      };
+    }
     if (this.table === "order_submissions" && this.supabase.recoveryCommitted) {
       return {
         data: {
@@ -771,7 +781,7 @@ function itemFilesForDirectOrder(count = 1): ItemFilesForTest[] {
   }));
 }
 
-function stagingItems(count = 1): Array<Record<string, unknown>> {
+function stagingItems(count = 1) {
   return Array.from({ length: count }, (_value, index) => ({
     roomName: `Room ${index + 1}`,
     furnitureStyle: "Modern",
@@ -2510,7 +2520,9 @@ for (const unrelated of [
       serviceType: unrelated.serviceType,
       items: unrelated.items,
       itemFiles,
-      pricingExpectation: undefined,
+      pricingExpectation: createPricingExpectation(calculateOrderQuote({
+        serviceType: unrelated.serviceType, currency: "USD", items: unrelated.items,
+      } as OrderPricingInput)),
     }));
 
     assert.equal(result.ok, true);
@@ -2627,4 +2639,68 @@ test("email dispatch failure cannot roll back an atomically committed order", as
   assert.equal(result.ok, true);
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
   assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
+});
+
+for (const pricingInput of [
+  { serviceType: "virtual-staging", currency: "USD", items: stagingItems(2) },
+  { serviceType: "virtual-renovation", currency: "USD", items: [{ selectedInternal: ["replace-walls"], selectedExternal: [] }] },
+  { serviceType: "3d-floor-plans", currency: "USD", items: [{ planType: "2d-bw", numberOfFloors: 1 }] },
+  { serviceType: "photo-editing", currency: "USD", items: [{ selectedOptions: ["shadow-removal"] }] },
+] satisfies OrderPricingInput[]) {
+  const { serviceType, items } = pricingInput;
+  for (const partnerClient of [false, true]) {
+    test(`${serviceType}: Partner toggled to ${partnerClient} requires review before direct or draft commit`, async () => {
+      for (const storageMode of ["move", "copy"] as const) {
+        const supabase = new MockSupabase();
+        supabase.partnerClient = partnerClient;
+        const itemFiles = itemFilesForDirectOrder(items.length);
+        addStoredObjects(supabase, itemFiles);
+        installSupabaseMock(supabase);
+        const { createProductionOrder } = await loadOrderModule();
+        const welcomeOfferAvailability = { virtualStagingAvailable: true, imageEnhancementAvailable: true, dayToDuskAvailable: true };
+        const reviewed = calculateOrderQuote(pricingInput, { partnerClient: !partnerClient, welcomeOfferAvailability });
+        const input = orderInput({ serviceType, items: [...items], itemFiles, storageMode,
+          pricingExpectation: createPricingExpectation(reviewed) });
+        const result = await createProductionOrder(input);
+        assertFailure(result, "pricing_changed");
+        assert.equal(supabase.rpcCalls.length, 0);
+        assert.equal(supabase.copies.length, 0);
+        assert.deepEqual(supabase.partnerLookupUsers, [USER_ID]);
+        assert.ok(!result.ok && result.currentPricingSnapshot);
+        const current = !result.ok && result.currentPricingSnapshot;
+        assert.ok(current);
+        assert.equal(current.partnerClient, partnerClient);
+        const committed = await createProductionOrder({ ...input, pricingExpectation: createPricingExpectation(current) });
+        assert.equal(committed.ok, true);
+        assert.equal(committed.ok && committed.pricingSnapshot.totalCents, current.totalCents);
+        assert.equal(committed.ok && committed.pricingSnapshot.partnerDiscountCents, current.partnerDiscountCents);
+      }
+    });
+  }
+}
+
+test("account pricing lookup failure blocks submission before storage or database mutations", async () => {
+  const supabase = new MockSupabase();
+  supabase.partnerPricingLookupError = true;
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  const result = await createProductionOrder(orderInput());
+  assertFailure(result, "database_error");
+  assert.equal(!result.ok && result.status, 503);
+  assert.equal(supabase.rpcCalls.length, 0);
+  assert.equal(supabase.copies.length, 0);
+});
+
+test("browser Partner flag and rate cannot authorize a discount", async () => {
+  const supabase = new MockSupabase();
+  const itemFiles = itemFilesForDirectOrder(2);
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  const untrusted = { ...orderInput({ itemFiles, pricingExpectation: pricingExpectation("virtual-staging-first-image-50", 2100) }), partnerClient: true, partnerDiscountPercent: 10 };
+  const result = await createProductionOrder(untrusted);
+  assertFailure(result, "pricing_changed");
+  assert.equal(!result.ok && result.currentPricingSnapshot?.partnerClient, false);
+  assert.equal(!result.ok && result.currentPricingSnapshot?.totalCents, 2250);
+  assert.equal(supabase.rpcCalls.length, 0);
 });

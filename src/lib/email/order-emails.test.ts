@@ -25,6 +25,8 @@ const { renderClientConfirmation } = await import("./order-client-confirmation.t
 const { renderAdminNotification } = await import("./order-admin-notification.ts");
 const { renderPaymentConfirmation } = await import("./order-payment-confirmation.ts");
 const { PRICING_VERSION } = await import("../pricing/catalog.ts");
+const { calculateOrderQuote } = await import("../pricing/calculate.ts");
+const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
 const PAYMENT_EMAIL_MIGRATION = readFileSync(
   "supabase/add-payment-confirmation-email.sql",
   "utf8",
@@ -37,6 +39,7 @@ const SEND_ORDER_EMAILS_SOURCE = readFileSync(
 function snapshot(customQuote = false) {
   return {
     pricingVersion: PRICING_VERSION,
+      partnerClient: false, partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
     currency: "USD" as const,
     serviceType: "virtual-staging" as const,
     eligibleUnits: customQuote ? 50 : 1,
@@ -84,6 +87,25 @@ function clientInput(hasFixedCheckoutPrice: boolean) {
     }],
   };
 }
+
+test("client and admin confirmations display committed Partner, Welcome and Volume evidence", () => {
+  const pricingSnapshot = createPricingSnapshot(calculateOrderQuote({ serviceType: "virtual-staging", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedAddons: [] })) }, {
+    partnerClient: true, welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: false, dayToDuskAvailable: false },
+  }));
+  for (const rendered of [
+    renderClientConfirmation({ ...clientInput(true), pricingSnapshot, estimatedTotalCents: pricingSnapshot.totalCents! }),
+    renderAdminNotification({ ...adminInput(true), pricingSnapshot, estimatedTotalCents: pricingSnapshot.totalCents! }),
+  ]) {
+    for (const content of [rendered.text, rendered.html]) {
+      assert.match(content, /Partner pricing · 10%/);
+      assert.match(content, /12\.15/);
+      assert.match(content, /116\.85/);
+      assert.match(content, /Welcome Offer/);
+      assert.match(content, /Volume discount/);
+      assert.match(content, /Any applicable tax is included/);
+    }
+  }
+});
 
 function adminInput(hasFixedCheckoutPrice: boolean) {
   return {
@@ -176,7 +198,7 @@ test("zero-total Welcome Offer email shows its discount and never asks for payme
     noPaymentRequired: true,
     pricingSnapshot: {
       ...input.pricingSnapshot,
-      volumeEligibleUnits: 0,
+      volumeEligibleUnits: 1,
       baseSubtotalCents: 100,
       welcomeDiscountCents: 100,
       welcomeOffer: {

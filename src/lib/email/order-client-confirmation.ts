@@ -81,6 +81,7 @@ export function renderClientConfirmation(
     pricingSnapshot.volumeDiscountCents,
     currency
   );
+  const partnerDiscount = formatCents(pricingSnapshot.partnerDiscountCents, currency);
   const welcomeDiscount = formatCents(
     pricingSnapshot.welcomeDiscountCents,
     currency,
@@ -100,6 +101,9 @@ export function renderClientConfirmation(
           ? [
               `Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
             ]
+          : []),
+        ...(pricingSnapshot.partnerDiscountCents > 0
+          ? [`Partner pricing · ${pricingSnapshot.partnerDiscountPercent}%: -${partnerDiscount}`]
           : []),
         `Final total: ${total} ${currency}`,
         ...(noPaymentRequired ? ["No payment required."] : []),
@@ -206,6 +210,9 @@ export function renderClientConfirmation(
               ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
               : ""
           }
+          ${pricingSnapshot.partnerDiscountCents > 0
+            ? `<tr><td style="padding:4px 12px 4px 0;">Partner pricing · ${pricingSnapshot.partnerDiscountPercent}%</td><td style="padding:4px 0;">-${escapeHtml(partnerDiscount)}</td></tr>`
+            : ""}
           <tr><td style="padding:4px 12px 4px 0;color:#718096;">Final total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(total)} ${currency}</td></tr>
           ${noPaymentRequired ? '<tr><td colspan="2" style="padding:6px 0 0;color:#15803d;font-weight:600;">No payment required</td></tr>' : ""}
           <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Any applicable tax is included in this amount.</td></tr>`

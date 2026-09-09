@@ -1,5 +1,7 @@
 "use client";
 
+import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
+
 import { ArrowLeft } from "lucide-react";
 import OrderReviewHeader from "@/components/order/OrderReviewHeader";
 import OrderReviewItem, {
@@ -76,13 +78,14 @@ export default function VirtualStagingReview({
   welcomeOfferAvailability,
 }: VirtualStagingReviewProps) {
   const currency = useDisplayCurrency();
+  const { partnerClient } = usePartnerPricing();
   const quote = calculateOrderQuote(
     {
       serviceType: "virtual-staging",
       currency,
       items: items.map((item) => ({ selectedAddons: item.selectedAddons })),
     },
-    { welcomeOfferAvailability },
+    { welcomeOfferAvailability, partnerClient },
   );
 
   return (

@@ -1,7 +1,7 @@
 import type { OrderQuote, PricedOrderItem, PricingSnapshot } from "./types.ts";
 import { isTransactionalCurrency } from "./format.ts";
 import { FLOOR_PLAN_PRICE_KEYS, PHOTO_EDIT_PRICE_KEYS, PRICE_CATALOG } from "./catalog.ts";
-import { getVolumeDiscount, percentageOfCents } from "./discounts.ts";
+import { getVolumeDiscount, PARTNER_DISCOUNT_PERCENT, percentageOfCents } from "./discounts.ts";
 import { isWelcomeOfferBenefitKey, WELCOME_OFFER_BENEFIT_RULES } from "../welcome-offer.ts";
 
 // Explicit formats emitted by the repository's calculators. A catalogue version
@@ -15,6 +15,7 @@ const SUPPORTED_PRICING_VERSIONS = [
   ...PRE_WELCOME_VERSIONS,
   "2026-08-29-v2",
   "2026-09-09-v3",
+  "2026-09-09-v4",
 ] as const;
 
 export function isSupportedPricingVersion(value: unknown): value is (typeof SUPPORTED_PRICING_VERSIONS)[number] {
@@ -108,13 +109,32 @@ export function parsePricingSnapshot(value: unknown): PricingSnapshot | null {
   const benefit = normalized.welcomeOffer.benefits[0];
   const excludesWelcomeUnit = benefit &&
     (normalized.pricingVersion === "2026-08-29-v2" ||
-      benefit.key !== "virtual-staging-first-image-50");
+      (normalized.pricingVersion === "2026-09-09-v3" &&
+        benefit.key !== "virtual-staging-first-image-50"));
   const volumeUnits = units - (excludesWelcomeUnit ? 1 : 0);
   const originalVolume = getVolumeDiscount(units);
   const volume = originalVolume.customQuote ? originalVolume : getVolumeDiscount(volumeUnits);
   const volumeBase = base - (benefit ? normalized.items[benefit.itemIndex].baseSubtotalCents : 0);
   const volumeDiscount = volume.customQuote ? 0 : percentageOfCents(volumeBase, volume.percent);
-  const total = volume.customQuote ? null : base + addOns - normalized.welcomeDiscountCents - volumeDiscount;
+  if (normalized.pricingVersion !== "2026-09-09-v4") {
+    // Older formats never had Partner pricing. Never add it retroactively.
+    const absent = normalized.partnerClient === undefined &&
+      normalized.partnerDiscountPercent === undefined &&
+      normalized.partnerEligibleSubtotalCents === undefined && normalized.partnerDiscountCents === undefined;
+    const empty = normalized.partnerClient === false && normalized.partnerDiscountPercent === 0 &&
+      normalized.partnerEligibleSubtotalCents === 0 && normalized.partnerDiscountCents === 0;
+    if (!absent && !empty) return null;
+    normalized = { ...normalized, partnerClient: false, partnerDiscountPercent: 0,
+      partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0 };
+  }
+  if (typeof normalized.partnerClient !== "boolean" ||
+      !isSafeNonNegativeInteger(normalized.partnerDiscountPercent) ||
+      !isSafeNonNegativeInteger(normalized.partnerEligibleSubtotalCents) ||
+      !isSafeNonNegativeInteger(normalized.partnerDiscountCents)) return null;
+  const partnerPercent = normalized.partnerClient && !volume.customQuote ? PARTNER_DISCOUNT_PERCENT : 0;
+  const partnerBasis = partnerPercent > 0 ? volumeBase - volumeDiscount + addOns : 0;
+  const partnerDiscount = percentageOfCents(partnerBasis, partnerPercent);
+  const total = volume.customQuote ? null : base + addOns - normalized.welcomeDiscountCents - volumeDiscount - partnerDiscount;
   if (
     normalized.welcomeDiscountCents !== normalized.welcomeOffer.totalDiscountCents ||
     normalized.volumeEligibleUnits !== volumeUnits ||
@@ -122,6 +142,9 @@ export function parsePricingSnapshot(value: unknown): PricingSnapshot | null {
     (volume.customQuote && benefit !== undefined) ||
     normalized.volumeDiscountPercent !== volume.percent ||
     normalized.volumeDiscountCents !== volumeDiscount ||
+    normalized.partnerDiscountPercent !== partnerPercent ||
+    normalized.partnerEligibleSubtotalCents !== partnerBasis ||
+    normalized.partnerDiscountCents !== partnerDiscount ||
     (total !== null && !isSafeNonNegativeInteger(total)) ||
     normalized.subtotalAfterDiscountCents !== total || normalized.totalCents !== total
   ) return null;
