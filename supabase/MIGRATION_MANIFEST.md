@@ -90,6 +90,7 @@ The logical IDs below follow the best-supported historical repository chronology
 | `PS-SQL-032` | `allow-floor-plan-draft-finalization.sql` | Final four-service claim/commit compatibility | Atomic + prior compatibility + normalized references | Current repository authority for claim/commit allowlists | `unknown` | `SAFE` with prerequisites |
 | `PS-SQL-033` | `add-welcome-offer-redemptions.sql` | Welcome Offer redemption table, uniqueness and versioned commit wrapper | Atomic submission, orders, final commit definition | Historical COALESCE hotfix; current file body already corrected | `repository-doc-claim` | `CONDITIONAL` |
 | `PS-SQL-034` | `fix-welcome-offer-rpc-coalesce.sql` | Historical hotfix for Welcome Offer wrapper plus grants | Welcome table, atomic/final commit | Current historical authority; current foundation body is equivalent | `ledger` | `SAFE` with prerequisites |
+| `PS-SQL-035` | `20260909191236_add_deliverable_review_file_upload_status.sql` | Forward-only F-001 lifecycle foundation; backfills historical rows and preserves the pre-Phase-2 writer as uploaded | Review-file table | Phase 2 application behavior switch | `unknown` | `SAFE` with prerequisite table |
 
 ## Historical repository lineage
 
@@ -129,6 +130,7 @@ This is chronology documentation, **not a replay instruction**:
 32. `allow-floor-plan-draft-finalization.sql`
 33. `add-welcome-offer-redemptions.sql`
 34. `fix-welcome-offer-rpc-coalesce.sql`
+35. `20260909191236_add_deliverable_review_file_upload_status.sql` — forward-only; apply only after the review-file table exists.
 
 The exact production execution order for non-ledgered files is **unknown**.
 
@@ -143,23 +145,24 @@ This is the smallest non-regressive sequence supported by the audited repository
 5. `add-order-deliverables.sql`
 6. `add-deliverable-reviews.sql`
 7. `add-deliverable-review-files.sql`
-8. `performance-add-deliverable-replacement-fk-index.sql`
-9. `add-order-drafts.sql`
-10. `add-order-draft-file-upload-foundation.sql`
-11. `add-order-draft-finalization.sql`
-12. `add-multi-reference-files.sql`
-13. `add-stripe-payment-data-model.sql`
-14. `add-property-showcase-foundation.sql`
-15. `add-property-leads.sql`
-16. `add-property-showcase-analytics.sql`
-17. `add-atomic-order-submissions.sql`
-18. `add-payment-confirmation-email.sql`
-19. `allow-photo-editing-draft-finalization.sql`
-20. `allow-virtual-renovation-draft-finalization.sql`
-21. `allow-floor-plan-draft-finalization.sql`
-22. `add-welcome-offer-redemptions.sql`
-23. Apply security overlays only after their exact preconditions are verified.
-24. Apply `security-hardening-public-bucket-listing.sql` only after all expected buckets exist and their intended visibility is verified.
+8. `20260909191236_add_deliverable_review_file_upload_status.sql`
+9. `performance-add-deliverable-replacement-fk-index.sql`
+10. `add-order-drafts.sql`
+11. `add-order-draft-file-upload-foundation.sql`
+12. `add-order-draft-finalization.sql`
+13. `add-multi-reference-files.sql`
+14. `add-stripe-payment-data-model.sql`
+15. `add-property-showcase-foundation.sql`
+16. `add-property-leads.sql`
+17. `add-property-showcase-analytics.sql`
+18. `add-atomic-order-submissions.sql`
+19. `add-payment-confirmation-email.sql`
+20. `allow-photo-editing-draft-finalization.sql`
+21. `allow-virtual-renovation-draft-finalization.sql`
+22. `allow-floor-plan-draft-finalization.sql`
+23. `add-welcome-offer-redemptions.sql`
+24. Apply security overlays only after their exact preconditions are verified.
+25. Apply `security-hardening-public-bucket-listing.sql` only after all expected buckets exist and their intended visibility is verified.
 
 Historical files whose current content has been absorbed into consolidated foundations should be omitted from a future clean baseline:
 
@@ -372,6 +375,40 @@ The minimum governance rule is intentionally simple:
 6. A future integration test should prove a clean effective sequence in an ephemeral environment; do not use production as the migration test environment.
 
 A new migration framework is not required merely to satisfy this documentation step.
+
+## F-001 rework upload lifecycle rollout contract
+
+`20260909191236_add_deliverable_review_file_upload_status.sql` is a manual,
+forward-only Phase 1 migration. It adds `deliverable_review_files.upload_status`
+with exactly two values: `pending` and `uploaded`.
+
+Historical rows are backfilled to `uploaded`. The column remains `NOT NULL` with
+an `uploaded` default so the application deployed before Phase 2 can continue
+inserting rows without naming the new column. This is an intentional rollout
+compatibility bridge: it prevents migration-first deployment from hiding valid
+uploads created by the old writer. Phase 1 does not change any application read
+or write path.
+
+The `DEFAULT 'uploaded'` exists only to protect the pre-Phase-2 writer during
+this migration-first rollout. It is not the desired long-term fail-safe default.
+After Phase 2 is fully deployed and every production writer explicitly creates
+new upload slots as `pending`, a separate manually reviewed forward migration
+should change the default to `pending` or remove the default. PR #299 must not
+perform that follow-up migration.
+
+The later Phase 2 application PR must:
+
+1. Make new rework-file rows explicitly use `pending`.
+2. Preserve server-side Storage verification in completion.
+3. Set the row to `uploaded` only after verification succeeds.
+4. Make list/read paths expose only `uploaded` rows.
+5. Keep completion idempotent.
+6. Leave interrupted or failed uploads as `pending`.
+7. Keep historical `uploaded` rows visible.
+8. Keep stale-pending cleanup as separate future work; no TTL, cron, automatic deletion, or Storage cleanup belongs to F-001 Phase 1.
+
+This migration must be applied manually only after review and approval. It does
+not authorize replaying historical flat SQL files.
 
 ## Historical next safe database step — completed 2026-09-08
 
