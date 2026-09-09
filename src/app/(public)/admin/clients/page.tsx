@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AdminClientsList from "@/components/admin/AdminClientsList";
+import AdminPartnerInviteForm from "@/components/admin/AdminPartnerInviteForm";
 import { AdminClientsError, listAdminClients, parseAdminClientsPage, type AdminClientsPageData } from "@/lib/admin-clients-server";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,7 @@ export default async function AdminClientsPage({ searchParams }: {
         </div>
       ) : (
         <>
+          <AdminPartnerInviteForm />
           {result.profilesUnavailable && <p role="status" className="text-sm text-muted">Profile details are unavailable. Account information is shown where available.</p>}
           {result.pricingUnavailable && <p role="alert" className="text-sm text-muted">Partner status could not be verified. Controls are unavailable until you reload successfully.</p>}
           {result.clients.length > 0 ? <AdminClientsList clients={result.clients} /> : (

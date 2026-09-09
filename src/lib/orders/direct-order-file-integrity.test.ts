@@ -237,6 +237,7 @@ interface EmailMockResult {
 }
 
 type DirectOrderTestGlobals = typeof globalThis & {
+  __invitedProfileSupabase?: unknown;
   __directOrderTestSupabase?: MockSupabase;
   __directOrderEmailMock?: (args: unknown) => Promise<EmailMockResult>;
   __directOrderTestClientUser?: { id: string; email: string } | null;
@@ -301,7 +302,12 @@ interface MockSupabaseOptions {
 }
 
 class MockSupabase {
-  readonly auth = { admin: { async getUserById(id: string) {
+  readonly auth = { admin: {
+    async inviteUserByEmail(email: string) {
+      assert.equal(email, "future@example.com");
+      return { data: { user: { id: USER_ID, email } }, error: null };
+    },
+    async getUserById(id: string) {
     return { data: { user: id === USER_ID ? { id } : null }, error: null };
   } } };
   partnerClient: boolean | null = null;
@@ -2741,3 +2747,75 @@ test("browser Partner flag and rate cannot authorize a discount", async () => {
   assert.equal(!result.ok && result.currentPricingSnapshot?.totalCents, 2850);
   assert.equal(supabase.rpcCalls.length, 0);
 });
+
+for (const [count, discount, total] of [[2, 190, 2660], [10, 1539, 14801]]) {
+  test(`email invitation → actual profile save → first ${count}-image order commits existing Welcome/Volume/Partner pricing`, async () => {
+    const supabase = new MockSupabase();
+    installSupabaseMock(supabase);
+    const globals = globalThis as DirectOrderTestGlobals;
+    globals.__directOrderTestClientUser = null;
+    let profile: Record<string, unknown> | null = null;
+    globals.__invitedProfileSupabase = {
+      auth: { async getUser() { return { data: { user: globals.__directOrderTestClientUser }, error: null }; } },
+      from(table: string) {
+        assert.equal(table, "client_profiles");
+        return {
+          select() { return this; },
+          async maybeSingle() { return { data: profile, error: null }; },
+          upsert(row: Record<string, unknown>) { assert.equal(row.user_id, USER_ID); profile = row; return this; },
+          async single() { return { data: profile, error: null }; },
+        };
+      },
+    };
+    const hooks = registerHooks({ resolve(specifier, context, nextResolve) {
+      if (specifier === "@/lib/supabase/server") return {
+        url: "data:text/javascript,export async function createServerSupabaseClient(){return globalThis.__invitedProfileSupabase}", shortCircuit: true,
+      };
+      return nextResolve(specifier, context);
+    } });
+    try {
+      const { POST: invite } = await import("../../app/(public)/api/admin/clients/invite-partner/route.ts");
+      const response = await invite(new Request("http://localhost/api/admin/clients/invite-partner", {
+        method: "POST", body: JSON.stringify({ email: " Future@Example.com " }),
+      }));
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { success: true });
+      assert.equal(supabase.partnerClient, true);
+      assert.equal(supabase.fromCalls.includes("orders"), false);
+      assert.equal(supabase.rpcCalls.length, 0); assert.equal(supabase.inserts.length, 0);
+
+      // Supabase's accepted session provides the same Auth ID. The real profile
+      // API/helper, order endpoint, account lookup and pricing engine run below.
+      globals.__directOrderTestClientUser = { id: USER_ID, email: "future@example.com" };
+      const { POST: saveProfile } = await import("../../app/api/profile/upsert/route.ts");
+      const { POST: submit } = await import("../../app/(public)/api/order/route.ts");
+      const itemFiles = itemFilesForDirectOrder(count);
+      addStoredObjects(supabase, itemFiles);
+      const input = orderInput({ itemFiles, pricingExpectation: pricingExpectation("virtual-staging-first-image-50", total) });
+      const submitRequest = () => new Request("http://localhost/api/order", { method: "POST", body: JSON.stringify(input) });
+      assert.equal((await submit(submitRequest())).status, 422);
+      assert.equal(supabase.rpcCalls.length, 0);
+      const saved = await saveProfile(new Request("http://localhost/api/profile/upsert", {
+        method: "POST", body: JSON.stringify({ full_name: "Future Client", phone: "+34 600 000 000", user_id: SECOND_USER_ID, partner_client: false }),
+      }) as never);
+      assert.equal(saved.status, 200);
+      assert.equal((await saved.json()).profile.user_id, USER_ID);
+
+      const committed = await submit(submitRequest());
+      assert.equal(committed.status, 201);
+      const { pricingSnapshot } = await committed.json();
+      assert.equal(pricingSnapshot.partnerClient, true);
+      assert.equal(pricingSnapshot.partnerDiscountPercent, 10);
+      assert.equal(pricingSnapshot.partnerDiscountCents, discount);
+      assert.equal(pricingSnapshot.totalCents, total);
+      assert.equal(pricingSnapshot.welcomeDiscountCents, 950);
+      assert.equal(pricingSnapshot.volumeDiscountCents, count === 10 ? 1710 : 0);
+      assert.ok(supabase.partnerLookupUsers.every((id) => id === USER_ID));
+      assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
+    } finally {
+      hooks.deregister();
+      delete globals.__invitedProfileSupabase;
+      globals.__directOrderTestClientUser = null;
+    }
+  });
+}
