@@ -73,7 +73,8 @@ export default async function AdminReworkPage() {
           const { data: referenceRows, error: referenceErr } = await supabase
             .from("deliverable_review_files")
             .select("review_id")
-            .in("review_id", rows.map((row) => row.id));
+            .in("review_id", rows.map((row) => row.id))
+            .eq("upload_status", "uploaded");
 
           if (referenceErr) {
             console.error(

@@ -63,6 +63,7 @@ export async function POST(
     .eq("id", fileId)
     .eq("review_id", reviewId)
     .eq("order_id", orderId)
+    .eq("upload_status", "uploaded")
     .maybeSingle();
 
   if (fileErr) {

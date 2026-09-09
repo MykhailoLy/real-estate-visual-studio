@@ -81,6 +81,7 @@ interface ReviewFileRow {
   file_size: number;
   mime_type: string;
   uploaded_by: string;
+  upload_status: "pending" | "uploaded";
   created_at: string;
 }
 
@@ -293,10 +294,11 @@ export async function createReworkReferenceUploadSlot(
         file_size: fileSize,
         mime_type: contentType,
         uploaded_by: "client",
+        upload_status: "pending",
       })
       .select(
         "id, review_id, order_id, deliverable_id, item_index, " +
-          "storage_path, filename, file_size, mime_type, uploaded_by, created_at",
+          "storage_path, filename, file_size, mime_type, uploaded_by, upload_status, created_at",
       )
       .single();
 
@@ -359,7 +361,7 @@ export async function markReworkReferenceUploaded(
       .from("deliverable_review_files")
       .select(
         "id, review_id, order_id, deliverable_id, item_index, " +
-          "storage_path, filename, file_size, mime_type, uploaded_by, created_at",
+          "storage_path, filename, file_size, mime_type, uploaded_by, upload_status, created_at",
       )
       .eq("id", fileId)
       .eq("review_id", reviewId)
@@ -374,6 +376,10 @@ export async function markReworkReferenceUploaded(
     }
 
     const row = fileData as unknown as ReviewFileRow;
+
+    if (row.upload_status === "uploaded") {
+      return { ok: true, file: toPublicFile(row) };
+    }
 
     // ── Verify object exists in storage ──────────────────
 
@@ -409,6 +415,25 @@ export async function markReworkReferenceUploaded(
         error: contentVerification.message,
         status: contentVerification.status,
         code: contentVerification.code,
+      };
+    }
+
+    const { error: updateErr } = await supabase
+      .from("deliverable_review_files")
+      .update({ upload_status: "uploaded" })
+      .eq("id", fileId)
+      .eq("review_id", reviewId)
+      .eq("upload_status", "pending");
+
+    if (updateErr) {
+      console.error(
+        "[rework-reference-files] Completion update:",
+        updateErr.message,
+      );
+      return {
+        ok: false,
+        error: "Could not confirm uploaded reference.",
+        status: 500,
       };
     }
 
@@ -450,9 +475,10 @@ export async function getReworkReferenceFilesForReview(
       .from("deliverable_review_files")
       .select(
         "id, review_id, order_id, deliverable_id, item_index, " +
-          "storage_path, filename, file_size, mime_type, uploaded_by, created_at",
+          "storage_path, filename, file_size, mime_type, uploaded_by, upload_status, created_at",
       )
       .eq("review_id", reviewId)
+      .eq("upload_status", "uploaded")
       .order("created_at", { ascending: true });
 
     if (error) {

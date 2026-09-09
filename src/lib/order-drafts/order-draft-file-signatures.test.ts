@@ -102,7 +102,11 @@ const {
 const { completeDraftReferenceForUser } = await import(
   "./draft-reference-files-server.ts"
 );
-const { markReworkReferenceUploaded } = await import("../rework-reference-files.ts");
+const {
+  createReworkReferenceUploadSlot,
+  getReworkReferenceFilesForReview,
+  markReworkReferenceUploaded,
+} = await import("../rework-reference-files.ts");
 
 const originalFetch = globalThis.fetch;
 after(() => {
@@ -190,6 +194,10 @@ class FlowSupabaseMock {
               error: null,
             };
       },
+      createSignedUploadUrl: async (path: string) => ({
+        data: { signedUrl: `https://storage.example/upload/${encodeURIComponent(path)}` },
+        error: null,
+      }),
       remove: async (paths: string[]) => {
         this.removedPaths.push([...paths]);
         for (const path of paths) this.objects.delete(path);
@@ -445,6 +453,7 @@ function reworkRows(extension = "png", mimeType = "image/png") {
     file_size: 1_234,
     mime_type: mimeType,
     uploaded_by: "client",
+    upload_status: "pending",
     created_at: TIMESTAMP,
   };
   return { review, file };
@@ -721,7 +730,31 @@ for (const [name, options] of [
   });
 }
 
-test("valid rework reference bytes preserve ownership and return safe file metadata", async () => {
+test("newly created rework upload slots stay pending and are not listed", async () => {
+  const { review } = reworkRows();
+  const mock = new FlowSupabaseMock();
+  mock.setRows("deliverable_reviews", [review]);
+  mock.setRows("deliverable_review_files", []);
+  mock.install();
+
+  const created = await createReworkReferenceUploadSlot(
+    REVIEW_ID,
+    { userId: USER_ID, email: "client@example.com" },
+    { filename: "reference.png", contentType: "image/png", fileSize: 1_234 },
+  );
+  const listed = await getReworkReferenceFilesForReview(REVIEW_ID, {
+    userId: USER_ID,
+    email: "client@example.com",
+  });
+
+  assert.equal(created.ok, true);
+  const inserted = (mock.tables.get("deliverable_review_files") ?? [])[0];
+  assert.equal(inserted?.upload_status, "pending");
+  assert.equal(listed.ok, true);
+  if (listed.ok) assert.deepEqual(listed.files, []);
+});
+
+test("successful rework completion marks the pending row uploaded and exposes it", async () => {
   const { review, file } = reworkRows();
   const mock = new FlowSupabaseMock();
   mock.setRows("deliverable_reviews", [review]);
@@ -736,7 +769,54 @@ test("valid rework reference bytes preserve ownership and return safe file metad
 
   assert.equal(result.ok, true);
   if (result.ok) assert.equal("storage_path" in result.file, false);
+  assert.equal(file.upload_status, "uploaded");
   assert.deepEqual(mock.prefixReads, [file.storage_path]);
+
+  const listed = await getReworkReferenceFilesForReview(REVIEW_ID, {
+    userId: USER_ID,
+    email: "client@example.com",
+  });
+  assert.equal(listed.ok, true);
+  if (listed.ok) assert.deepEqual(listed.files.map(({ id }) => id), [REFERENCE_ID]);
+});
+
+test("repeated rework completion returns the durable uploaded row safely", async () => {
+  const { review, file } = reworkRows();
+  const mock = new FlowSupabaseMock();
+  mock.setRows("deliverable_reviews", [review]);
+  mock.setRows("deliverable_review_files", [file]);
+  mock.addObject(String(file.storage_path), PNG, "image/png");
+  mock.install();
+
+  const ownership = { userId: USER_ID, email: "client@example.com" };
+  const first = await markReworkReferenceUploaded(REVIEW_ID, REFERENCE_ID, ownership);
+  const second = await markReworkReferenceUploaded(REVIEW_ID, REFERENCE_ID, ownership);
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(file.upload_status, "uploaded");
+  assert.deepEqual(mock.prefixReads, [file.storage_path]);
+  assert.equal(
+    mock.updates.filter(({ table }) => table === "deliverable_review_files").length,
+    1,
+  );
+});
+
+test("backfilled historical rework references remain visible", async () => {
+  const { review, file } = reworkRows();
+  file.upload_status = "uploaded";
+  const mock = new FlowSupabaseMock();
+  mock.setRows("deliverable_reviews", [review]);
+  mock.setRows("deliverable_review_files", [file]);
+  mock.install();
+
+  const listed = await getReworkReferenceFilesForReview(REVIEW_ID, {
+    userId: USER_ID,
+    email: "client@example.com",
+  });
+
+  assert.equal(listed.ok, true);
+  if (listed.ok) assert.deepEqual(listed.files.map(({ id }) => id), [REFERENCE_ID]);
 });
 
 test("spoofed rework reference is rejected without deleting historical review objects", async () => {
@@ -786,11 +866,16 @@ for (const [name, options] of [
   });
 }
 
-test("missing rework object preserves the existing incomplete-upload conflict", async () => {
+test("an object at a mismatched path cannot complete or expose a pending rework row", async () => {
   const { review, file } = reworkRows();
   const mock = new FlowSupabaseMock();
   mock.setRows("deliverable_reviews", [review]);
   mock.setRows("deliverable_review_files", [file]);
+  mock.addObject(
+    `rework/88888888-8888-4888-8888-888888888888/${file.filename}`,
+    PNG,
+    "image/png",
+  );
   mock.install();
 
   const result = await markReworkReferenceUploaded(REVIEW_ID, REFERENCE_ID, {
@@ -800,5 +885,13 @@ test("missing rework object preserves the existing incomplete-upload conflict", 
 
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.status, 409);
+  assert.equal(file.upload_status, "pending");
   assert.deepEqual(mock.prefixReads, []);
+
+  const listed = await getReworkReferenceFilesForReview(REVIEW_ID, {
+    userId: USER_ID,
+    email: "client@example.com",
+  });
+  assert.equal(listed.ok, true);
+  if (listed.ok) assert.deepEqual(listed.files, []);
 });
