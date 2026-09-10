@@ -35,6 +35,7 @@ import {
   type ReferenceFileValue,
 } from "@/lib/reference-files";
 import { cn } from "@/lib/utils";
+import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
 
 export interface StagingItemData {
   clientItemId: string;
@@ -256,14 +257,13 @@ export default function StagingItemCard({
   return (
     <div
       id={stagingItemDomId(data.clientItemId)}
-      className="scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6"
+      className="scroll-mt-20 rounded-2xl border border-border bg-white p-5 shadow-sm sm:scroll-mt-24 sm:p-6"
     >
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold leading-tight text-primary sm:text-[22px]">
-          Image #{index + 1}
-        </h2>
-        {canRemove && (
+      <OrderImageCardHeader
+        index={index}
+        filename={currentPreviewFilename ?? data.originalFilename}
+        action={
+          canRemove ? (
           <button
             type="button"
             onClick={onRemove}
@@ -273,8 +273,9 @@ export default function StagingItemCard({
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       <div
         className={cn(

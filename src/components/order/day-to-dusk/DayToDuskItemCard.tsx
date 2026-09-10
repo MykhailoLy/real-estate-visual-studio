@@ -11,6 +11,7 @@ import { calculatePhotoEditItemTotal } from "@/lib/pricing";
 import { useDisplayCurrency } from "@/components/pricing/currency-client";
 import { PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 import type { ServiceOptionImage } from "@/lib/site-media";
+import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
 import {
   DAY_TO_DUSK_OPTION_ID,
   DUSK_STYLE_DEFAULT,
@@ -70,8 +71,8 @@ export const emptyDayToDuskItem = (): DayToDuskItemData => ({
 });
 
 /** Stable DOM id for a photo card, used to scroll it into view on Edit. */
-export const dayToDuskItemDomId = (index: number) =>
-  `day-to-dusk-item-${index}`;
+export const dayToDuskItemDomId = (clientItemId: string) =>
+  `day-to-dusk-item-${clientItemId}`;
 
 const PREVIEWABLE_PHOTO_EXTENSION = /\.(?:gif|jpe?g|png|webp)$/i;
 
@@ -156,14 +157,15 @@ export default function DayToDuskItemCard({
 
   return (
     <div
-      id={dayToDuskItemDomId(index)}
-      className="scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6"
+      id={dayToDuskItemDomId(data.clientItemId)}
+      className="scroll-mt-20 rounded-2xl border border-border bg-white p-5 shadow-sm sm:scroll-mt-24 sm:p-6"
     >
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold leading-tight text-primary sm:text-[22px]">
-          Photo #{index + 1}
-        </h2>
-        {canRemove && (
+      <OrderImageCardHeader
+        index={index}
+        itemLabel="Photo"
+        filename={currentPreviewFilename ?? data.originalFilename}
+        action={
+          canRemove ? (
           <button
             type="button"
             onClick={onRemove}
@@ -172,8 +174,9 @@ export default function DayToDuskItemCard({
           >
             <Trash2 className="w-4 h-4" />
           </button>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       <div
         className={cn(

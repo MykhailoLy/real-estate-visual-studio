@@ -23,10 +23,13 @@ import OrderJobTitleField, {
 import FloorPlanItemCard, {
   type FloorPlanItemData,
   emptyFloorPlanItem,
+  floorPlanItemDomId,
 } from "@/components/order/floor-plans/FloorPlanItemCard";
+import OrderImageNavigator from "@/components/order/OrderImageNavigator";
 import { useDisplayRegion } from "@/components/pricing/currency-client";
 import Container from "@/components/layout/Container";
 import { currencyForRegion } from "@/lib/currency";
+import { buildOrderImageNavigationItems } from "@/lib/order-image-navigation";
 import {
   createOrderDraft,
   getOrderDraft,
@@ -1366,6 +1369,16 @@ export default function FloorPlansOrderForm({
         ) : null}
       </div>
 
+      <OrderImageNavigator
+        label="Floor plans"
+        itemLabel="Floor Plan"
+        items={buildOrderImageNavigationItems(
+          items,
+          (item) => item.clientItemId,
+          (item) => floorPlanItemDomId(item.clientItemId),
+        )}
+      />
+
       <fieldset disabled={editsDisabled} className="contents">
         <OrderJobTitleField
           value={jobTitle}
@@ -1375,7 +1388,7 @@ export default function FloorPlansOrderForm({
           }}
         />
 
-        <div className="space-y-5">
+        <div className="space-y-10">
         {items.map((item, index) => {
           const originalKey = fileSlotKey(item.clientItemId, "original");
           const referenceKey = fileSlotKey(item.clientItemId, "reference");

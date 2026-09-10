@@ -14,6 +14,7 @@ import OrderGuideRail, {
 import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import OrderImageNavigator from "@/components/order/OrderImageNavigator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
@@ -25,6 +26,7 @@ import OrderJobTitleField, {
 } from "@/components/order/OrderJobTitleField";
 import { redirectOnOrderAuthError } from "@/components/order/order-redirect";
 import { submitOrder } from "@/lib/submit-order";
+import { buildOrderImageNavigationItems } from "@/lib/order-image-navigation";
 import Container from "@/components/layout/Container";
 import {
   scrollDashboardToTop,
@@ -333,7 +335,15 @@ export default function ItemRemovalOrderForm({
             <p>{ITEM_REMOVAL_COMPLEXITY_NOTICE}</p>
           </div>
 
-          <div className="space-y-5">
+          <OrderImageNavigator
+            items={buildOrderImageNavigationItems(
+              items,
+              (_, index) => String(index),
+              (_, index) => itemRemovalItemDomId(index),
+            )}
+          />
+
+          <div className="space-y-10">
             {items.map((item, index) => (
               <ItemRemovalItemCard
                 key={index}

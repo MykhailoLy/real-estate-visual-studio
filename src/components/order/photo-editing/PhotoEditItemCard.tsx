@@ -15,6 +15,7 @@ import { getCatalogPrice } from "@/lib/pricing/catalog";
 import { PHOTO_EDIT_OPTIONS, PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
+import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
 
 export interface PhotoEditItemData {
   clientItemId: string;
@@ -87,24 +88,25 @@ export default function PhotoEditItemCard({
   return (
     <div
       id={photoEditItemDomId(data.clientItemId)}
-      className="bg-white border border-border rounded-xl p-5 shadow-sm"
+      className="scroll-mt-20 rounded-2xl border border-border bg-white p-5 shadow-sm sm:scroll-mt-24"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-foreground">
-          Photo #{index + 1}
-        </h4>
-        {canRemove && (
+      <OrderImageCardHeader
+        index={index}
+        itemLabel="Photo"
+        filename={data.file?.name ?? persistedOriginal?.originalFilename ?? data.originalFilename}
+        action={
+          canRemove ? (
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             aria-label={`Remove photo ${index + 1}`}
           >
             <Trash2 className="w-4 h-4" />
           </button>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       <div className="space-y-4">
         {/* File Upload */}
