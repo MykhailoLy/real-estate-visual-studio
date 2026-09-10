@@ -29,6 +29,7 @@ import {
   parseFloorPlanFloorCountInput,
 } from "@/lib/order-drafts/floor-plans";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
+import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
 
 export interface FloorPlanItemData {
   clientItemId: string;
@@ -80,6 +81,10 @@ export const emptyFloorPlanItem = (): FloorPlanItemData => ({
   originalFilename: null,
   referenceFilename: null,
 });
+
+export function floorPlanItemDomId(clientItemId: string): string {
+  return `floor-plan-item-${clientItemId}`;
+}
 
 interface FloorPlanItemCardProps {
   index: number;
@@ -140,23 +145,27 @@ export default function FloorPlanItemCard({
   };
 
   return (
-    <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-foreground">
-          Floor Plan #{index + 1}
-        </h4>
-        {canRemove && (
+    <div
+      id={floorPlanItemDomId(data.clientItemId)}
+      className="scroll-mt-20 rounded-2xl border border-border bg-white p-5 shadow-sm sm:scroll-mt-24"
+    >
+      <OrderImageCardHeader
+        index={index}
+        itemLabel="Floor Plan"
+        filename={data.file?.name ?? persistedOriginal?.originalFilename ?? data.originalFilename}
+        action={
+          canRemove ? (
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             aria-label={`Remove item ${index + 1}`}
           >
             <Trash2 className="w-4 h-4" />
           </button>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       <div className="space-y-5">
         {/* File Upload */}

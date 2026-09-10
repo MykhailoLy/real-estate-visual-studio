@@ -168,6 +168,12 @@ html {
   overflow-x: hidden;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 html.dashboard-scroll-locked,
 html.dashboard-scroll-locked body {
   overflow: hidden;

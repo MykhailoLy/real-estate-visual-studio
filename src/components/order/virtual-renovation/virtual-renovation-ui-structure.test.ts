@@ -275,7 +275,7 @@ test("renovation rows and style choices use the compact shared visual language",
   assert.match(itemCardSource, /STAGING_STYLE_CARDS\.find/);
   assert.match(
     formSource,
-    /<div className="space-y-7">[\s\S]*?<RenovationItemCard/,
+    /<div className="space-y-10">[\s\S]*?<RenovationItemCard/,
   );
   assert.match(
     formSource,

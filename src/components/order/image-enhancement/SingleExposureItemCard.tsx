@@ -18,6 +18,7 @@ import { PHOTO_EDIT_FILE_ACCEPT } from "@/data/order-options";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import type { ServiceOptionMedia } from "@/lib/site-media";
+import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
 import {
   AERIAL_EDITING_DEFAULT,
   AERIAL_EDITING_OPTIONS,
@@ -190,24 +191,26 @@ export default function SingleExposureItemCard({
   return (
     <div
       id={idPrefix}
-      className="scroll-mt-4 rounded-xl border border-border bg-white p-5 shadow-sm"
+      className="scroll-mt-20 rounded-2xl border border-border bg-white p-5 shadow-sm sm:scroll-mt-24"
     >
-      <div className="mb-4 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-foreground">
-          Photo #{index + 1}
-        </h4>
-        {canRemove ? (
+      <OrderImageCardHeader
+        index={index}
+        itemLabel="Photo"
+        filename={data.file?.name ?? persistedOriginal?.originalFilename ?? data.originalFilename}
+        action={
+          canRemove ? (
           <button
             type="button"
             onClick={onRemove}
             disabled={fileOperationsDisabled}
-            className="rounded-md p-1.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Remove photo ${index + 1}`}
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
-        ) : null}
-      </div>
+          ) : null
+        }
+      />
 
       <div className="space-y-5">
         <FileUpload

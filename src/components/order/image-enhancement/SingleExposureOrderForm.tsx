@@ -12,6 +12,7 @@ import OrderGuideRail, {
 import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import OrderImageNavigator from "@/components/order/OrderImageNavigator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
@@ -30,6 +31,7 @@ import {
   scrollElementIntoViewWithinDashboard,
 } from "@/lib/dashboard-scroll";
 import { currencyForRegion } from "@/lib/currency";
+import { buildOrderImageNavigationItems } from "@/lib/order-image-navigation";
 import type { ServiceOptionMedia } from "@/lib/site-media";
 import {
   SINGLE_EXPOSURE_OPTION_ID,
@@ -1139,7 +1141,15 @@ export default function SingleExposureOrderForm({
             }}
           />
 
-          <div className="space-y-5">
+          <OrderImageNavigator
+            items={buildOrderImageNavigationItems(
+              items,
+              (item) => item.clientItemId,
+              (item) => singleExposureItemDomId(item.clientItemId),
+            )}
+          />
+
+          <div className="space-y-10">
             {items.map((item, index) => {
               const originalSlot = buildSingleExposureDraftFileSlotKey(
                 item.clientItemId,

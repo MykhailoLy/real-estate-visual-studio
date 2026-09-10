@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import OrderLayout from "@/components/order/OrderLayout";
 import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import OrderImageNavigator from "@/components/order/OrderImageNavigator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import {
@@ -34,6 +35,7 @@ import {
   type VirtualRenovationScreen,
 } from "@/components/order/virtual-renovation/virtual-renovation-flow";
 import { useDisplayRegion } from "@/components/pricing/currency-client";
+import { buildOrderImageNavigationItems } from "@/lib/order-image-navigation";
 import Container from "@/components/layout/Container";
 import { currencyForRegion } from "@/lib/currency";
 import {
@@ -1912,6 +1914,14 @@ export default function VirtualRenovationOrderForm({
             ) : null}
           </div>
 
+          <OrderImageNavigator
+            items={buildOrderImageNavigationItems(
+              items,
+              (item) => item.clientItemId,
+              (item) => renovationItemDomId(item.clientItemId),
+            )}
+          />
+
           <fieldset disabled={editsDisabled} className="contents">
             <OrderJobTitleField
               value={jobTitle}
@@ -1923,7 +1933,7 @@ export default function VirtualRenovationOrderForm({
               comfortable
             />
 
-            <div className="space-y-7">
+            <div className="space-y-10">
               {items.map((item, index) => {
                 const originalKey = fileSlotKey(item.clientItemId, "original");
                 const referenceKey = fileSlotKey(item.clientItemId, "reference");

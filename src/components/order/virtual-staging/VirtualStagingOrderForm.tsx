@@ -12,6 +12,7 @@ import OrderGuideRail, {
 } from "@/components/order/OrderGuideRail";
 import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import OrderImageNavigator from "@/components/order/OrderImageNavigator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
@@ -47,6 +48,7 @@ import {
   useDisplayRegion,
 } from "@/components/pricing/currency-client";
 import { submitOrder, type OrderSubmitResult } from "@/lib/submit-order";
+import { buildOrderImageNavigationItems } from "@/lib/order-image-navigation";
 import Container from "@/components/layout/Container";
 import {
   scrollDashboardToTop,
@@ -3127,7 +3129,15 @@ export default function VirtualStagingOrderForm({
         />
       </section>
 
-      <div className="space-y-7">
+      <OrderImageNavigator
+        items={buildOrderImageNavigationItems(
+          items,
+          (item) => item.clientItemId,
+          (item) => stagingItemDomId(item.clientItemId),
+        )}
+      />
+
+      <div className="space-y-10">
         {items.map((item, index) => {
           const originalSlotKey = buildVirtualStagingDraftFileSlotKey(
             item.clientItemId,

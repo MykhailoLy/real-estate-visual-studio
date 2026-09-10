@@ -12,6 +12,7 @@ import OrderGuideRail, {
 } from "@/components/order/OrderGuideRail";
 import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import OrderImageNavigator from "@/components/order/OrderImageNavigator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
@@ -44,6 +45,7 @@ import { normalizeReferenceLink } from "@/lib/reference-files";
 import type { ReferenceFileValue } from "@/lib/reference-files";
 import { useDisplayRegion } from "@/components/pricing/currency-client";
 import { currencyForRegion } from "@/lib/currency";
+import { buildOrderImageNavigationItems } from "@/lib/order-image-navigation";
 import {
   createOrderDraft,
   deleteOrderDraft,
@@ -277,7 +279,12 @@ export default function DayToDuskOrderForm({
     pendingScrollRef.current = null;
     const raf = requestAnimationFrame(() => {
       if (pending.type === "item") {
-        scrollElementIntoViewWithinDashboard(dayToDuskItemDomId(pending.index));
+        const item = itemsRef.current[pending.index];
+        if (item) {
+          scrollElementIntoViewWithinDashboard(
+            dayToDuskItemDomId(item.clientItemId),
+          );
+        }
       } else {
         scrollDashboardToTop();
       }
@@ -1142,7 +1149,15 @@ export default function DayToDuskOrderForm({
             comfortable
           />
 
-          <div className="space-y-7">
+          <OrderImageNavigator
+            items={buildOrderImageNavigationItems(
+              items,
+              (item) => item.clientItemId,
+              (item) => dayToDuskItemDomId(item.clientItemId),
+            )}
+          />
+
+          <div className="space-y-10">
             {items.map((item, index) => (
               <DayToDuskItemCard
                 key={item.clientItemId}

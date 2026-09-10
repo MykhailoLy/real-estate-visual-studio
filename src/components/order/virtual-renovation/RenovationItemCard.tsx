@@ -31,6 +31,7 @@ import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 import type { ServiceOptionMedia } from "@/lib/site-media";
 import type { TransactionalCurrency } from "@/lib/pricing/types";
+import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
 import {
   mergeReferenceFiles,
   resolveReferenceFileSelection,
@@ -192,14 +193,13 @@ export default function RenovationItemCard({
     <>
     <article
       id={renovationItemDomId(data.clientItemId)}
-      className="@container scroll-mt-4 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5"
+      className="@container scroll-mt-20 rounded-2xl border border-border bg-white p-4 shadow-sm sm:scroll-mt-24 sm:p-5"
     >
-      {/* Header */}
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <h2 className="text-xl font-semibold leading-tight text-primary">
-          Image #{index + 1}
-        </h2>
-        {canRemove && (
+      <OrderImageCardHeader
+        index={index}
+        filename={data.file?.name ?? persistedOriginal?.originalFilename ?? data.originalFilename}
+        action={
+          canRemove ? (
           <button
             type="button"
             onClick={onRemove}
@@ -208,8 +208,9 @@ export default function RenovationItemCard({
           >
             <Trash2 className="w-4 h-4" />
           </button>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       <div className="space-y-5">
         {/* File Upload */}

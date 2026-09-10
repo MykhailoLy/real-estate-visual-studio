@@ -14,6 +14,7 @@ import OrderGuideRail, {
 import OrderReviewAction from "@/components/order/OrderReviewAction";
 import OrderSummary, { type SummaryItem } from "@/components/order/OrderSummary";
 import OrderStepIndicator from "@/components/order/OrderStepIndicator";
+import OrderImageNavigator from "@/components/order/OrderImageNavigator";
 import { TWO_STEP_ORDER_STEPS } from "@/components/order/order-flow-copy";
 import {
   type OrderTermsData,
@@ -33,6 +34,7 @@ import { useDisplayRegion } from "@/components/pricing/currency-client";
 import Container from "@/components/layout/Container";
 import { PHOTO_EDIT_OPTIONS } from "@/data/order-options";
 import { currencyForRegion } from "@/lib/currency";
+import { buildOrderImageNavigationItems } from "@/lib/order-image-navigation";
 import {
   scrollDashboardToTop,
   scrollElementIntoViewWithinDashboard,
@@ -1466,6 +1468,14 @@ export default function PhotoEditingOrderForm({
         />
       ) : (
         <>
+          <OrderImageNavigator
+            items={buildOrderImageNavigationItems(
+              items,
+              (item) => item.clientItemId,
+              (item) => photoEditItemDomId(item.clientItemId),
+            )}
+          />
+
           <fieldset disabled={editsDisabled} className="contents">
             <OrderJobTitleField
               value={jobTitle}
@@ -1488,7 +1498,7 @@ export default function PhotoEditingOrderForm({
               </p>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-10">
               {items.map((item, index) => {
                 const slotKey = originalSlotKey(item.clientItemId);
                 const operation = fileOperations[slotKey];

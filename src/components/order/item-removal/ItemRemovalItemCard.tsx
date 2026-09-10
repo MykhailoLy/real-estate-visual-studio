@@ -15,6 +15,7 @@ import {
   type RemovalTaskId,
 } from "@/lib/item-removal";
 import RemovalTaskSelector from "./RemovalTaskSelector";
+import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
 
 // ============================================================
 // ItemRemovalItemCard — one uploaded photo for an Item Removal &
@@ -95,23 +96,25 @@ export default function ItemRemovalItemCard({
   return (
     <div
       id={idPrefix}
-      className="bg-white border border-border rounded-xl p-5 shadow-sm scroll-mt-4"
+      className="scroll-mt-20 rounded-2xl border border-border bg-white p-5 shadow-sm sm:scroll-mt-24"
     >
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-foreground">
-          Photo #{index + 1}
-        </h4>
-        {canRemove && (
+      <OrderImageCardHeader
+        index={index}
+        itemLabel="Photo"
+        filename={data.file?.name}
+        action={
+          canRemove ? (
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 text-muted hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             aria-label={`Remove photo ${index + 1}`}
           >
             <Trash2 className="w-4 h-4" />
           </button>
-        )}
-      </div>
+          ) : null
+        }
+      />
 
       <div className="space-y-5">
         {/* 1. Required original photo */}
