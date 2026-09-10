@@ -1,5 +1,6 @@
 import type { ServiceType } from "@/lib/server-validation";
 import type { TransactionalCurrency } from "@/lib/pricing/types";
+import { absoluteUrl } from "@/lib/seo";
 import { escapeHtml, formatCents, serviceLabel } from "./format";
 
 export interface PaymentConfirmationInput {
@@ -21,6 +22,12 @@ export interface RenderedPaymentConfirmation {
 }
 
 const SUPPORT_EMAIL = "hello@picchuspot.com";
+const SERVICES = [
+  ["Virtual Staging", "/pricing/virtual-staging"],
+  ["Virtual Renovation", "/pricing/virtual-renovation"],
+  ["Photo Editing", "/pricing/photo-editing"],
+  ["Floor Plans", "/pricing/floor-plans"],
+] as const;
 
 export function renderPaymentConfirmation(
   input: PaymentConfirmationInput,
@@ -30,6 +37,8 @@ export function renderPaymentConfirmation(
   const total = formatCents(input.totalCents, input.currency);
   const tax = formatCents(input.taxCents, input.currency);
   const subject = `Payment confirmed for order ${input.orderNumber} — PicchuSpot`;
+  const nextStep =
+    "Our team will review and confirm your order before it enters production.";
   const taxText = input.taxCents > 0
     ? [`Tax included: ${tax} ${input.currency}`]
     : [];
@@ -37,8 +46,9 @@ export function renderPaymentConfirmation(
   const text = [
     `Hi ${input.clientName || "there"},`,
     "",
-    `We’ve confirmed your payment for order ${input.orderNumber}.`,
+    `We’ve received your payment for order ${input.orderNumber}.`,
     "",
+    "Payment summary",
     `Order number: ${input.orderNumber}`,
     `Service: ${service}`,
     ...(jobTitle ? [`Job title: ${jobTitle}`] : []),
@@ -46,57 +56,67 @@ export function renderPaymentConfirmation(
     ...taxText,
     ...(input.clientOrderUrl ? [`View order: ${input.clientOrderUrl}`] : []),
     "",
-    "Your order is ready for our team to review before production begins.",
+    nextStep,
     "",
     `Questions? Reply to this email or write to ${SUPPORT_EMAIL}.`,
     "",
-    "— PicchuSpot",
-    "Real Estate Visuals",
+    "Kind regards,",
+    "PicchuSpot",
   ].join("\n");
 
   const html = `<!DOCTYPE html>
-<html>
-  <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a202c;">
-    <div style="max-width:560px;margin:0 auto;padding:24px;">
-      <div style="margin-bottom:24px;">
-        <div style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:#1a365d;">PicchuSpot</div>
-        <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#a0aec0;margin-top:2px;">Real Estate Visuals</div>
-      </div>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4efe8;color:#071a2b;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+    <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border-collapse:collapse;background:#ffffff;border:1px solid #ded3c6;">
+        <tr><td align="center" style="padding:20px 24px 12px;background:#ffffff;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-logo-800.png"))}" width="112" height="84" alt="PicchuSpot" style="display:block;border:0;width:112px;height:84px;margin:0 auto;">
+        </td></tr>
+        <tr><td align="center" style="padding:0 0 24px;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-email-before-after-1200x450.jpg"))}" width="560" alt="Before and after virtual staging of a bright living room" style="display:block;border:0;width:100%;max-width:560px;height:auto;">
+        </td></tr>
+        <tr><td style="padding:0 24px 24px;">
+          <h1 style="margin:0 0 18px;font-size:25px;line-height:1.25;color:#071a2b;">Payment confirmed</h1>
+          <p style="margin:0 0 10px;font-size:15px;line-height:1.6;">Hi ${escapeHtml(input.clientName || "there")},</p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;">We’ve received your payment for order ${escapeHtml(input.orderNumber)}.</p>
 
-      <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px;color:#1a365d;">
-        Payment confirmed
-      </h1>
-      <p style="font-size:15px;line-height:1.6;color:#4a5568;margin:0 0 24px;">
-        Hi ${escapeHtml(input.clientName || "there")} — we’ve confirmed your payment for order ${escapeHtml(input.orderNumber)}.
-      </p>
+          <h2 style="margin:0 0 10px;font-size:16px;line-height:1.4;color:#071a2b;">Payment summary</h2>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;padding:0;font-size:14px;line-height:1.55;color:#071a2b;">
+            <tbody>
+              <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Order number</td><td style="padding:5px 0;font-weight:bold;">${escapeHtml(input.orderNumber)}</td></tr>
+              <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Service</td><td style="padding:5px 0;">${escapeHtml(service)}</td></tr>
+              ${jobTitle ? `<tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Job title</td><td style="padding:5px 0;">${escapeHtml(jobTitle)}</td></tr>` : ""}
+              <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Amount paid</td><td style="padding:5px 0;font-weight:bold;">${escapeHtml(total)} ${escapeHtml(input.currency)}</td></tr>
+              ${input.taxCents > 0 ? `<tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Tax included</td><td style="padding:5px 0;">${escapeHtml(tax)} ${escapeHtml(input.currency)}</td></tr>` : ""}
+            </tbody>
+          </table>
 
-      <table style="width:100%;font-size:14px;line-height:1.6;color:#1a202c;border-collapse:collapse;margin-bottom:24px;">
-        <tbody>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Order number</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(input.orderNumber)}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Service</td><td style="padding:4px 0;">${escapeHtml(service)}</td></tr>
-          ${jobTitle ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Job title</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(jobTitle)}</td></tr>` : ""}
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Amount paid</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(total)} ${input.currency}</td></tr>
-          ${input.taxCents > 0 ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Tax included</td><td style="padding:4px 0;">${escapeHtml(tax)} ${input.currency}</td></tr>` : ""}
-        </tbody>
+          ${input.clientOrderUrl ? `<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 24px;">
+            <tr><td bgcolor="#c7a94e" style="border-radius:4px;text-align:center;">
+              <a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:14px 20px;border:1px solid #c7a94e;border-radius:4px;background:#c7a94e;color:#071a2b;font-size:15px;font-weight:bold;line-height:1.4;text-decoration:none;">View order</a>
+            </td></tr>
+          </table>` : ""}
+
+          <p style="margin:0 0 20px;font-size:13px;line-height:1.7;color:#5a656d;">${escapeHtml(nextStep)}</p>
+          <p style="margin:0 0 20px;font-size:13px;line-height:1.7;color:#5a656d;">Questions? Reply to this email or write to <a href="mailto:${SUPPORT_EMAIL}" style="color:#071a2b;text-decoration:underline;">${SUPPORT_EMAIL}</a>.</p>
+          <p style="margin:0;font-size:14px;line-height:1.6;">Kind regards,<br>PicchuSpot</p>
+        </td></tr>
+        <tr><td align="center" bgcolor="#071a2b" style="padding:20px 18px 18px;border-top:1px solid #ded3c6;background:#071a2b;text-align:center;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-wordmark-dark-email.png"))}" width="125" alt="PicchuSpot" style="display:block;border:0;width:125px;height:auto;margin:0 auto 12px;">
+          <p style="margin:0 0 4px;font-size:12px;line-height:1.6;color:#ded3c6;">More from PicchuSpot</p>
+          <p style="margin:0;font-size:12px;line-height:2;">${SERVICES.map(([label, path]) => `<a href="${escapeHtml(absoluteUrl(path))}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${label}</a>`).join(" ")}</p>
+          <p style="margin:10px 0 0;font-size:12px;line-height:2;">
+            <a href="${escapeHtml(absoluteUrl("/"))}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${escapeHtml(new URL(absoluteUrl("/")).host)}</a>
+            <a href="mailto:${SUPPORT_EMAIL}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${SUPPORT_EMAIL}</a>
+          </p>
+          <p style="margin:10px 0 0;font-size:11px;line-height:1.6;color:#ded3c6;">PicchuSpot · Real Estate Visuals</p>
+        </td></tr>
       </table>
-
-      <p style="font-size:14px;line-height:1.6;color:#4a5568;margin:0 0 24px;">
-        Your order is ready for our team to review before production begins.
-      </p>
-
-      ${input.clientOrderUrl ? `<p style="margin:0 0 24px;"><a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:10px 15px;border-radius:7px;background:#0B1F3A;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;">View order</a></p>` : ""}
-
-      <p style="font-size:14px;line-height:1.6;color:#4a5568;margin:0 0 24px;">
-        Questions? Reply to this email or write to
-        <a href="mailto:${SUPPORT_EMAIL}" style="color:#2c5282;">${SUPPORT_EMAIL}</a>.
-      </p>
-
-      <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0;">
-      <p style="font-size:12px;line-height:1.6;color:#a0aec0;margin:0;">
-        — PicchuSpot · Real Estate Visuals
-      </p>
-    </div>
-  </body>
+    </td></tr>
+  </table>
+</body>
 </html>`;
 
   return { subject, html, text };

@@ -364,28 +364,67 @@ test("durable email payloads read early-performance evidence from persisted item
   );
 });
 
-test("payment confirmation email reports the verified inclusive amount without promising production", () => {
+test("payment confirmation email uses the approved client design and verified payment summary", () => {
   const rendered = renderPaymentConfirmation({
     orderNumber: "PE-0004",
     serviceType: "photo-editing",
-    serviceLabelOverride: "Image Enhancement",
-    jobTitle: "Live payment smoke test",
-    clientName: "A Client",
-    clientOrderUrl: "https://picchuspot.com/dashboard/jobs/11111111-1111-4111-8111-111111111111",
+    serviceLabelOverride: "Image & Enhancement",
+    jobTitle: "Calle Mayor <listing>",
+    clientName: "A & Client",
+    clientOrderUrl: "https://picchuspot.com/dashboard/jobs/11111111-1111-4111-8111-111111111111?from=email&paid=true",
     currency: "EUR",
-    totalCents: 100,
-    taxCents: 17,
+    totalCents: 12345,
+    taxCents: 2099,
   });
   const combined = `${rendered.subject}\n${rendered.text}\n${rendered.html}`;
 
   assert.match(rendered.subject, /Payment confirmed for order PE-0004/);
-  assert.match(combined, /Amount paid: €1\.00 EUR/);
-  assert.match(combined, /Tax included: €0\.17 EUR/);
-  assert.match(combined, /ready for our team to review before production begins/);
-  assert.match(combined, /dashboard\/jobs\/11111111-1111-4111-8111-111111111111/);
+  assert.match(rendered.text, /Payment summary/);
+  assert.match(rendered.text, /Amount paid: €123\.45 EUR/);
+  assert.match(rendered.text, /Tax included: €20\.99 EUR/);
+  assert.match(rendered.text, /Job title: Calle Mayor <listing>/);
+  assert.match(rendered.text, /View order: https:\/\/picchuspot\.com\/dashboard\/jobs\/11111111-1111-4111-8111-111111111111\?from=email&paid=true/);
+  assert.match(rendered.text, /Our team will review and confirm your order before it enters production\./);
+  assert.match(rendered.text, /hello@picchuspot\.com/);
+
+  assert.match(rendered.html, /picchuspot-logo-800\.png/);
+  assert.match(rendered.html, /picchuspot-email-before-after-1200x450\.jpg/);
+  assert.match(rendered.html, /picchuspot-wordmark-dark-email\.png/);
+  assert.match(rendered.html, /background:#c7a94e/);
+  assert.match(rendered.html, /background:#071a2b/);
+  assert.match(rendered.html, />Virtual Staging</);
+  assert.match(rendered.html, />Virtual Renovation</);
+  assert.match(rendered.html, />Photo Editing</);
+  assert.match(rendered.html, />Floor Plans</);
+  assert.match(rendered.html, />picchuspot\.com</);
+  assert.match(rendered.html, /dashboard\/jobs\/11111111-1111-4111-8111-111111111111\?from=email&amp;paid=true/);
+  assert.match(rendered.html, /A &amp; Client/);
+  assert.match(rendered.html, /Image &amp; Enhancement/);
+  assert.match(rendered.html, /Calle Mayor &lt;listing&gt;/);
+  assert.doesNotMatch(rendered.html, /A & Client|Image & Enhancement|Calle Mayor <listing>/);
+  assert.doesNotMatch(combined, /Start of service/);
   assert.doesNotMatch(combined, /Pay securely/);
   assert.doesNotMatch(combined, /invoice/i);
   assert.doesNotMatch(combined, /24-48 hours/i);
+});
+
+test("payment confirmation omits zero tax and a blank optional job title", () => {
+  const rendered = renderPaymentConfirmation({
+    orderNumber: "VS-0042",
+    serviceType: "virtual-staging",
+    jobTitle: "   ",
+    clientName: "A Client",
+    clientOrderUrl: "https://picchuspot.com/dashboard/jobs/22222222-2222-4222-8222-222222222222",
+    currency: "USD",
+    totalCents: 1500,
+    taxCents: 0,
+  });
+  const combined = `${rendered.text}\n${rendered.html}`;
+
+  assert.match(combined, /\$15\.00 USD/);
+  assert.doesNotMatch(combined, /Tax included/);
+  assert.doesNotMatch(combined, /Job title/);
+  assert.match(combined, /dashboard\/jobs\/22222222-2222-4222-8222-222222222222/);
 });
 
 test("payment confirmation migration is additive, idempotent, and backward-compatible before deploy", () => {
