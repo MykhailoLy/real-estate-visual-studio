@@ -9,8 +9,8 @@ export interface ZipSourceFile {
   data: Uint8Array;
 }
 
-export function safeZipFilename(filename: string): string {
-  const cleaned = filename
+export function safeZipFilename(filename: unknown): string {
+  const cleaned = (typeof filename === "string" ? filename : "")
     .replace(/[\\/:*?"<>|]/g, "-")
     .replace(/[\u0000-\u001f]/g, "")
     .replace(/\s+/g, " ")
