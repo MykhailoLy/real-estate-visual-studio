@@ -74,7 +74,7 @@ export function renderWorkReadyEmail(input: WorkReadyInput) {
           <p style="margin:0;font-size:14px;line-height:1.6;">Kind regards,<br>PicchuSpot</p>
         </td></tr>
         <tr><td align="center" bgcolor="#071a2b" style="padding:20px 18px 18px;border-top:1px solid #ded3c6;background:#071a2b;text-align:center;">
-          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-wordmark-dark-email.png"))}" width="125" alt="PicchuSpot" style="display:block;border:0;width:125px;height:auto;margin:0 auto 12px;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-wordmark-light-email.png"))}" width="125" alt="PicchuSpot" style="display:block;border:0;width:125px;height:auto;margin:0 auto 12px;">
           <p style="margin:0 0 4px;font-size:12px;line-height:1.6;color:#ded3c6;">More from PicchuSpot</p>
           <p style="margin:0;font-size:12px;line-height:2;">${services.map(([label, path]) => `<a href="${escapeHtml(absoluteUrl(path))}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${label}</a>`).join(" ")}</p>
           <p style="margin:10px 0 0;font-size:12px;line-height:2;">

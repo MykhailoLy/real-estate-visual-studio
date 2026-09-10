@@ -170,7 +170,7 @@ for (const event of ["order_delivered", "admin_replacement_ready"] as const) {
     assert.doesNotMatch(email.html, /picchuspot-social-preview/);
     assert.match(email.html, /alt="Before and after virtual staging of a bright living room"/);
     assert.match(email.html, /picchuspot-logo-800\.png/);
-    assert.match(email.html, /picchuspot-wordmark-dark-email\.png/);
+    assert.match(email.html, /picchuspot-wordmark-light-email\.png/);
     assert.match(email.html, /href="https:\/\/picchuspot\.com"/);
     assert.match(email.html, /href="mailto:hello@picchuspot\.com"/);
     const contactPage = readFileSync("src/app/(public)/contact/page.tsx", "utf8");
