@@ -1,5 +1,8 @@
-import { absoluteUrl, SOCIAL_IMAGE } from "@/lib/seo";
+import { absoluteUrl } from "@/lib/seo";
 import { escapeHtml } from "./escape-html";
+
+// Matches the current public contact page and existing client email templates.
+const CONTACT_EMAIL = "hello@picchuspot.com";
 
 interface WorkReadyInput {
   event: "order_delivered" | "admin_replacement_ready";
@@ -43,7 +46,7 @@ export function renderWorkReadyEmail(input: WorkReadyInput) {
   ].join("\n");
 
   // Public PNG artwork is used instead of Next/Image/SVG for email compatibility.
-  // Both brand assets retain their original aspect ratio; no client media is read.
+  // Public artwork retains its original aspect ratio; no client media is read.
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -51,11 +54,11 @@ export function renderWorkReadyEmail(input: WorkReadyInput) {
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
     <tr><td align="center" style="padding:24px 12px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border-collapse:collapse;background:#ffffff;border:1px solid #ded3c6;">
-        <tr><td style="padding:24px 24px 16px;">
-          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-logo-800.png"))}" width="112" height="84" alt="PicchuSpot" style="display:block;border:0;width:112px;height:84px;">
+        <tr><td align="center" style="padding:20px 24px 12px;background:#ffffff;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-logo-800.png"))}" width="112" height="84" alt="PicchuSpot" style="display:block;border:0;width:112px;height:84px;margin:0 auto;">
         </td></tr>
-        <tr><td align="center" style="padding:0 24px 24px;">
-          <img src="${escapeHtml(SOCIAL_IMAGE.url)}" width="360" height="189" alt="${escapeHtml(SOCIAL_IMAGE.alt)}" style="display:block;border:0;width:100%;max-width:360px;height:auto;">
+        <tr><td align="center" style="padding:0 0 24px;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-email-before-after-1200x450.jpg"))}" width="560" alt="Before and after virtual staging of a bright living room" style="display:block;border:0;width:100%;max-width:560px;height:auto;">
         </td></tr>
         <tr><td style="padding:0 24px 24px;">
           <h1 style="margin:0 0 24px;font-size:25px;line-height:1.25;color:#071a2b;">${escapeHtml(heading)}</h1>
@@ -69,10 +72,16 @@ export function renderWorkReadyEmail(input: WorkReadyInput) {
           </table>
           <p style="margin:0 0 20px;font-size:13px;line-height:1.7;color:#5a656d;">${reassurance}<br>${guidance}</p>
           <p style="margin:0;font-size:14px;line-height:1.6;">Kind regards,<br>PicchuSpot</p>
-          <hr style="border:0;border-top:1px solid #ded3c6;margin:24px 0 20px;">
-          <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#5a656d;">More from PicchuSpot</p>
-          <p style="margin:0;font-size:12px;line-height:2;">${services.map(([label, path]) => `<a href="${escapeHtml(absoluteUrl(path))}" style="display:inline-block;margin-right:12px;color:#071a2b;text-decoration:underline;">${label}</a>`).join(" ")}</p>
-          <p style="margin:20px 0 0;font-size:11px;line-height:1.6;color:#5a656d;">PicchuSpot · Real Estate Visuals</p>
+        </td></tr>
+        <tr><td align="center" bgcolor="#071a2b" style="padding:20px 18px 18px;border-top:1px solid #ded3c6;background:#071a2b;text-align:center;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-wordmark-dark-email.png"))}" width="125" alt="PicchuSpot" style="display:block;border:0;width:125px;height:auto;margin:0 auto 12px;">
+          <p style="margin:0 0 4px;font-size:12px;line-height:1.6;color:#ded3c6;">More from PicchuSpot</p>
+          <p style="margin:0;font-size:12px;line-height:2;">${services.map(([label, path]) => `<a href="${escapeHtml(absoluteUrl(path))}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${label}</a>`).join(" ")}</p>
+          <p style="margin:10px 0 0;font-size:12px;line-height:2;">
+            <a href="${escapeHtml(absoluteUrl("/"))}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${escapeHtml(new URL(absoluteUrl("/")).host)}</a>
+            <a href="mailto:${CONTACT_EMAIL}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${CONTACT_EMAIL}</a>
+          </p>
+          <p style="margin:10px 0 0;font-size:11px;line-height:1.6;color:#ded3c6;">PicchuSpot · Real Estate Visuals</p>
         </td></tr>
       </table>
     </td></tr>

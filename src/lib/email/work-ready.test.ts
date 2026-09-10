@@ -166,9 +166,15 @@ for (const event of ["order_delivered", "admin_replacement_ready"] as const) {
     const email = renderWorkReadyEmail({ event, orderId, orderNumber: "PS-0042", clientName: "Alex <script>" });
     assert.equal(email.subject, event === "order_delivered" ? "Your PicchuSpot order PS-0042 is ready" : "Changes for order PS-0042 have been completed");
     assert.match(email.html, /Alex &lt;script&gt;/);
-    assert.match(email.html, /picchuspot-social-preview-1200x630\.jpg/);
-    assert.match(email.html, /alt="PicchuSpot real estate visuals — Fast, precise, reliable"/);
+    assert.match(email.html, /picchuspot-email-before-after-1200x450\.jpg/);
+    assert.doesNotMatch(email.html, /picchuspot-social-preview/);
+    assert.match(email.html, /alt="Before and after virtual staging of a bright living room"/);
     assert.match(email.html, /picchuspot-logo-800\.png/);
+    assert.match(email.html, /picchuspot-wordmark-dark-email\.png/);
+    assert.match(email.html, /href="https:\/\/picchuspot\.com"/);
+    assert.match(email.html, /href="mailto:hello@picchuspot\.com"/);
+    const contactPage = readFileSync("src/app/(public)/contact/page.tsx", "utf8");
+    assert.match(contactPage, /contactEmail = "hello@picchuspot\.com"/);
     assert.equal((email.html.match(new RegExp(`href="https://picchuspot.com/dashboard/jobs/${orderId}"`, "g")) ?? []).length, 1);
     for (const content of [email.html, email.text]) {
       assert.ok(content.includes(`/dashboard/jobs/${orderId}`));
