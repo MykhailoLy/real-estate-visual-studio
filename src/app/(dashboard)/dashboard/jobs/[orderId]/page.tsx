@@ -50,6 +50,7 @@ import { createSupabaseCheckoutRepository } from "@/lib/payments/checkout-reposi
 import { getAuthoritativePaymentSummary } from "@/lib/payments/payment-summary";
 import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { buildClientJobImageGalleries } from "@/lib/client-job-image-navigation";
 
 export async function generateMetadata({
   params,
@@ -350,6 +351,12 @@ export default async function OrderDetailPage({
   const imageDeliverables = groupCurrentDeliverablesByItem(currentDeliverables);
   const imageSourceFiles = groupSourceFilesByItem(sourceFiles);
   const orderLevelDeliverables = getOrderLevelDeliverables(currentDeliverables);
+  const imageGalleries = buildClientJobImageGalleries({
+    orderId: order.id,
+    itemIndexes: order.items.map((item) => item.item_index),
+    sourceFiles,
+    currentDeliverables,
+  });
   const canShowCompletedRework = canShowCompletedReworkAction(
     order.status,
     currentDeliverables.length > 0,
@@ -556,6 +563,8 @@ export default async function OrderDetailPage({
                   details={item.details}
                   sourceFiles={imageSourceFiles.get(item.item_index) ?? []}
                   deliverables={deliverables}
+                  originalViewerItems={imageGalleries.originals}
+                  deliveredViewerItems={imageGalleries.delivered}
                   status={status}
                   latestComment={latestRelevantComment(itemReviews, status)}
                 />
@@ -597,6 +606,8 @@ export default async function OrderDetailPage({
                     fileSizeLabel={formatBytes(deliverable.file_size)}
                     badgeLabel={itemLabel(deliverable.item_index)}
                     signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
+                    viewerItems={imageGalleries.orderFiles}
+                    viewerItemId={`deliverable:${deliverable.id}`}
                     downloadLabel="Download file"
                     meta={
                       <div className="space-y-1">

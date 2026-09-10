@@ -24,6 +24,7 @@ import {
 } from "@/lib/client-order-item-presentation";
 import type { ClientSourceFile } from "@/lib/client-source-files";
 import { formatBytes } from "@/lib/display/file-format";
+import type { JobImageViewerItem } from "@/lib/client-job-image-navigation";
 
 export type ClientImageWorkflowStatus =
   | "awaiting_delivery"
@@ -45,6 +46,8 @@ interface Props {
   details: Record<string, unknown>;
   sourceFiles: ClientSourceFile[];
   deliverables: CurrentDeliverableRow[];
+  originalViewerItems: JobImageViewerItem[];
+  deliveredViewerItems: JobImageViewerItem[];
   status: ClientImageWorkflowStatus;
   latestComment?: string | null;
 }
@@ -109,6 +112,8 @@ export default function ClientOrderImageCard({
   details,
   sourceFiles,
   deliverables,
+  originalViewerItems,
+  deliveredViewerItems,
   status,
   latestComment = null,
 }: Props) {
@@ -137,6 +142,8 @@ export default function ClientOrderImageCard({
           fileSizeLabel={formatBytes(originalSource.fileSize)}
           badgeLabel="Original"
           signedUrlEndpoint={`/api/client/orders/${orderId}/source-files/${originalSource.id}/download-url`}
+          viewerItems={originalViewerItems}
+          viewerItemId={`source:${originalSource.id}`}
           downloadLabel="Download"
         />
       ) : (
@@ -182,6 +189,8 @@ export default function ClientOrderImageCard({
                 fileSizeLabel={formatBytes(deliverable.file_size)}
                 badgeLabel="Delivered"
                 signedUrlEndpoint={`/api/client/deliverables/${deliverable.id}/download-url`}
+                viewerItems={deliveredViewerItems}
+                viewerItemId={`deliverable:${deliverable.id}`}
                 downloadLabel="Download file"
                 meta={
                   <div className="space-y-1">
