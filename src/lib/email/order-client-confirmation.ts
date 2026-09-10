@@ -64,8 +64,6 @@ export function renderClientConfirmation(
     "We’ve received your order, files, and instructions.";
   const detailGuidance =
     "All image-specific instructions, styles, and references are saved with your order and can be reviewed anytime from your dashboard.";
-  const earlyStartConfirmation =
-    "You expressly asked PicchuSpot to begin work as soon as any required payment is confirmed, or after order confirmation where no payment is due, including during any applicable 14-day withdrawal period. Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed.";
   const pricingTextLines = input.hasFixedCheckoutPrice
     ? [
         `Final total: ${total} ${input.currency}`,
@@ -109,9 +107,6 @@ export function renderClientConfirmation(
     detailGuidance,
     ...(input.clientOrderUrl ? ["", `View order: ${input.clientOrderUrl}`] : []),
     "",
-    ...(input.earlyPerformanceRequest.requested
-      ? ["Start of service", earlyStartConfirmation, ""]
-      : []),
     "What happens next",
     ...nextStepsText,
     "",
@@ -177,17 +172,6 @@ export function renderClientConfirmation(
               ? `<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 24px;">
             <tr><td bgcolor="#c7a94e" style="border-radius:4px;text-align:center;">
               <a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:14px 20px;border:1px solid #c7a94e;border-radius:4px;background:#c7a94e;color:#071a2b;font-size:15px;font-weight:bold;line-height:1.4;text-decoration:none;">View order</a>
-            </td></tr>
-          </table>`
-              : ""
-          }
-
-          ${
-            input.earlyPerformanceRequest.requested
-              ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;background:#f7f7f6;border:1px solid #ded3c6;">
-            <tr><td style="padding:12px 14px;">
-              <p style="margin:0 0 6px;font-size:12px;font-weight:bold;line-height:1.4;color:#5a656d;">Start of service</p>
-              <p style="margin:0;font-size:12px;line-height:1.65;color:#5a656d;">${escapeHtml(earlyStartConfirmation)}</p>
             </td></tr>
           </table>`
               : ""

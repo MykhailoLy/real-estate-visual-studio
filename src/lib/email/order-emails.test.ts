@@ -165,19 +165,8 @@ test("fixed-price client email uses the inclusive final total and Checkout next 
   assert.match(combined, /Any applicable tax is included in this amount\./);
   assert.match(combined, /complete secure payment from the order page\./i);
   assert.match(combined, /enter production after payment has been verified\./);
-  assert.match(combined, /Start of service/);
-  assert.match(
-    combined,
-    /You expressly asked PicchuSpot to begin work as soon as any required payment is confirmed, or after order confirmation where no payment is due/,
-  );
-  assert.match(
-    combined,
-    /Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed/,
-  );
-  assert.doesNotMatch(
-    combined,
-    /acknowledged the consequences described in the order confirmation/,
-  );
+  assert.doesNotMatch(combined, /Start of service/);
+  assert.doesNotMatch(combined, /14-day withdrawal period|consumer withdrawal rights/);
   assert.match(combined, /View order/);
   assert.match(combined, /dashboard\/jobs\/11111111-1111-4111-8111-111111111111/);
   for (const output of [rendered.text, rendered.html]) {
