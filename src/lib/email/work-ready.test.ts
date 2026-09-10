@@ -169,8 +169,9 @@ for (const event of ["order_delivered", "admin_replacement_ready"] as const) {
     assert.match(email.html, /picchuspot-email-before-after-1200x450\.jpg/);
     assert.doesNotMatch(email.html, /picchuspot-social-preview/);
     assert.match(email.html, /alt="Before and after virtual staging of a bright living room"/);
-    assert.match(email.html, /picchuspot-logo-800\.png/);
-    assert.match(email.html, /picchuspot-logo-light-email\.png/);
+    assert.equal((email.html.match(/picchuspot-logo-light-email\.png/g) ?? []).length, 2);
+    assert.doesNotMatch(email.html, /picchuspot-logo-800\.png/);
+    assert.match(email.html, /bgcolor="#071a2b" style="padding:20px 24px 12px;background:#071a2b;"/);
     assert.match(email.html, /href="https:\/\/picchuspot\.com"/);
     assert.match(email.html, /href="mailto:hello@picchuspot\.com"/);
     const contactPage = readFileSync("src/app/(public)/contact/page.tsx", "utf8");
