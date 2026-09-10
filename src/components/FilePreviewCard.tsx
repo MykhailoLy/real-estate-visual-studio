@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { AlertCircle, Download, FileArchive, FileText, ImageIcon, Loader2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileArchive,
+  FileText,
+  ImageIcon,
+  Loader2,
+  X,
+} from "lucide-react";
 import {
   getFilePreviewKind,
   getFileTypeLabel,
@@ -10,6 +20,10 @@ import {
 import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
 import { NativeStaticImageStage } from "@/components/media/StaticImageStage";
 import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
+import {
+  getAdjacentViewerIndex,
+  type JobImageViewerItem,
+} from "@/lib/client-job-image-navigation";
 
 interface Props {
   viewerVariant: StaticImageViewerVariant;
@@ -22,6 +36,8 @@ interface Props {
   downloadLabel?: string;
   actions?: ReactNode;
   presentation?: "default" | "feature";
+  viewerItems?: JobImageViewerItem[];
+  viewerItemId?: string;
 }
 
 type SignedUrlResponse = {
@@ -29,6 +45,25 @@ type SignedUrlResponse = {
   signedUrl: string;
   filename: string;
 };
+
+async function requestSignedUrl(
+  endpoint: string,
+  intent: "preview" | "download",
+): Promise<SignedUrlResponse> {
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ intent }),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Could not generate file link.");
+  }
+
+  return (await res.json()) as SignedUrlResponse;
+}
 
 export default function FilePreviewCard({
   viewerVariant,
@@ -41,6 +76,8 @@ export default function FilePreviewCard({
   downloadLabel = "Download",
   actions,
   presentation = "default",
+  viewerItems,
+  viewerItemId,
 }: Props) {
   const previewKind = getFilePreviewKind(filename, mimeType);
   const typeLabel = getFileTypeLabel(filename, mimeType);
@@ -50,8 +87,37 @@ export default function FilePreviewCard({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
+  const [activeViewerUrl, setActiveViewerUrl] = useState<string | null>(null);
+  const [viewerLoading, setViewerLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const activeViewerIndexRef = useRef<number | null>(null);
+  const viewerLoadingRef = useRef(false);
+  const previewUrlCacheRef = useRef<Map<string, string>>(new Map());
   useViewerScrollLock(modalOpen);
+
+  const initialViewerIndex =
+    viewerItems && viewerItemId
+      ? viewerItems.findIndex((item) => item.id === viewerItemId)
+      : -1;
+  const activeViewerItem =
+    activeViewerIndex !== null && viewerItems?.[activeViewerIndex]
+      ? viewerItems[activeViewerIndex]
+      : null;
+  const activeFilename = activeViewerItem?.filename ?? filename;
+  const viewerTotal = viewerItems?.length ?? 0;
+  const hasViewerNavigation =
+    previewKind === "image" && initialViewerIndex >= 0 && viewerTotal > 1;
+  const previousViewerIndex =
+    activeViewerIndex === null
+      ? null
+      : getAdjacentViewerIndex(activeViewerIndex, viewerTotal, -1);
+  const nextViewerIndex =
+    activeViewerIndex === null
+      ? null
+      : getAdjacentViewerIndex(activeViewerIndex, viewerTotal, 1);
 
   useEffect(() => {
     if (previewKind !== "image" || previewUrl || previewLoading) return;
@@ -59,30 +125,20 @@ export default function FilePreviewCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewKind]);
 
-  async function requestSignedUrl(intent: "preview" | "download") {
-    const res = await fetch(signedUrlEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ intent }),
-    });
-
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? "Could not generate file link.");
-    }
-
-    return (await res.json()) as SignedUrlResponse;
-  }
-
   async function loadPreviewUrl(): Promise<string | null> {
     if (!previewable) return null;
     if (previewUrl) return previewUrl;
+    const cached = previewUrlCacheRef.current.get(signedUrlEndpoint);
+    if (cached) {
+      setPreviewUrl(cached);
+      return cached;
+    }
 
     setPreviewLoading(true);
     setError(null);
     try {
-      const data = await requestSignedUrl("preview");
+      const data = await requestSignedUrl(signedUrlEndpoint, "preview");
+      previewUrlCacheRef.current.set(signedUrlEndpoint, data.signedUrl);
       setPreviewUrl(data.signedUrl);
       return data.signedUrl;
     } catch (err) {
@@ -96,7 +152,13 @@ export default function FilePreviewCard({
   async function openPreview() {
     if (!previewable) return;
     const url = await loadPreviewUrl();
-    if (url) setModalOpen(true);
+    if (url) {
+      const nextIndex = initialViewerIndex >= 0 ? initialViewerIndex : null;
+      activeViewerIndexRef.current = nextIndex;
+      setActiveViewerIndex(nextIndex);
+      setActiveViewerUrl(url);
+      setModalOpen(true);
+    }
   }
 
   async function handleDownload() {
@@ -105,7 +167,7 @@ export default function FilePreviewCard({
     setError(null);
 
     try {
-      const data = await requestSignedUrl("download");
+      const data = await requestSignedUrl(signedUrlEndpoint, "download");
       const a = document.createElement("a");
       a.href = data.signedUrl;
       a.download = data.filename || filename;
@@ -120,6 +182,85 @@ export default function FilePreviewCard({
     }
   }
 
+  const closeViewer = useCallback(() => {
+    setModalOpen(false);
+  }, []);
+
+  const navigateViewer = useCallback(async (direction: -1 | 1) => {
+    if (!viewerItems || viewerLoadingRef.current) return;
+    const currentIndex = activeViewerIndexRef.current;
+    if (currentIndex === null) return;
+    const adjacentIndex = getAdjacentViewerIndex(
+      currentIndex,
+      viewerItems.length,
+      direction,
+    );
+    if (adjacentIndex === null) return;
+
+    const adjacentItem = viewerItems[adjacentIndex];
+    const cached = previewUrlCacheRef.current.get(adjacentItem.signedUrlEndpoint);
+    viewerLoadingRef.current = true;
+    setViewerLoading(true);
+    setError(null);
+
+    try {
+      const nextUrl = cached ?? (
+        await requestSignedUrl(adjacentItem.signedUrlEndpoint, "preview")
+      ).signedUrl;
+      previewUrlCacheRef.current.set(adjacentItem.signedUrlEndpoint, nextUrl);
+      activeViewerIndexRef.current = adjacentIndex;
+      setActiveViewerIndex(adjacentIndex);
+      setActiveViewerUrl(nextUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Preview failed.");
+    } finally {
+      viewerLoadingRef.current = false;
+      setViewerLoading(false);
+    }
+  }, [viewerItems]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeViewer();
+      } else if (previewKind === "image" && event.key === "ArrowLeft") {
+        event.preventDefault();
+        void navigateViewer(-1);
+      } else if (previewKind === "image" && event.key === "ArrowRight") {
+        event.preventDefault();
+        void navigateViewer(1);
+      } else if (event.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]),a[href]:not([aria-disabled="true"])',
+          ),
+        ).filter((element) => element.getClientRects().length > 0);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable.at(-1) ?? first;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    closeButtonRef.current?.focus();
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [closeViewer, modalOpen, navigateViewer, previewKind]);
+
   const previewSurface = (
     <PreviewSurface
       kind={previewKind}
@@ -130,10 +271,164 @@ export default function FilePreviewCard({
     />
   );
 
+  function renderPreviewDialog() {
+    return (
+      <>
+        {modalOpen && previewUrl && (
+          <div
+            ref={dialogRef}
+            className="static-image-viewer-overlay fixed inset-0 z-50 grid h-[100dvh] w-screen place-items-center overflow-hidden bg-black/85 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label={previewKind === "image" ? `Image viewer: ${activeFilename}` : `Preview ${filename}`}
+            tabIndex={-1}
+            onClick={closeViewer}
+          >
+            {previewKind === "image" ? (
+              <div
+                data-static-image-viewer-panel={viewerVariant}
+                className="static-image-viewer-root mx-auto grid h-full w-full max-w-[1728px] grid-rows-[auto_minmax(0,1fr)] gap-3 bg-transparent sm:gap-4"
+              >
+                <div
+                  className="static-image-viewer-header mx-auto grid w-full max-w-[1600px] grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <span aria-hidden />
+                  <div className="min-w-0 text-center">
+                    <p className="truncate text-[11px] font-semibold text-white sm:text-sm" title={activeFilename}>
+                      {activeFilename}
+                    </p>
+                    {hasViewerNavigation && activeViewerIndex !== null ? (
+                      <p className="mt-0.5 hidden text-[10px] font-medium tabular-nums text-white/70 sm:block sm:text-xs">
+                        {activeViewerIndex + 1} / {viewerTotal}
+                      </p>
+                    ) : null}
+                    {error ? (
+                      <p role="alert" className="mt-0.5 truncate text-[10px] font-medium text-amber-200">
+                        {error}
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    ref={closeButtonRef}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      closeViewer();
+                    }}
+                    aria-label="Close viewer"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/45 text-white shadow-lg transition-colors hover:bg-black/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    <X className="h-5 w-5" aria-hidden />
+                  </button>
+                </div>
+
+                <div className="static-image-viewer-layout mx-auto grid min-h-0 w-full grid-cols-[3rem_minmax(0,1fr)_3rem] grid-rows-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem] sm:gap-x-4">
+                  <div
+                    data-static-image-viewer-frame
+                    className="relative col-span-3 row-start-1 min-h-0 overflow-hidden rounded-xl sm:col-span-1 sm:col-start-2 sm:rounded-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <NativeStaticImageStage
+                      key={activeViewerUrl ?? previewUrl}
+                      variant={viewerVariant}
+                      src={activeViewerUrl ?? previewUrl}
+                      alt={activeFilename}
+                      loading="eager"
+                      stageClassName="h-full w-full"
+                    >
+                      {viewerLoading ? (
+                        <div className="absolute inset-0 grid place-items-center bg-black/25" aria-live="polite">
+                          <span className="grid h-11 w-11 place-items-center rounded-full bg-black/60 text-white shadow-lg">
+                            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                            <span className="sr-only">Loading image</span>
+                          </span>
+                        </div>
+                      ) : null}
+                    </NativeStaticImageStage>
+                  </div>
+
+                  {hasViewerNavigation ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void navigateViewer(-1);
+                      }}
+                      disabled={previousViewerIndex === null || viewerLoading}
+                      aria-label="Previous image"
+                      className="static-image-viewer-control col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg transition-colors hover:bg-black/75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-35 sm:row-start-1 sm:h-12 sm:w-12"
+                    >
+                      <ChevronLeft className="h-6 w-6" aria-hidden />
+                    </button>
+                  ) : null}
+
+                  {hasViewerNavigation ? (
+                    <span
+                      className="col-start-2 row-start-2 self-center justify-self-center text-xs font-medium tabular-nums text-white/80 sm:hidden"
+                      aria-hidden
+                    >
+                      {activeViewerIndex !== null ? activeViewerIndex + 1 : 1} / {viewerTotal}
+                    </span>
+                  ) : null}
+
+                  {hasViewerNavigation ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void navigateViewer(1);
+                      }}
+                      disabled={nextViewerIndex === null || viewerLoading}
+                      aria-label="Next image"
+                      className="static-image-viewer-control col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg transition-colors hover:bg-black/75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-35 sm:row-start-1 sm:h-12 sm:w-12"
+                    >
+                      <ChevronRight className="h-6 w-6" aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <div
+                data-static-image-viewer-panel="document"
+                className="static-image-viewer-panel mx-auto grid h-full w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl bg-white shadow-2xl sm:h-[min(92dvh,900px)]"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="static-image-viewer-panel-header flex items-center justify-between gap-3 border-b border-border bg-surface/70 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-bold text-foreground [[data-dashboard-scroll-container]_&]:text-dashboard-action" title={filename}>{filename}</p>
+                    <p className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{typeLabel} preview</p>
+                  </div>
+                  <button
+                    ref={closeButtonRef}
+                    type="button"
+                    onClick={closeViewer}
+                    className="grid h-11 w-11 place-items-center rounded-lg text-muted transition-colors hover:bg-white hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    aria-label="Close preview"
+                  >
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+                <div className="min-h-0 overflow-hidden">
+                  <iframe
+                    src={previewUrl}
+                    title={filename}
+                    className="h-full w-full bg-white"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
+
   if (presentation === "feature") {
     return (
-      <div className="w-full min-w-0">
-        <button
+      <>
+        <div className="w-full min-w-0">
+          <button
           type="button"
           onClick={openPreview}
           disabled={!previewable}
@@ -146,7 +441,7 @@ export default function FilePreviewCard({
           title={previewable ? `Preview ${filename}` : "Preview not available"}
         >
           {previewSurface}
-        </button>
+          </button>
 
         <div className="mt-3 min-w-0">
           <button
@@ -199,7 +494,9 @@ export default function FilePreviewCard({
           </button>
           {actions && <div className="mt-4 border-t border-border pt-4">{actions}</div>}
         </div>
-      </div>
+        </div>
+        {renderPreviewDialog()}
+      </>
     );
   }
 
@@ -281,52 +578,7 @@ export default function FilePreviewCard({
         </div>
       </div>
 
-      {modalOpen && previewUrl && (
-        <div
-          className="static-image-viewer-overlay fixed inset-0 z-50 flex h-[100dvh] w-screen items-center justify-center overflow-hidden bg-black/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Preview ${filename}`}
-          onClick={() => setModalOpen(false)}
-        >
-          <div
-            data-static-image-viewer-panel={previewKind === "image" ? viewerVariant : "document"}
-            className={`static-image-viewer-panel grid h-full w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl sm:h-[min(92dvh,900px)] ${previewKind === "image" ? "bg-transparent" : "bg-white shadow-2xl"}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className={`static-image-viewer-panel-header flex items-center justify-between gap-3 border-b px-4 py-3 ${previewKind === "image" ? "border-transparent bg-transparent text-white" : "border-border bg-surface/70"}`}>
-              <div className="min-w-0">
-                <p className={`truncate text-[13px] font-bold [[data-dashboard-scroll-container]_&]:text-dashboard-action ${previewKind === "image" ? "text-white" : "text-foreground"}`} title={filename}>{filename}</p>
-                <p className={`text-[11px] [[data-dashboard-scroll-container]_&]:text-dashboard-metadata ${previewKind === "image" ? "text-white/60" : "text-muted"}`}>{typeLabel} preview</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className={`rounded-lg p-2 transition-colors ${previewKind === "image" ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-muted hover:bg-white hover:text-foreground"}`}
-                aria-label="Close preview"
-              >
-                <X className="w-4 h-4" aria-hidden />
-              </button>
-            </div>
-            <div className="min-h-0 overflow-hidden">
-              {previewKind === "image" ? (
-                <NativeStaticImageStage
-                  variant={viewerVariant}
-                  src={previewUrl}
-                  alt={filename}
-                  stageClassName="h-full w-full"
-                />
-              ) : (
-                <iframe
-                  src={previewUrl}
-                  title={filename}
-                  className="w-full h-full bg-white"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {renderPreviewDialog()}
     </>
   );
 }
