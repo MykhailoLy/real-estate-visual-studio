@@ -87,22 +87,18 @@ function clientInput(hasFixedCheckoutPrice: boolean) {
   };
 }
 
-test("client and admin confirmations display committed Partner, Welcome and Volume evidence", () => {
+test("admin confirmation retains committed Partner, Welcome and Volume evidence", () => {
   const pricingSnapshot = createPricingSnapshot(calculateOrderQuote({ serviceType: "virtual-staging", currency: "USD", items: Array.from({ length: 10 }, () => ({ selectedAddons: [] })) }, {
     partnerClient: true, welcomeOfferAvailability: { virtualStagingAvailable: true, imageEnhancementAvailable: false, dayToDuskAvailable: false },
   }));
-  for (const rendered of [
-    renderClientConfirmation({ ...clientInput(true), pricingSnapshot, estimatedTotalCents: pricingSnapshot.totalCents! }),
-    renderAdminNotification({ ...adminInput(true), pricingSnapshot, estimatedTotalCents: pricingSnapshot.totalCents! }),
-  ]) {
-    for (const content of [rendered.text, rendered.html]) {
-      assert.match(content, /Partner pricing · 10%/);
-      assert.match(content, /15\.39/);
-      assert.match(content, /148\.01/);
-      assert.match(content, /Welcome Offer/);
-      assert.match(content, /Volume discount/);
-      assert.match(content, /Any applicable tax is included/);
-    }
+  const rendered = renderAdminNotification({ ...adminInput(true), pricingSnapshot, estimatedTotalCents: pricingSnapshot.totalCents! });
+  for (const content of [rendered.text, rendered.html]) {
+    assert.match(content, /Partner pricing · 10%/);
+    assert.match(content, /15\.39/);
+    assert.match(content, /148\.01/);
+    assert.match(content, /Welcome Offer/);
+    assert.match(content, /Volume discount/);
+    assert.match(content, /Any applicable tax is included/);
   }
 });
 
@@ -165,31 +161,21 @@ test("fixed-price client email uses the inclusive final total and Checkout next 
   const combined = `${rendered.text}\n${rendered.html}`;
 
   assert.match(rendered.text, /Final total: \$15\.00 USD/);
-  assert.match(rendered.text, /Subtotal: \$15\.00/);
-  assert.match(rendered.html, /Subtotal/);
   assert.match(rendered.html, /\$15\.00/);
   assert.match(combined, /Any applicable tax is included in this amount\./);
-  assert.match(combined, /Complete secure payment from the PicchuSpot order page\./);
-  assert.match(combined, /Work begins after payment has been verified\./);
-  assert.match(combined, /Start of service/);
-  assert.match(
-    combined,
-    /You expressly asked PicchuSpot to begin work as soon as any required payment is confirmed, or after order confirmation where no payment is due/,
-  );
-  assert.match(
-    combined,
-    /Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed/,
-  );
-  assert.doesNotMatch(
-    combined,
-    /acknowledged the consequences described in the order confirmation/,
-  );
-  assert.match(combined, /View order \/ Pay securely/);
+  assert.match(combined, /complete secure payment from the order page\./i);
+  assert.match(combined, /enter production after payment has been verified\./);
+  assert.doesNotMatch(combined, /Start of service/);
+  assert.doesNotMatch(combined, /14-day withdrawal period|consumer withdrawal rights/);
+  assert.match(combined, /View order/);
   assert.match(combined, /dashboard\/jobs\/11111111-1111-4111-8111-111111111111/);
+  for (const output of [rendered.text, rendered.html]) {
+    assert.doesNotMatch(output, /Base subtotal|Add-ons|Volume discount|Partner pricing/);
+  }
   for (const stale of staleCopy) assert.doesNotMatch(combined, new RegExp(stale));
 });
 
-test("zero-total Welcome Offer email shows its discount and never asks for payment", () => {
+test("zero-total Welcome Offer email preserves no-payment semantics", () => {
   const input = clientInput(true);
   const rendered = renderClientConfirmation({
     ...input,
@@ -216,9 +202,8 @@ test("zero-total Welcome Offer email shows its discount and never asks for payme
     },
   });
   const combined = `${rendered.text}\n${rendered.html}`;
-  assert.match(combined, /Welcome Offer/);
   assert.match(combined, /No payment required/);
-  assert.match(combined, /Work can begin after the order is confirmed/);
+  assert.match(combined, /after confirmation, your order can enter production/);
   assert.doesNotMatch(combined, /Complete secure payment/);
   assert.doesNotMatch(combined, /View order \/ Pay securely/);
 });
@@ -228,15 +213,107 @@ test("manual-review client email does not advertise a fixed payment", () => {
   const combined = `${rendered.text}\n${rendered.html}`;
 
   assert.match(combined, /Manual review required/);
-  assert.match(combined, /confirm the scope, price, and next step/);
-  assert.match(combined, /Room: Living Room/);
-  assert.match(combined, /Keep the fireplace visible/);
+  assert.match(combined, /confirm the scope, price, and commercial next step/);
   for (const output of [rendered.text, rendered.html]) {
-    assert.doesNotMatch(output, /Subtotal/);
+    assert.doesNotMatch(output, /Item 1|Room: Living Room|Keep the fireplace visible|Subtotal/);
     assert.doesNotMatch(output, /\$0\.00/);
     assert.doesNotMatch(output, /Pay securely/);
     assert.doesNotMatch(output, /Final total/);
   }
+});
+
+test("client confirmation stays compact for one or many items", () => {
+  const oneItem = renderClientConfirmation(clientInput(true));
+  const manyItems = Array.from({ length: 12 }, (_, index) => ({
+    index,
+    details: {
+      room_name: `Room ${index + 1}`,
+      furniture_style: `Style ${index + 1}`,
+      tv_screen_replacement: "On",
+      reference_link: `https://example.com/reference-${index + 1}`,
+      delivery_preferences: { file_size_limit: `${index + 1} MB` },
+      addon_labels: [`Add-on ${index + 1}`],
+    },
+    subtotalCents: 1500,
+  }));
+  const manyItemEmail = renderClientConfirmation({
+    ...clientInput(true),
+    itemCount: manyItems.length,
+    estimatedTotalCents: 18000,
+    items: manyItems,
+  });
+
+  for (const output of [oneItem.text, oneItem.html]) {
+    assert.doesNotMatch(output, /Item 1|Living Room|Keep the fireplace visible/);
+  }
+  for (const output of [manyItemEmail.text, manyItemEmail.html]) {
+    assert.match(output, /Items(?::\s*|<\/td><td[^>]*>)12/);
+    assert.match(output, /Final total(?::\s*|<\/td><td[^>]*>)\$180\.00 USD/);
+    assert.doesNotMatch(
+      output,
+      /Item \d+|Room \d+|Furniture style|TV screen|reference-\d+|Max delivery size|Add-on \d+|Subtotal/,
+    );
+  }
+  assert.ok(
+    Math.abs(manyItemEmail.html.length - oneItem.html.length) < 50,
+    "item count should not materially change HTML length",
+  );
+});
+
+test("client confirmation includes the order CTA, shared branding, footer, and useful plain text", () => {
+  const rendered = renderClientConfirmation(clientInput(true));
+  const orderUrl = "https://picchuspot.com/dashboard/jobs/11111111-1111-4111-8111-111111111111";
+
+  assert.match(rendered.text, /We’ve received your order, files, and instructions\./);
+  assert.doesNotMatch(rendered.text, /PicchuSpot has received your order, uploaded files/);
+  assert.equal(
+    (rendered.html.match(new RegExp(`href="${orderUrl}"`, "g")) ?? []).length,
+    1,
+  );
+  assert.match(rendered.html, new RegExp(`href="${orderUrl}"[^>]*>View order<`));
+  assert.match(rendered.html, /picchuspot-logo-800\.png/);
+  assert.match(rendered.html, /picchuspot-email-before-after-1200x450\.jpg/);
+  assert.match(rendered.html, /picchuspot-wordmark-dark-email\.png/);
+  assert.match(rendered.html, /background:#c7a94e/);
+  assert.match(rendered.html, /bgcolor="#071a2b"/);
+  assert.match(rendered.html, /href="https:\/\/picchuspot\.com\/pricing\/virtual-staging"/);
+  assert.match(rendered.html, /href="https:\/\/picchuspot\.com"/);
+  assert.match(rendered.html, /href="mailto:hello@picchuspot\.com"/);
+  assert.match(
+    SEND_ORDER_EMAILS_SOURCE,
+    /clientOrderUrl: absoluteUrl\(`\/dashboard\/jobs\/\$\{order\.id\}`\)/,
+  );
+
+  for (const expected of [
+    "Order number: VS-0042",
+    "Service: Virtual Staging",
+    "Items: 1",
+    "Final total: $15.00 USD",
+    `View order: ${orderUrl}`,
+    "What happens next",
+    "PicchuSpot",
+    "hello@picchuspot.com",
+  ]) {
+    assert.ok(rendered.text.includes(expected), `plain text should include ${expected}`);
+  }
+});
+
+test("client confirmation escapes untrusted HTML fields", () => {
+  const rendered = renderClientConfirmation({
+    ...clientInput(true),
+    orderNumber: 'VS-<42>"',
+    clientName: "A <script>alert('x')</script>",
+    serviceLabelOverride: "Staging & <Design>",
+    jobTitle: 'Home "Alpha" <West>',
+    clientOrderUrl: 'https://picchuspot.com/dashboard/jobs/id?next="<script>',
+  });
+
+  assert.doesNotMatch(rendered.html, /<script>|Home "Alpha" <West>|Staging & <Design>/);
+  assert.match(rendered.html, /A &lt;script&gt;alert\(&#39;x&#39;\)&lt;\/script&gt;/);
+  assert.match(rendered.html, /VS-&lt;42&gt;&quot;/);
+  assert.match(rendered.html, /Staging &amp; &lt;Design&gt;/);
+  assert.match(rendered.html, /Home &quot;Alpha&quot; &lt;West&gt;/);
+  assert.match(rendered.html, /next=&quot;&lt;script&gt;/);
 });
 
 test("admin email calls the stored fixed amount final and inclusive", () => {
