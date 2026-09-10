@@ -1,21 +1,13 @@
+import type { PricingSnapshot, TransactionalCurrency } from "@/lib/pricing/types";
 import type { ServiceType } from "@/lib/server-validation";
-import {
-  buildItemSummary,
-  escapeHtml,
-  formatCents,
-  serviceLabel,
-} from "./format";
-import type {
-  PricingSnapshot,
-  TransactionalCurrency,
-} from "@/lib/pricing/types";
+import { absoluteUrl } from "@/lib/seo";
+import { escapeHtml, formatCents, serviceLabel } from "./format";
 
 // ============================================================
 // CLIENT ORDER CONFIRMATION EMAIL
-// Sent to the client (contact.email from the order form) after the
-// order has been saved successfully. Friendly, concise, includes the
-// order number, service, totals, a short item summary, and clear
-// next steps with a support contact address.
+// Sent to the client after the order has been saved successfully.
+// Image-specific instructions stay in Order Detail so this email remains
+// the same compact length regardless of the number of submitted items.
 // ============================================================
 
 export interface ClientConfirmationItem {
@@ -53,59 +45,30 @@ export interface RenderedEmail {
 }
 
 const SUPPORT_EMAIL = "hello@picchuspot.com";
+const SERVICES = [
+  ["Virtual Staging", "/pricing/virtual-staging"],
+  ["Virtual Renovation", "/pricing/virtual-renovation"],
+  ["Photo Editing", "/pricing/photo-editing"],
+  ["Floor Plans", "/pricing/floor-plans"],
+] as const;
 
 export function renderClientConfirmation(
-  input: ClientConfirmationInput
+  input: ClientConfirmationInput,
 ): RenderedEmail {
-  const {
-    orderNumber,
-    serviceType,
-    clientName,
-    itemCount,
-    estimatedTotalCents,
-    currency,
-    pricingSnapshot,
-    hasFixedCheckoutPrice,
-    items,
-  } = input;
-
-  const service = input.serviceLabelOverride ?? serviceLabel(serviceType);
+  const service = input.serviceLabelOverride ?? serviceLabel(input.serviceType);
   const jobTitle = input.jobTitle?.trim() ?? "";
-  const total = formatCents(estimatedTotalCents, currency);
-  const baseSubtotal = formatCents(
-    pricingSnapshot.baseSubtotalCents,
-    currency
-  );
-  const addOns = formatCents(pricingSnapshot.addOnSubtotalCents, currency);
-  const discount = formatCents(
-    pricingSnapshot.volumeDiscountCents,
-    currency
-  );
-  const partnerDiscount = formatCents(pricingSnapshot.partnerDiscountCents, currency);
-  const welcomeDiscount = formatCents(
-    pricingSnapshot.welcomeDiscountCents,
-    currency,
-  );
+  const total = formatCents(input.estimatedTotalCents, input.currency);
   const noPaymentRequired = input.noPaymentRequired === true;
-  const subject = `Order ${orderNumber} Received — PicchuSpot`;
+  const subject = `Order ${input.orderNumber} Received — PicchuSpot`;
+  const confirmation =
+    "We’ve received your order, files, and instructions.";
+  const detailGuidance =
+    "All image-specific instructions, styles, and references are saved with your order and can be reviewed anytime from your dashboard.";
   const earlyStartConfirmation =
     "You expressly asked PicchuSpot to begin work as soon as any required payment is confirmed, or after order confirmation where no payment is due, including during any applicable 14-day withdrawal period. Where consumer withdrawal rights apply, you acknowledged that if you withdraw after work has started, you may have to pay a proportionate amount for the service already provided, and that you will lose the right of withdrawal once the service has been fully performed.";
-  const pricingTextLines = hasFixedCheckoutPrice
+  const pricingTextLines = input.hasFixedCheckoutPrice
     ? [
-        `Base subtotal: ${baseSubtotal}`,
-        `Add-ons: ${addOns}`,
-        ...(pricingSnapshot.welcomeDiscountCents > 0
-          ? [`Welcome Offer: -${welcomeDiscount}`]
-          : []),
-        ...(pricingSnapshot.volumeDiscountPercent > 0
-          ? [
-              `Volume discount (${pricingSnapshot.volumeDiscountPercent}%): -${discount}`,
-            ]
-          : []),
-        ...(pricingSnapshot.partnerDiscountCents > 0
-          ? [`Partner pricing · ${pricingSnapshot.partnerDiscountPercent}%: -${partnerDiscount}`]
-          : []),
-        `Final total: ${total} ${currency}`,
+        `Final total: ${total} ${input.currency}`,
         ...(noPaymentRequired ? ["No payment required."] : []),
         "Any applicable tax is included in this amount.",
       ]
@@ -115,198 +78,140 @@ export function renderClientConfirmation(
       ];
   const nextStepsText = noPaymentRequired
     ? [
-        "  1. Review the submitted order and files.",
-        "  2. No payment is required for this Welcome Offer order.",
-        "  3. Work can begin after the order is confirmed.",
-        "  4. Track the order and download completed files from the client portal.",
+        "  1. We review your submitted order, files, and instructions.",
+        "  2. No payment is required; after confirmation, your order can enter production.",
+        "  3. Track the order and download completed files from the order page.",
       ]
-    : hasFixedCheckoutPrice
-    ? [
-        "  1. Review the submitted order and files.",
-        "  2. Complete secure payment from the PicchuSpot order page.",
-        "  3. Work begins after payment has been verified.",
-        "  4. Track the order and download completed files from the client portal.",
-      ]
-    : [
-        "  1. We review the submitted order, files, and instructions.",
-        "  2. We contact you to confirm the scope, price, and next step.",
-        "  3. Work begins after the agreed commercial arrangements are complete.",
-        "  4. Track the order and download completed files from the client portal.",
-      ];
-
-  // Compact per-item summary: just the heading + 2-3 most-relevant
-  // bullets so the client email stays scannable.
-  const itemBlocks = items.map((item) =>
-    buildItemSummary(
-      serviceType,
-      item.index,
-      item.details,
-      item.subtotalCents,
-      currency,
-      {
-        originalPath: null,
-        referenceImagePath: null,
-        originalFilename: null,
-        referenceFilename: null,
-      },
-      { includeSubtotal: hasFixedCheckoutPrice },
-    )
-  );
+    : input.hasFixedCheckoutPrice
+      ? [
+          "  1. Review the submitted order and complete secure payment from the order page.",
+          "  2. Your order can enter production after payment has been verified.",
+          "  3. Track the order and download completed files from the order page.",
+        ]
+      : [
+          "  1. We review your submitted order, files, and instructions.",
+          "  2. We contact you to confirm the scope, price, and commercial next step.",
+          "  3. Work begins after the agreed commercial arrangements are complete; track progress from the order page.",
+        ];
 
   const text = [
-    `Hi ${clientName || "there"},`,
+    `Hi ${input.clientName || "there"},`,
     "",
-    `Thank you for your order with PicchuSpot. We've received it and our team will review your files shortly.`,
+    confirmation,
     "",
-    `Order number: ${orderNumber}`,
+    "Order summary",
+    `Order number: ${input.orderNumber}`,
     `Service: ${service}`,
     ...(jobTitle ? [`Job title: ${jobTitle}`] : []),
-    `Items: ${itemCount}`,
+    `Items: ${input.itemCount}`,
     ...pricingTextLines,
-    ...(input.clientOrderUrl
-      ? [
-          `${hasFixedCheckoutPrice && !noPaymentRequired ? "View order / Pay securely" : "View order"}: ${input.clientOrderUrl}`,
-        ]
-      : []),
     "",
-    "What you ordered:",
-    ...itemBlocks.flatMap((block) => [block.heading, ...block.textLines, ""]),
+    detailGuidance,
+    ...(input.clientOrderUrl ? ["", `View order: ${input.clientOrderUrl}`] : []),
+    "",
     ...(input.earlyPerformanceRequest.requested
       ? ["Start of service", earlyStartConfirmation, ""]
       : []),
-    "What happens next:",
+    "What happens next",
     ...nextStepsText,
     "",
     `Questions? Reply to this email or write to ${SUPPORT_EMAIL}.`,
     "",
-    "— PicchuSpot",
+    "Kind regards,",
+    "PicchuSpot",
     "Real Estate Visuals",
+    "",
+    "More from PicchuSpot",
+    ...SERVICES.map(([label, path]) => `${label}: ${absoluteUrl(path)}`),
+    `picchuspot.com: ${absoluteUrl("/")}`,
+    `Contact: ${SUPPORT_EMAIL}`,
   ].join("\n");
 
-  const itemsHtml = itemBlocks
+  const pricingRowsHtml = input.hasFixedCheckoutPrice
+    ? `
+          <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Final total</td><td style="padding:5px 0;font-weight:bold;">${escapeHtml(total)} ${escapeHtml(input.currency)}</td></tr>
+          ${noPaymentRequired ? '<tr><td colspan="2" style="padding:7px 0 0;color:#256b45;font-weight:bold;">No payment required</td></tr>' : ""}
+          <tr><td colspan="2" style="padding:7px 0 0;color:#5a656d;font-size:12px;">Any applicable tax is included in this amount.</td></tr>`
+    : `
+          <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Pricing</td><td style="padding:5px 0;font-weight:bold;">Manual review required</td></tr>
+          <tr><td colspan="2" style="padding:7px 0 0;color:#5a656d;font-size:12px;">We’ll review the submitted files and instructions before confirming the commercial next step.</td></tr>`;
+  const nextStepsHtml = nextStepsText
     .map(
-      (block) => `
-        <div style="margin:16px 0;padding:14px 16px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:10px;">
-          <div style="font-weight:600;color:#1a365d;margin-bottom:8px;">${escapeHtml(
-            block.heading
-          )}</div>
-          <table style="width:100%;font-size:14px;line-height:1.5;border-collapse:collapse;">
-            <tbody>${block.htmlRows.join("")}</tbody>
-          </table>
-        </div>`
+      (step) =>
+        `<li style="margin:0 0 8px;">${escapeHtml(step.replace(/^\s*\d+\.\s*/, ""))}</li>`,
     )
     .join("");
-  const pricingRowsHtml = hasFixedCheckoutPrice
-    ? `
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Base subtotal</td><td style="padding:4px 0;">${escapeHtml(baseSubtotal)}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Add-ons</td><td style="padding:4px 0;">${escapeHtml(addOns)}</td></tr>
-          ${
-            pricingSnapshot.welcomeDiscountCents > 0
-              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Welcome Offer</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(welcomeDiscount)}</td></tr>`
-              : ""
-          }
-          ${
-            pricingSnapshot.volumeDiscountPercent > 0
-              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Volume discount (${pricingSnapshot.volumeDiscountPercent}%)</td><td style="padding:4px 0;color:#15803d;">-${escapeHtml(discount)}</td></tr>`
-              : ""
-          }
-          ${pricingSnapshot.partnerDiscountCents > 0
-            ? `<tr><td style="padding:4px 12px 4px 0;">Partner pricing · ${pricingSnapshot.partnerDiscountPercent}%</td><td style="padding:4px 0;">-${escapeHtml(partnerDiscount)}</td></tr>`
-            : ""}
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Final total</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(total)} ${currency}</td></tr>
-          ${noPaymentRequired ? '<tr><td colspan="2" style="padding:6px 0 0;color:#15803d;font-weight:600;">No payment required</td></tr>' : ""}
-          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">Any applicable tax is included in this amount.</td></tr>`
-    : `
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Pricing</td><td style="padding:4px 0;font-weight:600;">Manual review required</td></tr>
-          <tr><td colspan="2" style="padding:6px 0 0;color:#718096;font-size:12px;">We’ll review the submitted files and instructions before confirming the commercial next step.</td></tr>`;
-  const nextStepsHtml = noPaymentRequired
-    ? `
-        <li>Review the submitted order and files.</li>
-        <li>No payment is required for this Welcome Offer order.</li>
-        <li>Work can begin after the order is confirmed.</li>
-        <li>Track the order and download completed files from the client portal.</li>`
-    : hasFixedCheckoutPrice
-    ? `
-        <li>Review the submitted order and files.</li>
-        <li>Complete secure payment from the PicchuSpot order page.</li>
-        <li>Work begins after payment has been verified.</li>
-        <li>Track the order and download completed files from the client portal.</li>`
-    : `
-        <li>We review the submitted order, files, and instructions.</li>
-        <li>We contact you to confirm the scope, price, and next step.</li>
-        <li>Work begins after the agreed commercial arrangements are complete.</li>
-        <li>Track the order and download completed files from the client portal.</li>`;
 
   const html = `<!DOCTYPE html>
-<html>
-  <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a202c;">
-    <div style="max-width:560px;margin:0 auto;padding:24px;">
-      <div style="margin-bottom:24px;">
-        <div style="font-size:18px;font-weight:700;letter-spacing:-0.01em;color:#1a365d;">PicchuSpot</div>
-        <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#a0aec0;margin-top:2px;">Real Estate Visuals</div>
-      </div>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4efe8;color:#071a2b;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+    <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border-collapse:collapse;background:#ffffff;border:1px solid #ded3c6;">
+        <tr><td align="center" style="padding:20px 24px 12px;background:#ffffff;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-logo-800.png"))}" width="112" height="84" alt="PicchuSpot" style="display:block;border:0;width:112px;height:84px;margin:0 auto;">
+        </td></tr>
+        <tr><td align="center" style="padding:0 0 24px;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-email-before-after-1200x450.jpg"))}" width="560" alt="Before and after virtual staging of a bright living room" style="display:block;border:0;width:100%;max-width:560px;height:auto;">
+        </td></tr>
+        <tr><td style="padding:0 24px 24px;">
+          <h1 style="margin:0 0 18px;font-size:25px;line-height:1.25;color:#071a2b;">Order ${escapeHtml(input.orderNumber)} received</h1>
+          <p style="margin:0 0 10px;font-size:15px;line-height:1.6;">Hi ${escapeHtml(input.clientName || "there")},</p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;">${confirmation}</p>
 
-      <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px;color:#1a365d;">
-        Order ${escapeHtml(orderNumber)} received
-      </h1>
-      <p style="font-size:15px;line-height:1.6;color:#4a5568;margin:0 0 24px;">
-        Hi ${escapeHtml(clientName || "there")} — thanks for your order. We've received it and our team will review your files shortly.
-      </p>
+          <h2 style="margin:0 0 10px;font-size:16px;line-height:1.4;color:#071a2b;">Order summary</h2>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin:0 0 14px;padding:0;font-size:14px;line-height:1.55;color:#071a2b;">
+            <tbody>
+              <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Order number</td><td style="padding:5px 0;font-weight:bold;">${escapeHtml(input.orderNumber)}</td></tr>
+              <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Service</td><td style="padding:5px 0;">${escapeHtml(service)}</td></tr>
+              ${jobTitle ? `<tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Job title</td><td style="padding:5px 0;">${escapeHtml(jobTitle)}</td></tr>` : ""}
+              <tr><td style="padding:5px 12px 5px 0;color:#5a656d;">Items</td><td style="padding:5px 0;">${input.itemCount}</td></tr>
+              ${pricingRowsHtml}
+            </tbody>
+          </table>
 
-      <table style="width:100%;font-size:14px;line-height:1.6;color:#1a202c;border-collapse:collapse;margin-bottom:24px;">
-        <tbody>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Order number</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
-            orderNumber
-          )}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Service</td><td style="padding:4px 0;">${escapeHtml(
-            service
-          )}</td></tr>
+          <p style="margin:0 0 20px;font-size:13px;line-height:1.65;color:#5a656d;">${detailGuidance}</p>
           ${
-            jobTitle
-              ? `<tr><td style="padding:4px 12px 4px 0;color:#718096;">Job title</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(
-                  jobTitle
-                )}</td></tr>`
+            input.clientOrderUrl
+              ? `<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 24px;">
+            <tr><td bgcolor="#c7a94e" style="border-radius:4px;text-align:center;">
+              <a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:14px 20px;border:1px solid #c7a94e;border-radius:4px;background:#c7a94e;color:#071a2b;font-size:15px;font-weight:bold;line-height:1.4;text-decoration:none;">View order</a>
+            </td></tr>
+          </table>`
               : ""
           }
-          <tr><td style="padding:4px 12px 4px 0;color:#718096;">Items</td><td style="padding:4px 0;">${itemCount}</td></tr>
-          ${pricingRowsHtml}
-        </tbody>
+
+          ${
+            input.earlyPerformanceRequest.requested
+              ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;background:#f7f7f6;border:1px solid #ded3c6;">
+            <tr><td style="padding:12px 14px;">
+              <p style="margin:0 0 6px;font-size:12px;font-weight:bold;line-height:1.4;color:#5a656d;">Start of service</p>
+              <p style="margin:0;font-size:12px;line-height:1.65;color:#5a656d;">${escapeHtml(earlyStartConfirmation)}</p>
+            </td></tr>
+          </table>`
+              : ""
+          }
+
+          <h2 style="margin:0 0 8px;font-size:16px;line-height:1.4;color:#071a2b;">What happens next</h2>
+          <ol style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.6;color:#071a2b;">${nextStepsHtml}</ol>
+          <p style="margin:0 0 20px;font-size:13px;line-height:1.7;color:#5a656d;">Questions? Reply to this email or write to <a href="mailto:${SUPPORT_EMAIL}" style="color:#071a2b;text-decoration:underline;">${SUPPORT_EMAIL}</a>.</p>
+          <p style="margin:0;font-size:14px;line-height:1.6;">Kind regards,<br>PicchuSpot</p>
+        </td></tr>
+        <tr><td align="center" bgcolor="#071a2b" style="padding:20px 18px 18px;border-top:1px solid #ded3c6;background:#071a2b;text-align:center;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-wordmark-dark-email.png"))}" width="125" alt="PicchuSpot" style="display:block;border:0;width:125px;height:auto;margin:0 auto 12px;">
+          <p style="margin:0 0 4px;font-size:12px;line-height:1.6;color:#ded3c6;">More from PicchuSpot</p>
+          <p style="margin:0;font-size:12px;line-height:2;">${SERVICES.map(([label, path]) => `<a href="${escapeHtml(absoluteUrl(path))}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${label}</a>`).join(" ")}</p>
+          <p style="margin:10px 0 0;font-size:12px;line-height:2;">
+            <a href="${escapeHtml(absoluteUrl("/"))}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${escapeHtml(new URL(absoluteUrl("/")).host)}</a>
+            <a href="mailto:${SUPPORT_EMAIL}" style="display:inline-block;margin:0 6px;color:#f4efe8;text-decoration:underline;">${SUPPORT_EMAIL}</a>
+          </p>
+          <p style="margin:10px 0 0;font-size:11px;line-height:1.6;color:#ded3c6;">PicchuSpot · Real Estate Visuals</p>
+        </td></tr>
       </table>
-
-      ${
-        input.clientOrderUrl
-          ? `<p style="margin:0 0 24px;"><a href="${escapeHtml(input.clientOrderUrl)}" style="display:inline-block;padding:10px 15px;border-radius:7px;background:#0B1F3A;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;">${hasFixedCheckoutPrice && !noPaymentRequired ? "View order / Pay securely" : "View order"}</a></p>`
-          : ""
-      }
-
-      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin-bottom:8px;">What you ordered</div>
-      ${itemsHtml}
-
-      ${
-        input.earlyPerformanceRequest.requested
-          ? `<div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin:24px 0 8px;">Start of service</div>
-      <p style="font-size:14px;line-height:1.6;color:#4a5568;margin:0 0 24px;">${escapeHtml(
-        earlyStartConfirmation,
-      )}</p>`
-          : ""
-      }
-
-      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#718096;margin:24px 0 8px;">What happens next</div>
-      <ol style="font-size:14px;line-height:1.6;color:#1a202c;padding-left:18px;margin:0 0 24px;">
-        ${nextStepsHtml}
-      </ol>
-
-      <p style="font-size:14px;line-height:1.6;color:#4a5568;margin:0 0 24px;">
-        Questions? Reply to this email or write to
-        <a href="mailto:${SUPPORT_EMAIL}" style="color:#2c5282;">${SUPPORT_EMAIL}</a>.
-      </p>
-
-      <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0;">
-      <p style="font-size:12px;line-height:1.6;color:#a0aec0;margin:0;">
-        — PicchuSpot · Real Estate Visuals
-      </p>
-    </div>
-  </body>
+    </td></tr>
+  </table>
+</body>
 </html>`;
 
   return { subject, html, text };
