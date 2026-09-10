@@ -7,7 +7,6 @@ import { DELIVERABLES_BUCKET } from "@/lib/deliverables-config";
 import {
   assertZipLimits,
   createZipResponse,
-  imageFolder,
   safeZipFilename,
   uniqueZipPath,
   type ZipSourceFile,
@@ -135,7 +134,7 @@ export async function POST(
 
     const bytes = new Uint8Array(await data.arrayBuffer());
     const zipPath = uniqueZipPath(
-      `${imageFolder(deliverable.item_index)}/${safeZipFilename(deliverable.filename)}`,
+      safeZipFilename(deliverable.filename),
       usedPaths
     );
 
