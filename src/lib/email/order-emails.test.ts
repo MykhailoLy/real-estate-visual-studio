@@ -271,9 +271,10 @@ test("client confirmation includes the order CTA, shared branding, footer, and u
     1,
   );
   assert.match(rendered.html, new RegExp(`href="${orderUrl}"[^>]*>View order<`));
-  assert.match(rendered.html, /picchuspot-logo-800\.png/);
   assert.match(rendered.html, /picchuspot-email-before-after-1200x450\.jpg/);
-  assert.match(rendered.html, /picchuspot-logo-light-email\.png/);
+  assert.equal((rendered.html.match(/picchuspot-logo-light-email\.png/g) ?? []).length, 2);
+  assert.doesNotMatch(rendered.html, /picchuspot-logo-800\.png/);
+  assert.match(rendered.html, /bgcolor="#071a2b" style="padding:20px 24px 12px;background:#071a2b;"/);
   assert.match(rendered.html, /background:#c7a94e/);
   assert.match(rendered.html, /bgcolor="#071a2b"/);
   assert.match(rendered.html, /href="https:\/\/picchuspot\.com\/pricing\/virtual-staging"/);
@@ -387,9 +388,10 @@ test("payment confirmation email uses the approved client design and verified pa
   assert.match(rendered.text, /Our team will review and confirm your order before it enters production\./);
   assert.match(rendered.text, /hello@picchuspot\.com/);
 
-  assert.match(rendered.html, /picchuspot-logo-800\.png/);
   assert.match(rendered.html, /picchuspot-email-before-after-1200x450\.jpg/);
-  assert.match(rendered.html, /picchuspot-logo-light-email\.png/);
+  assert.equal((rendered.html.match(/picchuspot-logo-light-email\.png/g) ?? []).length, 2);
+  assert.doesNotMatch(rendered.html, /picchuspot-logo-800\.png/);
+  assert.match(rendered.html, /bgcolor="#071a2b" style="padding:20px 24px 12px;background:#071a2b;"/);
   assert.match(rendered.html, /background:#c7a94e/);
   assert.match(rendered.html, /background:#071a2b/);
   assert.match(rendered.html, />Virtual Staging</);

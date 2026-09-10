@@ -54,8 +54,8 @@ export function renderWorkReadyEmail(input: WorkReadyInput) {
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
     <tr><td align="center" style="padding:24px 12px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border-collapse:collapse;background:#ffffff;border:1px solid #ded3c6;">
-        <tr><td align="center" style="padding:20px 24px 12px;background:#ffffff;">
-          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-logo-800.png"))}" width="112" height="84" alt="PicchuSpot" style="display:block;border:0;width:112px;height:84px;margin:0 auto;">
+        <tr><td align="center" bgcolor="#071a2b" style="padding:20px 24px 12px;background:#071a2b;">
+          <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-logo-light-email.png"))}" width="112" height="84" alt="PicchuSpot" style="display:block;border:0;width:112px;height:84px;margin:0 auto;">
         </td></tr>
         <tr><td align="center" style="padding:0 0 24px;">
           <img src="${escapeHtml(absoluteUrl("/brand/picchuspot-email-before-after-1200x450.jpg"))}" width="560" alt="Before and after virtual staging of a bright living room" style="display:block;border:0;width:100%;max-width:560px;height:auto;">
