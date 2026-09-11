@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildOrderImageNavigationItems,
+  calculateOrderImageScrollTop,
   resolveOrderImageTarget,
   selectActiveOrderImageId,
   shouldShowOrderImageNavigator,
@@ -43,6 +44,42 @@ test("a navigator selection resolves to the matching card anchor", () => {
 
   assert.equal(resolveOrderImageTarget(navigation, "second"), "order-image-second");
   assert.equal(resolveOrderImageTarget(navigation, "missing"), null);
+});
+
+test("dashboard click navigation calculates a container-relative scroll target", () => {
+  assert.equal(
+    calculateOrderImageScrollTop({
+      containerScrollTop: 1_200,
+      containerTop: 57,
+      targetTop: 500,
+      navigatorHeight: 66,
+      targetScrollMarginTop: 80,
+    }),
+    1_563,
+  );
+});
+
+test("click navigation keeps the sticky navigator clear and never scrolls above zero", () => {
+  assert.equal(
+    calculateOrderImageScrollTop({
+      containerScrollTop: 400,
+      containerTop: 57,
+      targetTop: 300,
+      navigatorHeight: 96,
+      targetScrollMarginTop: 80,
+    }),
+    547,
+  );
+  assert.equal(
+    calculateOrderImageScrollTop({
+      containerScrollTop: 0,
+      containerTop: 57,
+      targetTop: 40,
+      navigatorHeight: 66,
+      targetScrollMarginTop: 80,
+    }),
+    0,
+  );
 });
 
 test("image 2 wins when it is nearest the workspace reading position", () => {
