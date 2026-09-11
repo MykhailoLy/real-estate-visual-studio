@@ -114,31 +114,6 @@ const SERVICE_PRICES: Record<PortfolioServiceSlug, RemoteServicePrice> = {
   },
 };
 
-const GROUPS: readonly { title: string; slugs: readonly PortfolioServiceSlug[] }[] = [
-  {
-    title: "Photo Editing",
-    slugs: [
-      "image-enhancement",
-      "day-to-dusk",
-      "item-removal-virtual-cleaning",
-      "aerial-editing",
-    ],
-  },
-  {
-    title: "Staging & Renovation",
-    slugs: [
-      "virtual-staging",
-      "virtual-renovation",
-      "360-virtual-staging",
-      "360-image-enhancement",
-    ],
-  },
-  {
-    title: "Plans & Property Visuals",
-    slugs: ["floor-plans", "development-site-plans"],
-  },
-] as const;
-
 function presentationForSlug(
   mediaSlug: PortfolioServiceSlug,
 ): RemoteServicePresentation {
@@ -154,12 +129,56 @@ function presentationForSlug(
   };
 }
 
-export const REMOTE_SERVICE_GROUPS: readonly RemoteServiceGroup[] = GROUPS.map(
-  (group) => ({
-    title: group.title,
-    services: group.slugs.map(presentationForSlug),
-  }),
-);
+const PHOTO_EDITING_OVERVIEW: RemoteServicePresentation = {
+  id: "photo-editing",
+  name: {
+    en: "Real Estate Photo Editing",
+    es: "Edición de fotos inmobiliarias",
+  },
+  href: "/pricing/photo-editing",
+  price: {
+    kind: "catalog",
+    priceKey: "image-enhancement",
+    unit: "image",
+  },
+  mediaSlug: "image-enhancement",
+  fallbackVariant: "image-enhancement",
+};
+
+function presentationsForSlugs(slugs: readonly PortfolioServiceSlug[]) {
+  return slugs.map(presentationForSlug);
+}
+
+export const REMOTE_SERVICE_GROUPS: readonly RemoteServiceGroup[] = [
+  {
+    title: "Photo Editing",
+    services: [
+      PHOTO_EDITING_OVERVIEW,
+      ...presentationsForSlugs([
+        "image-enhancement",
+        "day-to-dusk",
+        "item-removal-virtual-cleaning",
+        "aerial-editing",
+      ]),
+    ],
+  },
+  {
+    title: "Staging & Renovation",
+    services: presentationsForSlugs([
+      "virtual-staging",
+      "virtual-renovation",
+      "360-virtual-staging",
+      "360-image-enhancement",
+    ]),
+  },
+  {
+    title: "Plans & Property Visuals",
+    services: presentationsForSlugs([
+      "floor-plans",
+      "development-site-plans",
+    ]),
+  },
+];
 
 export const REMOTE_SERVICE_PRESENTATIONS = REMOTE_SERVICE_GROUPS.flatMap(
   (group) => group.services,
@@ -184,6 +203,13 @@ function resolveMediaSlug(
 export function getRemoteServicePresentation(
   serviceSlug: string | null | undefined,
 ): RemoteServicePresentation | null {
+  if (!serviceSlug) return null;
+
+  const exactService = REMOTE_SERVICE_PRESENTATIONS.find(
+    (service) => service.id === serviceSlug,
+  );
+  if (exactService) return exactService;
+
   const mediaSlug = resolveMediaSlug(serviceSlug);
   if (!mediaSlug) return null;
 

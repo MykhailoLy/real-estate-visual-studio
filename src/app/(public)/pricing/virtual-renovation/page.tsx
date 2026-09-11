@@ -54,7 +54,7 @@ export default function VirtualRenovationPricingPage() {
       title="Virtual Renovation Pricing"
       description="Show renovation potential with realistic visual updates for finishes, fixtures, layouts, materials, and property presentation."
       priceLine="Option-based pricing"
-      orderHref="/order/virtual-renovation"
+      orderHref="/dashboard/orders/new/virtual-renovation"
       orderLabel="Order Virtual Renovation"
       whenToUseTitle="When to use Virtual Renovation"
       whenToUseDescription="Virtual renovation helps buyers and sellers see the potential of a property without construction — turning dated or empty spaces into confident listing visuals."

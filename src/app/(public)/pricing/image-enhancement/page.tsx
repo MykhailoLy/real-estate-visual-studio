@@ -59,7 +59,7 @@ export default function ImageEnhancementPricingPage() {
         />
       }
       welcomeOfferDescription={`${WELCOME_OFFER_PUBLIC_COPY.en.short} ${WELCOME_OFFER_PUBLIC_COPY.en.rules}`}
-      orderHref="/order/image-enhancement"
+      orderHref="/dashboard/orders/new/image-enhancement"
       orderLabel="Order Image Enhancement"
       whenToUseTitle="When to use Image Enhancement"
       whenToUseDescription="Image enhancement is the baseline edit that makes every listing photo look professionally shot and listing-ready."

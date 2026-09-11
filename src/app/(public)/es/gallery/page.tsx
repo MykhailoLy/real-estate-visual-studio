@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { ArrowRight } from "lucide-react";
 import Container from "@/components/layout/Container";
 import GalleryCategoryCard from "@/components/gallery/GalleryCategoryCard";
@@ -135,13 +136,13 @@ export default async function SpanishGalleryPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-              <Link
-                href="/order"
+              <ClientPortalLink
+                href="/dashboard/orders/new"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-white text-primary font-bold rounded-lg hover:bg-stone-50 transition-colors text-sm shadow-sm"
               >
                 Pedir online
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </ClientPortalLink>
               <Link
                 href="/es/contact"
                 className="inline-flex items-center px-6 py-3 border border-white/30 text-white font-bold rounded-lg hover:border-white/60 hover:bg-white/10 transition-colors text-sm"

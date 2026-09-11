@@ -58,6 +58,10 @@ export const topLevels: TopLevelEntry[] = [
       { href: "/pricing/virtual-staging", label: "Virtual Staging" },
       {
         href: "/pricing/photo-editing",
+        label: "Real Estate Photo Editing",
+      },
+      {
+        href: "/pricing/item-removal-virtual-cleaning",
         label: "Item Removal & Virtual Cleaning",
       },
       { href: "/pricing/floor-plans", label: "Floor Plans" },
@@ -134,6 +138,6 @@ export function getTopLevelForPath(pathname: string): TopLevelEntry {
 
 /** Right-side CTAs in the header's first row. */
 export const headerCtaLinks = [
-  { href: "/order", label: "Order" },
+  { href: "/dashboard/orders/new", label: "Order" },
   { href: "/contact", label: "Contact" },
 ] as const;

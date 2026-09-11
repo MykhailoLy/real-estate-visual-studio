@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { ArrowRight, Check, Home, Sparkles, Building2, ImagePlus } from "lucide-react";
 import Wide from "@/components/pricing/Wide";
 import SectionLead from "@/components/pricing/SectionLead";
@@ -293,7 +294,7 @@ export default async function VirtualStagingPage() {
             slides={sliderSlides}
             serviceSlug="virtual-staging"
             locale="en"
-            orderHref="/order/virtual-staging"
+            orderHref="/dashboard/orders/new/virtual-staging"
             orderLabel="Order Virtual Staging"
             ariaLabel="Virtual Staging before and after examples"
           />
@@ -370,13 +371,13 @@ export default async function VirtualStagingPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-              <Link
-                href="/order/virtual-staging"
+              <ClientPortalLink
+                href="/dashboard/orders/new/virtual-staging"
                 className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
               >
                 Order Virtual Staging
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </ClientPortalLink>
               <Link
                 href="/pricing"
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
@@ -618,13 +619,13 @@ export default async function VirtualStagingPage() {
           </p>
 
           <div className="mt-8">
-            <Link
-              href="/order/virtual-staging"
+            <ClientPortalLink
+              href="/dashboard/orders/new/virtual-staging"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
             >
               Order Virtual Staging
               <ArrowRight className="w-4 h-4" aria-hidden />
-            </Link>
+            </ClientPortalLink>
           </div>
         </Wide>
       </section>
@@ -647,7 +648,7 @@ export default async function VirtualStagingPage() {
       <ServiceCTA
         title="Ready to stage your listing?"
         subtitle="Upload your photos, choose a style, and receive market-ready images within 24–48 hours."
-        primaryHref="/order/virtual-staging"
+        primaryHref="/dashboard/orders/new/virtual-staging"
         primaryLabel="Order Virtual Staging"
         secondaryHref="/contact"
         secondaryLabel="Ask a Question"

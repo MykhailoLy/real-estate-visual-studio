@@ -94,7 +94,7 @@ export default function SpanishVirtualRenovationPricingPage() {
       title="Precios de Renovación virtual"
       description="Muestra el potencial de renovación con actualizaciones visuales realistas de acabados, instalaciones, distribuciones, materiales y presentación de la propiedad."
       priceLine="Precio por opciones"
-      orderHref="/order/virtual-renovation"
+      orderHref="/dashboard/orders/new/virtual-renovation"
       orderLabel="Pedir Renovación virtual"
       whenToUseTitle="Cuándo usar Renovación virtual"
       whenToUseDescription="La renovación virtual ayuda a compradores y vendedores a ver el potencial de una propiedad sin obra, convirtiendo espacios anticuados o vacíos en visuales seguros para el anuncio."

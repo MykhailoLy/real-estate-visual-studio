@@ -203,7 +203,7 @@ test("hero service metadata resolves canonical routes and display-only pricing",
   assert.match(presentationSource, /if \(!service\) return null/);
   assert.match(
     portfolioMetaSource,
-    /slug: "item-removal-virtual-cleaning"[\s\S]*?pricingHref: "\/pricing\/photo-editing"/,
+    /slug: "item-removal-virtual-cleaning"[\s\S]*?pricingHref: "\/pricing\/item-removal-virtual-cleaning"/,
   );
 
   assert.match(pricingHubSource, /REMOTE_SERVICE_GROUPS/);
@@ -340,10 +340,10 @@ test("service comparison heroes reuse the homepage chrome and reliable swipe beh
     /<ServicePageSlider[\s\S]*?serviceSlug=\{serviceSlug\}[\s\S]*?locale=\{altLocale\}[\s\S]*?orderHref=\{orderHref\}[\s\S]*?orderLabel=\{orderLabel\}/,
   );
   for (const [source, locale, slug, orderHref] of [
-    [virtualStagingSource, "en", "virtual-staging", "/order/virtual-staging"],
-    [spanishVirtualStagingSource, "es", "virtual-staging", "/order/virtual-staging"],
-    [floorPlansSource, "en", "floor-plans", "/order/3d-floor-plans"],
-    [spanishFloorPlansSource, "es", "floor-plans", "/order/3d-floor-plans"],
+    [virtualStagingSource, "en", "virtual-staging", "/dashboard/orders/new/virtual-staging"],
+    [spanishVirtualStagingSource, "es", "virtual-staging", "/dashboard/orders/new/virtual-staging"],
+    [floorPlansSource, "en", "floor-plans", "/dashboard/orders/new/3d-floor-plans"],
+    [spanishFloorPlansSource, "es", "floor-plans", "/dashboard/orders/new/3d-floor-plans"],
   ] as const) {
     assert.match(source, new RegExp(`serviceSlug="${slug}"`));
     assert.match(source, new RegExp(`locale="${locale}"`));

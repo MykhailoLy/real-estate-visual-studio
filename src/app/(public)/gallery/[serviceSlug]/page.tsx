@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Container from "@/components/layout/Container";
 import JsonLd from "@/components/seo/JsonLd";
@@ -221,12 +222,12 @@ export default async function GalleryServicePage({
                 View Pricing
                 <ArrowRight className="w-4 h-4" aria-hidden />
               </Link>
-              <Link
-                href="/order"
+              <ClientPortalLink
+                href="/dashboard/orders/new"
                 className="inline-flex items-center px-6 py-3 border border-white/30 text-white font-bold rounded-lg hover:border-white/60 hover:bg-white/10 transition-colors text-sm"
               >
                 Order Online
-              </Link>
+              </ClientPortalLink>
             </div>
           </div>
         </Container>

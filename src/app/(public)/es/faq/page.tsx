@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { ArrowRight, HelpCircle } from "lucide-react";
 import Container from "@/components/layout/Container";
 import { spanishMetadata } from "../seo";
@@ -142,12 +143,12 @@ export default function SpanishFaqPage() {
               Contactar con soporte
               <ArrowRight className="w-4 h-4" aria-hidden />
             </Link>
-            <Link
-              href="/order"
+            <ClientPortalLink
+              href="/dashboard/orders/new"
               className="mt-3 inline-flex items-center justify-center gap-2 w-full px-5 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
             >
               Empezar un pedido
-            </Link>
+            </ClientPortalLink>
           </aside>
         </div>
       </Container>

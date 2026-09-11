@@ -32,6 +32,11 @@ export const localizedRoutes = [
     priority: 0.7,
   },
   {
+    englishPath: "/pricing/item-removal-virtual-cleaning",
+    spanishPath: "/es/pricing/item-removal-virtual-cleaning",
+    priority: 0.7,
+  },
+  {
     englishPath: "/pricing/virtual-renovation",
     spanishPath: "/es/pricing/virtual-renovation",
     priority: 0.7,

@@ -56,7 +56,7 @@ export default function DayToDuskPricingPage() {
         />
       }
       welcomeOfferDescription={`${WELCOME_OFFER_PUBLIC_COPY.en.short} ${WELCOME_OFFER_PUBLIC_COPY.en.rules}`}
-      orderHref="/order/day-to-dusk"
+      orderHref="/dashboard/orders/new/day-to-dusk"
       orderLabel="Order Day to Dusk"
       whenToUseTitle="When to use Day to Dusk"
       whenToUseDescription="Day to Dusk is most effective on exterior shots where the sky and property lighting can be transformed for a premium listing feel."

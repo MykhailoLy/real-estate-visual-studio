@@ -1,5 +1,6 @@
 import TrackedLink from "@/components/analytics/TrackedLink";
 import Container from "@/components/layout/Container";
+import { isOrderIntentHref } from "@/lib/analytics";
 
 interface CtaSectionProps {
   title?: string;
@@ -16,13 +17,13 @@ export default function CtaSection({
   title = "Ready to Elevate Your Listings?",
   subtitle = "Professional visual marketing that helps you sell properties faster.",
   primaryLabel = "Order Online",
-  primaryHref = "/order",
+  primaryHref = "/dashboard/orders/new",
   primaryAnalyticsEvent,
   secondaryLabel = "Contact Us",
   secondaryHref = "/contact",
   secondaryAnalyticsEvent,
 }: CtaSectionProps) {
-  const primaryIntentType = primaryHref.startsWith("/order")
+  const primaryIntentType = isOrderIntentHref(primaryHref)
     ? "order"
     : undefined;
   const secondaryIntentType = secondaryHref.startsWith("/contact")

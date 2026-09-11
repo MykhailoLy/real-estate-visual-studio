@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   getOrderServiceSlug,
+  isOrderIntentHref,
   trackContactIntentClick,
   trackLoginClick,
   trackOrderIntentClick,
@@ -45,7 +46,7 @@ export default function TrackedLink({
             ? "sign_up"
             : href.startsWith("/login")
               ? "login"
-              : href.startsWith("/order")
+              : isOrderIntentHref(href)
                 ? "order_intent"
                 : href.startsWith("/contact")
                   ? "contact_intent"
@@ -83,7 +84,7 @@ export default function TrackedLink({
   return (
     <Link
       href={href}
-      prefetch={prefetch}
+      prefetch={prefetch ?? (isOrderIntentHref(href) ? false : undefined)}
       className={className}
       onClick={trackClick}
       aria-label={analyticsLabel}

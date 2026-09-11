@@ -195,7 +195,10 @@ test("public pricing sources keep renovation option-based and structured prices 
     aerialSource,
     /price: getCatalogPriceDecimal\("aerial-colour-fade"\)/,
   );
-  assert.match(aerialSource, /orderHref="\/order\/photo-editing"/);
+  assert.match(
+    aerialSource,
+    /orderHref="\/dashboard\/orders\/new\/photo-editing"/,
+  );
   assert.deepEqual(getOrderServiceCatalogEntry("aerial-editing"), {
     slug: "aerial-editing",
     title: "Aerial Editing",

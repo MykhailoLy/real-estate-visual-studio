@@ -14,11 +14,11 @@ import {
 } from "lucide-react";
 
 const remoteServices = [
-  { icon: ImagePlus, name: "Virtual Staging", href: "/order/virtual-staging" },
-  { icon: Paintbrush, name: "Virtual Renovation", href: "/order/virtual-renovation" },
-  { icon: LayoutGrid, name: "2D / 3D Floor Plans", href: "/order/3d-floor-plans" },
-  { icon: SlidersHorizontal, name: "Photo Editing", href: "/order/photo-editing" },
-  { icon: Eraser, name: "Decluttering / Object Removal", href: "/order/photo-editing" },
+  { icon: ImagePlus, name: "Virtual Staging", href: "/dashboard/orders/new/virtual-staging" },
+  { icon: Paintbrush, name: "Virtual Renovation", href: "/dashboard/orders/new/virtual-renovation" },
+  { icon: LayoutGrid, name: "2D / 3D Floor Plans", href: "/dashboard/orders/new/3d-floor-plans" },
+  { icon: SlidersHorizontal, name: "Photo Editing", href: "/dashboard/orders/new/photo-editing" },
+  { icon: Eraser, name: "Decluttering / Object Removal", href: "/dashboard/orders/new/photo-editing" },
 ];
 
 const localServices = [
@@ -67,7 +67,7 @@ export default function ServiceCategories() {
               })}
             </ul>
             <TrackedLink
-              href="/order"
+              href="/dashboard/orders/new"
               analyticsLabel="Order Online"
               analyticsLocation="cta_section"
               className="inline-flex px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-light transition-colors"
