@@ -25,6 +25,28 @@ export function shouldShowOrderImageNavigator(itemCount: number): boolean {
   return itemCount > 1;
 }
 
+interface OrderImageScrollPosition {
+  containerScrollTop: number;
+  containerTop: number;
+  targetTop: number;
+  navigatorHeight: number;
+  targetScrollMarginTop: number;
+}
+
+export function calculateOrderImageScrollTop({
+  containerScrollTop,
+  containerTop,
+  targetTop,
+  navigatorHeight,
+  targetScrollMarginTop,
+}: OrderImageScrollPosition): number {
+  const stickyInset = Math.max(navigatorHeight, targetScrollMarginTop);
+  return Math.max(
+    0,
+    containerScrollTop + targetTop - containerTop - stickyInset,
+  );
+}
+
 interface OrderImagePosition {
   id: string | null;
   top: number;

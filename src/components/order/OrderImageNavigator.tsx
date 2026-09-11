@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  calculateOrderImageScrollTop,
   resolveOrderImageTarget,
   selectActiveOrderImageId,
   shouldShowOrderImageNavigator,
@@ -140,9 +141,37 @@ export default function OrderImageNavigator({
 
     programmaticTargetRef.current = itemId;
     setActiveItemId(itemId);
-    target.scrollIntoView({
-      block: "start",
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    const behavior = prefersReducedMotion() ? "auto" : "smooth";
+    const navigatorHeight = navRef.current?.getBoundingClientRect().height ?? 0;
+    const targetScrollMarginTop =
+      Number.parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0;
+    const scrollContainer = target.closest<HTMLElement>(
+      "[data-dashboard-scroll-container]",
+    );
+
+    if (scrollContainer) {
+      scrollContainer.scrollTo({
+        top: calculateOrderImageScrollTop({
+          containerScrollTop: scrollContainer.scrollTop,
+          containerTop: scrollContainer.getBoundingClientRect().top,
+          targetTop: target.getBoundingClientRect().top,
+          navigatorHeight,
+          targetScrollMarginTop,
+        }),
+        behavior,
+      });
+      return;
+    }
+
+    window.scrollTo({
+      top: calculateOrderImageScrollTop({
+        containerScrollTop: window.scrollY,
+        containerTop: 0,
+        targetTop: target.getBoundingClientRect().top,
+        navigatorHeight,
+        targetScrollMarginTop,
+      }),
+      behavior,
     });
   };
 
