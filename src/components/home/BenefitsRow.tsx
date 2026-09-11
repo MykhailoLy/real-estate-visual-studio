@@ -86,12 +86,12 @@ export default function BenefitsRow({
   return (
     <section
       aria-label={copy.ariaLabel}
-      className="bg-ivory border-y border-border py-5 sm:py-6 lg:py-7"
+      className="border-y border-border bg-white py-4 sm:py-5 lg:py-6"
     >
-      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
+      <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-10">
         <div
           data-testid="benefits-grid"
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px overflow-hidden rounded-xl border border-border bg-border"
+          className="grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-4"
         >
           {copy.benefits.map((b, index) => {
             const presentation = BENEFITS[index] ?? BENEFITS[0];
@@ -99,19 +99,23 @@ export default function BenefitsRow({
             return (
               <div
                 key={b.title}
-                className="min-w-0 bg-white px-4 py-4 sm:px-5 lg:px-4 lg:py-4 lg:text-center"
+                className="flex min-w-0 items-start gap-3 px-1 py-2.5 sm:px-0 sm:py-3 lg:block lg:px-2 lg:py-2 lg:text-center"
               >
                 <Icon
-                  className={`h-8 w-8 sm:h-9 sm:w-9 lg:mx-auto lg:h-10 lg:w-10 ${presentation.iconClassName}`}
+                  className={`h-8 w-8 shrink-0 sm:h-9 sm:w-9 lg:mx-auto lg:h-10 lg:w-10 ${presentation.iconClassName}`}
                   strokeWidth={1.75}
                   aria-hidden
                 />
-                <h3 className={`mt-3 text-public-copy-sm font-bold tracking-tight lg:text-base xl:text-lg ${presentation.titleClassName}`}>
-                  {b.title}
-                </h3>
-                <p className="mt-1.5 text-sm leading-6 text-muted lg:text-public-copy-sm lg:text-center xl:text-base">
-                  {b.body}
-                </p>
+                <div className="min-w-0 lg:mt-2.5">
+                  <h3
+                    className={`text-[15px] font-bold leading-5 tracking-tight sm:text-base lg:text-base xl:text-lg ${presentation.titleClassName}`}
+                  >
+                    {b.title}
+                  </h3>
+                  <p className="mt-1 text-sm leading-5 text-muted lg:text-center lg:text-public-copy-sm lg:leading-5 xl:text-base">
+                    {b.body}
+                  </p>
+                </div>
               </div>
             );
           })}
