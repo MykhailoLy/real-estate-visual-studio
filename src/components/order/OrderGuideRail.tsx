@@ -12,28 +12,13 @@ interface OrderGuideRailProps {
   information?: React.ReactNode;
 }
 
-interface GuideStepsProps {
-  steps: OrderGuideStep[];
-  layout: "vertical" | "horizontal";
-}
-
-function GuideSteps({ steps, layout }: GuideStepsProps) {
+function GuideSteps({ steps }: { steps: OrderGuideStep[] }) {
   return (
-    <ol
-      className={
-        layout === "horizontal"
-          ? "mt-4 grid grid-cols-3 gap-5"
-          : "mt-5 space-y-5 lg:mt-6 lg:space-y-7"
-      }
-    >
+    <ol className="mt-5 grid gap-5 md:grid-cols-3 md:gap-6 lg:mt-6 lg:gap-8">
       {steps.map((step, index) => (
         <li
           key={`${step.title}-${index}`}
-          className={
-            layout === "horizontal"
-              ? "min-w-0"
-              : "grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3"
-          }
+          className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-3 md:block"
         >
           <span
             aria-hidden
@@ -41,7 +26,7 @@ function GuideSteps({ steps, layout }: GuideStepsProps) {
           >
             {String(index + 1).padStart(2, "0")}
           </span>
-          <div className={layout === "horizontal" ? "mt-1" : "min-w-0"}>
+          <div className="min-w-0 md:mt-1">
             <h3 className="text-dashboard-action font-bold uppercase tracking-[0.07em] text-primary">
               {step.title}
             </h3>
@@ -63,7 +48,7 @@ function GuideInformation({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-6 border-t border-border pt-5 lg:mt-9 lg:pt-7">
+    <section className="mt-6 border-t border-border pt-5 lg:mt-7 lg:pt-6">
       <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
         {title}
       </h2>
@@ -77,10 +62,9 @@ function GuideInformation({
 /**
  * One responsive contextual guide for every two-step order flow.
  *
- * Mobile uses native details/summary semantics, tablet keeps the workflow
- * visible horizontally, and desktop presents the same content as a light
- * editorial rail. Breakpoint-exclusive renderers prevent duplicated accessible
- * headings at any viewport size without adding responsive JavaScript.
+ * Native details/summary semantics keep the guide collapsed by default at
+ * every viewport. The expanded content is vertical on mobile and uses the
+ * available width for horizontal steps from tablet sizes upward.
  */
 export default function OrderGuideRail({
   title = "Order guide",
@@ -89,69 +73,27 @@ export default function OrderGuideRail({
   information,
 }: OrderGuideRailProps) {
   return (
-    <>
-      <details className="group rounded-lg border border-border bg-white px-4 shadow-sm md:hidden">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-          <span className="text-dashboard-action font-semibold">Before you start</span>
-          <span className="flex items-center gap-2 text-dashboard-kicker uppercase font-bold">
-            Order guide
-            <ChevronDown
-              className="h-4 w-4 transition-transform group-open:rotate-180"
-              aria-hidden="true"
-            />
-          </span>
-        </summary>
-        <div className="border-t border-border pb-5 pt-5">
-          <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
-            {title}
-          </h2>
-          <GuideSteps steps={steps} layout="vertical" />
-          {information != null && (
-            <GuideInformation title={informationTitle}>
-              {information}
-            </GuideInformation>
-          )}
-        </div>
-      </details>
-
-      <section
-        aria-label="Order guide"
-        className="hidden border-y border-border bg-white/70 px-5 py-5 text-foreground md:block lg:hidden"
-      >
-        <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
+    <details className="group rounded-xl border border-border bg-white px-4 shadow-sm sm:px-5 lg:px-6">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2.5 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+        <span className="text-dashboard-action font-bold uppercase tracking-[0.08em]">
+          Order guide
+        </span>
+        <ChevronDown
+          className="h-5 w-5 shrink-0 transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="border-t border-border pb-5 pt-5 lg:pb-6 lg:pt-6">
+        <h2 className="text-dashboard-kicker font-bold uppercase text-primary">
           {title}
         </h2>
-        <GuideSteps steps={steps} layout="horizontal" />
-        {information != null && (
-          <details className="group mt-4 border-t border-border pt-2">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-dashboard-action font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-              {informationTitle}
-              <ChevronDown
-                className="h-4 w-4 transition-transform group-open:rotate-180"
-                aria-hidden="true"
-              />
-            </summary>
-            <div className="space-y-2 pb-2 text-dashboard-body text-muted">
-              {information}
-            </div>
-          </details>
-        )}
-      </section>
-
-      <aside
-        aria-label="Order guide"
-        className="hidden border-l border-border pl-6 text-foreground lg:block"
-      >
-        <h2 className="text-dashboard-kicker uppercase font-bold text-primary">
-          {title}
-        </h2>
-        <GuideSteps steps={steps} layout="vertical" />
+        <GuideSteps steps={steps} />
         {information != null && (
           <GuideInformation title={informationTitle}>
             {information}
           </GuideInformation>
         )}
-      </aside>
-    </>
+      </div>
+    </details>
   );
 }

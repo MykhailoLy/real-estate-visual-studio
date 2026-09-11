@@ -3170,6 +3170,7 @@ export default function VirtualStagingOrderForm({
             <StagingItemCard
               key={item.clientItemId}
               index={index}
+              totalItems={items.length}
               data={item}
               defaultFurnitureStyle={defaultFurnitureStyle}
               exampleMediaByKey={exampleMediaByKey}

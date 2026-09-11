@@ -1506,6 +1506,7 @@ export default function PhotoEditingOrderForm({
                   <PhotoEditItemCard
                     key={item.clientItemId}
                     index={index}
+                    totalItems={items.length}
                     data={item}
                     onChange={(data) =>
                       handleItemChange(item.clientItemId, data)

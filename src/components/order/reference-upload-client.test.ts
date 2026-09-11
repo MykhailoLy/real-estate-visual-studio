@@ -178,6 +178,7 @@ test("rehydrated card hides the legacy mirror while retaining inline invalid_upl
   const markup = renderToStaticMarkup(
     createElement(StagingItemCard, {
       index: 0,
+      totalItems: 1,
       data: {
         ...emptyStagingItem(),
         referenceFiles: [reference],

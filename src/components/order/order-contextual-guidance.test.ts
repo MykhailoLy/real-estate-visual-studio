@@ -11,6 +11,13 @@ const source = (path: string) => readFileSync(path, "utf8");
 const layoutSource = source("src/components/order/OrderLayout.tsx");
 const guideSource = source("src/components/order/OrderGuideRail.tsx");
 const actionSource = source("src/components/order/OrderReviewAction.tsx");
+const imageWorkspaceSource = source(
+  "src/components/order/OrderImageWorkspace.tsx",
+);
+const fileUploadSource = source("src/components/order/FileUpload.tsx");
+const imageCardHeaderSource = source(
+  "src/components/order/OrderImageCardHeader.tsx",
+);
 
 const flows = [
   {
@@ -47,41 +54,108 @@ const flows = [
   },
 ] as const;
 
-test("OrderLayout uses one bounded guide column and a flexible form", () => {
+test("OrderLayout puts the guide above wide workspaces and preserves the non-wide fallback", () => {
   assert.match(
     layoutSource,
-    /lg:grid-cols-\[300px_minmax\(0,1fr\)\] lg:gap-6/,
+    /const hasInlineGuide = hasLeadingRail && isWideWorkspace/,
   );
   assert.match(
     layoutSource,
-    /xl:grid-cols-\[320px_minmax\(0,1fr\)\] xl:gap-8/,
+    /\{hasInlineGuide && <div className="mb-7 lg:mb-8">\{leadingRail\}<\/div>\}/,
   );
+  assert.match(layoutSource, /lg:grid-cols-\[300px_minmax\(0,1fr\)\] lg:gap-6/);
+  assert.match(layoutSource, /xl:grid-cols-\[320px_minmax\(0,1fr\)\] xl:gap-8/);
   assert.match(layoutSource, /<div className=\{cn\("min-w-0"/);
-  assert.match(layoutSource, /lg:sticky lg:top-8/);
+  assert.match(layoutSource, /hasLeadingRail && !isWideWorkspace/);
   assert.doesNotMatch(layoutSource, /grid-cols-\[[^\]]+_[^\]]+_340px\]/);
 });
 
-test("one shared guide owns mobile, tablet and desktop behavior", () => {
-  assert.match(guideSource, /<details className="[^"]*md:hidden/);
+test("one collapsed native guide owns mobile, tablet and desktop behavior", () => {
+  assert.equal((guideSource.match(/<details/g) ?? []).length, 1);
   assert.match(guideSource, /<summary className="[^"]*min-h-11/);
-  assert.match(guideSource, /Before you start/);
-  assert.match(guideSource, /md:block lg:hidden/);
-  assert.match(guideSource, /hidden border-l[^"]*lg:block/);
-  assert.match(guideSource, /<GuideSteps steps=\{steps\} layout="horizontal" \/>/);
-  assert.equal(
-    (guideSource.match(/<GuideSteps steps=\{steps\} layout="vertical" \/>/g) ?? [])
-      .length,
-    2,
-  );
+  assert.match(guideSource, />\s*Order guide\s*</);
+  assert.match(guideSource, /md:grid-cols-3/);
+  assert.match(guideSource, /grid-cols-\[2rem_minmax\(0,1fr\)\][^"]*md:block/);
+  assert.doesNotMatch(guideSource, /<aside|md:hidden|lg:hidden|\sopen(?:=|>)/);
   assert.doesNotMatch(guideSource, /useState|matchMedia|resize/);
+});
+
+test("shared image workspace uses a fluid 40/60 desktop split only for previews", () => {
+  assert.match(imageWorkspaceSource, /hasPreview: boolean/);
+  assert.match(
+    imageWorkspaceSource,
+    /hasPreview &&[\s\S]*lg:grid-cols-\[minmax\(0,2fr\)_minmax\(0,3fr\)\]/,
+  );
+  assert.match(imageWorkspaceSource, /lg:sticky lg:top-20/);
+  assert.doesNotMatch(imageWorkspaceSource, /w-\[\d+px\]|width:\s*\d/);
+});
+
+test("workspace uploads render one contained local or persisted preview with compact actions", () => {
+  const workspacePreview = fileUploadSource.slice(
+    fileUploadSource.indexOf("function WorkspaceImagePreview"),
+    fileUploadSource.indexOf("function PersistedFilePreview"),
+  );
+  assert.match(fileUploadSource, /URL\.createObjectURL\(file\)/);
+  assert.match(
+    fileUploadSource,
+    /previewUrl \?\? \(!file \? persistedImagePreviewUrl/,
+  );
+  assert.match(fileUploadSource, /isPreviewableImageFilename\(persistedFile\.filename\)/);
+  assert.match(workspacePreview, /data-order-image-preview/);
+  assert.match(workspacePreview, /aspect-\[4\/3\]/);
+  assert.match(workspacePreview, /object-contain object-center/);
+  assert.match(workspacePreview, /loading="lazy"/);
+  assert.doesNotMatch(workspacePreview, /object-cover/);
+  assert.match(
+    fileUploadSource,
+    /className="min-h-11[^"]*"[\s\S]*?\{replaceLabel\}/,
+  );
+  assert.match(fileUploadSource, /flex flex-wrap items-center justify-end gap-2/);
+  assert.match(fileUploadSource, />\s*Remove\s*<\/button>/);
+  assert.doesNotMatch(fileUploadSource, /col-span-2/);
+});
+
+test("image cards use one prominent count heading without filename chrome", () => {
+  assert.match(imageCardHeaderSource, /Image \{index \+ 1\} of \{totalItems\}/);
+  assert.match(imageCardHeaderSource, /text-xl[^\"]*font-extrabold[^\"]*uppercase/);
+  assert.doesNotMatch(imageCardHeaderSource, /filename|Waiting for file|rounded-lg/);
+});
+
+test("every active image-input card uses the shared workspace without service-name branching", () => {
+  const cards = [
+    "src/components/order/virtual-staging/StagingItemCard.tsx",
+    "src/components/order/virtual-renovation/RenovationItemCard.tsx",
+    "src/components/order/photo-editing/PhotoEditItemCard.tsx",
+    "src/components/order/image-enhancement/SingleExposureItemCard.tsx",
+    "src/components/order/day-to-dusk/DayToDuskItemCard.tsx",
+    "src/components/order/item-removal/ItemRemovalItemCard.tsx",
+    "src/components/order/floor-plans/FloorPlanItemCard.tsx",
+  ];
+
+  for (const path of cards) {
+    const card = source(path);
+    assert.equal((card.match(/<OrderImageWorkspace/g) ?? []).length, 1, path);
+    assert.match(card, /hasFileUploadPreview\(/, path);
+    assert.equal(
+      (card.match(/presentationVariant="workspace"/g) ?? []).length,
+      1,
+      path,
+    );
+    assert.match(card, /totalItems: number/, path);
+    assert.match(card, /totalItems=\{totalItems\}/, path);
+  }
+
+  assert.doesNotMatch(
+    imageWorkspaceSource + fileUploadSource,
+    /Virtual Staging|Virtual Renovation|Photo Editing|Day to Dusk|Item Removal/,
+  );
 });
 
 test("all scoped configure stages use the shared guide and no summary column", () => {
   for (const flow of flows) {
     const form = source(flow.path);
-    const guideOwner = source(
-      "guidePath" in flow ? flow.guidePath : flow.path,
-    );
+    const guideOwner = source("guidePath" in flow ? flow.guidePath : flow.path);
+    assert.match(form, /totalItems=\{items\.length\}/, flow.name);
     assert.equal(
       (guideOwner.match(/<OrderGuideRail/g) ?? []).length,
       1,
@@ -99,8 +173,16 @@ test("all scoped configure stages use the shared guide and no summary column", (
       flow.name,
     );
     assert.equal((form.match(/<OrderSummary/g) ?? []).length, 1, flow.name);
-    assert.equal((form.match(/<OrderReviewAction/g) ?? []).length, 1, flow.name);
-    assert.doesNotMatch(form, /compactLeadingRail|variant="compact"/, flow.name);
+    assert.equal(
+      (form.match(/<OrderReviewAction/g) ?? []).length,
+      1,
+      flow.name,
+    );
+    assert.doesNotMatch(
+      form,
+      /compactLeadingRail|variant="compact"/,
+      flow.name,
+    );
   }
 });
 
@@ -128,7 +210,10 @@ test("configure Review Order actions preserve their existing handlers and gates"
   const itemRemoval = source(flows[4].path);
   const photoEditing = source(flows[5].path);
 
-  assert.match(staging, /<OrderReviewAction onClick=\{goToReview\} disabled=\{!canReview\}>/);
+  assert.match(
+    staging,
+    /<OrderReviewAction onClick=\{goToReview\} disabled=\{!canReview\}>/,
+  );
   assert.match(
     renovation,
     /<OrderReviewAction[\s\S]*?onClick=\{\(\) => void goToReview\(\)\}[\s\S]*?disabled=\{!canReview\}/,
@@ -149,7 +234,10 @@ test("configure Review Order actions preserve their existing handlers and gates"
     ),
     /if \(!configureValid\)/,
   );
-  assert.match(photoEditing, /<OrderReviewAction onClick=\{goToReview\} disabled=\{!canReview\}>/);
+  assert.match(
+    photoEditing,
+    /<OrderReviewAction onClick=\{goToReview\} disabled=\{!canReview\}>/,
+  );
 });
 
 test("all configure pages opt into the existing wide dashboard workspace", () => {
@@ -175,17 +263,20 @@ test("all configure pages opt into the existing wide dashboard workspace", () =>
 test("Virtual Renovation preserves its requirements through the shared guide", () => {
   const requirementsPath =
     "src/components/order/virtual-renovation/VirtualRenovationRequirements.tsx";
-  assert.equal(
-    existsSync(requirementsPath),
-    true,
-  );
+  assert.equal(existsSync(requirementsPath), true);
   const requirements = source(requirementsPath);
   assert.match(requirements, /from "@\/components\/order\/OrderGuideRail"/);
   assert.equal((requirements.match(/<OrderGuideRail/g) ?? []).length, 1);
   assert.match(requirements, /high-resolution original image/);
-  assert.match(requirements, /build changes, fixture\s+changes, furniture, materials, textures and colour direction/);
+  assert.match(
+    requirements,
+    /build changes, fixture\s+changes, furniture, materials, textures and colour direction/,
+  );
   assert.match(requirements, /Reference images, links or mark-up sketches/);
-  assert.match(requirements, /Complex reconstruction or unclear source material/);
+  assert.match(
+    requirements,
+    /Complex reconstruction or unclear source material/,
+  );
   assert.match(requirements, /JPG, JPEG or PNG/);
   assert.match(requirements, /JPG, JPEG, PNG, WebP or PDF/);
   assert.doesNotMatch(
@@ -244,7 +335,10 @@ test("paired Job Detail presentation leaves generic, multi-result, and incomplet
     deliverableCount: 0,
   };
 
-  assert.equal(isOneToOneImageEditingPresentation({ ...base, details: {} }), false);
+  assert.equal(
+    isOneToOneImageEditingPresentation({ ...base, details: {} }),
+    false,
+  );
   assert.equal(
     isOneToOneImageEditingPresentation({ ...base, deliverableCount: 2 }),
     false,
@@ -275,7 +369,10 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(detail, /<DeliveryCard/);
   assert.match(detail, /function PaymentDetailsUnavailableCard\(\)/);
   assert.match(detail, /Payment details unavailable/);
-  assert.match(detail, /paymentSummary === null \|\| paymentSummary\?\.state === "not_available"[\s\S]*?<PaymentDetailsUnavailableCard \/>/);
+  assert.match(
+    detail,
+    /paymentSummary === null \|\| paymentSummary\?\.state === "not_available"[\s\S]*?<PaymentDetailsUnavailableCard \/>/,
+  );
   assert.match(
     detail,
     /const hasPaymentAction =[\s\S]*?paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"/,
@@ -288,20 +385,35 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
     detail.indexOf("return (", deliveryStateStart),
   );
   assert.match(deliveryStateSource, /paymentSummary\?\.state === "paid"/);
-  assert.match(deliveryStateSource, /paymentSummary\?\.state === "no_payment_required"/);
-  assert.match(deliveryStateSource, /paymentSummary\?\.state === "partially_refunded"/);
+  assert.match(
+    deliveryStateSource,
+    /paymentSummary\?\.state === "no_payment_required"/,
+  );
+  assert.match(
+    deliveryStateSource,
+    /paymentSummary\?\.state === "partially_refunded"/,
+  );
   assert.match(deliveryStateSource, /paymentSummary\?\.state === "refunded"/);
   assert.doesNotMatch(deliveryStateSource, /not_available/);
   assert.doesNotMatch(detail, /label="Completed" value="—"/);
   assert.doesNotMatch(detail, /label="Job name"/);
   assert.doesNotMatch(detail, /label="Reference"/);
   assert.doesNotMatch(detail, /label="Service"/);
-  assert.match(detail, /paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"[\s\S]*?\? null/);
+  assert.match(
+    detail,
+    /paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"[\s\S]*?\? null/,
+  );
   assert.match(detail, /aria-label=\{`Order progress: \$\{value\}%`\}/);
-  assert.doesNotMatch(detail, /OrderDetailContext|data-order-context|deriveEstimatedCompletion|calculateOrderQuote|getPartnerClient/);
+  assert.doesNotMatch(
+    detail,
+    /OrderDetailContext|data-order-context|deriveEstimatedCompletion|calculateOrderQuote|getPartnerClient/,
+  );
   assert.match(detail, /pricing && pricing\.partnerDiscountCents > 0 &&/);
   assert.match(detail, /parsePricingSnapshot\(order\.pricing_snapshot\)/);
-  assert.match(detail, /storedPricing\.totalCents === order\.estimated_total_cents/);
+  assert.match(
+    detail,
+    /storedPricing\.totalCents === order\.estimated_total_cents/,
+  );
   assert.match(detail, /pricing\.partnerDiscountCents/);
   assert.equal((detail.match(/<OrderPaymentPanel/g) ?? []).length, 1);
   assert.doesNotMatch(detail, /secondaryHref="\/dashboard\/jobs"/);
@@ -325,7 +437,10 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.doesNotMatch(workflowHeader, /BulkDownloadButton/);
   assert.match(detail, /<ClientOrderImageCard/);
   assert.match(detail, /<DeliverableReviewActions/);
-  assert.match(detail, /const canShowCompletedRework = canShowCompletedReworkAction\(/);
+  assert.match(
+    detail,
+    /const canShowCompletedRework = canShowCompletedReworkAction\(/,
+  );
   assert.match(detail, /actions=\{[\s\S]*?canShowCompletedRework \?/);
   assert.match(detail, /presentation="compact"/);
   assert.match(detail, /getDashboardRequestUser\(\)/);
@@ -342,7 +457,10 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(imageCard, /<WorkflowPanel title="Original">/);
   assert.match(imageCard, /<WorkflowPanel title="Delivered">/);
   assert.match(imageCard, /isOneToOneImageEditingPresentation/);
-  assert.match(imageCard, /grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-3/);
+  assert.match(
+    imageCard,
+    /grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-3/,
+  );
   assert.match(imageCard, /md:col-span-2 lg:col-span-1/);
   assert.match(imageCard, /Preferences \/ options/);
   assert.match(imageCard, /hasClientVisibleOrderItemDetails/);
@@ -372,7 +490,10 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
 
   const previewCard = source("src/components/FilePreviewCard.tsx");
   assert.match(previewCard, /presentation\?: "default" \| "feature"/);
-  assert.match(previewCard, /fit=\{presentation === "feature" \? "contain" : "cover"\}/);
+  assert.match(
+    previewCard,
+    /fit=\{presentation === "feature" \? "contain" : "cover"\}/,
+  );
   assert.match(previewCard, /object-contain/);
   assert.match(previewCard, /aspect-\[4\/3\]/);
   assert.doesNotMatch(previewCard, /mediaAspectRatio|onImageAspectRatio/);
@@ -383,7 +504,10 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(paymentPanel, /getStripeCheckoutRedirectUrl\(body\?\.url\)/);
   assert.match(paymentPanel, /presentation\?: "default" \| "order-detail"/);
   assert.match(paymentPanel, /Payment required/);
-  assert.match(paymentPanel, /\$\{summary\.itemCount\} \$\{summary\.itemCount === 1 \? "image" : "images"\}/);
+  assert.match(
+    paymentPanel,
+    /\$\{summary\.itemCount\} \$\{summary\.itemCount === 1 \? "image" : "images"\}/,
+  );
 
   const reviewActions = source(
     "src/components/dashboard/DeliverableReviewActions.tsx",

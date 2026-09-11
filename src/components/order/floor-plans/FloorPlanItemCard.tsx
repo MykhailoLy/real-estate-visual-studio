@@ -1,7 +1,9 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import FileUpload from "@/components/order/FileUpload";
+import FileUpload, {
+  hasFileUploadPreview,
+} from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ItemDeliveryFields, {
   emptyItemDeliveryFields,
@@ -30,6 +32,7 @@ import {
 } from "@/lib/order-drafts/floor-plans";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
 import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
+import OrderImageWorkspace from "@/components/order/OrderImageWorkspace";
 
 export interface FloorPlanItemData {
   clientItemId: string;
@@ -88,6 +91,7 @@ export function floorPlanItemDomId(clientItemId: string): string {
 
 interface FloorPlanItemCardProps {
   index: number;
+  totalItems: number;
   data: FloorPlanItemData;
   onChange: (data: FloorPlanItemData) => void;
   onRemove: () => void;
@@ -109,6 +113,7 @@ interface FloorPlanItemCardProps {
 
 export default function FloorPlanItemCard({
   index,
+  totalItems,
   data,
   onChange,
   onRemove,
@@ -134,8 +139,17 @@ export default function FloorPlanItemCard({
   const subtotal = calculateFloorPlanItemTotal(
     data.planType,
     data.numberOfFloors,
-    currency
+    currency,
   );
+  const persistedOriginalDisplay = persistedOriginal
+    ? {
+        id: persistedOriginal.id,
+        filename: persistedOriginal.originalFilename,
+        fileSize: persistedOriginal.fileSize,
+        previewUrl: persistedOriginal.previewUrl ?? null,
+        previewExpiresAt: persistedOriginal.previewExpiresAt ?? null,
+      }
+    : null;
 
   const updateFlooring = (room: string, value: string) => {
     onChange({
@@ -151,360 +165,360 @@ export default function FloorPlanItemCard({
     >
       <OrderImageCardHeader
         index={index}
-        itemLabel="Floor Plan"
-        filename={data.file?.name ?? persistedOriginal?.originalFilename ?? data.originalFilename}
+        totalItems={totalItems}
         action={
           canRemove ? (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            aria-label={`Remove item ${index + 1}`}
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              aria-label={`Remove item ${index + 1}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           ) : null
         }
       />
 
-      <div className="space-y-5">
-        {/* File Upload */}
-        <FileUpload
-          viewerVariant="plan"
-          label="Upload Files"
-          file={data.file}
-          onFileChange={onOriginalFileChange}
-          accept={FLOOR_PLAN_FILE_ACCEPT}
-          required
-          helperText="Upload your floor plan, sketch, measurements, reference photos, or existing plan. The clearer the files, the more accurate the result."
-          persistedFile={
-            persistedOriginal
-              ? {
-                  id: persistedOriginal.id,
-                  filename: persistedOriginal.originalFilename,
-                  fileSize: persistedOriginal.fileSize,
-                  previewUrl: persistedOriginal.previewUrl ?? null,
-                  previewExpiresAt: persistedOriginal.previewExpiresAt ?? null,
-                }
-              : null
-          }
-          operationStatusText={originalOperationStatus}
-          operationErrorText={originalOperationError}
-          onRetry={onRetryOriginal}
-          onRemovePersisted={onRemovePersistedOriginal}
-          disabled={fileOperationDisabled}
-          retryDisabled={fileOperationDisabled}
-          removeDisabled={fileOperationDisabled}
-        />
-
-        {/* Plan Type & Floors */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Plan Type <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={data.planType}
-              onChange={(e) => onChange({ ...data, planType: e.target.value })}
-              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="">Select plan type...</option>
-              {FLOOR_PLAN_TYPES.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.label} (
-                  {formatCents(getCatalogPrice(type.priceKey, currency))} / floor)
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Number of Floors <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              min={FLOOR_PLAN_MIN_FLOORS}
-              max={FLOOR_PLAN_MAX_FLOORS}
-              step={1}
-              value={data.numberOfFloors}
-              onChange={(event) => {
-                const numberOfFloors = parseFloorPlanFloorCountInput(
-                  event.target.value,
-                );
-                if (numberOfFloors === null) return;
-                onChange({ ...data, numberOfFloors });
-              }}
-              className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-        </div>
-
-        {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
-        <ItemDeliveryFields
-          idPrefix={`floor-plan-item-${index}`}
-          data={{
-            fileSizeLimit: data.fileSizeLimit,
-            disclaimerText: data.disclaimerText,
-          }}
-          onChange={(prefs) => onChange({ ...data, ...prefs })}
-        />
-
-        {/* 3D Options (conditional) */}
-        {show3dOptions && (
+      <OrderImageWorkspace
+        hasPreview={hasFileUploadPreview(data.file, persistedOriginalDisplay)}
+        media={
+          <FileUpload
+            viewerVariant="plan"
+            label="Upload Files"
+            file={data.file}
+            onFileChange={onOriginalFileChange}
+            accept={FLOOR_PLAN_FILE_ACCEPT}
+            required
+            helperText="Upload your floor plan, sketch, measurements, reference photos, or existing plan. The clearer the files, the more accurate the result."
+            persistedFile={persistedOriginalDisplay}
+            operationStatusText={originalOperationStatus}
+            operationErrorText={originalOperationError}
+            onRetry={onRetryOriginal}
+            onRemovePersisted={onRemovePersistedOriginal}
+            disabled={fileOperationDisabled}
+            retryDisabled={fileOperationDisabled}
+            removeDisabled={fileOperationDisabled}
+            presentationVariant="workspace"
+          />
+        }
+      >
+        <div className="space-y-5">
+          {/* Plan Type & Floors */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                3D Floor Plan Style
+                Plan Type <span className="text-red-500">*</span>
               </label>
               <select
-                value={data.style3d}
-                onChange={(e) => onChange({ ...data, style3d: e.target.value })}
+                value={data.planType}
+                onChange={(e) =>
+                  onChange({ ...data, planType: e.target.value })
+                }
                 className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="">Select style...</option>
-                {FLOOR_PLAN_3D_STYLES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                <option value="">Select plan type...</option>
+                {FLOOR_PLAN_TYPES.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.label} (
+                    {formatCents(getCatalogPrice(type.priceKey, currency))} /
+                    floor)
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                3D Plan View
+                Number of Floors <span className="text-red-500">*</span>
               </label>
-              <select
-                value={data.planView3d}
-                onChange={(e) =>
-                  onChange({ ...data, planView3d: e.target.value })
-                }
-                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">Select view...</option>
-                {FLOOR_PLAN_3D_VIEWS.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="number"
+                min={FLOOR_PLAN_MIN_FLOORS}
+                max={FLOOR_PLAN_MAX_FLOORS}
+                step={1}
+                value={data.numberOfFloors}
+                onChange={(event) => {
+                  const numberOfFloors = parseFloorPlanFloorCountInput(
+                    event.target.value,
+                  );
+                  if (numberOfFloors === null) return;
+                  onChange({ ...data, numberOfFloors });
+                }}
+                className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
             </div>
           </div>
-        )}
 
-        {/* Page & Plan Orientation */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Page Orientation <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={data.pageOrientation}
-              onChange={(e) =>
-                onChange({ ...data, pageOrientation: e.target.value })
-              }
-              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="">Select...</option>
-              {FLOOR_PLAN_ORIENTATIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Plan Orientation <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={data.planOrientation}
-              onChange={(e) =>
-                onChange({ ...data, planOrientation: e.target.value })
-              }
-              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="">Select...</option>
-              {FLOOR_PLAN_ORIENTATIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+          {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
+          <ItemDeliveryFields
+            idPrefix={`floor-plan-item-${index}`}
+            data={{
+              fileSizeLimit: data.fileSizeLimit,
+              disclaimerText: data.disclaimerText,
+            }}
+            onChange={(prefs) => onChange({ ...data, ...prefs })}
+          />
 
-        {/* Flooring Preferences */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Flooring / Finish Preferences by Room
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {FLOOR_PLAN_ROOMS.map((room) => (
-              <div key={room}>
-                <label className="mb-1 block text-dashboard-action font-medium text-muted">
-                  {room}
+          {/* 3D Options (conditional) */}
+          {show3dOptions && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  3D Floor Plan Style
                 </label>
                 <select
-                  value={data.flooringByRoom[room] || ""}
-                  onChange={(e) => updateFlooring(room, e.target.value)}
-                  className="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  value={data.style3d}
+                  onChange={(e) =>
+                    onChange({ ...data, style3d: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  <option value="">Not specified</option>
-                  {FLOOR_PLAN_FLOORING_OPTIONS.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
+                  <option value="">Select style...</option>
+                  {FLOOR_PLAN_3D_STYLES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
                     </option>
                   ))}
                 </select>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Address / Title Display */}
-        <div className="space-y-3">
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={data.showAddress}
-              onChange={(e) =>
-                onChange({ ...data, showAddress: e.target.checked })
-              }
-              className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
-            />
-            <span className="text-sm text-foreground">
-              Display property address on plan
-            </span>
-          </label>
-          {data.showAddress && (
-            <input
-              type="text"
-              value={data.streetAddress}
-              onChange={(e) =>
-                onChange({ ...data, streetAddress: e.target.value })
-              }
-              placeholder="Street / Building Address"
-              className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  3D Plan View
+                </label>
+                <select
+                  value={data.planView3d}
+                  onChange={(e) =>
+                    onChange({ ...data, planView3d: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Select view...</option>
+                  {FLOOR_PLAN_3D_VIEWS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           )}
 
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={data.showTitle}
-              onChange={(e) =>
-                onChange({ ...data, showTitle: e.target.checked })
-              }
-              className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
-            />
-            <span className="text-sm text-foreground">
-              Display project/property title
-            </span>
-          </label>
-          {data.showTitle && (
-            <input
-              type="text"
-              value={data.projectTitle}
-              onChange={(e) =>
-                onChange({ ...data, projectTitle: e.target.value })
-              }
-              placeholder="Project Title / Property Name"
-              className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          )}
-        </div>
-
-        {/* Disclaimer */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Accuracy / Measurement Disclaimer
-          </label>
-          <select
-            value={data.disclaimerOption}
-            onChange={(e) =>
-              onChange({ ...data, disclaimerOption: e.target.value })
-            }
-            className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            {FLOOR_PLAN_DISCLAIMER_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          {data.disclaimerOption === "Custom disclaimer text" && (
-            <textarea
-              value={data.customDisclaimer}
-              onChange={(e) =>
-                onChange({ ...data, customDisclaimer: e.target.value })
-              }
-              placeholder="Enter your custom disclaimer text..."
-              rows={2}
-              className="mt-2 w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          )}
-        </div>
-
-        {/* Reference */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Reference Link
-          </label>
-          <input
-            type="url"
-            value={data.referenceLink}
-            onChange={(e) =>
-              onChange({ ...data, referenceLink: e.target.value })
-            }
-            placeholder="https://example.com/sample-plan"
-            className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-
-        <FileUpload
-          viewerVariant="plan"
-          label="Reference Image / Sample (optional)"
-          file={data.referenceFile}
-          onFileChange={onReferenceFileChange}
-          persistedFile={
-            persistedReference
-              ? {
-                  id: persistedReference.id,
-                  filename: persistedReference.originalFilename,
-                  fileSize: persistedReference.fileSize,
-                  previewUrl: persistedReference.previewUrl ?? null,
-                  previewExpiresAt: persistedReference.previewExpiresAt ?? null,
+          {/* Page & Plan Orientation */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Page Orientation <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={data.pageOrientation}
+                onChange={(e) =>
+                  onChange({ ...data, pageOrientation: e.target.value })
                 }
-              : null
-          }
-          operationStatusText={referenceOperationStatus}
-          operationErrorText={referenceOperationError}
-          onRetry={onRetryReference}
-          onRemovePersisted={onRemovePersistedReference}
-          disabled={fileOperationDisabled}
-          retryDisabled={fileOperationDisabled}
-          removeDisabled={fileOperationDisabled}
-        />
+                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">Select...</option>
+                {FLOOR_PLAN_ORIENTATIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Plan Orientation <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={data.planOrientation}
+                onChange={(e) =>
+                  onChange({ ...data, planOrientation: e.target.value })
+                }
+                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">Select...</option>
+                {FLOOR_PLAN_ORIENTATIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-        {/* Additional Info */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Additional Information
-          </label>
-          <textarea
-            value={data.additionalInfo}
-            onChange={(e) =>
-              onChange({ ...data, additionalInfo: e.target.value })
+          {/* Flooring Preferences */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Flooring / Finish Preferences by Room
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {FLOOR_PLAN_ROOMS.map((room) => (
+                <div key={room}>
+                  <label className="mb-1 block text-dashboard-action font-medium text-muted">
+                    {room}
+                  </label>
+                  <select
+                    value={data.flooringByRoom[room] || ""}
+                    onChange={(e) => updateFlooring(room, e.target.value)}
+                    className="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Not specified</option>
+                    {FLOOR_PLAN_FLOORING_OPTIONS.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Address / Title Display */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.showAddress}
+                onChange={(e) =>
+                  onChange({ ...data, showAddress: e.target.checked })
+                }
+                className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+              />
+              <span className="text-sm text-foreground">
+                Display property address on plan
+              </span>
+            </label>
+            {data.showAddress && (
+              <input
+                type="text"
+                value={data.streetAddress}
+                onChange={(e) =>
+                  onChange({ ...data, streetAddress: e.target.value })
+                }
+                placeholder="Street / Building Address"
+                className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            )}
+
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.showTitle}
+                onChange={(e) =>
+                  onChange({ ...data, showTitle: e.target.checked })
+                }
+                className="w-4 h-4 rounded text-primary border-border focus:ring-primary"
+              />
+              <span className="text-sm text-foreground">
+                Display project/property title
+              </span>
+            </label>
+            {data.showTitle && (
+              <input
+                type="text"
+                value={data.projectTitle}
+                onChange={(e) =>
+                  onChange({ ...data, projectTitle: e.target.value })
+                }
+                placeholder="Project Title / Property Name"
+                className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            )}
+          </div>
+
+          {/* Disclaimer */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Accuracy / Measurement Disclaimer
+            </label>
+            <select
+              value={data.disclaimerOption}
+              onChange={(e) =>
+                onChange({ ...data, disclaimerOption: e.target.value })
+              }
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              {FLOOR_PLAN_DISCLAIMER_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+            {data.disclaimerOption === "Custom disclaimer text" && (
+              <textarea
+                value={data.customDisclaimer}
+                onChange={(e) =>
+                  onChange({ ...data, customDisclaimer: e.target.value })
+                }
+                placeholder="Enter your custom disclaimer text..."
+                rows={2}
+                className="mt-2 w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            )}
+          </div>
+
+          {/* Reference */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Reference Link
+            </label>
+            <input
+              type="url"
+              value={data.referenceLink}
+              onChange={(e) =>
+                onChange({ ...data, referenceLink: e.target.value })
+              }
+              placeholder="https://example.com/sample-plan"
+              className="w-full rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <FileUpload
+            viewerVariant="plan"
+            label="Reference Image / Sample (optional)"
+            file={data.referenceFile}
+            onFileChange={onReferenceFileChange}
+            persistedFile={
+              persistedReference
+                ? {
+                    id: persistedReference.id,
+                    filename: persistedReference.originalFilename,
+                    fileSize: persistedReference.fileSize,
+                    previewUrl: persistedReference.previewUrl ?? null,
+                    previewExpiresAt:
+                      persistedReference.previewExpiresAt ?? null,
+                  }
+                : null
             }
-            placeholder="Any specific requirements, measurements, or notes..."
-            rows={3}
-            className="w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            operationStatusText={referenceOperationStatus}
+            operationErrorText={referenceOperationError}
+            onRetry={onRetryReference}
+            onRemovePersisted={onRemovePersistedReference}
+            disabled={fileOperationDisabled}
+            retryDisabled={fileOperationDisabled}
+            removeDisabled={fileOperationDisabled}
           />
-        </div>
 
-        {/* Subtotal */}
-        <ItemSubtotal totalCents={subtotal} />
-      </div>
+          {/* Additional Info */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Additional Information
+            </label>
+            <textarea
+              value={data.additionalInfo}
+              onChange={(e) =>
+                onChange({ ...data, additionalInfo: e.target.value })
+              }
+              placeholder="Any specific requirements, measurements, or notes..."
+              rows={3}
+              className="w-full resize-none rounded-lg border border-border px-3 py-2.5 text-dashboard-mobile-control md:text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          {/* Subtotal */}
+          <ItemSubtotal totalCents={subtotal} />
+        </div>
+      </OrderImageWorkspace>
     </div>
   );
 }
