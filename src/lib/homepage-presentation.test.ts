@@ -50,9 +50,34 @@ test("homepage keeps the SEO introduction, compact benefits, and conversion sect
   assert.match(benefitsSource, /Gift/);
   assert.match(benefitsSource, /strokeWidth=\{1\.75\}/);
   assert.match(benefitsSource, /text-secondary/);
-  assert.match(benefitsSource, /lg:mx-auto/);
-  assert.match(benefitsSource, /lg:text-center/);
+  assert.match(
+    benefitsSource,
+    /border-y border-border bg-white py-4 sm:py-5 lg:py-6/,
+  );
+  assert.doesNotMatch(benefitsSource, /bg-ivory/);
+  assert.match(
+    benefitsSource,
+    /grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-0/,
+  );
+  assert.match(
+    benefitsSource,
+    /flex min-w-0 items-start gap-3 px-1 py-2\.5 sm:block/,
+  );
+  assert.match(benefitsSource, /sm:mx-auto/);
+  assert.match(
+    benefitsSource,
+    /h-9 w-9 shrink-0 sm:mx-auto sm:h-12 sm:w-12 lg:h-14 lg:w-14/,
+  );
+  assert.match(benefitsSource, /sm:text-center/);
   assert.match(benefitsSource, /lg:grid-cols-6/);
+  assert.match(
+    benefitsSource,
+    /lg:border-l lg:border-border lg:px-3 lg:py-2 lg:first:border-l-0/,
+  );
+  assert.doesNotMatch(
+    benefitsSource,
+    /overflow-hidden rounded-xl border border-border bg-border/,
+  );
 });
 
 test("service sub-navigation stays available from lg with compact overflow measurement", () => {
