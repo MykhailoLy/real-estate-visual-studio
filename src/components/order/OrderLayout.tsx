@@ -56,7 +56,7 @@ export default function OrderLayout({
     // scroll cleanly; the shell background fills any short-content gap.
     <section
       className={cn(
-        "bg-surface",
+        isWideWorkspace ? "bg-dashboard-canvas" : "bg-surface",
         editorial ? "py-8 sm:py-10 lg:py-12" : "py-10 lg:py-16",
       )}
     >

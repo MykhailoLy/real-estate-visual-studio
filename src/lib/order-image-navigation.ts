@@ -25,13 +25,44 @@ export function shouldShowOrderImageNavigator(itemCount: number): boolean {
   return itemCount > 1;
 }
 
+interface OrderImagePosition {
+  id: string | null;
+  top: number;
+}
+
+interface ActiveOrderImageSelectionOptions {
+  workingLine?: number;
+  isAtScrollEnd?: boolean;
+}
+
 export function selectActiveOrderImageId(
-  entries: readonly { id: string | null; isIntersecting: boolean; top: number }[],
+  positions: readonly OrderImagePosition[],
+  {
+    workingLine = 0,
+    isAtScrollEnd = false,
+  }: ActiveOrderImageSelectionOptions = {},
 ): string | null {
-  return (
-    entries
-      .filter((entry) => entry.isIntersecting && entry.id !== null)
-      .sort((left, right) => Math.abs(left.top) - Math.abs(right.top))[0]?.id ??
-    null
+  const candidates = positions.filter(
+    (position): position is OrderImagePosition & { id: string } =>
+      position.id !== null,
   );
+
+  if (candidates.length === 0) return null;
+  if (isAtScrollEnd) return candidates.at(-1)?.id ?? null;
+
+  return candidates.reduce((selected, candidate) => {
+    const selectedDistance = Math.abs(selected.top - workingLine);
+    const candidateDistance = Math.abs(candidate.top - workingLine);
+
+    if (candidateDistance < selectedDistance) return candidate;
+    if (
+      candidateDistance === selectedDistance &&
+      candidate.top >= workingLine &&
+      selected.top < workingLine
+    ) {
+      return candidate;
+    }
+
+    return selected;
+  }).id;
 }
