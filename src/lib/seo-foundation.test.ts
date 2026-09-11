@@ -2,10 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
-import {
-  getDocumentLanguage,
-  parseDocumentLanguage,
-} from "./document-language.ts";
 
 function readSource(path: string): string {
   return readFileSync(path, "utf8");
@@ -18,30 +14,14 @@ function sourceFilesUnder(directory: string): string[] {
   });
 }
 
-test("document language follows the route locale and fails closed to English", () => {
-  assert.equal(getDocumentLanguage("/"), "en");
-  assert.equal(getDocumentLanguage("/pricing/photo-editing"), "en");
-  assert.equal(getDocumentLanguage("/es"), "es");
-  assert.equal(getDocumentLanguage("/es/pricing/photo-editing?region=EU"), "es");
-  assert.equal(getDocumentLanguage("/espanol"), "en");
-  assert.equal(parseDocumentLanguage("es"), "es");
-  assert.equal(parseDocumentLanguage("en"), "en");
-  assert.equal(parseDocumentLanguage("spoofed"), "en");
-  assert.equal(parseDocumentLanguage(null), "en");
-});
-
-test("root layout receives a server-derived language and syncs client navigation", () => {
+test("root layout stays static-safe and proxy remains dashboard-only", () => {
   const layout = readSource("src/app/layout.tsx");
   const proxy = readSource("src/proxy.ts");
-  const sync = readSource("src/components/layout/DocumentLanguageSync.tsx");
 
-  assert.match(layout, /requestHeaders\.get\(DOCUMENT_LANGUAGE_HEADER\)/);
-  assert.match(layout, /<html lang=\{language\}>/);
-  assert.match(layout, /<DocumentLanguageSync \/>/);
-  assert.match(proxy, /getDocumentLanguage\(pathname\)/);
-  assert.match(proxy, /requestHeaders\.set\(DOCUMENT_LANGUAGE_HEADER, documentLanguage\)/);
-  assert.match(sync, /usePathname\(\)/);
-  assert.match(sync, /document\.documentElement\.lang = getDocumentLanguage\(pathname\)/);
+  assert.match(layout, /<html lang="en">/);
+  assert.doesNotMatch(layout, /next\/headers|headers\(\)|DocumentLanguage/);
+  assert.match(proxy, /matcher: \["\/dashboard\/:path\*"\]/);
+  assert.doesNotMatch(proxy, /DOCUMENT_LANGUAGE|document-language/);
 });
 
 test("photo editing and item removal have separate canonical bilingual landing pages", () => {

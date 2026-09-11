@@ -1,15 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 import { Geist } from "next/font/google";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import CookieConsentBanner from "@/components/privacy/CookieConsentBanner";
 import { SupportChatProvider } from "@/components/support/SupportChatProvider";
-import DocumentLanguageSync from "@/components/layout/DocumentLanguageSync";
 import { SITE_NAME, SITE_URL, SOCIAL_IMAGE } from "@/lib/seo";
-import {
-  DOCUMENT_LANGUAGE_HEADER,
-  parseDocumentLanguage,
-} from "@/lib/document-language";
 import "./globals.css";
 
 // NOTE: Header and Footer are rendered by the (public) route-group layout.
@@ -69,22 +63,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const requestHeaders = await headers();
-  const language = parseDocumentLanguage(
-    requestHeaders.get(DOCUMENT_LANGUAGE_HEADER),
-  );
-
   return (
-    <html lang={language}>
+    <html lang="en">
       <body
         className={`${geistSans.variable} antialiased flex flex-col min-h-screen w-full overflow-x-clip`}
       >
-        <DocumentLanguageSync />
         <SupportChatProvider>{children}</SupportChatProvider>
         <GoogleAnalytics />
         <CookieConsentBanner />

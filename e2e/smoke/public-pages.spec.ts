@@ -1148,14 +1148,13 @@ for (const locale of ["en", "es"] as const) {
   }
 }
 
-test("photo editing landing pages publish the correct service, language and alternates", async ({
+test("photo editing landing pages publish the correct service, metadata and alternates", async ({
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
 
   let response = await page.goto("/pricing/photo-editing");
   expectNavigationResponseOk(response, "/pricing/photo-editing");
-  await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(
     page.getByRole("heading", {
       name: "Professional Real Estate Photo Editing",
@@ -1197,7 +1196,6 @@ test("photo editing landing pages publish the correct service, language and alte
 
   response = await page.goto("/es/pricing/photo-editing");
   expectNavigationResponseOk(response, "/es/pricing/photo-editing");
-  await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await expect(
     page.getByRole("heading", {
       name: "Edición profesional de fotos inmobiliarias",
