@@ -91,7 +91,7 @@ export default function BenefitsRow({
       <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8 xl:px-10">
         <div
           data-testid="benefits-grid"
-          className="grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-4"
+          className="grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-0"
         >
           {copy.benefits.map((b, index) => {
             const presentation = BENEFITS[index] ?? BENEFITS[0];
@@ -99,20 +99,20 @@ export default function BenefitsRow({
             return (
               <div
                 key={b.title}
-                className="flex min-w-0 items-start gap-3 px-1 py-2.5 sm:px-0 sm:py-3 lg:block lg:px-2 lg:py-2 lg:text-center"
+                className="flex min-w-0 items-start gap-3 px-1 py-2.5 sm:block sm:px-3 sm:py-3 sm:text-center lg:border-l lg:border-border lg:px-3 lg:py-2 lg:first:border-l-0 xl:px-5"
               >
                 <Icon
-                  className={`h-8 w-8 shrink-0 sm:h-9 sm:w-9 lg:mx-auto lg:h-10 lg:w-10 ${presentation.iconClassName}`}
+                  className={`h-9 w-9 shrink-0 sm:mx-auto sm:h-12 sm:w-12 lg:h-14 lg:w-14 ${presentation.iconClassName}`}
                   strokeWidth={1.75}
                   aria-hidden
                 />
-                <div className="min-w-0 lg:mt-2.5">
+                <div className="min-w-0 sm:mt-3 lg:mt-3.5">
                   <h3
-                    className={`text-[15px] font-bold leading-5 tracking-tight sm:text-base lg:text-base xl:text-lg ${presentation.titleClassName}`}
+                    className={`text-[15px] font-bold leading-5 tracking-tight sm:text-base lg:flex lg:min-h-10 lg:items-center lg:justify-center lg:text-base xl:text-lg ${presentation.titleClassName}`}
                   >
                     {b.title}
                   </h3>
-                  <p className="mt-1 text-sm leading-5 text-muted lg:text-center lg:text-public-copy-sm lg:leading-5 xl:text-base">
+                  <p className="mt-1 text-sm leading-5 text-muted sm:text-center lg:text-public-copy-sm lg:leading-5 xl:text-base">
                     {b.body}
                   </p>
                 </div>
