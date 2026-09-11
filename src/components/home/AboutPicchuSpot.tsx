@@ -97,7 +97,7 @@ export default function AboutPicchuSpot({
   const t4 = tileAt(trimmed, 4);
 
   return (
-    <section className="py-16 lg:py-28 bg-surface" id="about">
+    <section className="py-12 lg:py-16 bg-surface" id="about">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
           {/* Collage */}

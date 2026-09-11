@@ -83,11 +83,11 @@ export default function Testimonials({
 
   return (
     <section
-      className="py-16 lg:py-28 bg-white"
+      className="py-12 lg:py-16 bg-white"
       aria-labelledby="testimonials-heading"
     >
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
-        <div className="max-w-3xl mb-10 lg:mb-14">
+        <div className="max-w-3xl mb-10 lg:mb-12">
           <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
