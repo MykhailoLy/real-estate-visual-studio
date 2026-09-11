@@ -1,0 +1,163 @@
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+import {
+  getDocumentLanguage,
+  parseDocumentLanguage,
+} from "./document-language.ts";
+
+function readSource(path: string): string {
+  return readFileSync(path, "utf8");
+}
+
+function sourceFilesUnder(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? sourceFilesUnder(path) : [path];
+  });
+}
+
+test("document language follows the route locale and fails closed to English", () => {
+  assert.equal(getDocumentLanguage("/"), "en");
+  assert.equal(getDocumentLanguage("/pricing/photo-editing"), "en");
+  assert.equal(getDocumentLanguage("/es"), "es");
+  assert.equal(getDocumentLanguage("/es/pricing/photo-editing?region=EU"), "es");
+  assert.equal(getDocumentLanguage("/espanol"), "en");
+  assert.equal(parseDocumentLanguage("es"), "es");
+  assert.equal(parseDocumentLanguage("en"), "en");
+  assert.equal(parseDocumentLanguage("spoofed"), "en");
+  assert.equal(parseDocumentLanguage(null), "en");
+});
+
+test("root layout receives a server-derived language and syncs client navigation", () => {
+  const layout = readSource("src/app/layout.tsx");
+  const proxy = readSource("src/proxy.ts");
+  const sync = readSource("src/components/layout/DocumentLanguageSync.tsx");
+
+  assert.match(layout, /requestHeaders\.get\(DOCUMENT_LANGUAGE_HEADER\)/);
+  assert.match(layout, /<html lang=\{language\}>/);
+  assert.match(layout, /<DocumentLanguageSync \/>/);
+  assert.match(proxy, /getDocumentLanguage\(pathname\)/);
+  assert.match(proxy, /requestHeaders\.set\(DOCUMENT_LANGUAGE_HEADER, documentLanguage\)/);
+  assert.match(sync, /usePathname\(\)/);
+  assert.match(sync, /document\.documentElement\.lang = getDocumentLanguage\(pathname\)/);
+});
+
+test("photo editing and item removal have separate canonical bilingual landing pages", () => {
+  const englishPhotoEditing = readSource(
+    "src/app/(public)/pricing/photo-editing/page.tsx",
+  );
+  const spanishPhotoEditing = readSource(
+    "src/app/(public)/es/pricing/photo-editing/page.tsx",
+  );
+  const englishItemRemoval = readSource(
+    "src/app/(public)/pricing/item-removal-virtual-cleaning/page.tsx",
+  );
+  const spanishItemRemoval = readSource(
+    "src/app/(public)/es/pricing/item-removal-virtual-cleaning/page.tsx",
+  );
+  const localizedRoutes = readSource("src/lib/localized-routes.ts");
+  const portfolioMeta = readSource("src/lib/portfolio-service-meta.ts");
+
+  assert.match(englishPhotoEditing, /title: "Real Estate Photo Editing Services"/);
+  assert.match(
+    englishPhotoEditing,
+    /title="Professional Real Estate Photo Editing"/,
+  );
+  assert.match(englishPhotoEditing, /serviceSlug="image-enhancement"/);
+  assert.match(
+    englishPhotoEditing,
+    /orderHref="\/dashboard\/orders\/new\/photo-editing"/,
+  );
+  assert.doesNotMatch(
+    englishPhotoEditing,
+    /title="Item Removal & Virtual Cleaning Pricing"/,
+  );
+
+  assert.match(
+    spanishPhotoEditing,
+    /title="Edición profesional de fotos inmobiliarias"/,
+  );
+  assert.match(spanishPhotoEditing, /path: "\/es\/pricing\/photo-editing"/);
+  assert.match(
+    englishItemRemoval,
+    /canonicalPath: "\/pricing\/item-removal-virtual-cleaning"/,
+  );
+  assert.match(
+    englishItemRemoval,
+    /serviceSlug="item-removal-virtual-cleaning"/,
+  );
+  assert.match(
+    englishItemRemoval,
+    /orderHref="\/dashboard\/orders\/new\/item-removal-virtual-cleaning"/,
+  );
+  assert.match(
+    spanishItemRemoval,
+    /path: "\/es\/pricing\/item-removal-virtual-cleaning"/,
+  );
+  assert.match(
+    localizedRoutes,
+    /englishPath: "\/pricing\/item-removal-virtual-cleaning"[\s\S]*?spanishPath: "\/es\/pricing\/item-removal-virtual-cleaning"/,
+  );
+  assert.match(
+    portfolioMeta,
+    /slug: "item-removal-virtual-cleaning"[\s\S]*?pricingHref: "\/pricing\/item-removal-virtual-cleaning"/,
+  );
+});
+
+test("localized metadata keeps every established hreflang key", () => {
+  const seo = readSource("src/lib/seo.ts");
+
+  for (const key of ["en", '"en-US"', "es", '"es-ES"', '"x-default"']) {
+    assert.match(seo, new RegExp(`${key}: absoluteUrl`));
+  }
+});
+
+test("public application links bypass legacy order redirects", () => {
+  const publicSources = sourceFilesUnder("src/app/(public)").filter((path) => {
+    const normalized = path.replaceAll("\\", "/");
+    return (
+      normalized.endsWith(".tsx") &&
+      !normalized.includes("/(public)/order/") &&
+      !normalized.includes("/(public)/api/")
+    );
+  });
+  const sharedSources = [
+    ...sourceFilesUnder("src/components/sections").filter((path) =>
+      path.endsWith(".tsx"),
+    ),
+    "src/components/layout/Footer.tsx",
+    "src/lib/nav.ts",
+  ];
+  const legacyLink =
+    /(?:href\s*[:=]|orderHref=|primaryHref=|secondaryHref=)\s*["']\/order(?:[\/"'?#])/;
+
+  for (const path of [...publicSources, ...sharedSources]) {
+    assert.doesNotMatch(readSource(path), legacyLink, path);
+  }
+});
+
+test("legacy order routes remain permanent redirects to canonical destinations", () => {
+  const redirects = [
+    ["src/app/(public)/order/page.tsx", "/dashboard/orders/new"],
+    [
+      "src/app/(public)/order/3d-floor-plans/page.tsx",
+      "/dashboard/orders/new/3d-floor-plans",
+    ],
+    [
+      "src/app/(public)/order/photo-editing/page.tsx",
+      "/dashboard/orders/new/photo-editing",
+    ],
+    [
+      "src/app/(public)/order/item-removal-virtual-cleaning/page.tsx",
+      "/dashboard/orders/new/item-removal-virtual-cleaning",
+    ],
+  ] as const;
+
+  for (const [path, destination] of redirects) {
+    const source = readSource(path);
+    assert.match(source, /permanentRedirect\(/, path);
+    assert.ok(source.includes(`permanentRedirect("${destination}")`), path);
+  }
+});

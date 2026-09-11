@@ -32,7 +32,7 @@ export function isPortfolioServiceSlug(
 export interface PortfolioServiceMeta {
   slug: PortfolioServiceSlug;
   label: string;
-  /** Public pricing page URL — note photo-editing legacy URL. */
+  /** Canonical public pricing page URL. */
   pricingHref: string;
   /** Variant used by ServicePlaceholder as fallback when no item exists. */
   placeholderVariant: ServiceVariant;
@@ -60,7 +60,7 @@ export const PORTFOLIO_SERVICES: PortfolioServiceMeta[] = [
   {
     slug: "item-removal-virtual-cleaning",
     label: "Item Removal & Virtual Cleaning",
-    pricingHref: "/pricing/photo-editing",
+    pricingHref: "/pricing/item-removal-virtual-cleaning",
     placeholderVariant: "item-removal",
   },
   {

@@ -46,7 +46,7 @@ export default function DevelopmentSitePlansPricingPage() {
       title="Development Site Plans Pricing"
       description="Create clear visual site plans for land, development, subdivision, multi-unit, or project presentation."
       priceLine="Request a quote"
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       orderLabel="Order Site Plan"
       whenToUseTitle="When to use Development Site Plans"
       whenToUseDescription="Site plan visuals help buyers, investors, and planning audiences understand the layout, scale, and scope of a development or land project at a glance."

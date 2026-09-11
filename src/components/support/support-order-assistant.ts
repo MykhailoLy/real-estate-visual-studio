@@ -159,6 +159,7 @@ const servicesWithPublicPricingPages = new Set<OrderAssistantServiceId>([
   "virtual-renovation",
   "day-to-dusk",
   "image-enhancement",
+  "item-removal-virtual-cleaning",
   "floor-plans",
 ]);
 
@@ -365,12 +366,6 @@ function getPublicPricingSlug(
 ): string | null {
   if (servicesWithPublicPricingPages.has(service.slug)) {
     return service.publicServiceSlug;
-  }
-
-  if (service.slug === "item-removal-virtual-cleaning") {
-    // Current public routing keeps Item Removal & Virtual Cleaning under
-    // the legacy Photo Editing pricing page instead of its canonical slug.
-    return "photo-editing";
   }
 
   return null;

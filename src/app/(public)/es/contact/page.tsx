@@ -71,7 +71,7 @@ export default function SpanishContactPage() {
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <TrackedLink
-                href="/order"
+                href="/dashboard/orders/new"
                 analyticsLabel="Iniciar pedido"
                 analyticsLocation="contact_page"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"

@@ -186,6 +186,7 @@ const subNavLabelsEs: Record<string, string> = {
   "Image Enhancement": "Mejora de imagen",
   "Day to Dusk": "Day to Dusk",
   "Virtual Staging": "Virtual Staging",
+  "Real Estate Photo Editing": "Edición de fotos inmobiliarias",
   "Item Removal & Virtual Cleaning": "Eliminación de objetos y limpieza virtual",
   "Floor Plans": "Planos",
   "Virtual Renovation": "Renovación virtual",

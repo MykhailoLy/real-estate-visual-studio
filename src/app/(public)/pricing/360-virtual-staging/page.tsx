@@ -59,7 +59,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
         fallbackLabel="360 Virtual Staging before and after hero placeholder"
         serviceSlug="360-virtual-staging"
         locale="en"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Order Online"
       />
     ) : (
@@ -73,7 +73,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
         fallbackLabel="360 Virtual Staging hero placeholder"
         serviceSlug="360-virtual-staging"
         locale="en"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Order Online"
       />
     );
@@ -115,7 +115,7 @@ export default async function ThreeSixtyVirtualStagingPricingPage() {
           suffix=" / panorama"
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       orderLabel="Order Online"
       heroContent={heroContent}
       whenToUseTitle="When to use 360° Virtual Staging"

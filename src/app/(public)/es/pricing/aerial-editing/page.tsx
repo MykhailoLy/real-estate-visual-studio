@@ -54,7 +54,7 @@ export default function SpanishAerialEditingPricingPage() {
           suffix=" / imagen"
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       orderLabel="Pedir Edición aérea"
       whenToUseTitle="Cuándo usar Edición aérea"
       whenToUseDescription="La edición aérea se usa cuando las imágenes de dron o aéreas necesitan trabajo de color, cielo o limpieza antes de publicarse en anuncios o materiales de marketing."

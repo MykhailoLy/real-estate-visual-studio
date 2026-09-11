@@ -59,7 +59,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
         fallbackLabel="360 Image Enhancement before and after hero placeholder"
         serviceSlug="360-image-enhancement"
         locale="en"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Order 360° Enhancement"
       />
     ) : (
@@ -73,7 +73,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
         fallbackLabel="360 Image Enhancement hero placeholder"
         serviceSlug="360-image-enhancement"
         locale="en"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Order 360° Enhancement"
       />
     );
@@ -115,7 +115,7 @@ export default async function ThreeSixtyImageEnhancementPricingPage() {
           suffix=" / panorama"
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       heroContent={heroContent}
       orderLabel="Order 360° Enhancement"
       whenToUseTitle="When to use 360° Image Enhancement"

@@ -32,7 +32,7 @@ const footerCopy = {
     pages: [
       { href: "/gallery", label: "Gallery" },
       { href: "/pricing", label: "Pricing" },
-      { href: "/order", label: "Order Online", tracked: true },
+      { href: "/dashboard/orders/new", label: "Order Online", tracked: true },
       { href: "/about", label: "About Us" },
       { href: "/faq", label: "FAQ" },
       { href: "/contact", label: "Contact", tracked: true },
@@ -64,7 +64,7 @@ const footerCopy = {
     pages: [
       { href: "/es/gallery", label: "Galería" },
       { href: "/es/pricing", label: "Precios" },
-      { href: "/order", label: "Pedir online", tracked: true },
+      { href: "/dashboard/orders/new", label: "Pedir online", tracked: true },
       { href: "/es/about", label: "Sobre nosotros" },
       { href: "/es/faq", label: "Preguntas frecuentes" },
       { href: "/es/contact", label: "Contacto", tracked: true },

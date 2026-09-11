@@ -3,6 +3,10 @@ import {
   DASHBOARD_REQUEST_PATH_HEADER,
   safeDashboardRequestPath,
 } from "@/lib/dashboard-request-path";
+import {
+  DOCUMENT_LANGUAGE_HEADER,
+  getDocumentLanguage,
+} from "@/lib/document-language";
 import { createProxySupabaseClient } from "@/lib/supabase/proxy-client";
 
 // ============================================================
@@ -20,19 +24,23 @@ import { createProxySupabaseClient } from "@/lib/supabase/proxy-client";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const documentLanguage = getDocumentLanguage(pathname);
 
-  // Pass through non-protected routes immediately (avoid
-  // creating a Supabase client on every static asset request).
+  // Marketing routes only receive the server-derived document language.
+  // Avoid creating a Supabase client outside the protected dashboard.
   const isDashboard = pathname.startsWith("/dashboard");
 
   if (!isDashboard) {
-    return NextResponse.next();
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set(DOCUMENT_LANGUAGE_HEADER, documentLanguage);
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   const dashboardDestination = safeDashboardRequestPath(
     `${pathname}${req.nextUrl.search}`,
   );
   const { supabase, getResponse } = createProxySupabaseClient(req, {
+    [DOCUMENT_LANGUAGE_HEADER]: documentLanguage,
     // Always overwrite or remove a browser-supplied copy. This is redirect
     // metadata only and is never used as identity.
     [DASHBOARD_REQUEST_PATH_HEADER]: dashboardDestination,
@@ -51,5 +59,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
 };

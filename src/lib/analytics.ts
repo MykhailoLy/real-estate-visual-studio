@@ -49,8 +49,22 @@ function withPagePath(params: AnalyticsParams = {}): AnalyticsParams {
 
 export function getOrderServiceSlug(href: string): string | undefined {
   const pathname = href.split(/[?#]/)[0];
-  if (!pathname.startsWith("/order/")) return undefined;
-  return pathname.replace(/^\/order\//, "").replace(/\/+$/, "") || undefined;
+  const routePrefixes = ["/dashboard/orders/new/", "/order/"] as const;
+  const prefix = routePrefixes.find((candidate) =>
+    pathname.startsWith(candidate),
+  );
+  if (!prefix) return undefined;
+  return pathname.slice(prefix.length).replace(/\/+$/, "") || undefined;
+}
+
+export function isOrderIntentHref(href: string): boolean {
+  const pathname = href.split(/[?#]/)[0].replace(/\/+$/, "");
+  return (
+    pathname === "/order" ||
+    pathname.startsWith("/order/") ||
+    pathname === "/dashboard/orders/new" ||
+    pathname.startsWith("/dashboard/orders/new/")
+  );
 }
 
 export function trackEvent(name: string, params: AnalyticsParams = {}) {

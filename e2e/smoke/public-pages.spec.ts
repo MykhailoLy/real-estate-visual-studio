@@ -231,7 +231,10 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   const itemRemovalCta = mobileHero.getByRole("link", {
     name: "View Item Removal & Virtual Cleaning pricing",
   });
-  await expect(itemRemovalCta).toHaveAttribute("href", "/pricing/photo-editing");
+  await expect(itemRemovalCta).toHaveAttribute(
+    "href",
+    "/pricing/item-removal-virtual-cleaning",
+  );
 
   const mobileHeroFontSizes = await mobileHero.evaluate((element) => {
     const footer = element.querySelector('[data-testid="hero-service-footer"]');
@@ -282,7 +285,9 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
   expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.clientWidth);
 
   await itemRemovalCta.click();
-  await expect(page).toHaveURL(/\/pricing\/photo-editing$/);
+  await expect(page).toHaveURL(
+    /\/pricing\/item-removal-virtual-cleaning$/,
+  );
 
   await page.setViewportSize({ width: 768, height: 900 });
   response = await page.goto("/");
@@ -1143,10 +1148,125 @@ for (const locale of ["en", "es"] as const) {
   }
 }
 
+test("photo editing landing pages publish the correct service, language and alternates", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  let response = await page.goto("/pricing/photo-editing");
+  expectNavigationResponseOk(response, "/pricing/photo-editing");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(
+    page.getByRole("heading", {
+      name: "Professional Real Estate Photo Editing",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle(
+    "Real Estate Photo Editing Services | PicchuSpot",
+  );
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    /Professional real estate photo editing/,
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://picchuspot.com/pricing/photo-editing",
+  );
+
+  for (const [language, href] of [
+    ["en", "https://picchuspot.com/pricing/photo-editing"],
+    ["en-US", "https://picchuspot.com/pricing/photo-editing"],
+    ["es", "https://picchuspot.com/es/pricing/photo-editing"],
+    ["es-ES", "https://picchuspot.com/es/pricing/photo-editing"],
+    ["x-default", "https://picchuspot.com/pricing/photo-editing"],
+  ] as const) {
+    await expect(
+      page.locator(`link[rel="alternate"][hreflang="${language}"]`),
+    ).toHaveAttribute("href", href);
+  }
+
+  for (const width of [360, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions = await page.evaluate(() => ({
+      content: document.documentElement.scrollWidth,
+      viewport: document.documentElement.clientWidth,
+    }));
+    expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
+  }
+
+  response = await page.goto("/es/pricing/photo-editing");
+  expectNavigationResponseOk(response, "/es/pricing/photo-editing");
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await expect(
+    page.getByRole("heading", {
+      name: "Edición profesional de fotos inmobiliarias",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://picchuspot.com/es/pricing/photo-editing",
+  );
+  await expect(
+    page.locator('link[rel="alternate"][hreflang="en"]'),
+  ).toHaveAttribute("href", "https://picchuspot.com/pricing/photo-editing");
+
+  response = await page.goto("/pricing/item-removal-virtual-cleaning");
+  expectNavigationResponseOk(
+    response,
+    "/pricing/item-removal-virtual-cleaning",
+  );
+  await expect(
+    page.getByRole("heading", {
+      name: "Item Removal & Virtual Cleaning Pricing",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  await guard.expectClean();
+});
+
+test("public navigation and shared CTAs bypass legacy order URLs", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+
+  for (const route of ["/", "/pricing", "/gallery", "/es", "/es/pricing"]) {
+    const response = await page.goto(route);
+    expectNavigationResponseOk(response, route);
+    await expect(page.locator('a[href^="/order"]')).toHaveCount(0);
+  }
+
+  await guard.expectClean();
+});
+
 test("legacy Services routes permanently redirect to Pricing", async ({ request }) => {
   for (const [source, destination] of [
     ["/services", "/pricing"],
     ["/es/services", "/es/pricing"],
+  ] as const) {
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status(), source).toBe(308);
+    const location = response.headers().location;
+    expect(location, source).toBeTruthy();
+    expect(new URL(location!, "http://localhost").pathname).toBe(destination);
+  }
+});
+
+test("legacy order routes remain permanent redirects", async ({ request }) => {
+  for (const [source, destination] of [
+    ["/order", "/dashboard/orders/new"],
+    ["/order/3d-floor-plans", "/dashboard/orders/new/3d-floor-plans"],
+    ["/order/virtual-staging", "/dashboard/orders/new/virtual-staging"],
+    ["/order/virtual-renovation", "/dashboard/orders/new/virtual-renovation"],
+    ["/order/photo-editing", "/dashboard/orders/new/photo-editing"],
+    ["/order/day-to-dusk", "/dashboard/orders/new/day-to-dusk"],
+    ["/order/image-enhancement", "/dashboard/orders/new/image-enhancement"],
+    [
+      "/order/item-removal-virtual-cleaning",
+      "/dashboard/orders/new/item-removal-virtual-cleaning",
+    ],
   ] as const) {
     const response = await request.get(source, { maxRedirects: 0 });
     expect(response.status(), source).toBe(308);
@@ -1165,6 +1285,18 @@ test("sitemap exposes canonical Pricing routes without legacy Services URLs", as
 
   expect(xml).toContain("<loc>https://picchuspot.com/pricing</loc>");
   expect(xml).toContain("<loc>https://picchuspot.com/es/pricing</loc>");
+  expect(xml).toContain(
+    "<loc>https://picchuspot.com/pricing/photo-editing</loc>",
+  );
+  expect(xml).toContain(
+    "<loc>https://picchuspot.com/es/pricing/photo-editing</loc>",
+  );
+  expect(xml).toContain(
+    "<loc>https://picchuspot.com/pricing/item-removal-virtual-cleaning</loc>",
+  );
+  expect(xml).toContain(
+    "<loc>https://picchuspot.com/es/pricing/item-removal-virtual-cleaning</loc>",
+  );
   expect(xml).not.toContain("<loc>https://picchuspot.com/services</loc>");
   expect(xml).not.toContain("<loc>https://picchuspot.com/es/services</loc>");
 });

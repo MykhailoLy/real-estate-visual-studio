@@ -189,8 +189,14 @@ test("public detail hrefs are localized only for known public pricing pages", ()
   const servicesWithDetails = services.filter((service) => service.detailHref);
 
   assert.equal(servicesWithDetails.length, services.length);
-  assert.equal(itemRemoval?.detailHref?.en, "/pricing/photo-editing");
-  assert.equal(itemRemoval?.detailHref?.es, "/es/pricing/photo-editing");
+  assert.equal(
+    itemRemoval?.detailHref?.en,
+    "/pricing/item-removal-virtual-cleaning",
+  );
+  assert.equal(
+    itemRemoval?.detailHref?.es,
+    "/es/pricing/item-removal-virtual-cleaning",
+  );
 
   for (const service of servicesWithDetails) {
     assert.equal(service.detailHref?.en.startsWith("/pricing/"), true, service.id);

@@ -263,7 +263,7 @@ export default async function PricingPage() {
         title="Ready to get started?"
         subtitle="Choose a service and start your order, or send us a question about the right option for your property."
         primaryLabel="Start an Order"
-        primaryHref="/order"
+        primaryHref="/dashboard/orders/new"
         primaryAnalyticsEvent="pricing_cta"
         secondaryLabel="Ask a Question"
         secondaryHref="/contact"

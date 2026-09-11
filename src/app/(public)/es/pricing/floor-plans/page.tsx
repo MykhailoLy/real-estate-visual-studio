@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowRight,
   BedDouble,
@@ -360,7 +361,7 @@ export default async function SpanishFloorPlansPage() {
             slides={sliderSlides}
             serviceSlug="floor-plans"
             locale="es"
-            orderHref="/order/3d-floor-plans"
+            orderHref="/dashboard/orders/new/3d-floor-plans"
             orderLabel="Pedir plano"
             ariaLabel="Ejemplos antes y después de planos"
             imageFit="contain"
@@ -425,13 +426,13 @@ export default async function SpanishFloorPlansPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-              <Link
-                href="/order/3d-floor-plans"
+              <ClientPortalLink
+                href="/dashboard/orders/new/3d-floor-plans"
                 className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
               >
                 Pedir plano
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </ClientPortalLink>
               <Link
                 href="/es/pricing"
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
@@ -619,13 +620,13 @@ export default async function SpanishFloorPlansPage() {
           </p>
 
           <div className="mt-8">
-            <Link
-              href="/order/3d-floor-plans"
+            <ClientPortalLink
+              href="/dashboard/orders/new/3d-floor-plans"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
             >
               Pedir plano
               <ArrowRight className="w-4 h-4" aria-hidden />
-            </Link>
+            </ClientPortalLink>
           </div>
         </Wide>
       </section>
@@ -642,7 +643,7 @@ export default async function SpanishFloorPlansPage() {
       <ServiceCTA
         title="¿Listo para crear un plano claro?"
         subtitle="Sube tu boceto, escaneo o plano existente y prepararemos un plano limpio y listo para el anuncio de tu propiedad."
-        primaryHref="/order/3d-floor-plans"
+        primaryHref="/dashboard/orders/new/3d-floor-plans"
         primaryLabel="Pedir plano"
         secondaryHref="/es/contact"
         secondaryLabel="Hacer una pregunta"

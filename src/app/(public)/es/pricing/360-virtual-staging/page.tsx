@@ -57,7 +57,7 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
         fallbackLabel="Placeholder del hero antes y después de Virtual Staging 360"
         serviceSlug="360-virtual-staging"
         locale="es"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Pedir online"
       />
     ) : (
@@ -71,7 +71,7 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
         fallbackLabel="Placeholder del hero de Virtual Staging 360"
         serviceSlug="360-virtual-staging"
         locale="es"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Pedir online"
       />
     );
@@ -113,7 +113,7 @@ export default async function SpanishThreeSixtyVirtualStagingPricingPage() {
           suffix=" / panorama"
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       orderLabel="Pedir online"
       heroContent={heroContent}
       whenToUseTitle="Cuándo usar Virtual Staging 360°"

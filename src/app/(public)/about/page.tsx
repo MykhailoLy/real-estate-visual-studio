@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowRight,
   CheckCircle2,
@@ -84,13 +85,13 @@ export default function AboutPage() {
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/order"
+              <ClientPortalLink
+                href="/dashboard/orders/new"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
               >
                 Start an order
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </ClientPortalLink>
               <Link
                 href="/pricing"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
@@ -165,13 +166,13 @@ export default function AboutPage() {
               Upload files, add instructions, and get a clear visual workflow.
             </h2>
           </div>
-          <Link
-            href="/order"
+          <ClientPortalLink
+            href="/dashboard/orders/new"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-primary-dark rounded-xl text-sm font-bold hover:bg-secondary-light transition-colors"
           >
             Start an order
             <ArrowRight className="w-4 h-4" aria-hidden />
-          </Link>
+          </ClientPortalLink>
         </div>
       </Container>
     </section>

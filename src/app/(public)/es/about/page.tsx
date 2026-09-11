@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowRight,
   CheckCircle2,
@@ -81,13 +82,13 @@ export default function SpanishAboutPage() {
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/order"
+              <ClientPortalLink
+                href="/dashboard/orders/new"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
               >
                 Iniciar un pedido
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </ClientPortalLink>
               <Link
                 href="/es/pricing"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
@@ -162,13 +163,13 @@ export default function SpanishAboutPage() {
               Sube archivos, añade instrucciones y trabaja con un flujo visual claro.
             </h2>
           </div>
-          <Link
-            href="/order"
+          <ClientPortalLink
+            href="/dashboard/orders/new"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-primary-dark rounded-xl text-sm font-bold hover:bg-secondary-light transition-colors"
           >
             Iniciar un pedido
             <ArrowRight className="w-4 h-4" aria-hidden />
-          </Link>
+          </ClientPortalLink>
         </div>
       </Container>
     </section>

@@ -57,7 +57,7 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
         fallbackLabel="Placeholder del hero antes y después de Mejora de imagen 360"
         serviceSlug="360-image-enhancement"
         locale="es"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Pedir Mejora 360°"
       />
     ) : (
@@ -71,7 +71,7 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
         fallbackLabel="Placeholder del hero de Mejora de imagen 360"
         serviceSlug="360-image-enhancement"
         locale="es"
-        orderHref="/order/photo-editing"
+        orderHref="/dashboard/orders/new/photo-editing"
         orderLabel="Pedir Mejora 360°"
       />
     );
@@ -113,7 +113,7 @@ export default async function SpanishThreeSixtyImageEnhancementPricingPage() {
           suffix=" / panorama"
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       heroContent={heroContent}
       orderLabel="Pedir Mejora 360°"
       whenToUseTitle="Cuándo usar Mejora de imagen 360°"

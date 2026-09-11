@@ -18,7 +18,7 @@ const teaserCards: Array<{
     title: "Virtual Staging",
     priceKey: "virtual-staging",
     unit: "per image",
-    href: "/order/virtual-staging",
+    href: "/dashboard/orders/new/virtual-staging",
   },
   {
     icon: LayoutGrid,
@@ -26,7 +26,7 @@ const teaserCards: Array<{
     priceKey: "floor-plan-2d-bw",
     prefix: "From ",
     unit: "per floor",
-    href: "/order/3d-floor-plans",
+    href: "/dashboard/orders/new/3d-floor-plans",
   },
   {
     icon: SlidersHorizontal,
@@ -34,7 +34,7 @@ const teaserCards: Array<{
     priceKey: "turn-on-lights",
     prefix: "From ",
     unit: "per option",
-    href: "/order/photo-editing",
+    href: "/dashboard/orders/new/photo-editing",
   },
 ];
 

@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import { Eraser, Home, Star, ImageIcon } from "lucide-react";
+import { Building2, Camera, Layers3, Sparkles } from "lucide-react";
 import ServicePage from "@/components/pricing/ServicePage";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
-import { localizedAlternates } from "@/lib/seo";
 import JsonLd from "@/components/seo/JsonLd";
-import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteUrl, localizedAlternates } from "@/lib/seo";
+import { breadcrumbSchema, serviceSchema } from "@/lib/structured-data";
 import { getCatalogPriceDecimal } from "@/lib/pricing/public";
 
+const description =
+  "Professional real estate photo editing for photographers, agents and property marketers. Natural HDR editing, color correction, window views, image enhancement and listing-ready results.";
+
 export const metadata: Metadata = {
-  title: "Real Estate Item Removal & Virtual Cleaning",
-  description:
-    "Remove distracting items, clutter, and imperfections from property photos for cleaner, more listing-ready images.",
+  title: "Real Estate Photo Editing Services",
+  description,
   alternates: localizedAlternates({
     canonicalPath: "/pricing/photo-editing",
     englishPath: "/pricing/photo-editing",
@@ -25,11 +26,10 @@ export default function PhotoEditingPricingPage() {
       <JsonLd
         data={[
           serviceSchema({
-            name: "Item Removal & Virtual Cleaning",
-            description:
-              "Remove distracting items, clutter, and imperfections from property photos for cleaner, more listing-ready images.",
+            name: "Real Estate Photo Editing Services",
+            description,
             url: absoluteUrl("/pricing/photo-editing"),
-            price: getCatalogPriceDecimal("item-removal-virtual-cleaning"),
+            price: getCatalogPriceDecimal("image-enhancement"),
             priceCurrency: "USD",
             offerNote: "Starting price per image",
           }),
@@ -37,148 +37,150 @@ export default function PhotoEditingPricingPage() {
             { name: "Home", item: absoluteUrl("/") },
             { name: "Pricing", item: absoluteUrl("/pricing") },
             {
-              name: "Item Removal & Virtual Cleaning",
+              name: "Real Estate Photo Editing",
               item: absoluteUrl("/pricing/photo-editing"),
             },
           ]),
         ]}
       />
       <ServicePage
-      serviceSlug="item-removal-virtual-cleaning"
-      portfolioViewerVariant="photo"
-      placeholderVariant="item-removal"
-      eyebrow="Item Removal & Virtual Cleaning"
-      title="Item Removal & Virtual Cleaning Pricing"
-      description="Remove distracting items, clutter, small imperfections, and visual distractions to make property photos cleaner and more listing-ready."
-      priceLine={
-        <CatalogPriceText
-          priceKey="item-removal-virtual-cleaning"
-          prefix="From "
-          suffix=" / image"
-        />
-      }
-      orderHref="/order/photo-editing"
-      orderLabel="Order Item Removal"
-      whenToUseTitle="When to use Item Removal & Virtual Cleaning"
-      whenToUseDescription="Item removal and virtual cleaning is the practical first step before staging, publishing, or upgrading listing photos."
-      useCases={[
-        {
-          icon: Home,
-          title: "Cluttered rooms",
-          description: "Remove furniture, personal items, and clutter from rooms that could not be cleared before the shoot.",
-        },
-        {
-          icon: Eraser,
-          title: "Small object removal",
-          description: "Take out bins, cables, signs, reflections, and other small distractions cleanly.",
-        },
-        {
-          icon: Star,
-          title: "Cleaner listing presentation",
-          description: "Present a cleaner, more spacious-looking room without reshooting.",
-        },
-        {
-          icon: ImageIcon,
-          title: "Pre-sale photo cleanup",
-          description: "Clean up listing photos quickly before publishing so every image looks polished.",
-        },
-      ]}
-      whatItIsTitle="Cleaner property photos without visual distractions"
-      whatItIsBody="We clean up listing photos by removing unwanted objects, clutter, cables, small marks, or distracting details while keeping the space realistic and natural."
-      whatItIsBullets={[
-        "Objects, clutter, and personal items removed",
-        "Background fill blended naturally",
-        "Cables, signs, and reflections cleaned up",
-        "Compatible with Virtual Staging on the same image",
-        "Unlimited revisions for 30 days from first delivery",
-        "High-resolution JPG delivery in 24–48h",
-      ]}
-      beforeYouOrderDescription="Send the original image with clear notes about what should be removed — the more specific you are, the cleaner the result."
-      uploadItems={[
-        {
-          label: "Original photo",
-          required: true,
-          hint: "JPG or PNG at the highest resolution available",
-        },
-        {
-          label: "Objects to remove",
-          required: true,
-          hint: "Describe or mark every item that should be removed",
-        },
-        {
-          label: "Areas to keep unchanged",
-          hint: "Specify anything that must stay exactly as it is",
-        },
-        {
-          label: "Notes or instructions",
-          hint: "Any additional context or special requests",
-        },
-      ]}
-      uploadFootnote="Required fields are marked *. The clearer your removal notes, the more accurate the result."
-      pricingTitle="Item Removal pricing"
-      pricingDescription="Per-image pricing. Multiple editing options can be combined on the same image."
-      pricingCards={[
-        {
-          label: "Item Removal & Virtual Cleaning",
-          price: (
-            <CatalogPriceText priceKey="item-removal-virtual-cleaning" />
-          ),
-          unit: "per image",
-          note: "Remove objects, clutter, and distracting details cleanly.",
-          isBase: true,
-        },
-        {
-          label: "Image Enhancement",
-          price: <CatalogPriceText priceKey="image-enhancement" prefix="+" />,
-          unit: "per image",
-          note: "Color and exposure correction applied after cleanup.",
-        },
-        {
-          label: "Virtual Staging",
-          price: <CatalogPriceText priceKey="virtual-staging" prefix="+" />,
-          unit: "per image",
-          note: "Add furniture after the room has been cleaned virtually.",
-        },
-      ]}
-      pricingFootnote="Item Removal can be combined with Image Enhancement, Virtual Staging, and other editing options in the same order."
-      faqTitle="Item Removal & Virtual Cleaning questions"
-      faqItems={[
-        {
-          question: "What kinds of items can be removed?",
-          answer: "We can remove personal items, furniture, clutter, cables, bins, signs, reflections, small marks, and other visible distractions in most scenes.",
-        },
-        {
-          question: "What if the background behind an object is complex?",
-          answer: "We blend the fill naturally — if a wall, floor, or background is visible behind the removed item, we reconstruct it to match the surrounding area.",
-        },
-        {
-          question: "Can I combine Item Removal with Virtual Staging on the same image?",
-          answer: "Yes. A common workflow is to clean the room first with Item Removal, then add furnishings with Virtual Staging. Both are priced per image and can be in the same order.",
-        },
-        {
-          question: "Do I need to mark what should be removed?",
-          answer: "Yes — written descriptions are fine, but marking up a reference image makes it faster and more accurate.",
-        },
-        {
-          question: "Can you remove items from exterior shots?",
-          answer: "Yes. Cars, bins, cables, scaffolding, and other exterior distractions can be removed if the scene beneath is recoverable.",
-        },
-        {
-          question: "How long does it take?",
-          answer: "Standard delivery is 24–48 hours from when we receive your image and removal notes.",
-        },
-        {
-          question: "Are revisions included?",
-          answer: "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and design direction.",
-        },
-        {
-          question: "Can I use the result for MLS and marketing?",
-          answer: "Yes. Delivered images are suitable for real estate listings, websites, and marketing.",
-        },
-      ]}
-      ctaTitle="Ready to clean up your listing photos?"
-      ctaSubtitle="Upload your images, mark what needs removing, and receive cleaner photos within 24–48 hours."
-    />
+        serviceSlug="image-enhancement"
+        portfolioViewerVariant="photo"
+        placeholderVariant="image-enhancement"
+        eyebrow="Real Estate Photo Editing"
+        title="Professional Real Estate Photo Editing"
+        description="Natural, consistent editing for real estate photographers, agents, and property marketers — from exposure and color correction to window views and listing-ready finishing."
+        priceLine={
+          <CatalogPriceText
+            priceKey="image-enhancement"
+            prefix="From "
+            suffix=" / image"
+          />
+        }
+        orderHref="/dashboard/orders/new/photo-editing"
+        orderLabel="Order Photo Editing"
+        whenToUseTitle="When professional photo editing makes the difference"
+        whenToUseDescription="Use our real estate editing service when a shoot needs a natural, polished finish across an entire listing or targeted corrections on individual images."
+        useCases={[
+          {
+            icon: Camera,
+            title: "Real estate photographers",
+            description:
+              "Outsource dependable post-production while keeping a consistent look across shoots and clients.",
+          },
+          {
+            icon: Building2,
+            title: "Agents and property marketers",
+            description:
+              "Prepare clean, balanced imagery for portals, brochures, websites, and listing campaigns.",
+          },
+          {
+            icon: Layers3,
+            title: "HDR-style balancing",
+            description:
+              "Create natural-looking interiors with controlled highlights, balanced shadows, and clear window views.",
+          },
+          {
+            icon: Sparkles,
+            title: "Targeted retouching",
+            description:
+              "Correct color, lighting, perspective, skies, reflections, or other distractions image by image.",
+          },
+        ]}
+        whatItIsTitle="Natural post-production built for property listings"
+        whatItIsBody="Our real estate photo editing service improves the technical finish of your images without making rooms look artificial. Select the exact editing options each photo needs and add clear notes for any property-specific details."
+        whatItIsBullets={[
+          "Natural exposure, contrast, and white-balance correction",
+          "Window-view recovery and highlight control",
+          "Color correction and consistent batch finishing",
+          "Lens, perspective, shadow, and reflection cleanup",
+          "Optional sky, background, light, and object edits",
+          "High-resolution delivery in 24–48h",
+        ]}
+        beforeYouOrderDescription="Upload the highest-quality originals available and tell us which editing options apply to each image. Add reference notes when a listing needs a specific finish."
+        uploadItems={[
+          {
+            label: "Original photos",
+            required: true,
+            hint: "JPG or PNG at the highest resolution available",
+          },
+          {
+            label: "Editing options",
+            required: true,
+            hint: "Choose the corrections needed for each individual photo",
+          },
+          {
+            label: "Reference style",
+            hint: "Share an example if you need a specific color or tonal finish",
+          },
+          {
+            label: "Photo-specific notes",
+            hint: "Call out window views, color casts, reflections, or details to preserve",
+          },
+        ]}
+        uploadFootnote="Each image can have its own combination of editing options and instructions."
+        pricingTitle="Real estate photo editing pricing"
+        pricingDescription="Choose only the edits each photo needs. Prices are calculated per selected option."
+        pricingCards={[
+          {
+            label: "Image Enhancement",
+            price: <CatalogPriceText priceKey="image-enhancement" />,
+            unit: "per image",
+            note: "Balanced color, exposure, contrast, white balance, and detail.",
+            isBase: true,
+          },
+          {
+            label: "Day to Dusk",
+            price: <CatalogPriceText priceKey="day-to-dusk" />,
+            unit: "per image",
+            note: "Convert a daytime exterior into a natural twilight presentation.",
+          },
+          {
+            label: "Item Removal & Virtual Cleaning",
+            price: (
+              <CatalogPriceText priceKey="item-removal-virtual-cleaning" />
+            ),
+            unit: "per image",
+            note: "Remove specified objects, clutter, and visual distractions.",
+          },
+        ]}
+        pricingFootnote="Additional options include shadow removal, background changes, light activation, color changes, aerial markups, and water effects."
+        faqTitle="Real estate photo editing questions"
+        faqItems={[
+          {
+            question: "What does real estate photo editing include?",
+            answer:
+              "You can select enhancement, color and exposure correction, window-view balancing, shadow or object removal, background changes, sky and lighting edits, and other listing-focused corrections for each photo.",
+          },
+          {
+            question: "Can you match my existing editing style?",
+            answer:
+              "Yes. Send a reference image and describe the look you want so we can keep color, brightness, and contrast consistent with your portfolio or brand.",
+          },
+          {
+            question: "Do you edit complete property shoots?",
+            answer:
+              "Yes. You can upload multiple images and apply the same editing options across a set, while still adding instructions for individual photos.",
+          },
+          {
+            question: "Will the finished photos still look natural?",
+            answer:
+              "Yes. Our default approach is clean and realistic, with controlled highlights, neutral color, and detail that supports the property rather than drawing attention to the edit.",
+          },
+          {
+            question: "How quickly are edited photos delivered?",
+            answer:
+              "Standard delivery is 24–48 hours after we receive the source images and complete instructions.",
+          },
+          {
+            question: "Are revisions included?",
+            answer:
+              "Yes. Unlimited revisions are included for 30 calendar days from first delivery, provided the changes stay within the original brief, overall style, and agreed direction.",
+          },
+        ]}
+        ctaTitle="Ready for consistent, listing-ready photos?"
+        ctaSubtitle="Upload your property images, choose the edits you need, and receive polished results within 24–48 hours."
+      />
     </>
   );
 }

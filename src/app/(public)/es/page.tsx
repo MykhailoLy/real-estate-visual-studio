@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { ArrowRight } from "lucide-react";
 import BeforeAfterShowcase, {
   type ShowcaseSlide,
@@ -320,13 +321,13 @@ export default async function SpanishHomePage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-              <Link
-                href="/order"
+              <ClientPortalLink
+                href="/dashboard/orders/new"
                 className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
               >
                 Pedir online
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </ClientPortalLink>
               <Link
                 href="/es/pricing"
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-bold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
@@ -350,7 +351,7 @@ export default async function SpanishHomePage() {
         title="Empieza tu próximo anuncio con los visuales ya resueltos."
         subtitle="Sube tus fotos y nosotros nos encargamos del resto."
         primaryLabel="Pedir online"
-        primaryHref="/order"
+        primaryHref="/dashboard/orders/new"
         secondaryLabel="Habla con nosotros"
         secondaryHref="/es/contact"
       />

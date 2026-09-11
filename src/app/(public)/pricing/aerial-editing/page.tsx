@@ -57,7 +57,7 @@ export default function AerialEditingPricingPage() {
           suffix=" / image"
         />
       }
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       orderLabel="Order Aerial Editing"
       whenToUseTitle="When to use Aerial Editing"
       whenToUseDescription="Aerial editing is used when drone or aerial images need color, sky, or cleanup work before being published in listings or marketing packages."

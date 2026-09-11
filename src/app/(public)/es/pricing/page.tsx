@@ -51,7 +51,7 @@ const digitalSections: Array<{
     title: "Home staging virtual",
     subtitle: "Precio base por imagen, con extras opcionales.",
     cta: "Pedir home staging",
-    href: "/order/virtual-staging",
+    href: "/dashboard/orders/new/virtual-staging",
     serviceLinks: [
       {
         label: "Home staging virtual",
@@ -90,7 +90,7 @@ const digitalSections: Array<{
     title: "Renovación virtual",
     subtitle: "Selecciona solo las opciones necesarias para cada imagen.",
     cta: "Pedir renovación virtual",
-    href: "/order/virtual-renovation",
+    href: "/dashboard/orders/new/virtual-renovation",
     serviceLinks: [
       {
         label: "Renovación virtual",
@@ -121,7 +121,7 @@ const digitalSections: Array<{
     title: "Planos 2D y 3D",
     subtitle: "Precio por planta según el tipo de plano.",
     cta: "Pedir planos",
-    href: "/order/3d-floor-plans",
+    href: "/dashboard/orders/new/3d-floor-plans",
     serviceLinks: [
       {
         label: "Planos 2D y 3D",
@@ -160,11 +160,15 @@ const digitalSections: Array<{
     title: "Retoque fotográfico",
     subtitle: "Combina opciones según lo que necesite cada foto.",
     cta: "Pedir retoque",
-    href: "/order/photo-editing",
+    href: "/dashboard/orders/new/photo-editing",
     serviceLinks: [
       {
-        label: "Eliminación de objetos y limpieza virtual",
+        label: "Edición de fotos inmobiliarias",
         href: "/es/pricing/photo-editing",
+      },
+      {
+        label: "Eliminación de objetos y limpieza virtual",
+        href: "/es/pricing/item-removal-virtual-cleaning",
       },
       {
         label: "Mejora de imagen",
@@ -421,7 +425,7 @@ export default function SpanishPricingPage() {
         title="¿Listo para preparar tus visuales?"
         subtitle="Elige un servicio digital o escríbenos para trabajos locales y encargos a medida."
         primaryLabel="Pedir online"
-        primaryHref="/order"
+        primaryHref="/dashboard/orders/new"
         primaryAnalyticsEvent="pricing_cta"
         secondaryLabel="Contactar"
         secondaryHref="/es/contact"

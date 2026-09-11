@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowRight,
   Building2,
@@ -305,7 +306,7 @@ export default async function SpanishVirtualStagingPage() {
             slides={sliderSlides}
             serviceSlug="virtual-staging"
             locale="es"
-            orderHref="/order/virtual-staging"
+            orderHref="/dashboard/orders/new/virtual-staging"
             orderLabel="Pedir Virtual Staging"
             ariaLabel="Ejemplos antes y después de Virtual Staging"
           />
@@ -373,13 +374,13 @@ export default async function SpanishVirtualStagingPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-              <Link
-                href="/order/virtual-staging"
+              <ClientPortalLink
+                href="/dashboard/orders/new/virtual-staging"
                 className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
               >
                 Pedir Virtual Staging
                 <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
+              </ClientPortalLink>
               <Link
                 href="/es/pricing"
                 className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
@@ -618,13 +619,13 @@ export default async function SpanishVirtualStagingPage() {
           </p>
 
           <div className="mt-8">
-            <Link
-              href="/order/virtual-staging"
+            <ClientPortalLink
+              href="/dashboard/orders/new/virtual-staging"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm"
             >
               Pedir Virtual Staging
               <ArrowRight className="w-4 h-4" aria-hidden />
-            </Link>
+            </ClientPortalLink>
           </div>
         </Wide>
       </section>
@@ -641,7 +642,7 @@ export default async function SpanishVirtualStagingPage() {
       <ServiceCTA
         title="¿Listo para amueblar tu anuncio?"
         subtitle="Sube tus fotos, elige un estilo y recibe imágenes listas para publicar en 24-48 horas."
-        primaryHref="/order/virtual-staging"
+        primaryHref="/dashboard/orders/new/virtual-staging"
         primaryLabel="Pedir Virtual Staging"
         secondaryHref="/es/contact"
         secondaryLabel="Hacer una pregunta"

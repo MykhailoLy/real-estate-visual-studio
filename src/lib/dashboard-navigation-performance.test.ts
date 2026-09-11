@@ -85,7 +85,7 @@ test("dashboard font utilities survive cn colors and retain font-size override b
   }
 });
 
-test("proxy matcher and pass-through exclude public auth pages from Supabase work", () => {
+test("proxy applies locale headers broadly while keeping Supabase work dashboard-only", () => {
   const proxySource = source("proxy.ts");
   const matcherStart = proxySource.indexOf("export const config");
   const matcherSource = proxySource.slice(matcherStart);
@@ -95,14 +95,17 @@ test("proxy matcher and pass-through exclude public auth pages from Supabase wor
   );
 
   assert.ok(matcherStart >= 0);
-  assert.match(matcherSource, /matcher: \["\/dashboard\/:path\*"\]/);
+  assert.match(
+    matcherSource,
+    /matcher: \["\/\(\(\?!api\|_next\/static\|_next\/image/,
+  );
   assert.doesNotMatch(matcherSource, /\/login|\/signup/);
   assert.ok(
     passThroughStart >= 0 && clientCreationStart > passThroughStart,
   );
   assert.match(
     proxySource.slice(passThroughStart, clientCreationStart),
-    /return NextResponse\.next\(\);/,
+    /return NextResponse\.next\(\{ request: \{ headers: requestHeaders \} \}\);/,
   );
   assert.doesNotMatch(
     proxySource,

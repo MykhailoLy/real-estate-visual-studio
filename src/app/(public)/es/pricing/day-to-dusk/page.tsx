@@ -56,7 +56,7 @@ export default function SpanishDayToDuskPricingPage() {
         />
       }
       welcomeOfferDescription={`${WELCOME_OFFER_PUBLIC_COPY.es.short} ${WELCOME_OFFER_PUBLIC_COPY.es.rules}`}
-      orderHref="/order/day-to-dusk"
+      orderHref="/dashboard/orders/new/day-to-dusk"
       orderLabel="Pedir Day to Dusk"
       whenToUseTitle="Cuándo usar Day to Dusk"
       whenToUseDescription="Day to Dusk funciona mejor en fotos exteriores donde el cielo y la iluminación de la propiedad pueden transformarse para lograr una sensación premium en el anuncio."

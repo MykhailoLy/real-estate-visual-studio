@@ -43,7 +43,7 @@ export default function SpanishDevelopmentSitePlansPricingPage() {
       title="Precios de Planos de emplazamiento para promociones"
       description="Crea planos visuales claros para terrenos, promociones, subdivisiones, proyectos multiunidad o presentaciones de proyecto."
       priceLine="Solicitar presupuesto"
-      orderHref="/order/photo-editing"
+      orderHref="/dashboard/orders/new/photo-editing"
       orderLabel="Pedir plano de emplazamiento"
       whenToUseTitle="Cuándo usar Planos de emplazamiento para promociones"
       whenToUseDescription="Los planos de emplazamiento ayudan a compradores, inversores y audiencias de planificación a entender de un vistazo la distribución, escala y alcance de una promoción o proyecto de terreno."
