@@ -10,9 +10,8 @@ interface OrderLayoutProps {
   /** Optional right-hand action/summary rail. */
   sidebar?: React.ReactNode;
   /**
-   * Optional responsive guidance rendered before the form. The guide owns its
-   * compact mobile/tablet presentation; this layout owns the bounded desktop
-   * column and sticky positioning.
+   * Optional responsive guidance rendered before the form. Wide workspaces
+   * place it below the title; default consumers retain the desktop rail.
    */
   leadingRail?: React.ReactNode;
   /**
@@ -42,6 +41,7 @@ export default function OrderLayout({
   const hasLeadingRail = leadingRail != null;
   const hasSidebar = sidebar != null;
   const isWideWorkspace = workspaceVariant === "wide";
+  const hasInlineGuide = hasLeadingRail && isWideWorkspace;
   // Wide dashboard workflows render a plain wrapper instead of nesting the
   // public-site Container. The default path and every existing caller keep
   // the shared Container exactly as before.
@@ -67,9 +67,16 @@ export default function OrderLayout({
             : undefined
         }
       >
-        {header && <div className={editorial ? "mb-6 lg:mb-8" : "mb-8"}>{header}</div>}
+        {header && (
+          <div className={editorial ? "mb-6 lg:mb-8" : "mb-8"}>{header}</div>
+        )}
 
-        <div className={editorial ? "mb-7 max-w-4xl lg:mb-8" : "mb-8"}>
+        <div
+          className={cn(
+            editorial ? "max-w-4xl" : undefined,
+            hasInlineGuide ? "mb-5" : editorial ? "mb-7 lg:mb-8" : "mb-8",
+          )}
+        >
           <h1
             className={cn(
               "font-bold text-primary",
@@ -90,10 +97,13 @@ export default function OrderLayout({
           </p>
         </div>
 
+        {hasInlineGuide && <div className="mb-7 lg:mb-8">{leadingRail}</div>}
+
         <div
           className={cn(
             "grid min-w-0 grid-cols-1 gap-7",
             hasLeadingRail &&
+              !isWideWorkspace &&
               !hasSidebar &&
               "lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-8",
             !hasLeadingRail &&
@@ -103,7 +113,7 @@ export default function OrderLayout({
                 : "lg:grid-cols-[minmax(0,1fr)_340px]"),
           )}
         >
-          {hasLeadingRail && (
+          {hasLeadingRail && !isWideWorkspace && (
             <div className="min-w-0 lg:self-start">
               {/* Dashboard <main> begins below the fixed top navigation, so
                   this safe inset is measured inside the actual scrollport. */}
@@ -120,7 +130,9 @@ export default function OrderLayout({
           {hasSidebar && (
             <div className="min-w-0">
               <div
-                className={editorial ? "xl:sticky xl:top-24" : "lg:sticky lg:top-24"}
+                className={
+                  editorial ? "xl:sticky xl:top-24" : "lg:sticky lg:top-24"
+                }
               >
                 {sidebar}
               </div>

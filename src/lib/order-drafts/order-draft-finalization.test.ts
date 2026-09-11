@@ -1563,7 +1563,11 @@ test("opened Virtual Staging drafts render persisted original and reference prev
   assert.match(STAGING_ITEM_CARD, /ReferenceFilesUploader/);
   assert.match(STAGING_ITEM_CARD, /uploadedOriginalFile\.previewUrl/);
   assert.match(STAGING_ITEM_CARD, /uploadedReferenceFile\.previewUrl/);
-  assert.match(STAGING_ITEM_CARD, /!data\.file && uploadedOriginalFile/);
+  assert.match(
+    STAGING_ITEM_CARD,
+    /hasFileUploadPreview\(\s*data\.file,\s*persistedOriginalDisplay/,
+  );
+  assert.match(FILE_UPLOAD, /previewUrl \?\? \(!file \? persistedImagePreviewUrl/);
   assert.match(STAGING_ITEM_CARD, /displayedReferenceFiles/);
   assert.match(FILE_UPLOAD, /className="h-full w-full object-cover"/);
   assert.match(FILE_UPLOAD, /role="dialog"/);

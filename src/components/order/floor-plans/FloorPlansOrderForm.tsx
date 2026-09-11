@@ -1398,6 +1398,7 @@ export default function FloorPlansOrderForm({
             <FloorPlanItemCard
               key={item.clientItemId}
               index={index}
+              totalItems={items.length}
               data={item}
               onChange={(data) => handleItemChange(item.clientItemId, data)}
               onRemove={() => void handleRemoveItem(item.clientItemId)}

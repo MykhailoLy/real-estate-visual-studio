@@ -74,16 +74,23 @@ test("configure uses the guide and local Review action while Review keeps one su
     form,
     /<OrderReviewAction[\s\S]*?onClick=\{goToReview\}[\s\S]*?disabled=\{!configureValid \|\| fileOperationActive\}/,
   );
-  assert.match(form, /if \(submittingRef\.current \|\| step !== "review"\) return/);
+  assert.match(
+    form,
+    /if \(submittingRef\.current \|\| step !== "review"\) return/,
+  );
 });
 
-test("the reusable guide uses mobile, tablet and desktop presentations", () => {
-  assert.match(layout, /lg:grid-cols-\[300px_minmax\(0,1fr\)\]/);
-  assert.match(layout, /xl:grid-cols-\[320px_minmax\(0,1fr\)\]/);
-  assert.match(guide, /md:hidden/);
-  assert.match(guide, /md:block lg:hidden/);
-  assert.match(guide, /hidden border-l[^\"]*lg:block/);
-  assert.match(guide, /Before you start/);
+test("the reusable guide is a full-width collapsed section in wide workspaces", () => {
+  assert.match(
+    layout,
+    /const hasInlineGuide = hasLeadingRail && isWideWorkspace/,
+  );
+  assert.match(layout, /\{hasInlineGuide &&/);
+  assert.equal((guide.match(/<details/g) ?? []).length, 1);
+  assert.match(guide, /<summary className="[^"]*min-h-11/);
+  assert.match(guide, />\s*Order guide\s*</);
+  assert.match(guide, /md:grid-cols-3/);
+  assert.doesNotMatch(guide, /<aside|md:hidden|lg:hidden/);
   assert.doesNotMatch(form, /compactLeadingRail/);
 });
 
@@ -91,19 +98,20 @@ test("configure opts into the wide dashboard workspace while Review stays defaul
   assert.match(form, /workspaceVariant=\{isReview \? undefined : "wide"\}/);
   assert.match(layout, /workspaceVariant\?: "wide"/);
   assert.match(layout, /max-w-\[1800px\]/);
-  assert.match(layout, /320px_minmax\(0,1fr\)/);
+  assert.match(layout, /hasLeadingRail && !isWideWorkspace/);
   assert.match(clientWorkspace, /max-w-\[1800px\]/);
   assert.match(page, /<ClientDashboardLayout flush>/);
 });
 
-test("each uploaded photo keeps one item-local responsive preview", () => {
+test("each uploaded photo uses the shared left-preview workspace", () => {
   assert.match(itemCard, /presentationVariant="workspace"/);
-  assert.match(itemCard, /min-\[1440px\]:grid-cols-/);
-  assert.match(itemCard, /Current photo/);
-  assert.match(itemCard, /object-contain/);
-  assert.match(itemCard, /loading="lazy"/);
-  assert.match(itemCard, /document\.getElementById\(inputId\)\?\.click\(\)/);
+  assert.match(itemCard, /<OrderImageWorkspace/);
+  assert.match(itemCard, /hasPreview=\{hasOriginalPreview\}/);
+  assert.match(itemCard, /hasFileUploadPreview\(/);
+  assert.doesNotMatch(itemCard, /CurrentPhotoPreview|URL\.createObjectURL/);
   assert.match(fileUpload, /isWorkspacePresentation/);
+  assert.match(fileUpload, /data-order-image-preview/);
+  assert.match(fileUpload, /object-contain object-center/);
   assert.match(fileUpload, /\{replaceLabel\}/);
 });
 
@@ -114,12 +122,12 @@ test("wide configuration controls use intentional desktop grids", () => {
 });
 
 test("sky cards are responsive and the zoom control is separate from selection", () => {
+  assert.match(selector, /grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3/);
+  assert.match(selector, /line-clamp-2/);
   assert.match(
     selector,
-    /grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3/,
+    /aria-label=\{`View \$\{style\.label\} example larger`\}/,
   );
-  assert.match(selector, /line-clamp-2/);
-  assert.match(selector, /aria-label=\{`View \$\{style\.label\} example larger`\}/);
   assert.match(selector, /<ImageLightbox/);
   assert.match(selector, /variant="photo"/);
 

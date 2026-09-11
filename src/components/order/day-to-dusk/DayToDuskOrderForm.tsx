@@ -1162,6 +1162,7 @@ export default function DayToDuskOrderForm({
               <DayToDuskItemCard
                 key={item.clientItemId}
                 index={index}
+                totalItems={items.length}
                 data={item}
                 onChange={(data) => handleItemChange(index, data)}
                 onRemove={() => void handleRemoveItem(index)}

@@ -348,6 +348,7 @@ export default function ItemRemovalOrderForm({
               <ItemRemovalItemCard
                 key={index}
                 index={index}
+                totalItems={items.length}
                 data={item}
                 onChange={(data) => handleItemChange(index, data)}
                 onRemove={() => handleRemoveItem(index)}

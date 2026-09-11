@@ -1,28 +1,18 @@
 interface OrderImageCardHeaderProps {
   index: number;
-  filename?: string | null;
-  itemLabel?: string;
+  totalItems: number;
   action?: React.ReactNode;
 }
 export default function OrderImageCardHeader({
   index,
-  filename,
-  itemLabel = "Image",
+  totalItems,
   action,
 }: OrderImageCardHeaderProps) {
   return (
-    <header className="mb-6 flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border bg-dashboard-canvas px-4 py-3">
-      <div className="min-w-0">
-        <h2 className="text-base font-bold leading-tight text-primary sm:text-lg">
-          {itemLabel} {String(index + 1).padStart(2, "0")}
-        </h2>
-        <p
-          className="mt-1 truncate text-dashboard-metadata text-muted"
-          title={filename ?? undefined}
-        >
-          {filename || "Waiting for file"}
-        </p>
-      </div>
+    <header className="mb-6 flex min-w-0 items-center justify-between gap-3 border-b border-border pb-4">
+      <h2 className="text-xl font-extrabold uppercase leading-tight tracking-[-0.02em] text-primary sm:text-2xl">
+        Image {index + 1} of {totalItems}
+      </h2>
       {action ? <div className="shrink-0">{action}</div> : null}
     </header>
   );

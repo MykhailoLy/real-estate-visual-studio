@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Upload, X, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useViewerScrollLock } from "@/components/media/useViewerScrollLock";
@@ -12,14 +19,18 @@ import type { StaticImageViewerVariant } from "@/components/media/static-image-v
 // drop the MIME for files dragged from certain sources).
 const PREVIEWABLE_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
+function isPreviewableImageFilename(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return PREVIEWABLE_IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 /**
  * Decide whether a File should be shown as a thumbnail preview.
  * Trusts the MIME type first; falls back to extension matching.
  */
-function isPreviewableImage(file: File): boolean {
+export function isPreviewableUploadImage(file: File): boolean {
   if (file.type && file.type.startsWith("image/")) return true;
-  const lower = file.name.toLowerCase();
-  return PREVIEWABLE_IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+  return isPreviewableImageFilename(file.name);
 }
 
 // Public API kept identical to the previous implementation so callers don't change.
@@ -32,6 +43,17 @@ export interface PersistedFileDisplay {
   statusLabel?: string;
   previewUrl?: string | null;
   previewExpiresAt?: string | null;
+}
+
+export function hasFileUploadPreview(
+  file: File | null,
+  persistedFile?: Pick<PersistedFileDisplay, "filename" | "previewUrl"> | null,
+): boolean {
+  if (file) return isPreviewableUploadImage(file);
+  return Boolean(
+    persistedFile?.previewUrl &&
+      isPreviewableImageFilename(persistedFile.filename),
+  );
 }
 
 interface FileUploadProps {
@@ -169,15 +191,26 @@ export default function FileUpload({
   // accompanying effect revokes the URL when it changes or on unmount to
   // avoid memory leaks.
   const previewUrl = useMemo<string | null>(() => {
-    if (isWorkspacePresentation || !file || !isPreviewableImage(file)) return null;
+    if (!file || !isPreviewableUploadImage(file)) return null;
     return URL.createObjectURL(file);
-  }, [file, isWorkspacePresentation]);
+  }, [file]);
 
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  const persistedImagePreviewUrl =
+    persistedFile?.previewUrl &&
+    isPreviewableImageFilename(persistedFile.filename)
+      ? persistedFile.previewUrl
+      : null;
+  const workspacePreviewUrl = isWorkspacePresentation
+    ? (previewUrl ?? (!file ? persistedImagePreviewUrl : null))
+    : null;
+  const workspacePreviewFilename =
+    file?.name ?? persistedFile?.filename ?? null;
 
   const acceptString = buildAcceptString(accept);
 
@@ -199,7 +232,7 @@ export default function FileUpload({
       setRejected(false);
       onFileChange(candidate);
     },
-    [accept, maxSize, onFileChange]
+    [accept, maxSize, onFileChange],
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,6 +306,7 @@ export default function FileUpload({
         className={cn(
           "mb-1.5 block font-medium text-foreground",
           comfortable ? "text-base" : "text-sm",
+          isWorkspacePresentation && !isEmptyUploadState && "sr-only",
         )}
       >
         {label}
@@ -306,155 +340,261 @@ export default function FileUpload({
       />
 
       {file ? (
-        <div
-          className={cn(
-            "flex gap-3 rounded-lg border border-border bg-surface p-3",
-            isWorkspacePresentation ? "flex-wrap items-center" : "items-stretch",
-          )}
-        >
-          {isWorkspacePresentation ? (
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-white">
-              <FileImage className="h-5 w-5 text-primary" aria-hidden="true" />
-            </div>
-          ) : previewUrl ? (
-            // Local-File preview. Plain <img> is intentional: next/image needs
-            // a static or remote URL, while object URLs are short-lived blobs.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previewUrl}
-              alt={file.name}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-md object-cover bg-stone-100 flex-shrink-0"
+        <div className={isWorkspacePresentation ? "space-y-3" : undefined}>
+          {workspacePreviewUrl && workspacePreviewFilename ? (
+            <WorkspaceImagePreview
+              key={workspacePreviewUrl}
+              src={workspacePreviewUrl}
+              filename={workspacePreviewFilename}
+              variant={viewerVariant}
             />
+          ) : null}
+          {isWorkspacePresentation ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {operationStatusText || operationErrorText ? (
+                <div className="mr-auto min-w-0 basis-full">
+                  {operationStatusText && (
+                    <p
+                      id={operationStatusId}
+                      aria-live="polite"
+                      className="text-dashboard-metadata text-foreground/75"
+                    >
+                      {operationStatusText}
+                    </p>
+                  )}
+                  {operationErrorText && (
+                    <p
+                      id={operationErrorId}
+                      role="alert"
+                      className="text-dashboard-metadata text-red-700"
+                    >
+                      {operationErrorText}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={openPicker}
+                disabled={disabled}
+                className="min-h-11 flex-shrink-0 rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {replaceLabel}
+              </button>
+              {onRetry && operationErrorText && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  disabled={retryDisabled}
+                  className="min-h-11 flex-shrink-0 rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {retryLabel}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={removeFile}
+                disabled={disabled}
+                className="min-h-11 flex-shrink-0 rounded-lg px-3 py-2 text-dashboard-action font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
           ) : (
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-md bg-stone-100 flex items-center justify-center flex-shrink-0">
-              <FileImage className="w-6 h-6 text-primary" aria-hidden="true" />
+            <div className="flex items-stretch gap-3 rounded-lg border border-border bg-surface p-3">
+              {previewUrl ? (
+                // Local-File preview. Plain <img> is intentional: next/image needs
+                // a static or remote URL, while object URLs are short-lived blobs.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt={file.name}
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-md object-cover bg-stone-100 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-md bg-stone-100 flex items-center justify-center flex-shrink-0">
+                  <FileImage
+                    className="w-6 h-6 text-primary"
+                    aria-hidden="true"
+                  />
+                </div>
+              )}
+              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                <FilenameText filename={file.name} />
+                <p className="text-dashboard-metadata text-foreground/75">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+                {operationStatusText && (
+                  <p
+                    id={operationStatusId}
+                    aria-live="polite"
+                    className="mt-1 text-dashboard-metadata text-foreground/75"
+                  >
+                    {operationStatusText}
+                  </p>
+                )}
+                {operationErrorText && (
+                  <p
+                    id={operationErrorId}
+                    role="alert"
+                    className="mt-1 text-dashboard-metadata text-red-700"
+                  >
+                    {operationErrorText}
+                  </p>
+                )}
+              </div>
+              {onRetry && operationErrorText && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  disabled={retryDisabled}
+                  className="min-h-11 flex-shrink-0 self-start rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {retryLabel}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={removeFile}
+                disabled={disabled}
+                className="flex-shrink-0 self-start p-1 text-muted transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Remove file"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
             </div>
           )}
-          <div className="min-w-0 flex-1 flex flex-col justify-center">
-            <FilenameText filename={file.name} />
-            <p className="text-dashboard-metadata text-foreground/75">
-              {(file.size / 1024 / 1024).toFixed(2)} MB
-            </p>
-            {operationStatusText && (
-              <p
-                id={operationStatusId}
-                aria-live="polite"
-                className="mt-1 text-dashboard-metadata text-foreground/75"
-              >
-                {operationStatusText}
-              </p>
-            )}
-            {operationErrorText && (
-              <p
-                id={operationErrorId}
-                role="alert"
-                className="mt-1 text-dashboard-metadata text-red-700"
-              >
-                {operationErrorText}
-              </p>
-            )}
-          </div>
-          {isWorkspacePresentation && (
-            <button
-              type="button"
-              onClick={openPicker}
-              disabled={disabled}
-              className="flex-shrink-0 rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {replaceLabel}
-            </button>
-          )}
-          {onRetry && operationErrorText && (
-            <button
-              type="button"
-              onClick={onRetry}
-              disabled={retryDisabled}
-              className="flex-shrink-0 self-start rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {retryLabel}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={removeFile}
-            disabled={disabled}
-            className="flex-shrink-0 self-start p-1 text-muted hover:text-red-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Remove file"
-          >
-            <X className="w-4 h-4" aria-hidden="true" />
-          </button>
         </div>
       ) : persistedFile ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-stretch">
+        <div className={isWorkspacePresentation ? "space-y-3" : undefined}>
+          {workspacePreviewUrl && workspacePreviewFilename ? (
+            <WorkspaceImagePreview
+              key={workspacePreviewUrl}
+              src={workspacePreviewUrl}
+              filename={workspacePreviewFilename}
+              variant={viewerVariant}
+            />
+          ) : null}
           {isWorkspacePresentation ? (
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center self-start rounded-md bg-white">
-              <FileImage className="h-5 w-5 text-primary" aria-hidden="true" />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {operationStatusText || operationErrorText ? (
+                <div className="mr-auto min-w-0 basis-full">
+                  {operationStatusText && (
+                    <p
+                      id={operationStatusId}
+                      aria-live="polite"
+                      className="text-dashboard-metadata text-foreground/75"
+                    >
+                      {operationStatusText}
+                    </p>
+                  )}
+                  {operationErrorText && (
+                    <p
+                      id={operationErrorId}
+                      role="alert"
+                      className="text-dashboard-metadata text-red-700"
+                    >
+                      {operationErrorText}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={openPicker}
+                disabled={disabled}
+                className="min-h-11 rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-semibold text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {replaceLabel}
+              </button>
+              {onRetry && operationErrorText && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  disabled={retryDisabled}
+                  className="min-h-11 rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {retryLabel}
+                </button>
+              )}
+              {onRemovePersisted && (
+                <button
+                  type="button"
+                  onClick={onRemovePersisted}
+                  disabled={removeDisabled}
+                  className="min-h-11 rounded-lg px-3 py-2 text-dashboard-action font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {removePersistedLabel}
+                </button>
+              )}
             </div>
           ) : (
-            <PersistedFilePreview
-              viewerVariant={viewerVariant}
-              label={label}
-              filename={persistedFile.filename}
-              previewUrl={persistedFile.previewUrl ?? null}
-            />
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-stretch">
+              <PersistedFilePreview
+                viewerVariant={viewerVariant}
+                label={label}
+                filename={persistedFile.filename}
+                previewUrl={persistedFile.previewUrl ?? null}
+              />
+              <div className="min-w-0 flex-1">
+                <FilenameText filename={persistedFile.filename} />
+                <p className="text-dashboard-metadata text-foreground/75">
+                  {formatFileSize(persistedFile.fileSize)}
+                </p>
+                <p className="mt-1 text-dashboard-metadata font-medium text-primary">
+                  {persistedFile.statusLabel ?? "Saved in draft"}
+                </p>
+                {operationStatusText && (
+                  <p
+                    id={operationStatusId}
+                    aria-live="polite"
+                    className="mt-1 text-dashboard-metadata text-foreground/75"
+                  >
+                    {operationStatusText}
+                  </p>
+                )}
+                {operationErrorText && (
+                  <p
+                    id={operationErrorId}
+                    role="alert"
+                    className="mt-1 text-dashboard-metadata text-red-700"
+                  >
+                    {operationErrorText}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
+                <button
+                  type="button"
+                  onClick={openPicker}
+                  disabled={disabled}
+                  className="min-h-11 rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-semibold text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {replaceLabel}
+                </button>
+                {onRetry && operationErrorText && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    disabled={retryDisabled}
+                    className="min-h-11 rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {retryLabel}
+                  </button>
+                )}
+                {onRemovePersisted && (
+                  <button
+                    type="button"
+                    onClick={onRemovePersisted}
+                    disabled={removeDisabled}
+                    className="min-h-11 rounded-lg border border-red-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {removePersistedLabel}
+                  </button>
+                )}
+              </div>
+            </div>
           )}
-          <div className="min-w-0 flex-1">
-            <FilenameText filename={persistedFile.filename} />
-            <p className="text-dashboard-metadata text-foreground/75">
-              {formatFileSize(persistedFile.fileSize)}
-            </p>
-            <p className="mt-1 text-dashboard-metadata font-medium text-primary">
-              {persistedFile.statusLabel ?? "Saved in draft"}
-            </p>
-            {operationStatusText && (
-              <p
-                id={operationStatusId}
-                aria-live="polite"
-                className="mt-1 text-dashboard-metadata text-foreground/75"
-              >
-                {operationStatusText}
-              </p>
-            )}
-            {operationErrorText && (
-              <p
-                id={operationErrorId}
-                role="alert"
-                className="mt-1 text-dashboard-metadata text-red-700"
-              >
-                {operationErrorText}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
-            <button
-              type="button"
-              onClick={openPicker}
-              disabled={disabled}
-              className="rounded-lg border border-border bg-white px-3 py-2 text-dashboard-action font-semibold text-foreground hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {replaceLabel}
-            </button>
-            {onRetry && operationErrorText && (
-              <button
-                type="button"
-                onClick={onRetry}
-                disabled={retryDisabled}
-                className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {retryLabel}
-              </button>
-            )}
-            {onRemovePersisted && (
-              <button
-                type="button"
-                onClick={onRemovePersisted}
-                disabled={removeDisabled}
-                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-dashboard-action font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {removePersistedLabel}
-              </button>
-            )}
-          </div>
         </div>
       ) : (
         <button
@@ -475,7 +615,7 @@ export default function FileUpload({
               ? "border-primary bg-primary/5"
               : validationError
                 ? "border-red-300 bg-red-50/30 hover:border-red-400"
-              : "border-border hover:border-primary/40 hover:bg-surface"
+                : "border-border hover:border-primary/40 hover:bg-surface",
           )}
         >
           <Upload
@@ -552,6 +692,59 @@ export default function FileUpload({
         </p>
       )}
     </div>
+  );
+}
+
+function WorkspaceImagePreview({
+  src,
+  filename,
+  variant,
+}: {
+  src: string;
+  filename: string;
+  variant: StaticImageViewerVariant;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [broken, setBroken] = useState(false);
+
+  return (
+    <figure
+      data-order-image-preview
+      className="overflow-hidden rounded-xl border border-border bg-dashboard-canvas"
+    >
+      <div
+        className={cn(
+          "relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden",
+          variant === "plan" ? "bg-white p-3" : "bg-dashboard-canvas",
+        )}
+      >
+        {!loaded && !broken ? (
+          <span className="absolute inset-0 animate-pulse bg-surface" />
+        ) : null}
+        {broken ? (
+          <span className="flex flex-col items-center gap-2 px-4 text-center text-muted">
+            <FileImage className="h-8 w-8 text-primary" aria-hidden="true" />
+            <span className="text-dashboard-metadata font-semibold uppercase tracking-[0.08em]">
+              Preview unavailable
+            </span>
+          </span>
+        ) : (
+          // Signed draft URLs and local blob URLs intentionally bypass
+          // next/image. The fixed frame reserves space while object-contain
+          // preserves the complete source composition.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={`Original image preview: ${filename}`}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            onError={() => setBroken(true)}
+            className="h-full w-full object-contain object-center"
+          />
+        )}
+      </div>
+    </figure>
   );
 }
 
@@ -650,7 +843,10 @@ function PersistedFilePreviewContent({
             onClick={(event) => event.stopPropagation()}
           >
             <div className="static-image-viewer-panel-header flex min-w-0 items-center justify-between gap-3 pb-3">
-              <p className="truncate text-sm font-semibold text-white" title={`${label}: ${filename}`}>
+              <p
+                className="truncate text-sm font-semibold text-white"
+                title={`${label}: ${filename}`}
+              >
                 {label}: {filename}
               </p>
               <button

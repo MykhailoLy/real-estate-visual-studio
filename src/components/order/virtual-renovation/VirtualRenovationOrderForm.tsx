@@ -1943,6 +1943,7 @@ export default function VirtualRenovationOrderForm({
                   <RenovationItemCard
                     key={item.clientItemId}
                     index={index}
+                    totalItems={items.length}
                     data={item}
                     onChange={(data) =>
                       handleItemChange(item.clientItemId, data)

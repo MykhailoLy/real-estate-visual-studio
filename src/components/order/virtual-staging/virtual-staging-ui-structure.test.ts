@@ -50,7 +50,10 @@ test("add-on information control is outside the checkbox label", () => {
   assert.ok(checkbox > -1);
   assert.ok(checkboxLabelEnd > checkbox);
   assert.ok(infoHandler > checkboxLabelEnd);
-  assert.match(stagingItemSource, /onChange=\{\(\) => toggleAddon\(addon\.id\)\}/);
+  assert.match(
+    stagingItemSource,
+    /onChange=\{\(\) => toggleAddon\(addon\.id\)\}/,
+  );
 });
 
 test("closing the shared informational dialog has no form mutation contract", () => {
@@ -58,14 +61,14 @@ test("closing the shared informational dialog has no form mutation contract", ()
     exampleDialogSource,
     /selectedAddons|furnitureStyle|onSelect|onFormChange/,
   );
-  assert.match(exampleDialogSource, /const close = \(\) => onOpenChange\(false\)/);
+  assert.match(
+    exampleDialogSource,
+    /const close = \(\) => onOpenChange\(false\)/,
+  );
 });
 
 test("existing Virtual Staging dialogs keep the pre-extraction no-media behavior", () => {
-  assert.match(
-    exampleDialogSource,
-    /showMissingMediaPlaceholder = false/,
-  );
+  assert.match(exampleDialogSource, /showMissingMediaPlaceholder = false/);
   assert.match(
     exampleDialogSource,
     /\) : showMissingMediaPlaceholder \? \([\s\S]*?Example media coming soon[\s\S]*?\) : null\}/,
@@ -112,12 +115,20 @@ test("style selector uses compact responsive cards and preserves media behavior"
   assert.match(styleSelectorSource, /<ExampleDialog/);
 });
 
-test("each image owns its original preview without introducing form image state", () => {
-  assert.match(stagingItemSource, /URL\.createObjectURL\(data\.file\)/);
-  assert.match(stagingItemSource, /uploadedOriginalFile\?\.previewUrl/);
+test("each image delegates its original preview to the shared workspace", () => {
+  assert.match(
+    stagingItemSource,
+    /previewUrl: uploadedOriginalFile\.previewUrl/,
+  );
+  assert.match(stagingItemSource, /<OrderImageWorkspace/);
+  assert.match(stagingItemSource, /hasPreview=\{hasOriginalPreview\}/);
+  assert.match(stagingItemSource, /hasFileUploadPreview\(/);
   assert.match(stagingItemSource, /presentationVariant="workspace"/);
   assert.match(stagingItemSource, /inputId=\{uploadInputId\}/);
-  assert.match(stagingItemSource, /min-\[1600px\]:grid-cols/);
+  assert.doesNotMatch(
+    stagingItemSource,
+    /URL\.createObjectURL|CurrentPhotoPreview/,
+  );
   assert.doesNotMatch(orderFormSource, /activeImage|activePreview/);
 });
 
@@ -127,11 +138,16 @@ test("comfortable fields and compact wide add-ons remain item-local", () => {
   assert.match(stagingItemSource, /rows=\{3\}/);
   assert.match(stagingItemSource, /grid gap-3 xl:grid-cols-2/);
   assert.match(stagingItemSource, /calculateStagingItemTotal/);
-  assert.match(stagingItemSource, /getCatalogPrice\(addon\.priceKey, currency\)/);
+  assert.match(
+    stagingItemSource,
+    /getCatalogPrice\(addon\.priceKey, currency\)/,
+  );
 });
 
 test("draft query changes synchronize through Next-compatible native history", () => {
-  const urlSyncStart = orderFormSource.indexOf("const replaceDraftUrl = useCallback(");
+  const urlSyncStart = orderFormSource.indexOf(
+    "const replaceDraftUrl = useCallback(",
+  );
   const urlSyncEnd = orderFormSource.indexOf(
     "const startNewVirtualStagingOrder = useCallback(",
     urlSyncStart,
@@ -181,7 +197,10 @@ test("Start New removes the draft query through the same native history update",
   const resetStart = orderFormSource.indexOf(
     "const startNewVirtualStagingOrder = useCallback(",
   );
-  const resetEnd = orderFormSource.indexOf("const enqueueDraftSave = useCallback(", resetStart);
+  const resetEnd = orderFormSource.indexOf(
+    "const enqueueDraftSave = useCallback(",
+    resetStart,
+  );
 
   assert.ok(resetStart > -1);
   assert.ok(resetEnd > resetStart);

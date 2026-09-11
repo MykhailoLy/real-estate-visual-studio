@@ -1163,6 +1163,7 @@ export default function SingleExposureOrderForm({
                 <SingleExposureItemCard
                   key={item.clientItemId}
                   index={index}
+                  totalItems={items.length}
                   data={item}
                   onChange={(data) => handleItemChange(index, data)}
                   onReferenceFilesChange={(referenceFiles) =>

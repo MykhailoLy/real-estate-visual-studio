@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Info, Trash2 } from "lucide-react";
-import FileUpload from "@/components/order/FileUpload";
+import FileUpload, {
+  hasFileUploadPreview,
+} from "@/components/order/FileUpload";
 import ItemSubtotal from "@/components/order/ItemSubtotal";
 import ExampleDialog from "@/components/order/ExampleDialog";
 import ItemDeliveryFields, {
@@ -21,12 +23,8 @@ import {
   STAGING_FILE_ACCEPT,
 } from "@/data/order-options";
 import { createDraftClientItemId } from "@/lib/order-drafts/utils";
-import {
-  updateOriginalFileDraftMetadata,
-} from "@/lib/order-drafts/virtual-staging";
-import type {
-  OrderDraftUploadedFileSummary,
-} from "@/lib/order-drafts/files";
+import { updateOriginalFileDraftMetadata } from "@/lib/order-drafts/virtual-staging";
+import type { OrderDraftUploadedFileSummary } from "@/lib/order-drafts/files";
 import type { ServiceOptionMedia } from "@/lib/site-media";
 import ReferenceFilesUploader from "@/components/order/ReferenceFilesUploader";
 import {
@@ -34,8 +32,8 @@ import {
   resolveReferenceFileSelection,
   type ReferenceFileValue,
 } from "@/lib/reference-files";
-import { cn } from "@/lib/utils";
 import OrderImageCardHeader from "@/components/order/OrderImageCardHeader";
+import OrderImageWorkspace from "@/components/order/OrderImageWorkspace";
 
 export interface StagingItemData {
   clientItemId: string;
@@ -57,9 +55,7 @@ export interface StagingItemData {
   needsOriginalFileReselection: boolean;
 }
 
-export const emptyStagingItem = (
-  furnitureStyle = "",
-): StagingItemData => ({
+export const emptyStagingItem = (furnitureStyle = ""): StagingItemData => ({
   clientItemId: createDraftClientItemId(),
   file: null,
   roomName: "",
@@ -91,6 +87,7 @@ export function stagingItemDomId(clientItemId: string): string {
 
 interface StagingItemCardProps {
   index: number;
+  totalItems: number;
   data: StagingItemData;
   defaultFurnitureStyle: string;
   exampleMediaByKey: Record<string, ServiceOptionMedia>;
@@ -132,16 +129,9 @@ const DEFAULT_DRAFT_COPY = {
     `Saved draft reference: ${filename}. It will be used when you submit.`,
 };
 
-const PREVIEWABLE_PHOTO_EXTENSION = /\.(?:jpe?g|png)$/i;
-
-function isPreviewablePhoto(filename: string, mimeType: string): boolean {
-  return (
-    mimeType.startsWith("image/") || PREVIEWABLE_PHOTO_EXTENSION.test(filename)
-  );
-}
-
 export default function StagingItemCard({
   index,
+  totalItems,
   data,
   defaultFurnitureStyle,
   exampleMediaByKey,
@@ -181,10 +171,7 @@ export default function StagingItemCard({
     data.clientItemId,
     "original",
   );
-  const roomValidationId = getStagingRequiredFieldId(
-    data.clientItemId,
-    "room",
-  );
+  const roomValidationId = getStagingRequiredFieldId(data.clientItemId, "room");
   const styleValidationId = getStagingRequiredFieldId(
     data.clientItemId,
     "furniture-style",
@@ -194,47 +181,36 @@ export default function StagingItemCard({
   const originalDisabled = disabled || originalBusy;
   const referenceDisabled = disabled || referenceBusy;
   const uploadInputId = `${fieldIdPrefix}-original-upload`;
-  const localPreviewUrl = useMemo(() => {
-    if (!data.file || !isPreviewablePhoto(data.file.name, data.file.type)) {
-      return null;
-    }
-    return URL.createObjectURL(data.file);
-  }, [data.file]);
-
-  useEffect(() => {
-    return () => {
-      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
-    };
-  }, [localPreviewUrl]);
-
-  const persistedPreviewUrl =
-    !data.file &&
-    uploadedOriginalFile?.previewUrl &&
-    isPreviewablePhoto(
-      uploadedOriginalFile.originalFilename,
-      uploadedOriginalFile.mimeType,
-    )
-      ? uploadedOriginalFile.previewUrl
-      : null;
-  const currentPreviewUrl = localPreviewUrl ?? persistedPreviewUrl;
-  const currentPreviewFilename =
-    data.file?.name ?? uploadedOriginalFile?.originalFilename ?? null;
-  const hasCurrentPhotoPreview =
-    currentPreviewUrl !== null && currentPreviewFilename !== null;
+  const persistedOriginalDisplay = uploadedOriginalFile
+    ? {
+        id: uploadedOriginalFile.id,
+        filename: uploadedOriginalFile.originalFilename,
+        fileSize: uploadedOriginalFile.fileSize,
+        statusLabel: savedInDraftLabel,
+        previewUrl: uploadedOriginalFile.previewUrl ?? null,
+        previewExpiresAt: uploadedOriginalFile.previewExpiresAt ?? null,
+      }
+    : null;
+  const hasOriginalPreview = hasFileUploadPreview(
+    data.file,
+    persistedOriginalDisplay,
+  );
   const displayedReferenceFiles = mergeReferenceFiles(
     data.referenceFiles,
     uploadedReferenceFile
-      ? [{
-          id: uploadedReferenceFile.id,
-          file: null,
-          filename: uploadedReferenceFile.originalFilename,
-          fileSize: uploadedReferenceFile.fileSize,
-          mimeType: uploadedReferenceFile.mimeType,
-          lastModified: null,
-          previewUrl: uploadedReferenceFile.previewUrl,
-          previewExpiresAt: uploadedReferenceFile.previewExpiresAt,
-          draftFileId: uploadedReferenceFile.id,
-        }]
+      ? [
+          {
+            id: uploadedReferenceFile.id,
+            file: null,
+            filename: uploadedReferenceFile.originalFilename,
+            fileSize: uploadedReferenceFile.fileSize,
+            mimeType: uploadedReferenceFile.mimeType,
+            lastModified: null,
+            previewUrl: uploadedReferenceFile.previewUrl,
+            previewExpiresAt: uploadedReferenceFile.previewExpiresAt,
+            draftFileId: uploadedReferenceFile.id,
+          },
+        ]
       : [],
   );
   const toggleAddon = (id: string) => {
@@ -251,7 +227,7 @@ export default function StagingItemCard({
     (addon) => addon.id === previewAddonId,
   );
   const previewAddonMedia = previewAddon
-    ? exampleMediaByKey[previewAddon.mediaKey] ?? null
+    ? (exampleMediaByKey[previewAddon.mediaKey] ?? null)
     : null;
 
   return (
@@ -261,31 +237,25 @@ export default function StagingItemCard({
     >
       <OrderImageCardHeader
         index={index}
-        filename={currentPreviewFilename ?? data.originalFilename}
+        totalItems={totalItems}
         action={
           canRemove ? (
-          <button
-            type="button"
-            onClick={onRemove}
-            disabled={disabled || removeDisabled}
-            className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={`Remove image ${index + 1}`}
-          >
-            <Trash2 className="w-4 h-4" aria-hidden="true" />
-          </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={disabled || removeDisabled}
+              className="rounded-md p-2.5 text-muted transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={`Remove image ${index + 1}`}
+            >
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
+            </button>
           ) : null
         }
       />
 
-      <div
-        className={cn(
-          "grid min-w-0 gap-7",
-          hasCurrentPhotoPreview &&
-            "min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] min-[1600px]:items-start min-[1600px]:gap-x-8",
-        )}
-      >
-        {/* File Upload */}
-        <div className="min-w-0">
+      <OrderImageWorkspace
+        hasPreview={hasOriginalPreview}
+        media={
           <FileUpload
             viewerVariant="photo"
             label="Upload Original Photo"
@@ -308,19 +278,7 @@ export default function StagingItemCard({
                 ? draftCopy.savedOriginalFile(data.originalFilename)
                 : undefined
             }
-            persistedFile={
-              !data.file && uploadedOriginalFile
-                ? {
-                    id: uploadedOriginalFile.id,
-                    filename: uploadedOriginalFile.originalFilename,
-                    fileSize: uploadedOriginalFile.fileSize,
-                    statusLabel: savedInDraftLabel,
-                    previewUrl: uploadedOriginalFile.previewUrl ?? null,
-                    previewExpiresAt:
-                      uploadedOriginalFile.previewExpiresAt ?? null,
-                  }
-                : null
-            }
+            persistedFile={persistedOriginalDisplay}
             operationStatusText={originalOperationStatusText}
             operationErrorText={originalOperationErrorText}
             disabled={originalDisabled}
@@ -337,253 +295,240 @@ export default function StagingItemCard({
             presentationVariant="workspace"
             comfortable
           />
-        </div>
-
-        {currentPreviewUrl && currentPreviewFilename ? (
-          <div className="min-w-0 min-[1600px]:col-start-2 min-[1600px]:row-span-2 min-[1600px]:row-start-1">
-            <div className="min-[1600px]:sticky min-[1600px]:top-8">
-              <CurrentPhotoPreview
-                key={currentPreviewUrl}
-                previewUrl={currentPreviewUrl}
-                filename={currentPreviewFilename}
-                inputId={uploadInputId}
-                disabled={originalDisabled}
-              />
+        }
+      >
+        <div className="min-w-0 space-y-7">
+          {/* Room & Style */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div id={roomValidationId}>
+              <label
+                htmlFor={roomNameId}
+                className="mb-2 block text-base font-medium text-foreground"
+              >
+                Room Name / Area <span className="text-red-500">*</span>
+              </label>
+              <select
+                id={roomNameId}
+                value={data.roomName}
+                disabled={disabled}
+                required
+                data-validation-control
+                aria-invalid={Boolean(validationErrors.room) || undefined}
+                aria-describedby={
+                  validationErrors.room ? roomErrorId : undefined
+                }
+                onChange={(e) =>
+                  onChange({ ...data, roomName: e.target.value })
+                }
+                className={`w-full rounded-lg border bg-white px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  validationErrors.room ? "border-red-300" : "border-border"
+                }`}
+              >
+                <option value="">Select room...</option>
+                {STAGING_ROOM_OPTIONS.map((room) => (
+                  <option key={room} value={room}>
+                    {room}
+                  </option>
+                ))}
+              </select>
+              {validationErrors.room && (
+                <p
+                  id={roomErrorId}
+                  role="alert"
+                  className="mt-1.5 text-sm text-red-600"
+                >
+                  {validationErrors.room}
+                </p>
+              )}
+            </div>
+            <div id={styleValidationId}>
+              <label
+                htmlFor={furnitureStyleId}
+                className="mb-2 block text-base font-medium text-foreground"
+              >
+                Furniture Style <span className="text-red-500">*</span>
+              </label>
+              <select
+                id={furnitureStyleId}
+                value={data.furnitureStyle}
+                disabled={disabled}
+                required
+                aria-invalid={
+                  Boolean(validationErrors["furniture-style"]) || undefined
+                }
+                aria-describedby={
+                  validationErrors["furniture-style"] ? styleErrorId : undefined
+                }
+                onChange={(e) =>
+                  onChange({ ...data, furnitureStyle: e.target.value })
+                }
+                className={`w-full rounded-lg border bg-white px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  validationErrors["furniture-style"]
+                    ? "border-red-300"
+                    : "border-border"
+                }`}
+              >
+                <option value="">Select style...</option>
+                {STAGING_STYLE_OPTIONS.map((style) => (
+                  <option key={style} value={style}>
+                    {style}
+                  </option>
+                ))}
+              </select>
+              {data.furnitureStyle ? (
+                <p className="mt-1.5 text-sm font-medium text-muted">
+                  {data.furnitureStyle === defaultFurnitureStyle
+                    ? "Order default"
+                    : "Individual selection"}
+                </p>
+              ) : null}
+              {validationErrors["furniture-style"] && (
+                <p
+                  id={styleErrorId}
+                  role="alert"
+                  className="mt-1.5 text-sm text-red-600"
+                >
+                  {validationErrors["furniture-style"]}
+                </p>
+              )}
             </div>
           </div>
-        ) : null}
 
-        <div className="min-w-0 space-y-7 min-[1600px]:col-start-1 min-[1600px]:row-start-2">
+          {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
+          <ItemDeliveryFields
+            idPrefix={fieldIdPrefix}
+            data={{
+              fileSizeLimit: data.fileSizeLimit,
+              disclaimerText: data.disclaimerText,
+            }}
+            onChange={(prefs) => onChange({ ...data, ...prefs })}
+            disabled={disabled}
+            layoutVariant="desktop-columns"
+            comfortable
+          />
 
-        {/* Room & Style */}
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <div id={roomValidationId}>
+          {/* Reference Link */}
+          <div>
             <label
-              htmlFor={roomNameId}
+              htmlFor={referenceLinkId}
               className="mb-2 block text-base font-medium text-foreground"
             >
-              Room Name / Area <span className="text-red-500">*</span>
+              Reference Link (optional)
             </label>
-            <select
-              id={roomNameId}
-              value={data.roomName}
+            <input
+              id={referenceLinkId}
+              type="url"
+              value={data.referenceLink}
               disabled={disabled}
-              required
-              data-validation-control
-              aria-invalid={Boolean(validationErrors.room) || undefined}
-              aria-describedby={
-                validationErrors.room ? roomErrorId : undefined
-              }
-              onChange={(e) => onChange({ ...data, roomName: e.target.value })}
-              className={`w-full rounded-lg border bg-white px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 ${
-                validationErrors.room ? "border-red-300" : "border-border"
-              }`}
-            >
-              <option value="">Select room...</option>
-              {STAGING_ROOM_OPTIONS.map((room) => (
-                <option key={room} value={room}>
-                  {room}
-                </option>
-              ))}
-            </select>
-            {validationErrors.room && (
-              <p
-                id={roomErrorId}
-                role="alert"
-                className="mt-1.5 text-sm text-red-600"
-              >
-                {validationErrors.room}
-              </p>
-            )}
-          </div>
-          <div id={styleValidationId}>
-            <label
-              htmlFor={furnitureStyleId}
-              className="mb-2 block text-base font-medium text-foreground"
-            >
-              Furniture Style <span className="text-red-500">*</span>
-            </label>
-            <select
-              id={furnitureStyleId}
-              value={data.furnitureStyle}
-              disabled={disabled}
-              required
-              aria-invalid={
-                Boolean(validationErrors["furniture-style"]) || undefined
-              }
-              aria-describedby={
-                validationErrors["furniture-style"]
-                  ? styleErrorId
-                  : undefined
-              }
               onChange={(e) =>
-                onChange({ ...data, furnitureStyle: e.target.value })
+                onChange({ ...data, referenceLink: e.target.value })
               }
-              className={`w-full rounded-lg border bg-white px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 ${
-                validationErrors["furniture-style"]
-                  ? "border-red-300"
-                  : "border-border"
-              }`}
+              placeholder="https://example.com/inspiration"
+              className="w-full rounded-lg border border-border px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Add a link to an online example, brand guide or shared reference.
+            </p>
+          </div>
+
+          <ReferenceFilesUploader
+            files={displayedReferenceFiles}
+            onChange={(files) => {
+              const selection = resolveReferenceFileSelection(
+                files,
+                data.referenceFiles,
+                uploadedReferenceFile,
+              );
+              if (selection.removeLegacy) onRemoveUploadedReference?.();
+              if (onReferenceFilesChange)
+                onReferenceFilesChange(selection.references);
+              else onChange({ ...data, referenceFiles: selection.references });
+            }}
+            disabled={referenceDisabled}
+            operationStatus={referenceOperationStatusText}
+            comfortable
+          />
+          {referenceOperationErrorText ? (
+            <p className="text-sm font-medium text-red-700" role="alert">
+              {referenceOperationErrorText}
+            </p>
+          ) : null}
+
+          {/* Additional Information */}
+          <div>
+            <label
+              htmlFor={additionalInfoId}
+              className="mb-2 block text-base font-medium text-foreground"
             >
-              <option value="">Select style...</option>
-              {STAGING_STYLE_OPTIONS.map((style) => (
-                <option key={style} value={style}>
-                  {style}
-                </option>
-              ))}
-            </select>
-            {data.furnitureStyle ? (
-              <p className="mt-1.5 text-sm font-medium text-muted">
-                {data.furnitureStyle === defaultFurnitureStyle
-                  ? "Order default"
-                  : "Individual selection"}
-              </p>
-            ) : null}
-            {validationErrors["furniture-style"] && (
-              <p
-                id={styleErrorId}
-                role="alert"
-                className="mt-1.5 text-sm text-red-600"
-              >
-                {validationErrors["furniture-style"]}
-              </p>
-            )}
+              Additional Information
+            </label>
+            <textarea
+              id={additionalInfoId}
+              value={data.additionalInfo}
+              disabled={disabled}
+              onChange={(e) =>
+                onChange({ ...data, additionalInfo: e.target.value })
+              }
+              placeholder="Any specific requirements for this image..."
+              rows={3}
+              className="w-full resize-none rounded-lg border border-border px-3 py-3 text-base leading-6 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+            />
           </div>
-        </div>
 
-        {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
-        <ItemDeliveryFields
-          idPrefix={fieldIdPrefix}
-          data={{
-            fileSizeLimit: data.fileSizeLimit,
-            disclaimerText: data.disclaimerText,
-          }}
-          onChange={(prefs) => onChange({ ...data, ...prefs })}
-          disabled={disabled}
-          layoutVariant="desktop-columns"
-          comfortable
-        />
-
-        {/* Reference Link */}
-        <div>
-          <label
-            htmlFor={referenceLinkId}
-            className="mb-2 block text-base font-medium text-foreground"
-          >
-            Reference Link (optional)
-          </label>
-          <input
-            id={referenceLinkId}
-            type="url"
-            value={data.referenceLink}
-            disabled={disabled}
-            onChange={(e) =>
-              onChange({ ...data, referenceLink: e.target.value })
-            }
-            placeholder="https://example.com/inspiration"
-            className="w-full rounded-lg border border-border px-3 py-3 text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-          />
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Add a link to an online example, brand guide or shared reference.
-          </p>
-        </div>
-
-        <ReferenceFilesUploader
-          files={displayedReferenceFiles}
-          onChange={(files) => {
-            const selection = resolveReferenceFileSelection(
-              files,
-              data.referenceFiles,
-              uploadedReferenceFile,
-            );
-            if (selection.removeLegacy) onRemoveUploadedReference?.();
-            if (onReferenceFilesChange) onReferenceFilesChange(selection.references);
-            else onChange({ ...data, referenceFiles: selection.references });
-          }}
-          disabled={referenceDisabled}
-          operationStatus={referenceOperationStatusText}
-          comfortable
-        />
-        {referenceOperationErrorText ? (
-          <p className="text-sm font-medium text-red-700" role="alert">
-            {referenceOperationErrorText}
-          </p>
-        ) : null}
-
-        {/* Additional Information */}
-        <div>
-          <label
-            htmlFor={additionalInfoId}
-            className="mb-2 block text-base font-medium text-foreground"
-          >
-            Additional Information
-          </label>
-          <textarea
-            id={additionalInfoId}
-            value={data.additionalInfo}
-            disabled={disabled}
-            onChange={(e) =>
-              onChange({ ...data, additionalInfo: e.target.value })
-            }
-            placeholder="Any specific requirements for this image..."
-            rows={3}
-            className="w-full resize-none rounded-lg border border-border px-3 py-3 text-base leading-6 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-          />
-        </div>
-
-        {/* Add-ons */}
-        <div>
-          <p className="mb-3 text-base font-medium text-foreground">
-            Optional Add-ons
-          </p>
-          <div className="grid gap-3 xl:grid-cols-2">
-            {STAGING_ADDONS.map((addon) => (
-              <div
-                key={addon.id}
-                className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-surface"
-              >
-                <label
-                  className={`flex min-w-0 items-center gap-2.5 py-1 ${
-                    disabled
-                      ? "cursor-not-allowed opacity-70"
-                      : "cursor-pointer"
-                  }`}
+          {/* Add-ons */}
+          <div>
+            <p className="mb-3 text-base font-medium text-foreground">
+              Optional Add-ons
+            </p>
+            <div className="grid gap-3 xl:grid-cols-2">
+              {STAGING_ADDONS.map((addon) => (
+                <div
+                  key={addon.id}
+                  className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-surface"
                 >
-                  <input
-                    type="checkbox"
-                    checked={data.selectedAddons.includes(addon.id)}
-                    disabled={disabled}
-                    onChange={() => toggleAddon(addon.id)}
-                    className="w-4 h-4 rounded text-primary border-border focus:ring-primary disabled:cursor-not-allowed"
-                  />
-                  <span className="min-w-0 text-[15px] leading-5 text-foreground">
-                    {addon.label}
-                  </span>
-                </label>
-                <div className="flex items-center gap-1">
-                  <span className="whitespace-nowrap text-[15px] font-medium text-foreground/75">
-                    +<RegionalCentsText
-                      cents={getCatalogPrice(addon.priceKey, currency)}
-                    />
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewAddonId(addon.id)}
-                    aria-label={`View ${addon.label} example`}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                  <label
+                    className={`flex min-w-0 items-center gap-2.5 py-1 ${
+                      disabled
+                        ? "cursor-not-allowed opacity-70"
+                        : "cursor-pointer"
+                    }`}
                   >
-                    <Info className="h-4 w-4" aria-hidden="true" />
-                  </button>
+                    <input
+                      type="checkbox"
+                      checked={data.selectedAddons.includes(addon.id)}
+                      disabled={disabled}
+                      onChange={() => toggleAddon(addon.id)}
+                      className="w-4 h-4 rounded text-primary border-border focus:ring-primary disabled:cursor-not-allowed"
+                    />
+                    <span className="min-w-0 text-[15px] leading-5 text-foreground">
+                      {addon.label}
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <span className="whitespace-nowrap text-[15px] font-medium text-foreground/75">
+                      +
+                      <RegionalCentsText
+                        cents={getCatalogPrice(addon.priceKey, currency)}
+                      />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAddonId(addon.id)}
+                      aria-label={`View ${addon.label} example`}
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                    >
+                      <Info className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Subtotal */}
-        <ItemSubtotal totalCents={subtotal} />
+          {/* Subtotal */}
+          <ItemSubtotal totalCents={subtotal} />
         </div>
-      </div>
+      </OrderImageWorkspace>
 
       {previewAddon ? (
         <ExampleDialog
@@ -599,51 +544,5 @@ export default function StagingItemCard({
         />
       ) : null}
     </div>
-  );
-}
-
-function CurrentPhotoPreview({
-  previewUrl,
-  filename,
-  inputId,
-  disabled,
-}: {
-  previewUrl: string;
-  filename: string;
-  inputId: string;
-  disabled: boolean;
-}) {
-  return (
-    <figure className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-surface/70 min-[1600px]:max-w-none">
-      <div className="relative aspect-[3/2] w-full overflow-hidden bg-white p-3">
-        {/* Signed draft URLs and local blob URLs intentionally bypass next/image. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={previewUrl}
-          alt={`Current original preview: ${filename}`}
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-contain object-center"
-        />
-      </div>
-      <figcaption className="flex min-w-0 flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-dashboard-metadata font-semibold uppercase tracking-[0.08em] text-primary">
-            Current original
-          </p>
-          <p className="mt-1 truncate text-sm text-muted" title={filename}>
-            {filename}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => document.getElementById(inputId)?.click()}
-          disabled={disabled}
-          className="shrink-0 self-start rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold text-primary transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
-        >
-          Change photo
-        </button>
-      </figcaption>
-    </figure>
   );
 }
