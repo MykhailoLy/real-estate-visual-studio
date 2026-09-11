@@ -30,8 +30,10 @@ export default function OrderImageNavigator({
   const effectiveActiveItemId = items.some((item) => item.id === activeItemId)
     ? activeItemId
     : (items[0]?.id ?? null);
+  const navRef = useRef<HTMLElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const programmaticTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     const observedItems = items
@@ -43,30 +45,74 @@ export default function OrderImageNavigator({
 
     if (observedItems.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const itemId = selectActiveOrderImageId(
-          entries.map((entry) => ({
-            id: entry.target.getAttribute("data-order-item-id"),
-            isIntersecting: entry.isIntersecting,
-            top: entry.boundingClientRect.top,
-          })),
-        );
-        if (itemId) setActiveItemId(itemId);
-      },
-      { rootMargin: "-15% 0px -45% 0px", threshold: 0 },
+    const scrollContainer = observedItems[0].element.closest<HTMLElement>(
+      "[data-dashboard-scroll-container]",
     );
+    const scrollTarget: HTMLElement | Window = scrollContainer ?? window;
+    let animationFrame: number | null = null;
 
-    observedItems.forEach(({ item, element }) => {
-      element.setAttribute("data-order-item-id", item.id);
-      observer.observe(element);
+    const updateActiveItem = () => {
+      animationFrame = null;
+      const workingLine =
+        (navRef.current?.getBoundingClientRect().bottom ?? 0) + 1;
+      const isAtScrollEnd = scrollContainer
+        ? scrollContainer.scrollTop > 0 &&
+          scrollContainer.scrollTop + scrollContainer.clientHeight >=
+            scrollContainer.scrollHeight - 1
+        : window.scrollY > 0 &&
+          window.scrollY + window.innerHeight >=
+          document.documentElement.scrollHeight - 1;
+      const itemId = selectActiveOrderImageId(
+        observedItems.map(({ item, element }) => ({
+          id: item.id,
+          top: element.getBoundingClientRect().top,
+        })),
+        { workingLine, isAtScrollEnd },
+      );
+
+      if (!itemId) return;
+      if (
+        programmaticTargetRef.current &&
+        itemId !== programmaticTargetRef.current
+      ) {
+        return;
+      }
+
+      programmaticTargetRef.current = null;
+      setActiveItemId(itemId);
+    };
+
+    const scheduleUpdate = () => {
+      if (animationFrame === null) {
+        animationFrame = window.requestAnimationFrame(updateActiveItem);
+      }
+    };
+    const clearProgrammaticTarget = () => {
+      programmaticTargetRef.current = null;
+    };
+
+    scheduleUpdate();
+    scrollTarget.addEventListener("scroll", scheduleUpdate, { passive: true });
+    scrollTarget.addEventListener("wheel", clearProgrammaticTarget, {
+      passive: true,
     });
+    scrollTarget.addEventListener("touchstart", clearProgrammaticTarget, {
+      passive: true,
+    });
+    scrollTarget.addEventListener("pointerdown", clearProgrammaticTarget, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleUpdate);
+    document.addEventListener("keydown", clearProgrammaticTarget);
 
     return () => {
-      observer.disconnect();
-      observedItems.forEach(({ element }) => {
-        element.removeAttribute("data-order-item-id");
-      });
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+      scrollTarget.removeEventListener("scroll", scheduleUpdate);
+      scrollTarget.removeEventListener("wheel", clearProgrammaticTarget);
+      scrollTarget.removeEventListener("touchstart", clearProgrammaticTarget);
+      scrollTarget.removeEventListener("pointerdown", clearProgrammaticTarget);
+      window.removeEventListener("resize", scheduleUpdate);
+      document.removeEventListener("keydown", clearProgrammaticTarget);
     };
   }, [items]);
 
@@ -92,6 +138,7 @@ export default function OrderImageNavigator({
     const target = document.getElementById(targetId);
     if (!target) return;
 
+    programmaticTargetRef.current = itemId;
     setActiveItemId(itemId);
     target.scrollIntoView({
       block: "start",
@@ -101,6 +148,7 @@ export default function OrderImageNavigator({
 
   return (
     <nav
+      ref={navRef}
       aria-label={`${label} quick navigation`}
       className="sticky top-0 z-30 -mx-1 rounded-xl border border-border bg-surface/95 px-3 py-2 shadow-sm backdrop-blur sm:px-4"
     >

@@ -45,19 +45,76 @@ test("a navigator selection resolves to the matching card anchor", () => {
   assert.equal(resolveOrderImageTarget(navigation, "missing"), null);
 });
 
-test("active state follows the intersecting card nearest the reading position", () => {
+test("image 2 wins when it is nearest the workspace reading position", () => {
   assert.equal(
-    selectActiveOrderImageId([
-      { id: "first", isIntersecting: false, top: -800 },
-      { id: "second", isIntersecting: true, top: -40 },
-      { id: "third", isIntersecting: true, top: 220 },
-    ]),
+    selectActiveOrderImageId(
+      [
+        { id: "first", top: -620 },
+        { id: "second", top: 92 },
+        { id: "third", top: 760 },
+      ],
+      { workingLine: 80 },
+    ),
     "second",
   );
+});
+
+test("selection uses every current card position instead of stale observer entries", () => {
   assert.equal(
-    selectActiveOrderImageId([{ id: "first", isIntersecting: false, top: 0 }]),
-    null,
+    selectActiveOrderImageId(
+      [
+        { id: "first", top: -540 },
+        { id: "second", top: 86 },
+        { id: "third", top: 720 },
+      ],
+      { workingLine: 80 },
+    ),
+    "second",
   );
+});
+
+test("two partially visible cards resolve deterministically toward the next card", () => {
+  assert.equal(
+    selectActiveOrderImageId(
+      [
+        { id: "first", top: -100 },
+        { id: "second", top: 260 },
+      ],
+      { workingLine: 80 },
+    ),
+    "second",
+  );
+});
+
+test("first and final cards activate at the scroll boundaries", () => {
+  const positions = [
+    { id: "first", top: 96 },
+    { id: "second", top: 740 },
+    { id: "final", top: 1380 },
+  ];
+
+  assert.equal(selectActiveOrderImageId(positions, { workingLine: 80 }), "first");
+  assert.equal(
+    selectActiveOrderImageId(positions, {
+      workingLine: 80,
+      isAtScrollEnd: true,
+    }),
+    "final",
+  );
+});
+
+test("missing historical DOM targets are ignored safely", () => {
+  assert.equal(
+    selectActiveOrderImageId(
+      [
+        { id: null, top: 80 },
+        { id: "available", top: 160 },
+      ],
+      { workingLine: 80 },
+    ),
+    "available",
+  );
+  assert.equal(selectActiveOrderImageId([{ id: null, top: 80 }]), null);
 });
 
 test("one card stays visually quiet while large orders remain fully navigable", () => {
