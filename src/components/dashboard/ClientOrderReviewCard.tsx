@@ -198,7 +198,7 @@ export default function ClientOrderReviewCard({
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-secondary px-5 py-2.5 text-dashboard-action font-bold uppercase tracking-[0.04em] text-white shadow-sm transition-colors hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-secondary px-5 py-2.5 text-dashboard-action font-bold uppercase tracking-[0.04em] text-primary shadow-sm transition-colors hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? "Submitting…" : "Submit review"}
           </button>

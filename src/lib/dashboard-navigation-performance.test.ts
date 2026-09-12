@@ -354,10 +354,15 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   assert.doesNotMatch(layoutSource, /ClientDashboardSidebar/);
   assert.doesNotMatch(layoutSource, /ClientDashboardMobileBottomBar/);
   assert.match(layoutSource, /<ClientDashboardMobileUtilityBar \/>/);
+  assert.equal(layoutSource.match(/<Footer \/>/g)?.length, 1);
   assert.match(
     layoutSource,
-    /pb-\[calc\(2\.875rem\+env\(safe-area-inset-bottom\)\)\] lg:pb-0/,
+    /\{children\}\s*<\/div>\s*<Footer \/>\s*<div\s*aria-hidden\s*className="h-\[calc\(2\.875rem\+env\(safe-area-inset-bottom\)\)\] bg-primary lg:hidden"/,
   );
+  const dashboardMain = layoutSource.match(/<main[\s\S]*?<\/main>/)?.[0] ?? "";
+  assert.match(dashboardMain, /data-dashboard-scroll-container/);
+  assert.match(dashboardMain, /<Footer \/>/);
+  assert.equal(layoutSource.match(/overflow-y-auto/g)?.length, 1);
   assert.match(layoutSource, /bg-dashboard-canvas/);
   assert.match(utilityBarSource, /useSupportChat\(\)/);
   assert.match(utilityBarSource, /openSupportChat\(chatTriggerRef\.current\)/);
@@ -933,6 +938,27 @@ test("every primary client portal route keeps the shared width-aware shell", () 
   assert.match(topNavSource, />\s*QA Preview\s*</);
   assert.match(publicContainerSource, /max-w-\[1500px\]/);
   assert.match(layoutSource, /className="min-h-0 w-full flex-1/);
+});
+
+test("gold client portal CTAs keep navy text and inherited icon color", () => {
+  for (const path of [
+    "components/dashboard/ClientOrderReviewCard.tsx",
+    "components/BulkDownloadButton.tsx",
+    "components/dashboard/DeliverableReviewActions.tsx",
+    "components/FilePreviewCard.tsx",
+    "app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
+    "components/dashboard/ClientDashboardTopNav.tsx",
+  ]) {
+    const fileSource = source(path);
+    const goldCtaClasses = fileSource.match(/(?:className=)?(?:"|`)[^"`]*bg-secondary(?:\s|\/)[^"`]*(?:"|`)/g) ?? [];
+
+    assert.ok(goldCtaClasses.length > 0, path);
+    for (const classes of goldCtaClasses) {
+      if (!/bg-secondary(?:\s|$)/.test(classes)) continue;
+      assert.match(classes, /text-primary(?:\s|$)/, `${path}: ${classes}`);
+      assert.doesNotMatch(classes, /text-white(?:\s|$)/, `${path}: ${classes}`);
+    }
+  }
 });
 
 test("visible job details and service cards never auto-prefetch", () => {

@@ -159,7 +159,7 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
             "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-dashboard-action font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
             isNewOrder
               ? cn(
-                  "bg-secondary text-primary-dark shadow-sm hover:bg-secondary-light",
+                  "bg-secondary text-primary shadow-sm hover:bg-secondary-light",
                   active && "ring-2 ring-inset ring-white/80",
                 )
               : active

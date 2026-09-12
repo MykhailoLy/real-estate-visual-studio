@@ -2,6 +2,7 @@
 
 import ClientDashboardTopNav from "./ClientDashboardTopNav";
 import ClientDashboardMobileUtilityBar from "./ClientDashboardMobileUtilityBar";
+import Footer from "@/components/layout/Footer";
 import { cn } from "@/lib/utils";
 import {
   CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
@@ -37,7 +38,7 @@ export default function ClientDashboardLayout({
             (not the window) on step transitions. */}
         <main
           data-dashboard-scroll-container
-          className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-[calc(2.875rem+env(safe-area-inset-bottom))] lg:pb-0"
+          className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
         >
           <div
             className={cn(
@@ -49,6 +50,11 @@ export default function ClientDashboardLayout({
           >
             {children}
           </div>
+          <Footer />
+          <div
+            aria-hidden
+            className="h-[calc(2.875rem+env(safe-area-inset-bottom))] bg-primary lg:hidden"
+          />
         </main>
       </div>
       <ClientDashboardMobileUtilityBar />

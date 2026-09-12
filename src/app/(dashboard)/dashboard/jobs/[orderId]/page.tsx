@@ -305,7 +305,7 @@ function DeliveryCard({
           </div>
           <a
             href="#image-workflow"
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-secondary bg-secondary px-5 py-2.5 text-dashboard-action font-bold uppercase tracking-[0.04em] text-white shadow-sm transition-colors hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-secondary bg-secondary px-5 py-2.5 text-dashboard-action font-bold uppercase tracking-[0.04em] text-primary shadow-sm transition-colors hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
           >
             <RotateCcw className="h-4 w-4" aria-hidden />
             Request changes
