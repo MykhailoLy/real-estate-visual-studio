@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, type RefObject } from "react";
 import { ArrowUpRight, User, X } from "lucide-react";
+import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import {
   MarketLanguageSelector,
   type SiteLanguage,
@@ -106,10 +107,17 @@ export default function ClientDashboardMobileNav({
         className="fixed inset-y-0 right-0 z-50 flex w-[min(21rem,calc(100vw-2rem))] flex-col bg-white shadow-2xl lg:hidden"
       >
         {/* Header */}
-        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-primary-dark/40 bg-primary px-4">
+        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-border bg-white px-4">
           <div className="flex items-center gap-2">
-            <span className="text-white font-bold text-[15px] tracking-tight">PicchuSpot</span>
-            <span className="inline-flex items-center rounded border border-white/15 bg-white/10 px-1.5 py-0.5 text-dashboard-kicker font-bold uppercase text-secondary">
+            <PicchuSpotLogo
+              variant="mark"
+              className="h-7 w-auto flex-shrink-0"
+              width={56}
+              height={28}
+              alt=""
+            />
+            <BrandWordmark theme="light" className="text-lg" />
+            <span className="inline-flex items-center rounded border border-secondary/40 bg-secondary/10 px-1.5 py-0.5 text-dashboard-kicker font-bold uppercase text-primary">
               Portal
             </span>
           </div>
@@ -118,7 +126,7 @@ export default function ClientDashboardMobileNav({
             type="button"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-stone-200 bg-white text-primary transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <X className="w-5 h-5" aria-hidden />
           </button>
@@ -126,8 +134,8 @@ export default function ClientDashboardMobileNav({
 
         {/* Identity strip */}
         <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-bold text-white">{initials}</span>
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-secondary to-secondary-dark shadow-sm">
+            <span className="text-xs font-bold text-primary">{initials}</span>
           </div>
           <div className="min-w-0">
             <p className="line-clamp-2 break-words text-dashboard-action font-bold text-foreground">{user?.profileName || displayName}</p>
@@ -160,7 +168,7 @@ export default function ClientDashboardMobileNav({
                     "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-dashboard-action font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                     isNewOrder
                       ? cn(
-                          "mt-1 border border-secondary/35 bg-secondary/15 text-secondary-dark hover:bg-secondary/25",
+                          "mt-1 border border-secondary bg-secondary text-primary hover:bg-secondary-light",
                           active && "ring-2 ring-primary/30",
                         )
                       : active
@@ -171,7 +179,7 @@ export default function ClientDashboardMobileNav({
                   <item.icon
                     className={cn(
                       "w-4 h-4 flex-shrink-0",
-                      isNewOrder ? "text-secondary-dark" : active ? "text-white" : "text-muted-light"
+                      isNewOrder ? "text-primary" : active ? "text-white" : "text-muted-light"
                     )}
                     aria-hidden
                   />

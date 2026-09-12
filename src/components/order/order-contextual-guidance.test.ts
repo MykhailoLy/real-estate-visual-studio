@@ -479,7 +479,7 @@ test("Order Detail leads with its summary and preserves authenticated job flows"
   assert.match(detail, /Files will appear here when ready\./);
   assert.match(detail, /label="Download"/);
   assert.match(detail, /presentation="primary"/);
-  assert.match(detail, /bg-secondary[^\"]*text-white/);
+  assert.match(detail, /bg-secondary[^\"]*text-primary/);
   assert.ok(detail.indexOf("Contact support") > workflow);
   const workflowHeader = detail.slice(
     workflow,
@@ -582,7 +582,7 @@ test("Order Detail leads with its summary and preserves authenticated job flows"
   assert.match(previewCard, /data-preview-control/);
   assert.match(previewCard, /data-download-control/);
   assert.match(previewCard, /bottom-4 left-1\/2/);
-  assert.match(previewCard, /bg-secondary[^\"]*text-white/);
+  assert.match(previewCard, /bg-secondary[^\"]*text-primary/);
   assert.match(previewCard, />\s*Download\s*</);
   assert.ok(
     previewCard.indexOf("data-preview-control") < previewCard.indexOf("data-download-control"),
@@ -629,5 +629,5 @@ test("Order Detail leads with its summary and preserves authenticated job flows"
   const bulkDownload = source("src/components/BulkDownloadButton.tsx");
   assert.match(bulkDownload, /presentation\?: "default" \| "primary"/);
   assert.match(bulkDownload, /presentation === "primary"/);
-  assert.match(bulkDownload, /bg-secondary[^\"]*text-white/);
+  assert.match(bulkDownload, /bg-secondary[^\"]*text-primary/);
 });

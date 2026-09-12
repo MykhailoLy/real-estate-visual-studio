@@ -65,7 +65,7 @@ export default function BulkDownloadButton({
         className={[
           "inline-flex items-center justify-center gap-2 border font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
           presentation === "primary"
-            ? "min-h-11 w-full rounded-md border-secondary bg-secondary px-5 py-2.5 text-dashboard-action uppercase tracking-[0.04em] text-white shadow-sm hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+            ? "min-h-11 w-full rounded-md border-secondary bg-secondary px-5 py-2.5 text-dashboard-action uppercase tracking-[0.04em] text-primary shadow-sm hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
             : "rounded-lg border-border bg-white px-3 py-1.5 text-[11px] text-foreground hover:border-primary hover:text-primary [[data-dashboard-scroll-container]_&]:text-dashboard-action",
         ].join(" ")}
         title={disabled ? emptyLabel : label}

@@ -455,7 +455,7 @@ export default function FilePreviewCard({
                 type="button"
                 onClick={handleDownload}
                 disabled={downloadLoading}
-                className="feature-image-download-control absolute bottom-4 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center justify-center gap-2 rounded-md border border-secondary bg-secondary px-5 py-2.5 text-dashboard-action font-bold text-white shadow-lg transition-[opacity,background-color] hover:bg-secondary/90 focus-visible:bg-secondary disabled:cursor-wait disabled:opacity-70"
+                className="feature-image-download-control absolute bottom-4 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center justify-center gap-2 rounded-md border border-secondary bg-secondary px-5 py-2.5 text-dashboard-action font-bold text-primary shadow-lg transition-[opacity,background-color] hover:bg-secondary/90 focus-visible:bg-secondary disabled:cursor-wait disabled:opacity-70"
                 title={`${downloadLoading ? "Preparing download for" : "Download"} ${filename}`}
                 aria-label={`${downloadLoading ? "Preparing download for" : "Download"} ${filename}`}
               >

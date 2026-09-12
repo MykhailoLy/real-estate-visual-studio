@@ -283,7 +283,7 @@ export default function DeliverableReviewActions({
             disabled={loading !== null}
             className={`inline-flex items-center justify-center gap-2 border text-dashboard-action font-bold transition-colors disabled:opacity-60 ${
               isDelivery
-                ? "min-h-11 w-full rounded-md border-secondary bg-secondary px-5 py-2.5 uppercase tracking-[0.04em] text-white shadow-sm hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+                ? "min-h-11 w-full rounded-md border-secondary bg-secondary px-5 py-2.5 uppercase tracking-[0.04em] text-primary shadow-sm hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
                 : isCompact
                   ? "rounded-lg border-primary/20 bg-primary/5 px-3 py-1.5 text-primary hover:bg-primary/10"
                   : "rounded-lg border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-700 hover:bg-amber-100"
