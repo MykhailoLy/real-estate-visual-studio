@@ -51,9 +51,11 @@ export default function ClientOrderReviewCard({
 }) {
   const [review, setReview] = useState(initialReview);
   const [rating, setRating] = useState<number | null>(null);
+  const [previewRating, setPreviewRating] = useState<number | null>(null);
   const [comment, setComment] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const displayedRating = previewRating ?? rating;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -111,70 +113,87 @@ export default function ClientOrderReviewCard({
           </p>
         </div>
       ) : (
-        <form data-review-form className="space-y-4 p-4 sm:p-5" onSubmit={handleSubmit}>
-          <fieldset>
-            <legend
-              id="order-rating-label"
-              className="text-dashboard-action font-bold text-foreground"
-            >
-              Rate your experience
-            </legend>
-            <div
-              className="mt-2 flex flex-wrap gap-1"
-              role="group"
-              aria-labelledby="order-rating-label"
-            >
-              {Array.from({ length: 5 }, (_, index) => {
-                const value = index + 1;
-                const selected = rating !== null && value <= rating;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={rating === value}
-                    aria-label={`${value} star${value === 1 ? "" : "s"}`}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-colors hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                    onClick={() => {
-                      setRating(value);
-                      setError(null);
-                    }}
-                  >
-                    <Star
-                      className={[
-                        "h-7 w-7",
-                        selected
-                          ? "fill-secondary text-secondary"
-                          : "fill-transparent text-border-strong",
-                      ].join(" ")}
-                      aria-hidden
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
+        <form
+          data-review-form
+          className="space-y-2 px-4 py-2.5"
+          onSubmit={handleSubmit}
+        >
+          <div className="grid gap-3 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-end">
+            <fieldset>
+              <legend
+                id="order-rating-label"
+                className="text-dashboard-metadata font-bold text-foreground"
+              >
+                Rate your experience
+              </legend>
+              <div
+                className="mt-1 flex flex-wrap gap-1"
+                role="group"
+                aria-labelledby="order-rating-label"
+                onMouseLeave={() => setPreviewRating(null)}
+              >
+                {Array.from({ length: 5 }, (_, index) => {
+                  const value = index + 1;
+                  const selected =
+                    displayedRating !== null && value <= displayedRating;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={rating === value}
+                      aria-label={`${value} star${value === 1 ? "" : "s"}`}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-colors hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      onMouseEnter={() => setPreviewRating(value)}
+                      onFocus={() => setPreviewRating(value)}
+                      onBlur={() => setPreviewRating(null)}
+                      onClick={() => {
+                        setRating(value);
+                        setPreviewRating(null);
+                        setError(null);
+                      }}
+                    >
+                      <Star
+                        className={[
+                          "h-7 w-7",
+                          selected
+                            ? "fill-secondary text-secondary"
+                            : "fill-transparent text-border-strong",
+                        ].join(" ")}
+                        aria-hidden
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
 
-          <div>
-            <label
-              htmlFor="order-review-comment"
-              className="text-dashboard-action font-bold text-foreground"
-            >
-              Share any additional feedback (optional)
-            </label>
-            <textarea
-              id="order-review-comment"
-              value={comment}
-              maxLength={CLIENT_ORDER_REVIEW_COMMENT_MAX}
-              rows={3}
-              className="mt-2 min-h-24 w-full resize-y rounded-md border border-border bg-white px-3 py-2.5 text-dashboard-body text-foreground outline-none transition-colors placeholder:text-muted-light focus:border-primary focus:ring-2 focus:ring-primary/15"
-              placeholder="Your feedback"
-              onChange={(event) => setComment(event.target.value)}
-            />
+            <div>
+              <label
+                htmlFor="order-review-comment"
+                className="text-dashboard-metadata font-bold text-foreground"
+              >
+                Share any additional feedback (optional)
+              </label>
+              <textarea
+                id="order-review-comment"
+                value={comment}
+                maxLength={CLIENT_ORDER_REVIEW_COMMENT_MAX}
+                rows={2}
+                className="mt-1.5 block min-h-18 w-full resize-y rounded-md border border-border bg-white px-3 py-2 text-dashboard-body text-foreground outline-none transition-colors placeholder:text-muted-light focus:border-primary focus:ring-2 focus:ring-primary/15"
+                placeholder="Your feedback"
+                onChange={(event) => setComment(event.target.value)}
+              />
+            </div>
           </div>
 
-          <p className="min-h-5 text-dashboard-metadata font-semibold text-primary" aria-live="polite">
-            {error}
-          </p>
+          {error ? (
+            <p
+              className="text-dashboard-metadata font-semibold text-primary"
+              aria-live="polite"
+            >
+              {error}
+            </p>
+          ) : null}
 
           <button
             type="submit"
