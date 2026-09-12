@@ -82,6 +82,7 @@ export default function FilePreviewCard({
   const previewKind = getFilePreviewKind(filename, mimeType);
   const typeLabel = getFileTypeLabel(filename, mimeType);
   const previewable = previewKind !== "unsupported";
+  const usesImageOverlayDownload = presentation === "feature" && previewKind === "image";
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -428,72 +429,117 @@ export default function FilePreviewCard({
     return (
       <>
         <div className="w-full min-w-0">
-          <button
-          type="button"
-          onClick={openPreview}
-          disabled={!previewable}
-          className={[
-            "relative flex w-full aspect-[4/3] overflow-hidden rounded-lg border border-border bg-surface",
-            previewable
-              ? "cursor-pointer transition-colors hover:border-primary/50"
-              : "cursor-default",
-          ].join(" ")}
-          title={previewable ? `Preview ${filename}` : "Preview not available"}
-        >
-          {previewSurface}
-          </button>
+          <div
+            data-feature-image-frame={usesImageOverlayDownload ? "" : undefined}
+            className="group relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-border bg-surface"
+          >
+            <button
+              data-preview-control
+              type="button"
+              onClick={openPreview}
+              disabled={!previewable}
+              className={[
+                "absolute inset-0 flex h-full w-full",
+                previewable
+                  ? "cursor-pointer transition-colors hover:bg-primary/3"
+                  : "cursor-default",
+              ].join(" ")}
+              title={previewable ? `Preview ${filename}` : "Preview not available"}
+            >
+              {previewSurface}
+            </button>
 
-        <div className="mt-3 min-w-0">
-          <button
-            type="button"
-            onClick={openPreview}
-            disabled={!previewable}
-            className={[
-              "block max-w-full break-words text-left text-[13px] font-semibold leading-snug text-foreground [[data-dashboard-scroll-container]_&]:text-dashboard-action",
-              previewable ? "transition-colors hover:text-primary" : "cursor-default",
-            ].join(" ")}
-            title={filename}
-          >
-            {filename}
-          </button>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-            {badgeLabel && (
-              <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] font-semibold text-primary [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
-                {badgeLabel}
-              </span>
-            )}
-            {fileSizeLabel && <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{fileSizeLabel}</span>}
-            <span className="text-[11px] font-semibold text-foreground/70 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{typeLabel}</span>
-            {!previewable && <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">Preview not available</span>}
+            {usesImageOverlayDownload ? (
+              <button
+                data-download-control
+                type="button"
+                onClick={handleDownload}
+                disabled={downloadLoading}
+                className="feature-image-download-control absolute bottom-4 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center justify-center gap-2 rounded-md border border-secondary bg-secondary px-5 py-2.5 text-dashboard-action font-bold text-white shadow-lg transition-[opacity,background-color] hover:bg-secondary/90 focus-visible:bg-secondary disabled:cursor-wait disabled:opacity-70"
+                title={`${downloadLoading ? "Preparing download for" : "Download"} ${filename}`}
+                aria-label={`${downloadLoading ? "Preparing download for" : "Download"} ${filename}`}
+              >
+                {downloadLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Preparing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" aria-hidden />
+                    Download
+                  </>
+                )}
+              </button>
+            ) : null}
           </div>
-          {meta && <div className="mt-2">{meta}</div>}
-          {error && (
-            <p className="mt-2 flex items-center gap-1 text-[11px] text-red-600 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
-              <AlertCircle className="h-3 w-3 flex-shrink-0" aria-hidden />
-              {error}
-            </p>
+
+          {usesImageOverlayDownload ? (
+            meta || error || actions ? (
+              <div className="mt-3 min-w-0">
+                {meta && <div>{meta}</div>}
+                {error && (
+                  <p className="mt-2 flex items-center gap-1 text-[11px] text-red-600 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" aria-hidden />
+                    {error}
+                  </p>
+                )}
+                {actions && <div className="mt-4 border-t border-border pt-4">{actions}</div>}
+              </div>
+            ) : null
+          ) : (
+            <div data-feature-file-details className="mt-3 min-w-0">
+              <button
+                type="button"
+                onClick={openPreview}
+                disabled={!previewable}
+                className={[
+                  "block max-w-full break-words text-left text-[13px] font-semibold leading-snug text-foreground [[data-dashboard-scroll-container]_&]:text-dashboard-action",
+                  previewable ? "transition-colors hover:text-primary" : "cursor-default",
+                ].join(" ")}
+                title={filename}
+              >
+                {filename}
+              </button>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                {badgeLabel && (
+                  <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-1.5 py-0.5 text-[10px] font-semibold text-primary [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
+                    {badgeLabel}
+                  </span>
+                )}
+                {fileSizeLabel && <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{fileSizeLabel}</span>}
+                <span className="text-[11px] font-semibold text-foreground/70 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">{typeLabel}</span>
+                {!previewable && <span className="text-[11px] text-muted [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">Preview not available</span>}
+              </div>
+              {meta && <div className="mt-2">{meta}</div>}
+              {error && (
+                <p className="mt-2 flex items-center gap-1 text-[11px] text-red-600 [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
+                  <AlertCircle className="h-3 w-3 flex-shrink-0" aria-hidden />
+                  {error}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={downloadLoading}
+                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-primary-light disabled:opacity-60 [[data-dashboard-scroll-container]_&]:text-dashboard-action"
+                title={`Download ${filename}`}
+              >
+                {downloadLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    Preparing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" aria-hidden />
+                    {downloadLabel}
+                  </>
+                )}
+              </button>
+              {actions && <div className="mt-4 border-t border-border pt-4">{actions}</div>}
+            </div>
           )}
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={downloadLoading}
-            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-primary-light disabled:opacity-60 [[data-dashboard-scroll-container]_&]:text-dashboard-action"
-            title={`Download ${filename}`}
-          >
-            {downloadLoading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                Preparing...
-              </>
-            ) : (
-              <>
-                <Download className="h-3.5 w-3.5" aria-hidden />
-                {downloadLabel}
-              </>
-            )}
-          </button>
-          {actions && <div className="mt-4 border-t border-border pt-4">{actions}</div>}
-        </div>
         </div>
         {renderPreviewDialog()}
       </>

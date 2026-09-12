@@ -9,6 +9,7 @@ interface Props {
   label?: string;
   emptyLabel?: string;
   className?: string;
+  presentation?: "default" | "primary";
 }
 
 export default function BulkDownloadButton({
@@ -17,6 +18,7 @@ export default function BulkDownloadButton({
   label = "Download all",
   emptyLabel = "No files",
   className = "",
+  presentation = "default",
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,12 @@ export default function BulkDownloadButton({
         type="button"
         onClick={handleDownload}
         disabled={loading || disabled}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white text-[11px] font-semibold text-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed [[data-dashboard-scroll-container]_&]:text-dashboard-action"
+        className={[
+          "inline-flex items-center justify-center gap-2 border font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+          presentation === "primary"
+            ? "min-h-11 w-full rounded-md border-secondary bg-secondary px-5 py-2.5 text-dashboard-action uppercase tracking-[0.04em] text-white shadow-sm hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+            : "rounded-lg border-border bg-white px-3 py-1.5 text-[11px] text-foreground hover:border-primary hover:text-primary [[data-dashboard-scroll-container]_&]:text-dashboard-action",
+        ].join(" ")}
         title={disabled ? emptyLabel : label}
       >
         {loading ? (
@@ -81,7 +88,7 @@ export default function BulkDownloadButton({
           {error}
         </p>
       )}
-      {!disabled && (
+      {!disabled && presentation === "default" && (
         <p className="text-[10px] text-muted-light text-right [[data-dashboard-scroll-container]_&]:text-dashboard-metadata">
           Downloads as ZIP.
         </p>

@@ -29,7 +29,7 @@ interface Props {
   initialReviewStatus: ReviewStatus | null;
   initialComment?: string | null;
   filename?: string;
-  presentation?: "default" | "compact";
+  presentation?: "default" | "compact" | "delivery";
 }
 
 type BadgeVariant = "green" | "amber" | "blue";
@@ -124,6 +124,7 @@ export default function DeliverableReviewActions({
     status !== "rework_requested" && status !== "rework_in_progress";
   const badgeCfg = status !== null ? (STATUS_BADGE[status] ?? null) : null;
   const isCompact = presentation === "compact";
+  const isDelivery = presentation === "delivery";
 
   async function submitRework(text: string, files: SelectedReferenceFile[]) {
     setApiError(null);
@@ -280,17 +281,19 @@ export default function DeliverableReviewActions({
               setUploadWarning(null);
             }}
             disabled={loading !== null}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-dashboard-action font-semibold transition-colors disabled:opacity-60 ${
-              isCompact
-                ? "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
-                : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            className={`inline-flex items-center justify-center gap-2 border text-dashboard-action font-bold transition-colors disabled:opacity-60 ${
+              isDelivery
+                ? "min-h-11 w-full rounded-md border-secondary bg-secondary px-5 py-2.5 uppercase tracking-[0.04em] text-white shadow-sm hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+                : isCompact
+                  ? "rounded-lg border-primary/20 bg-primary/5 px-3 py-1.5 text-primary hover:bg-primary/10"
+                  : "rounded-lg border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-700 hover:bg-amber-100"
             }`}
             aria-label={`Request rework for ${fileLabel}`}
           >
             <RotateCcw className="w-3 h-3" aria-hidden />
-            Request rework
+            {isDelivery ? "Request changes" : "Request rework"}
           </button>
-          {!isCompact && (
+          {!isCompact && !isDelivery && (
             <p className="text-dashboard-body text-muted">
               Need changes? Request a rework for this file.
             </p>

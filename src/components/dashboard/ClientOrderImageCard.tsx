@@ -50,6 +50,7 @@ interface Props {
   deliveredViewerItems: JobImageViewerItem[];
   status: ClientImageWorkflowStatus;
   latestComment?: string | null;
+  summaryReworkDeliverableId?: string | null;
 }
 
 type InitialReviewStatus = NonNullable<CurrentDeliverableRow["review"]>["status"] | null;
@@ -116,6 +117,7 @@ export default function ClientOrderImageCard({
   deliveredViewerItems,
   status,
   latestComment = null,
+  summaryReworkDeliverableId = null,
 }: Props) {
   const statusConfig = STATUS_CONFIG[status];
   const originalSource = sourceFiles.find((file) => file.kind === "original") ?? null;
@@ -179,7 +181,7 @@ export default function ClientOrderImageCard({
     <WorkflowPanel title="Delivered">
       {deliverables.length > 0 ? (
         <ul className="space-y-5">
-          {deliverables.map(({ deliverable, review, isReplacement, previousFilename }) => (
+          {deliverables.map(({ deliverable, isReplacement, previousFilename }) => (
             <li key={deliverable.id}>
               <FilePreviewCard
                 presentation="feature"
@@ -204,16 +206,6 @@ export default function ClientOrderImageCard({
                     )}
                   </div>
                 }
-                actions={
-                  canRequestRework ? (
-                    <CompletedReworkArea
-                      deliverableId={deliverable.id}
-                      initialReviewStatus={review?.status ?? null}
-                      initialComment={review?.comment ?? null}
-                      filename={deliverable.filename}
-                    />
-                  ) : null
-                }
               />
             </li>
           ))}
@@ -226,7 +218,7 @@ export default function ClientOrderImageCard({
 
   return (
     <article className="overflow-hidden rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="border-b border-border pb-4">
         <div className="min-w-0">
           <h3 className="text-dashboard-action font-bold uppercase tracking-[0.08em] text-primary">
             Image {imageNumber} of {imageCount}
@@ -237,82 +229,129 @@ export default function ClientOrderImageCard({
             </p>
           )}
         </div>
-        <span
-          className={`inline-flex self-start items-center gap-1.5 rounded-full border px-2.5 py-1 text-dashboard-metadata font-semibold sm:self-center ${statusConfig.className}`}
-        >
-          {statusConfig.icon}
-          {statusConfig.label}
-        </span>
       </div>
 
       <div className="pt-5">
         {usesOneToOneLayout ? (
-          <div className="grid grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,7fr)_minmax(16rem,6fr)]">
             {originalPanel}
             {deliveredPanel}
-            {hasPreferences ? (
-              <PreferencesPanel
-                details={details}
-                editLabel={editLabel}
-                className="md:col-span-2 lg:col-span-1"
-              />
-            ) : null}
+            <WorkflowDetailsPanel
+              details={details}
+              editLabel={editLabel}
+              hasPreferences={hasPreferences}
+              statusConfig={statusConfig}
+              latestComment={latestComment}
+              showLatestComment={COMMENT_STATUSES.has(status)}
+              deliverables={deliverables}
+              canRequestRework={canRequestRework}
+              summaryReworkDeliverableId={summaryReworkDeliverableId}
+              className="md:col-span-2 lg:col-span-1"
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-2 lg:gap-6">
             {originalPanel}
             {deliveredPanel}
+            <WorkflowDetailsPanel
+              details={details}
+              editLabel={editLabel}
+              hasPreferences={hasPreferences}
+              statusConfig={statusConfig}
+              latestComment={latestComment}
+              showLatestComment={COMMENT_STATUSES.has(status)}
+              deliverables={deliverables}
+              canRequestRework={canRequestRework}
+              summaryReworkDeliverableId={summaryReworkDeliverableId}
+              className="lg:col-span-2"
+            />
           </div>
         )}
-
-        {COMMENT_STATUSES.has(status) && latestComment && (
-          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3">
-            <p className="flex items-start gap-2 text-dashboard-body text-amber-900">
-              <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />
-              <span>
-                <span className="font-semibold">Latest rework note:</span> {latestComment}
-              </span>
-            </p>
-          </div>
-        )}
-
-        {!usesOneToOneLayout && hasPreferences ? (
-          <PreferencesPanel
-            details={details}
-            editLabel={editLabel}
-            className="mt-6 border-t border-border pt-4"
-          />
-        ) : null}
       </div>
     </article>
   );
 }
 
-function PreferencesPanel({
+function WorkflowDetailsPanel({
   details,
   editLabel,
+  hasPreferences,
+  statusConfig,
+  latestComment,
+  showLatestComment,
+  deliverables,
+  canRequestRework,
+  summaryReworkDeliverableId,
   className = "",
 }: {
   details: Record<string, unknown>;
   editLabel: string;
+  hasPreferences: boolean;
+  statusConfig: (typeof STATUS_CONFIG)[ClientImageWorkflowStatus];
+  latestComment: string | null;
+  showLatestComment: boolean;
+  deliverables: CurrentDeliverableRow[];
+  canRequestRework: boolean;
+  summaryReworkDeliverableId: string | null;
   className?: string;
 }) {
+  const workflowReworkDeliverables = deliverables.filter(
+    ({ deliverable }) => deliverable.id !== summaryReworkDeliverableId,
+  );
+
   return (
-    <section className={`min-w-0 ${className}`} aria-label="Editing preferences">
+    <section className={`min-w-0 ${className}`} aria-label="Editing preferences and workflow status">
       <p className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted">Edit</p>
       <p className="mt-1 text-[14px] font-semibold leading-snug text-foreground">{editLabel}</p>
-      <details open className="group mt-5 border-t border-border pt-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-dashboard-action font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-          Preferences / options
-          <ChevronDown
-            className="h-4 w-4 flex-shrink-0 text-muted transition-transform group-open:rotate-180"
-            aria-hidden
-          />
-        </summary>
-        <div className="pt-3">
-          <OrderItemDetails details={details} variant="specification" />
-        </div>
-      </details>
+      {hasPreferences ? (
+        <details open className="group mt-5 border-t border-border pt-3">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-dashboard-action font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+            Preferences / options
+            <ChevronDown
+              className="h-4 w-4 flex-shrink-0 text-muted transition-transform group-open:rotate-180"
+              aria-hidden
+            />
+          </summary>
+          <div className="pt-3">
+            <OrderItemDetails details={details} variant="specification" />
+          </div>
+        </details>
+      ) : null}
+
+      <div className="mt-5 border-t border-border pt-4">
+        <p className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted">
+          Workflow status
+        </p>
+        <span
+          className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-dashboard-metadata font-semibold ${statusConfig.className}`}
+        >
+          {statusConfig.icon}
+          {statusConfig.label}
+        </span>
+
+        {showLatestComment && latestComment ? (
+          <p className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3 text-dashboard-body text-amber-900">
+            <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />
+            <span>
+              <span className="font-semibold">Latest rework note:</span> {latestComment}
+            </span>
+          </p>
+        ) : null}
+
+        {canRequestRework && workflowReworkDeliverables.length > 0 ? (
+          <div className="mt-5 space-y-5 border-t border-border pt-4">
+            {workflowReworkDeliverables.map(({ deliverable, review }) => (
+              <CompletedReworkArea
+                key={deliverable.id}
+                deliverableId={deliverable.id}
+                initialReviewStatus={review?.status ?? null}
+                initialComment={review?.comment ?? null}
+                filename={deliverable.filename}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

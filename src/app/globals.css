@@ -179,6 +179,30 @@ html.dashboard-scroll-locked body {
   overflow: hidden;
 }
 
+/* Feature image downloads stay immediately visible for touch input. Fine
+   pointers reveal the centered sibling action on hover or keyboard focus. */
+@media (hover: hover) and (pointer: fine) {
+  [data-feature-image-frame] [data-preview-control] {
+    transition: filter 180ms ease;
+  }
+
+  [data-feature-image-frame]:hover [data-preview-control],
+  [data-feature-image-frame]:focus-within [data-preview-control] {
+    filter: brightness(0.88);
+  }
+
+  [data-feature-image-frame] .feature-image-download-control {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  [data-feature-image-frame]:hover .feature-image-download-control,
+  [data-feature-image-frame]:focus-within .feature-image-download-control {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 /* Expanded static-image viewers reserve more of short landscape screens for
    the image while retaining safe-area insets and 36px minimum controls. */
 @media (orientation: landscape) and (max-height: 500px) {

@@ -357,14 +357,22 @@ test("Job Detail shows rework only for delivered or completed files", () => {
   assert.equal(canShowCompletedReworkAction("delivered", false), false);
 });
 
-test("Order Detail prioritizes client actions and visual deliverables while preserving authenticated job flows", () => {
+test("Order Detail leads with its summary and preserves authenticated job flows", () => {
   const detail = source(
     "src/app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
   );
-  const overview = detail.indexOf("<JobDetailsCard");
+  const summary = detail.indexOf("data-job-summary");
+  const overview = detail.indexOf("<JobDetailsCard", summary);
   const payment = detail.indexOf("<OrderPaymentPanel");
   const workflow = detail.indexOf("data-order-workflow");
-  assert.ok(payment > -1 && workflow > payment && overview > workflow);
+  const activity = detail.indexOf("order-activity-heading");
+  assert.ok(
+    summary > -1 &&
+      overview > summary &&
+      payment > overview &&
+      workflow > payment &&
+      activity > workflow,
+  );
   assert.match(detail, /<JobDetailsCard \{\.\.\.jobDetailsProps\} \/>/);
   assert.match(detail, /<DeliveryCard/);
   assert.match(detail, /function PaymentDetailsUnavailableCard\(\)/);
@@ -382,7 +390,7 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   const deliveryStateStart = detail.indexOf("const deliveryPaymentState");
   const deliveryStateSource = detail.slice(
     deliveryStateStart,
-    detail.indexOf("return (", deliveryStateStart),
+    detail.indexOf("const hasSummarySideCard", deliveryStateStart),
   );
   assert.match(deliveryStateSource, /paymentSummary\?\.state === "paid"/);
   assert.match(
@@ -396,9 +404,27 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(deliveryStateSource, /paymentSummary\?\.state === "refunded"/);
   assert.doesNotMatch(deliveryStateSource, /not_available/);
   assert.doesNotMatch(detail, /label="Completed" value="—"/);
-  assert.doesNotMatch(detail, /label="Job name"/);
-  assert.doesNotMatch(detail, /label="Reference"/);
-  assert.doesNotMatch(detail, /label="Service"/);
+  assert.doesNotMatch(detail, /label="Job \/ service"/);
+  assert.match(detail, /label="Reference"/);
+  assert.match(detail, /label="Status"/);
+  assert.match(detail, /label="Submitted"/);
+  assert.match(detail, /label="Order total"/);
+  assert.doesNotMatch(detail, /label="Completed"|label="Delivered"/);
+  assert.doesNotMatch(detail, /completed_at|delivered_at/);
+  assert.doesNotMatch(detail, /label="Images \/ items"/);
+  assert.doesNotMatch(detail, /label="Company"/);
+  assert.match(detail, /data-job-details-card/);
+  assert.match(detail, /data-job-summary[\s\S]*?items-start/);
+  assert.match(
+    detail,
+    /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)\]/,
+  );
+  assert.match(detail, /showProgress: progress > 0 && progress < 100/);
+  assert.match(detail, /toLocaleString\("en-GB"/);
+  assert.match(detail, /hour: "2-digit"/);
+  assert.match(detail, /minute: "2-digit"/);
+  assert.match(detail, /orderNumber: order\.order_number/);
+  assert.match(detail, /statusBadge: <StatusBadge status=\{dashStatus\} \/>/);
   assert.match(
     detail,
     /paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"[\s\S]*?\? null/,
@@ -425,9 +451,12 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
     detail,
     /authoritativeTotal[\s\S]*?formatStoredMoney\(authoritativeTotal\.cents, authoritativeTotal\.currency\)[\s\S]*?formatStoredMoney\(order\.estimated_total_cents, order\.currency\)/,
   );
-  assert.match(detail, /Download the available delivered files as a ZIP\./);
+  assert.match(detail, /Download<\/span> a ZIP of your completed job\./);
   assert.match(detail, /Files will appear here when ready\./);
-  assert.match(detail, /label="Download completed job"/);
+  assert.match(detail, /label="Download"/);
+  assert.match(detail, /presentation="primary"/);
+  assert.match(detail, /bg-secondary[^\"]*text-white/);
+  assert.ok(detail.indexOf("Contact support") > workflow);
   const workflowHeader = detail.slice(
     workflow,
     detail.indexOf("{order.items.length > 0 ?"),
@@ -441,8 +470,19 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
     detail,
     /const canShowCompletedRework = canShowCompletedReworkAction\(/,
   );
-  assert.match(detail, /actions=\{[\s\S]*?canShowCompletedRework \?/);
-  assert.match(detail, /presentation="compact"/);
+  assert.match(detail, /const reworkEligibleDeliverables = canShowCompletedRework/);
+  assert.match(detail, /const singleSummaryReworkRow =/);
+  assert.match(detail, /reworkAction=\{/);
+  assert.match(detail, /hasMultipleReworkActions=\{hasMultipleReworkActions\}/);
+  assert.match(detail, /href="#image-workflow"/);
+  assert.match(detail, /id="image-workflow"/);
+  assert.match(detail, /Choose a delivered file below to request adjustments\./);
+  assert.match(detail, /Request changes/);
+  assert.match(
+    detail,
+    /deliverable\.id !== singleSummaryReworkRow\?\.deliverable\.id/,
+  );
+  assert.match(detail, /presentation="delivery"/);
   assert.match(detail, /getDashboardRequestUser\(\)/);
   assert.match(detail, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
   assert.match(detail, /toOrderOwnership\(user\)/);
@@ -459,9 +499,10 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(imageCard, /isOneToOneImageEditingPresentation/);
   assert.match(
     imageCard,
-    /grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-3/,
+    /grid-cols-1 items-start gap-7 md:grid-cols-2 md:gap-6 lg:grid-cols-\[minmax\(0,7fr\)_minmax\(0,7fr\)_minmax\(16rem,6fr\)\]/,
   );
   assert.match(imageCard, /md:col-span-2 lg:col-span-1/);
+  assert.match(imageCard, /Editing preferences and workflow status/);
   assert.match(imageCard, /Preferences \/ options/);
   assert.match(imageCard, /hasClientVisibleOrderItemDetails/);
   assert.match(imageCard, /<DeliveredPlaceholder \/>/);
@@ -470,6 +511,19 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   assert.match(imageCard, /Reference files/);
   assert.match(imageCard, /canShowCompletedReworkAction/);
   assert.match(imageCard, /Need any changes\?/);
+  assert.match(imageCard, /summaryReworkDeliverableId\?: string \| null/);
+  assert.match(
+    imageCard,
+    /deliverable\.id !== summaryReworkDeliverableId/,
+  );
+  const deliveredPanel = imageCard.slice(
+    imageCard.indexOf("const deliveredPanel"),
+    imageCard.indexOf("return (", imageCard.indexOf("const deliveredPanel")),
+  );
+  assert.doesNotMatch(deliveredPanel, /actions=\{/);
+  assert.ok(
+    imageCard.indexOf("Preferences / options") < imageCard.indexOf("Workflow status"),
+  );
   assert.doesNotMatch(imageCard, /LargePreviewFrame/);
   assert.match(
     imageCard,
@@ -496,7 +550,31 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
   );
   assert.match(previewCard, /object-contain/);
   assert.match(previewCard, /aspect-\[4\/3\]/);
+  assert.match(
+    previewCard,
+    /usesImageOverlayDownload = presentation === "feature" && previewKind === "image"/,
+  );
+  assert.match(previewCard, /data-feature-image-frame/);
+  assert.match(previewCard, /data-preview-control/);
+  assert.match(previewCard, /data-download-control/);
+  assert.match(previewCard, /bottom-4 left-1\/2/);
+  assert.match(previewCard, /bg-secondary[^\"]*text-white/);
+  assert.match(previewCard, />\s*Download\s*</);
+  assert.ok(
+    previewCard.indexOf("data-preview-control") < previewCard.indexOf("data-download-control"),
+  );
+  assert.match(previewCard, /\{usesImageOverlayDownload \? \(/);
+  assert.match(previewCard, /data-feature-file-details/);
+  assert.match(
+    previewCard,
+    /usesImageOverlayDownload \? \([\s\S]*?meta \|\| error \|\| actions/,
+  );
   assert.doesNotMatch(previewCard, /mediaAspectRatio|onImageAspectRatio/);
+
+  const globals = source("src/app/globals.css");
+  assert.match(globals, /@media \(hover: hover\) and \(pointer: fine\)/);
+  assert.match(globals, /\[data-feature-image-frame\]:focus-within/);
+  assert.match(globals, /filter: brightness\(0\.88\)/);
 
   const paymentPanel = source("src/components/payments/OrderPaymentPanel.tsx");
   assert.match(paymentPanel, /fetch\("\/api\/payments\/checkout", \{/);
@@ -517,5 +595,15 @@ test("Order Detail prioritizes client actions and visual deliverables while pres
     /\/api\/client\/deliverables\/\$\{deliverableId\}\/review/,
   );
   assert.match(reviewActions, /action: "rework_requested"/);
-  assert.match(reviewActions, /presentation\?: "default" \| "compact"/);
+  assert.match(
+    reviewActions,
+    /presentation\?: "default" \| "compact" \| "delivery"/,
+  );
+  assert.match(reviewActions, /isDelivery \? "Request changes" : "Request rework"/);
+  assert.match(reviewActions, /!isCompact && !isDelivery/);
+
+  const bulkDownload = source("src/components/BulkDownloadButton.tsx");
+  assert.match(bulkDownload, /presentation\?: "default" \| "primary"/);
+  assert.match(bulkDownload, /presentation === "primary"/);
+  assert.match(bulkDownload, /bg-secondary[^\"]*text-white/);
 });
