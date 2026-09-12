@@ -4,10 +4,12 @@ import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
   ArrowLeft,
   CalendarDays,
+  FileArchive,
   FolderOpen,
   Layers,
   LifeBuoy,
   PlusCircle,
+  RotateCcw,
 } from "lucide-react";
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
@@ -67,10 +69,13 @@ function formatDisplayDate(iso: string): string {
   if (!iso || iso === "-" || iso === "Delivered") return iso || "-";
   const date = new Date(iso);
   if (isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("en-GB", {
+  return date.toLocaleString("en-GB", {
     day: "numeric",
-    month: "long",
+    month: "short",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   });
 }
 
@@ -172,28 +177,31 @@ function ProgressBar({ value, className = "" }: { value: number; className?: str
 }
 
 interface JobDetailsCardProps {
+  orderNumber: string;
+  statusBadge: ReactNode;
   submittedLabel: string;
-  itemCount: number;
   totalValue: string | null;
-  clientCompany: string | null;
   progress: number;
   progressMessage: ReactNode;
+  showProgress: boolean;
 }
 
 function JobDetailsCard({
+  orderNumber,
+  statusBadge,
   submittedLabel,
-  itemCount,
   totalValue,
-  clientCompany,
   progress,
   progressMessage,
+  showProgress,
 }: JobDetailsCardProps) {
   return (
     <section
+      data-job-details-card
       aria-labelledby="job-details-heading"
       className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
     >
-      <div className="border-b border-border px-5 py-3.5">
+      <div className="border-b border-border px-4 py-2.5 sm:px-5">
         <h2
           id="job-details-heading"
           className="text-dashboard-section lg:text-lg font-bold text-primary"
@@ -201,27 +209,30 @@ function JobDetailsCard({
           Job details
         </h2>
       </div>
-      <dl className="grid grid-cols-1 sm:grid-cols-2">
+      <dl>
         <JobDetailsRow
-          label="Images / items"
-          value={`${itemCount} image${itemCount !== 1 ? "s" : ""}`}
+          label="Reference"
+          value={
+            <span className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="font-mono">{orderNumber}</span>
+              <CopyOrderNumberButton orderNumber={orderNumber} />
+            </span>
+          }
         />
         <JobDetailsRow label="Submitted" value={submittedLabel} />
+        <JobDetailsRow label="Status" value={statusBadge} />
         {totalValue ? <JobDetailsRow label="Order total" value={totalValue} strong /> : null}
-        {clientCompany && (
-          <JobDetailsRow label="Company" value={clientCompany} />
-        )}
-        <div className="border-t border-border px-5 py-4 sm:col-span-2">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <dt className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted">
+        {showProgress ? (
+          <div className="grid min-w-0 grid-cols-[minmax(7rem,0.8fr)_minmax(0,1.2fr)] items-center gap-3 border-t border-border px-4 py-2.5 sm:px-5">
+            <dt className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
               Progress
             </dt>
-            <dd className="text-right text-dashboard-body text-muted">
-              {progressMessage}
+            <dd className="min-w-0">
+              <ProgressBar value={progress} />
+              <p className="mt-1 text-dashboard-metadata text-muted">{progressMessage}</p>
             </dd>
           </div>
-          <ProgressBar value={progress} />
-        </div>
+        ) : null}
       </dl>
     </section>
   );
@@ -230,60 +241,67 @@ function JobDetailsCard({
 function DeliveryCard({
   orderId,
   hasDeliverables,
-  paymentState,
+  reworkAction,
+  hasMultipleReworkActions,
 }: {
   orderId: string;
   hasDeliverables: boolean;
-  paymentState: "paid" | "no_payment_required" | "partially_refunded" | "refunded";
+  reworkAction: ReactNode;
+  hasMultipleReworkActions: boolean;
 }) {
-  const paymentMessage =
-    paymentState === "paid"
-      ? "Payment confirmed"
-      : paymentState === "no_payment_required"
-        ? "No payment required"
-        : paymentState === "partially_refunded"
-          ? "Payment partially refunded"
-          : paymentState === "refunded"
-            ? "Payment refunded"
-            : null;
-
   return (
     <section
       aria-labelledby="delivery-heading"
-      className="rounded-xl border border-border bg-white p-5 shadow-sm"
+      className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
     >
-      <div>
-        <h2
-          id="delivery-heading"
-          className="text-dashboard-section lg:text-lg font-bold text-primary"
-        >
-          Deliverables
-        </h2>
-        {paymentMessage && (
-          <p className="mt-1 text-dashboard-metadata font-medium text-muted">
-            {paymentMessage}
-          </p>
-        )}
-      </div>
+      <h2 id="delivery-heading" className="sr-only">Delivery and actions</h2>
       {hasDeliverables ? (
-        <div className="mt-5">
-          <p className="text-sm font-semibold text-foreground">
-            Delivered files available
-          </p>
-          <p className="mt-1 text-dashboard-body text-muted">
-            Download the available delivered files as a ZIP.
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-4 bg-secondary/10 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:px-5">
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-secondary/35 bg-white text-secondary-dark shadow-sm">
+            <FileArchive className="h-5 w-5" aria-hidden />
+          </span>
+          <p className="text-dashboard-body text-foreground">
+            <span className="font-bold">Download</span> a ZIP of your completed job.
           </p>
           <BulkDownloadButton
             endpoint={`/api/client/orders/${orderId}/deliverables/bulk-download`}
-            label="Download completed job"
-            className="mt-4 items-start"
+            label="Download"
+            presentation="primary"
+            className="col-span-2 w-full items-stretch sm:col-span-1 sm:w-auto sm:items-end"
           />
         </div>
       ) : (
-        <p className="mt-5 text-dashboard-body text-muted">
+        <p className="p-5 text-dashboard-body text-muted">
           Files will appear here when ready.
         </p>
       )}
+      {reworkAction ? (
+        <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+          <div>
+            <p className="text-dashboard-action font-bold text-foreground">Need changes?</p>
+            <p className="mt-1 text-dashboard-body text-muted">
+              Request adjustments to the delivered result.
+            </p>
+          </div>
+          <div className="w-full sm:w-auto">{reworkAction}</div>
+        </div>
+      ) : hasMultipleReworkActions ? (
+        <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+          <div>
+            <p className="text-dashboard-action font-bold text-foreground">Need changes?</p>
+            <p className="mt-1 text-dashboard-body text-muted">
+              Choose a delivered file below to request adjustments.
+            </p>
+          </div>
+          <a
+            href="#image-workflow"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-secondary bg-secondary px-5 py-2.5 text-dashboard-action font-bold uppercase tracking-[0.04em] text-white shadow-sm transition-colors hover:bg-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden />
+            Request changes
+          </a>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -361,6 +379,15 @@ export default async function OrderDetailPage({
     order.status,
     currentDeliverables.length > 0,
   );
+  const reworkEligibleDeliverables = canShowCompletedRework
+    ? currentDeliverables.filter(
+        ({ review }) =>
+          review?.status !== "rework_requested" && review?.status !== "rework_in_progress",
+      )
+    : [];
+  const singleSummaryReworkRow =
+    reworkEligibleDeliverables.length === 1 ? reworkEligibleDeliverables[0] : null;
+  const hasMultipleReworkActions = reworkEligibleDeliverables.length > 1;
 
   const serviceLabel = getOrderServiceLabel(order.service_type, order.sub_service);
   const viewerVariant = getStaticImageViewerVariantForService(order.service_type);
@@ -411,17 +438,18 @@ export default async function OrderDetailPage({
         }
       : null;
   const jobDetailsProps = {
+    orderNumber: order.order_number,
+    statusBadge: <StatusBadge status={dashStatus} />,
     submittedLabel: formatDisplayDate(order.created_at),
-    itemCount: order.item_count,
     totalValue:
       paymentSummary?.state === "payment_required" || paymentSummary?.state === "processing"
         ? null
         : authoritativeTotal
           ? formatStoredMoney(authoritativeTotal.cents, authoritativeTotal.currency)
           : formatStoredMoney(order.estimated_total_cents, order.currency),
-    clientCompany: order.client_company,
     progress,
     progressMessage,
+    showProgress: progress > 0 && progress < 100,
   } satisfies JobDetailsCardProps;
   const hasPaymentAction =
     paymentSummary?.state === "payment_required" || paymentSummary?.state === "processing";
@@ -432,6 +460,10 @@ export default async function OrderDetailPage({
     paymentSummary?.state === "refunded"
       ? paymentSummary.state
       : null;
+  const hasSummarySideCard =
+    paymentSummary === null ||
+    paymentSummary?.state === "not_available" ||
+    deliveryPaymentState !== null;
 
   return (
     <ClientDashboardLayout>
@@ -445,7 +477,7 @@ export default async function OrderDetailPage({
         </ClientPortalLink>
       </div>
 
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-8">
         <div>
           <p className="mb-1.5 text-dashboard-kicker uppercase font-bold text-secondary-dark">
             Order detail
@@ -456,31 +488,39 @@ export default async function OrderDetailPage({
           {hasDistinctJobTitle && (
             <p className="mt-1 text-sm font-medium text-muted">{serviceLabel}</p>
           )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded border border-border bg-white px-2 py-0.5 font-mono text-dashboard-metadata text-muted">
-              {order.order_number}
-            </span>
-            <CopyOrderNumberButton orderNumber={order.order_number} />
-            <StatusBadge status={dashStatus} />
-          </div>
         </div>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
-          <ClientPortalLink
-            href="/dashboard/support"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
-          >
-            <LifeBuoy className="w-3.5 h-3.5" aria-hidden />
-            Contact support
-          </ClientPortalLink>
-          <ClientPortalLink
-            href="/dashboard/orders/new"
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
-          >
-            <PlusCircle className="w-3.5 h-3.5" aria-hidden />
-            New order
-          </ClientPortalLink>
-        </div>
+      <div
+        data-job-summary
+        className={[
+          "mb-6 grid grid-cols-1 items-start gap-5",
+          hasSummarySideCard
+            ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6"
+            : "",
+        ].join(" ")}
+      >
+        <JobDetailsCard {...jobDetailsProps} />
+        {paymentSummary === null || paymentSummary?.state === "not_available" ? (
+          <PaymentDetailsUnavailableCard />
+        ) : deliveryPaymentState ? (
+          <DeliveryCard
+            orderId={order.id}
+            hasDeliverables={currentDeliverables.length > 0}
+            reworkAction={
+              singleSummaryReworkRow ? (
+                <DeliverableReviewActions
+                  deliverableId={singleSummaryReworkRow.deliverable.id}
+                  initialReviewStatus={singleSummaryReworkRow.review?.status ?? null}
+                  initialComment={singleSummaryReworkRow.review?.comment ?? null}
+                  filename={singleSummaryReworkRow.deliverable.filename}
+                  presentation="delivery"
+                />
+              ) : null
+            }
+            hasMultipleReworkActions={hasMultipleReworkActions}
+          />
+        ) : null}
       </div>
 
       {pricing && pricing.partnerDiscountCents > 0 && (
@@ -519,6 +559,7 @@ export default async function OrderDetailPage({
       ) : null}
 
       <section
+        id="image-workflow"
         data-order-workflow
         aria-labelledby="order-images-heading"
         className="min-w-0 space-y-5"
@@ -567,6 +608,7 @@ export default async function OrderDetailPage({
                   deliveredViewerItems={imageGalleries.delivered}
                   status={status}
                   latestComment={latestRelevantComment(itemReviews, status)}
+                  summaryReworkDeliverableId={singleSummaryReworkRow?.deliverable.id ?? null}
                 />
               );
             })}
@@ -629,7 +671,8 @@ export default async function OrderDetailPage({
                       </div>
                     }
                     actions={
-                      canShowCompletedRework ? (
+                      canShowCompletedRework &&
+                      deliverable.id !== singleSummaryReworkRow?.deliverable.id ? (
                         <div className="w-full border-t border-border pt-3">
                           <p className="text-dashboard-action font-semibold text-foreground">
                             Need any changes?
@@ -658,19 +701,6 @@ export default async function OrderDetailPage({
 
       </section>
 
-      <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
-        <JobDetailsCard {...jobDetailsProps} />
-        {paymentSummary === null || paymentSummary?.state === "not_available" ? (
-          <PaymentDetailsUnavailableCard />
-        ) : deliveryPaymentState ? (
-          <DeliveryCard
-            orderId={order.id}
-            hasDeliverables={currentDeliverables.length > 0}
-            paymentState={deliveryPaymentState}
-          />
-        ) : null}
-      </div>
-
       <section
         aria-labelledby="order-activity-heading"
         className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5"
@@ -691,6 +721,13 @@ export default async function OrderDetailPage({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ClientPortalLink
+            href="/dashboard/support"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
+          >
+            <LifeBuoy className="w-3.5 h-3.5" aria-hidden />
+            Contact support
+          </ClientPortalLink>
           <ClientPortalLink
             href="/dashboard/jobs"
             className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-dashboard-action font-semibold text-foreground/70 transition-colors hover:border-primary/40 hover:text-primary"
@@ -723,13 +760,13 @@ function JobDetailsRow({
   strong?: boolean;
 }) {
   return (
-    <div className="min-w-0 border-b border-border px-5 py-3 sm:even:border-l">
-      <dt className="mb-1 text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
+    <div className="grid min-w-0 grid-cols-[minmax(7rem,0.8fr)_minmax(0,1.2fr)] items-center gap-3 border-b border-border px-4 py-2.5 sm:px-5">
+      <dt className="text-dashboard-metadata font-bold uppercase tracking-[0.08em] text-muted-light">
         {label}
       </dt>
       <dd
         className={[
-          "min-w-0 leading-snug",
+          "min-w-0 break-words leading-snug",
           mono ? "font-mono text-dashboard-metadata text-foreground" : "text-dashboard-metadata text-foreground",
           strong ? "font-bold" : "font-medium",
         ].join(" ")}
