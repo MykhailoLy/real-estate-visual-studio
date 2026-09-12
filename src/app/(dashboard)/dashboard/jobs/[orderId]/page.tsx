@@ -14,6 +14,7 @@ import {
 import BulkDownloadButton from "@/components/BulkDownloadButton";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import CopyOrderNumberButton from "@/components/dashboard/CopyOrderNumberButton";
+import ClientOrderReviewCard from "@/components/dashboard/ClientOrderReviewCard";
 import ClientOrderImageCard, {
   type ClientImageWorkflowStatus,
 } from "@/components/dashboard/ClientOrderImageCard";
@@ -24,6 +25,7 @@ import OrderPaymentPanel from "@/components/payments/OrderPaymentPanel";
 import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 import { canShowCompletedReworkAction } from "@/lib/client-order-item-presentation";
 import { getDeliverablesForClient } from "@/lib/client-deliverables";
+import { getClientOrderReviewForClient } from "@/lib/client-order-reviews";
 import {
   getCurrentDeliverableRows,
   type CurrentDeliverableRow,
@@ -251,10 +253,18 @@ function DeliveryCard({
 }) {
   return (
     <section
-      aria-labelledby="delivery-heading"
+      data-deliverables-card
+      aria-labelledby="deliverables-heading"
       className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
     >
-      <h2 id="delivery-heading" className="sr-only">Delivery and actions</h2>
+      <div className="border-b border-border px-4 py-2.5 sm:px-5">
+        <h2
+          id="deliverables-heading"
+          className="text-dashboard-section font-bold text-primary lg:text-lg"
+        >
+          Deliverables
+        </h2>
+      </div>
       {hasDeliverables ? (
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-4 bg-secondary/10 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:px-5">
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-secondary/35 bg-white text-secondary-dark shadow-sm">
@@ -353,7 +363,13 @@ export default async function OrderDetailPage({
     console.error("[dashboard/order] Stripe mode is unavailable");
   }
 
-  const [allDeliverables, allReviews, sourceFiles, paymentSummary] = await Promise.all([
+  const [
+    allDeliverables,
+    allReviews,
+    sourceFiles,
+    paymentSummary,
+    clientOrderReview,
+  ] = await Promise.all([
     getDeliverablesForClient(ownership),
     getReviewsForClient(ownership),
     getClientSourceFilesForOrder(order.id, ownership),
@@ -361,6 +377,9 @@ export default async function OrderDetailPage({
       repository: createSupabaseCheckoutRepository(getSupabaseAdminClient()),
       expectedStripeLivemode,
     }),
+    order.status === "delivered"
+      ? getClientOrderReviewForClient(order.id, ownership)
+      : Promise.resolve({ available: true, review: null }),
   ]);
 
   const orderDeliverables = allDeliverables.filter((deliverable) => deliverable.order_id === order.id);
@@ -460,10 +479,20 @@ export default async function OrderDetailPage({
     paymentSummary?.state === "refunded"
       ? paymentSummary.state
       : null;
+  const showReviewCard =
+    order.status === "delivered" && clientOrderReview.available;
+  const showPaymentUnavailableCard =
+    !showReviewCard &&
+    (paymentSummary === null || paymentSummary?.state === "not_available");
+  const showDeliverablesCard = showReviewCard || deliveryPaymentState !== null;
   const hasSummarySideCard =
-    paymentSummary === null ||
-    paymentSummary?.state === "not_available" ||
-    deliveryPaymentState !== null;
+    showPaymentUnavailableCard || showDeliverablesCard;
+  const summaryGridClass =
+    showReviewCard && hasSummarySideCard
+      ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-5"
+      : hasSummarySideCard
+        ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6"
+        : "";
 
   return (
     <ClientDashboardLayout>
@@ -493,17 +522,18 @@ export default async function OrderDetailPage({
 
       <div
         data-job-summary
-        className={[
-          "mb-6 grid grid-cols-1 items-start gap-5",
-          hasSummarySideCard
-            ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6"
-            : "",
-        ].join(" ")}
+        className={["mb-6 grid grid-cols-1 items-start gap-5", summaryGridClass].join(" ")}
       >
         <JobDetailsCard {...jobDetailsProps} />
-        {paymentSummary === null || paymentSummary?.state === "not_available" ? (
+        {showReviewCard ? (
+          <ClientOrderReviewCard
+            orderId={order.id}
+            initialReview={clientOrderReview.review}
+          />
+        ) : null}
+        {showPaymentUnavailableCard ? (
           <PaymentDetailsUnavailableCard />
-        ) : deliveryPaymentState ? (
+        ) : showDeliverablesCard ? (
           <DeliveryCard
             orderId={order.id}
             hasDeliverables={currentDeliverables.length > 0}

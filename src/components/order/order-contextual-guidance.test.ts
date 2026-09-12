@@ -363,24 +363,34 @@ test("Order Detail leads with its summary and preserves authenticated job flows"
   );
   const summary = detail.indexOf("data-job-summary");
   const overview = detail.indexOf("<JobDetailsCard", summary);
+  const orderReview = detail.indexOf("<ClientOrderReviewCard", overview);
+  const deliverables = detail.indexOf("<DeliveryCard", orderReview);
   const payment = detail.indexOf("<OrderPaymentPanel");
   const workflow = detail.indexOf("data-order-workflow");
   const activity = detail.indexOf("order-activity-heading");
   assert.ok(
     summary > -1 &&
       overview > summary &&
+      orderReview > overview &&
+      deliverables > orderReview &&
       payment > overview &&
       workflow > payment &&
       activity > workflow,
   );
   assert.match(detail, /<JobDetailsCard \{\.\.\.jobDetailsProps\} \/>/);
+  assert.match(detail, /<ClientOrderReviewCard/);
   assert.match(detail, /<DeliveryCard/);
   assert.match(detail, /function PaymentDetailsUnavailableCard\(\)/);
   assert.match(detail, /Payment details unavailable/);
   assert.match(
     detail,
-    /paymentSummary === null \|\| paymentSummary\?\.state === "not_available"[\s\S]*?<PaymentDetailsUnavailableCard \/>/,
+    /const showPaymentUnavailableCard =[\s\S]*?!showReviewCard[\s\S]*?paymentSummary === null \|\| paymentSummary\?\.state === "not_available"/,
   );
+  assert.match(
+    detail,
+    /const showDeliverablesCard = showReviewCard \|\| deliveryPaymentState !== null/,
+  );
+  assert.match(detail, /showPaymentUnavailableCard \? \([\s\S]*?<PaymentDetailsUnavailableCard \/>/);
   assert.match(
     detail,
     /const hasPaymentAction =[\s\S]*?paymentSummary\?\.state === "payment_required" \|\| paymentSummary\?\.state === "processing"/,
@@ -390,7 +400,7 @@ test("Order Detail leads with its summary and preserves authenticated job flows"
   const deliveryStateStart = detail.indexOf("const deliveryPaymentState");
   const deliveryStateSource = detail.slice(
     deliveryStateStart,
-    detail.indexOf("const hasSummarySideCard", deliveryStateStart),
+    detail.indexOf("const showReviewCard", deliveryStateStart),
   );
   assert.match(deliveryStateSource, /paymentSummary\?\.state === "paid"/);
   assert.match(
@@ -419,6 +429,20 @@ test("Order Detail leads with its summary and preserves authenticated job flows"
     detail,
     /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)\]/,
   );
+  assert.match(
+    detail,
+    /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_minmax\(0,1fr\)\]/,
+  );
+  assert.match(
+    detail,
+    /const showReviewCard =[\s\S]*?order\.status === "delivered" && clientOrderReview\.available/,
+  );
+  assert.match(
+    detail,
+    /order\.status === "delivered"[\s\S]*?getClientOrderReviewForClient\(order\.id, ownership\)[\s\S]*?Promise\.resolve\(\{ available: true, review: null \}\)/,
+  );
+  assert.match(detail, /data-deliverables-card/);
+  assert.match(detail, />\s*Deliverables\s*<\/h2>/);
   assert.match(detail, /showProgress: progress > 0 && progress < 100/);
   assert.match(detail, /toLocaleString\("en-GB"/);
   assert.match(detail, /hour: "2-digit"/);
