@@ -1,8 +1,8 @@
 // ============================================================
 // CLIENT DELIVERABLES — server-side helpers (Phase 5B)
 //
-// Reads order_deliverables rows and generates short-lived
-// signed download URLs for the `deliverables` Storage bucket.
+// Reads order_deliverables rows and generates short-lived signed URLs for
+// originals or persistent previews in the `deliverables` Storage bucket.
 //
 // ⚠️  SECURITY CONTRACT (see src/lib/order-ownership.ts)
 // ─────────────────────────────────────────────────────────
@@ -26,6 +26,7 @@ import {
 } from "@/lib/deliverables-config";
 import { getOwnedOrderIds } from "@/lib/client-orders";
 import { isOrderOwned, type OrderOwnership } from "@/lib/order-ownership";
+import { getOrCreatePrivateImagePreview } from "@/lib/private-image-preview";
 
 // Re-export so callers that already import from this module keep working.
 export {
@@ -132,7 +133,7 @@ interface DeliverableSignedUrlOptions {
 }
 
 /**
- * Generates a short-lived signed download URL for one deliverable.
+ * Generates a short-lived signed preview or download URL for one deliverable.
  *
  * SECURITY:
  *   - deliverableId comes from the URL (untrusted).
@@ -141,9 +142,9 @@ interface DeliverableSignedUrlOptions {
  *   - Returns null when ownership check fails — indistinguishable
  *     from "not found" to prevent information leakage.
  *   - The storage_path is never returned to the caller.
- *   - Signed URL is generated with { download: filename } so that
- *     Supabase Storage sets Content-Disposition: attachment, which
- *     forces browsers to download rather than open the file.
+ *   - Download requests always sign the original with { download: filename }.
+ *   - Preview requests use a persistent derivative when available and fall
+ *     back to an inline signed URL for the original.
  */
 export async function getDeliverableDownloadUrl(
   deliverableId: string,
@@ -164,7 +165,8 @@ export async function getDeliverableDownloadUrl(
     const { data, error } = await supabase
       .from("order_deliverables")
       .select(
-        "storage_path, filename, orders!inner(user_id, client_email)"
+        "storage_path, filename, file_size, mime_type, " +
+        "orders!inner(user_id, client_email)"
       )
       .eq("id", deliverableId)
       .maybeSingle();
@@ -174,21 +176,53 @@ export async function getDeliverableDownloadUrl(
     const row = data as unknown as {
       storage_path: string;
       filename: string;
+      file_size: number;
+      mime_type: string;
       orders: { user_id: string | null; client_email: string | null };
     };
 
     // Ownership check — wrong owner is indistinguishable from not found.
     if (!isOrderOwned(row.orders, ownership)) return null;
 
-    const { storage_path: storagePath, filename } = row;
+    const {
+      storage_path: storagePath,
+      filename,
+      file_size: fileSize,
+      mime_type: mimeType,
+    } = row;
 
-    // Generate signed URL with forced download filename so Storage sets
-    // Content-Disposition: attachment — never stored, never logged, 300s TTL.
+    const previewPath = options.download
+      ? null
+      : await getOrCreatePrivateImagePreview(supabase, DELIVERABLES_BUCKET, {
+          storagePath,
+          filename,
+          fileSize,
+          mimeType,
+        });
+    const signedPath = previewPath ?? storagePath;
+
+    // Only original downloads receive Content-Disposition: attachment.
+    // Preview URLs remain inline, short-lived, and are never logged.
     const signedOptions = options.download ? { download: filename } : undefined;
     const { data: signed, error: urlErr } = await supabase
       .storage
       .from(DELIVERABLES_BUCKET)
-      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS, signedOptions);
+      .createSignedUrl(signedPath, SIGNED_URL_TTL_SECONDS, signedOptions);
+
+    if ((urlErr || !signed?.signedUrl) && previewPath) {
+      const { data: originalSigned, error: originalUrlErr } = await supabase
+        .storage
+        .from(DELIVERABLES_BUCKET)
+        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+      if (originalUrlErr || !originalSigned?.signedUrl) {
+        console.error(
+          "[client-deliverables] Original preview URL fallback error:",
+          originalUrlErr?.message,
+        );
+        return null;
+      }
+      return { signedUrl: originalSigned.signedUrl, filename };
+    }
 
     if (urlErr || !signed?.signedUrl) {
       console.error("[client-deliverables] Signed URL error:", urlErr?.message);
