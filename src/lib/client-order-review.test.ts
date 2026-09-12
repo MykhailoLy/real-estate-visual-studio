@@ -295,8 +295,27 @@ test("saved review replaces the form and all review controls meet the 44px targe
   assert.match(card, /aria-label=\{`\$\{rating\} out of 5 stars`\}/);
   assert.match(card, /role="group"/);
   assert.match(card, /aria-pressed=\{rating === value\}/);
+  assert.match(
+    card,
+    /const \[previewRating, setPreviewRating\] = useState<number \| null>\(null\)/,
+  );
+  assert.match(card, /const displayedRating = previewRating \?\? rating/);
+  assert.match(card, /value <= displayedRating/);
+  assert.match(card, /onMouseEnter=\{\(\) => setPreviewRating\(value\)\}/);
+  assert.match(card, /onMouseLeave=\{\(\) => setPreviewRating\(null\)\}/);
+  assert.match(card, /onFocus=\{\(\) => setPreviewRating\(value\)\}/);
+  assert.match(card, /onBlur=\{\(\) => setPreviewRating\(null\)\}/);
+  assert.match(
+    card,
+    /onClick=\{\(\) => \{[\s\S]*?setRating\(value\);[\s\S]*?setPreviewRating\(null\);[\s\S]*?setError\(null\)/,
+  );
   assert.match(card, /min-h-11 min-w-11/);
   assert.match(card, /type="submit"[\s\S]*min-h-11/);
+  assert.match(card, /rows=\{2\}/);
+  assert.match(card, /min-h-18/);
+  assert.doesNotMatch(card, /min-h-24/);
+  assert.match(card, /\{error \? \([\s\S]*aria-live="polite"[\s\S]*\) : null\}/);
+  assert.doesNotMatch(card, /className="min-h-5[^\n]*aria-live/);
   assert.match(card, /How was your order\?/);
   assert.match(card, /Rate your experience/);
   assert.match(card, /Share any additional feedback \(optional\)/);
