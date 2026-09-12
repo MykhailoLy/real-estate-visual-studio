@@ -24,11 +24,13 @@ import {
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/client-auth-utils";
 import { useDashboardUser } from "./DashboardUserContext";
-import { CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME } from "./client-portal-workspace";
 import SignOutButton from "./SignOutButton";
 import ClientPortalLink from "./ClientPortalLink";
 import ClientDashboardMobileNav from "./ClientDashboardMobileNav";
 import { DASHBOARD_NAV_ITEMS } from "./dashboard-nav-items";
+
+const DASHBOARD_HEADER_HORIZONTAL_CLASSNAME =
+  "w-full px-4 sm:px-6 lg:px-8 xl:px-5 2xl:px-10";
 
 const accountMenuItems = [
   { href: "/dashboard/profile", label: "My Account", icon: User },
@@ -64,26 +66,29 @@ export default function ClientDashboardTopNav() {
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
   return (
-    <header className="sticky top-0 z-40 flex-shrink-0 border-b border-border bg-white shadow-sm">
+    <header className="sticky top-0 z-40 flex-shrink-0 border-b border-border bg-white">
       <div
         className={cn(
-          CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
-          "flex h-14 min-w-0 items-center gap-2 sm:h-16",
+          DASHBOARD_HEADER_HORIZONTAL_CLASSNAME,
+          "flex h-14 min-w-0 items-center gap-2",
         )}
       >
         <Link
           href={getLocaleAwareHref("/", language)}
           aria-label="Open the PicchuSpot public homepage"
-          className="flex min-h-11 min-w-0 flex-shrink items-center gap-1.5 sm:gap-2"
+          className="flex min-h-11 min-w-0 flex-shrink items-center gap-2"
         >
           <PicchuSpotLogo
             variant="mark"
-            className="h-6 w-auto flex-shrink-0 sm:h-7"
-            width={56}
-            height={28}
+            className="h-7 w-auto flex-shrink-0 sm:h-8"
+            width={64}
+            height={32}
             alt=""
           />
-          <BrandWordmark theme="light" className="min-w-0 text-sm sm:text-lg" />
+          <BrandWordmark
+            theme="light"
+            className="min-w-0 text-xl sm:text-[21px] xl:text-[22px]"
+          />
         </Link>
 
         {user?.isQaPreview && (
@@ -94,7 +99,7 @@ export default function ClientDashboardTopNav() {
 
         <div
           className={cn(
-            "hidden min-w-0 items-center gap-2 lg:flex",
+            "hidden min-w-0 items-center gap-1.5 md:gap-2 lg:flex",
             !user?.isQaPreview && "ml-auto",
           )}
         >
@@ -102,7 +107,7 @@ export default function ClientDashboardTopNav() {
           <MarketLanguageSelector
             pathname={pathname}
             currentLanguage={language}
-            className="[&>button>span]:text-dashboard-action"
+            className="[&>button]:h-10 [&>button]:rounded-md [&>button]:shadow-none [&>button>span]:text-dashboard-action"
             compact
             tight
             onLanguageChange={setLanguage}
@@ -120,7 +125,7 @@ export default function ClientDashboardTopNav() {
           aria-expanded={mobileMenuOpen}
           aria-controls="client-dashboard-mobile-menu"
           className={cn(
-            "inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-white text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden",
+            "inline-flex h-11 w-11 items-center justify-center rounded-md border border-stone-200 bg-white text-primary transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden",
             !user?.isQaPreview && "ml-auto",
           )}
         >
@@ -142,12 +147,12 @@ export default function ClientDashboardTopNav() {
 
 function DashboardNavigationRow({ pathname }: { pathname: string }) {
   return (
-    <div className="hidden border-t border-border bg-primary lg:block">
+    <div className="hidden bg-primary lg:block">
       <nav
         aria-label="Dashboard navigation"
         className={cn(
-          CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME,
-          "flex h-12 items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          DASHBOARD_HEADER_HORIZONTAL_CLASSNAME,
+          "flex h-11 items-stretch gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         )}
       >
         {DASHBOARD_NAV_ITEMS.map((item) => {
@@ -156,15 +161,18 @@ function DashboardNavigationRow({ pathname }: { pathname: string }) {
             : pathname.startsWith(item.href);
           const isNewOrder = item.href === "/dashboard/orders/new";
           const itemClassName = cn(
-            "inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-dashboard-action font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
+            "group relative inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-dashboard-action font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white",
             isNewOrder
               ? cn(
-                  "bg-secondary text-primary shadow-sm hover:bg-secondary-light",
+                  "my-1 h-9 rounded-md bg-secondary text-primary hover:bg-secondary-light",
                   active && "ring-2 ring-inset ring-white/80",
                 )
-              : active
-                ? "bg-white/18 text-white"
-                : "text-white/70 hover:bg-white/10 hover:text-white"
+              : cn(
+                  "h-full hover:bg-white/5 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:origin-left after:bg-secondary after:transition-transform",
+                  active
+                    ? "text-white after:scale-x-100"
+                    : "text-white/70 after:scale-x-0 hover:text-white hover:after:scale-x-100 focus-visible:after:scale-x-100",
+                ),
           );
 
           return (
@@ -260,7 +268,7 @@ function PublicResourcesMenu({ language }: { language: SiteLanguage }) {
         aria-label={open ? "Close site menu" : "Open site menu"}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white text-primary transition-colors hover:border-primary/30 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
@@ -420,7 +428,7 @@ export function DashboardAccountMenu({
         aria-label={`Account menu for ${firstName}`}
         className={cn(
           "inline-flex min-w-0 items-center transition-colors focus:outline-none focus-visible:ring-2",
-          "h-9 flex-shrink-0 gap-1 rounded-lg border border-stone-200 bg-white px-1.5 text-primary shadow-sm hover:border-primary/30 hover:bg-surface focus-visible:ring-primary sm:gap-1.5 sm:pr-2"
+          "h-10 flex-shrink-0 gap-1.5 rounded-md border border-stone-200 bg-white px-1.5 pr-2 text-primary hover:border-primary/30 hover:bg-surface focus-visible:ring-primary focus-visible:ring-offset-2"
         )}
       >
         <DashboardAccountAvatar

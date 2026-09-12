@@ -380,7 +380,7 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   assert.match(utilityBarSource, /h-\[calc\(2\.875rem\+env\(safe-area-inset-bottom\)\)\]/);
   assert.match(utilityBarSource, /lg:hidden/);
   assert.doesNotMatch(utilityBarSource, /fetch\(|\/api\//);
-  assert.match(topNavSource, /hidden border-t border-border bg-primary lg:block/);
+  assert.match(topNavSource, /hidden bg-primary lg:block/);
   assert.match(topNavSource, /aria-controls="client-dashboard-mobile-menu"/);
   assert.match(topNavSource, /aria-expanded=\{mobileMenuOpen\}/);
   assert.match(mobileNavSource, /id="client-dashboard-mobile-menu"/);
@@ -389,6 +389,20 @@ test("dashboard shell uses one desktop nav and one accessible mobile drawer", ()
   assert.match(mobileNavSource, /trigger\?\.focus\(\)/);
   assert.match(topNavSource, /aria-controls="client-dashboard-mobile-menu"[\s\S]*?h-11 w-11/);
   assert.match(mobileNavSource, /inline-flex h-11 w-11 items-center justify-center/);
+  assert.match(topNavSource, /flex h-14 min-w-0 items-center gap-2/);
+  assert.match(topNavSource, /className="h-7 w-auto flex-shrink-0 sm:h-8"/);
+  assert.match(topNavSource, /text-xl sm:text-\[21px\] xl:text-\[22px\]/);
+  assert.match(
+    topNavSource,
+    /w-full px-4 sm:px-6 lg:px-8 xl:px-5 2xl:px-10/,
+  );
+  assert.match(topNavSource, /h-10 w-10[\s\S]*?rounded-md[\s\S]*?border-stone-200/);
+  assert.match(topNavSource, /\[&>button\]:h-10[\s\S]*?\[&>button\]:rounded-md[\s\S]*?\[&>button\]:shadow-none/);
+  assert.match(topNavSource, /h-10 flex-shrink-0 gap-1\.5 rounded-md border border-stone-200/);
+  assert.match(topNavSource, /flex h-11 items-stretch gap-0\.5/);
+  assert.match(topNavSource, /after:bg-secondary after:transition-transform/);
+  assert.match(mobileNavSource, /<PicchuSpotLogo[\s\S]*?<BrandWordmark/);
+  assert.match(mobileNavSource, /bg-secondary text-primary hover:bg-secondary-light/);
   assert.match(jobsSource, /<ClientJobsStatusFilters/);
   assert.match(jobsSource, /activeStatusFilter=\{statusFilter\}/);
   assert.match(jobsSource, /onStatusFilter=\{setStatusFilter\}/);
@@ -933,7 +947,7 @@ test("every primary client portal route keeps the shared width-aware shell", () 
     layoutSource,
     /flush\s*\?\s*CLIENT_PORTAL_WORKSPACE_WIDTH_CLASSNAME\s*:\s*CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/,
   );
-  assert.match(topNavSource, /CLIENT_PORTAL_WORKSPACE_HORIZONTAL_CLASSNAME/);
+  assert.match(topNavSource, /DASHBOARD_HEADER_HORIZONTAL_CLASSNAME/);
   assert.match(topNavSource, /user\?\.isQaPreview/);
   assert.match(topNavSource, />\s*QA Preview\s*</);
   assert.match(publicContainerSource, /max-w-\[1500px\]/);
@@ -954,7 +968,7 @@ test("gold client portal CTAs keep navy text and inherited icon color", () => {
 
     assert.ok(goldCtaClasses.length > 0, path);
     for (const classes of goldCtaClasses) {
-      if (!/bg-secondary(?:\s|$)/.test(classes)) continue;
+      if (!/(?:^|["`\s])bg-secondary(?:\s|$)/.test(classes)) continue;
       assert.match(classes, /text-primary(?:\s|$)/, `${path}: ${classes}`);
       assert.doesNotMatch(classes, /text-white(?:\s|$)/, `${path}: ${classes}`);
     }
