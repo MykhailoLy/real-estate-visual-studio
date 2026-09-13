@@ -156,6 +156,7 @@ test("blog hub has exact English-only metadata and renders published content", (
   );
   assert.match(page, /canonical: BLOG_URL/);
   assert.match(page, /Real Estate Visual Marketing Insights/);
+  assert.match(page, /Latest Insights/);
   assert.match(
     page,
     /const \[featuredArticle, \.\.\.remainingArticles\] = articles/,
@@ -168,12 +169,17 @@ test("blog hub has exact English-only metadata and renders published content", (
     page,
     /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1\.78fr\)\]/,
   );
-  assert.match(page, /bg-surface lg:order-2 lg:border-l/);
+  assert.match(
+    page,
+    /bg-surface lg:order-2 lg:border-l lg:border-secondary/,
+  );
   assert.match(page, /p-6 sm:p-7 lg:order-1/);
   assert.match(page, /className="bg-dashboard-canvas py-8"/);
   assert.match(theme, /--color-dashboard-canvas: #f8f8f6/);
   assert.match(page, /section className="border-b border-border bg-white"/);
   assert.match(page, /border border-border bg-white shadow-sm/);
+  assert.match(page, /font-extrabold text-secondary-dark/);
+  assert.match(page, /h-4 w-4 text-secondary transition-transform/);
   assert.doesNotMatch(page, /Practical resources|xl:grid-cols-3/);
   assert.doesNotMatch(page, /languages:|\/es\/blog/);
 });
@@ -260,9 +266,29 @@ test("virtual staging cost article preserves approved pricing and editorial link
   assert.match(content, /See Virtual Staging pricing/);
   assert.match(
     content,
-    /src="\/brand\/picchuspot-email-before-after-1200x450\.jpg"/,
+    /src="\/images\/blog\/virtual-staging-bedroom-before\.jpg"/,
   );
-  assert.match(content, /Example of PicchuSpot professional virtual staging\./);
+  assert.match(
+    content,
+    /src="\/images\/blog\/virtual-staging-bedroom-after\.jpg"/,
+  );
+  assert.ok(
+    content.indexOf("virtual-staging-bedroom-before.jpg") <
+      content.indexOf("virtual-staging-bedroom-after.jpg"),
+  );
+  assert.match(content, /grid gap-3 md:grid-cols-2/);
+  assert.match(content, />\s*BEFORE\s*<\/span>/);
+  assert.match(content, />\s*AFTER\s*<\/span>/);
+  assert.match(content, /Empty bedroom before PicchuSpot virtual staging/);
+  assert.match(
+    content,
+    /Bedroom after PicchuSpot professional virtual staging with bed, nightstands, artwork and decor/,
+  );
+  assert.match(
+    content,
+    /The original room\s+layout and permanent architectural elements remain unchanged while\s+furniture and decor add scale, context, and a clear use for the space\./,
+  );
+  assert.match(content, /bg-secondary px-5 py-3/);
   assert.match(
     route,
     /article\.image && article\.image\.showInArticleHeader !== false/,

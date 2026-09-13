@@ -140,9 +140,9 @@ export default function VirtualStagingCostArticle() {
 
       <p>
         The sample below uses official provider pricing checked on <strong>September
-        13, 2026</strong>. US$ identifies an explicitly stated US-dollar price. The
-        figures are shown as displayed, without currency conversion, quality
-        ranking, or treatment as a market average.
+        13, 2026</strong>. US$ identifies an explicitly stated US-dollar price. These
+        are the providers&apos; displayed prices, shown for direct comparison without
+        currency conversion or quality ranking rather than as a market average.
       </p>
 
       <ResponsiveTable label="Current virtual staging pricing examples">
@@ -324,7 +324,7 @@ export default function VirtualStagingCostArticle() {
       <div>
         <Link
           href="/pricing/virtual-staging"
-          className="inline-flex items-center gap-2 rounded-lg border border-secondary bg-secondary/15 px-5 py-3 text-sm font-bold text-primary transition-colors hover:bg-secondary/25 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-secondary-light focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           See Virtual Staging pricing
           <ArrowRight className="h-4 w-4" aria-hidden />
@@ -457,19 +457,39 @@ export default function VirtualStagingCostArticle() {
         <li>Can you request a precise correction and receive it before your deadline?</li>
       </ul>
 
-      <figure className="overflow-hidden rounded-2xl border border-border bg-white">
-        <Image
-          src="/brand/picchuspot-email-before-after-1200x450.jpg"
-          alt="Before-and-after comparison of an empty living room and the same room professionally staged with furniture"
-          width={1200}
-          height={450}
-          sizes="(max-width: 896px) calc(100vw - 2rem), 896px"
-          className="h-auto w-full"
-        />
-        <figcaption className="border-t border-border px-4 py-3 text-sm leading-6 text-muted sm:px-5">
-          Example of PicchuSpot professional virtual staging. Compare the room
-          geometry, furniture scale and placement, and contact shadows with the
-          original photograph.
+      <figure className="rounded-2xl border border-border bg-white p-3 sm:p-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="relative overflow-hidden rounded-xl border border-border bg-dashboard-canvas">
+            <Image
+              src="/images/blog/virtual-staging-bedroom-before.jpg"
+              alt="Empty bedroom before PicchuSpot virtual staging"
+              width={2400}
+              height={1600}
+              sizes="(max-width: 767px) calc(100vw - 2rem), 432px"
+              className="h-auto w-full"
+            />
+            <span className="absolute bottom-3 left-3 rounded-md border border-secondary/60 bg-primary/95 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-white">
+              BEFORE
+            </span>
+          </div>
+          <div className="relative overflow-hidden rounded-xl border border-border bg-dashboard-canvas">
+            <Image
+              src="/images/blog/virtual-staging-bedroom-after.jpg"
+              alt="Bedroom after PicchuSpot professional virtual staging with bed, nightstands, artwork and decor"
+              width={2400}
+              height={1600}
+              sizes="(max-width: 767px) calc(100vw - 2rem), 432px"
+              className="h-auto w-full"
+            />
+            <span className="absolute bottom-3 left-3 rounded-md border border-secondary/60 bg-primary/95 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-white">
+              AFTER
+            </span>
+          </div>
+        </div>
+        <figcaption className="mt-3 border-t border-border px-1 pt-3 text-sm leading-6 text-muted sm:px-1">
+          Example of PicchuSpot professional virtual staging. The original room
+          layout and permanent architectural elements remain unchanged while
+          furniture and decor add scale, context, and a clear use for the space.
         </figcaption>
       </figure>
 

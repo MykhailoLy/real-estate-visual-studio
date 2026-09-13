@@ -95,7 +95,7 @@ export default function BlogPage() {
             id="latest-insights"
             className="mb-6 text-2xl font-bold tracking-tight text-primary lg:text-3xl"
           >
-            Latest insights
+            Latest Insights
           </h2>
 
           {featuredArticle ? (
@@ -109,7 +109,7 @@ export default function BlogPage() {
                   }
                 >
                   {featuredArticle.image ? (
-                    <div className="flex min-w-0 items-center overflow-hidden bg-surface lg:order-2 lg:border-l lg:border-secondary/70">
+                    <div className="flex min-w-0 items-center overflow-hidden bg-surface lg:order-2 lg:border-l lg:border-secondary">
                       <Image
                         src={featuredArticle.image.src}
                         alt={featuredArticle.image.alt}
@@ -151,11 +151,11 @@ export default function BlogPage() {
                     </p>
                     <Link
                       href={featuredArticle.canonicalPath}
-                      className="group mt-5 inline-flex w-fit items-center gap-2 rounded-sm text-sm font-bold text-secondary-dark hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                      className="group mt-5 inline-flex w-fit items-center gap-2 rounded-sm text-sm font-extrabold text-secondary-dark hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       Read article
                       <ArrowRight
-                        className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                        className="h-4 w-4 text-secondary transition-transform group-hover:translate-x-0.5"
                         aria-hidden
                       />
                     </Link>
