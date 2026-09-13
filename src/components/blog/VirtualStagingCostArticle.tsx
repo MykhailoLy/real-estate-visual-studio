@@ -141,8 +141,9 @@ export default function VirtualStagingCostArticle() {
       <p>
         The sample below uses official provider pricing checked on <strong>September
         13, 2026</strong>. US$ identifies an explicitly stated US-dollar price. These
-        are the providers&apos; displayed prices, shown for direct comparison without
-        currency conversion or quality ranking rather than as a market average.
+        are the providers&apos; displayed prices as checked on September 13, 2026.
+        They&apos;re shown for direct comparison, not as a market average, and we
+        haven&apos;t converted currencies or ranked quality.
       </p>
 
       <ResponsiveTable label="Current virtual staging pricing examples">
