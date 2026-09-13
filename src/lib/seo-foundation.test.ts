@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
+import { getPublishedBlogArticles } from "./blog.ts";
 
 function readSource(path: string): string {
   return readFileSync(path, "utf8");
@@ -140,4 +141,52 @@ test("legacy order routes remain permanent redirects to canonical destinations",
     assert.match(source, /permanentRedirect\(/, path);
     assert.ok(source.includes(`permanentRedirect("${destination}")`), path);
   }
+});
+
+test("blog hub has exact English-only metadata and intentional empty content", () => {
+  const page = readSource("src/app/(public)/blog/page.tsx");
+
+  assert.match(
+    page,
+    /BLOG_TITLE = "Real Estate Visual Marketing Blog \| PicchuSpot"/,
+  );
+  assert.match(
+    page,
+    /Practical insights on virtual staging, real estate photo editing, floor plans, property marketing visuals, and presenting listings more effectively\./,
+  );
+  assert.match(page, /canonical: BLOG_URL/);
+  assert.match(page, /Real Estate Visual Marketing Insights/);
+  assert.match(page, /Insights coming soon/);
+  assert.doesNotMatch(page, /languages:|\/es\/blog/);
+  assert.equal(getPublishedBlogArticles().length, 0);
+});
+
+test("blog routes and sitemap publish only registered articles", () => {
+  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const sitemap = readSource("src/app/sitemap.ts");
+  const registry = readSource("src/lib/blog.ts");
+
+  assert.match(route, /export const dynamicParams = false/);
+  assert.match(route, /generateStaticParams/);
+  assert.match(route, /getPublishedBlogArticles\(\)/);
+  assert.doesNotMatch(route, /headers\(\)|cookies\(\)|next\/headers/);
+  assert.match(registry, /status: BlogArticleStatus/);
+  assert.match(registry, /article\.status === "published"/);
+  assert.match(sitemap, /path: "\/blog"/);
+  assert.match(sitemap, /getPublishedBlogArticles\(\)\.map/);
+  assert.match(sitemap, /article\.canonicalPath/);
+  assert.doesNotMatch(sitemap, /\/es\/blog|virtual-staging-statistics/);
+});
+
+test("blog schema support and English footer discovery are present", () => {
+  const structuredData = readSource("src/lib/structured-data.ts");
+  const footer = readSource("src/components/layout/Footer.tsx");
+
+  assert.match(structuredData, /"@type": "CollectionPage"/);
+  assert.match(structuredData, /"@type": "BlogPosting"/);
+  assert.match(structuredData, /datePublished/);
+  assert.match(structuredData, /dateModified/);
+  assert.match(structuredData, /publisher/);
+  assert.match(footer, /\{ href: "\/blog", label: "Blog" \}/);
+  assert.doesNotMatch(footer, /\{ href: "\/es\/blog"/);
 });

@@ -31,6 +31,7 @@ const footerCopy = {
     ],
     pages: [
       { href: "/gallery", label: "Gallery" },
+      { href: "/blog", label: "Blog" },
       { href: "/pricing", label: "Pricing" },
       { href: "/dashboard/orders/new", label: "Order Online", tracked: true },
       { href: "/about", label: "About Us" },

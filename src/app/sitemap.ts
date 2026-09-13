@@ -4,14 +4,16 @@ import {
   localizedLanguages,
 } from "@/lib/seo";
 import { localizedRoutes } from "@/lib/localized-routes";
+import { getPublishedBlogArticles } from "@/lib/blog";
 
 const englishMarketingRoutes = [
   // /portfolio is intentionally omitted: the obsolete public
   // /portfolio route now permanently redirects (308) to /gallery,
   // so it must not appear in the sitemap.
-  { path: "/local", priority: 0.7 },
-  { path: "/renders", priority: 0.7 },
-  { path: "/online-retail", priority: 0.6 },
+  { path: "/local", priority: 0.7, changeFrequency: "monthly" },
+  { path: "/renders", priority: 0.7, changeFrequency: "monthly" },
+  { path: "/online-retail", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -40,12 +42,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ]);
 
   const marketingEntries: MetadataRoute.Sitemap = englishMarketingRoutes.map(
-    ({ path, priority }) => ({
+    ({ path, priority, changeFrequency }) => ({
       url: absoluteUrl(path),
-      changeFrequency: "monthly",
+      changeFrequency,
       priority,
     }),
   );
 
-  return [...localizedEntries, ...marketingEntries];
+  const blogArticleEntries: MetadataRoute.Sitemap =
+    getPublishedBlogArticles().map((article) => ({
+      url: absoluteUrl(article.canonicalPath),
+      lastModified: article.updatedDate ?? article.publishedDate,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }));
+
+  return [...localizedEntries, ...marketingEntries, ...blogArticleEntries];
 }

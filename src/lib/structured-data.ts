@@ -57,6 +57,103 @@ export function webSiteSchema(): Record<string, unknown> {
   };
 }
 
+interface CollectionPageSchemaInput {
+  name: string;
+  description: string;
+  url: string;
+}
+
+/** Schema.org CollectionPage — used for editorial or resource hubs. */
+export function collectionPageSchema({
+  name,
+  description,
+  url,
+}: CollectionPageSchemaInput): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name,
+    description,
+    url,
+    isPartOf: {
+      "@type": "WebSite",
+      name: "PicchuSpot",
+      url: SITE_URL,
+    },
+    publisher: PROVIDER,
+  };
+}
+
+interface BlogPostingSchemaInput {
+  headline: string;
+  description: string;
+  url: string;
+  datePublished: string;
+  dateModified?: string;
+  author: string;
+  image?: {
+    url: string;
+    width: number;
+    height: number;
+    alt: string;
+  };
+}
+
+/**
+ * Schema.org BlogPosting — prepared for registered, published articles only.
+ * Author data is limited to the name explicitly supplied by the article.
+ */
+export function blogPostingSchema({
+  headline,
+  description,
+  url,
+  datePublished,
+  dateModified,
+  author,
+  image,
+}: BlogPostingSchemaInput): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline,
+    description,
+    url,
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": url,
+    },
+    datePublished,
+    dateModified: dateModified ?? datePublished,
+    author: {
+      "@type": "Person",
+      name: author,
+    },
+    publisher: {
+      ...PROVIDER,
+      logo: {
+        "@type": "ImageObject",
+        url: ORGANIZATION_LOGO_URL,
+      },
+    },
+    isPartOf: {
+      "@type": "Blog",
+      name: "PicchuSpot Blog",
+      url: `${SITE_URL}/blog`,
+    },
+    ...(image
+      ? {
+          image: {
+            "@type": "ImageObject",
+            url: image.url,
+            width: image.width,
+            height: image.height,
+            caption: image.alt,
+          },
+        }
+      : {}),
+  };
+}
+
 // ── Service schema ───────────────────────────────────────────────────────────
 
 interface ServiceSchemaInput {
