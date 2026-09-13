@@ -8,6 +8,7 @@ export interface BlogArticleImage {
   alt: string;
   width: number;
   height: number;
+  showInArticleHeader?: boolean;
 }
 
 export interface BlogArticle {
@@ -49,6 +50,13 @@ const blogArticles: readonly BlogArticle[] = [
       href: "/pricing/virtual-staging",
     },
     canonicalPath: "/blog/virtual-staging-cost",
+    image: {
+      src: "/brand/picchuspot-email-before-after-1200x450.jpg",
+      alt: "Empty living room before virtual staging and the furnished result after virtual staging",
+      width: 1200,
+      height: 450,
+      showInArticleHeader: false,
+    },
     status: "published",
     Content: VirtualStagingCostArticle,
   },

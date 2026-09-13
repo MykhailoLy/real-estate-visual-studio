@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 const sectionHeadingClass =
   "scroll-mt-24 pt-5 text-3xl font-bold leading-tight tracking-tight text-primary lg:text-4xl";
@@ -138,9 +140,10 @@ export default function VirtualStagingCostArticle() {
 
       <p>
         The sample below uses official provider pricing checked on <strong>September
-        13, 2026</strong>. US$ identifies an explicitly stated US-dollar price. No
-        currency conversion, quality ranking, or market-average claim is
-        implied.
+        13, 2026</strong>. US$ identifies an explicitly stated US-dollar price. These
+        are the providers&apos; displayed prices as checked on September 13, 2026.
+        They&apos;re shown for direct comparison, not as a market average, and we
+        haven&apos;t converted currencies or ranked quality.
       </p>
 
       <ResponsiveTable label="Current virtual staging pricing examples">
@@ -269,7 +272,7 @@ export default function VirtualStagingCostArticle() {
         unless the provider defines its package differently.
       </p>
 
-      <p>For a straightforward per-image service, a useful budgeting formula is:</p>
+      <p>For a per-image service, you can estimate the listing cost with a simple formula:</p>
 
       <p className="rounded-xl border-l-4 border-secondary bg-surface px-5 py-4 font-bold text-primary">
         Listing amount = eligible staging subtotal after discounts + selected add-ons.
@@ -319,10 +322,21 @@ export default function VirtualStagingCostArticle() {
         </tbody>
       </ResponsiveTable>
 
+      <div>
+        <Link
+          href="/pricing/virtual-staging"
+          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-secondary-light focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          See Virtual Staging pricing
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+      </div>
+
       <p>
-        These are budgeting examples, not individual checkout quotes. They
-        assume every image is eligible for the base Virtual Staging service, no
-        Welcome Offer is applied, and no add-ons are selected.
+        These examples illustrate the published pricing rather than an
+        individual checkout total. They assume every image is eligible for the
+        base Virtual Staging service, no Welcome Offer is applied, and no
+        add-ons are selected.
       </p>
 
       <p>
@@ -444,14 +458,49 @@ export default function VirtualStagingCostArticle() {
         <li>Can you request a precise correction and receive it before your deadline?</li>
       </ul>
 
+      <figure className="rounded-2xl border border-border bg-white p-3 sm:p-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="relative overflow-hidden rounded-xl border border-border bg-dashboard-canvas">
+            <Image
+              src="/images/blog/virtual-staging-bedroom-before.jpg"
+              alt="Empty bedroom before PicchuSpot virtual staging"
+              width={2400}
+              height={1600}
+              sizes="(max-width: 767px) calc(100vw - 2rem), 432px"
+              className="h-auto w-full"
+            />
+            <span className="absolute bottom-3 left-3 rounded-md border border-secondary/60 bg-primary/95 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-white">
+              BEFORE
+            </span>
+          </div>
+          <div className="relative overflow-hidden rounded-xl border border-border bg-dashboard-canvas">
+            <Image
+              src="/images/blog/virtual-staging-bedroom-after.jpg"
+              alt="Bedroom after PicchuSpot professional virtual staging with bed, nightstands, artwork and decor"
+              width={2400}
+              height={1600}
+              sizes="(max-width: 767px) calc(100vw - 2rem), 432px"
+              className="h-auto w-full"
+            />
+            <span className="absolute bottom-3 left-3 rounded-md border border-secondary/60 bg-primary/95 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-white">
+              AFTER
+            </span>
+          </div>
+        </div>
+        <figcaption className="mt-3 border-t border-border px-1 pt-3 text-sm leading-6 text-muted sm:px-1">
+          Example of PicchuSpot professional virtual staging. The original room
+          layout and permanent architectural elements remain unchanged while
+          furniture and decor add scale, context, and a clear use for the space.
+        </figcaption>
+      </figure>
+
       <p>
-        The lowest nominal price is useful only if the result is usable. There
-        is no defensible universal price point at which realism or consistency
-        suddenly becomes reliable.
+        The lowest nominal price is useful only if the result is usable. No
+        single price guarantees realistic or consistent results.
       </p>
 
       <p>
-        For internal budgeting, a more useful metric is often <strong>cash spent ÷
+        For your own budget, it can be more useful to calculate <strong>cash spent ÷
         images you actually approve for publication</strong>. Keep review time separate
         rather than hiding it inside a misleading per-image figure.
       </p>

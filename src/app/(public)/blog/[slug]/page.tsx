@@ -159,7 +159,7 @@ export default async function BlogArticlePage({
               </div>
             </header>
 
-            {article.image ? (
+            {article.image && article.image.showInArticleHeader !== false ? (
               <Image
                 src={article.image.src}
                 alt={article.image.alt}
