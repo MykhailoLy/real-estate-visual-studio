@@ -155,7 +155,23 @@ test("blog hub has exact English-only metadata and renders published content", (
   );
   assert.match(page, /canonical: BLOG_URL/);
   assert.match(page, /Real Estate Visual Marketing Insights/);
-  assert.match(page, /articles\.map/);
+  assert.match(
+    page,
+    /const \[featuredArticle, \.\.\.remainingArticles\] = articles/,
+  );
+  assert.match(page, /remainingArticles\.map/);
+  assert.match(page, /md:grid-cols-2/);
+  assert.match(page, /featuredArticle\.image \?/);
+  assert.match(page, /article\.image \?/);
+  assert.match(
+    page,
+    /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1\.78fr\)\]/,
+  );
+  assert.match(page, /bg-surface lg:order-2 lg:border-l/);
+  assert.match(page, /p-6 sm:p-7 lg:order-1/);
+  assert.match(page, /section className="border-b border-border bg-white"/);
+  assert.match(page, /border border-border bg-white shadow-sm/);
+  assert.doesNotMatch(page, /Practical resources|xl:grid-cols-3/);
   assert.doesNotMatch(page, /languages:|\/es\/blog/);
 });
 
@@ -207,7 +223,16 @@ test("virtual staging cost article is published with approved metadata and servi
   );
   assert.match(registry, /status: "published"/);
   assert.match(registry, /Content: VirtualStagingCostArticle/);
+  assert.match(
+    registry,
+    /src: "\/brand\/picchuspot-email-before-after-1200x450\.jpg"/,
+  );
+  assert.match(registry, /image\?: BlogArticleImage/);
   assert.match(registry, /article\.status === "published"/);
+  assert.match(
+    registry,
+    /\.toSorted\(\(a, b\) => b\.publishedDate\.localeCompare\(a\.publishedDate\)\)/,
+  );
 });
 
 test("virtual staging cost article preserves approved pricing and editorial links", () => {
