@@ -23,8 +23,9 @@ import { toOrderOwnership } from "@/lib/order-ownership";
 //   - A wrong owner receives 404 — indistinguishable from missing.
 //   - Signed URL is NOT logged server-side.
 //   - Service role key stays server-side only.
-//   - Signed URL is generated with { download: filename } so that
-//     Content-Disposition: attachment is set, forcing file download.
+//   - Downloads sign the original with Content-Disposition: attachment.
+//   - Previews prefer the persistent derivative and safely fall back to the
+//     original inline URL.
 // ============================================================
 
 export const runtime = "nodejs";

@@ -7,6 +7,7 @@ import {
   ADMIN_DELIVERABLE_MAX_BYTES,
   ADMIN_DELIVERABLE_MAX_MB,
 } from "@/lib/deliverables-config";
+import { getPrivateImagePreviewPath } from "@/lib/private-image-preview-path";
 
 // ============================================================
 // POST /api/admin/orders/[orderId]/deliverables
@@ -224,10 +225,14 @@ export async function DELETE(
 
   // Optionally delete the file from Storage first
   if (delete_file && existingRow.storage_path) {
+    const previewPath = getPrivateImagePreviewPath(existingRow.storage_path);
+    const storagePaths = previewPath
+      ? [existingRow.storage_path, previewPath]
+      : [existingRow.storage_path];
     const { error: storageErr } = await supabase
       .storage
       .from(DELIVERABLES_BUCKET)
-      .remove([existingRow.storage_path]);
+      .remove(storagePaths);
 
     if (storageErr) {
       console.warn(

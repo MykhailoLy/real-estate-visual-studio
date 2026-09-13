@@ -8,6 +8,7 @@ import {
 import { createServerClient } from "@/lib/supabase";
 import { isOrderOwned, toOrderOwnership } from "@/lib/order-ownership";
 import { ORDER_FILES_BUCKET } from "@/lib/upload-config";
+import { getOrCreatePrivateImagePreview } from "@/lib/private-image-preview";
 
 export const runtime = "nodejs";
 
@@ -103,13 +104,41 @@ export async function POST(
     return NextResponse.json({ error: "Source file not found." }, { status: 404 });
   }
 
+  const previewPath = intent === "preview"
+    ? await getOrCreatePrivateImagePreview(supabase, ORDER_FILES_BUCKET, {
+        storagePath: slot.storagePath,
+        filename: slot.filename,
+        fileSize: slot.fileSize,
+        mimeType: slot.mimeType,
+      })
+    : null;
+  const signedPath = previewPath ?? slot.storagePath;
+
   const { data: signed, error: signedErr } = await supabase.storage
     .from(ORDER_FILES_BUCKET)
     .createSignedUrl(
-      slot.storagePath,
+      signedPath,
       SOURCE_FILE_SIGNED_URL_TTL_SECONDS,
       intent === "preview" ? undefined : { download: slot.filename }
     );
+
+  if ((signedErr || !signed?.signedUrl) && previewPath) {
+    const { data: originalSigned, error: originalSignedErr } = await supabase.storage
+      .from(ORDER_FILES_BUCKET)
+      .createSignedUrl(slot.storagePath, SOURCE_FILE_SIGNED_URL_TTL_SECONDS);
+    if (originalSignedErr || !originalSigned?.signedUrl) {
+      console.error(
+        "[client/source-files/download-url] Original preview URL fallback error:",
+        originalSignedErr?.message ?? "No signed URL returned."
+      );
+      return NextResponse.json({ error: "Could not create file link." }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      signedUrl: originalSigned.signedUrl,
+      filename: slot.filename,
+    });
+  }
 
   if (signedErr || !signed?.signedUrl) {
     console.error(
