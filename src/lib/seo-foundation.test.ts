@@ -144,6 +144,7 @@ test("legacy order routes remain permanent redirects to canonical destinations",
 
 test("blog hub has exact English-only metadata and renders published content", () => {
   const page = readSource("src/app/(public)/blog/page.tsx");
+  const theme = readSource("src/app/globals.css");
 
   assert.match(
     page,
@@ -169,6 +170,8 @@ test("blog hub has exact English-only metadata and renders published content", (
   );
   assert.match(page, /bg-surface lg:order-2 lg:border-l/);
   assert.match(page, /p-6 sm:p-7 lg:order-1/);
+  assert.match(page, /className="bg-dashboard-canvas py-8"/);
+  assert.match(theme, /--color-dashboard-canvas: #f8f8f6/);
   assert.match(page, /section className="border-b border-border bg-white"/);
   assert.match(page, /border border-border bg-white shadow-sm/);
   assert.doesNotMatch(page, /Practical resources|xl:grid-cols-3/);
@@ -228,6 +231,8 @@ test("virtual staging cost article is published with approved metadata and servi
     /src: "\/brand\/picchuspot-email-before-after-1200x450\.jpg"/,
   );
   assert.match(registry, /image\?: BlogArticleImage/);
+  assert.match(registry, /showInArticleHeader\?: boolean/);
+  assert.match(registry, /showInArticleHeader: false/);
   assert.match(registry, /article\.status === "published"/);
   assert.match(
     registry,
@@ -239,6 +244,7 @@ test("virtual staging cost article preserves approved pricing and editorial link
   const content = readSource(
     "src/components/blog/VirtualStagingCostArticle.tsx",
   );
+  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
   const pricingPage = readSource(
     "src/app/(public)/pricing/virtual-staging/page.tsx",
   );
@@ -251,6 +257,16 @@ test("virtual staging cost article preserves approved pricing and editorial link
   assert.match(content, /href="\/pricing\/virtual-staging"/);
   assert.match(content, /href="\/pricing\/item-removal-virtual-cleaning"/);
   assert.match(content, /href="\/pricing\/virtual-renovation"/);
+  assert.match(content, /See Virtual Staging pricing/);
+  assert.match(
+    content,
+    /src="\/brand\/picchuspot-email-before-after-1200x450\.jpg"/,
+  );
+  assert.match(content, /Example of PicchuSpot professional virtual staging\./);
+  assert.match(
+    route,
+    /article\.image && article\.image\.showInArticleHeader !== false/,
+  );
   assert.match(content, /target="_blank"/);
   assert.match(content, /rel="noopener noreferrer"/);
   assert.match(pricingPage, /href="\/blog\/virtual-staging-cost"/);

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 const sectionHeadingClass =
   "scroll-mt-24 pt-5 text-3xl font-bold leading-tight tracking-tight text-primary lg:text-4xl";
@@ -138,9 +140,9 @@ export default function VirtualStagingCostArticle() {
 
       <p>
         The sample below uses official provider pricing checked on <strong>September
-        13, 2026</strong>. US$ identifies an explicitly stated US-dollar price. No
-        currency conversion, quality ranking, or market-average claim is
-        implied.
+        13, 2026</strong>. US$ identifies an explicitly stated US-dollar price. The
+        figures are shown as displayed, without currency conversion, quality
+        ranking, or treatment as a market average.
       </p>
 
       <ResponsiveTable label="Current virtual staging pricing examples">
@@ -269,7 +271,7 @@ export default function VirtualStagingCostArticle() {
         unless the provider defines its package differently.
       </p>
 
-      <p>For a straightforward per-image service, a useful budgeting formula is:</p>
+      <p>For a per-image service, you can estimate the listing cost with a simple formula:</p>
 
       <p className="rounded-xl border-l-4 border-secondary bg-surface px-5 py-4 font-bold text-primary">
         Listing amount = eligible staging subtotal after discounts + selected add-ons.
@@ -319,10 +321,21 @@ export default function VirtualStagingCostArticle() {
         </tbody>
       </ResponsiveTable>
 
+      <div>
+        <Link
+          href="/pricing/virtual-staging"
+          className="inline-flex items-center gap-2 rounded-lg border border-secondary bg-secondary/15 px-5 py-3 text-sm font-bold text-primary transition-colors hover:bg-secondary/25 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          See Virtual Staging pricing
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+      </div>
+
       <p>
-        These are budgeting examples, not individual checkout quotes. They
-        assume every image is eligible for the base Virtual Staging service, no
-        Welcome Offer is applied, and no add-ons are selected.
+        These examples illustrate the published pricing rather than an
+        individual checkout total. They assume every image is eligible for the
+        base Virtual Staging service, no Welcome Offer is applied, and no
+        add-ons are selected.
       </p>
 
       <p>
@@ -444,14 +457,29 @@ export default function VirtualStagingCostArticle() {
         <li>Can you request a precise correction and receive it before your deadline?</li>
       </ul>
 
+      <figure className="overflow-hidden rounded-2xl border border-border bg-white">
+        <Image
+          src="/brand/picchuspot-email-before-after-1200x450.jpg"
+          alt="Before-and-after comparison of an empty living room and the same room professionally staged with furniture"
+          width={1200}
+          height={450}
+          sizes="(max-width: 896px) calc(100vw - 2rem), 896px"
+          className="h-auto w-full"
+        />
+        <figcaption className="border-t border-border px-4 py-3 text-sm leading-6 text-muted sm:px-5">
+          Example of PicchuSpot professional virtual staging. Compare the room
+          geometry, furniture scale and placement, and contact shadows with the
+          original photograph.
+        </figcaption>
+      </figure>
+
       <p>
-        The lowest nominal price is useful only if the result is usable. There
-        is no defensible universal price point at which realism or consistency
-        suddenly becomes reliable.
+        The lowest nominal price is useful only if the result is usable. No
+        single price guarantees realistic or consistent results.
       </p>
 
       <p>
-        For internal budgeting, a more useful metric is often <strong>cash spent ÷
+        For your own budget, it can be more useful to calculate <strong>cash spent ÷
         images you actually approve for publication</strong>. Keep review time separate
         rather than hiding it inside a misleading per-image figure.
       </p>

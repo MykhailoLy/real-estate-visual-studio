@@ -69,7 +69,7 @@ export default function BlogPage() {
       />
 
       <section className="border-b border-border bg-white">
-        <Container className="py-10 lg:py-14">
+        <Container className="py-8">
           <div className="max-w-4xl">
             <p className="mb-4 text-public-kicker font-bold uppercase text-secondary-dark">
               PicchuSpot Blog
@@ -87,7 +87,7 @@ export default function BlogPage() {
       </section>
 
       <section
-        className="bg-ivory py-10 lg:py-14"
+        className="bg-dashboard-canvas py-8"
         aria-labelledby="latest-insights"
       >
         <Container>

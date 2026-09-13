@@ -8,6 +8,7 @@ export interface BlogArticleImage {
   alt: string;
   width: number;
   height: number;
+  showInArticleHeader?: boolean;
 }
 
 export interface BlogArticle {
@@ -54,6 +55,7 @@ const blogArticles: readonly BlogArticle[] = [
       alt: "Empty living room before virtual staging and the furnished result after virtual staging",
       width: 1200,
       height: 450,
+      showInArticleHeader: false,
     },
     status: "published",
     Content: VirtualStagingCostArticle,
