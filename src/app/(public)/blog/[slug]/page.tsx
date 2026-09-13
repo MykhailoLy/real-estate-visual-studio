@@ -33,6 +33,7 @@ export async function generateMetadata({
   if (!article) return {};
 
   const url = absoluteUrl(article.canonicalPath);
+  const metadataTitle = article.metadataTitle ?? article.title;
   const image = article.image
     ? {
         url: absoluteUrl(article.image.src),
@@ -43,7 +44,7 @@ export async function generateMetadata({
     : SOCIAL_IMAGE;
 
   return {
-    title: article.title,
+    title: { absolute: metadataTitle },
     description: article.description,
     authors: [{ name: article.author }],
     alternates: {
@@ -53,16 +54,16 @@ export async function generateMetadata({
       type: "article",
       url,
       siteName: SITE_NAME,
-      title: article.title,
+      title: metadataTitle,
       description: article.description,
       publishedTime: article.publishedDate,
-      modifiedTime: article.updatedDate ?? article.publishedDate,
+      ...(article.updatedDate ? { modifiedTime: article.updatedDate } : {}),
       authors: [article.author],
       images: [image],
     },
     twitter: {
       card: "summary_large_image",
-      title: article.title,
+      title: metadataTitle,
       description: article.description,
       images: [image.url],
     },
@@ -101,6 +102,8 @@ export default async function BlogArticlePage({
             datePublished: article.publishedDate,
             dateModified: article.updatedDate,
             author: article.author,
+            articleSection: article.category,
+            inLanguage: "en-US",
             image: article.image
               ? {
                   url: absoluteUrl(article.image.src),
