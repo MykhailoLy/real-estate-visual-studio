@@ -618,6 +618,17 @@ export default async function VirtualStagingPage() {
             price. Multiple add-ons can be combined on the same image.
           </p>
 
+          <p className="mt-4 text-sm leading-relaxed text-muted">
+            Want to compare listing budgets and billing models?{" "}
+            <Link
+              href="/blog/virtual-staging-cost"
+              className="rounded-sm font-semibold text-primary underline decoration-secondary underline-offset-4 hover:text-primary-light focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Learn how virtual staging pricing works
+            </Link>
+            .
+          </p>
+
           <div className="mt-8">
             <ClientPortalLink
               href="/dashboard/orders/new/virtual-staging"

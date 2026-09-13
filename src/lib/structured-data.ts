@@ -91,6 +91,8 @@ interface BlogPostingSchemaInput {
   datePublished: string;
   dateModified?: string;
   author: string;
+  articleSection: string;
+  inLanguage: string;
   image?: {
     url: string;
     width: number;
@@ -110,6 +112,8 @@ export function blogPostingSchema({
   datePublished,
   dateModified,
   author,
+  articleSection,
+  inLanguage,
   image,
 }: BlogPostingSchemaInput): Record<string, unknown> {
   return {
@@ -123,7 +127,9 @@ export function blogPostingSchema({
       "@id": url,
     },
     datePublished,
-    dateModified: dateModified ?? datePublished,
+    ...(dateModified ? { dateModified } : {}),
+    articleSection,
+    inLanguage,
     author: {
       "@type": "Person",
       name: author,

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
-import { getPublishedBlogArticles } from "./blog.ts";
 
 function readSource(path: string): string {
   return readFileSync(path, "utf8");
@@ -143,7 +142,7 @@ test("legacy order routes remain permanent redirects to canonical destinations",
   }
 });
 
-test("blog hub has exact English-only metadata and intentional empty content", () => {
+test("blog hub has exact English-only metadata and renders published content", () => {
   const page = readSource("src/app/(public)/blog/page.tsx");
 
   assert.match(
@@ -156,9 +155,8 @@ test("blog hub has exact English-only metadata and intentional empty content", (
   );
   assert.match(page, /canonical: BLOG_URL/);
   assert.match(page, /Real Estate Visual Marketing Insights/);
-  assert.match(page, /Insights coming soon/);
+  assert.match(page, /articles\.map/);
   assert.doesNotMatch(page, /languages:|\/es\/blog/);
-  assert.equal(getPublishedBlogArticles().length, 0);
 });
 
 test("blog routes and sitemap publish only registered articles", () => {
@@ -189,4 +187,80 @@ test("blog schema support and English footer discovery are present", () => {
   assert.match(structuredData, /publisher/);
   assert.match(footer, /\{ href: "\/blog", label: "Blog" \}/);
   assert.doesNotMatch(footer, /\{ href: "\/es\/blog"/);
+});
+
+test("virtual staging cost article is published with approved metadata and service", () => {
+  const registry = readSource("src/lib/blog.ts");
+
+  assert.match(registry, /slug: "virtual-staging-cost"/);
+  assert.match(
+    registry,
+    /metadataTitle: "How Much Does Virtual Staging Cost in 2026\? \| PicchuSpot"/,
+  );
+  assert.match(registry, /canonicalPath: "\/blog\/virtual-staging-cost"/);
+  assert.match(registry, /publishedDate: "2026-09-13"/);
+  assert.match(registry, /category: "Virtual Staging"/);
+  assert.match(registry, /author: "Mykhailo Lykin"/);
+  assert.match(
+    registry,
+    /name: "Virtual Staging",[\s\S]*?href: "\/pricing\/virtual-staging"/,
+  );
+  assert.match(registry, /status: "published"/);
+  assert.match(registry, /Content: VirtualStagingCostArticle/);
+  assert.match(registry, /article\.status === "published"/);
+});
+
+test("virtual staging cost article preserves approved pricing and editorial links", () => {
+  const content = readSource(
+    "src/components/blog/VirtualStagingCostArticle.tsx",
+  );
+  const pricingPage = readSource(
+    "src/app/(public)/pricing/virtual-staging/page.tsx",
+  );
+
+  assert.match(content, /US\$19 per image/);
+  assert.match(content, /US\$90\.25/);
+  assert.match(content, /US\$171/);
+  assert.match(content, /US\$323/);
+  assert.doesNotMatch(content, /US\$15/);
+  assert.match(content, /href="\/pricing\/virtual-staging"/);
+  assert.match(content, /href="\/pricing\/item-removal-virtual-cleaning"/);
+  assert.match(content, /href="\/pricing\/virtual-renovation"/);
+  assert.match(content, /target="_blank"/);
+  assert.match(content, /rel="noopener noreferrer"/);
+  assert.match(pricingPage, /href="\/blog\/virtual-staging-cost"/);
+});
+
+test("virtual staging cost metadata and BlogPosting schema match the visible article", () => {
+  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const structuredData = readSource("src/lib/structured-data.ts");
+
+  assert.match(route, /title: \{ absolute: metadataTitle \}/);
+  assert.match(route, /headline: article\.title/);
+  assert.match(route, /articleSection: article\.category/);
+  assert.match(route, /inLanguage: "en-US"/);
+  assert.match(structuredData, /"@type": "BlogPosting"/);
+  assert.match(structuredData, /"@type": "Person"/);
+  assert.match(structuredData, /name: author/);
+  assert.match(structuredData, /articleSection/);
+  assert.match(structuredData, /inLanguage/);
+  assert.match(structuredData, /\.\.\.\(dateModified \? \{ dateModified \} : \{\}\)/);
+});
+
+test("virtual staging cost article stays English-only and statically generated", () => {
+  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const sitemap = readSource("src/app/sitemap.ts");
+  const appFiles = sourceFilesUnder("src/app");
+
+  assert.match(route, /export const dynamicParams = false/);
+  assert.match(route, /generateStaticParams/);
+  assert.match(route, /getPublishedBlogArticles\(\)\.map/);
+  assert.doesNotMatch(route, /headers\(\)|cookies\(\)|next\/headers/);
+  assert.match(sitemap, /getPublishedBlogArticles\(\)\.map/);
+  assert.equal(
+    appFiles.some((path) =>
+      path.replaceAll("\\", "/").includes("/es/blog/virtual-staging-cost"),
+    ),
+    false,
+  );
 });
