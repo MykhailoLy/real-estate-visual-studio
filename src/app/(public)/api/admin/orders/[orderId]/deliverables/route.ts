@@ -7,7 +7,7 @@ import {
   ADMIN_DELIVERABLE_MAX_BYTES,
   ADMIN_DELIVERABLE_MAX_MB,
 } from "@/lib/deliverables-config";
-import { getPrivateImagePreviewPath } from "@/lib/private-image-preview";
+import { getPrivateImagePreviewPath } from "@/lib/private-image-preview-path";
 
 // ============================================================
 // POST /api/admin/orders/[orderId]/deliverables

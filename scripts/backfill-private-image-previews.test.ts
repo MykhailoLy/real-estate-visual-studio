@@ -23,4 +23,5 @@ test("apply mode is guarded and dry-run output is aggregate-only", () => {
   assert.match(source, /skipped files/);
   assert.match(source, /failed candidates/);
   assert.doesNotMatch(source, /console\.(?:log|table)\([^\n]*(?:storagePath|filename|signedUrl)/);
+  assert.doesNotMatch(source, /Buffer\.from\([^\n]*storagePath/);
 });

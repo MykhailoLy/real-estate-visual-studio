@@ -196,7 +196,7 @@ registerHooks({
   },
 });
 
-const { getPrivateImagePreviewPath } = await import("./private-image-preview.ts");
+const { getPrivateImagePreviewPath } = await import("./private-image-preview-path.ts");
 const { POST: sourcePost } = await import(
   "../app/api/client/orders/[orderId]/source-files/[fileId]/download-url/route.ts"
 );
@@ -232,6 +232,8 @@ test("source preview signs the derivative while download signs the original atta
     fixture.signedCalls[0]?.path,
     getPrivateImagePreviewPath(sourceItem.original_photo_path),
   );
+  assert.equal(fixture.signedCalls[0]?.path.includes(sourceItem.original_photo_path), false);
+  assert.equal(fixture.signedCalls[0]?.path.includes("0-original.jpg"), false);
   assert.equal(fixture.signedCalls[0]?.options, undefined);
 
   fixture.signedCalls.length = 0;
@@ -354,10 +356,21 @@ test("viewer navigation and bulk ZIP stay on their existing contracts", () => {
     "src/app/(public)/api/admin/orders/[orderId]/deliverables/route.ts",
     "utf8",
   );
+  const pathHelper = readFileSync("src/lib/private-image-preview-path.ts", "utf8");
 
   assert.match(filePreview, /requestSignedUrl\(adjacentItem\.signedUrlEndpoint, "preview"\)/);
   assert.match(filePreview, /requestSignedUrl\(signedUrlEndpoint, "download"\)/);
   assert.match(filePreview, /presentation === "feature" \? "contain" : "cover"/);
   assert.doesNotMatch(bulkZip, /private-image-preview|_previews/);
   assert.match(cleanupRoute, /\[existingRow\.storage_path, previewPath\]/);
+  assert.match(
+    cleanupRoute,
+    /from "@\/lib\/private-image-preview-path"/,
+  );
+  assert.doesNotMatch(
+    cleanupRoute,
+    /from "@\/lib\/private-image-preview";/,
+  );
+  assert.match(pathHelper, /from "node:crypto"/);
+  assert.doesNotMatch(pathHelper, /sharp/i);
 });

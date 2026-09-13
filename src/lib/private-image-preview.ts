@@ -1,14 +1,17 @@
 import "server-only";
 import sharp from "sharp";
+import { getPrivateImagePreviewPath } from "./private-image-preview-path.ts";
 
-export const PRIVATE_IMAGE_PREVIEW_VERSION = "v1";
+export {
+  getPrivateImagePreviewPath,
+  PRIVATE_IMAGE_PREVIEW_VERSION,
+} from "./private-image-preview-path.ts";
 export const PRIVATE_IMAGE_PREVIEW_MAX_DIMENSION = 2048;
 export const PRIVATE_IMAGE_PREVIEW_WEBP_QUALITY = 82;
 export const PRIVATE_IMAGE_PREVIEW_MAX_ORIGINAL_BYTES = 25 * 1024 * 1024;
 export const PRIVATE_IMAGE_PREVIEW_MAX_INPUT_PIXELS = 40_000_000;
 export const PRIVATE_IMAGE_PREVIEW_CACHE_CONTROL = "31536000";
 
-const PRIVATE_IMAGE_PREVIEW_PREFIX = `_previews/${PRIVATE_IMAGE_PREVIEW_VERSION}`;
 const PRIVATE_IMAGE_PREVIEW_BUCKETS = new Set(["order-files", "deliverables"]);
 const PREVIEWABLE_MIME_TYPES = new Set([
   "image/jpeg",
@@ -51,16 +54,6 @@ export interface PrivatePreviewStorageClient {
 export type PrivateImagePreviewInspection =
   | { status: "existing" | "missing"; previewPath: string }
   | { status: "skipped" | "failed"; previewPath: null };
-
-/**
- * Maps an original object path to one immutable, collision-free derivative key.
- * Base64url preserves the complete UTF-8 path without introducing path segments.
- */
-export function getPrivateImagePreviewPath(storagePath: string): string | null {
-  if (!isSafeOriginalStoragePath(storagePath)) return null;
-  const encodedPath = Buffer.from(storagePath, "utf8").toString("base64url");
-  return `${PRIVATE_IMAGE_PREVIEW_PREFIX}/${encodedPath}.webp`;
-}
 
 export function isPrivateImagePreviewEligible(
   candidate: PrivateImagePreviewCandidate,
@@ -156,11 +149,8 @@ export async function getOrCreatePrivateImagePreview(
     // Another first request may have won the create race. Reuse its object.
     const existsAfterRace = await objectExists(storage, inspection.previewPath);
     return existsAfterRace ? inspection.previewPath : null;
-  } catch (error) {
-    console.warn(
-      "[private-image-preview] Preview generation failed; using original:",
-      error instanceof Error ? error.message : "Unknown error",
-    );
+  } catch {
+    console.warn("[private-image-preview] Preview generation failed; using original.");
     return null;
   }
 }
@@ -231,23 +221,6 @@ function prepareCandidate(candidate: PrivateImagePreviewCandidate): {
     mimeType,
     metadataComplete: mimeType !== null && fileSize !== null && fileSize !== undefined,
   };
-}
-
-function isSafeOriginalStoragePath(storagePath: string): boolean {
-  if (
-    storagePath.length < 1 ||
-    storagePath.length > 512 ||
-    storagePath !== storagePath.trim() ||
-    storagePath.startsWith("/") ||
-    storagePath.startsWith("_previews/") ||
-    storagePath.includes("\\") ||
-    /[\u0000-\u001f\u007f]/.test(storagePath)
-  ) {
-    return false;
-  }
-
-  const segments = storagePath.split("/");
-  return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
 function fileExtension(value: string): string {

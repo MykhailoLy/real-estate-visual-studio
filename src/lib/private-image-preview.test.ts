@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import sharp from "sharp";
@@ -9,11 +10,11 @@ import {
   PRIVATE_IMAGE_PREVIEW_WEBP_QUALITY,
   generatePrivateImagePreview,
   getOrCreatePrivateImagePreview,
-  getPrivateImagePreviewPath,
   isPrivateImagePreviewEligible,
   type PrivateImagePreviewCandidate,
   type PrivatePreviewStorageClient,
 } from "./private-image-preview.ts";
+import { getPrivateImagePreviewPath } from "./private-image-preview-path.ts";
 
 interface StoredObject {
   bytes: Buffer;
@@ -92,14 +93,27 @@ function candidate(
   };
 }
 
-test("preview paths are deterministic, versioned, collision-free, and path-safe", () => {
-  const first = getPrivateImagePreviewPath("PS-0042/a/b.jpg");
-  const repeated = getPrivateImagePreviewPath("PS-0042/a/b.jpg");
+test("preview paths are deterministic, opaque SHA-256 keys and remain path-safe", () => {
+  const originalPath = "PS-0042/private-user/living-room.jpg";
+  const originalFilename = "living-room.jpg";
+  const first = getPrivateImagePreviewPath(originalPath);
+  const repeated = getPrivateImagePreviewPath(originalPath);
   const distinct = getPrivateImagePreviewPath("PS-0042/a_b.jpg");
+  const digest = first?.split("/").at(-1)?.replace(/\.webp$/, "") ?? "";
 
   assert.equal(first, repeated);
   assert.notEqual(first, distinct);
-  assert.match(first ?? "", /^_previews\/v1\/[A-Za-z0-9_-]+\.webp$/);
+  assert.match(first ?? "", /^_previews\/v1\/[A-Za-z0-9_-]{43}\.webp$/);
+  assert.equal(
+    digest,
+    createHash("sha256").update(originalPath, "utf8").digest("base64url"),
+  );
+  assert.equal(first?.includes(originalPath), false);
+  for (const privateFragment of ["PS-0042", "private-user", originalFilename]) {
+    assert.equal(first?.includes(privateFragment), false);
+  }
+  assert.notEqual(Buffer.from(digest, "base64url").toString("utf8"), originalPath);
+  assert.notDeepEqual(Buffer.from(digest, "base64url"), Buffer.from(originalPath));
   assert.equal(getPrivateImagePreviewPath("../outside.jpg"), null);
   assert.equal(getPrivateImagePreviewPath("/absolute.jpg"), null);
   assert.equal(getPrivateImagePreviewPath("_previews/v1/already.webp"), null);
