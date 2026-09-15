@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import WhatIsVirtualStagingArticle from "@/components/blog/WhatIsVirtualStagingArticle";
 import VirtualStagingCostArticle from "@/components/blog/VirtualStagingCostArticle";
 
 export type BlogArticleStatus = "draft" | "published";
@@ -35,6 +36,32 @@ export interface BlogArticle {
 // becomes public only after its content component is registered here with
 // status: "published"; drafts never reach the index, sitemap, or static params.
 const blogArticles: readonly BlogArticle[] = [
+  {
+    slug: "what-is-virtual-staging",
+    title: "What Is Virtual Staging? A Practical Guide for Real Estate Agents",
+    metadataTitle: "What Is Virtual Staging? A Guide for Agents | PicchuSpot",
+    description:
+      "Learn what virtual staging changes, how it works, when to use it, and how to review realistic listing photos and check disclosure requirements.",
+    publishedDate: "2026-09-15",
+    category: "Virtual Staging",
+    // 2,515 visible approved words / 200 wpm, rounded up; visual instructions excluded.
+    readingTimeMinutes: 13,
+    author: "Mykhailo Lykin",
+    primaryService: {
+      name: "Virtual Staging",
+      href: "/pricing/virtual-staging",
+    },
+    canonicalPath: "/blog/what-is-virtual-staging",
+    image: {
+      src: "/images/blog/what-is-virtual-staging-office-after.jpg",
+      alt: "Home office virtually staged with a desk, chairs, shelving and decor",
+      width: 2400,
+      height: 1600,
+      showInArticleHeader: false,
+    },
+    status: "published",
+    Content: WhatIsVirtualStagingArticle,
+  },
   {
     slug: "virtual-staging-cost",
     title: "How Much Does Virtual Staging Cost in 2026?",

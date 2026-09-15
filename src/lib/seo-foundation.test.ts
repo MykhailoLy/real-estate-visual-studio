@@ -254,6 +254,8 @@ test("virtual staging cost article preserves approved pricing and editorial link
   const pricingPage = readSource(
     "src/app/(public)/pricing/virtual-staging/page.tsx",
   );
+  const comparison = readSource("src/components/blog/ArticleBeforeAfter.tsx");
+  const articleElements = readSource("src/components/blog/ArticleElements.tsx");
 
   assert.match(content, /US\$19 per image/);
   assert.match(content, /US\$90\.25/);
@@ -266,19 +268,19 @@ test("virtual staging cost article preserves approved pricing and editorial link
   assert.match(content, /See Virtual Staging pricing/);
   assert.match(
     content,
-    /src="\/images\/blog\/virtual-staging-bedroom-before\.jpg"/,
+    /src: "\/images\/blog\/virtual-staging-bedroom-before\.jpg"/,
   );
   assert.match(
     content,
-    /src="\/images\/blog\/virtual-staging-bedroom-after\.jpg"/,
+    /src: "\/images\/blog\/virtual-staging-bedroom-after\.jpg"/,
   );
   assert.ok(
     content.indexOf("virtual-staging-bedroom-before.jpg") <
       content.indexOf("virtual-staging-bedroom-after.jpg"),
   );
-  assert.match(content, /grid gap-3 md:grid-cols-2/);
-  assert.match(content, />\s*BEFORE\s*<\/span>/);
-  assert.match(content, />\s*AFTER\s*<\/span>/);
+  assert.match(content, /<ArticleBeforeAfter/);
+  assert.match(comparison, />\s*BEFORE\s*<\/span>/);
+  assert.match(comparison, />\s*AFTER\s*<\/span>/);
   assert.match(content, /Empty bedroom before PicchuSpot virtual staging/);
   assert.match(
     content,
@@ -293,8 +295,8 @@ test("virtual staging cost article preserves approved pricing and editorial link
     route,
     /article\.image && article\.image\.showInArticleHeader !== false/,
   );
-  assert.match(content, /target="_blank"/);
-  assert.match(content, /rel="noopener noreferrer"/);
+  assert.match(articleElements, /target="_blank"/);
+  assert.match(articleElements, /rel="noopener noreferrer"/);
   assert.match(pricingPage, /href="\/blog\/virtual-staging-cost"/);
 });
 
@@ -327,6 +329,101 @@ test("virtual staging cost article stays English-only and statically generated",
   assert.equal(
     appFiles.some((path) =>
       path.replaceAll("\\", "/").includes("/es/blog/virtual-staging-cost"),
+    ),
+    false,
+  );
+});
+
+test("virtual staging explainer is published with its approved identity", () => {
+  const registry = readSource("src/lib/blog.ts");
+  const article = registry.match(
+    /\{\s*slug: "what-is-virtual-staging",[\s\S]*?\n  \}/,
+  )?.[0];
+
+  assert.ok(article, "The explainer must be registered as an article");
+  assert.match(article, /status: "published"/);
+  assert.match(article, /Content: WhatIsVirtualStagingArticle/);
+  assert.match(article, /canonicalPath: "\/blog\/what-is-virtual-staging"/);
+  assert.match(
+    article,
+    /What Is Virtual Staging\? A Practical Guide for Real Estate Agents/,
+  );
+  assert.match(
+    article,
+    /What Is Virtual Staging\? A Guide for Agents \| PicchuSpot/,
+  );
+  assert.match(
+    article,
+    /Learn what virtual staging changes, how it works, when to use it, and how to review realistic listing photos and check disclosure requirements\./,
+  );
+  assert.match(article, /publishedDate: "2026-09-15"/);
+  assert.doesNotMatch(article, /updatedDate:/);
+  assert.match(article, /category: "Virtual Staging"/);
+  assert.match(article, /author: "Mykhailo Lykin"/);
+  assert.match(article, /href: "\/pricing\/virtual-staging"/);
+  assert.match(article, /showInArticleHeader: false/);
+});
+
+test("virtual staging explainer keeps approved price, links, and visual source order", () => {
+  const content = readSource(
+    "src/components/blog/WhatIsVirtualStagingArticle.tsx",
+  );
+
+  assert.match(content, /US\$19 per image/);
+  assert.doesNotMatch(content, /US\$15|IMPLEMENTATION VISUAL:/);
+  for (const href of [
+    "/pricing/virtual-staging",
+    "/blog/virtual-staging-cost",
+    "/pricing/virtual-renovation",
+    "/pricing/item-removal-virtual-cleaning",
+    "/terms",
+  ]) {
+    assert.ok(content.includes(`href="${href}"`), href);
+  }
+  for (const room of ["office", "living-room"]) {
+    const before = `what-is-virtual-staging-${room}-before.jpg`;
+    const after = `what-is-virtual-staging-${room}-after.jpg`;
+    assert.ok(content.includes(before), before);
+    assert.ok(content.includes(after), after);
+    assert.ok(content.indexOf(before) < content.indexOf(after));
+  }
+  for (const alt of [
+    "Empty room before virtual staging, showing the original walls, windows and flooring",
+    "Home office virtually staged with a desk, chairs, shelving and decor",
+    "Empty living room before virtual staging, showing the original flooring, windows and fixed architectural features",
+    "Living room virtually staged with sofa, armchair, coffee table, rug, artwork and TV furniture",
+  ]) {
+    assert.ok(content.includes(alt), alt);
+  }
+  assert.match(content, /Ready to stage your listing\?/);
+  assert.match(content, /View Virtual Staging/);
+  assert.doesNotMatch(content, /FAQPage|faqPageSchema|aggregateRating|reviewRating/);
+});
+
+test("virtual staging explainer uses the existing static English blog and schema pipeline", () => {
+  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const sitemap = readSource("src/app/sitemap.ts");
+  const registry = readSource("src/lib/blog.ts");
+  const appFiles = sourceFilesUnder("src/app");
+
+  assert.match(registry, /article\.status === "published"/);
+  assert.match(route, /getPublishedBlogArticles\(\)\.map/);
+  assert.match(route, /export const dynamicParams = false/);
+  assert.match(route, /canonical: url/);
+  assert.match(route, /<h1[^>]*>\s*\{article\.title\}/);
+  assert.match(route, /blogPostingSchema\(/);
+  assert.match(route, /breadcrumbSchema\(/);
+  assert.match(route, /datePublished: article\.publishedDate/);
+  assert.match(route, /dateModified: article\.updatedDate/);
+  assert.match(sitemap, /getPublishedBlogArticles\(\)\.map/);
+  assert.match(sitemap, /url: absoluteUrl\(article\.canonicalPath\)/);
+  assert.doesNotMatch(
+    route,
+    /next\/headers|headers\(\)|cookies\(\)|force-dynamic|languages:|\/es\/blog|faqPageSchema|FAQPage/,
+  );
+  assert.equal(
+    appFiles.some((path) =>
+      path.replaceAll("\\", "/").includes("/es/blog/"),
     ),
     false,
   );

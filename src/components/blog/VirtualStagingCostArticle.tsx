@@ -1,69 +1,16 @@
-import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-const sectionHeadingClass =
-  "scroll-mt-24 pt-5 text-3xl font-bold leading-tight tracking-tight text-primary lg:text-4xl";
-const subsectionHeadingClass =
-  "scroll-mt-24 pt-3 text-2xl font-bold leading-tight text-primary";
-const listClass = "ml-6 list-disc space-y-2 marker:text-secondary-dark";
-const articleLinkClass =
-  "rounded-sm font-semibold text-primary underline decoration-secondary underline-offset-4 hover:text-primary-light focus-visible:ring-2 focus-visible:ring-primary";
-
-function ExternalArticleLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={articleLinkClass}
-    >
-      {children}
-    </a>
-  );
-}
-
-function InternalArticleLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: ReactNode;
-}) {
-  return (
-    <Link href={href} className={articleLinkClass}>
-      {children}
-    </Link>
-  );
-}
-
-function ResponsiveTable({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className="max-w-full overflow-x-auto rounded-xl border border-border"
-      role="region"
-      aria-label={label}
-      tabIndex={0}
-    >
-      <table className="w-full min-w-[44rem] border-collapse text-left text-sm leading-6 lg:text-base">
-        {children}
-      </table>
-    </div>
-  );
-}
+import {
+  sectionHeadingClass,
+  subsectionHeadingClass,
+  listClass,
+  articleLinkClass,
+  ExternalArticleLink,
+  InternalArticleLink,
+  ResponsiveTable,
+} from "./ArticleElements";
+import ArticleBeforeAfter from "./ArticleBeforeAfter";
 
 const tableOfContents = [
   ["current-pricing-examples", "Current virtual staging pricing examples"],
@@ -131,7 +78,7 @@ export default function VirtualStagingCostArticle() {
       </h2>
 
       <p>
-        Virtual staging adds digital furniture and decor to a property photo.
+        <InternalArticleLink href="/blog/what-is-virtual-staging">Virtual staging</InternalArticleLink> adds digital furniture and decor to a property photo.
         Some providers sell a managed editing service; others provide
         self-service AI tools, credits, or subscription access. Those products
         can all produce staged images, but their billing and workflow are
@@ -458,41 +405,22 @@ export default function VirtualStagingCostArticle() {
         <li>Can you request a precise correction and receive it before your deadline?</li>
       </ul>
 
-      <figure className="rounded-2xl border border-border bg-white p-3 sm:p-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="relative overflow-hidden rounded-xl border border-border bg-dashboard-canvas">
-            <Image
-              src="/images/blog/virtual-staging-bedroom-before.jpg"
-              alt="Empty bedroom before PicchuSpot virtual staging"
-              width={2400}
-              height={1600}
-              sizes="(max-width: 767px) calc(100vw - 2rem), 432px"
-              className="h-auto w-full"
-            />
-            <span className="absolute bottom-3 left-3 rounded-md border border-secondary/60 bg-primary/95 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-white">
-              BEFORE
-            </span>
-          </div>
-          <div className="relative overflow-hidden rounded-xl border border-border bg-dashboard-canvas">
-            <Image
-              src="/images/blog/virtual-staging-bedroom-after.jpg"
-              alt="Bedroom after PicchuSpot professional virtual staging with bed, nightstands, artwork and decor"
-              width={2400}
-              height={1600}
-              sizes="(max-width: 767px) calc(100vw - 2rem), 432px"
-              className="h-auto w-full"
-            />
-            <span className="absolute bottom-3 left-3 rounded-md border border-secondary/60 bg-primary/95 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-white">
-              AFTER
-            </span>
-          </div>
-        </div>
-        <figcaption className="mt-3 border-t border-border px-1 pt-3 text-sm leading-6 text-muted sm:px-1">
-          Example of PicchuSpot professional virtual staging. The original room
-          layout and permanent architectural elements remain unchanged while
-          furniture and decor add scale, context, and a clear use for the space.
-        </figcaption>
-      </figure>
+      <ArticleBeforeAfter
+        label="Bedroom before and after virtual staging"
+        before={{
+          src: "/images/blog/virtual-staging-bedroom-before.jpg",
+          alt: "Empty bedroom before PicchuSpot virtual staging",
+          width: 2400,
+          height: 1600,
+        }}
+        after={{
+          src: "/images/blog/virtual-staging-bedroom-after.jpg",
+          alt: "Bedroom after PicchuSpot professional virtual staging with bed, nightstands, artwork and decor",
+          width: 2400,
+          height: 1600,
+        }}
+        caption="Example of PicchuSpot professional virtual staging. The original room layout and permanent architectural elements remain unchanged while furniture and decor add scale, context, and a clear use for the space."
+      />
 
       <p>
         The lowest nominal price is useful only if the result is usable. No

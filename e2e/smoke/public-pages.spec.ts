@@ -15,6 +15,237 @@ function parseJsonLdObjects(html: string): JsonLdObject[] {
   ).flatMap((payload) => (Array.isArray(payload) ? payload : [payload]));
 }
 
+const VIRTUAL_STAGING_EXPLAINER = {
+  path: "/blog/what-is-virtual-staging",
+  title: "What Is Virtual Staging? A Practical Guide for Real Estate Agents",
+  metadataTitle: "What Is Virtual Staging? A Guide for Agents | PicchuSpot",
+  description:
+    "Learn what virtual staging changes, how it works, when to use it, and how to review realistic listing photos and check disclosure requirements.",
+} as const;
+
+test("virtual staging explainer publishes truthful English metadata, schema, and sitemap identity", async ({
+  page,
+  request,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const article = VIRTUAL_STAGING_EXPLAINER;
+  const canonical = `https://picchuspot.com${article.path}`;
+  const response = await page.goto(article.path);
+  expectNavigationResponseOk(response, article.path);
+
+  await expect(page).toHaveTitle(article.metadataTitle);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(article.title);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    article.description,
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    canonical,
+  );
+  await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
+  await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
+  await expect(page.locator("article")).toContainText("US$19 per image");
+  await expect(page.locator("article")).not.toContainText("US$15");
+  await expect(page.locator("article")).not.toContainText("IMPLEMENTATION VISUAL:");
+  await expect(page.locator("article time")).toHaveCount(1);
+  await expect(page.locator("article time")).toHaveAttribute("dateTime", "2026-09-15");
+
+  const schemas = parseJsonLdObjects(await response!.text());
+  const posting = schemas.find((schema) => schema["@type"] === "BlogPosting");
+  expect(posting).toMatchObject({
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: article.title,
+    description: article.description,
+    url: canonical,
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+    datePublished: "2026-09-15",
+    author: { "@type": "Person", name: "Mykhailo Lykin" },
+    articleSection: "Virtual Staging",
+    inLanguage: "en-US",
+    image: { "@type": "ImageObject" },
+  });
+  expect(posting).not.toHaveProperty("dateModified");
+  expect(JSON.stringify(schemas)).not.toMatch(/FAQPage|aggregateRating|reviewRating/);
+  expect(schemas.find((schema) => schema["@type"] === "BreadcrumbList")).toMatchObject({
+    itemListElement: [
+      { position: 1, name: "Home", item: "https://picchuspot.com" },
+      { position: 2, name: "Blog", item: "https://picchuspot.com/blog" },
+      { position: 3, name: article.title },
+    ],
+  });
+
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.ok()).toBe(true);
+  const sitemapText = await sitemap.text();
+  expect(sitemapText).toContain(`<loc>${canonical}</loc>`);
+  expect(sitemapText).not.toContain("/es/blog/");
+  const articleEntry = sitemapText.match(
+    /<url>\s*<loc>https:\/\/picchuspot\.com\/blog\/what-is-virtual-staging<\/loc>[\s\S]*?<\/url>/,
+  )?.[0];
+  expect(articleEntry).toBeDefined();
+  expect(articleEntry).not.toContain("hreflang");
+  const spanishArticle = await request.get(`/es${article.path}`);
+  expect(spanishArticle.status()).toBe(404);
+
+  await guard.expectClean();
+});
+
+test("blog index discovers the new explainer and preserves the cost guide", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const response = await page.goto("/blog");
+  expectNavigationResponseOk(response, "/blog");
+  await expect(page.getByRole("heading", {
+    name: "Real Estate Visual Marketing Insights",
+  })).toBeVisible();
+  const newArticle = page.locator(`main a[href="${VIRTUAL_STAGING_EXPLAINER.path}"]`).first();
+  await expect(newArticle).toBeVisible();
+  await newArticle.click();
+  await expect(page).toHaveURL(new RegExp(`${VIRTUAL_STAGING_EXPLAINER.path}$`));
+  await page.getByRole("link", { name: "Back to Blog" }).click();
+  const costArticle = page.locator('main a[href="/blog/virtual-staging-cost"]').first();
+  await expect(costArticle).toBeVisible();
+  await costArticle.click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "How Much Does Virtual Staging Cost in 2026?",
+  );
+  await expect(page.locator("article")).toContainText("US$19 per image");
+  await expect(page.locator("article").getByRole("link", {
+    name: "Virtual staging", exact: true,
+  })).toHaveAttribute("href", VIRTUAL_STAGING_EXPLAINER.path);
+  await expect(page.getByAltText("Empty bedroom before PicchuSpot virtual staging")).toBeVisible();
+  await expect(page.getByAltText(
+    "Bedroom after PicchuSpot professional virtual staging with bed, nightstands, artwork and decor",
+  )).toBeVisible();
+  await guard.expectClean();
+});
+
+const BLOG_VIEWPORTS = [
+  { width: 360, height: 800 },
+  { width: 390, height: 844 },
+  { width: 768, height: 900 },
+  { width: 1024, height: 900 },
+  { width: 1440, height: 1000 },
+] as const;
+
+for (const viewport of BLOG_VIEWPORTS) {
+  test(`virtual staging explainer keeps readable comparisons and tables at ${viewport.width}px`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(45000);
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => {
+      localStorage.setItem("picchuspot_cookie_consent", "rejected");
+    });
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+    const response = await page.goto(VIRTUAL_STAGING_EXPLAINER.path);
+    expectNavigationResponseOk(response, VIRTUAL_STAGING_EXPLAINER.path);
+    const article = page.locator("article");
+    await expect(article.locator("img")).toHaveCount(4);
+
+    for (const pair of [
+      { name: "Office before and after virtual staging", room: "office" },
+      { name: "Living room before and after virtual staging", room: "living-room" },
+    ]) {
+      const figure = page.getByRole("figure", { name: pair.name, exact: true });
+      await figure.scrollIntoViewIfNeeded();
+      await expect(figure).toBeVisible();
+      await expect(figure.getByText(/^before$/i)).toBeVisible();
+      await expect(figure.getByText(/^after$/i)).toBeVisible();
+      const images = figure.locator("img");
+      await expect(images).toHaveCount(2);
+      for (const [index, version] of ["before", "after"].entries()) {
+        const image = images.nth(index);
+        await image.scrollIntoViewIfNeeded();
+        await expect(image).toHaveAttribute("alt", /\S/);
+        expect(decodeURIComponent(await image.getAttribute("src") ?? "")).toContain(
+          `what-is-virtual-staging-${pair.room}-${version}.jpg`,
+        );
+        await expect.poll(() => image.evaluate((element: HTMLImageElement) =>
+          element.complete && element.naturalWidth > 0,
+        )).toBe(true);
+        const ratios = await image.evaluate((element: HTMLImageElement) => {
+          const bounds = element.getBoundingClientRect();
+          return {
+            natural: element.naturalWidth / element.naturalHeight,
+            displayed: bounds.width / bounds.height,
+          };
+        });
+        expect(ratios.natural).toBeCloseTo(1.5, 2);
+        expect(ratios.displayed).toBeCloseTo(ratios.natural, 2);
+      }
+      const before = await images.nth(0).boundingBox();
+      const after = await images.nth(1).boundingBox();
+      expect(before).not.toBeNull();
+      expect(after).not.toBeNull();
+      if (viewport.width < 768) {
+        expect(after!.y).toBeGreaterThanOrEqual(before!.y + before!.height);
+      } else {
+        expect(after!.x).toBeGreaterThanOrEqual(before!.x + before!.width);
+        expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
+      }
+    }
+
+    const realismDetails = page.getByRole("complementary", { name: "Realism details" });
+    await expect(realismDetails).toBeVisible();
+    for (const term of ["Perspective", "Scale", "Contact shadows", "Architecture preserved"]) {
+      await expect(realismDetails.getByText(term, { exact: true })).toBeVisible();
+    }
+    const markers = page.locator("[data-realism-markers]");
+    await expect(markers).toHaveCount(1);
+    if (viewport.width < 768) {
+      await expect(markers).toBeHidden();
+    } else {
+      await expect(markers).toBeVisible();
+    }
+
+    const tables = article.getByRole("table");
+    await expect(tables).toHaveCount(4);
+    for (const table of await tables.all()) {
+      const region = table.locator("..");
+      await expect(region).toHaveAttribute("role", "region");
+      await expect(region).toHaveAttribute("aria-label", /\S/);
+      await expect(region).toHaveAttribute("tabindex", "0");
+      await region.focus();
+      await expect(region).toBeFocused();
+      const dimensions = await region.evaluate((element) => ({
+        width: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflowX: getComputedStyle(element).overflowX,
+      }));
+      if (dimensions.scrollWidth > dimensions.width) {
+        expect(["auto", "scroll"]).toContain(dimensions.overflowX);
+        await region.press("ArrowRight");
+        await expect.poll(() => region.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+      }
+    }
+
+    const cta = article.getByRole("link", { name: "View Virtual Staging →", exact: true });
+    await cta.scrollIntoViewIfNeeded();
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveAttribute("href", "/pricing/virtual-staging");
+    await cta.focus();
+    await cta.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(cta).toBeFocused();
+    for (const citation of await article.locator('a[target="_blank"]').all()) {
+      await expect(citation).toHaveAttribute("href", /^https:\/\//);
+      await expect(citation).toHaveAttribute("rel", /noopener/);
+      await expect(citation).toHaveAttribute("rel", /noreferrer/);
+    }
+
+    const widths = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(widths.scrollWidth).toBeLessThanOrEqual(widths.clientWidth);
+    await guard.expectClean();
+  });
+}
+
 test("home page loads without client or server smoke failures", async ({
   page,
 }, testInfo) => {
