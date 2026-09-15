@@ -15,6 +15,128 @@ function parseJsonLdObjects(html: string): JsonLdObject[] {
   ).flatMap((payload) => (Array.isArray(payload) ? payload : [payload]));
 }
 
+test("about page presents the founder story, audiences, and truthful schema", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const response = await page.goto("/about");
+  expectNavigationResponseOk(response, "/about");
+
+  await expect(page).toHaveTitle(
+    "About PicchuSpot | Real Estate Visual Services",
+  );
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    "Meet the founder of PicchuSpot and learn how architectural experience shapes our virtual staging, photo editing, floor plan, and real estate visual services.",
+  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Built from architecture. Focused on real estate.",
+  );
+  await expect(page.getByText("Mykhailo Lykin")).toHaveCount(2);
+  await expect(page.getByRole("region", { name: "Founder quote" })).toContainText(
+    "A property image should do more than look polished.",
+  );
+
+  for (const principle of [
+    "Architectural perspective",
+    "Real-estate focused",
+    "Realism over decoration",
+    "Built for long-term collaboration",
+  ]) {
+    await expect(page.getByRole("heading", { name: principle, exact: true })).toBeVisible();
+  }
+
+  for (const audience of [
+    "Real Estate Agents",
+    "Real Estate Photographers",
+    "Developers & Property Marketers",
+    "Property Managers & Home Sellers",
+  ]) {
+    await expect(page.getByRole("heading", { name: audience, exact: true })).toBeVisible();
+  }
+
+  await expect(page.getByText("Clear order workflow", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Revision support", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Private file delivery", { exact: true })).toHaveCount(0);
+
+  const serviceActions = page.getByRole("link", {
+    name: "Explore Services",
+    exact: true,
+  });
+  const orderActions = page.getByRole("link", {
+    name: "Start an Order",
+    exact: true,
+  });
+  await expect(serviceActions).toHaveCount(2);
+  await expect(serviceActions.first()).toHaveAttribute("href", "/pricing");
+  await expect(serviceActions.last()).toHaveAttribute("href", "/pricing");
+  await expect(orderActions).toHaveCount(2);
+  await expect(orderActions.first()).toHaveAttribute(
+    "href",
+    "/dashboard/orders/new",
+  );
+  await expect(orderActions.last()).toHaveAttribute(
+    "href",
+    "/dashboard/orders/new",
+  );
+
+  const founderSection = page.getByRole("region", {
+    name: "A visual business built on architectural experience",
+  });
+  await expect(founderSection.locator("img")).toHaveCount(0);
+  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(page.locator("body > div footer, body > footer").last()).toBeVisible();
+
+  const schemas = parseJsonLdObjects(await response!.text());
+  expect(schemas.find((schema) => schema["@type"] === "AboutPage")).toMatchObject({
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name: "About PicchuSpot | Real Estate Visual Services",
+    url: "https://picchuspot.com/about",
+    inLanguage: "en-US",
+    about: { "@type": "Organization", name: "PicchuSpot" },
+    mainEntity: {
+      "@type": "Person",
+      name: "Mykhailo Lykin",
+      jobTitle: "Founder",
+      worksFor: { "@type": "Organization", name: "PicchuSpot" },
+    },
+  });
+
+  const spanishResponse = await page.goto("/es/about");
+  expectNavigationResponseOk(spanishResponse, "/es/about");
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Visuales inmobiliarios creados para anuncios más claros",
+    }),
+  ).toBeVisible();
+
+  await guard.expectClean();
+});
+
+test("about page reflows without horizontal overflow at required viewports", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const response = await page.goto("/about");
+  expectNavigationResponseOk(response, "/about");
+
+  for (const width of [360, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.content, `${width}px page width`).toBeLessThanOrEqual(
+      dimensions.viewport,
+    );
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  }
+
+  await guard.expectClean();
+});
+
 const VIRTUAL_STAGING_EXPLAINER = {
   path: "/blog/what-is-virtual-staging",
   title: "What Is Virtual Staging? A Practical Guide for Real Estate Agents",
