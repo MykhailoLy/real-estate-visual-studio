@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
-import {
-  ArrowRight,
-  CheckCircle2,
-  FileCheck2,
-  Home,
-  ImagePlus,
-  Lock,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
 import Container from "@/components/layout/Container";
+import JsonLd from "@/components/seo/JsonLd";
 import { localizedAlternates } from "@/lib/seo";
+import { aboutPageSchema } from "@/lib/structured-data";
+
+const ABOUT_TITLE = "About PicchuSpot | Real Estate Visual Services";
+const ABOUT_DESCRIPTION =
+  "Meet the founder of PicchuSpot and learn how architectural experience shapes our virtual staging, photo editing, floor plan, and real estate visual services.";
 
 export const metadata: Metadata = {
-  title: "About PicchuSpot",
-  description:
-    "PicchuSpot provides real estate visual services for agents, photographers, property managers, home sellers, and developers.",
+  title: { absolute: ABOUT_TITLE },
+  description: ABOUT_DESCRIPTION,
   alternates: localizedAlternates({
     canonicalPath: "/about",
     englishPath: "/about",
@@ -25,156 +21,324 @@ export const metadata: Metadata = {
   }),
 };
 
-const audiences = [
-  "Real estate agents",
-  "Photographers",
-  "Property managers",
-  "Home sellers",
-  "Developers",
+const principles = [
+  {
+    title: "Architectural perspective",
+    description:
+      "Scale, layout, materials, lighting, and visual balance are approached with an architectural understanding of how spaces actually work.",
+  },
+  {
+    title: "Real-estate focused",
+    description:
+      "PicchuSpot is built specifically around property marketing — not generic image editing. Every service has to make sense in the context of a listing, presentation, or property campaign.",
+  },
+  {
+    title: "Realism over decoration",
+    description:
+      "A polished image is not enough. Perspective, proportion, architecture, lighting, and consistency all matter when a visual is meant to represent a real property.",
+  },
+  {
+    title: "Built for long-term collaboration",
+    description:
+      "The goal is not simply to deliver one image. PicchuSpot is designed to become a reliable visual partner for agents, photographers, developers, and property businesses working across multiple listings.",
+  },
 ];
 
-const strengths = [
+const audiences = [
   {
-    icon: ImagePlus,
-    title: "Realistic visuals",
+    title: "Real Estate Agents",
     description:
-      "Images, plans, and edits are prepared to help listings look polished while staying useful for real property marketing.",
+      "Listing visuals that help present properties clearly and consistently.",
   },
   {
-    icon: FileCheck2,
-    title: "Clear order workflow",
+    title: "Real Estate Photographers",
     description:
-      "Clients can submit files, instructions, service options, and delivery preferences through a structured order path.",
+      "Reliable post-production and visual services that can extend your client offering.",
   },
   {
-    icon: RefreshCw,
-    title: "Revision support",
+    title: "Developers & Property Marketers",
     description:
-      "Revision requests are handled through the client workflow so feedback stays connected to the right order and file.",
+      "Visuals for existing properties, renovations, developments, and marketing materials.",
   },
   {
-    icon: Lock,
-    title: "Private file delivery",
+    title: "Property Managers & Home Sellers",
     description:
-      "Client source uploads and delivered files are handled through private dashboard flows designed for project work.",
+      "Practical visual support when a property needs to be prepared for market.",
   },
 ];
+
+const founderPath = [
+  "Architecture",
+  "Architectural visualization",
+  "Real-estate visual production",
+  "PicchuSpot",
+];
+
+const eyebrowClass =
+  "text-public-kicker font-bold uppercase text-secondary-dark";
+const primaryActionClass =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
+const secondaryActionClass =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-bold text-primary transition-colors hover:border-primary/40 hover:bg-white focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
+
+function AboutActions({ inverse = false }: { inverse?: boolean }) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <Link
+        href="/pricing"
+        className={
+          inverse
+            ? "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-secondary px-6 py-3 text-sm font-bold text-primary-dark transition-colors hover:bg-secondary-light focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+            : primaryActionClass
+        }
+      >
+        Explore Services
+        <ArrowRight className="size-4" aria-hidden />
+      </Link>
+      <ClientPortalLink
+        href="/dashboard/orders/new"
+        className={
+          inverse
+            ? "inline-flex min-h-12 items-center justify-center rounded-lg border border-white/40 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+            : secondaryActionClass
+        }
+      >
+        Start an Order
+      </ClientPortalLink>
+    </div>
+  );
+}
 
 export default function AboutPage() {
   return (
-    <section className="py-16 lg:py-24 bg-white">
-      <Container>
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-10 lg:gap-16 items-center">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-4">
-              About PicchuSpot
-            </p>
-            <h1 className="text-3xl lg:text-5xl font-bold text-primary tracking-tight leading-[1.05] mb-5">
-              Real estate visuals built for clearer listings
-            </h1>
-            <p className="text-base lg:text-lg text-muted leading-relaxed max-w-3xl">
-              PicchuSpot focuses on practical visual services for real estate:
-              virtual staging, virtual renovation, floor plans, retouching,
-              image enhancement, and selected local or custom media work.
-            </p>
-            <p className="mt-5 text-base lg:text-lg text-muted leading-relaxed max-w-3xl">
-              The service is shaped by professional experience across
-              architecture, design, 3D visualization, and image retouching,
-              with a simple goal: help property professionals present spaces
-              clearly, realistically, and efficiently.
-            </p>
+    <>
+      <JsonLd
+        data={aboutPageSchema({
+          name: ABOUT_TITLE,
+          description: ABOUT_DESCRIPTION,
+          url: "/about",
+          inLanguage: "en-US",
+        })}
+      />
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <ClientPortalLink
-                href="/dashboard/orders/new"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-colors shadow-sm"
-              >
-                Start an order
-                <ArrowRight className="w-4 h-4" aria-hidden />
-              </ClientPortalLink>
-              <Link
-                href="/pricing"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
-              >
-                View services
-              </Link>
-              <Link
-                href="/contact"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-bold text-primary hover:border-primary/40 hover:bg-surface transition-colors"
-              >
-                Contact
-              </Link>
+      <section className="border-b border-border bg-ivory py-16 sm:py-20 lg:py-28">
+        <Container>
+          <div className="max-w-5xl">
+            <p className={eyebrowClass}>About PicchuSpot</p>
+            <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-[1.04] tracking-tight text-primary sm:text-5xl lg:text-7xl">
+              Built from architecture. Focused on real estate.
+            </h1>
+            <div className="mt-8 max-w-3xl space-y-5 text-base leading-relaxed text-muted sm:text-lg">
+              <p>
+                PicchuSpot was created to bring architectural thinking and
+                high-quality visual production into everyday real estate
+                marketing.
+              </p>
+              <p>
+                Our work sits at the intersection of architecture,
+                visualization, photography, and property presentation — helping
+                real estate agents, photographers, developers, and property
+                marketers show spaces clearly, realistically, and with purpose.
+              </p>
+              <p>
+                From{" "}
+                <Link
+                  href="/pricing/virtual-staging"
+                  className="font-semibold text-primary underline decoration-secondary underline-offset-4 hover:text-primary-light"
+                >
+                  virtual staging
+                </Link>{" "}
+                and renovation to photo editing,{" "}
+                <Link
+                  href="/pricing/floor-plans"
+                  className="font-semibold text-primary underline decoration-secondary underline-offset-4 hover:text-primary-light"
+                >
+                  floor plans
+                </Link>
+                , and presentation-ready listing visuals, every service is built
+                around one principle: the image should help people understand
+                the property, not distract from it.
+              </p>
+            </div>
+            <div className="mt-9">
+              <AboutActions />
             </div>
           </div>
+        </Container>
+      </section>
 
-          <aside className="bg-surface border border-border rounded-2xl p-6 lg:p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center">
-                <Home className="w-5 h-5" aria-hidden />
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-secondary-dark">
-                  Who we help
-                </p>
-                <h2 className="text-xl font-bold text-primary">
-                  Property marketing teams
-                </h2>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {audiences.map((audience) => (
-                <div
-                  key={audience}
-                  className="flex items-center gap-3 bg-white border border-border rounded-xl px-4 py-3"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-secondary-dark" aria-hidden />
-                  <span className="text-sm font-semibold text-primary">
-                    {audience}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </aside>
-        </div>
-
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 lg:gap-6">
-          {strengths.map((item) => (
-            <article
-              key={item.title}
-              className="bg-white border border-border rounded-2xl p-6 shadow-sm"
-            >
-              <div className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center mb-5">
-                <item.icon className="w-5 h-5 text-secondary-dark" aria-hidden />
-              </div>
-              <h2 className="text-lg font-bold text-primary mb-2">
-                {item.title}
+      <section
+        aria-labelledby="founder-heading"
+        className="bg-white py-16 sm:py-20 lg:py-28"
+      >
+        <Container>
+          <div className="grid gap-12 lg:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.25fr)] lg:gap-20 xl:gap-28">
+            <div>
+              <p className={eyebrowClass}>Meet the Founder</p>
+              <h2
+                id="founder-heading"
+                className="mt-4 max-w-lg text-3xl font-bold leading-tight tracking-tight text-primary sm:text-4xl lg:text-5xl"
+              >
+                A visual business built on architectural experience
               </h2>
-              <p className="text-sm text-muted leading-relaxed">
-                {item.description}
-              </p>
-            </article>
-          ))}
-        </div>
 
-        <div className="mt-12 bg-primary rounded-2xl p-6 lg:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-          <div>
-            <div className="flex items-center gap-2 text-secondary text-xs font-bold uppercase tracking-[0.18em] mb-2">
-              <Sparkles className="w-4 h-4" aria-hidden />
-              Ready when you are
+              <ol
+                className="mt-10 border-l border-border pl-6"
+                aria-label="PicchuSpot professional path"
+              >
+                {founderPath.map((step, index) => (
+                  <li
+                    key={step}
+                    className="relative pb-5 text-sm font-semibold text-primary last:pb-0"
+                  >
+                    <span
+                      className="absolute -left-[1.72rem] top-1 size-2 rounded-full bg-secondary"
+                      aria-hidden
+                    />
+                    <span className="mr-3 text-xs text-secondary-dark">
+                      0{index + 1}
+                    </span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
             </div>
-            <h2 className="text-xl lg:text-2xl font-bold text-white">
-              Upload files, add instructions, and get a clear visual workflow.
+
+            <div className="max-w-3xl space-y-5 text-base leading-relaxed text-muted sm:text-lg lg:pt-9">
+              <p>
+                Mykhailo Lykin is the founder of PicchuSpot, with a professional
+                background in architecture, architectural visualization, and
+                real estate visual production.
+              </p>
+              <p>
+                Before creating PicchuSpot, he worked in architectural practice
+                and later focused on producing visual content for real estate —
+                including virtual staging, virtual renovation, floor plans,
+                image editing, and property presentation.
+              </p>
+              <p>
+                That architectural background still shapes how PicchuSpot
+                approaches every project: understanding proportion, perspective,
+                layout, materials, lighting, and how a space should read in a
+                real property listing.
+              </p>
+              <p>
+                PicchuSpot was built as a more focused alternative to high-volume
+                visual-production services — combining efficient digital
+                workflows with closer attention to the individual property, the
+                brief, and the final presentation.
+              </p>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      <section
+        aria-label="Founder quote"
+        className="bg-primary py-16 sm:py-20 lg:py-24"
+      >
+        <Container>
+          <blockquote className="max-w-5xl border-l-2 border-secondary pl-6 sm:pl-10 lg:pl-14">
+            <p className="text-2xl font-medium leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
+              “A property image should do more than look polished. It should
+              help someone understand the space — its scale, function, and
+              potential.”
+            </p>
+            <div className="mt-8">
+              <p className="font-bold text-white">Mykhailo Lykin</p>
+              <p className="mt-1 text-sm text-white/65">Founder, PicchuSpot</p>
+            </div>
+          </blockquote>
+        </Container>
+      </section>
+
+      <section
+        aria-labelledby="principles-heading"
+        className="bg-ivory py-16 sm:py-20 lg:py-28"
+      >
+        <Container>
+          <div className="max-w-3xl">
+            <p className={eyebrowClass}>How We Think About Real Estate Visuals</p>
+            <h2
+              id="principles-heading"
+              className="mt-4 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-5xl"
+            >
+              Clear thinking behind every image
             </h2>
           </div>
-          <ClientPortalLink
-            href="/dashboard/orders/new"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secondary text-primary-dark rounded-xl text-sm font-bold hover:bg-secondary-light transition-colors"
-          >
-            Start an order
-            <ArrowRight className="w-4 h-4" aria-hidden />
-          </ClientPortalLink>
-        </div>
-      </Container>
-    </section>
+
+          <div className="mt-10 grid gap-px overflow-hidden border border-border bg-border md:grid-cols-2 lg:mt-14">
+            {principles.map((principle, index) => (
+              <article key={principle.title} className="bg-white p-6 sm:p-8 lg:p-10">
+                <p className="text-xs font-bold text-secondary-dark">
+                  0{index + 1}
+                </p>
+                <h3 className="mt-5 text-xl font-bold text-primary sm:text-2xl">
+                  {principle.title}
+                </h3>
+                <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">
+                  {principle.description}
+                </p>
+              </article>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      <section
+        aria-labelledby="audiences-heading"
+        className="bg-white py-16 sm:py-20 lg:py-28"
+      >
+        <Container>
+          <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-20 xl:gap-28">
+            <div>
+              <p className={eyebrowClass}>Who We Work With</p>
+              <h2
+                id="audiences-heading"
+                className="mt-4 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-5xl"
+              >
+                Visual support for property professionals
+              </h2>
+            </div>
+
+            <div className="grid border-t border-border sm:grid-cols-2">
+              {audiences.map((audience) => (
+                <article
+                  key={audience.title}
+                  className="border-b border-border py-6 sm:px-6 sm:first:pl-0 sm:[&:nth-child(2n+1)]:pl-0 sm:[&:nth-child(2n)]:border-l lg:py-8"
+                >
+                  <h3 className="text-lg font-bold text-primary">
+                    {audience.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted sm:text-base">
+                    {audience.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      <section className="border-t border-white/10 bg-primary py-16 sm:py-20 lg:py-24">
+        <Container>
+          <div className="grid gap-9 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-16">
+            <div className="max-w-3xl">
+              <p className="text-public-kicker font-bold uppercase text-secondary">
+                Work With PicchuSpot
+              </p>
+              <h2 className="mt-4 text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+                A visual partner for your next listing — and the ones after that.
+              </h2>
+              <p className="mt-5 text-base leading-relaxed text-white/70 sm:text-lg">
+                Explore our services, send a project brief, or start with a single
+                property.
+              </p>
+            </div>
+            <AboutActions inverse />
+          </div>
+        </Container>
+      </section>
+    </>
   );
 }

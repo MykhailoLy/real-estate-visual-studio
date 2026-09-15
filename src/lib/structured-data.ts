@@ -57,6 +57,44 @@ export function webSiteSchema(): Record<string, unknown> {
   };
 }
 
+interface AboutPageSchemaInput {
+  name: string;
+  description: string;
+  url: string;
+  inLanguage: string;
+}
+
+/** Schema.org AboutPage with the founder facts presented on the page. */
+export function aboutPageSchema({
+  name,
+  description,
+  url,
+  inLanguage,
+}: AboutPageSchemaInput): Record<string, unknown> {
+  const absoluteUrl = new URL(url, SITE_URL).toString();
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name,
+    description,
+    url: absoluteUrl,
+    inLanguage,
+    isPartOf: {
+      "@type": "WebSite",
+      name: "PicchuSpot",
+      url: SITE_URL,
+    },
+    about: PROVIDER,
+    mainEntity: {
+      "@type": "Person",
+      name: "Mykhailo Lykin",
+      jobTitle: "Founder",
+      worksFor: PROVIDER,
+    },
+  };
+}
+
 interface CollectionPageSchemaInput {
   name: string;
   description: string;
