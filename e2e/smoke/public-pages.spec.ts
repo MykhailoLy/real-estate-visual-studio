@@ -1795,8 +1795,9 @@ test("legal footer exposes the complete policy set in each language", async ({
   await guard.expectClean();
 });
 
-test("header Explore menu keeps only the established policy links", async ({
+test("header Explore menu exposes Blog in English order and preserves Spanish links", async ({
   page,
+  request,
 }, testInfo) => {
   await page.addInitScript(() => {
     localStorage.setItem("picchuspot_cookie_consent", "rejected");
@@ -1806,6 +1807,18 @@ test("header Explore menu keeps only the established policy links", async ({
   await page.goto("/terms");
   await page.getByRole("button", { name: "Open menu" }).click();
   const englishMenu = page.getByRole("dialog", { name: "Site menu" });
+  const englishExplore = englishMenu.locator("section").filter({
+    has: page.getByText("Explore", { exact: true }),
+  });
+  await expect(englishExplore.getByRole("link")).toHaveText([
+    /^About/, /^Contact Us/, /^Pricing/, /^Gallery/, /^Blog/, /^FAQ/,
+    /^Terms & Conditions/, /^Privacy Policy/,
+  ]);
+  const blogLink = englishExplore.getByRole("link", { name: /^Blog/ });
+  await expect(blogLink).toHaveAttribute("href", "/blog");
+  await expect(blogLink).toContainText(
+    "Practical guides on virtual staging, pricing, and real estate visuals.",
+  );
   await expect(
     englishMenu.getByRole("link", { name: /Terms & Conditions/ }),
   ).toHaveAttribute("href", "/terms");
@@ -1818,11 +1831,23 @@ test("header Explore menu keeps only the established policy links", async ({
   await expect(
     englishMenu.getByRole("link", { name: /Refunds & Cancellations/ }),
   ).toHaveCount(0);
-  await englishMenu.getByRole("button", { name: "Close menu" }).click();
+  await blogLink.click();
+  await expect(page).toHaveURL(/\/blog$/);
+  await expect(englishMenu).toBeHidden();
 
   await page.goto("/es/terms");
   await page.getByRole("button", { name: "Open menu" }).click();
   const spanishMenu = page.getByRole("dialog", { name: "Menú del sitio" });
+  const spanishExplore = spanishMenu.locator("section").filter({
+    has: page.getByText("Explorar", { exact: true }),
+  });
+  await expect(spanishExplore.getByRole("link")).toHaveText([
+    /^Sobre nosotros/, /^Contacto/, /^Precios/, /^Galería/,
+    /^Preguntas frecuentes/, /^Términos y condiciones/, /^Política de privacidad/,
+  ]);
+  await expect(spanishMenu.getByRole("link", { name: /^Blog/ })).toHaveCount(0);
+  await expect(spanishMenu.locator('a[href="/es/blog"]')).toHaveCount(0);
+  expect((await request.get("/es/blog")).status()).toBe(404);
   await expect(
     spanishMenu.getByRole("link", { name: /Términos y condiciones/ }),
   ).toHaveAttribute("href", "/es/terms");

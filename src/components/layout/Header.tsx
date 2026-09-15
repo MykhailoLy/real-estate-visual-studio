@@ -85,6 +85,7 @@ export type ResourceMenuItem = {
   localizedHref?: string;
   icon: typeof Info;
   status?: "coming-soon";
+  availableLanguages?: SiteLanguage[];
 };
 
 export const resourceMenuItems: ResourceMenuItem[] = [
@@ -132,20 +133,21 @@ export const resourceMenuItems: ResourceMenuItem[] = [
     status: "coming-soon",
   },
   {
+    label: "Blog",
+    esLabel: "Blog",
+    description: "Practical guides on virtual staging, pricing, and real estate visuals.",
+    esDescription: "Artículos y notas de mercado.",
+    href: "/blog",
+    icon: Newspaper,
+    availableLanguages: ["en"],
+  },
+  {
     label: "FAQ",
     esLabel: "Preguntas frecuentes",
     description: "Common questions about services and delivery.",
     esDescription: "Dudas habituales sobre servicios y entregas.",
     href: "/faq",
     icon: HelpCircle,
-  },
-  {
-    label: "Blog",
-    esLabel: "Blog",
-    description: "Articles and market notes.",
-    esDescription: "Artículos y notas de mercado.",
-    icon: Newspaper,
-    status: "coming-soon",
   },
   {
     label: "Press Kit",
@@ -730,6 +732,7 @@ interface BurgerMenuPanelProps {
 
 export function getResourceHref(item: ResourceMenuItem, language: SiteLanguage) {
   if (item.status === "coming-soon") return null;
+  if (item.availableLanguages && !item.availableLanguages.includes(language)) return null;
   if (!item.href) return null;
   return getLocaleAwareHref(item.href, language);
 }
@@ -744,7 +747,7 @@ function BurgerMenuPanel({
 }: BurgerMenuPanelProps) {
   const copy = getDrawerCopy(language);
   const activeResourceMenuItems = resourceMenuItems.filter(
-    (item) => item.status !== "coming-soon" && Boolean(item.href)
+    (item) => Boolean(getResourceHref(item, language))
   );
 
   return (
