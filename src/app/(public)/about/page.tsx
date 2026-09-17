@@ -25,22 +25,22 @@ const principles = [
   {
     title: "Architectural perspective",
     description:
-      "Scale, layout, materials, lighting, and visual balance are approached with an architectural understanding of how spaces actually work.",
+      "We look at scale, layout, materials, lighting, perspective, and visual balance with an architectural understanding of how spaces actually work.",
   },
   {
     title: "Real-estate focused",
     description:
-      "PicchuSpot is built specifically around property marketing — not generic image editing. Every service has to make sense in the context of a listing, presentation, or property campaign.",
+      "PicchuSpot is built around property marketing, not generic image editing. Every visual needs to make sense in the context of a listing, presentation, or property campaign.",
   },
   {
     title: "Realism over decoration",
     description:
-      "A polished image is not enough. Perspective, proportion, architecture, lighting, and consistency all matter when a visual is meant to represent a real property.",
+      "A polished image is not enough. When a visual represents a real property, proportion, perspective, architecture, lighting, and consistency all matter.",
   },
   {
     title: "Built for long-term collaboration",
     description:
-      "The goal is not simply to deliver one image. PicchuSpot is designed to become a reliable visual partner for agents, photographers, developers, and property businesses working across multiple listings.",
+      "PicchuSpot is designed to support agents, photographers, developers, and property businesses across more than one listing. Clear briefs, consistent visual standards, and a reliable workflow matter just as much as the individual image.",
   },
 ];
 
@@ -121,7 +121,7 @@ export default function AboutPage() {
         })}
       />
 
-      <section className="border-b border-border bg-ivory py-16 sm:py-20 lg:py-28">
+      <section className="border-b border-border bg-[#F4EFE8] py-16 sm:py-20 lg:py-28">
         <Container>
           <div className="max-w-5xl">
             <p className={eyebrowClass}>About PicchuSpot</p>
@@ -172,7 +172,7 @@ export default function AboutPage() {
         className="bg-white py-16 sm:py-20 lg:py-28"
       >
         <Container>
-          <div className="grid gap-12 lg:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.25fr)] lg:gap-20 xl:gap-28">
+          <div className="grid gap-12 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)] lg:gap-20 xl:gap-28">
             <div>
               <p className={eyebrowClass}>Meet the Founder</p>
               <h2
@@ -182,8 +182,18 @@ export default function AboutPage() {
                 A visual business built on architectural experience
               </h2>
 
+              <div
+                data-founder-photo-slot
+                aria-hidden="true"
+                className="mt-8 flex aspect-[4/5] w-full max-w-[360px] items-center justify-center overflow-hidden border border-border bg-[#F4EFE8]"
+              >
+                <span className="select-none text-6xl font-bold tracking-tight text-primary/10 sm:text-7xl">
+                  ML
+                </span>
+              </div>
+
               <ol
-                className="mt-10 border-l border-border pl-6"
+                className="mt-8 border-l border-border pl-6"
                 aria-label="PicchuSpot professional path"
               >
                 {founderPath.map((step, index) => (
@@ -206,27 +216,27 @@ export default function AboutPage() {
 
             <div className="max-w-3xl space-y-5 text-base leading-relaxed text-muted sm:text-lg lg:pt-9">
               <p>
-                Mykhailo Lykin is the founder of PicchuSpot, with a professional
-                background in architecture, architectural visualization, and
-                real estate visual production.
+                Mykhailo Lykin founded PicchuSpot after working across
+                architecture, architectural visualization, and real estate visual
+                production.
               </p>
               <p>
-                Before creating PicchuSpot, he worked in architectural practice
-                and later focused on producing visual content for real estate —
-                including virtual staging, virtual renovation, floor plans,
+                Before starting PicchuSpot, he worked in architectural practice
+                and later moved into visual production for real estate. His work
+                has included virtual staging, virtual renovation, floor plans,
                 image editing, and property presentation.
               </p>
               <p>
                 That architectural background still shapes how PicchuSpot
-                approaches every project: understanding proportion, perspective,
-                layout, materials, lighting, and how a space should read in a
-                real property listing.
+                approaches each project. Scale, perspective, layout, materials,
+                and lighting are considered alongside a more practical question:
+                how will the space actually read in a property listing?
               </p>
               <p>
-                PicchuSpot was built as a more focused alternative to high-volume
-                visual-production services — combining efficient digital
-                workflows with closer attention to the individual property, the
-                brief, and the final presentation.
+                PicchuSpot combines efficient digital workflows with close
+                attention to the individual property, the client brief, and the
+                final presentation. The goal is not simply to make an image look
+                polished, but to make the space easier to understand.
               </p>
             </div>
           </div>
@@ -254,7 +264,7 @@ export default function AboutPage() {
 
       <section
         aria-labelledby="principles-heading"
-        className="bg-ivory py-16 sm:py-20 lg:py-28"
+        className="bg-[#F4EFE8] py-16 sm:py-20 lg:py-28"
       >
         <Container>
           <div className="max-w-3xl">
