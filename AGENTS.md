@@ -28,50 +28,83 @@ Technology:
 * Supabase
 * Vercel
 
-## Git workflow
+## Sources of truth
 
-Always begin new work from the latest remote `main`.
+When information conflicts, prefer in this order:
 
-For each new task:
+1. Current production behavior when production compatibility matters.
+2. Current repository implementation.
+3. Tests and current configuration.
+4. Current project documentation.
+5. Historical discussions or old task descriptions.
 
-1. Fetch the latest `origin/main`.
-2. Create a new focused branch.
-3. Make only task-related changes.
-4. Run validation.
-5. Commit and push the branch.
-6. Open one pull request into `main`.
-7. Do not merge unless the user explicitly asks.
+Do not restore behavior, values, colors, prices, routes, or architecture from old discussions without verifying the current implementation.
 
-Do not continue an old branch or pull request unless the user explicitly requests it.
+## Repository workflow
+
+Before making changes:
+
+1. Inspect the current branch and repository state.
+2. Check the working tree for existing user or agent changes.
+3. Check all applicable `AGENTS.md` files.
+4. Check relevant open pull requests when the task may overlap existing work.
+5. Inspect the existing implementation before proposing architecture changes.
+
+Prefer continuing the existing branch or pull request when it belongs to the same task.
+
+Do not create a second branch or pull request for the same task.
+
+Do not create a branch, commit, push, open a pull request, merge, deploy, or modify production services unless the user has requested that action or already granted permission for the current task.
+
+When starting authorized new work, base it on the latest remote `main` unless the task explicitly belongs to an existing branch or pull request.
 
 When continuing an existing pull request, update its existing branch rather than creating a duplicate PR.
 
-Before finishing, confirm whether the branch is behind `origin/main`.
+Before finishing branch work, check whether the branch is behind `origin/main` when that matters for merge safety.
 
-## Required validation
+## Validation
 
-Always run:
+Run checks proportionate to the change.
 
-```bash
-npm.cmd run lint
-npm.cmd run build
-```
+Prefer this order:
 
-Do not report that validation passed unless both commands actually completed successfully.
+1. Relevant focused tests.
+2. Typecheck or lint when affected code requires them.
+3. Build when the change can affect compilation, routing, rendering, server/client boundaries, configuration, or production output.
+4. Broader CI tests for changes affecting shared or critical systems.
+5. Relevant Playwright smoke tests for user flows when practical.
+
+Do not run expensive unrelated validation merely as ceremony.
+
+Never report a check as passed unless it actually completed successfully.
+
+Clearly distinguish:
+
+* regressions introduced by the current change;
+* pre-existing failures;
+* stale tests;
+* environment or tooling failures;
+* checks that were not run.
 
 ## Final report
 
-Always include:
+After implementation, briefly report:
 
-1. Summary
-2. Exact implementation
-3. Files changed
-4. Lint result
-5. Build result
-6. Commit hash
-7. Pull request link
-8. Risks or deferred work
-9. Confirmation that the PR was not merged
+* result;
+* files changed;
+* validation performed and its result;
+* risks, blockers, or deferred work;
+* next practical step.
+
+When applicable, also include:
+
+* branch;
+* commit;
+* pull request;
+* CI state;
+* deployment state.
+
+Never claim that a test, commit, push, merge, migration, or deployment was completed unless it actually was.
 
 ## Scope discipline
 
@@ -151,6 +184,18 @@ Before completing an implementation, ask:
 * Did it add complexity mainly for hypothetical future requirements?
 
 If a simpler implementation gives the same result without increasing risk, use it.
+
+## Critical systems preflight
+
+Before changing order, upload, email, payment, pricing, API, environment variables, Supabase schema or RLS, database data, or admin authentication:
+
+1. Identify the affected systems.
+2. State the concrete production risk.
+3. Inspect the existing production-compatible implementation.
+4. Preserve backwards compatibility unless the task explicitly requires a breaking change.
+5. Prefer additive and reversible changes.
+
+Never perform destructive migrations or modify real production data without explicit confirmation.
 
 ## Protected systems
 
@@ -272,6 +317,25 @@ Only genuinely critical above-the-fold images may use priority.
 
 Avoid unnecessary image duplication.
 
+### Client imagery
+
+Primary client Original and Delivered images must preserve the full image.
+
+Prefer `contain`, intrinsic sizing, or an equivalent non-cropping presentation for primary comparison and viewing experiences.
+
+Original and Delivered must have equal visual weight.
+
+`cover` is acceptable for secondary thumbnails, navigation previews, or intentionally cropped editorial imagery.
+
+Avoid:
+
+* unnecessary full-resolution downloads;
+* blanket preload or priority;
+* layout shifts;
+* loading originals where an appropriate preview exists.
+
+Use accurate responsive `sizes` and lazy loading where appropriate.
+
 ## Code quality
 
 Follow the existing project style and architecture.
@@ -300,14 +364,3 @@ Check:
 * no unexpected wrapping
 * visible keyboard focus
 * functional mobile and desktop navigation
-
-Final response must include:
-
-* branch name
-* files added
-* confirmation that the existing `.codex` file was preserved
-* lint result
-* build result
-* commit hash
-* PR link
-* confirmation that the PR was not merged
