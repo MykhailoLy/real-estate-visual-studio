@@ -3,9 +3,11 @@
 -- REVIEW FIRST. Execute this file manually in the Supabase SQL Editor.
 -- It is intentionally not applied by the application or CI.
 --
--- Creates one validated JSON document per property presentation. Browser roles
--- may read published rows only; every write remains server-side through the
--- existing authenticated admin API and service-role client.
+-- Creates one validated JSON document per property presentation. Raw documents
+-- are server-only: public pages use the service-role loader and privacy serializer;
+-- writes use the existing authenticated admin API. Never grant browser reads.
+-- For existing databases apply migrations/20260919175745_harden_property_showcase_raw_access.sql
+-- instead of replaying this initializer; it also checks inherited permissions.
 
 create extension if not exists pgcrypto;
 
@@ -57,19 +59,11 @@ execute function public.set_property_showcase_updated_at();
 
 alter table public.property_showcases enable row level security;
 
-revoke all on table public.property_showcases from anon;
-revoke all on table public.property_showcases from authenticated;
-grant select on table public.property_showcases to anon;
-grant select on table public.property_showcases to authenticated;
+revoke all on table public.property_showcases from public, anon, authenticated;
 grant all on table public.property_showcases to service_role;
 
 drop policy if exists property_showcases_public_read
   on public.property_showcases;
-create policy property_showcases_public_read
-on public.property_showcases
-for select
-to anon, authenticated
-using (published = true);
 
 create index if not exists property_showcases_public_updated_idx
   on public.property_showcases (published, updated_at desc);

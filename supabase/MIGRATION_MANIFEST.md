@@ -1,5 +1,15 @@
 # PicchuSpot Supabase Migration Manifest
 
+## Property Showcase raw-record privacy — 2026-09-19
+
+Pending manual migration: `migrations/20260919175745_harden_property_showcase_raw_access.sql`.
+See [preflight, verification and fail-closed recovery](PROPERTY_SHOWCASE_PRIVACY_RUNBOOK.md).
+Production has **not** been changed. Browser roles must lose raw table access;
+public pages continue through the existing service-role loader and privacy serializer.
+The foundation initializer's grant/policy block is corrected solely to prevent
+fresh initialization or a later replay from restoring the exposure. This does not
+replace the forward migration for existing databases or authorize historical replay.
+
 ## Client work-ready emails — 2026-09-09
 
 **Manual Supabase migration required before deploying the application code.**
@@ -339,7 +349,7 @@ Zero-policy RLS is intentional for several server-only tables. Do not add browse
 | `welcome_offer_redemptions` | Service-role/server only | RLS + zero policies + browser revoke |
 | `portfolio_items` | Public published reads; admin server writes | Published-read policy |
 | `site_media_items` | Public published reads; admin server writes | Published-read policy |
-| `property_showcases` | Public published reads; admin server writes | Published-read policy |
+| `property_showcases` | Server-only raw documents; public pages serialize server-loaded published rows | RLS + browser/PUBLIC revoke (pending 2026-09-19 hardening; not yet applied to production) |
 | `property_leads` | Validated server endpoint only | RLS + zero policies + browser revoke |
 | `property_analytics_events` | Validated server endpoint only | RLS + zero policies + browser revoke |
 

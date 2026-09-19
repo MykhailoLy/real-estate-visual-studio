@@ -4,9 +4,48 @@ import { getPropertyMapView } from "./listing-details.ts";
 import { costaBlancaDemo } from "./registry.ts";
 import { serializePublicPropertyShowcase } from "./public-serialization.ts";
 import type { PropertyShowcase } from "./types.ts";
+import { buildPropertyMetadata } from "./property-metadata.ts";
+import { createPropertyMarketingMaterialView } from "./marketing-materials.ts";
 
 function cloneProperty(): PropertyShowcase {
   return structuredClone(costaBlancaDemo);
+}
+
+for (const privacyMode of ["exact", "approximate", "hidden"] as const) {
+  for (const partial of [false, true]) {
+    test(`${privacyMode} privacy preserves absent/partial optional-field behavior (${partial})`, () => {
+      const property = cloneProperty();
+      property.location = {
+        privacyMode,
+        displayAddress: { en: "SYNTHETIC-PRIVATE-ADDRESS" },
+        ...(partial ? {
+          streetAddress: "SYNTHETIC-PRIVATE-STREET",
+          latitude: 12.3456789,
+          approximateLatitude: 12.5, // Incomplete pairs must not create a map.
+          googleMapsLink: "https://www.google.com/maps/place/SYNTHETIC-PRIVATE-MAP",
+        } : {}),
+      };
+      const before = structuredClone(property);
+      const serialized = serializePublicPropertyShowcase(property);
+      const publicOutputs = JSON.stringify({
+        property: serialized,
+        metadata: buildPropertyMetadata(property, "synthetic-version"),
+        brochure: createPropertyMarketingMaterialView(property, "https://example.test/property/synthetic"),
+        map: getPropertyMapView(serialized, "en"),
+      });
+
+      assert.deepEqual(property, before, "serialization must not rewrite stored content");
+      if (privacyMode === "exact") {
+        assert.equal(serialized.location.displayAddress.en, "SYNTHETIC-PRIVATE-ADDRESS");
+        assert.equal(serialized.location.latitude, partial ? 12.3456789 : undefined);
+      } else {
+        assert.equal(publicOutputs.includes("SYNTHETIC-PRIVATE"), false);
+        assert.equal(publicOutputs.includes("12.3456789"), false);
+        assert.equal(serialized.location.approximateLatitude, undefined);
+        assert.equal(serialized.location.approximateLongitude, undefined);
+      }
+    });
+  }
 }
 
 test("public serialization keeps exact map values only for exact privacy mode", () => {
