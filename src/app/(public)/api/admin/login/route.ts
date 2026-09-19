@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { checkAdminLoginRateLimit } from "@/lib/admin-login-rate-limit";
 import {
   ADMIN_COOKIE_NAME,
   adminCookieOptions,
@@ -17,7 +18,8 @@ import {
 //   200 { ok: true }   — session cookie set
 //   400 { error }      — body malformed
 //   401 { error }      — wrong password
-//   503 { error }      — ADMIN_PASSWORD env var not configured
+//   429 { error }      — temporarily unavailable; Retry-After supplied
+//   503 { error }      — authentication/security backend unavailable
 //
 // Deliberately uses Node runtime (default for app router) so
 // crypto.timingSafeEqual is available in admin-auth.
@@ -29,15 +31,28 @@ const Body = z.object({
   password: z.string().min(1, "Password is required").max(512),
 });
 
+const unavailable = { error: "Unable to sign in. Please try again later." };
+
 export async function POST(request: Request) {
   if (!isAdminConfigured()) {
     return NextResponse.json(
-      {
-        error:
-          "Admin login is not configured on this deployment. Set ADMIN_PASSWORD in the server environment.",
-      },
+      unavailable,
       { status: 503 }
     );
+  }
+
+  // Charge every attempt before parsing or checking credentials. Never reset on
+  // success: malformed requests and valid passwords cannot clear the budget.
+  try {
+    const decision = await checkAdminLoginRateLimit(request);
+    if (!decision.allowed) {
+      return NextResponse.json(unavailable, {
+        status: 429,
+        headers: { "Retry-After": String(decision.retryAfterSeconds) },
+      });
+    }
+  } catch {
+    return NextResponse.json(unavailable, { status: 503 });
   }
 
   let parsedJson: unknown;
