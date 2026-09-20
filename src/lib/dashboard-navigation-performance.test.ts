@@ -198,7 +198,7 @@ test("proxy overwrites browser redirect metadata and preserves refreshed cookies
 });
 
 test("dashboard layout is the fail-closed verified user gate with dub1 preference", () => {
-  const layoutSource = source("app/(dashboard)/layout.tsx");
+  const layoutSource = source("app/(default)/(dashboard)/layout.tsx");
 
   assert.match(layoutSource, /export const preferredRegion = "dub1"/);
   assert.match(layoutSource, /getDashboardRequestUser\(\)/);
@@ -230,13 +230,13 @@ test("layout and dashboard pages share request-scoped verified identity", () => 
   assert.doesNotMatch(contextSource, /unstable_cache|use cache/);
 
   const verifiedPagePaths = [
-    "app/(dashboard)/dashboard/page.tsx",
-    "app/(dashboard)/dashboard/jobs/page.tsx",
-    "app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
-    "app/(dashboard)/dashboard/files/page.tsx",
-    "app/(dashboard)/dashboard/invoices/page.tsx",
-    "app/(dashboard)/dashboard/support/page.tsx",
-    "app/(dashboard)/dashboard/profile/page.tsx",
+    "app/(default)/(dashboard)/dashboard/page.tsx",
+    "app/(default)/(dashboard)/dashboard/jobs/page.tsx",
+    "app/(default)/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
+    "app/(default)/(dashboard)/dashboard/files/page.tsx",
+    "app/(default)/(dashboard)/dashboard/invoices/page.tsx",
+    "app/(default)/(dashboard)/dashboard/support/page.tsx",
+    "app/(default)/(dashboard)/dashboard/profile/page.tsx",
     "lib/order-access.ts",
   ];
   for (const path of verifiedPagePaths) {
@@ -264,26 +264,26 @@ test("getClientUser remains canonical and APIs do not use dashboard QA context",
 
 test("synthetic dashboard renders use fixed safe fixtures and bypass ownership reads", () => {
   for (const path of [
-    "app/(dashboard)/dashboard/page.tsx",
-    "app/(dashboard)/dashboard/jobs/page.tsx",
-    "app/(dashboard)/dashboard/files/page.tsx",
-    "app/(dashboard)/dashboard/invoices/page.tsx",
+    "app/(default)/(dashboard)/dashboard/page.tsx",
+    "app/(default)/(dashboard)/dashboard/jobs/page.tsx",
+    "app/(default)/(dashboard)/dashboard/files/page.tsx",
+    "app/(default)/(dashboard)/dashboard/invoices/page.tsx",
   ]) {
     const pageSource = source(path);
     assert.match(pageSource, /!user\.isQaPreview/, path);
   }
 
-  const jobsPageSource = source("app/(dashboard)/dashboard/jobs/page.tsx");
+  const jobsPageSource = source("app/(default)/(dashboard)/dashboard/jobs/page.tsx");
   assert.match(jobsPageSource, /CLIENT_PORTAL_QA_JOBS/);
   assert.match(
     jobsPageSource,
     /user\?\.isQaPreview[\s\S]*?\? \[\.\.\.CLIENT_PORTAL_QA_JOBS\]/,
   );
 
-  const detailSource = source("app/(dashboard)/dashboard/jobs/[orderId]/page.tsx");
+  const detailSource = source("app/(default)/(dashboard)/dashboard/jobs/[orderId]/page.tsx");
   assert.match(detailSource, /if \(!user \|\| user\.isQaPreview\) notFound\(\);/);
 
-  const dashboardSource = source("app/(dashboard)/dashboard/page.tsx");
+  const dashboardSource = source("app/(default)/(dashboard)/dashboard/page.tsx");
   assert.match(
     dashboardSource,
     /user\?\.isQaPreview[\s\S]*?Promise\.resolve\(CLIENT_PORTAL_QA_WELCOME_OFFER_AVAILABILITY\)/,
@@ -299,9 +299,9 @@ test("synthetic dashboard renders use fixed safe fixtures and bypass ownership r
   assert.match(dashboardSource, /CLIENT_PORTAL_QA_COMPLETED_JOBS/);
 
   for (const path of [
-    "app/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
-    "app/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
-    "app/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
   ]) {
     const pageSource = source(path);
     assert.match(pageSource, /isQaPreview[\s\S]*?NO_WELCOME_OFFER_AVAILABLE/, path);
@@ -320,7 +320,7 @@ test("all dashboard navigation shells use the no-prefetch portal link", () => {
 
   const scopedPaths = [
     ...sourceFilesUnder("components/dashboard"),
-    ...sourceFilesUnder("app/(dashboard)"),
+    ...sourceFilesUnder("app/(default)/(dashboard)"),
     "components/auth/PublicAccountMenu.tsx",
   ];
   const scopedSource = scopedPaths.map(source).join("\n");
@@ -417,7 +417,7 @@ test("Drafts stays available outside the primary desktop and mobile navigation",
   const navItemsSource = source("components/dashboard/dashboard-nav-items.ts");
   const topNavSource = source("components/dashboard/ClientDashboardTopNav.tsx");
   const mobileNavSource = source("components/dashboard/ClientDashboardMobileNav.tsx");
-  const draftsRouteSource = source("app/(dashboard)/dashboard/drafts/page.tsx");
+  const draftsRouteSource = source("app/(default)/(dashboard)/dashboard/drafts/page.tsx");
   const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
   const primaryLabels = Array.from(
     navItemsSource.matchAll(/label: "([^"]+)"/g),
@@ -441,7 +441,7 @@ test("Drafts stays available outside the primary desktop and mobile navigation",
 });
 
 test("dashboard composes a proportional activity rail and stacked mobile workspace", () => {
-  const pageSource = source("app/(dashboard)/dashboard/page.tsx");
+  const pageSource = source("app/(default)/(dashboard)/dashboard/page.tsx");
   const railSource = source("components/dashboard/DashboardActivityRail.tsx");
   const responsiveServicesSource = source(
     "components/dashboard/DashboardResponsiveServices.tsx",
@@ -551,7 +551,7 @@ test("dashboard composes a proportional activity rail and stacked mobile workspa
 });
 
 test("dashboard services are registry-driven and portfolio-enriched", () => {
-  const pageSource = source("app/(dashboard)/dashboard/page.tsx");
+  const pageSource = source("app/(default)/(dashboard)/dashboard/page.tsx");
   const responsiveServicesSource = source(
     "components/dashboard/DashboardResponsiveServices.tsx",
   );
@@ -687,7 +687,7 @@ test("Jobs workspace keeps a bounded rail before the flexible jobs area", () => 
   const shellSource = source("components/dashboard/ClientJobsShell.tsx");
   const railSource = source("components/dashboard/JobsWorkspaceRail.tsx");
   const savedDraftsSource = source("components/dashboard/SavedDraftsSection.tsx");
-  const draftsRouteSource = source("app/(dashboard)/dashboard/drafts/page.tsx");
+  const draftsRouteSource = source("app/(default)/(dashboard)/dashboard/drafts/page.tsx");
   const railIndex = shellSource.indexOf("<JobsWorkspaceRail jobs={jobs} />");
   const allJobsIndex = shellSource.indexOf("data-all-jobs-workspace");
 
@@ -892,7 +892,7 @@ test("Jobs interactions support hybrid pointers, row navigation, and vertical al
 });
 
 test("Jobs presentation components add no order queries or media", () => {
-  const pageSource = source("app/(dashboard)/dashboard/jobs/page.tsx");
+  const pageSource = source("app/(default)/(dashboard)/dashboard/jobs/page.tsx");
   const clientSources = [
     source("components/dashboard/ClientJobsShell.tsx"),
     source("components/dashboard/JobsWorkspaceRail.tsx"),
@@ -914,18 +914,18 @@ test("Jobs presentation components add no order queries or media", () => {
 
 test("every primary client portal route keeps the shared width-aware shell", () => {
   for (const path of [
-    "app/(dashboard)/dashboard/page.tsx",
-    "app/(dashboard)/dashboard/orders/new/page.tsx",
-    "app/(dashboard)/dashboard/drafts/page.tsx",
-    "app/(dashboard)/dashboard/files/page.tsx",
-    "app/(dashboard)/dashboard/invoices/page.tsx",
-    "app/(dashboard)/dashboard/support/page.tsx",
+    "app/(default)/(dashboard)/dashboard/page.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/page.tsx",
+    "app/(default)/(dashboard)/dashboard/drafts/page.tsx",
+    "app/(default)/(dashboard)/dashboard/files/page.tsx",
+    "app/(default)/(dashboard)/dashboard/invoices/page.tsx",
+    "app/(default)/(dashboard)/dashboard/support/page.tsx",
   ]) {
     const pageSource = source(path);
     assert.match(pageSource, /ClientDashboardLayout/, path);
   }
   assert.match(
-    source("app/(dashboard)/dashboard/jobs/page.tsx"),
+    source("app/(default)/(dashboard)/dashboard/jobs/page.tsx"),
     /ClientJobsShell/,
   );
   assert.match(
@@ -960,7 +960,7 @@ test("gold client portal CTAs keep navy text and inherited icon color", () => {
     "components/BulkDownloadButton.tsx",
     "components/dashboard/DeliverableReviewActions.tsx",
     "components/FilePreviewCard.tsx",
-    "app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
+    "app/(default)/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
     "components/dashboard/ClientDashboardTopNav.tsx",
   ]) {
     const fileSource = source(path);
@@ -1017,10 +1017,10 @@ test("opening account menus cannot initiate dashboard route requests", () => {
 });
 
 test("New Order streaming improvements remain intact", () => {
-  const pageSource = source("app/(dashboard)/dashboard/orders/new/page.tsx");
+  const pageSource = source("app/(default)/(dashboard)/dashboard/orders/new/page.tsx");
   const gridSource = source("components/dashboard/OrderServiceGrid.tsx");
   const loadingSource = source(
-    "app/(dashboard)/dashboard/orders/new/loading.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/loading.tsx",
   );
 
   assert.match(pageSource, /export const dynamic = "force-dynamic"/);

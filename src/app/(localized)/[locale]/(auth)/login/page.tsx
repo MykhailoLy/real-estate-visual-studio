@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { PicchuSpotLogo, BrandWordmark } from "@/components/brand";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
-import LoginForm, { type LoginFormCopy } from "../../login/LoginForm";
+import LoginForm, { type LoginFormCopy } from "@/app/(default)/(auth)/login/LoginForm";
 
 export const metadata: Metadata = {
   title: "Iniciar sesión | Portal de clientes PicchuSpot",

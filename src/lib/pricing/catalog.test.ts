@@ -155,7 +155,7 @@ test("complex Virtual Renovation operations remain unchanged", () => {
 
 test("public pricing sources keep renovation option-based and structured prices canonical", () => {
   const pricingHubSource = readFileSync(
-    new URL("../../app/(public)/pricing/page.tsx", import.meta.url),
+    new URL("../../app/(default)/(public)/pricing/page.tsx", import.meta.url),
     "utf8",
   );
   const remotePresentationSource = readFileSync(
@@ -168,14 +168,14 @@ test("public pricing sources keep renovation option-based and structured prices 
   );
   const renovationSource = readFileSync(
     new URL(
-      "../../app/(public)/pricing/virtual-renovation/page.tsx",
+      "../../app/(default)/(public)/pricing/virtual-renovation/page.tsx",
       import.meta.url,
     ),
     "utf8",
   );
   const aerialSource = readFileSync(
     new URL(
-      "../../app/(public)/pricing/aerial-editing/page.tsx",
+      "../../app/(default)/(public)/pricing/aerial-editing/page.tsx",
       import.meta.url,
     ),
     "utf8",

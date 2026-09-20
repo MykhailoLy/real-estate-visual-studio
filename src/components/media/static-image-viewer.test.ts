@@ -21,18 +21,18 @@ const pricingLightboxSource = readSource(
   "src/components/pricing/ImageLightbox.tsx",
 );
 const floorPlansInteractiveSource = readSource(
-  "src/app/(public)/pricing/floor-plans/FloorPlansInteractive.tsx",
+  "src/app/(default)/(public)/pricing/floor-plans/FloorPlansInteractive.tsx",
 );
 const styleGalleryCardSource = readSource(
   "src/components/pricing/StyleGalleryCard.tsx",
 );
 const propertyGallerySource = readSource(
-  "src/app/(showcase)/property/costa-blanca-demo/PropertyGallery.tsx",
+  "src/app/(default)/(showcase)/property/costa-blanca-demo/PropertyGallery.tsx",
 );
 const filePreviewSource = readSource("src/components/FilePreviewCard.tsx");
 const fileUploadSource = readSource("src/components/order/FileUpload.tsx");
 const marketingDownloadsSource = readSource(
-  "src/app/(showcase)/property/PropertyMarketingDownloads.tsx",
+  "src/app/(default)/(showcase)/property/PropertyMarketingDownloads.tsx",
 );
 const orderExamplesSource = readSource(
   "src/components/dashboard/OrderExamplesModal.tsx",
@@ -41,7 +41,7 @@ const galleryComparisonSource = readSource(
   "src/components/gallery/GalleryBeforeAfterPair.tsx",
 );
 const propertyShowcaseSource = readSource(
-  "src/app/(showcase)/property/PropertyShowcaseView.tsx",
+  "src/app/(default)/(showcase)/property/PropertyShowcaseView.tsx",
 );
 
 test("shared expanded static-image stage owns centered contain behavior", () => {
@@ -168,8 +168,8 @@ const pricingRouteFiles = [
   "virtual-renovation",
   "virtual-staging",
 ].flatMap((slug) => [
-  `src/app/(public)/pricing/${slug}/page.tsx`,
-  `src/app/(public)/es/pricing/${slug}/page.tsx`,
+  `src/app/(default)/(public)/pricing/${slug}/page.tsx`,
+  `src/app/(localized)/[locale]/(public)/pricing/${slug}/page.tsx`,
 ]);
 
 test("every English and Spanish pricing service route uses an audited viewer path", () => {

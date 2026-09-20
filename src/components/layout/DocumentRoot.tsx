@@ -4,7 +4,7 @@ import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import CookieConsentBanner from "@/components/privacy/CookieConsentBanner";
 import { SupportChatProvider } from "@/components/support/SupportChatProvider";
 import { SITE_NAME, SITE_URL, SOCIAL_IMAGE } from "@/lib/seo";
-import "./globals.css";
+import "@/app/globals.css";
 
 // NOTE: Header and Footer are rendered by the (public) route-group layout.
 // The (dashboard) route-group layout renders its own portal shell instead.
@@ -22,11 +22,11 @@ const DEFAULT_TITLE = `${SITE_NAME} — ${SITE_DESCRIPTOR}`;
 const DEFAULT_DESCRIPTION =
   "PicchuSpot — Real Estate Visuals. Property visuals that make listings stand out. Virtual staging, virtual renovation, 3D floor plans, and photo editing delivered in 24-48 hours. Local photography in Alicante & Costa Blanca.";
 
-export const viewport: Viewport = {
+export const documentViewport: Viewport = {
   themeColor: "#071A2B",
 };
 
-export const metadata: Metadata = {
+export const documentMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: DEFAULT_TITLE,
@@ -63,13 +63,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default function DocumentRoot({
   children,
+  lang,
 }: Readonly<{
   children: React.ReactNode;
+  lang: "en" | "es";
 }>) {
   return (
-    <html lang="en">
+    <html lang={lang}>
       <body
         className={`${geistSans.variable} antialiased flex flex-col min-h-screen w-full overflow-x-clip`}
       >

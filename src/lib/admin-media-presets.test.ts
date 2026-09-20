@@ -17,7 +17,7 @@ import {
 import { PORTFOLIO_SERVICES } from "./portfolio-service-meta.ts";
 
 const adminClient = readFileSync(
-  "src/app/(public)/admin/media/MediaAdminClient.tsx",
+  "src/app/(default)/(public)/admin/media/MediaAdminClient.tsx",
   "utf8",
 );
 

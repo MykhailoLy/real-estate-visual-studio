@@ -174,7 +174,7 @@ for (const event of ["order_delivered", "admin_replacement_ready"] as const) {
     assert.match(email.html, /bgcolor="#071a2b" style="padding:20px 24px 12px;background:#071a2b;"/);
     assert.match(email.html, /href="https:\/\/picchuspot\.com"/);
     assert.match(email.html, /href="mailto:hello@picchuspot\.com"/);
-    const contactPage = readFileSync("src/app/(public)/contact/page.tsx", "utf8");
+    const contactPage = readFileSync("src/app/(default)/(public)/contact/page.tsx", "utf8");
     assert.match(contactPage, /contactEmail = "hello@picchuspot\.com"/);
     assert.equal((email.html.match(new RegExp(`href="https://picchuspot.com/dashboard/jobs/${orderId}"`, "g")) ?? []).length, 1);
     for (const content of [email.html, email.text]) {
@@ -186,7 +186,7 @@ for (const event of ["order_delivered", "admin_replacement_ready"] as const) {
       assert.doesNotMatch(content, /approv|supabase|token=|PRIVATE-CLIENT-PATH/i);
     }
     for (const service of ["virtual-staging", "virtual-renovation", "photo-editing", "floor-plans"]) {
-      assert.ok(existsSync(`src/app/(public)/pricing/${service}/page.tsx`));
+      assert.ok(existsSync(`src/app/(default)/(public)/pricing/${service}/page.tsx`));
       assert.ok(email.html.includes(`https://picchuspot.com/pricing/${service}`));
     }
     const css = readFileSync("src/app/globals.css", "utf8");

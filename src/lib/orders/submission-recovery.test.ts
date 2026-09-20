@@ -16,7 +16,7 @@ const RECOVERY_GATE_SOURCE = readFileSync(
   "utf8",
 );
 const NEW_ORDER_LAYOUT_SOURCE = readFileSync(
-  "src/app/(dashboard)/dashboard/orders/new/layout.tsx",
+  "src/app/(default)/(dashboard)/dashboard/orders/new/layout.tsx",
   "utf8",
 );
 

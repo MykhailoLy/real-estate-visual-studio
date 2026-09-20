@@ -20,8 +20,8 @@ import {
   getServiceHeroSliderItems,
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
-import { PortfolioExamplesGrid } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
-import type { PortfolioExampleCard } from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
+import { PortfolioExamplesGrid } from "@/app/(default)/(public)/pricing/floor-plans/FloorPlansInteractive";
+import type { PortfolioExampleCard } from "@/app/(default)/(public)/pricing/floor-plans/FloorPlansInteractive";
 import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
 import {
   getBeforeAfterAlt,

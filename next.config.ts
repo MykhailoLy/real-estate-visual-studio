@@ -5,6 +5,9 @@ import {
 } from "./src/lib/security-headers.ts";
 
 const nextConfig: NextConfig = {
+  // Multiple document roots otherwise lose the shared document on unmatched 404s.
+  // Evidence and upgrade gate: docs/seo/DOCUMENT-ROOT-MIGRATION.md.
+  experimental: { globalNotFound: true },
   serverExternalPackages: ["sharp"],
   outputFileTracingIncludes: {
     "/property/*/opengraph-image": [

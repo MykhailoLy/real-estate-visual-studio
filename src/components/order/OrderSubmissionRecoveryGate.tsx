@@ -89,6 +89,8 @@ export default function OrderSubmissionRecoveryGate({
           </button>
         )}
         {state.status === "unauthorized" && (
+          // Full navigation preserves the existing session-recovery boundary; [locale] overmatches in Next lint.
+          // eslint-disable-next-line @next/next/no-html-link-for-pages
           <a
             href="/login?redirectTo=%2Fdashboard%2Forders%2Fnew"
             className="mt-5 inline-flex rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white hover:bg-navy/90 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"

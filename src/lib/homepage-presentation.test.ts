@@ -20,7 +20,7 @@ function assertSourceOrder(source: string, markers: string[]) {
 }
 
 test("homepage keeps the SEO introduction, compact benefits, and conversion sections in order", () => {
-  const source = readSource("src/app/(public)/page.tsx");
+  const source = readSource("src/app/(default)/(public)/page.tsx");
   const benefitsSource = readSource("src/components/home/BenefitsRow.tsx");
 
   assertSourceOrder(source, [
@@ -168,9 +168,9 @@ test("hero service metadata resolves canonical routes and display-only pricing",
     chromeSource.indexOf("export function ComparisonHeroFooter"),
     chromeSource.indexOf("interface HeroSlideIndicatorRailProps"),
   );
-  const englishHomeSource = readSource("src/app/(public)/page.tsx");
-  const spanishHomeSource = readSource("src/app/(public)/es/page.tsx");
-  const pricingHubSource = readSource("src/app/(public)/pricing/page.tsx");
+  const englishHomeSource = readSource("src/app/(default)/(public)/page.tsx");
+  const spanishHomeSource = readSource("src/app/(localized)/[locale]/(public)/page.tsx");
+  const pricingHubSource = readSource("src/app/(default)/(public)/pricing/page.tsx");
   const presentationSource = readSource(
     "src/lib/pricing/remote-service-presentation.ts",
   );
@@ -280,16 +280,16 @@ test("service comparison heroes reuse the homepage chrome and reliable swipe beh
     "src/components/media/ComparisonHeroChrome.tsx",
   );
   const floorPlansSource = readSource(
-    "src/app/(public)/pricing/floor-plans/page.tsx",
+    "src/app/(default)/(public)/pricing/floor-plans/page.tsx",
   );
   const spanishFloorPlansSource = readSource(
-    "src/app/(public)/es/pricing/floor-plans/page.tsx",
+    "src/app/(localized)/[locale]/(public)/pricing/floor-plans/page.tsx",
   );
   const virtualStagingSource = readSource(
-    "src/app/(public)/pricing/virtual-staging/page.tsx",
+    "src/app/(default)/(public)/pricing/virtual-staging/page.tsx",
   );
   const spanishVirtualStagingSource = readSource(
-    "src/app/(public)/es/pricing/virtual-staging/page.tsx",
+    "src/app/(localized)/[locale]/(public)/pricing/virtual-staging/page.tsx",
   );
 
   assert.match(sliderSource, /data-testid="service-hero-image-stage"/);
@@ -367,10 +367,10 @@ test("360 service heroes stay synchronized comparisons with safe non-comparison 
   );
   const siteMediaSource = readSource("src/lib/site-media.ts");
   const routeSources = [
-    readSource("src/app/(public)/pricing/360-image-enhancement/page.tsx"),
-    readSource("src/app/(public)/es/pricing/360-image-enhancement/page.tsx"),
-    readSource("src/app/(public)/pricing/360-virtual-staging/page.tsx"),
-    readSource("src/app/(public)/es/pricing/360-virtual-staging/page.tsx"),
+    readSource("src/app/(default)/(public)/pricing/360-image-enhancement/page.tsx"),
+    readSource("src/app/(localized)/[locale]/(public)/pricing/360-image-enhancement/page.tsx"),
+    readSource("src/app/(default)/(public)/pricing/360-virtual-staging/page.tsx"),
+    readSource("src/app/(localized)/[locale]/(public)/pricing/360-virtual-staging/page.tsx"),
   ];
 
   const onePairHelper = siteMediaSource.slice(
@@ -436,7 +436,7 @@ test("360 service heroes stay synchronized comparisons with safe non-comparison 
 
 test("homepage and signup presentation use the authoritative English Welcome Offer copy", () => {
   const benefitsSource = readSource("src/components/home/BenefitsRow.tsx");
-  const signUpPageSource = readSource("src/app/(auth)/signup/page.tsx");
+  const signUpPageSource = readSource("src/app/(default)/(auth)/signup/page.tsx");
   const welcomeOfferSource = readSource(
     "src/components/auth/WelcomeOfferCallout.tsx",
   );
@@ -464,8 +464,8 @@ test("homepage and signup presentation use the authoritative English Welcome Off
 });
 
 test("Spanish homepage and signup mirror the localized presentation without a second H1", () => {
-  const spanishHomeSource = readSource("src/app/(public)/es/page.tsx");
-  const spanishSignUpSource = readSource("src/app/(auth)/es/signup/page.tsx");
+  const spanishHomeSource = readSource("src/app/(localized)/[locale]/(public)/page.tsx");
+  const spanishSignUpSource = readSource("src/app/(localized)/[locale]/(auth)/signup/page.tsx");
 
   assertSourceOrder(spanishHomeSource, [
     "<BeforeAfterShowcase",
@@ -491,8 +491,8 @@ test("Spanish homepage and signup mirror the localized presentation without a se
 
 test("signup pages use shared public chrome without duplicate portal branding", () => {
   const shellSource = readSource("src/components/auth/SignupPageShell.tsx");
-  const englishSignUpSource = readSource("src/app/(auth)/signup/page.tsx");
-  const spanishSignUpSource = readSource("src/app/(auth)/es/signup/page.tsx");
+  const englishSignUpSource = readSource("src/app/(default)/(auth)/signup/page.tsx");
+  const spanishSignUpSource = readSource("src/app/(localized)/[locale]/(auth)/signup/page.tsx");
 
   assert.match(shellSource, /PublicAuthProvider/);
   assert.match(shellSource, /<Header/);
@@ -514,7 +514,7 @@ test("signup pages use shared public chrome without duplicate portal branding", 
 });
 
 test("signup keeps the existing auth, redirect, and Turnstile implementation", () => {
-  const formSource = readSource("src/app/(auth)/signup/SignUpForm.tsx");
+  const formSource = readSource("src/app/(default)/(auth)/signup/SignUpForm.tsx");
 
   assert.match(formSource, /supabase\.auth\.signUp/);
   assert.match(formSource, /captchaToken/);

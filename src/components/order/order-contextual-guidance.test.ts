@@ -245,13 +245,13 @@ test("all configure pages opt into the existing wide dashboard workspace", () =>
     "src/components/dashboard/client-portal-workspace.ts",
   );
   const pages = [
-    "src/app/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
-    "src/app/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
-    "src/app/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
-    "src/app/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
-    "src/app/(dashboard)/dashboard/orders/new/item-removal-virtual-cleaning/page.tsx",
-    "src/app/(dashboard)/dashboard/orders/new/photo-editing/page.tsx",
-    "src/app/(dashboard)/dashboard/orders/new/3d-floor-plans/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/item-removal-virtual-cleaning/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/photo-editing/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/3d-floor-plans/page.tsx",
   ];
 
   assert.match(workspace, /max-w-\[1800px\]/);
@@ -359,7 +359,7 @@ test("Job Detail shows rework only for delivered or completed files", () => {
 
 test("Order Detail leads with its summary and preserves authenticated job flows", () => {
   const detail = source(
-    "src/app/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/jobs/[orderId]/page.tsx",
   );
   const summary = detail.indexOf("data-job-summary");
   const overview = detail.indexOf("<JobDetailsCard", summary);

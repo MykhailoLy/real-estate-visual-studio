@@ -11,7 +11,7 @@ const FLOOR_PLAN_SQL = readFileSync(
   "utf8",
 );
 const FLOOR_PLAN_PAGE = readFileSync(
-  "src/app/(dashboard)/dashboard/orders/new/3d-floor-plans/page.tsx",
+  "src/app/(default)/(dashboard)/dashboard/orders/new/3d-floor-plans/page.tsx",
   "utf8",
 );
 

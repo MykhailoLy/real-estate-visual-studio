@@ -41,7 +41,7 @@ const requirementsSource = readFileSync(
 );
 const pageSource = readFileSync(
   new URL(
-    "../../../app/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
+    "../../../app/(default)/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
     import.meta.url,
   ),
   "utf8",

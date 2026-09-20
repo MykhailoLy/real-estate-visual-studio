@@ -21,7 +21,7 @@ function clientsMarkup(error = false) {
       if (specifier === '@/lib/admin-clients-server') return { url: 'data:text/javascript,' + encodeURIComponent(accountModule), shortCircuit: true };
       return nextResolve(specifier, context);
     }});
-    const { default: Page } = await import('./src/app/(public)/admin/clients/page.tsx');
+    const { default: Page } = await import('./src/app/(default)/(public)/admin/clients/page.tsx');
     const { default: Shell } = await import('./src/components/admin/AdminShell.tsx');
     const page = await Page({ searchParams: Promise.resolve({}) });
     process.stdout.write(renderToStaticMarkup(createElement(Shell, null, page)));
