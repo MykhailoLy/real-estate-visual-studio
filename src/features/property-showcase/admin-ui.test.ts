@@ -4,77 +4,77 @@ import test from "node:test";
 
 const mediaManagerSource = readFileSync(
   new URL(
-    "../../app/(public)/admin/properties/media/OptimizedPropertyMediaManagerClient.tsx",
+    "../../app/(default)/(public)/admin/properties/media/OptimizedPropertyMediaManagerClient.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyEditorSource = readFileSync(
   new URL(
-    "../../app/(public)/admin/properties/PropertiesAdminClient.tsx",
+    "../../app/(default)/(public)/admin/properties/PropertiesAdminClient.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyMapCanvasSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyMapCanvas.tsx",
+    "../../app/(default)/(showcase)/property/PropertyMapCanvas.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const virtualTourSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/ImmersivePropertyTour.tsx",
+    "../../app/(default)/(showcase)/property/ImmersivePropertyTour.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const interactivePlanSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/InteractivePropertyFloorPlan.tsx",
+    "../../app/(default)/(showcase)/property/InteractivePropertyFloorPlan.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyShowcaseSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyShowcaseView.tsx",
+    "../../app/(default)/(showcase)/property/PropertyShowcaseView.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyHeroSlideshowSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyHeroSlideshow.tsx",
+    "../../app/(default)/(showcase)/property/PropertyHeroSlideshow.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyGallerySource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/costa-blanca-demo/PropertyGallery.tsx",
+    "../../app/(default)/(showcase)/property/costa-blanca-demo/PropertyGallery.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertySectionNavSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/costa-blanca-demo/PropertySectionNav.tsx",
+    "../../app/(default)/(showcase)/property/costa-blanca-demo/PropertySectionNav.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertySocialBrandIconSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertySocialBrandIcon.tsx",
+    "../../app/(default)/(showcase)/property/PropertySocialBrandIcon.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyPageSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/[slug]/page.tsx",
+    "../../app/(default)/(showcase)/property/[slug]/page.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -100,7 +100,7 @@ const marketingMaterialsSource = readFileSync(
 );
 const marketingConfiguratorSource = readFileSync(
   new URL(
-    "../../app/(public)/admin/properties/media/PropertyMarketingConfigurator.tsx",
+    "../../app/(default)/(public)/admin/properties/media/PropertyMarketingConfigurator.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -121,7 +121,7 @@ const socialPreviewRouteSource = readFileSync(
 );
 const socialPreviewComponentSource = readFileSync(
   new URL(
-    "../../app/(public)/admin/properties/media/PropertySocialCardPreview.tsx",
+    "../../app/(default)/(public)/admin/properties/media/PropertySocialCardPreview.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -132,7 +132,7 @@ const socialPreviewResponseSource = readFileSync(
 );
 const marketingDownloadsSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyMarketingDownloads.tsx",
+    "../../app/(default)/(showcase)/property/PropertyMarketingDownloads.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -147,21 +147,21 @@ const marketingAssetsSource = readFileSync(
 );
 const propertyVideoSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyVideoSection.tsx",
+    "../../app/(default)/(showcase)/property/PropertyVideoSection.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const viewingDialogSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyViewingRequestDialog.tsx",
+    "../../app/(default)/(showcase)/property/PropertyViewingRequestDialog.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyActionsSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyShowcaseActions.tsx",
+    "../../app/(default)/(showcase)/property/PropertyShowcaseActions.tsx",
     import.meta.url,
   ),
   "utf8",

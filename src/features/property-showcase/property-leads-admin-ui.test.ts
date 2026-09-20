@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const adminLeadsPage = readFileSync(
-  new URL("../../app/(public)/admin/leads/page.tsx", import.meta.url),
+  new URL("../../app/(default)/(public)/admin/leads/page.tsx", import.meta.url),
   "utf8",
 );
 const adminShell = readFileSync(

@@ -17,10 +17,10 @@ const uploadConsumerPaths = [
   "lib/order-drafts/files-client.ts",
   "lib/order-drafts/draft-reference-files-client.ts",
   "lib/submit-order.ts",
-  "app/(public)/admin/media/MediaAdminClient.tsx",
-  "app/(public)/admin/portfolio/PortfolioAdminClient.tsx",
-  "app/(public)/admin/properties/media/PropertyMarketingConfigurator.tsx",
-  "app/(public)/admin/properties/media/OptimizedPropertyMediaManagerClient.tsx",
+  "app/(default)/(public)/admin/media/MediaAdminClient.tsx",
+  "app/(default)/(public)/admin/portfolio/PortfolioAdminClient.tsx",
+  "app/(default)/(public)/admin/properties/media/PropertyMarketingConfigurator.tsx",
+  "app/(default)/(public)/admin/properties/media/OptimizedPropertyMediaManagerClient.tsx",
 ];
 
 function sourceFiles(directory: string): string[] {

@@ -14,6 +14,9 @@ let mode = "success";
 let passwordSet = false;
 let inviteCalls = 0;
 let redirectTo = "";
+let passwordSignIns = 0;
+let authenticatedUserReads = 0;
+let unsupportedOperations: string[] = [];
 const tokenPart = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 const accessToken = `${tokenPart({ alg: "HS256", typ: "JWT" })}.${tokenPart({ sub: userId, exp: Math.floor(Date.now() / 1000) + 86400, role: "authenticated" })}.${Buffer.from("fixture-signature").toString("base64url")}`;
 
@@ -47,10 +50,25 @@ createServer(async (req, res) => {
   if (url.pathname === "/__fixture/reset") {
     users = [makeUser(existingId, "registered@example.com")]; pricing = []; profile = null;
     mode = body.mode ?? "success"; passwordSet = false; inviteCalls = 0; redirectTo = "";
+    passwordSignIns = 0; authenticatedUserReads = 0; unsupportedOperations = [];
+    if (mode === "password-login") {
+      users.unshift(makeUser(userId, "root-client@example.com"));
+    }
     json({ ok: true }); return;
   }
   if (url.pathname === "/__fixture/state") {
-    json({ pricing, profile, passwordSet, inviteCalls, redirectTo, accessToken, userId }); return;
+    json({ pricing, profile, passwordSet, inviteCalls, redirectTo, accessToken, userId,
+      passwordSignIns, authenticatedUserReads, unsupportedOperations }); return;
+  }
+  // Password-grant stub for cross-root acceptance. The real browser SDK writes
+  // cookies; the unchanged server gate must still call /auth/v1/user below.
+  if (url.pathname === "/auth/v1/token" && req.method === "POST" &&
+      url.searchParams.get("grant_type") === "password" && mode === "password-login" &&
+      body.email === "root-client@example.com" && body.password === "fixture-password-only") {
+    passwordSignIns++;
+    json({ access_token: accessToken, refresh_token: "fixture-refresh-token", token_type: "bearer",
+      expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: users.find((user) => user.id === userId) }); return;
   }
   if (url.pathname === "/auth/v1/invite") {
     inviteCalls++; redirectTo = url.searchParams.get("redirect_to") ?? "";
@@ -71,6 +89,7 @@ createServer(async (req, res) => {
     if (req.headers.authorization !== `Bearer ${accessToken}`) {
       json({ code: "bad_jwt", msg: "Invalid fixture token" }, 401); return;
     }
+    authenticatedUserReads++;
     if (req.method === "PUT") passwordSet = typeof body.password === "string" && body.password.length >= 8;
     json(users.find((user) => user.id === userId)); return;
   }
@@ -93,5 +112,6 @@ createServer(async (req, res) => {
     if (req.headers.prefer?.includes("count=")) res.setHeader("content-range", "*/0");
     json([]); return;
   }
+  unsupportedOperations.push(`${req.method} ${url.pathname}`);
   json({ error: "Unsupported fixture operation" }, 400);
 }).listen(3200, "127.0.0.1");

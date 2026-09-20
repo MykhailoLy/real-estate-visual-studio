@@ -15,21 +15,21 @@ import {
 
 const portfolioClient = readFileSync(
   new URL(
-    "../app/(public)/admin/portfolio/PortfolioAdminClient.tsx",
+    "../app/(default)/(public)/admin/portfolio/PortfolioAdminClient.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const siteMediaClient = readFileSync(
   new URL(
-    "../app/(public)/admin/media/MediaAdminClient.tsx",
+    "../app/(default)/(public)/admin/media/MediaAdminClient.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const propertyMediaClient = readFileSync(
   new URL(
-    "../app/(public)/admin/properties/media/OptimizedPropertyMediaManagerClient.tsx",
+    "../app/(default)/(public)/admin/properties/media/OptimizedPropertyMediaManagerClient.tsx",
     import.meta.url,
   ),
   "utf8",

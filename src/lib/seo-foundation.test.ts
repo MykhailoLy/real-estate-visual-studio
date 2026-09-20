@@ -14,28 +14,41 @@ function sourceFilesUnder(directory: string): string[] {
   });
 }
 
-test("root layout stays static-safe and proxy remains dashboard-only", () => {
-  const layout = readSource("src/app/layout.tsx");
+test("document roots stay static-safe and proxy remains dashboard-only", () => {
+  const defaultLayout = readSource("src/app/(default)/layout.tsx");
+  const localizedLayout = readSource("src/app/(localized)/[locale]/layout.tsx");
+  const document = readSource("src/components/layout/DocumentRoot.tsx");
   const proxy = readSource("src/proxy.ts");
 
-  assert.match(layout, /<html lang="en">/);
-  assert.doesNotMatch(layout, /next\/headers|headers\(\)|DocumentLanguage/);
+  assert.match(defaultLayout, /<DocumentRoot lang="en">/);
+  assert.match(localizedLayout, /<DocumentRoot lang=\{locale\}>/);
+  assert.match(localizedLayout, /export const dynamicParams = false/);
+  assert.match(localizedLayout, /return \[\{ locale: "es" \}\]/);
+  assert.match(localizedLayout, /if \(locale !== "es"\) notFound\(\)/);
+  assert.match(document, /<html lang=\{lang\}>/);
+  for (const layout of [defaultLayout, localizedLayout]) {
+    assert.match(layout, /export const metadata: Metadata = documentMetadata/);
+    assert.match(layout, /export const viewport: Viewport = documentViewport/);
+  }
+  for (const source of [defaultLayout, localizedLayout, document]) {
+    assert.doesNotMatch(source, /next\/headers|headers\(\)|cookies\(\)|DocumentLanguage|force-dynamic/);
+  }
   assert.match(proxy, /matcher: \["\/dashboard\/:path\*"\]/);
   assert.doesNotMatch(proxy, /DOCUMENT_LANGUAGE|document-language/);
 });
 
 test("photo editing and item removal have separate canonical bilingual landing pages", () => {
   const englishPhotoEditing = readSource(
-    "src/app/(public)/pricing/photo-editing/page.tsx",
+    "src/app/(default)/(public)/pricing/photo-editing/page.tsx",
   );
   const spanishPhotoEditing = readSource(
-    "src/app/(public)/es/pricing/photo-editing/page.tsx",
+    "src/app/(localized)/[locale]/(public)/pricing/photo-editing/page.tsx",
   );
   const englishItemRemoval = readSource(
-    "src/app/(public)/pricing/item-removal-virtual-cleaning/page.tsx",
+    "src/app/(default)/(public)/pricing/item-removal-virtual-cleaning/page.tsx",
   );
   const spanishItemRemoval = readSource(
-    "src/app/(public)/es/pricing/item-removal-virtual-cleaning/page.tsx",
+    "src/app/(localized)/[locale]/(public)/pricing/item-removal-virtual-cleaning/page.tsx",
   );
   const localizedRoutes = readSource("src/lib/localized-routes.ts");
   const portfolioMeta = readSource("src/lib/portfolio-service-meta.ts");
@@ -95,7 +108,10 @@ test("localized metadata keeps every established hreflang key", () => {
 });
 
 test("public application links bypass legacy order redirects", () => {
-  const publicSources = sourceFilesUnder("src/app/(public)").filter((path) => {
+  const publicSources = [
+    ...sourceFilesUnder("src/app/(default)/(public)"),
+    ...sourceFilesUnder("src/app/(localized)/[locale]/(public)"),
+  ].filter((path) => {
     const normalized = path.replaceAll("\\", "/");
     return (
       normalized.endsWith(".tsx") &&
@@ -120,17 +136,17 @@ test("public application links bypass legacy order redirects", () => {
 
 test("legacy order routes remain permanent redirects to canonical destinations", () => {
   const redirects = [
-    ["src/app/(public)/order/page.tsx", "/dashboard/orders/new"],
+    ["src/app/(default)/(public)/order/page.tsx", "/dashboard/orders/new"],
     [
-      "src/app/(public)/order/3d-floor-plans/page.tsx",
+      "src/app/(default)/(public)/order/3d-floor-plans/page.tsx",
       "/dashboard/orders/new/3d-floor-plans",
     ],
     [
-      "src/app/(public)/order/photo-editing/page.tsx",
+      "src/app/(default)/(public)/order/photo-editing/page.tsx",
       "/dashboard/orders/new/photo-editing",
     ],
     [
-      "src/app/(public)/order/item-removal-virtual-cleaning/page.tsx",
+      "src/app/(default)/(public)/order/item-removal-virtual-cleaning/page.tsx",
       "/dashboard/orders/new/item-removal-virtual-cleaning",
     ],
   ] as const;
@@ -143,7 +159,7 @@ test("legacy order routes remain permanent redirects to canonical destinations",
 });
 
 test("blog hub has exact English-only metadata and renders published content", () => {
-  const page = readSource("src/app/(public)/blog/page.tsx");
+  const page = readSource("src/app/(default)/(public)/blog/page.tsx");
   const theme = readSource("src/app/globals.css");
 
   assert.match(
@@ -185,7 +201,7 @@ test("blog hub has exact English-only metadata and renders published content", (
 });
 
 test("blog routes and sitemap publish only registered articles", () => {
-  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const route = readSource("src/app/(default)/(public)/blog/[slug]/page.tsx");
   const sitemap = readSource("src/app/sitemap.ts");
   const registry = readSource("src/lib/blog.ts");
 
@@ -250,9 +266,9 @@ test("virtual staging cost article preserves approved pricing and editorial link
   const content = readSource(
     "src/components/blog/VirtualStagingCostArticle.tsx",
   );
-  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const route = readSource("src/app/(default)/(public)/blog/[slug]/page.tsx");
   const pricingPage = readSource(
-    "src/app/(public)/pricing/virtual-staging/page.tsx",
+    "src/app/(default)/(public)/pricing/virtual-staging/page.tsx",
   );
   const comparison = readSource("src/components/blog/ArticleBeforeAfter.tsx");
   const articleElements = readSource("src/components/blog/ArticleElements.tsx");
@@ -301,7 +317,7 @@ test("virtual staging cost article preserves approved pricing and editorial link
 });
 
 test("virtual staging cost metadata and BlogPosting schema match the visible article", () => {
-  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const route = readSource("src/app/(default)/(public)/blog/[slug]/page.tsx");
   const structuredData = readSource("src/lib/structured-data.ts");
 
   assert.match(route, /title: \{ absolute: metadataTitle \}/);
@@ -317,7 +333,7 @@ test("virtual staging cost metadata and BlogPosting schema match the visible art
 });
 
 test("virtual staging cost article stays English-only and statically generated", () => {
-  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const route = readSource("src/app/(default)/(public)/blog/[slug]/page.tsx");
   const sitemap = readSource("src/app/sitemap.ts");
   const appFiles = sourceFilesUnder("src/app");
 
@@ -328,7 +344,7 @@ test("virtual staging cost article stays English-only and statically generated",
   assert.match(sitemap, /getPublishedBlogArticles\(\)\.map/);
   assert.equal(
     appFiles.some((path) =>
-      path.replaceAll("\\", "/").includes("/es/blog/virtual-staging-cost"),
+      path.replaceAll("\\", "/").includes("/[locale]/(public)/blog/virtual-staging-cost"),
     ),
     false,
   );
@@ -401,7 +417,7 @@ test("virtual staging explainer keeps approved price, links, and visual source o
 });
 
 test("virtual staging explainer uses the existing static English blog and schema pipeline", () => {
-  const route = readSource("src/app/(public)/blog/[slug]/page.tsx");
+  const route = readSource("src/app/(default)/(public)/blog/[slug]/page.tsx");
   const sitemap = readSource("src/app/sitemap.ts");
   const registry = readSource("src/lib/blog.ts");
   const appFiles = sourceFilesUnder("src/app");
@@ -423,7 +439,7 @@ test("virtual staging explainer uses the existing static English blog and schema
   );
   assert.equal(
     appFiles.some((path) =>
-      path.replaceAll("\\", "/").includes("/es/blog/"),
+      path.replaceAll("\\", "/").includes("/[locale]/(public)/blog/"),
     ),
     false,
   );

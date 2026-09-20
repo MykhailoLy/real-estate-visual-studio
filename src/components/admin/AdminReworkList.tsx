@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   RotateCcw, Clock, CheckCircle2, Loader2, AlertCircle, MessageSquare, Tag, ExternalLink, Upload, Paperclip,
 } from "lucide-react";
-import type { ReworkRow } from "@/app/(public)/admin/rework/page";
+import type { ReworkRow } from "@/app/(default)/(public)/admin/rework/page";
 import { formatDateTime as formatDate, itemLabel } from "@/lib/display/file-format";
 import { getReviewStatusLabel } from "@/lib/display/status-labels";
 

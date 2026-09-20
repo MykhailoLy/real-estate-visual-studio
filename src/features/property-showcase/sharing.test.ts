@@ -5,18 +5,18 @@ import { canonicalPropertyUrl, propertyShareData } from "./sharing.ts";
 
 const actionsSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyShowcaseActions.tsx",
+    "../../app/(default)/(showcase)/property/PropertyShowcaseActions.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const publicPageSource = readFileSync(
-  new URL("../../app/(showcase)/property/[slug]/page.tsx", import.meta.url),
+  new URL("../../app/(default)/(showcase)/property/[slug]/page.tsx", import.meta.url),
   "utf8",
 );
 const adminPreviewSource = readFileSync(
   new URL(
-    "../../app/(showcase)/admin/properties/[id]/preview/page.tsx",
+    "../../app/(default)/(showcase)/admin/properties/[id]/preview/page.tsx",
     import.meta.url,
   ),
   "utf8",

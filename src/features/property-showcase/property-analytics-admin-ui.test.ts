@@ -4,21 +4,21 @@ import test from "node:test";
 
 const analyticsPageSource = readFileSync(
   new URL(
-    "../../app/(public)/admin/properties/[id]/analytics/page.tsx",
+    "../../app/(default)/(public)/admin/properties/[id]/analytics/page.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const analyticsDashboardSource = readFileSync(
   new URL(
-    "../../app/(public)/admin/properties/[id]/analytics/PropertyAnalyticsDashboard.tsx",
+    "../../app/(default)/(public)/admin/properties/[id]/analytics/PropertyAnalyticsDashboard.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const showcaseViewSource = readFileSync(
   new URL(
-    "../../app/(showcase)/property/PropertyShowcaseView.tsx",
+    "../../app/(default)/(showcase)/property/PropertyShowcaseView.tsx",
     import.meta.url,
   ),
   "utf8",

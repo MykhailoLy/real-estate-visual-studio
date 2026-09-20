@@ -93,7 +93,7 @@ import type {
   PropertyVideoProvider,
 } from "@/features/property-showcase/types";
 import { normalizePropertyVideoInput } from "@/features/property-showcase/video-urls";
-import PropertyMapCanvas from "@/app/(showcase)/property/PropertyMapCanvas";
+import PropertyMapCanvas from "@/app/(default)/(showcase)/property/PropertyMapCanvas";
 
 interface Props {
   records: PropertyShowcaseAdminRecord[];

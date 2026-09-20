@@ -31,7 +31,7 @@ import {
   StyleOptionsGrid,
   type PortfolioExampleCard,
   type StyleOptionCard,
-} from "@/app/(public)/pricing/floor-plans/FloorPlansInteractive";
+} from "@/app/(default)/(public)/pricing/floor-plans/FloorPlansInteractive";
 import { spanishMetadata } from "../../seo";
 import { translatePricingExampleTitle } from "../labels";
 import JsonLd from "@/components/seo/JsonLd";

@@ -342,7 +342,7 @@ test("Order Detail shortcut and Clients share account mutation without altering 
 });
 
 test("Clients page redirects unauthorized users and unavailable states render no control", () => {
-  const page = readFileSync("src/app/(public)/admin/clients/page.tsx", "utf8");
+  const page = readFileSync("src/app/(default)/(public)/admin/clients/page.tsx", "utf8");
   const list = readFileSync("src/components/admin/AdminClientsList.tsx", "utf8");
   assert.match(page, /listAdminClients\(page\)/);
   assert.match(page, /error\.status === 401\) redirect\("\/admin\/login"\)/);

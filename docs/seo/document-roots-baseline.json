@@ -1,0 +1,719 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "repository": "MykhailoLy/real-estate-visual-studio",
+    "mainSha": "b0ae2015790636ca1325640c9d84b670b27fe2e8",
+    "rootTreeSha": "2bfac58be00f5672e6fac5eff6082ee756967834",
+    "capturedOnUtc": "2026-09-20",
+    "capturedBeforeChanges": true,
+    "target": "local production build, not deployed production",
+    "nextVersion": "16.3.4",
+    "nodeVersion": "24.19.0",
+    "fixtures": {
+      "PLAYWRIGHT_PROPERTY_GALLERY_FIXTURES": "1",
+      "PLAYWRIGHT_STATIC_IMAGE_VIEWER_FIXTURES": "1"
+    },
+    "liveServiceCredentialsUsed": false,
+    "sourceArtifactSha256": {
+      "app-paths-manifest.json": "7c96e5a55e68ef83ec91b49e3361a807c7966f5675baab799f83db582fa2d5a5",
+      "prerender-manifest.json": "1ce9cf0a79e58f222eb485b81ab24448a10c34a4ab3137504d399bf141c85e5a",
+      "routes-manifest.json": "760aeb1f99cb7afad9902622f07e1b06914db440d58f5e56922ddb8709702415",
+      "responses.json": "2eb940024b7dd89311c3ced31cce741988c4d5edf297435f2b894d42a79d69e4"
+    }
+  },
+  "summary": {
+    "appRouteEntries": 174,
+    "prerenderedConcreteUrls": 96,
+    "httpRequests": 104,
+    "httpStatusCounts": {
+      "200": 80,
+      "307": 2,
+      "308": 13,
+      "404": 9
+    },
+    "sitemapUrls": 50
+  },
+  "normalization": "Route groups and final page/route suffix removed from app paths. Dynamic placeholders retained. Internal framework and metadata routes retained; handler inventory includes generated metadata handlers.",
+  "appRouteColumns": [
+    "urlPattern",
+    "kind"
+  ],
+  "appRoutes": [
+    ["/","page"],
+    ["/_global-error","page"],
+    ["/_not-found","page"],
+    ["/about","page"],
+    ["/admin","page"],
+    ["/admin/clients","page"],
+    ["/admin/leads","page"],
+    ["/admin/login","page"],
+    ["/admin/media","page"],
+    ["/admin/orders","page"],
+    ["/admin/orders/[orderId]","page"],
+    ["/admin/portfolio","page"],
+    ["/admin/properties","page"],
+    ["/admin/properties/[id]/analytics","page"],
+    ["/admin/properties/[id]/materials/[asset]","route"],
+    ["/admin/properties/[id]/preview","page"],
+    ["/admin/properties/media","page"],
+    ["/admin/rework","page"],
+    ["/api/admin/clients/[userId]/partner-pricing","route"],
+    ["/api/admin/clients/invite-partner","route"],
+    ["/api/admin/login","route"],
+    ["/api/admin/logout","route"],
+    ["/api/admin/media","route"],
+    ["/api/admin/media/[id]","route"],
+    ["/api/admin/media/upload-url","route"],
+    ["/api/admin/orders/[orderId]/deliverables","route"],
+    ["/api/admin/orders/[orderId]/deliverables/[deliverableId]/download-url","route"],
+    ["/api/admin/orders/[orderId]/deliverables/bulk-download","route"],
+    ["/api/admin/orders/[orderId]/deliverables/upload-url","route"],
+    ["/api/admin/orders/[orderId]/partner-pricing","route"],
+    ["/api/admin/orders/[orderId]/reviews/[reviewId]/reference-files/[fileId]/download-url","route"],
+    ["/api/admin/orders/[orderId]/source-files/[fileId]/download-url","route"],
+    ["/api/admin/orders/[orderId]/source-files/bulk-download","route"],
+    ["/api/admin/orders/[orderId]/status","route"],
+    ["/api/admin/portfolio","route"],
+    ["/api/admin/portfolio/[id]","route"],
+    ["/api/admin/portfolio/upload-url","route"],
+    ["/api/admin/properties","route"],
+    ["/api/admin/properties/[id]","route"],
+    ["/api/admin/properties/[id]/flyer/verify","route"],
+    ["/api/admin/properties/[id]/materials/preview","route"],
+    ["/api/admin/properties/[id]/social-card/preview","route"],
+    ["/api/admin/properties/resolve-google-maps-link","route"],
+    ["/api/admin/properties/upload-url","route"],
+    ["/api/admin/reviews/[reviewId]/replacement","route"],
+    ["/api/admin/reviews/[reviewId]/status","route"],
+    ["/api/client/deliverables/[deliverableId]/download-url","route"],
+    ["/api/client/deliverables/[deliverableId]/review","route"],
+    ["/api/client/orders/[orderId]/deliverables/bulk-download","route"],
+    ["/api/client/orders/[orderId]/review","route"],
+    ["/api/client/orders/[orderId]/source-files/[fileId]/download-url","route"],
+    ["/api/client/reviews/[reviewId]/reference-files","route"],
+    ["/api/client/reviews/[reviewId]/reference-files/[fileId]/complete","route"],
+    ["/api/client/reviews/[reviewId]/reference-files/upload-url","route"],
+    ["/api/internal/order-email-outbox","route"],
+    ["/api/order","route"],
+    ["/api/order-drafts","route"],
+    ["/api/order-drafts/[draftId]","route"],
+    ["/api/order-drafts/[draftId]/files","route"],
+    ["/api/order-drafts/[draftId]/files/[fileId]","route"],
+    ["/api/order-drafts/[draftId]/files/[fileId]/complete","route"],
+    ["/api/order-drafts/[draftId]/files/[fileId]/preview","route"],
+    ["/api/order-drafts/[draftId]/files/upload-url","route"],
+    ["/api/order-drafts/[draftId]/finalization-status","route"],
+    ["/api/order-drafts/[draftId]/references","route"],
+    ["/api/order-drafts/[draftId]/references/[referenceId]","route"],
+    ["/api/order-drafts/[draftId]/references/[referenceId]/complete","route"],
+    ["/api/order-drafts/[draftId]/submit","route"],
+    ["/api/order/submissions/[submissionId]","route"],
+    ["/api/payments/checkout","route"],
+    ["/api/payments/summary/[orderId]","route"],
+    ["/api/payments/webhook","route"],
+    ["/api/profile/upsert","route"],
+    ["/api/property-analytics","route"],
+    ["/api/property-leads","route"],
+    ["/api/support","route"],
+    ["/api/upload-url","route"],
+    ["/auth/callback","route"],
+    ["/auth/invite","page"],
+    ["/auth/logout","route"],
+    ["/blog","page"],
+    ["/blog/[slug]","page"],
+    ["/contact","page"],
+    ["/cookies","page"],
+    ["/dashboard","page"],
+    ["/dashboard/drafts","page"],
+    ["/dashboard/files","page"],
+    ["/dashboard/invoices","page"],
+    ["/dashboard/jobs","page"],
+    ["/dashboard/jobs/[orderId]","page"],
+    ["/dashboard/orders/new","page"],
+    ["/dashboard/orders/new/3d-floor-plans","page"],
+    ["/dashboard/orders/new/day-to-dusk","page"],
+    ["/dashboard/orders/new/image-enhancement","page"],
+    ["/dashboard/orders/new/image-enhancement/hdr-bracketed","page"],
+    ["/dashboard/orders/new/image-enhancement/single-exposure","page"],
+    ["/dashboard/orders/new/item-removal-virtual-cleaning","page"],
+    ["/dashboard/orders/new/photo-editing","page"],
+    ["/dashboard/orders/new/virtual-renovation","page"],
+    ["/dashboard/orders/new/virtual-staging","page"],
+    ["/dashboard/profile","page"],
+    ["/dashboard/support","page"],
+    ["/es","page"],
+    ["/es/about","page"],
+    ["/es/contact","page"],
+    ["/es/cookies","page"],
+    ["/es/faq","page"],
+    ["/es/gallery","page"],
+    ["/es/gallery/[serviceSlug]","page"],
+    ["/es/legal","page"],
+    ["/es/login","page"],
+    ["/es/pricing","page"],
+    ["/es/pricing/360-image-enhancement","page"],
+    ["/es/pricing/360-virtual-staging","page"],
+    ["/es/pricing/aerial-editing","page"],
+    ["/es/pricing/day-to-dusk","page"],
+    ["/es/pricing/development-site-plans","page"],
+    ["/es/pricing/floor-plans","page"],
+    ["/es/pricing/image-enhancement","page"],
+    ["/es/pricing/item-removal-virtual-cleaning","page"],
+    ["/es/pricing/photo-editing","page"],
+    ["/es/pricing/virtual-renovation","page"],
+    ["/es/pricing/virtual-staging","page"],
+    ["/es/privacy","page"],
+    ["/es/refunds","page"],
+    ["/es/services","page"],
+    ["/es/signup","page"],
+    ["/es/terms","page"],
+    ["/faq","page"],
+    ["/favicon.ico","route"],
+    ["/forgot-password","page"],
+    ["/gallery","page"],
+    ["/gallery/[serviceSlug]","page"],
+    ["/legal","page"],
+    ["/local","page"],
+    ["/login","page"],
+    ["/online-retail","page"],
+    ["/order","page"],
+    ["/order/3d-floor-plans","page"],
+    ["/order/day-to-dusk","page"],
+    ["/order/image-enhancement","page"],
+    ["/order/image-enhancement/hdr-bracketed","page"],
+    ["/order/image-enhancement/single-exposure","page"],
+    ["/order/item-removal-virtual-cleaning","page"],
+    ["/order/photo-editing","page"],
+    ["/order/virtual-renovation","page"],
+    ["/order/virtual-staging","page"],
+    ["/portfolio","page"],
+    ["/pricing","page"],
+    ["/pricing/360-image-enhancement","page"],
+    ["/pricing/360-virtual-staging","page"],
+    ["/pricing/aerial-editing","page"],
+    ["/pricing/day-to-dusk","page"],
+    ["/pricing/development-site-plans","page"],
+    ["/pricing/floor-plans","page"],
+    ["/pricing/image-enhancement","page"],
+    ["/pricing/item-removal-virtual-cleaning","page"],
+    ["/pricing/photo-editing","page"],
+    ["/pricing/virtual-renovation","page"],
+    ["/pricing/virtual-staging","page"],
+    ["/privacy","page"],
+    ["/property/[slug]","page"],
+    ["/property/[slug]/flyer/[format]","route"],
+    ["/property/[slug]/materials/[asset]","route"],
+    ["/property/[slug]/opengraph-image","route"],
+    ["/property/costa-blanca-demo","page"],
+    ["/refunds","page"],
+    ["/renders","page"],
+    ["/reset-password","page"],
+    ["/robots.txt","route"],
+    ["/services","page"],
+    ["/signup","page"],
+    ["/sitemap.xml","route"],
+    ["/terms","page"]
+  ],
+  "prerenderColumns": [
+    "url",
+    "routeType",
+    "compute",
+    "response",
+    "revalidateSecondsOrFalse",
+    "expireSecondsOrNull",
+    "initialStatus"
+  ],
+  "prerenderedRoutes": [
+    ["/","page","static","complete",300,31536000,200],
+    ["/_global-error","page","static","complete",false,null,200],
+    ["/_not-found","page","static","complete",false,null,404],
+    ["/about","page","static","complete",false,null,200],
+    ["/auth/invite","page","static","complete",false,null,200],
+    ["/blog","page","static","complete",false,null,200],
+    ["/blog/virtual-staging-cost","page","static","complete",false,null,200],
+    ["/blog/what-is-virtual-staging","page","static","complete",false,null,200],
+    ["/contact","page","static","complete",false,null,200],
+    ["/cookies","page","static","complete",false,null,200],
+    ["/es","page","static","complete",false,null,200],
+    ["/es/about","page","static","complete",false,null,200],
+    ["/es/contact","page","static","complete",false,null,200],
+    ["/es/cookies","page","static","complete",false,null,200],
+    ["/es/faq","page","static","complete",false,null,200],
+    ["/es/gallery","page","static","complete",false,null,200],
+    ["/es/gallery/360-image-enhancement","page","static","complete",false,null,200],
+    ["/es/gallery/360-virtual-staging","page","static","complete",false,null,200],
+    ["/es/gallery/aerial-editing","page","static","complete",false,null,200],
+    ["/es/gallery/day-to-dusk","page","static","complete",false,null,200],
+    ["/es/gallery/development-site-plans","page","static","complete",false,null,200],
+    ["/es/gallery/floor-plans","page","static","complete",false,null,200],
+    ["/es/gallery/image-enhancement","page","static","complete",false,null,200],
+    ["/es/gallery/item-removal-virtual-cleaning","page","static","complete",false,null,200],
+    ["/es/gallery/virtual-renovation","page","static","complete",false,null,200],
+    ["/es/gallery/virtual-staging","page","static","complete",false,null,200],
+    ["/es/legal","page","static","complete",false,null,200],
+    ["/es/login","page","static","complete",false,null,200],
+    ["/es/pricing","page","static","complete",false,null,200],
+    ["/es/pricing/360-image-enhancement","page","static","complete",false,null,200],
+    ["/es/pricing/360-virtual-staging","page","static","complete",false,null,200],
+    ["/es/pricing/aerial-editing","page","static","complete",false,null,200],
+    ["/es/pricing/day-to-dusk","page","static","complete",false,null,200],
+    ["/es/pricing/development-site-plans","page","static","complete",false,null,200],
+    ["/es/pricing/floor-plans","page","static","complete",false,null,200],
+    ["/es/pricing/image-enhancement","page","static","complete",false,null,200],
+    ["/es/pricing/item-removal-virtual-cleaning","page","static","complete",false,null,200],
+    ["/es/pricing/photo-editing","page","static","complete",false,null,200],
+    ["/es/pricing/virtual-renovation","page","static","complete",false,null,200],
+    ["/es/pricing/virtual-staging","page","static","complete",false,null,200],
+    ["/es/privacy","page","static","complete",false,null,200],
+    ["/es/refunds","page","static","complete",false,null,200],
+    ["/es/services","page","static","complete",false,null,200],
+    ["/es/signup","page","static","complete",false,null,200],
+    ["/es/terms","page","static","complete",false,null,200],
+    ["/faq","page","static","complete",false,null,200],
+    ["/favicon.ico","route","static","complete",false,null,200],
+    ["/forgot-password","page","static","complete",false,null,200],
+    ["/gallery","page","static","complete",false,null,200],
+    ["/gallery/360-image-enhancement","page","static","complete",false,null,200],
+    ["/gallery/360-virtual-staging","page","static","complete",false,null,200],
+    ["/gallery/aerial-editing","page","static","complete",false,null,200],
+    ["/gallery/day-to-dusk","page","static","complete",false,null,200],
+    ["/gallery/development-site-plans","page","static","complete",false,null,200],
+    ["/gallery/floor-plans","page","static","complete",false,null,200],
+    ["/gallery/image-enhancement","page","static","complete",false,null,200],
+    ["/gallery/item-removal-virtual-cleaning","page","static","complete",false,null,200],
+    ["/gallery/virtual-renovation","page","static","complete",false,null,200],
+    ["/gallery/virtual-staging","page","static","complete",false,null,200],
+    ["/legal","page","static","complete",false,null,200],
+    ["/local","page","static","complete",false,null,200],
+    ["/login","page","static","complete",false,null,200],
+    ["/online-retail","page","static","complete",false,null,200],
+    ["/order","page","static","complete",false,null,200],
+    ["/order/3d-floor-plans","page","static","complete",false,null,200],
+    ["/order/day-to-dusk","page","static","complete",false,null,200],
+    ["/order/image-enhancement","page","static","complete",false,null,200],
+    ["/order/image-enhancement/hdr-bracketed","page","static","complete",false,null,200],
+    ["/order/image-enhancement/single-exposure","page","static","complete",false,null,200],
+    ["/order/item-removal-virtual-cleaning","page","static","complete",false,null,200],
+    ["/order/photo-editing","page","static","complete",false,null,200],
+    ["/order/virtual-renovation","page","static","complete",false,null,200],
+    ["/order/virtual-staging","page","static","complete",false,null,200],
+    ["/portfolio","page","static","complete",false,null,200],
+    ["/pricing","page","static","complete",false,null,200],
+    ["/pricing/360-image-enhancement","page","static","complete",false,null,200],
+    ["/pricing/360-virtual-staging","page","static","complete",false,null,200],
+    ["/pricing/aerial-editing","page","static","complete",false,null,200],
+    ["/pricing/day-to-dusk","page","static","complete",false,null,200],
+    ["/pricing/development-site-plans","page","static","complete",false,null,200],
+    ["/pricing/floor-plans","page","static","complete",false,null,200],
+    ["/pricing/image-enhancement","page","static","complete",false,null,200],
+    ["/pricing/item-removal-virtual-cleaning","page","static","complete",false,null,200],
+    ["/pricing/photo-editing","page","static","complete",false,null,200],
+    ["/pricing/virtual-renovation","page","static","complete",false,null,200],
+    ["/pricing/virtual-staging","page","static","complete",false,null,200],
+    ["/privacy","page","static","complete",false,null,200],
+    ["/property/costa-blanca-demo","page","static","complete",false,null,200],
+    ["/refunds","page","static","complete",false,null,200],
+    ["/renders","page","static","complete",false,null,200],
+    ["/reset-password","page","static","complete",false,null,200],
+    ["/robots.txt","route","static","complete",false,null,200],
+    ["/services","page","static","complete",false,null,200],
+    ["/signup","page","static","complete",false,null,200],
+    ["/sitemap.xml","route","static","complete",false,null,200],
+    ["/terms","page","static","complete",false,null,200]
+  ],
+  "dynamicPrerenderFallbacks": {
+    "/blog/[slug]": {
+      "fallback": false,
+      "compute": null,
+      "response": null
+    },
+    "/es/gallery/[serviceSlug]": {
+      "fallback": null,
+      "compute": "blocking",
+      "response": "empty"
+    },
+    "/gallery/[serviceSlug]": {
+      "fallback": null,
+      "compute": "blocking",
+      "response": "empty"
+    }
+  },
+  "routing": {
+    "staticPatternCount": 123,
+    "dynamicPatternCount": 51,
+    "redirects": [
+      {
+        "source": "/:path+/",
+        "destination": "/:path+",
+        "internal": true,
+        "priority": true,
+        "statusCode": 308,
+        "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+      },
+      {
+        "source": "/:path*",
+        "has": [
+          {
+            "type": "host",
+            "value": "www.picchuspot.com"
+          }
+        ],
+        "destination": "https://picchuspot.com/:path*",
+        "statusCode": 308,
+        "regex": "^(?!/_next)(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+      }
+    ],
+    "headersSha256": "868964801a9ecbe06a81cdd75a22bcd4bb0dacb1113a5c1b09c005173a591b09",
+    "rewrites": {
+      "beforeFiles": [],
+      "afterFiles": [],
+      "fallback": []
+    }
+  },
+  "digestDefinition": "SHA-256 of UTF-8 JSON, sorted object keys, no ASCII escaping, separators comma/colon without spaces; array order retained. SEO object keys: title, meta, links, jsonld. Text digest covers parsed text array. For robots/sitemap, final digest covers raw UTF-8 content instead. Generated script/style/preload assets are not part of these semantic digests.",
+  "httpColumns": [
+    "path",
+    "status",
+    "locationOrNull",
+    "cacheControlOrNull",
+    "htmlLangsOrNull",
+    "seoSha256OrNull",
+    "textOrRawBodySha256"
+  ],
+  "http": [
+    ["/",200,null,"s-maxage=300, stale-while-revalidate=31535700",["en"],"b41ca6abbc501e997e78119ace955f52dda0508dc7090856274dfd25037a4d4f","735a2a86328993a364f679f7e97012490fb6e0f6a4bc644f031d8240a3753b03"],
+    ["/__missing__",404,null,"private, no-cache, no-store, max-age=0, must-revalidate",["en"],"f3a78f692ede2a09c6e49f9b3f12986804c18521fa6c9931a6d18ecbefdc306c","6c9c2b5268592dcb4233f54f3921a2762485e3d1ff47cf170ed741f5d1059737"],
+    ["/about",200,null,"s-maxage=31536000",["en"],"7ed006143137d60394db73e9a79d9f57c48614115e0bb7806f7079d2f5a8f990","f39e540f8ebd342dc04d517079b409bf37b5ee27fa328aff083a27bdd9b23e91"],
+    ["/admin",307,"/admin/login","private, no-cache, no-store, max-age=0, must-revalidate",[null],"9802585713fe1a78a0189cf8264c116187e37e8d1e98b4e8406d2f3538a77e6c","71ddbe0a722f127e916bff6f9b5fc51e12b07ed221344bc3ce15e2c44d2cf259"],
+    ["/auth/invite",200,null,"s-maxage=31536000",["en"],"fc7acea15937d8286e3cc4383e03aa452fcd51ec7c5151fa2d99720f6f02ac31","ac1896e8219c6468c0b64d4a7d9ee3e22cb61c93fa76331e00b9e43858d776a4"],
+    ["/blog",200,null,"s-maxage=31536000",["en"],"3795e98ddf236d41f544551a8c03447f54dac6d2664e7f0a1c86621b57c40322","478daafaf1bc600fd6e057acd2bf743ab5c37a19c68cbcbd86f5fd4365042fcf"],
+    ["/blog/virtual-staging-cost",200,null,"s-maxage=31536000",["en"],"590d56e523f56b992f9658082882d2f9e197ff188262cafe1c4873ec2bddc97a","a265a26c34f9078536a19a19917c23da829b98322da7e737687eeb12ab057141"],
+    ["/blog/what-is-virtual-staging",200,null,"s-maxage=31536000",["en"],"fcd7e7e4caa3f81fe37515f43217418c01947e9a241a0af6fbe29a49575454d7","8f355e9870442a75008b4e055eae359252bbc317cc2c442c4644bc3b4e98962b"],
+    ["/contact",200,null,"s-maxage=31536000",["en"],"e716ae50a0a09d4386aaf6e0ac8ca8b13301c76174ba5f9f97010053b33c05e8","43e76c407e6d9346133f9f793d8463e8d88d9b63ff491ff80c4bd2e4bab86fc9"],
+    ["/cookies",200,null,"s-maxage=31536000",["en"],"4bb9564e17619a9301117182c9bc381967924b351f8dfef737890fdc2a2c7887","c7e6c0b11c64d3b1d3006df610cbbd2dab236eed768975af02fa7702a62fe3ce"],
+    ["/dashboard",307,"/login?redirectTo=%2Fdashboard","private, no-cache, no-store, max-age=0, must-revalidate",[null],"8e269343a7fc2569978b843bcee1b3de6b57fee60debc0a2707c4c3c3f1df427","94d36dc36d9d44b279c0efcd697374fd60279af4e5b46362a6c7a01fbf438010"],
+    ["/en",404,null,"private, no-cache, no-store, max-age=0, must-revalidate",["en"],"f3a78f692ede2a09c6e49f9b3f12986804c18521fa6c9931a6d18ecbefdc306c","6c9c2b5268592dcb4233f54f3921a2762485e3d1ff47cf170ed741f5d1059737"],
+    ["/es",200,null,"s-maxage=31536000",["en"],"19d556f9d494f62b904fae667fc5137be34b27053fc77e36d809c717f57fb84d","77156497a205a33836feb63eaefc12b045b85202f8e599b9422d31212491b96d"],
+    ["/es/__missing__",404,null,"private, no-cache, no-store, max-age=0, must-revalidate",["en"],"f3a78f692ede2a09c6e49f9b3f12986804c18521fa6c9931a6d18ecbefdc306c","6c9c2b5268592dcb4233f54f3921a2762485e3d1ff47cf170ed741f5d1059737"],
+    ["/es/about",200,null,"s-maxage=31536000",["en"],"0beda233dbfaf956a87383b648eedf4f7047ad526221ebe51dc064ec410ee15d","d694aecffc7a1bc5bb750f6ff9b74370448b2eeb317aa5e18455366703a74ed4"],
+    ["/es/blog",404,null,"private, no-cache, no-store, max-age=0, must-revalidate",["en"],"f3a78f692ede2a09c6e49f9b3f12986804c18521fa6c9931a6d18ecbefdc306c","6c9c2b5268592dcb4233f54f3921a2762485e3d1ff47cf170ed741f5d1059737"],
+    ["/es/contact",200,null,"s-maxage=31536000",["en"],"5b66156e6d09f3287c562afc0fc9ebf79ceef3cb50d423d44c784159deea528b","728b5059378692df7b53746644288874e7a4587b787bf47d7f69016d72b64cef"],
+    ["/es/cookies",200,null,"s-maxage=31536000",["en"],"ad22f6750d63e42530f780c80f1c972dc66d2b540b2185cd28649f90b6536f8b","d93ff3d6c747ce34910d4a9fddda7ef06d16b6e66b4b4cf76a66b4e07dedc8c7"],
+    ["/es/faq",200,null,"s-maxage=31536000",["en"],"fd68997e8b7f71643c5bad01bca81a2be44af51e29b7044e5c123c332047641d","224acb982896e2273a6792e8d1cf85817578db93bafde208630eab206d727668"],
+    ["/es/gallery",200,null,"s-maxage=31536000",["en"],"5a0b27c7a975868db76b5c7979cc1bce798f8286d190fa1f830bc72eb3e68a21","73a75966d6bf86ee12a7d2dc02f437f6c60315d7ab2dc0f31b531f2ae64b5aee"],
+    ["/es/gallery/360-image-enhancement",200,null,"s-maxage=31536000",["en"],"b61ecd46cb99f21c6f6b0eae0e67da73d20deaafac7ee4cfcbc6f917b24fcf79","f12e5510b4d79d4a71a73c58dda4af026b662e808cd2d6aa2106c6181498eb38"],
+    ["/es/gallery/360-virtual-staging",200,null,"s-maxage=31536000",["en"],"fef9c770aa2019e5614120079eb283391cd682d5a053309bdd113f680a4546a8","4721afb231cc8403335e75d0d4410d533c5f73fba29a0417e07dd02238be086f"],
+    ["/es/gallery/__missing__",404,null,"s-maxage=31536000",[null],"93e2f3f7c7dbc9383b13f50b2c42e97cab55b6b670ee47c430cbdef792fa3ddc","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/es/gallery/aerial-editing",200,null,"s-maxage=31536000",["en"],"d58219ed274e41ab0d2db84f2370174c361661e33ca0bed206c41f3be016b215","2f2a30bf6d9c0fa3776894d8f60f9c81e417b18a82f6201c6b05f170e8c4dbe1"],
+    ["/es/gallery/day-to-dusk",200,null,"s-maxage=31536000",["en"],"eede4c6c259d46ec633aa9daa3e5b2e8a563181e5d8c054f100a22a13588cea6","4db902e3b9c45a75f45d8d747866b70bc07f84f08bdab5914b34598c4d4fd6b4"],
+    ["/es/gallery/development-site-plans",200,null,"s-maxage=31536000",["en"],"74c35bfc927afae30ef9ed4b633dc3ac63bd3d16a4773c21c81ddbb7acbe6f59","0117480f894f23f5e77d8ceb764b59d6fea7871f66c0afc3255721377529ab43"],
+    ["/es/gallery/floor-plans",200,null,"s-maxage=31536000",["en"],"0972d312c81bd1de597286221a3e22433c36288ed8c0aedc18bb6a60ce5cd67e","be63921526a3f4ea41d0d6c3a86d9973738c8324a2e6008beaaeac98dbbf4b1a"],
+    ["/es/gallery/image-enhancement",200,null,"s-maxage=31536000",["en"],"667bcef6e8e1b1612beecb805cbe0d208e5c89530c609ad2b9b3027d5923355a","1981693dca6cd6a08b5d2779fc9ae977acaf27ec55e35bea868ffe4c49c2ee72"],
+    ["/es/gallery/item-removal-virtual-cleaning",200,null,"s-maxage=31536000",["en"],"f4a6a7798c6cefa02aa74d4a4415527c1d3b0634563a1f2c38b9e6381b787a9a","0cde180dbe61f005f140b9627e699a526195dba947e598de613a58430c6b094c"],
+    ["/es/gallery/virtual-renovation",200,null,"s-maxage=31536000",["en"],"9d02acc6bd8e1eaf6a01598d33bb3c47978591f10e28577665054fb110b65c01","f106d352499194b5f7ba3cb0e27f311c351424c026bc26a336b3d4ddc28a1fd8"],
+    ["/es/gallery/virtual-staging",200,null,"s-maxage=31536000",["en"],"9e204b0369c6b101081d4e0004afb46b5f37c2dd118ba0a7c3d9233c05f6eae7","f4722dd72b9247b944752eed2e307d8db247f59b9ee519655cc7ae1bfe9d70f5"],
+    ["/es/legal",200,null,"s-maxage=31536000",["en"],"8598e7ec0298791f709b14ebee8b7f580391ce728b0822c3960a4f6c55147918","f629b7bb938979a529e9ec8e293d33645dfd3986a91f323428b4cc4fe3017a28"],
+    ["/es/login",200,null,"s-maxage=31536000",["en"],"21f5617845d3f1e23aafdc31da0cccc50b2b9d21bae7f9a04760e0b788d70d38","1971b38f03cada9d676a85a4f0f08210c6dca9d809f8de5e1a393d4d17a05aea"],
+    ["/es/pricing",200,null,"s-maxage=31536000",["en"],"50a778f51fa970470f5190f99b858658aa0a867c962b80a92d16fa9d59caf19a","416855a9d051ed7ca81385a2f0258bfa7955f87115ffab1e71bd9d08eef4c62b"],
+    ["/es/pricing/360-image-enhancement",200,null,"s-maxage=31536000",["en"],"d54bbfb0898cbc16e3fd92ab618926316b0e3c1d78f29768ff7a4680240dbec4","f84075f215b483ce34d441555181adef0fdc2490d5f9360e2eaa04326a719069"],
+    ["/es/pricing/360-virtual-staging",200,null,"s-maxage=31536000",["en"],"495df63aefcd213d5bcafce485f39270955517638de00b243c95f1c323db6c0f","393a96f6556eca4a2f40a9009ca800465aee95004dad49936424ec25589d90b7"],
+    ["/es/pricing/aerial-editing",200,null,"s-maxage=31536000",["en"],"ed911dcbd8ab3f8db13f682a1297b69e79e052e39f0c7f84145cbbda6182c6bc","2154f672474e28605d182b9178cf54441e41d934ac81f93c570f32f527fe328f"],
+    ["/es/pricing/day-to-dusk",200,null,"s-maxage=31536000",["en"],"cc5243abe9bd67d5471ab81f8de775302cc6bdccfc49590ed4929e8b96e70bd5","b2b14eab312e58e0b00c9e3fa02cd0e5c29fa4f6c0ee29b37b52486c0d114b2a"],
+    ["/es/pricing/development-site-plans",200,null,"s-maxage=31536000",["en"],"76f6244f984f3cecc90b297048f23258e1d06bc5debb9e463898905ef1e7620c","0996f5690d2c2ed7a626d469641f02ddd7d0c6a49f3dca91aaa426a1490bf1c7"],
+    ["/es/pricing/floor-plans",200,null,"s-maxage=31536000",["en"],"79d733e1afaf6801ff7850b3bf1c00a0f1f02e9e959859dd33207afb8eefd9fa","6da5c86cf1fcfb3ff0890a6beed5dda8606b3626b20783328e8e8ca719042ee5"],
+    ["/es/pricing/image-enhancement",200,null,"s-maxage=31536000",["en"],"f48485016d0d0a0cd445b1286e311956343c7ef0c4e9d23f6e8614bd7fd87202","4333b1644a0ad2a45165af4fd490f61a9557465014b2fadc74793d199e8ef0b2"],
+    ["/es/pricing/item-removal-virtual-cleaning",200,null,"s-maxage=31536000",["en"],"a9ddea19cdeb1a86c2e122bcbf648b0186d03cf6fdb238a71c1aa37162cee329","f47d4a4841873300f30d0cdaa170512f5267d6e1f72ecc0020ded676c128a0e8"],
+    ["/es/pricing/photo-editing",200,null,"s-maxage=31536000",["en"],"e1711d446a6d1856717e30f9412f7fd6b9f86d120291e8ade05d7a335a248ea0","99c3ab7d2d6e4028efc9eefbbcba28e08ed276cb9e8238160d5594a62889d80a"],
+    ["/es/pricing/virtual-renovation",200,null,"s-maxage=31536000",["en"],"e86556e09c2e1695a0395dc6e2d8c33f9cd912f9fac7675cc45260cc244bff46","1016855fc3c199e6a646a62a1a4ce84e9c559fa69e76fd207d24a4ba0cfb0924"],
+    ["/es/pricing/virtual-staging",200,null,"s-maxage=31536000",["en"],"b2b66af8dad4879f2ae4b9fbbb58034c57c3797ee8c032a4f470cc93ebf8106f","b1ce87b629b50576861f2192a01a6d8682e0ec64ab9f9d95779ee8df7fe6e284"],
+    ["/es/privacy",200,null,"s-maxage=31536000",["en"],"f9d87753213053633b75858ee8169a6adc1dc63bbbd9c3d58c7ae2c5ef13130a","0eb83dc60192dc116058bc2900516e2ea03ec9d8fc0de63c4a69ec80e4e658a8"],
+    ["/es/refunds",200,null,"s-maxage=31536000",["en"],"6f66f4e49b11f0539ce9d7fce20fef0816621fbebac1704ceda71aaed8d39ac1","a14cb8ecb6bdbf458acf4674d6199c35bdd307962581395ba64f26361e7c5136"],
+    ["/es/services",308,"/es/pricing","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/es/signup",200,null,"s-maxage=31536000",["en"],"5f029d04b125a90ed47d99492ec86e03d8af91ee029e57527bf80148095f4e58","332ef6cfd851d9f67f2fb189264da3db25d2bf21d03a45bb514435888eef4fdb"],
+    ["/es/terms",200,null,"s-maxage=31536000",["en"],"32cdd355a9f29cf9bc0ce89feb25a4c56435a72cf8ad8e7646d6999f7442a6a7","57d2e0ad8e47ed193e2dc6aaadd56b4033b636276baafbfa3b6fdcd09fb84914"],
+    ["/faq",200,null,"s-maxage=31536000",["en"],"a4696e175ab2688fe933fe611550f249d07d7bf21061cf508d7913192b1be5b5","0ee8da5cc022487792226c91ebdfd1dcfa3c6d87905c62660de2458ac67750c1"],
+    ["/forgot-password",200,null,"s-maxage=31536000",["en"],"ebd5594bdf24fe7d8fd86f3d775897e54e3398fe334970b1ce3300a8aac5f113","e3ee78137c8204fa1680fabd53418eadc01c9769136f773dbfa32f2580817a36"],
+    ["/fr",404,null,"private, no-cache, no-store, max-age=0, must-revalidate",["en"],"f3a78f692ede2a09c6e49f9b3f12986804c18521fa6c9931a6d18ecbefdc306c","6c9c2b5268592dcb4233f54f3921a2762485e3d1ff47cf170ed741f5d1059737"],
+    ["/fr/pricing/virtual-staging",404,null,"private, no-cache, no-store, max-age=0, must-revalidate",["en"],"f3a78f692ede2a09c6e49f9b3f12986804c18521fa6c9931a6d18ecbefdc306c","6c9c2b5268592dcb4233f54f3921a2762485e3d1ff47cf170ed741f5d1059737"],
+    ["/gallery",200,null,"s-maxage=31536000",["en"],"dedab88e775e7bf431448723ba918e4f1a124a59d998a7a9050465a9c5835779","4a5f7b31ca935eb44e0a8c397140f09c26f07b6c72218c47d921ee63d37ba3ce"],
+    ["/gallery/360-image-enhancement",200,null,"s-maxage=31536000",["en"],"263c9001ac29a14a9c9f37050e948b5bb887be926664fd7bae28d5608477cf84","2036f1d2512a8caa0a4b835ee006e2cec94cceea1776ba7a7dbd1ba7ee5457a9"],
+    ["/gallery/360-virtual-staging",200,null,"s-maxage=31536000",["en"],"63d48918465ddfd098375293b7a0012f0715f6fe395f14f8831a5bdfb92b87ed","8104c1cd17b8b3df1ef624f4c88cc55105a0008c9fda9383738e7c5113035cf9"],
+    ["/gallery/__missing__",404,null,"s-maxage=31536000",[null],"93e2f3f7c7dbc9383b13f50b2c42e97cab55b6b670ee47c430cbdef792fa3ddc","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/gallery/aerial-editing",200,null,"s-maxage=31536000",["en"],"9feb8c42276a838f8d3daeecf9bd972ab00b38f939ceaf4e06fbf61ef4b18c5d","bbc2c99b28264a72c7b4b0dcd730510c095a92cd83f1daa019c50534f6722340"],
+    ["/gallery/day-to-dusk",200,null,"s-maxage=31536000",["en"],"c64ddf72ccea48f6177e86b5afa85f478a9acad53d71e62bde567d3dfd89c2dd","98dff1b5404c100aa14e1918fb7226c949d37003fb85a33720d1163d819fd8cb"],
+    ["/gallery/development-site-plans",200,null,"s-maxage=31536000",["en"],"f8fb5a5025d007c90118bab730a65418081f770962819b257db089eff542ed4e","3fda3db2fd4da8993efab7dec52cdd3628af407a7da539a56504a2c2aae5cc72"],
+    ["/gallery/floor-plans",200,null,"s-maxage=31536000",["en"],"646f75f4dfecad147ee5862bd8f2634e6a9259a1d3b7aa34c897fa7e2f0163f1","a2e25caf3a51f2333545896367a6ef1e6ee4774cdef99e152bdb7879f1475334"],
+    ["/gallery/image-enhancement",200,null,"s-maxage=31536000",["en"],"cd215a071fe1e59270fb6d3bb1c9cf90d4783e852c80e48159439e3b779ff627","0a014ab408e5e49145a802077df65b45c16f7974cd82792d97005f705e5ca8e5"],
+    ["/gallery/item-removal-virtual-cleaning",200,null,"s-maxage=31536000",["en"],"7b49f29862c522b145e6a54e2969dd7658f1325d7cc28cd9fd4e103514b807f2","4ad3aba669fbdc1eb8882e839c3160c3d0f51fa9b7a7cbd3e88e3629cb2d2ab3"],
+    ["/gallery/virtual-renovation",200,null,"s-maxage=31536000",["en"],"69b4513814c528b2927856092890a7c9a7953c72aeed597b5587b8232b0e228c","b9964c8da191a59c507c7bf85c075c1f533bb0230ebe373137aef5739de22007"],
+    ["/gallery/virtual-staging",200,null,"s-maxage=31536000",["en"],"203a5929636e1126f12f2bfd3b32f9f3772b0f6d992c5821604a1ae5ab584cdb","5152316acaf1543f8e8e5be23b67c9155c39df85ed6510a728a57be392474e1c"],
+    ["/legal",200,null,"s-maxage=31536000",["en"],"5468a910b33e16e5c2986b158d32af246b0afb44d736f84dafe11bd3d2d448d4","059e7ce9cef7c40ace73e215dd5a1a3c0e7385a9ab430c23ad8ed62e6a630e1f"],
+    ["/local",200,null,"s-maxage=31536000",["en"],"6b003972ea67d5a346c122de7918295800175e2d1c8dbc9d821307a0bbe9fad2","11f307ca48595784f7ac20f5d2be024cafad5fcbf79976bbf075b6d8cc47f5dc"],
+    ["/login",200,null,"s-maxage=31536000",["en"],"e203ab3c205da368959f97df6437ad3c7262239dd45f3d15a337dd554fa18351","79a3ecd042620f2b0b5b72a5bb1856e3b4e6aaa2be65d345ed1c7b11905e2434"],
+    ["/online-retail",200,null,"s-maxage=31536000",["en"],"97d494752295f88f514178aca341ad60a6416e22b6c79eec3af4fc10916e4a80","9360a80bcb8d29f4fcd94a929b525ea36c81633b8c372cf5bde6c47bc839e3e2"],
+    ["/order",308,"/dashboard/orders/new","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/3d-floor-plans",308,"/dashboard/orders/new/3d-floor-plans","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/day-to-dusk",308,"/dashboard/orders/new/day-to-dusk","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/image-enhancement",308,"/dashboard/orders/new/image-enhancement","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/image-enhancement/hdr-bracketed",308,"/dashboard/orders/new/image-enhancement/hdr-bracketed","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/image-enhancement/single-exposure",308,"/dashboard/orders/new/image-enhancement/single-exposure","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/item-removal-virtual-cleaning",308,"/dashboard/orders/new/item-removal-virtual-cleaning","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/photo-editing",308,"/dashboard/orders/new/photo-editing","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/virtual-renovation",308,"/dashboard/orders/new/virtual-renovation","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/order/virtual-staging",308,"/dashboard/orders/new/virtual-staging","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/portfolio",308,"/gallery","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/pricing",200,null,"s-maxage=31536000",["en"],"547f893777c633c1d549fd00fea0c78ea19c446ecb247939ad9ce956b66b13d1","bdaac66e70482b1f911b1d88a32f2f0c6ac6d7f9164367b5435bee11f2b8dc29"],
+    ["/pricing/360-image-enhancement",200,null,"s-maxage=31536000",["en"],"a1a3145ad80476b3f4b824481c98910f28bf4f213e44f5ceb19f739a674ef1a2","6b2a2eeee243f1ff24fa6e434e14e56ecaf0f28e1b17349f535919fd61fe25de"],
+    ["/pricing/360-virtual-staging",200,null,"s-maxage=31536000",["en"],"0e08c55a7dee59993d4e7c6d142b797006d93dbc7c174f5888b07962c3f7d617","af95e2dfa8822882bc958a67f7424295c4db1e623bc00cffa97c22da155babe2"],
+    ["/pricing/aerial-editing",200,null,"s-maxage=31536000",["en"],"3053f2d5f54467c59c26468361cccfa4d2c541b6d23d2e2ac9bcc0ef8cc67ff7","e32dab17ff60328689fad93e567cf022ed51b9ed1f51b99868ccb56e83221c9a"],
+    ["/pricing/day-to-dusk",200,null,"s-maxage=31536000",["en"],"9c0d7a720b86f2e25376fd97737aeadd756da62b0e0c7708cc08e32ae2199063","4a232230fcea62e4d470fa955a7990a020816e273b6e64d97065d0282dc7821f"],
+    ["/pricing/development-site-plans",200,null,"s-maxage=31536000",["en"],"9f82ce0edc1bb0f76919d9bb4756b8ca5b962045f6b23ca5bc92fc05511d7448","9ff09a22460268792345143ec1280d5c5fc15fa072c43a6c9ce568318e89d7e7"],
+    ["/pricing/floor-plans",200,null,"s-maxage=31536000",["en"],"a88f1b745431641b5327c04a5a2fec66f2b8d9ba0920c7a50a6c919f0ab82dd3","fd9853507e2a683ca5295ae92cf46b8d47a69d169212b66bfa2efe3bb2e169c4"],
+    ["/pricing/image-enhancement",200,null,"s-maxage=31536000",["en"],"e7cd188d0d5b25430335e1dedfae57d0398352895b286ab6de36c18ce369e0c3","844b33cf5c8ef2ca0c81f2d5b85c527045632467523c32f4484d999c0ce1853e"],
+    ["/pricing/item-removal-virtual-cleaning",200,null,"s-maxage=31536000",["en"],"a410d5fa392c24687bf8e23616b6cf392284506759d38f6598cd3b1fcfea0a43","a834ac42b2b0f167ea7dd69e6618ded457e6706461c71efe0ad58eae366a069e"],
+    ["/pricing/photo-editing",200,null,"s-maxage=31536000",["en"],"9443c64cdf0420694b52650e45fc6195567406ce7a8f10cc7f0d00e1f0042bf3","d78ad6aefb1e03cc0427505a93ae579ee74695be1b3e1fbdbd687ce9c6426884"],
+    ["/pricing/virtual-renovation",200,null,"s-maxage=31536000",["en"],"40f1f18381a2df67df57a5ce616039112c212092dd63bdc72ac1a698eeacb04b","5a1547f67b8469051b41890e7cd0dae85f88a7726f1f286ec9c24b993bac4b6a"],
+    ["/pricing/virtual-staging",200,null,"s-maxage=31536000",["en"],"89a4d1d128da66c0a6dad855be197f2fbeb67af23bebb4972ccdbde0a53eb326","b7acc472798b2054e94db8072f16c314e17d5106825a57eceb3fa9e556cda3d8"],
+    ["/privacy",200,null,"s-maxage=31536000",["en"],"4f80575da91ce09e29b872b46a4e33b581058c28125aa713790a54f62a2ae503","ce7cb5a7dea76b52ad48870191822fcc7299863807424f0f15e855365a181f66"],
+    ["/property/__missing__",404,null,"private, no-cache, no-store, max-age=0, must-revalidate",[null],"93e2f3f7c7dbc9383b13f50b2c42e97cab55b6b670ee47c430cbdef792fa3ddc","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/property/costa-blanca-demo",200,null,"s-maxage=31536000",["en"],"1ebdfcbae058782d23ee72f4215bbfe137182a4f11a3cd4bbc4260d27172415a","1c7b77bc150cd204f29962d31b30636ed6f190f8dfee3d88b34939cdb7440c9d"],
+    ["/refunds",200,null,"s-maxage=31536000",["en"],"ada1275f3715163d7ba365e091cd504d3a3894031c97ebb67b7b92559a29dfc4","c6195ea0c85ca59e26afb8c91b8de2de645b9d815f086e3407867d6758820fae"],
+    ["/renders",200,null,"s-maxage=31536000",["en"],"61185da7772ea56e5d940089396aeae684986af61826c1658a664349a89cad9b","309c5dcf26bf55ae76209e898be7374833586108acbddd1ccf0b89244e7de5f9"],
+    ["/reset-password",200,null,"s-maxage=31536000",["en"],"0be724ac70e25ff74b44927961e44e317385dcd90610b61773641adc42f9b5f2","8505e68b9a288a110c02cb3e9e68d0cf77e5d0499a80f14e6dca2e4e51bd8bad"],
+    ["/robots.txt",200,null,"public, max-age=0, must-revalidate",null,null,"8108529be76fe481fb441b43088b4dd79073065570af974b7f7708c729262b81"],
+    ["/services",308,"/pricing","s-maxage=31536000",[null],"80243271f6176ae953982af8ce6dc85782d204d9803e2e2557a0e0abde45c6e8","bb7b81f30b9972c560dd4d399ef5c6bf906c1316b04736c0c15eaed23f3b250f"],
+    ["/signup",200,null,"s-maxage=31536000",["en"],"d42bbb5b696423f3ebfe22ee622e3b7ce8b1bbaf76485472b0b9ff7c0a474c5e","ed8fcca815b89c62d74a1adffe7ec695e6e18e0e1d749425272356aea33e27d4"],
+    ["/sitemap.xml",200,null,"public, max-age=0, must-revalidate",null,null,"a76b4dad07031516abb7909969055324609dd45090255bf66650f6264ae2e150"],
+    ["/terms",200,null,"s-maxage=31536000",["en"],"82ea883915d969aa2fd28ed10ea1d3cb1946b0aaea9fdf71818b335a1211978b","26ec9826d79f72df971e254880ba022b1be7ea0450f92850437c0e98439be61e"]
+  ],
+  "representativeSeo": [
+    {
+      "path": "/",
+      "status": 200,
+      "html": [
+        {
+          "lang": "en"
+        }
+      ],
+      "title": [
+        "Real Estate Photo Editing & Virtual Staging | PicchuSpot"
+      ],
+      "description": [
+        "Professional real estate photo editing, virtual staging, day-to-dusk, item removal, virtual renovation, floor plans and 360° image enhancement."
+      ],
+      "canonical": [
+        "https://picchuspot.com"
+      ],
+      "alternates": {
+        "en": "https://picchuspot.com",
+        "en-US": "https://picchuspot.com",
+        "x-default": "https://picchuspot.com",
+        "es": "https://picchuspot.com/es",
+        "es-ES": "https://picchuspot.com/es"
+      },
+      "robots": [],
+      "openGraphLocale": [
+        "en_US"
+      ],
+      "viewport": [
+        "width=device-width, initial-scale=1"
+      ],
+      "themeColor": [
+        "#071A2B"
+      ]
+    },
+    {
+      "path": "/__missing__",
+      "status": 404,
+      "html": [
+        {
+          "lang": "en"
+        }
+      ],
+      "title": [
+        "PicchuSpot — Real Estate Visuals",
+        "404: This page could not be found."
+      ],
+      "description": [
+        "PicchuSpot — Real Estate Visuals. Property visuals that make listings stand out. Virtual staging, virtual renovation, 3D floor plans, and photo editing delivered in 24-48 hours. Local photography in Alicante & Costa Blanca."
+      ],
+      "canonical": [],
+      "alternates": {},
+      "robots": [
+        "noindex"
+      ],
+      "openGraphLocale": [
+        "en_US"
+      ],
+      "viewport": [
+        "width=device-width, initial-scale=1"
+      ],
+      "themeColor": [
+        "#071A2B"
+      ]
+    },
+    {
+      "path": "/es",
+      "status": 200,
+      "html": [
+        {
+          "lang": "en"
+        }
+      ],
+      "title": [
+        "PicchuSpot - Visuales inmobiliarios | PicchuSpot"
+      ],
+      "description": [
+        "Visuales inmobiliarios que hacen destacar los anuncios. Virtual Staging, renovación virtual, planos, edición fotográfica y media inmobiliaria local."
+      ],
+      "canonical": [
+        "https://picchuspot.com/es"
+      ],
+      "alternates": {
+        "en": "https://picchuspot.com",
+        "en-US": "https://picchuspot.com",
+        "x-default": "https://picchuspot.com",
+        "es": "https://picchuspot.com/es",
+        "es-ES": "https://picchuspot.com/es"
+      },
+      "robots": [],
+      "openGraphLocale": [
+        "es_ES"
+      ],
+      "viewport": [
+        "width=device-width, initial-scale=1"
+      ],
+      "themeColor": [
+        "#071A2B"
+      ]
+    },
+    {
+      "path": "/es/gallery/__missing__",
+      "status": 404,
+      "html": [
+        {
+          "id": "__next_error__"
+        }
+      ],
+      "title": [
+        "PicchuSpot — Real Estate Visuals"
+      ],
+      "description": [
+        "PicchuSpot — Real Estate Visuals. Property visuals that make listings stand out. Virtual staging, virtual renovation, 3D floor plans, and photo editing delivered in 24-48 hours. Local photography in Alicante & Costa Blanca."
+      ],
+      "canonical": [],
+      "alternates": {},
+      "robots": [
+        "noindex"
+      ],
+      "openGraphLocale": [
+        "en_US"
+      ],
+      "viewport": [
+        "width=device-width, initial-scale=1"
+      ],
+      "themeColor": [
+        "#071A2B"
+      ]
+    },
+    {
+      "path": "/es/login",
+      "status": 200,
+      "html": [
+        {
+          "lang": "en"
+        }
+      ],
+      "title": [
+        "Iniciar sesión | Portal de clientes PicchuSpot | PicchuSpot"
+      ],
+      "description": [
+        "PicchuSpot — Real Estate Visuals. Property visuals that make listings stand out. Virtual staging, virtual renovation, 3D floor plans, and photo editing delivered in 24-48 hours. Local photography in Alicante & Costa Blanca."
+      ],
+      "canonical": [],
+      "alternates": {},
+      "robots": [
+        "noindex, nofollow"
+      ],
+      "openGraphLocale": [
+        "en_US"
+      ],
+      "viewport": [
+        "width=device-width, initial-scale=1"
+      ],
+      "themeColor": [
+        "#071A2B"
+      ]
+    },
+    {
+      "path": "/es/pricing/virtual-staging",
+      "status": 200,
+      "html": [
+        {
+          "lang": "en"
+        }
+      ],
+      "title": [
+        "Precios de Virtual Staging | PicchuSpot"
+      ],
+      "description": [
+        "Transforma habitaciones vacías o anticuadas en espacios amueblados y listos para el mercado. 9 estilos interiores, revisiones ilimitadas durante 30 días desde la primera entrega y entrega en 24-48 horas."
+      ],
+      "canonical": [
+        "https://picchuspot.com/es/pricing/virtual-staging"
+      ],
+      "alternates": {
+        "es": "https://picchuspot.com/es/pricing/virtual-staging",
+        "es-ES": "https://picchuspot.com/es/pricing/virtual-staging",
+        "en": "https://picchuspot.com/pricing/virtual-staging",
+        "en-US": "https://picchuspot.com/pricing/virtual-staging",
+        "x-default": "https://picchuspot.com/pricing/virtual-staging"
+      },
+      "robots": [],
+      "openGraphLocale": [
+        "es_ES"
+      ],
+      "viewport": [
+        "width=device-width, initial-scale=1"
+      ],
+      "themeColor": [
+        "#071A2B"
+      ]
+    },
+    {
+      "path": "/pricing/virtual-staging",
+      "status": 200,
+      "html": [
+        {
+          "lang": "en"
+        }
+      ],
+      "title": [
+        "Virtual Staging Services | PicchuSpot"
+      ],
+      "description": [
+        "Transform empty or outdated rooms into furnished, market-ready spaces. 9 interior styles, unlimited revisions for 30 days from first delivery, delivered in 24–48 hours."
+      ],
+      "canonical": [
+        "https://picchuspot.com/pricing/virtual-staging"
+      ],
+      "alternates": {
+        "es": "https://picchuspot.com/es/pricing/virtual-staging",
+        "es-ES": "https://picchuspot.com/es/pricing/virtual-staging",
+        "en": "https://picchuspot.com/pricing/virtual-staging",
+        "en-US": "https://picchuspot.com/pricing/virtual-staging",
+        "x-default": "https://picchuspot.com/pricing/virtual-staging"
+      },
+      "robots": [],
+      "openGraphLocale": [
+        "en_US"
+      ],
+      "viewport": [
+        "width=device-width, initial-scale=1"
+      ],
+      "themeColor": [
+        "#071A2B"
+      ]
+    }
+  ]
+}

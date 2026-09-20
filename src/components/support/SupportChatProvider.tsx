@@ -26,14 +26,27 @@ interface SupportChatContextValue {
 
 const SupportChatContext = createContext<SupportChatContextValue | null>(null);
 
-export function SupportChatProvider({ children }: { children: ReactNode }) {
+export function SupportChatProvider({
+  children,
+  deferWidgetUntilMount = false,
+}: {
+  children: ReactNode;
+  deferWidgetUntilMount?: boolean;
+}) {
   const pathname = usePathname() ?? "/";
+  const [widgetMounted, setWidgetMounted] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [liveSupportActive, setLiveSupportActive] = useState(false);
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const language = detectSupportChatLanguage(pathname);
   const launcherMode = getSupportChatLauncherMode(pathname);
   const supportChatVisible = launcherMode !== "none";
+
+  useEffect(() => {
+    if (deferWidgetUntilMount) {
+      window.queueMicrotask(() => setWidgetMounted(true));
+    }
+  }, [deferWidgetUntilMount]);
 
   useEffect(() => {
     if (!supportChatVisible) {
@@ -102,7 +115,7 @@ export function SupportChatProvider({ children }: { children: ReactNode }) {
   return (
     <SupportChatContext.Provider value={value}>
       {children}
-      {supportChatVisible && !liveSupportActive && (
+      {(!deferWidgetUntilMount || widgetMounted) && supportChatVisible && !liveSupportActive && (
         <SupportChatWidget
           open={chatOpen}
           onOpenChange={setChatOpen}

@@ -15,6 +15,218 @@ function parseJsonLdObjects(html: string): JsonLdObject[] {
   ).flatMap((payload) => (Array.isArray(payload) ? payload : [payload]));
 }
 
+test("document roots emit the route language and inherited metadata in the original HTML", async ({
+  request,
+  page,
+}) => {
+  for (const [path, language] of [
+    ["/", "en"],
+    ["/pricing/virtual-staging", "en"],
+    ["/login", "en"],
+    ["/signup", "en"],
+    ["/es", "es"],
+    ["/es/pricing/virtual-staging", "es"],
+    ["/es/legal", "es"],
+    ["/es/gallery", "es"],
+    ["/es/login", "es"],
+    ["/es/signup", "es"],
+  ] as const) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status(), path).toBe(200);
+    const html = await response.text();
+    // Check the response, not a document that client JavaScript could repair.
+    expect(html.match(/<html(?:\s|>)/gi), path).toHaveLength(1);
+    expect(html.match(/<body(?:\s|>)/gi), path).toHaveLength(1);
+    expect(html.match(/<\/html>/gi), path).toHaveLength(1);
+    expect(html.match(/<\/body>/gi), path).toHaveLength(1);
+    const document = await page.evaluate((source) => {
+      const doc = new DOMParser().parseFromString(source, "text/html");
+      const values = (selector: string, attribute: string) =>
+        Array.from(doc.querySelectorAll(selector), (node) => node.getAttribute(attribute));
+      return {
+        language: doc.documentElement.lang,
+        titles: Array.from(doc.querySelectorAll("title"), (node) => node.textContent),
+        applicationName: values('meta[name="application-name"]', "content"),
+        themeColor: values('meta[name="theme-color"]', "content"),
+        viewport: values('meta[name="viewport"]', "content"),
+        manifest: values('link[rel="manifest"]', "href"),
+        icons: values('link[rel="icon"]', "href"),
+        bodyClass: doc.body.className,
+        robots: values('meta[name="robots"]', "content"),
+      };
+    }, html);
+    expect(document.language, path).toBe(language);
+    expect(document.titles, path).toHaveLength(1);
+    expect(document.titles[0], path).toContain("PicchuSpot");
+    expect(document.applicationName, path).toEqual(["PicchuSpot"]);
+    expect(document.themeColor, path).toEqual(["#071A2B"]);
+    expect(document.viewport, path).toEqual(["width=device-width, initial-scale=1"]);
+    expect(document.manifest, path).toEqual(["/manifest.webmanifest"]);
+    expect(document.icons, path).toEqual(expect.arrayContaining([
+      "/icons/favicon-16x16.png", "/icons/favicon-32x32.png",
+      "/icons/favicon-48x48.png", "/icons/favicon.svg",
+    ]));
+    expect(document.bodyClass, path).toContain("antialiased flex flex-col min-h-screen w-full overflow-x-clip");
+    if (/\/(login|signup)$/.test(path)) {
+      expect(document.robots, path).toEqual(["noindex, nofollow"]);
+    }
+  }
+});
+
+test("both document roots retain the Virtual Staging canonical and reciprocal alternates", async ({
+  request,
+  page,
+}) => {
+  for (const prefix of ["", "/es"]) {
+    const path = `${prefix}/pricing/virtual-staging`;
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(200);
+    const document = await page.evaluate((source) => {
+      const doc = new DOMParser().parseFromString(source, "text/html");
+      return {
+        canonical: Array.from(doc.querySelectorAll('link[rel="canonical"]'), (node) => node.getAttribute("href")),
+        alternates: Object.fromEntries(Array.from(
+          doc.querySelectorAll('link[rel="alternate"][hreflang]'),
+          (node) => [node.getAttribute("hreflang"), node.getAttribute("href")],
+        )),
+      };
+    }, await response.text());
+    expect(document.canonical, path).toEqual([`https://picchuspot.com${path}`]);
+    expect(document.alternates, path).toEqual({
+      en: "https://picchuspot.com/pricing/virtual-staging",
+      "en-US": "https://picchuspot.com/pricing/virtual-staging",
+      es: "https://picchuspot.com/es/pricing/virtual-staging",
+      "es-ES": "https://picchuspot.com/es/pricing/virtual-staging",
+      "x-default": "https://picchuspot.com/pricing/virtual-staging",
+    });
+  }
+});
+
+// Keep the existing route matrix, with a fresh browser/guard per URL so one
+// failed hydration cannot prevent (or contaminate) the Spanish gallery check.
+for (const path of [
+  "/__document_root_missing__",
+  "/es/__document_root_missing__",
+  "/es/blog",
+  "/en",
+  "/fr",
+  "/fr/pricing/virtual-staging",
+  "/gallery/__document_root_missing__",
+  "/es/gallery/__document_root_missing__",
+  "/property/__document_root_missing__",
+]) {
+  // English dynamic gallery/property errors are a separate, pre-existing
+  // fallback. The ungenerated Spanish gallery slug uses the global document.
+  const isGlobal = !path.startsWith("/gallery/") && !path.startsWith("/property/");
+  test(`${isGlobal ? "global 404 document" : "unpublished dynamic route"}: ${path}`, async ({ request, page }, testInfo) => {
+    const guard = await installSmokeNetworkGuards(page, testInfo, {
+      expectedNavigation404Paths: isGlobal ? [path] : [],
+    });
+    const response = isGlobal
+      ? await page.goto(path)
+      : await request.get(path, { maxRedirects: 0 });
+    expect(response, path).not.toBeNull();
+    expect(response!.status(), path).toBe(404);
+    const html = await response!.text();
+    expect(html, path).toMatch(/<meta\s+name="robots"\s+content="noindex"/);
+    if (isGlobal) {
+      expect(new URL(page.url()).pathname, path).toBe(path);
+      expect(html.match(/<html(?:\s|>)/gi), path).toHaveLength(1);
+      expect(html.match(/<body(?:\s|>)/gi), path).toHaveLength(1);
+      expect(html, path).toMatch(/<html\s+lang="en"/);
+      expect(html, path).toMatch(/<meta\s+name="theme-color"\s+content="#071A2B"/);
+      expect(html, path).toMatch(/<body\s+class="[^"]*geist_[^"]*__variable[^"]*antialiased/);
+      await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
+      await expect(page.getByRole("heading", { level: 1, name: "404", exact: true })).toBeInViewport();
+      await expect(page.getByRole("heading", { level: 2 })).toHaveText("This page could not be found.");
+      // This banner only appears after its client effect: wait for hydration,
+      // not merely the static fallback text, before inspecting runtime errors.
+      await expect(page.locator('aside[aria-label="Cookie consent"], aside[aria-label="Consentimiento de cookies"]')).toBeVisible();
+      await expect(page.getByRole("button", {
+        name: path.startsWith("/es/")
+          ? "Abrir el asistente de IA de PicchuSpot"
+          : "Open PicchuSpot AI assistant",
+        exact: true,
+      })).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      expect(await page.locator("body").evaluate((node) => getComputedStyle(node).fontFamily)).toContain("Geist");
+      try {
+        await guard.expectClean();
+      } catch (error) {
+        // Keep a small, readable server/client comparison in CI logs as well as
+        // the existing runtime-error attachments; never swallow the failure.
+        console.info("404 hydration context", JSON.stringify({
+          path,
+          serverSupportText: html.match(/Ask PicchuSpot|Pregunta a PicchuSpot/)?.[0],
+          clientSupportText: await page.locator('button[aria-label*="PicchuSpot"]').allTextContents(),
+        }));
+        throw error;
+      }
+    }
+  });
+}
+
+test("an expected document 404 does not excuse script console errors", async ({ page }, testInfo) => {
+  const path = "/__document_root_missing__";
+  const guard = await installSmokeNetworkGuards(page, testInfo, {
+    expectedNavigation404Paths: [path],
+  });
+  const response = await page.goto(path);
+  expect(response?.status()).toBe(404);
+  await expect(page.locator('aside[aria-label="Cookie consent"]')).toBeVisible();
+  await guard.expectClean();
+
+  // Even the same text emitted by application JS must not be mistaken for
+  // Chromium's expected navigation diagnostic (JS supplies console arguments).
+  await page.evaluate(() => console.error(
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+  ));
+  await expect(guard.expectClean()).rejects.toThrow("first-party console errors");
+});
+
+test("language links cross document roots while English navigation and stored consent remain intact", async ({
+  page,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/pricing/virtual-staging");
+  await page.evaluate(() => {
+    localStorage.setItem("picchuspot_cookie_consent", "rejected");
+  });
+  await page.reload();
+  await page.evaluate(() => {
+    (window as Window & { documentRootSentinel?: string }).documentRootSentinel = "english";
+  });
+  await page.locator('a[href="/pricing"]').first().click();
+  await expect(page).toHaveURL(/\/pricing$/);
+  expect(await page.evaluate(() =>
+    (window as Window & { documentRootSentinel?: string }).documentRootSentinel,
+  )).toBe("english");
+  await page.locator('a[href="/pricing/virtual-staging"]').first().click();
+  await expect(page).toHaveURL(/\/pricing\/virtual-staging$/);
+  expect(await page.evaluate(() =>
+    (window as Window & { documentRootSentinel?: string }).documentRootSentinel,
+  )).toBe("english");
+
+  await page.getByRole("button", { name: "Select market, currency, and language" }).click();
+  await page.getByRole("link", { name: "Spanish", exact: true }).click();
+  await expect(page).toHaveURL(/\/es\/pricing\/virtual-staging$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  expect(await page.evaluate(() =>
+    (window as Window & { documentRootSentinel?: string }).documentRootSentinel,
+  )).toBeUndefined();
+  expect(await page.evaluate(() => localStorage.getItem("picchuspot_cookie_consent"))).toBe("rejected");
+  expect(await page.locator("body").evaluate((node) => getComputedStyle(node).fontFamily)).toContain("Geist");
+
+  await page.getByRole("button", { name: "Seleccionar mercado, moneda e idioma" }).click();
+  await page.getByRole("link", { name: "Inglés", exact: true }).click();
+  await expect(page).toHaveURL(/\/pricing\/virtual-staging$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  expect(await page.evaluate(() => localStorage.getItem("picchuspot_cookie_consent"))).toBe("rejected");
+  await guard.expectClean();
+});
+
 test("about page presents the founder story, audiences, and truthful schema", async ({
   page,
 }, testInfo) => {

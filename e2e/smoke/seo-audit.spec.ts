@@ -5,6 +5,30 @@ import { expect, test } from "@playwright/test";
 
 const exec = promisify(execFile);
 
+test("document-root production build keeps sitemap pages prerendered and homepage ISR unchanged", async ({
+  request,
+}) => {
+  const manifest = JSON.parse(await readFile(".next/prerender-manifest.json", "utf8")) as {
+    routes: Record<string, { initialRevalidateSeconds: number | false }>;
+  };
+  const response = await request.get("/sitemap.xml");
+  expect(response.status()).toBe(200);
+  const sitemapPaths = Array.from((await response.text()).matchAll(/<loc>([^<]+)<\/loc>/g),
+    (match) => new URL(match[1]).pathname,
+  );
+  expect(sitemapPaths.length).toBeGreaterThan(0);
+  for (const path of [...sitemapPaths, "/login", "/signup", "/es/login", "/es/signup"]) {
+    expect(manifest.routes[path], `${path} must be present in the production prerender manifest`).toBeDefined();
+  }
+  expect(manifest.routes["/"].initialRevalidateSeconds).toBe(300);
+  for (const path of ["/pricing/virtual-staging", "/es", "/es/pricing/virtual-staging"]) {
+    expect(manifest.routes[path].initialRevalidateSeconds, path).toBe(false);
+  }
+  for (const path of ["/dashboard", "/dashboard/orders/new", "/admin", "/fr", "/en"]) {
+    expect(manifest.routes[path], `${path} must not become a public prerender`).toBeUndefined();
+  }
+});
+
 test("SEO audit rules and safety boundaries pass focused unit tests", async () => {
   const result = await exec(process.execPath, ["--test", "scripts/seo-audit.test.mjs"], {
     timeout: 30000,

@@ -88,9 +88,9 @@ test("resolved order identity uses the verified email and normalized profile fie
 });
 
 test("onboarding, profile saves, and order entry share the profile-completeness contract", () => {
-  const layoutSource = source("app/(dashboard)/layout.tsx");
-  const dashboardSource = source("app/(dashboard)/dashboard/page.tsx");
-  const profilePageSource = source("app/(dashboard)/dashboard/profile/page.tsx");
+  const layoutSource = source("app/(default)/(dashboard)/layout.tsx");
+  const dashboardSource = source("app/(default)/(dashboard)/dashboard/page.tsx");
+  const profilePageSource = source("app/(default)/(dashboard)/dashboard/profile/page.tsx");
   const callbackSource = source("app/auth/callback/route.ts");
   const profileApiSource = source("app/api/profile/upsert/route.ts");
   const orderApiSource = source("app/(public)/api/order/route.ts");

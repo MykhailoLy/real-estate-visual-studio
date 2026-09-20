@@ -52,17 +52,17 @@ const headerSource = source("src/components/layout/Header.tsx");
 const cookieBannerSource = source(
   "src/components/privacy/CookieConsentBanner.tsx",
 );
-const englishFaqSource = source("src/app/(public)/faq/page.tsx");
-const spanishFaqSource = source("src/app/(public)/es/faq/page.tsx");
+const englishFaqSource = source("src/app/(default)/(public)/faq/page.tsx");
+const spanishFaqSource = source("src/app/(localized)/[locale]/(public)/faq/page.tsx");
 const faqDataSource = source("src/data/faq.ts");
 const publicPricingSource = source("src/lib/pricing/public.ts");
-const pricingPageSource = source("src/app/(public)/pricing/page.tsx");
+const pricingPageSource = source("src/app/(default)/(public)/pricing/page.tsx");
 const pricingServicePageSource = source("src/components/pricing/ServicePage.tsx");
 const spanishPricingPageSource = source(
-  "src/app/(public)/es/pricing/page.tsx",
+  "src/app/(localized)/[locale]/(public)/pricing/page.tsx",
 );
 const spanishPricingLabelsSource = source(
-  "src/app/(public)/es/pricing/labels.ts",
+  "src/app/(localized)/[locale]/(public)/pricing/labels.ts",
 );
 const orderSummarySource = source("src/components/order/OrderSummary.tsx");
 const orderReviewHeaderSource = source(
@@ -74,7 +74,9 @@ const orderSummaryCopySource = source(
 const supportPromptSource = source("src/lib/support-assistant/prompt.ts");
 const clientReviewsSource = source("src/lib/client-reviews.ts");
 const revisionPolicySources = [
-  sourceTree("src/app/(public)"),
+  sourceTree("src/app/(default)/(public)"),
+  sourceTree("src/app/(localized)/[locale]/(public)"),
+  sourceTree("src/app/(public)/api"),
   sourceTree("src/components"),
   sourceTree("src/content"),
   sourceTree("src/data"),
@@ -241,14 +243,14 @@ test("all bilingual policy routes are localized and present", () => {
 
     const englishFile = path.join(
       workspace,
-      "src/app/(public)",
+      "src/app/(default)/(public)",
       englishPath.slice(1),
       "page.tsx",
     );
     const spanishFile = path.join(
       workspace,
-      "src/app/(public)",
-      spanishPath.slice(1),
+      "src/app/(localized)/[locale]/(public)",
+      spanishPath.slice("/es/".length),
       "page.tsx",
     );
 
@@ -260,8 +262,8 @@ test("all bilingual policy routes are localized and present", () => {
 });
 
 test("Legal Notice metadata uses the bilingual canonical and alternate helpers", () => {
-  const englishPage = source("src/app/(public)/legal/page.tsx");
-  const spanishPage = source("src/app/(public)/es/legal/page.tsx");
+  const englishPage = source("src/app/(default)/(public)/legal/page.tsx");
+  const spanishPage = source("src/app/(localized)/[locale]/(public)/legal/page.tsx");
 
   assert.match(englishPage, /title: "Legal Notice"/);
   assert.match(englishPage, /canonicalPath: "\/legal"/);
@@ -471,7 +473,7 @@ test("customer-facing tax copy matches tax-inclusive Stripe Checkout", () => {
 
 test("unnecessary legal routes are not published", () => {
   assert.equal(
-    existsSync(path.join(workspace, "src/app/(public)/payment-security/page.tsx")),
+    existsSync(path.join(workspace, "src/app/(default)/(public)/payment-security/page.tsx")),
     false,
   );
   assert.doesNotMatch(footerSource, /payment-security/);

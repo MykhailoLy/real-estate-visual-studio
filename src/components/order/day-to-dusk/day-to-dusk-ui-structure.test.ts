@@ -29,7 +29,7 @@ const deliveryFields = readFileSync(
 const layout = readFileSync("src/components/order/OrderLayout.tsx", "utf8");
 const guide = readFileSync("src/components/order/OrderGuideRail.tsx", "utf8");
 const page = readFileSync(
-  "src/app/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
+  "src/app/(default)/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
   "utf8",
 );
 const clientWorkspace = readFileSync(

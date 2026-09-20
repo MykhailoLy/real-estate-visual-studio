@@ -60,6 +60,8 @@ export default function AdminPartnerInviteForm() {
         </button>
       </form>
       <p role={failed ? "alert" : "status"} className="mt-3 min-h-5 text-sm text-foreground">{message}</p>
+      {/* [locale] overmatches this href in Next lint; a full reload must refresh the invite result. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       {message && <a href="/admin/clients" className="mt-2 inline-block text-sm font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Reload Admin Clients</a>}
     </section>
   );

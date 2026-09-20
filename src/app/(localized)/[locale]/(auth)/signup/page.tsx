@@ -5,7 +5,7 @@ import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 import WelcomeOfferCallout from "@/components/auth/WelcomeOfferCallout";
 import SignupPageShell from "@/components/auth/SignupPageShell";
 import { WELCOME_OFFER_PUBLIC_COPY } from "@/lib/welcome-offer";
-import SignUpForm, { type SignUpFormCopy } from "../../signup/SignUpForm";
+import SignUpForm, { type SignUpFormCopy } from "@/app/(default)/(auth)/signup/SignUpForm";
 
 export const metadata: Metadata = {
   title: "Crear cuenta | Portal de clientes PicchuSpot",
