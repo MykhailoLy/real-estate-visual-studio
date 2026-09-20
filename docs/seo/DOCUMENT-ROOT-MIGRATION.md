@@ -268,3 +268,80 @@ npm run e2e:partner-invites -- --grep 'Spanish login crosses'
 The two browser commands use their existing localhost production-build fixtures;
 they must never target production. The PR remains draft. No merge or deployment
 is performed by these acceptance steps.
+
+### 2026-09-20 — reproduced 404 finding and narrowly scoped repair
+
+The tests-only acceptance head `c59aa237694fd43ab9be06425ae6c5c16884e945`
+failed on a real React hydration error; the original acceptance note above records
+that initial scope, before a production repair became necessary. Diagnostic head
+`ef79450862bd1f483aefe95b137f2b46e58ed95f` isolates the existing nine-path matrix
+into independent cases, so an earlier failure cannot prevent or contaminate the
+Spanish gallery check. It does not add duplicate route coverage.
+
+**Observed in CI:** [diagnostic run 35510831135](https://github.com/MykhailoLy/real-estate-visual-studio/actions/runs/35510831135)
+reported 148 smoke passes, 14 skips and three failures, each reproduced on retry:
+`/es/__document_root_missing__`, `/es/blog`, and
+`/es/gallery/__document_root_missing__`. All three passed HTTP 404, noindex,
+document/font and visible-heading checks, then failed the unsuppressed runtime
+guard with React #418. Their captured support-button text was `Ask PicchuSpot`
+on the server and `Pregunta a PicchuSpot` after client rendering. The negative
+console-error guard test passed. The cross-root login fixture test also passed.
+
+**Baseline distinction:** the same browser assertion, copied into an untouched
+archive of the recorded main `b0ae2015790636ca1325640c9d84b670b27fe2e8`, reproduces
+#418 on `/es/__document_root_missing__` in that same CI job. Thus the general
+Spanish unmatched-path defect predates this migration; it must not be described
+as newly introduced everywhere. Separately, the retained main response capture
+shows that an unknown Spanish gallery slug used a dynamic Next error document,
+whereas this migration routes it to the static global 404. Read-only production
+browser inspection on 2026-09-20 confirms that the old Spanish gallery fallback
+renders the public shell, Spanish support button and consent banner without a
+first-party runtime error. The migration extends the static-404 mismatch to that
+gallery case, which is the reason for the bounded repair here. Production
+observation and the exact-SHA CI baseline are distinct sources of evidence.
+
+**Root cause:** one prerendered global 404 is served at arbitrary unknown URLs.
+The shared provider previously rendered its pathname-dependent launcher during
+SSR; its first browser render instead sees the actual `/es/...` pathname and
+changes the visible text before hydration completes. A raw-response-only check
+cannot detect this. This is a widget hydration issue, not incorrect server
+selection of the document language.
+
+**Repair:** only `global-not-found.tsx` opts into deferring the support widget
+until mount, passed through `DocumentRoot` to the existing `SupportChatProvider`.
+The provider and its children remain in place; the static English 404 text, HTML,
+metadata/viewport, fonts, CSS, analytics and consent component remain server
+composed as before. Only the interactive widget is absent from initial 404 HTML
+and appears after mount using its existing pathname rules. The option defaults
+to false, so normal public/auth/dashboard/admin rendering is unchanged. No request
+API, root-language detection, suppression of hydration errors, new dependency or
+experimental flag is introduced. Support APIs, message/order actions and all auth
+and business logic are untouched. The browser matrix also waits for the correctly
+localized launcher, so deleting or permanently hiding the widget cannot pass.
+
+The temporary main-archive diagnostic workflow step was removed after collecting
+its result. The ordinary smoke and isolated cross-root fixture remain independent
+CI steps: a smoke failure does not silently skip the Auth proof. Final build,
+response comparison and workflow results are recorded below and in the PR.
+
+### 2026-09-20 — post-repair local validation
+
+| Check | Observed result |
+| --- | --- |
+| Fresh production build with the original two public fixture flags | Passed |
+| Concrete prerenders vs both recorded main and initial migration build | Same 96 URLs; `compute`, `response`, `routeType`, revalidation, expiry and initial status unchanged |
+| Route manifest and dynamic prerender entries vs initial migration | Unchanged |
+| Repeat of the original 104-response capture | All statuses, redirect locations and cache-control unchanged |
+| All 80 successful responses (78 HTML documents, robots and sitemap) vs initial migration | Captured visible text, language, metadata, links, JSON-LD and font/body classes unchanged; robots/sitemap bodies byte-identical |
+| Seven global 404 responses vs initial migration | SSR support launcher omitted; captured document language/metadata/fonts and HTTP 404/noindex retained |
+| Test TypeScript check and lint | Passed; same nine existing lint warnings |
+| Existing SEO / support-chat Node tests | 15 / 45 passed, no failures or skips |
+
+Generated HTML byte sizes change because client props/chunk references change;
+this is not a rendering-mode change. The original baseline file remains byte
+identical. The three-file production repair is committed separately from the
+acceptance tests/docs. The final existing-workflow executions, their exact head,
+passed/skipped counts and the final draft status are linked in the dated
+acceptance section of PR #333. A local browser pass is not claimed: Chromium
+launch remains unavailable in this managed runtime, so browser acceptance uses
+GitHub Actions.

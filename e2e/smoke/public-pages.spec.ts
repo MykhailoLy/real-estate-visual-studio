@@ -143,6 +143,12 @@ for (const path of [
       // This banner only appears after its client effect: wait for hydration,
       // not merely the static fallback text, before inspecting runtime errors.
       await expect(page.locator('aside[aria-label="Cookie consent"], aside[aria-label="Consentimiento de cookies"]')).toBeVisible();
+      await expect(page.getByRole("button", {
+        name: path.startsWith("/es/")
+          ? "Abrir el asistente de IA de PicchuSpot"
+          : "Open PicchuSpot AI assistant",
+        exact: true,
+      })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       expect(await page.locator("body").evaluate((node) => getComputedStyle(node).fontFamily)).toContain("Geist");
       try {

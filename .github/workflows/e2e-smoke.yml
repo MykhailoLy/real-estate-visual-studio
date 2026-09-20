@@ -45,20 +45,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run e2e:partner-invites -- --grep "Spanish login crosses"
 
-      # Temporary PR #333 diagnosis: run the identical Spanish 404 browser
-      # assertion against the recorded pre-migration main, without editing it.
-      - name: Compare Spanish 404 hydration against the original main baseline
-        if: ${{ !cancelled() }}
-        run: |
-          baseline_dir=$(mktemp -d "$RUNNER_TEMP/picchuspot-404-baseline.XXXXXX")
-          git fetch --depth=1 origin b0ae2015790636ca1325640c9d84b670b27fe2e8
-          git archive b0ae2015790636ca1325640c9d84b670b27fe2e8 | tar -x -C "$baseline_dir"
-          cp e2e/smoke/public-pages.spec.ts "$baseline_dir/e2e/smoke/public-pages.spec.ts"
-          cp e2e/support/network.ts "$baseline_dir/e2e/support/network.ts"
-          cd "$baseline_dir"
-          npm ci
-          npm run e2e:smoke -- e2e/smoke/public-pages.spec.ts --grep 'global 404 document: /es/__document_root_missing__' --retries=0 --reporter=line
-
       - name: Upload Playwright failure artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
