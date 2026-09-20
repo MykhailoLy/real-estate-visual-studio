@@ -102,8 +102,8 @@ test("both document roots retain the Virtual Staging canonical and reciprocal al
   }
 });
 
-test("unknown routes and unpublished locales remain real HTTP 404 responses", async ({ request }) => {
-  for (const path of [
+test("global 404 documents hydrate in the browser and unpublished routes remain HTTP 404", async ({ request, page }, testInfo) => {
+  const paths = [
     "/__document_root_missing__",
     "/es/__document_root_missing__",
     "/es/blog",
@@ -113,20 +113,61 @@ test("unknown routes and unpublished locales remain real HTTP 404 responses", as
     "/gallery/__document_root_missing__",
     "/es/gallery/__document_root_missing__",
     "/property/__document_root_missing__",
-  ]) {
-    const response = await request.get(path, { maxRedirects: 0 });
-    expect(response.status(), path).toBe(404);
-    const html = await response.text();
+  ];
+  // English dynamic gallery/property errors are a separate, pre-existing
+  // fallback. The ungenerated Spanish gallery slug uses the global document.
+  const globalPaths = paths.filter((path) =>
+    !path.startsWith("/gallery/") && !path.startsWith("/property/"),
+  );
+  const guard = await installSmokeNetworkGuards(page, testInfo, {
+    expectedNavigation404Paths: globalPaths,
+  });
+  for (const path of paths) {
+    const isGlobal = globalPaths.includes(path);
+    const response = isGlobal
+      ? await page.goto(path)
+      : await request.get(path, { maxRedirects: 0 });
+    expect(response, path).not.toBeNull();
+    expect(response!.status(), path).toBe(404);
+    const html = await response!.text();
     expect(html, path).toMatch(/<meta\s+name="robots"\s+content="noindex"/);
-    // Dynamic missing gallery/property records already have a framework error
-    // document. Unmatched URLs must retain the existing English 404 shell.
-    if (!path.includes("/gallery/") && !path.includes("/property/")) {
+    if (isGlobal) {
+      expect(new URL(page.url()).pathname, path).toBe(path);
+      expect(html.match(/<html(?:\s|>)/gi), path).toHaveLength(1);
+      expect(html.match(/<body(?:\s|>)/gi), path).toHaveLength(1);
       expect(html, path).toMatch(/<html\s+lang="en"/);
       expect(html, path).toMatch(/<meta\s+name="theme-color"\s+content="#071A2B"/);
       expect(html, path).toMatch(/<body\s+class="[^"]*geist_[^"]*__variable[^"]*antialiased/);
-      expect(html, path).toContain("This page could not be found.");
+      await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
+      await expect(page.getByRole("heading", { level: 1, name: "404", exact: true })).toBeInViewport();
+      await expect(page.getByRole("heading", { level: 2 })).toHaveText("This page could not be found.");
+      // This banner only appears after its client effect: wait for hydration,
+      // not merely the static fallback text, before inspecting runtime errors.
+      await expect(page.locator('aside[aria-label="Cookie consent"], aside[aria-label="Consentimiento de cookies"]')).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      expect(await page.locator("body").evaluate((node) => getComputedStyle(node).fontFamily)).toContain("Geist");
+      await guard.expectClean();
     }
   }
+});
+
+test("an expected document 404 does not excuse script console errors", async ({ page }, testInfo) => {
+  const path = "/__document_root_missing__";
+  const guard = await installSmokeNetworkGuards(page, testInfo, {
+    expectedNavigation404Paths: [path],
+  });
+  const response = await page.goto(path);
+  expect(response?.status()).toBe(404);
+  await expect(page.locator('aside[aria-label="Cookie consent"]')).toBeVisible();
+  await guard.expectClean();
+
+  // Even the same text emitted by application JS must not be mistaken for
+  // Chromium's expected navigation diagnostic (JS supplies console arguments).
+  await page.evaluate(() => console.error(
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+  ));
+  await expect(guard.expectClean()).rejects.toThrow("first-party console errors");
 });
 
 test("language links cross document roots while English navigation and stored consent remain intact", async ({

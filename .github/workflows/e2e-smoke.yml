@@ -41,6 +41,9 @@ jobs:
       - name: Run E2E smoke tests
         run: npm run e2e:smoke
 
+      - name: Verify cross-root login with the existing isolated Auth fixture
+        run: npm run e2e:partner-invites -- --grep "Spanish login crosses"
+
       - name: Upload Playwright failure artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { expect, test, type BrowserContext, type APIRequestContext } from "@playwright/test";
+import { installSmokeNetworkGuards } from "../support/network";
 
 const fixture = "http://127.0.0.1:3200";
 async function admin(context: BrowserContext) {
@@ -11,6 +12,74 @@ async function state(request: APIRequestContext) { return (await request.get(`${
 test.beforeEach(async ({ context, request }) => {
   await request.post(`${fixture}/__fixture/reset`, { data: {} });
   await context.route("https://www.googletagmanager.com/**", (route) => route.fulfill({ contentType: "application/javascript", body: "" }));
+});
+
+test("Spanish login crosses into the English dashboard with its complete redirectTo query", async ({ context, page, request }, testInfo) => {
+  await request.post(`${fixture}/__fixture/reset`, { data: { mode: "password-login" } });
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const destination = "/dashboard/profile?onboarding=1&next=%2Fdashboard%2Fjobs";
+  const loginPath = `/es/login?redirectTo=${encodeURIComponent(destination)}`;
+
+  // Real fail-closed server boundary, including the documented _rsc removal.
+  const anonymous = await request.get(`${fixture}${destination}&_rsc=must-not-leak`, { maxRedirects: 0 });
+  expect(anonymous.status()).toBe(307);
+  const recovery = new URL(anonymous.headers().location, fixture);
+  expect(recovery.pathname).toBe("/login");
+  expect(recovery.searchParams.get("redirectTo")).toBe(destination);
+
+  const loginResponse = await page.goto(loginPath);
+  expect(loginResponse?.status()).toBe(200);
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await expect(page.getByRole("heading", { name: "Bienvenido de nuevo" })).toBeVisible();
+  const signup = new URL(await page.getByRole("link", { name: "Crear una", exact: true }).getAttribute("href") ?? "", fixture);
+  expect(signup.pathname).toBe("/es/signup");
+  expect(signup.searchParams.get("redirectTo")).toBe(destination);
+  await page.evaluate(() => {
+    (window as Window & { loginDocumentSentinel?: string }).loginDocumentSentinel = "spanish";
+  });
+
+  await page.getByLabel("Correo electrónico", { exact: true }).fill("root-client@example.com");
+  await page.getByLabel("Contraseña", { exact: true }).fill("fixture-password-only");
+  const englishDocument = page.waitForResponse((response) =>
+    response.request().isNavigationRequest() && response.request().frame() === page.mainFrame() &&
+    response.url() === `${fixture}${destination}`,
+  );
+  await page.getByRole("button", { name: "Iniciar sesión en tu cuenta", exact: true }).click();
+  const dashboardResponse = await englishDocument;
+  expect(dashboardResponse.status()).toBe(200);
+  expect(await dashboardResponse.text()).toMatch(/<html\s+lang="en"/);
+  await expect(page).toHaveURL(`${fixture}${destination}`);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
+  await expect(page.getByRole("heading", { name: "Complete your client profile", exact: true })).toBeVisible();
+  await expect(page.getByText("QA Preview", { exact: true })).toHaveCount(0);
+  const arrived = new URL(page.url());
+  expect(arrived.searchParams.get("onboarding")).toBe("1");
+  expect(arrived.searchParams.get("next")).toBe("/dashboard/jobs");
+  expect(arrived.searchParams.has("_rsc")).toBe(false);
+  expect(await page.evaluate(() =>
+    (window as Window & { loginDocumentSentinel?: string }).loginDocumentSentinel,
+  )).toBeUndefined();
+  expect((await context.cookies()).some((cookie) => cookie.name.includes("auth-token"))).toBe(true);
+  await page.evaluate(() => document.fonts.ready);
+  await guard.expectClean();
+
+  const current = await state(request);
+  expect(current.passwordSignIns).toBe(1);
+  expect(current.authenticatedUserReads).toBeGreaterThan(0);
+  expect(current.inviteCalls).toBe(0);
+  expect(current.passwordSet).toBe(false);
+  expect(current.profile).toBeNull();
+  expect(current.pricing).toEqual([]);
+  expect(current.unsupportedOperations).toEqual([]);
+
+  // No production bypass: without SDK cookies the same dashboard is protected.
+  await context.clearCookies();
+  const signedOut = await context.request.get(`${fixture}${destination}`, { maxRedirects: 0 });
+  expect(signedOut.status()).toBe(307);
+  const signedOutRedirect = new URL(signedOut.headers().location, fixture);
+  expect(signedOutRedirect.pathname).toBe("/login");
+  expect(signedOutRedirect.searchParams.get("redirectTo")).toBe(destination);
 });
 
 test("anonymous, customer and forged admin sessions cannot send invitations", async ({ request }) => {

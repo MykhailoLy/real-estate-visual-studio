@@ -35,7 +35,8 @@ export interface SmokeNetworkGuard {
 
 interface GuardState {
   pageErrors: string[];
-  consoleErrors: string[];
+  consoleErrors: Array<{ text: string; url: string; argumentCount: number }>;
+  expectedNavigation404s: string[];
   sameOriginServerErrors: string[];
   forbiddenApiCalls: string[];
   crispRequests: string[];
@@ -48,18 +49,23 @@ interface GuardState {
 export async function installSmokeNetworkGuards(
   page: Page,
   testInfo?: TestInfo,
+  options: { expectedNavigation404Paths?: readonly string[] } = {},
 ): Promise<SmokeNetworkGuard> {
   const state: GuardState = {
     pageErrors: [],
     consoleErrors: [],
+    expectedNavigation404s: [],
     sameOriginServerErrors: [],
     forbiddenApiCalls: [],
     crispRequests: [],
     propertyAnalyticsEvents: [],
   };
   const baseOrigin = new URL(
-    process.env.PLAYWRIGHT_BASE_URL?.trim() || DEFAULT_BASE_URL,
+    testInfo?.project.use.baseURL || process.env.PLAYWRIGHT_BASE_URL?.trim() || DEFAULT_BASE_URL,
   ).origin;
+  const expected404Urls = new Set(
+    (options.expectedNavigation404Paths ?? []).map((path) => new URL(path, baseOrigin).href),
+  );
 
   await page.route("**/*", async (route) => {
     const request = route.request();
@@ -122,6 +128,16 @@ export async function installSmokeNetworkGuards(
     const parsedUrl = safeParseUrl(response.url());
     if (!parsedUrl || parsedUrl.origin !== baseOrigin) return;
 
+    const request = response.request();
+    if (
+      response.status() === 404 &&
+      expected404Urls.has(response.url()) &&
+      request.isNavigationRequest() &&
+      request.frame() === page.mainFrame()
+    ) {
+      state.expectedNavigation404s.push(response.url());
+    }
+
     if (response.status() >= 500) {
       state.sameOriginServerErrors.push(
         `${response.status()} ${parsedUrl.pathname}`,
@@ -141,9 +157,9 @@ export async function installSmokeNetworkGuards(
     const isFirstParty = !parsedUrl || parsedUrl.origin === baseOrigin;
 
     if (isFirstParty) {
-      state.consoleErrors.push(
-        locationUrl ? `${message.text()} (${locationUrl})` : message.text(),
-      );
+      state.consoleErrors.push({
+        text: message.text(), url: locationUrl, argumentCount: message.args().length,
+      });
     }
   });
 
@@ -151,7 +167,23 @@ export async function installSmokeNetworkGuards(
     async expectClean() {
       await attachDiagnostics(testInfo, state);
       expect(state.pageErrors, "uncaught page errors").toEqual([]);
-      expect(state.consoleErrors, "first-party console errors").toEqual([]);
+      // Only Chromium's own resource diagnostic, at an exact allowlisted URL
+      // with a real main-frame 404 response, is expected. Match at assertion
+      // time because console/response events can arrive in either order.
+      // One diagnostic per navigation: another failed resource is still an error.
+      const remaining404s = [...state.expectedNavigation404s];
+      const unexpectedConsoleErrors = state.consoleErrors.filter((message) => {
+        const index = remaining404s.indexOf(message.url);
+        if (
+          index !== -1 && message.argumentCount === 0 &&
+          message.text === "Failed to load resource: the server responded with a status of 404 (Not Found)"
+        ) {
+          remaining404s.splice(index, 1);
+          return false;
+        }
+        return true;
+      });
+      expect(unexpectedConsoleErrors, "first-party console errors").toEqual([]);
       expect(state.sameOriginServerErrors, "same-origin HTTP 500+ responses").toEqual([]);
       expect(state.forbiddenApiCalls, "forbidden same-origin API calls").toEqual([]);
     },

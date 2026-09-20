@@ -180,3 +180,91 @@ Those integrations were not exercised against live services. Vercel preview/CDN
 cache behavior, production ISR regeneration, field performance and all responsive
 viewports remain unverified by the raw HTTP comparison. This draft does not merge,
 promote a deployment, or authorize a production release.
+
+## 2026-09-20 — final acceptance addendum
+
+Starting PR #333 head: `37f3faf0f96599464a35abd1e1ee3eb5bf023f37`.
+Main remains `b0ae2015790636ca1325640c9d84b670b27fe2e8`.
+The original baseline JSON and all preceding observations above are retained.
+This addendum adds test coverage; it does not change document-root architecture,
+production code, auth logic, application environment variables or business flows.
+
+### Coverage added without repeating the existing contracts
+
+The existing unknown-route smoke test now loads the seven global 404 cases in
+Chromium, including `/es/gallery/__document_root_missing__`. It retains the
+existing HTTP/noindex assertions and additionally checks the single raw document,
+visible 404 heading/message, English fallback language, body/font setup and the
+cookie banner's client effect before checking runtime diagnostics. The two
+pre-existing English dynamic gallery/property fallbacks retain their request-only
+checks; they are not redefined as global 404s by this patch.
+
+The shared network guard permits only Chromium's exact resource-404 diagnostic
+at an explicitly listed URL with an observed main-frame navigation response 404.
+It matches events at assertion time, requires no JavaScript console arguments,
+and permits at most one diagnostic per navigation. Other console/hydration errors,
+uncaught page errors, HTTP 500+ and forbidden API calls still fail. A separate
+negative guard assertion proves that application JavaScript emitting even the
+same 404 diagnostic text is rejected. This is not a blanket console-error skip.
+
+The new cross-root test reuses `e2e/partner-invites.config.ts` and the existing
+loopback Supabase fixture. It visits the real Spanish login page, submits the
+real shared LoginForm through the real Supabase SDK, and reaches the English
+server-rendered dashboard profile page. The selected destination is:
+
+`/dashboard/profile?onboarding=1&next=%2Fdashboard%2Fjobs`
+
+Assertions cover the outer `redirectTo`, the signup link's retained destination,
+`onboarding=1`, nested `next=/dashboard/jobs`, removal of internal `_rsc` from
+unauthenticated recovery, SDK-written cookies, the full document transition,
+English HTML/noindex/UI, and a server user lookup. Before login and after clearing
+cookies, the same destination must redirect to login with its query preserved.
+No QA Preview identity, manually injected session cookie, mocked router/dashboard
+HTML or production auth bypass is used.
+
+### What the fixture proves, and what it does not
+
+The fixture now has one narrowly scoped password-grant response for a fixed dummy
+account/password. Its existing `/auth/v1/user` endpoint accepts only the fixture
+token. SDK cookie serialization, the browser navigation, real Next roots, proxy,
+server auth gate, profile route and query handling execute unchanged. The fixture
+records password sign-ins and authenticated user reads; the test also asserts
+that no invitation, password change, profile write, pricing write or unsupported
+fixture operation occurred. The profile form is displayed but never submitted.
+Unknown backend writes remain rejected. All services use loopback URLs and dummy
+keys from the pre-existing test configuration.
+
+This proves integration with a controlled Auth response, not authentication with
+real Supabase infrastructure. Real password/CAPTCHA verification, token signatures,
+refresh/expiry/revocation, OAuth/email callbacks, production permissions and live
+account sessions still require a genuine test session. No real order, upload,
+payment, email or database write is exercised. The existing conditional Auth and
+QA Preview tests must not be described as covered when their prerequisites cause
+them to skip.
+
+### Validation and CI execution
+
+Local `npm run typecheck:test`, `npm run lint` (the same nine existing warnings),
+`npm run test:seo` (15 passed), test discovery and `git diff --check` passed.
+A normal local Chromium launch was attempted and remains blocked by the managed
+runtime's `socket()` restriction; this is not a browser acceptance pass.
+
+The existing E2E workflow runs its normal smoke suite, then invokes only the new
+cross-root test through the existing isolated Auth configuration. This extra
+invocation is necessary because that configuration is outside the default smoke
+`testDir`; it does not replace the normal server or its tests. No new workflow or
+test framework is introduced. The existing quality workflow remains unchanged.
+Final workflow links and results are recorded in [PR #333](https://github.com/MykhailoLy/real-estate-visual-studio/pull/333),
+including skipped tests separately from successful executions.
+
+```sh
+npm run typecheck:test
+npm run lint
+npm run test:seo
+npm run e2e:smoke -- e2e/smoke/public-pages.spec.ts --grep 'global 404|expected document 404'
+npm run e2e:partner-invites -- --grep 'Spanish login crosses'
+```
+
+The two browser commands use their existing localhost production-build fixtures;
+they must never target production. The PR remains draft. No merge or deployment
+is performed by these acceptance steps.
