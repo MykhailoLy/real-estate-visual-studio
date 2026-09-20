@@ -107,11 +107,11 @@ export default function BenefitsRow({
                   aria-hidden
                 />
                 <div className="min-w-0 sm:mt-3 lg:mt-3.5">
-                  <h3
+                  <h2
                     className={`text-[15px] font-bold leading-5 tracking-tight sm:text-base lg:flex lg:min-h-10 lg:items-center lg:justify-center lg:text-base xl:text-lg ${presentation.titleClassName}`}
                   >
                     {b.title}
-                  </h3>
+                  </h2>
                   <p className="mt-1 text-sm leading-5 text-muted sm:text-center lg:text-public-copy-sm lg:leading-5 xl:text-base">
                     {b.body}
                   </p>

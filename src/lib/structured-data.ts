@@ -37,6 +37,15 @@ export function organizationSchema(): Record<string, unknown> {
     },
     description:
       "Real estate visual services including virtual staging, virtual renovation, floor plans, photo editing, day-to-dusk, 360° image enhancement, aerial editing, and development site plans.",
+    // Public business/contact details: https://picchuspot.com/legal
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "C. Capitán Dema, 3",
+      postalCode: "03007",
+      addressLocality: "Alicante",
+      addressCountry: "ES",
+    },
+    telephone: "+34 614 714 337",
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer support",
