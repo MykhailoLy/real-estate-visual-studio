@@ -181,12 +181,12 @@ const topLevelLabelsEs: Record<string, string> = {
   "Remote Digital Services": "Servicios digitales remotos",
   "Local Real Estate Media": "Media inmobiliaria local",
   Renders: "Renders",
-  "Online Retail": "Retail online",
+  "Online Retail": "Comercio electrónico",
 };
 
 const subNavLabelsEs: Record<string, string> = {
   "Image Enhancement": "Mejora de imagen",
-  "Day to Dusk": "Day to Dusk",
+  "Day to Dusk": "De día a atardecer",
   "Virtual Staging": "Virtual Staging",
   "Real Estate Photo Editing": "Edición de fotos inmobiliarias",
   "Item Removal & Virtual Cleaning": "Eliminación de objetos y limpieza virtual",
@@ -399,7 +399,7 @@ export default function Header() {
           {/* Brand */}
           <Link
             href={getLocaleAwareHref("/", currentLanguage)}
-            aria-label="PicchuSpot — Real Estate Visuals home"
+            aria-label={currentLanguage === "es" ? "PicchuSpot — Inicio de visuales inmobiliarios" : "PicchuSpot — Real Estate Visuals home"}
             className="flex items-center gap-2 flex-shrink-0"
           >
             <PicchuSpotLogo
@@ -417,7 +417,7 @@ export default function Header() {
 
           {/* Top-level categories (desktop) */}
           <nav
-            aria-label="Service categories"
+            aria-label={currentLanguage === "es" ? "Categorías de servicios" : "Service categories"}
             className="hidden 3xl:ml-4 3xl:flex 3xl:min-w-0 3xl:items-center 3xl:gap-0.5 2xl:ml-10 2xl:gap-1"
           >
             {topLevels.map((entry) => {
@@ -455,7 +455,7 @@ export default function Header() {
               ref={menuButtonRef}
               className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-10 sm:w-10"
               onClick={() => setMenuOpen((open) => !open)}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-label={currentLanguage === "es" ? (menuOpen ? "Cerrar menú" : "Abrir menú") : (menuOpen ? "Close menu" : "Open menu")}
               aria-expanded={menuOpen}
               aria-haspopup="dialog"
             >
@@ -1244,7 +1244,7 @@ function LanguageSelector({
 
   return (
     <nav
-      aria-label="Select language"
+      aria-label={currentLanguage === "es" ? "Seleccionar idioma" : "Select language"}
       className={cn(
         "inline-flex items-center rounded-lg border border-stone-200 bg-white/95 p-0.5 shadow-sm",
         compact && "h-9 flex-shrink-0",
@@ -1459,7 +1459,7 @@ function DesktopSubNav({ active, pathname, language }: DesktopSubNavProps) {
         {/* Visible row */}
         <div ref={containerRef} className="flex items-stretch">
           <nav
-            aria-label={`${getHeaderLabel(active.label, language)} services`}
+            aria-label={`${getHeaderLabel(active.label, language)} ${language === "es" ? "servicios" : "services"}`}
             className="flex items-stretch gap-x-4 xl:gap-x-7 flex-1 min-w-0 overflow-hidden"
           >
             {visible.map((link) => {

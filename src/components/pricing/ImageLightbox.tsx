@@ -12,6 +12,7 @@ export interface LightboxImage {
 }
 
 interface ImageLightboxProps {
+  locale?: "en" | "es";
   images: LightboxImage[];
   variant: StaticImageViewerVariant;
   initialIndex?: number;
@@ -36,6 +37,7 @@ interface ImageLightboxProps {
  * Set keyed by src — no extra effects needed.
  */
 export default function ImageLightbox({
+  locale = "en",
   images,
   variant,
   initialIndex = 0,
@@ -124,7 +126,7 @@ export default function ImageLightbox({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={title ? `${title} — image gallery` : "Image gallery"}
+      aria-label={locale === "es" ? (title ? `${title} — galería de imágenes` : "Galería de imágenes") : (title ? `${title} — image gallery` : "Image gallery")}
       ref={dialogRef}
       tabIndex={-1}
       className="static-image-viewer-overlay fixed inset-0 z-[100] h-[100dvh] w-screen overflow-hidden bg-black/85 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm focus:outline-none sm:p-6"
@@ -150,7 +152,7 @@ export default function ImageLightbox({
               event.stopPropagation();
               onClose();
             }}
-            aria-label="Close gallery"
+            aria-label={locale === "es" ? "Cerrar galería" : "Close gallery"}
             className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <X className="h-5 w-5" aria-hidden />
@@ -177,7 +179,7 @@ export default function ImageLightbox({
               {imgFailed ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-700 via-stone-600 to-stone-800">
                   <span className="px-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-white/80 sm:text-sm">
-                    {title ?? "Preview"} — Image {index + 1}
+                    {title ?? (locale === "es" ? "Vista previa" : "Preview")} — {locale === "es" ? "Imagen" : "Image"} {index + 1}
                   </span>
                 </div>
               ) : null}
@@ -191,7 +193,7 @@ export default function ImageLightbox({
                 event.stopPropagation();
                 goPrev();
               }}
-              aria-label="Previous image"
+              aria-label={locale === "es" ? "Imagen anterior" : "Previous image"}
               className="static-image-viewer-control col-start-1 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
             >
               <ChevronLeft className="h-6 w-6" aria-hidden />
@@ -211,7 +213,7 @@ export default function ImageLightbox({
                   <button
                     key={imageIndex}
                     type="button"
-                    aria-label={`Go to image ${imageIndex + 1}`}
+                    aria-label={`${locale === "es" ? "Ir a la imagen" : "Go to image"} ${imageIndex + 1}`}
                     onClick={() => setIndex(imageIndex)}
                     className={
                       imageIndex === index
@@ -231,7 +233,7 @@ export default function ImageLightbox({
                 event.stopPropagation();
                 goNext();
               }}
-              aria-label="Next image"
+              aria-label={locale === "es" ? "Imagen siguiente" : "Next image"}
               className="static-image-viewer-control col-start-3 row-start-2 grid h-11 w-11 place-items-center self-center justify-self-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:row-start-1 sm:h-12 sm:w-12"
             >
               <ChevronRight className="h-6 w-6" aria-hidden />

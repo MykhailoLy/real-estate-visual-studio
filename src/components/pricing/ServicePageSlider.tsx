@@ -248,7 +248,7 @@ export default function ServicePageSlider({
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       role="region"
-      aria-roledescription="carousel"
+      aria-roledescription={locale === "es" ? "carrusel" : "carousel"}
       aria-label={ariaLabel}
     >
       <div
@@ -303,6 +303,7 @@ export default function ServicePageSlider({
                       variant={slide.variant}
                       showDivider={false}
                       showInnerLabels={false}
+                      labels={locale === "es" ? { ariaLabel: "Vista previa de antes y después" } : undefined}
                     />
                   ))}
               </div>

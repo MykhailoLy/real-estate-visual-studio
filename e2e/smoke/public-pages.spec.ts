@@ -2197,3 +2197,40 @@ test("header Explore menu exposes Blog in English order and preserves Spanish li
 
   await guard.expectClean();
 });
+
+
+for (const language of ["en", "es"] as const) {
+  test(`staging localization: ${language} content, navigation and responsive layout`, async ({ page }, testInfo) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    const spanish = language === "es";
+    const path = `${spanish ? "/es" : ""}/pricing/virtual-staging`;
+    await page.goto(path);
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    await expect(page).toHaveTitle(spanish ? /Precios de Virtual Staging/ : /Virtual Staging/);
+    await expect(page.locator("h1")).toHaveText(spanish ? "Precios de Virtual Staging" : "Virtual Staging Pricing");
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", spanish ? /Transforma habitaciones/ : /./);
+    await expect(page.getByRole("heading", { name: spanish ? "Qué archivos subir" : "What to upload", exact: true })).toBeVisible();
+    await expect(page.getByText(spanish ? "Empieza ahora" : "Get Started", { exact: true })).toBeVisible();
+    if (spanish) {
+      await expect(page.locator("main")).not.toContainText(/What to upload|Get Started|PHOTO-REALISTIC|ACCURATE ROOM SCALE|Realistic furniture|No subscriptions|add-ons/);
+    }
+    for (const width of [360, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const menu = page.getByRole("button", { name: spanish ? "Abrir menú" : "Open menu", exact: true });
+      await menu.click();
+      await expect(page.getByRole("dialog", { name: spanish ? "Menú del sitio" : "Site menu", exact: true })).toBeVisible();
+      await page.getByRole("dialog").getByRole("button", { name: spanish ? "Cerrar menú" : "Close menu", exact: true }).click();
+      await expect(menu).toHaveAttribute("aria-expanded", "false");
+      await menu.focus();
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Shift+Tab");
+      await expect(menu).toBeFocused();
+      if (width === 390 || width === 1440) {
+        await page.screenshot({ path: testInfo.outputPath(`staging-${language}-${width}.png`), fullPage: true });
+      }
+    }
+    expect(pageErrors).toEqual([]);
+  });
+}

@@ -36,6 +36,7 @@ function normalizeStyleTitle(title: string): string {
  * naturally from props on every open. No setState-in-effect needed.
  */
 export default function StyleGallerySection({
+  locale = "en",
   imageOverrides = [],
   copy,
   helperText = "Tap any style to browse multiple staged examples. You can also send a reference image or link, or ask us to match the style of a specific listing or brand.",
@@ -43,6 +44,7 @@ export default function StyleGallerySection({
   openGalleryPrefix = "Open ",
   openGallerySuffix = " style gallery",
 }: {
+  locale?: "en" | "es";
   imageOverrides?: StyleGalleryImageOverride[];
   copy?: StyleGalleryCopy;
   helperText?: string;
@@ -127,6 +129,7 @@ export default function StyleGallerySection({
       {activeEntry && activeImages.length > 0 && (
         <ImageLightbox
           key={activeEntry.id}
+          locale={locale}
           variant="photo"
           images={activeImages}
           initialIndex={openIndex}

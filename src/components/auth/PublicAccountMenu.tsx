@@ -18,10 +18,10 @@ import { getInitials } from "@/lib/client-auth-utils";
 import { cn } from "@/lib/utils";
 
 const accountMenuItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/dashboard/orders/new", label: "New Order", icon: PlusCircle },
-  { href: "/dashboard/profile", label: "My Account", icon: User },
+  { href: "/dashboard", label: "Dashboard", esLabel: "Panel de control", icon: LayoutDashboard },
+  { href: "/dashboard/jobs", label: "Jobs", esLabel: "Trabajos", icon: Briefcase },
+  { href: "/dashboard/orders/new", label: "New Order", esLabel: "Nuevo pedido", icon: PlusCircle },
+  { href: "/dashboard/profile", label: "My Account", esLabel: "Mi cuenta", icon: User },
 ] as const;
 
 interface PublicAccountMenuProps {
@@ -69,6 +69,7 @@ export default function PublicAccountMenu({
   className,
 }: PublicAccountMenuProps) {
   const pathname = usePathname() ?? "/";
+  const isSpanish = pathname === "/es" || pathname.startsWith("/es/");
   const { user, signOut } = usePublicAuth();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -76,8 +77,8 @@ export default function PublicAccountMenu({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [panelPos, setPanelPos] = useState<PanelPosition | null>(null);
 
-  const displayName = user?.displayName ?? "Client";
-  const firstName = user?.firstName ?? "Client";
+  const displayName = user?.displayName ?? (isSpanish ? "Cliente" : "Client");
+  const firstName = user?.firstName ?? (isSpanish ? "Cliente" : "Client");
   const initials = getInitials(displayName);
   const open = openPath === pathname;
 
@@ -178,7 +179,7 @@ export default function PublicAccountMenu({
         }}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={`Account menu for ${firstName}`}
+        aria-label={`${isSpanish ? "Menú de cuenta de" : "Account menu for"} ${firstName}`}
         className={cn(
           "inline-flex min-w-0 items-center text-primary transition-colors focus:outline-none focus-visible:ring-2",
           mobileAction
@@ -222,7 +223,7 @@ export default function PublicAccountMenu({
           <div
             ref={panelRef}
             role="menu"
-            aria-label="Account"
+            aria-label={isSpanish ? "Cuenta" : "Account"}
             style={{
               position: "fixed",
               top: panelPos.top,
@@ -262,7 +263,7 @@ export default function PublicAccountMenu({
                   className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-surface hover:text-primary focus:outline-none focus-visible:bg-surface focus-visible:text-primary"
                 >
                   <item.icon className="h-4 w-4 text-muted" aria-hidden />
-                  {item.label}
+                  {isSpanish ? item.esLabel : item.label}
                 </ClientPortalLink>
               ))}
             </div>
@@ -280,7 +281,7 @@ export default function PublicAccountMenu({
                 ) : (
                   <LogOut className="h-4 w-4" aria-hidden />
                 )}
-                {loggingOut ? "Logging out..." : "Log Out"}
+                {isSpanish ? (loggingOut ? "Cerrando sesión..." : "Cerrar sesión") : (loggingOut ? "Logging out..." : "Log Out")}
               </button>
             </div>
           </div>,

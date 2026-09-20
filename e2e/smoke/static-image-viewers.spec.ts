@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { renderComponentFixture } from "../support/render-component-fixture";
 import {
   expectNavigationResponseOk,
   installSmokeNetworkGuards,
@@ -256,3 +257,27 @@ test("property gallery keeps raster images and controls inside every required vi
 
   await guard.expectNoPageErrorsOrServerErrors();
 });
+
+
+for (const locale of ["en", "es"] as const) {
+  test(`staging viewer localization: ${locale} gallery accessibility`, async ({ page }) => {
+    const html = renderComponentFixture(`
+      const { default: ImageLightbox } = await import(new URL("src/components/pricing/ImageLightbox.tsx", root));
+      const locale = JSON.parse(process.argv[1]);
+      console.log(renderToStaticMarkup(createElement(ImageLightbox, {
+        ...(locale === "es" ? { locale } : {}),
+        variant: "photo", title: "Modern", onClose: () => {},
+        images: [{ src: "/brand/logo.png", alt: "Example 1" }, { src: "/brand/logo.png", alt: "Example 2" }],
+      })));
+    `, locale);
+    await page.setContent(html);
+    const spanish = locale === "es";
+    const dialog = page.getByRole("dialog", { name: spanish ? "Modern — galería de imágenes" : "Modern — image gallery", exact: true });
+    await expect(dialog).toBeVisible();
+    for (const label of spanish
+      ? ["Cerrar galería", "Imagen anterior", "Imagen siguiente", "Ir a la imagen 1", "Ir a la imagen 2"]
+      : ["Close gallery", "Previous image", "Next image", "Go to image 1", "Go to image 2"]) {
+      await expect(dialog.getByRole("button", { name: label, exact: true })).toBeVisible();
+    }
+  });
+}
