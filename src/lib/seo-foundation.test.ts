@@ -444,3 +444,33 @@ test("virtual staging explainer uses the existing static English blog and schema
     false,
   );
 });
+
+
+test("Spanish staging examples translate known copy and preserve editorial fallbacks", async () => {
+  const { translatePricingExampleTitle, translatePricingExampleDescription, translatePricingExampleAlt } =
+    await import("../app/(localized)/[locale]/(public)/pricing/labels.ts");
+  assert.equal(translatePricingExampleTitle("ACCURATE ROOM SCALE"), "PROPORCIONES REALISTAS");
+  assert.equal(translatePricingExampleTitle("VIRTUAL STAGING FROM US$19"), "VIRTUAL STAGING DESDE US$19");
+  assert.equal(translatePricingExampleDescription("Professional virtual staging starting from US$19 per image. No subscriptions, no hidden fees — just clear pricing per project."), "Virtual Staging profesional desde US$19 por imagen. Sin suscripciones ni cargos ocultos: precios claros para cada proyecto.");
+  assert.equal(translatePricingExampleAlt("Empty bedroom room before virtual staging"), "Dormitorio vacío antes de Virtual Staging");
+  for (const value of ["", "Descripción editorial sin cambios", "Unknown custom content"]) {
+    assert.equal(translatePricingExampleTitle(value), value);
+    assert.equal(translatePricingExampleDescription(value), value);
+    assert.equal(translatePricingExampleAlt(value), value);
+  }
+});
+
+
+test("public account menu retains destinations with Spanish labels", () => {
+  const source = readSource("src/components/auth/PublicAccountMenu.tsx");
+  for (const [href, en, es] of [
+    ["/dashboard", "Dashboard", "Panel de control"],
+    ["/dashboard/jobs", "Jobs", "Trabajos"],
+    ["/dashboard/orders/new", "New Order", "Nuevo pedido"],
+    ["/dashboard/profile", "My Account", "Mi cuenta"],
+  ]) {
+    assert.ok(source.includes(`href: "${href}", label: "${en}", esLabel: "${es}"`));
+  }
+  assert.ok(source.includes('pathname === "/es" || pathname.startsWith("/es/")'));
+  assert.ok(source.includes('{isSpanish ? item.esLabel : item.label}'));
+});

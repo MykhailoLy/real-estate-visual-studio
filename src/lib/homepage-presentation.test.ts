@@ -141,10 +141,12 @@ test("public header keeps the dark primary hierarchy without changing its shared
 
 test("top-level header categories wait for the wide 3xl layout while the lg service row remains", () => {
   const headerSource = readSource("src/components/layout/Header.tsx");
-  const categoryStart = headerSource.indexOf("aria-label=\"Service categories\"");
+  const categoryStart = headerSource.indexOf("{/* Top-level categories (desktop) */}");
   const categoryEnd = headerSource.indexOf(
     "{/* Menu, account actions, and preferences */}",
   );
+  assert.ok(categoryStart >= 0, "top-level category boundary must exist");
+  assert.ok(categoryEnd > categoryStart, "category section must end after it starts");
   const categorySource = headerSource.slice(categoryStart, categoryEnd);
 
   assert.match(

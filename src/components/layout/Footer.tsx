@@ -149,7 +149,7 @@ export default function Footer() {
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-14 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2.5 mb-2" aria-label="PicchuSpot home">
+            <Link href="/" className="inline-flex items-center gap-2.5 mb-2" aria-label={language === "es" ? "Inicio de PicchuSpot" : "PicchuSpot home"}>
               <PicchuSpotLogo
                 variant="mark-light"
                 className="h-7 w-auto lg:h-9"

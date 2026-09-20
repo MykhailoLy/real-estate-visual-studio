@@ -31,7 +31,11 @@ import {
   getSiteMediaPublicUrl,
 } from "@/lib/site-media";
 import { spanishMetadata } from "../../seo";
-import { translatePricingExampleTitle } from "../labels";
+import {
+  translatePricingExampleTitle,
+  translatePricingExampleDescription,
+  translatePricingExampleAlt,
+} from "../labels";
 import JsonLd from "@/components/seo/JsonLd";
 import { serviceSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { absoluteUrl } from "@/lib/seo";
@@ -64,7 +68,7 @@ const USE_CASES = [
     icon: Building2,
     title: "Espacios comerciales",
     description:
-      "Amuebla oficinas, retail e interiores comerciales para ayudar a visualizar su uso.",
+      "Amuebla oficinas, tiendas e interiores comerciales para ayudar a visualizar su uso.",
   },
   {
     icon: ImagePlus,
@@ -105,7 +109,7 @@ const PRICING_CARDS: Array<{
     isBase: false,
   },
   {
-    label: "Day to Dusk",
+    label: "De día a atardecer",
     priceKey: "day-to-dusk",
     prefix: "+",
     unit: "por imagen",
@@ -195,11 +199,11 @@ const STYLE_COPY: StyleGalleryCopy = {
     description: "Luz nórdica suave, maderas claras y calidez minimalista.",
   },
   "mid-century": {
-    label: "Mid-century",
+    label: "Moderno de mediados de siglo",
     description: "Tonos nogal, siluetas escultóricas y carácter retro.",
   },
   farmhouse: {
-    label: "Farmhouse",
+    label: "Rústico",
     description: "Blancos cálidos, texturas naturales y confort vivido.",
   },
   hamptons: {
@@ -216,7 +220,7 @@ const STYLE_COPY: StyleGalleryCopy = {
   },
   commercial: {
     label: "Comercial",
-    description: "Oficinas, retail, hospitality y espacios compartidos.",
+    description: "Oficinas, tiendas, espacios de hostelería y zonas compartidas.",
   },
 };
 
@@ -234,10 +238,16 @@ async function buildSliderSlides(
   return usable.map((item) => {
     const title = translatePricingExampleTitle(item.title);
     const alt = getBeforeAfterAlt({
-      beforeAlt: item.before_alt,
-      afterAlt: item.after_alt,
+      beforeAlt: item.before_alt
+        ? translatePricingExampleAlt(item.before_alt)
+        : item.before_alt,
+      afterAlt: item.after_alt
+        ? translatePricingExampleAlt(item.after_alt)
+        : item.after_alt,
       title,
-      description: item.description,
+      description: item.description
+        ? translatePricingExampleDescription(item.description)
+        : item.description,
       serviceLabel: "Virtual Staging",
       serviceSlug: item.service_slug,
       locale: "es",
@@ -270,7 +280,7 @@ export default async function SpanishVirtualStagingPage() {
         title: item.title!,
         src,
         alt:
-          item.alt_text ??
+          (item.alt_text != null ? translatePricingExampleAlt(item.alt_text) : null) ??
           item.title ??
           `Ejemplo de estilo ${item.sort_order} de Virtual Staging`,
       };
@@ -357,7 +367,7 @@ export default async function SpanishVirtualStagingPage() {
               <p className="mt-3 text-base lg:text-lg text-muted leading-relaxed">
                 Transforma habitaciones vacías en espacios amueblados y
                 realistas. Elige entre 9 estilos interiores y combínalo con
-                add-ons opcionales para resultados listos para el mercado.
+                servicios adicionales opcionales para resultados listos para el mercado.
               </p>
               <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
                 <CatalogPriceText
@@ -432,10 +442,16 @@ export default async function SpanishVirtualStagingPage() {
                 const afterUrl = getPortfolioPublicUrl(item.after_image_path);
                 const title = translatePricingExampleTitle(item.title);
                 const alt = getBeforeAfterAlt({
-                  beforeAlt: item.before_alt,
-                  afterAlt: item.after_alt,
+                  beforeAlt: item.before_alt
+        ? translatePricingExampleAlt(item.before_alt)
+        : item.before_alt,
+                  afterAlt: item.after_alt
+        ? translatePricingExampleAlt(item.after_alt)
+        : item.after_alt,
                   title,
-                  description: item.description,
+                  description: item.description
+        ? translatePricingExampleDescription(item.description)
+        : item.description,
                   serviceLabel: "Virtual Staging",
                   serviceSlug: item.service_slug,
                   locale: "es",
@@ -467,7 +483,7 @@ export default async function SpanishVirtualStagingPage() {
                       </h3>
                       {item.description && (
                         <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                          {item.description}
+                          {translatePricingExampleDescription(item.description)}
                         </p>
                       )}
                     </div>
@@ -504,6 +520,7 @@ export default async function SpanishVirtualStagingPage() {
             description="Envíanos una foto limpia de la habitación vacía y algunos detalles; nosotros nos encargamos del resto."
           />
           <UploadRequirementsBlock
+            title="Qué archivos subir"
             items={[
               {
                 label: "Foto original de la habitación",
@@ -529,7 +546,7 @@ export default async function SpanishVirtualStagingPage() {
                 hint: "Solicitudes especiales, puntos focales, elementos a conservar o eliminar",
               },
             ]}
-            footnote="Los campos obligatorios están marcados con *. Los add-ons estándar de edición pueden añadirse durante el pedido y aplicarse a la misma imagen."
+            footnote="Los campos obligatorios están marcados con *. Los servicios adicionales estándar de edición pueden añadirse durante el pedido y aplicarse a la misma imagen."
           />
         </Wide>
       </section>
@@ -542,6 +559,7 @@ export default async function SpanishVirtualStagingPage() {
             description="Escoge un solo estilo por imagen o déjanos igualar una referencia. Adaptamos mobiliario, materiales y paleta a la dirección elegida. Toca una tarjeta para ver varios ejemplos por estilo."
           />
           <StyleGallerySection
+            locale="es"
             imageOverrides={styleImageOverrides}
             copy={STYLE_COPY}
             examplesLabel="ejemplos"
@@ -556,8 +574,8 @@ export default async function SpanishVirtualStagingPage() {
         <Wide>
           <SectionLead
             eyebrow="Precios"
-            title="Precio base + add-ons opcionales"
-            description="Empieza con el precio base de Virtual Staging por imagen. Combina los add-ons que necesites para la misma imagen; se suman al precio base."
+            title="Precio base + servicios adicionales opcionales"
+            description="Empieza con el precio base de Virtual Staging por imagen. Combina los servicios adicionales que necesites para la misma imagen; se suman al precio base."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {PRICING_CARDS.map((card) => (
@@ -614,8 +632,8 @@ export default async function SpanishVirtualStagingPage() {
           </div>
 
           <p className="mt-6 text-xs lg:text-sm text-muted leading-relaxed max-w-2xl">
-            Los add-ons son por imagen y se suman al precio base de Virtual
-            Staging. Se pueden combinar varios add-ons en la misma imagen.
+            Los servicios adicionales son por imagen y se suman al precio base de Virtual
+            Staging. Se pueden combinar varios servicios adicionales en la misma imagen.
           </p>
 
           <div className="mt-8">
@@ -632,7 +650,7 @@ export default async function SpanishVirtualStagingPage() {
 
       <section className="py-14 lg:py-20 bg-stone-50">
         <Wide>
-          <SectionLead eyebrow="FAQ" title="Preguntas sobre Virtual Staging" />
+          <SectionLead eyebrow="Preguntas frecuentes" title="Preguntas sobre Virtual Staging" />
           <div className="max-w-3xl">
             <FaqAccordion items={FAQ_ITEMS} />
           </div>
@@ -640,6 +658,7 @@ export default async function SpanishVirtualStagingPage() {
       </section>
 
       <ServiceCTA
+        eyebrow="Empieza ahora"
         title="¿Listo para amueblar tu anuncio?"
         subtitle="Sube tus fotos, elige un estilo y recibe imágenes listas para publicar en 24-48 horas."
         primaryHref="/dashboard/orders/new/virtual-staging"

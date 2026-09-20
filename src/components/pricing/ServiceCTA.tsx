@@ -3,6 +3,7 @@ import TrackedLink from "@/components/analytics/TrackedLink";
 import Wide from "./Wide";
 
 interface ServiceCTAProps {
+  eyebrow?: string;
   title: string;
   subtitle?: string;
   primaryHref: string;
@@ -16,6 +17,7 @@ interface ServiceCTAProps {
  * Premium navy block with gold primary action — same family as Services page.
  */
 export default function ServiceCTA({
+  eyebrow = "Get Started",
   title,
   subtitle,
   primaryHref,
@@ -28,7 +30,7 @@ export default function ServiceCTA({
       <Wide>
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-public-kicker font-semibold uppercase text-secondary mb-5">
-            Get Started
+            {eyebrow}
           </p>
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-5 tracking-tight">
             {title}
