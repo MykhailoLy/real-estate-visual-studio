@@ -1,11 +1,34 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
 function readSource(path: string): string {
   return readFileSync(path, "utf8");
 }
+
+test("llms.txt explains real service use cases and points to existing routes", () => {
+  const content = readSource("public/llms.txt");
+  const section = content.split(/## When to use PicchuSpot\r?\n/)[1]?.split(/\r?\n## /)[0];
+  assert.ok(section);
+  for (const path of ["/pricing", "/dashboard/orders/new", "/contact", "/local"]) {
+    assert.ok(section.includes(`https://picchuspot.com${path}`), path);
+  }
+  assert.match(section, /sign-in or registration is required/);
+  assert.doesNotMatch(section, /\bAPI\b|\bSDK\b|\bMCP\b|developer portal/i);
+  for (const [, href] of content.matchAll(/\]\((https:\/\/[^)]+)\)/g)) {
+    const url = new URL(href);
+    assert.equal(url.origin, "https://picchuspot.com");
+    const spanish = url.pathname === "/es" || url.pathname.startsWith("/es/");
+    const root = spanish
+      ? "src/app/(localized)/[locale]/(public)"
+      : url.pathname.startsWith("/dashboard/")
+        ? "src/app/(default)/(dashboard)"
+        : "src/app/(default)/(public)";
+    const path = spanish ? url.pathname.slice(3) : url.pathname;
+    assert.ok(existsSync(join(root, path, "page.tsx")), href);
+  }
+});
 
 function sourceFilesUnder(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

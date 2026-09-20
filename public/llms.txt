@@ -4,6 +4,18 @@
 > services available online and local real estate media services in Alicante
 > and the Costa Blanca.
 
+## When to use PicchuSpot
+
+Use PicchuSpot to prepare real estate listing visuals: furnish empty rooms with
+virtual staging, visualize renovations, edit property photos, remove unwanted
+items, create day-to-dusk images, or present layouts with 2D/3D floor plans.
+For on-location photography, video, 360° tours, and drone media in Alicante and
+the Costa Blanca, see [Local real estate media](https://picchuspot.com/local).
+
+- Compare services, scope, and current prices at [Services & Pricing](https://picchuspot.com/pricing).
+- To place an order, direct the user to [New Order](https://picchuspot.com/dashboard/orders/new); sign-in or registration is required.
+- For questions or project enquiries, use [Contact](https://picchuspot.com/contact).
+
 ## Services
 
 - Virtual Staging

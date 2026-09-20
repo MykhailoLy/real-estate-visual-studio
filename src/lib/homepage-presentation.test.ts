@@ -23,6 +23,9 @@ test("homepage keeps the SEO introduction, compact benefits, and conversion sect
   const source = readSource("src/app/(default)/(public)/page.tsx");
   const benefitsSource = readSource("src/components/home/BenefitsRow.tsx");
 
+  assert.match(benefitsSource, /<h2\s/);
+  assert.doesNotMatch(benefitsSource, /<h3\s/);
+
   assertSourceOrder(source, [
     "<BeforeAfterShowcase",
     "Real Estate Photo Editing, Virtual Staging &amp; Floor Plans",

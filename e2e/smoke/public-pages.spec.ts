@@ -6,6 +6,18 @@ import {
 
 type JsonLdObject = Record<string, unknown>;
 
+test("llms.txt serves the existing service guide with use-case directions", async ({ request }) => {
+  const response = await request.get("/llms.txt", { maxRedirects: 0 });
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("text/plain");
+  const content = await response.text();
+  expect(content).toContain("## When to use PicchuSpot");
+  for (const path of ["/pricing", "/dashboard/orders/new", "/contact", "/local"]) {
+    expect(content).toContain(`https://picchuspot.com${path}`);
+  }
+  expect(content).toContain("sign-in or registration is required");
+});
+
 function parseJsonLdObjects(html: string): JsonLdObject[] {
   return Array.from(
     html.matchAll(
@@ -53,9 +65,19 @@ test("document roots emit the route language and inherited metadata in the origi
         icons: values('link[rel="icon"]', "href"),
         bodyClass: doc.body.className,
         robots: values('meta[name="robots"]', "content"),
+        headings: Array.from(doc.querySelectorAll("main h1, main h2, main h3, main h4, main h5, main h6"), (node) => Number(node.tagName.slice(1))),
+        benefitHeadings: Array.from(doc.querySelectorAll('[data-testid="benefits-grid"] h2'), (node) => node.textContent),
       };
     }, html);
     expect(document.language, path).toBe(language);
+    if (path === "/" || path === "/es") {
+      expect(document.headings.filter((level) => level === 1), path).toHaveLength(1);
+      expect(document.headings[0], path).toBe(1);
+      expect(document.benefitHeadings, path).toHaveLength(6);
+      for (let index = 1; index < document.headings.length; index++) {
+        expect(document.headings[index], `${path}: heading ${index}`).toBeLessThanOrEqual(document.headings[index - 1] + 1);
+      }
+    }
     expect(document.titles, path).toHaveLength(1);
     expect(document.titles[0], path).toContain("PicchuSpot");
     expect(document.applicationName, path).toEqual(["PicchuSpot"]);
@@ -1154,6 +1176,25 @@ test("site-level Organization JSON-LD uses the official canonical logo once", as
   const organization = organizations[0];
   expect(organization.name).toBe("PicchuSpot");
   expect(organization.url).toBe("https://picchuspot.com");
+  expect(organization.address).toEqual({
+    "@type": "PostalAddress",
+    streetAddress: "C. Capitán Dema, 3",
+    postalCode: "03007",
+    addressLocality: "Alicante",
+    addressCountry: "ES",
+  });
+  expect(organization.telephone).toBe("+34 614 714 337");
+  expect(organization.contactPoint).toEqual({
+    "@type": "ContactPoint",
+    contactType: "customer support",
+    email: "hello@picchuspot.com",
+  });
+  const legalResponse = await request.get("/legal");
+  expect(legalResponse.status()).toBe(200);
+  const legalHtml = await legalResponse.text();
+  for (const fact of ["C. Capitán Dema, 3", "03007 Alicante", "Spain", String(organization.telephone)]) {
+    expect(legalHtml).toContain(fact);
+  }
   expect(Object.keys(organization).filter((key) => key === "logo")).toHaveLength(1);
 
   const logo = organization.logo as JsonLdObject;
@@ -1510,7 +1551,7 @@ test("homepage keeps its compact Welcome Offer benefits responsive and ordered",
 
     const benefitFontSizes = await benefitGrid.evaluate((element) => {
       const firstCard = element.firstElementChild;
-      const title = firstCard?.querySelector("h3");
+      const title = firstCard?.querySelector("h2");
       const body = firstCard?.querySelector("p");
       return {
         title: title ? Number.parseFloat(getComputedStyle(title).fontSize) : 0,
