@@ -364,3 +364,10 @@ Check:
 * no unexpected wrapping
 * visible keyboard focus
 * functional mobile and desktop navigation
+
+## SEO / GEO controls
+
+Before changing public SEO, service/blog content or audit rules, read
+`docs/seo/SEO-GEO-POLICY.md` and the evidence limits in `docs/seo/BASELINE.md`.
+Reuse the current Node tests and Playwright smoke setup. SEO findings are not
+authorization to change protected systems, publish content, merge or deploy.
