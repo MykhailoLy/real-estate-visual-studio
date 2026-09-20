@@ -44,6 +44,11 @@ export function parseOptions(args) {
 
 export function canonicalFor(path) { return new URL(path, CANONICAL_ORIGIN).href; }
 
+export function sameURL(left, right, base = CANONICAL_ORIGIN) {
+  try { return new URL(left, base).href === new URL(right, base).href; }
+  catch { return false; }
+}
+
 // Keep bot-scoped directives from another crawler from becoming a Google noindex finding.
 export function googleRestrictions(value, header = false) {
   let applies = true;
@@ -105,7 +110,7 @@ export function analyzePage(page) {
     const spanish = english === '/' ? '/es' : `/es${english}`;
     for (const [lang, target] of [['en', english], ['es', spanish]]) {
       const alternates = page.alternates.filter((item) => item.lang.toLowerCase() === lang);
-      if (alternates.length !== 1 || alternates[0].href !== canonicalFor(target)) add('HREFLANG_PAIR', 'P1', `Expected ${lang} alternate ${canonicalFor(target)}.`);
+      if (alternates.length !== 1 || !sameURL(alternates[0].href, canonicalFor(target))) add('HREFLANG_PAIR', 'P1', `Expected ${lang} alternate ${canonicalFor(target)}.`);
     }
   } else if (page.alternates.length) add('ENGLISH_ONLY_ALTERNATES', 'P1', 'These registered blog routes have no published Spanish counterpart; inspect unexpected hreflang.');
   if (page.path.startsWith('/blog/') && !page.links.some((href) => {
@@ -122,7 +127,7 @@ export function analyzeSite(pages, sitemapURLs) {
     const title = page.titles[0];
     if (title && titles.has(title)) add('DUPLICATE_TITLE', 'P2', page.path, `Same title as ${titles.get(title)} within the sample.`);
     else if (title) titles.set(title, page.path);
-    if (sitemapURLs && !sitemapURLs.includes(canonicalFor(page.path))) add('SITEMAP_MISSING', 'P2', page.path, 'Not found in the fetched URL-set sitemap. Absence is not proof of non-indexation.');
+    if (sitemapURLs && !sitemapURLs.some((url) => sameURL(url, canonicalFor(page.path)))) add('SITEMAP_MISSING', 'P2', page.path, 'Not found in the fetched URL-set sitemap. Absence is not proof of non-indexation.');
     const seen = new Set();
     for (const href of page.links) {
       let url;
