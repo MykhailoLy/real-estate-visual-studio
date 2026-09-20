@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PAGE_PATHS, REQUEST_PATHS, parseOptions, canonicalFor, googleRestrictions, analyzePage, analyzeSite, getPublicResource, reportExitCode } from './seo-audit.mjs';
+import { PAGE_PATHS, REQUEST_PATHS, parseOptions, canonicalFor, sameURL, googleRestrictions, analyzePage, analyzeSite, getPublicResource, reportExitCode } from './seo-audit.mjs';
 
 function page(path = '/pricing/virtual-staging', changes = {}) {
   return {
@@ -34,6 +34,21 @@ test('scope is bounded and excludes protected routes, queries and local SEO', ()
 });
 
 test('well-formed page has no findings', () => assert.deepEqual(analyzePage(page()), []));
+
+test('URL comparison normalizes root trailing slash but preserves meaningful URL differences', () => {
+  assert.equal(sameURL('https://picchuspot.com', 'https://picchuspot.com/'), true);
+  assert.equal(sameURL('https://picchuspot.com?x=1', 'https://picchuspot.com/'), false);
+  assert.equal(sameURL('https://picchuspot.com/es', 'https://picchuspot.com/es/'), false);
+  const root = page('/', {
+    canonicals: ['https://picchuspot.com'],
+    alternates: [
+      { lang: 'en', href: 'https://picchuspot.com' },
+      { lang: 'es', href: 'https://picchuspot.com/es' },
+    ],
+  });
+  assert.ok(!analyzePage(root).some((item) => item.id === 'HREFLANG_PAIR'));
+  assert.ok(!analyzeSite([root], ['https://picchuspot.com']).some((item) => item.id === 'SITEMAP_MISSING'));
+});
 
 test('noindex/none are P0; other bot directives are not Google directives', () => {
   for (const robots of [['noindex, follow'], ['none']]) assert.ok(analyzePage(page(undefined, { robots })).some((item) => item.id === 'NOINDEX' && item.priority === 'P0'));
