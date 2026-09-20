@@ -2170,7 +2170,7 @@ test("header Explore menu exposes Blog in English order and preserves Spanish li
   await expect(englishMenu).toBeHidden();
 
   await page.goto("/es/terms");
-  await page.getByRole("button", { name: "Open menu" }).click();
+  await page.getByRole("button", { name: "Abrir menú" }).click();
   const spanishMenu = page.getByRole("dialog", { name: "Menú del sitio" });
   const spanishExplore = spanishMenu.locator("section").filter({
     has: page.getByText("Explorar", { exact: true }),
