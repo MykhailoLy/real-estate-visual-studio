@@ -11,7 +11,10 @@ export const viewport: Viewport = documentViewport;
 // This is intentionally independent of request headers, cookies and locale routing.
 export default function GlobalNotFound() {
   return (
-    <DocumentRoot lang="en">
+    // One static 404 serves every unknown URL. Its pathname-dependent support
+    // widget must mount on the client, after the document hydrates, because the
+    // prerender pathname differs from (for example) an unknown /es/gallery slug.
+    <DocumentRoot lang="en" deferSupportChatUntilMount>
       <title>404: This page could not be found.</title>
       <div
         style={{

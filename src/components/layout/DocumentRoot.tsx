@@ -66,16 +66,20 @@ export const documentMetadata: Metadata = {
 export default function DocumentRoot({
   children,
   lang,
+  deferSupportChatUntilMount = false,
 }: Readonly<{
   children: React.ReactNode;
   lang: "en" | "es";
+  deferSupportChatUntilMount?: boolean;
 }>) {
   return (
     <html lang={lang}>
       <body
         className={`${geistSans.variable} antialiased flex flex-col min-h-screen w-full overflow-x-clip`}
       >
-        <SupportChatProvider>{children}</SupportChatProvider>
+        <SupportChatProvider deferWidgetUntilMount={deferSupportChatUntilMount}>
+          {children}
+        </SupportChatProvider>
         <GoogleAnalytics />
         <CookieConsentBanner />
       </body>
