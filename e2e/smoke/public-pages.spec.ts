@@ -102,28 +102,26 @@ test("both document roots retain the Virtual Staging canonical and reciprocal al
   }
 });
 
-test("global 404 documents hydrate in the browser and unpublished routes remain HTTP 404", async ({ request, page }, testInfo) => {
-  const paths = [
-    "/__document_root_missing__",
-    "/es/__document_root_missing__",
-    "/es/blog",
-    "/en",
-    "/fr",
-    "/fr/pricing/virtual-staging",
-    "/gallery/__document_root_missing__",
-    "/es/gallery/__document_root_missing__",
-    "/property/__document_root_missing__",
-  ];
+// Keep the existing route matrix, with a fresh browser/guard per URL so one
+// failed hydration cannot prevent (or contaminate) the Spanish gallery check.
+for (const path of [
+  "/__document_root_missing__",
+  "/es/__document_root_missing__",
+  "/es/blog",
+  "/en",
+  "/fr",
+  "/fr/pricing/virtual-staging",
+  "/gallery/__document_root_missing__",
+  "/es/gallery/__document_root_missing__",
+  "/property/__document_root_missing__",
+]) {
   // English dynamic gallery/property errors are a separate, pre-existing
   // fallback. The ungenerated Spanish gallery slug uses the global document.
-  const globalPaths = paths.filter((path) =>
-    !path.startsWith("/gallery/") && !path.startsWith("/property/"),
-  );
-  const guard = await installSmokeNetworkGuards(page, testInfo, {
-    expectedNavigation404Paths: globalPaths,
-  });
-  for (const path of paths) {
-    const isGlobal = globalPaths.includes(path);
+  const isGlobal = !path.startsWith("/gallery/") && !path.startsWith("/property/");
+  test(`${isGlobal ? "global 404 document" : "unpublished dynamic route"}: ${path}`, async ({ request, page }, testInfo) => {
+    const guard = await installSmokeNetworkGuards(page, testInfo, {
+      expectedNavigation404Paths: isGlobal ? [path] : [],
+    });
     const response = isGlobal
       ? await page.goto(path)
       : await request.get(path, { maxRedirects: 0 });
@@ -147,10 +145,21 @@ test("global 404 documents hydrate in the browser and unpublished routes remain 
       await expect(page.locator('aside[aria-label="Cookie consent"], aside[aria-label="Consentimiento de cookies"]')).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       expect(await page.locator("body").evaluate((node) => getComputedStyle(node).fontFamily)).toContain("Geist");
-      await guard.expectClean();
+      try {
+        await guard.expectClean();
+      } catch (error) {
+        // Keep a small, readable server/client comparison in CI logs as well as
+        // the existing runtime-error attachments; never swallow the failure.
+        console.info("404 hydration context", JSON.stringify({
+          path,
+          serverSupportText: html.match(/Ask PicchuSpot|Pregunta a PicchuSpot/)?.[0],
+          clientSupportText: await page.locator('button[aria-label*="PicchuSpot"]').allTextContents(),
+        }));
+        throw error;
+      }
     }
-  }
-});
+  });
+}
 
 test("an expected document 404 does not excuse script console errors", async ({ page }, testInfo) => {
   const path = "/__document_root_missing__";
