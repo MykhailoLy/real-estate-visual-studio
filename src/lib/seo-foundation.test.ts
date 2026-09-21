@@ -387,6 +387,8 @@ test("photo editing outsourcing article registers its approved English identity 
     'canonicalPath: "/blog/outsource-real-estate-photo-editing"',
     'category: "Photo Editing"',
     'href: "/pricing/photo-editing"',
+    'src: "/images/blog/photo-editing-brightness-contrast-after.webp"',
+    "showInArticleHeader: false",
     'status: "published"',
     "Content: OutsourceRealEstatePhotoEditingArticle",
   ]) {
@@ -394,7 +396,15 @@ test("photo editing outsourcing article registers its approved English identity 
   }
 
   const content = readSource("src/components/blog/OutsourceRealEstatePhotoEditingArticle.tsx");
-  assert.doesNotMatch(content, /<h1|\/es\/blog|href="\/blog\/|ArticleBeforeAfter/);
+  assert.doesNotMatch(content, /<h1|\/es\/blog|href="\/blog\//);
+  assert.equal((content.match(/<ArticleBeforeAfter\s/g) ?? []).length, 2);
+  for (const pair of ["brightness-contrast", "window-view"]) {
+    for (const version of ["before", "after"]) {
+      const path = `/images/blog/photo-editing-${pair}-${version}.webp`;
+      assert.ok(content.includes(`src: "${path}"`), path);
+      assert.ok(existsSync(`public${path}`), path);
+    }
+  }
   assert.match(content, /You can upload JPG or PNG files through the website\./);
   assert.match(content, /For RAW files or bracketed sets/);
   assert.match(content, /href="\/contact"/);

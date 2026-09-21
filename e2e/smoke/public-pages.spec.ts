@@ -474,6 +474,9 @@ test("photo editing article publishes English metadata, schema, sitemap, and dir
     "content", PHOTO_EDITING_ARTICLE.description,
   );
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", canonical);
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    "content", "https://picchuspot.com/images/blog/photo-editing-brightness-contrast-after.webp",
+  );
   await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
   await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
   await expect(page.locator("article time")).toHaveCount(1);
@@ -505,6 +508,12 @@ test("photo editing article publishes English metadata, schema, sitemap, and dir
     datePublished: "2026-09-21",
     articleSection: "Photo Editing",
     inLanguage: "en-US",
+    image: {
+      "@type": "ImageObject",
+      url: "https://picchuspot.com/images/blog/photo-editing-brightness-contrast-after.webp",
+      width: 1920,
+      height: 1281,
+    },
   });
   expect(schemas.some((schema) => schema["@type"] === "BreadcrumbList")).toBe(true);
   expect(JSON.stringify(schemas)).not.toMatch(/FAQPage|aggregateRating|reviewRating/);
@@ -569,7 +578,7 @@ const BLOG_VIEWPORTS = [
 ] as const;
 
 for (const viewport of BLOG_VIEWPORTS) {
-  test(`photo editing article keeps readable tables and CTA at ${viewport.width}px`, async ({
+  test(`photo editing article keeps readable images, tables and CTA at ${viewport.width}px`, async ({
     page,
   }, testInfo) => {
     await page.setViewportSize(viewport);
@@ -577,8 +586,75 @@ for (const viewport of BLOG_VIEWPORTS) {
       localStorage.setItem("picchuspot_cookie_consent", "rejected");
     });
     const guard = await installSmokeNetworkGuards(page, testInfo);
+    await page.goto("/blog");
+    const card = page.locator("main article").filter({
+      has: page.getByRole("link", { name: PHOTO_EDITING_ARTICLE.title, exact: true }),
+    });
+    const cover = card.getByRole("img");
+    await expect(cover).toHaveAttribute(
+      "alt", "Row houses and front gardens after brightness and contrast editing",
+    );
+    expect(decodeURIComponent(await cover.getAttribute("src") ?? "")).toContain(
+      "/images/blog/photo-editing-brightness-contrast-after.webp",
+    );
+    await expect.poll(() => cover.evaluate((element: HTMLImageElement) =>
+      element.complete && element.naturalWidth > 0,
+    )).toBe(true);
+    const coverBounds = await cover.boundingBox();
+    expect(coverBounds!.width / coverBounds!.height).toBeCloseTo(1920 / 1281, 2);
+    const cardBounds = await card.boundingBox();
+    expect(cardBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(cardBounds!.x + cardBounds!.width).toBeLessThanOrEqual(viewport.width);
     await page.goto(PHOTO_EDITING_ARTICLE.path);
     const article = page.locator("article");
+    await expect(article.locator("img")).toHaveCount(4);
+    for (const pair of [
+      { label: "Brightness and contrast: exterior before and after editing", file: "brightness-contrast" },
+      { label: "Interior and window view: before and after editing", file: "window-view" },
+    ]) {
+      const figure = article.getByRole("figure", { name: pair.label, exact: true });
+      await figure.scrollIntoViewIfNeeded();
+      await expect(figure.getByText("BEFORE", { exact: true })).toBeVisible();
+      await expect(figure.getByText("AFTER", { exact: true })).toBeVisible();
+      for (const word of ["brightness", "shadows", "edges", "color consistency", "natural"]) {
+        await expect(figure.locator("figcaption")).toContainText(word);
+      }
+      const images = figure.getByRole("img");
+      for (const [index, version] of ["before", "after"].entries()) {
+        const image = images.nth(index);
+        await image.scrollIntoViewIfNeeded();
+        await expect(image).toHaveAttribute("alt", /\S/);
+        await expect(image).toHaveAttribute("loading", "lazy");
+        await expect(image).toHaveAttribute("sizes", /432px/);
+        expect(await image.getAttribute("src")).toContain("/_next/image?");
+        expect(decodeURIComponent(await image.getAttribute("src") ?? "")).toContain(
+          `photo-editing-${pair.file}-${version}.webp`,
+        );
+        await expect.poll(() => image.evaluate((element: HTMLImageElement) =>
+          element.complete && element.naturalWidth > 0,
+        )).toBe(true);
+        const ratios = await image.evaluate((element: HTMLImageElement) => {
+          const bounds = element.getBoundingClientRect();
+          return {
+            declared: Number(element.getAttribute("width")) / Number(element.getAttribute("height")),
+            displayed: bounds.width / bounds.height,
+            height: bounds.height,
+            naturalHeightAtDisplayWidth: bounds.width * element.naturalHeight / element.naturalWidth,
+          };
+        });
+        expect(ratios.displayed).toBeCloseTo(ratios.declared, 2);
+        // Chromium rounds density-corrected natural dimensions to whole pixels.
+        expect(Math.abs(ratios.height - ratios.naturalHeightAtDisplayWidth)).toBeLessThanOrEqual(1);
+      }
+      const before = await images.nth(0).boundingBox();
+      const after = await images.nth(1).boundingBox();
+      if (viewport.width < 768) {
+        expect(after!.y).toBeGreaterThanOrEqual(before!.y + before!.height);
+      } else {
+        expect(after!.x).toBeGreaterThanOrEqual(before!.x + before!.width);
+        expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
+      }
+    }
     await expect(article.getByRole("table")).toHaveCount(2);
     for (const table of await article.getByRole("table").all()) {
       const region = table.locator("..");

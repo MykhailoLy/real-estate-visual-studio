@@ -52,6 +52,13 @@ const blogArticles: readonly BlogArticle[] = [
       href: "/pricing/photo-editing",
     },
     canonicalPath: "/blog/outsource-real-estate-photo-editing",
+    image: {
+      src: "/images/blog/photo-editing-brightness-contrast-after.webp",
+      alt: "Row houses and front gardens after brightness and contrast editing",
+      width: 1920,
+      height: 1281,
+      showInArticleHeader: false,
+    },
     status: "published",
     Content: OutsourceRealEstatePhotoEditingArticle,
   },

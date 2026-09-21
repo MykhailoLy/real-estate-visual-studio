@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ArticleBeforeAfter from "./ArticleBeforeAfter";
 import {
   sectionHeadingClass,
   subsectionHeadingClass,
@@ -116,6 +117,23 @@ export default function OutsourceRealEstatePhotoEditingArticle() {
         test checks the fit for your work.
       </p>
 
+      <ArticleBeforeAfter
+        label="Brightness and contrast: exterior before and after editing"
+        before={{
+          src: "/images/blog/photo-editing-brightness-contrast-before.webp",
+          alt: "Row houses and front gardens before editing, with deep shadows beneath the windows",
+          width: 1920,
+          height: 1277,
+        }}
+        after={{
+          src: "/images/blog/photo-editing-brightness-contrast-after.webp",
+          alt: "Row houses and front gardens after brightness and contrast editing",
+          width: 1920,
+          height: 1281,
+        }}
+        caption="Compare the brightness and shadows around the doors and planting. Inspect roof and window edges, color consistency in the wood and greenery, and whether the result keeps a natural appearance."
+      />
+
       <h2 id="give-the-editor-a-clear-brief" className={sectionHeadingClass}>
         3. Give the editor a clear brief
       </h2>
@@ -231,6 +249,23 @@ export default function OutsourceRealEstatePhotoEditingArticle() {
           </tr>
         </tbody>
       </ResponsiveTable>
+
+      <ArticleBeforeAfter
+        label="Interior and window view: before and after editing"
+        before={{
+          src: "/images/blog/photo-editing-window-view-before.webp",
+          alt: "Living room before editing, with a dark sofa and a bright window view",
+          width: 1920,
+          height: 1279,
+        }}
+        after={{
+          src: "/images/blog/photo-editing-window-view-after.webp",
+          alt: "Living room after editing, with a brighter sofa and clearer buildings through the window",
+          width: 1920,
+          height: 1279,
+        }}
+        caption="Compare room brightness, shadows beneath the sofa, and edges around the window frames. Check color consistency in the walls and floor, and whether the room and window view look natural together."
+      />
 
       <h3 id="check-the-delivery" className={subsectionHeadingClass}>
         Check the delivery
