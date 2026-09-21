@@ -448,7 +448,83 @@ test("virtual staging explainer publishes truthful English metadata, schema, and
   await guard.expectClean();
 });
 
-test("blog index discovers the new explainer and preserves the cost guide", async ({
+const PHOTO_EDITING_ARTICLE = {
+  path: "/blog/outsource-real-estate-photo-editing",
+  title: "Outsourcing Real Estate Photo Editing: How to Test an Editor",
+  metadataTitle: "Outsource Real Estate Photo Editing: A Test Checklist",
+  description:
+    "Choosing a real estate photo editor? Use a test brief and quality checklist to compare results, handle revisions, and see how much time you save.",
+} as const;
+
+test("photo editing article publishes English metadata, schema, sitemap, and direct links", async ({
+  page,
+  request,
+}, testInfo) => {
+  const guard = await installSmokeNetworkGuards(page, testInfo);
+  const canonical = `https://picchuspot.com${PHOTO_EDITING_ARTICLE.path}`;
+  const response = await page.goto(PHOTO_EDITING_ARTICLE.path);
+  expectNavigationResponseOk(response, PHOTO_EDITING_ARTICLE.path);
+  expect(response!.request().redirectedFrom()).toBeNull();
+  expect(response!.headers()["x-robots-tag"] ?? "").not.toMatch(/noindex/i);
+  await expect(page).toHaveTitle(PHOTO_EDITING_ARTICLE.metadataTitle);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator("h1")).toHaveCount(1);
+  await expect(page.locator("h1")).toHaveText(PHOTO_EDITING_ARTICLE.title);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content", PHOTO_EDITING_ARTICLE.description,
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", canonical);
+  await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
+  await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
+  await expect(page.locator("article time")).toHaveCount(1);
+  await expect(page.locator("article time")).toHaveAttribute("datetime", "2026-09-21");
+
+  const article = page.locator("article");
+  await expect(article).toContainText("You can upload JPG or PNG files through the website.");
+  await expect(article).toContainText(
+    "For RAW files or bracketed sets, contact PicchuSpot to agree on the work and share a link to your own cloud folder.",
+  );
+  for (const [name, href] of [
+    ["photo editing examples and options", "/pricing/photo-editing"],
+    ["See Photo Editing Examples & Pricing", "/pricing/photo-editing"],
+    ["contact PicchuSpot", "/contact"],
+    ["Explore this service", "/pricing/photo-editing"],
+  ]) {
+    await expect(article.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
+  }
+  for (const href of [PHOTO_EDITING_ARTICLE.path, "/blog", "/pricing/photo-editing", "/contact"]) {
+    expect((await request.get(href, { maxRedirects: 0 })).status(), href).toBe(200);
+  }
+
+  const schemas = parseJsonLdObjects(await response!.text());
+  expect(schemas.find((schema) => schema["@type"] === "BlogPosting")).toMatchObject({
+    headline: PHOTO_EDITING_ARTICLE.title,
+    description: PHOTO_EDITING_ARTICLE.description,
+    url: canonical,
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+    datePublished: "2026-09-21",
+    articleSection: "Photo Editing",
+    inLanguage: "en-US",
+  });
+  expect(schemas.some((schema) => schema["@type"] === "BreadcrumbList")).toBe(true);
+  expect(JSON.stringify(schemas)).not.toMatch(/FAQPage|aggregateRating|reviewRating/);
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.ok()).toBe(true);
+  const xml = await sitemap.text();
+  const entry = xml.match(
+    /<url>\s*<loc>https:\/\/picchuspot\.com\/blog\/outsource-real-estate-photo-editing<\/loc>[\s\S]*?<\/url>/,
+  )?.[0];
+  expect(entry).toBeDefined();
+  expect(entry).toContain("<lastmod>2026-09-21</lastmod>");
+  expect(entry).not.toContain("hreflang");
+  expect(xml).not.toContain("/es/blog/");
+  expect((await request.get(`/es${PHOTO_EDITING_ARTICLE.path}`)).status()).toBe(404);
+  const robots = await request.get("/robots.txt");
+  expect(await robots.text()).not.toMatch(/Disallow: \/blog/);
+  await guard.expectClean();
+});
+
+test("blog index discovers the photo editing article and preserves both staging guides", async ({
   page,
 }, testInfo) => {
   const guard = await installSmokeNetworkGuards(page, testInfo);
@@ -457,6 +533,11 @@ test("blog index discovers the new explainer and preserves the cost guide", asyn
   await expect(page.getByRole("heading", {
     name: "Real Estate Visual Marketing Insights",
   })).toBeVisible();
+  const editingArticle = page.getByRole("link", { name: PHOTO_EDITING_ARTICLE.title, exact: true });
+  await expect(editingArticle).toHaveAttribute("href", PHOTO_EDITING_ARTICLE.path);
+  await editingArticle.click();
+  await expect(page.locator("h1")).toHaveText(PHOTO_EDITING_ARTICLE.title);
+  await page.getByRole("link", { name: "Back to Blog" }).click();
   const newArticle = page.locator(`main a[href="${VIRTUAL_STAGING_EXPLAINER.path}"]`).first();
   await expect(newArticle).toBeVisible();
   await newArticle.click();
@@ -488,6 +569,57 @@ const BLOG_VIEWPORTS = [
 ] as const;
 
 for (const viewport of BLOG_VIEWPORTS) {
+  test(`photo editing article keeps readable tables and CTA at ${viewport.width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => {
+      localStorage.setItem("picchuspot_cookie_consent", "rejected");
+    });
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+    await page.goto(PHOTO_EDITING_ARTICLE.path);
+    const article = page.locator("article");
+    await expect(article.getByRole("table")).toHaveCount(2);
+    for (const table of await article.getByRole("table").all()) {
+      const region = table.locator("..");
+      await expect(region).toHaveAttribute("aria-label", /\S/);
+      await region.focus();
+      await expect(region).toBeFocused();
+      const dimensions = await region.evaluate((element) => ({
+        width: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        overflow: getComputedStyle(element).overflowX,
+      }));
+      if (dimensions.scrollWidth > dimensions.width) {
+        expect(dimensions.overflow).toBe("auto");
+        await region.press("ArrowRight");
+        await expect.poll(() => region.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+      }
+    }
+    const widths = await page.evaluate(() => ({
+      content: document.documentElement.scrollWidth,
+      viewport: document.documentElement.clientWidth,
+    }));
+    expect(widths.content).toBeLessThanOrEqual(widths.viewport);
+    expect(await article.locator("p").nth(1).evaluate((element) =>
+      parseFloat(getComputedStyle(element).fontSize),
+    )).toBeGreaterThanOrEqual(16);
+    const cta = article.getByRole("link", { name: "See Photo Editing Examples & Pricing", exact: true });
+    await cta.scrollIntoViewIfNeeded();
+    await expect(cta).toBeVisible();
+    await cta.focus();
+    await cta.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(cta).toBeFocused();
+    expect(await cta.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe("none");
+    await cta.press("Enter");
+    await expect(page).toHaveURL(/\/pricing\/photo-editing$/);
+    await expect(page.getByRole("heading", {
+      level: 1, name: "Professional Real Estate Photo Editing", exact: true,
+    })).toBeVisible();
+    await guard.expectClean();
+  });
+
   test(`virtual staging explainer keeps readable comparisons and tables at ${viewport.width}px`, async ({
     page,
   }, testInfo) => {
