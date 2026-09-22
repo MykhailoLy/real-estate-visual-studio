@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import test from "node:test";
+import type { CheckoutRepository } from "./checkout-repository.ts";
 import type { WebhookPaymentRecord, WebhookRepository } from "./webhook-repository.ts";
+import { historicalStagingSnapshot } from "../pricing/historical-snapshots.fixture.ts";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -22,6 +24,7 @@ const orderId = "11111111-1111-4111-8111-111111111111";
 const now = new Date("2026-07-14T12:00:00.000Z");
 const { handleStripeWebhookRequest } = await import("./webhook-request.ts");
 const { processVerifiedStripeWebhook } = await import("./webhook-service.ts");
+const { handleCheckoutRequest } = await import("./checkout-request.ts");
 
 function payment(overrides: Partial<WebhookPaymentRecord> = {}): WebhookPaymentRecord {
   return {
@@ -269,6 +272,99 @@ class FakeRepository implements WebhookRepository {
     return true;
   }
 }
+
+test("late original webhook pays the same payment after completed Checkout is blocked, and replay is idempotent", async (t) => {
+  const repository = new FakeRepository();
+  const snapshot = historicalStagingSnapshot("2026-09-09-v4");
+  assert.ok(snapshot.totalCents !== null);
+  const totalCents = snapshot.totalCents;
+  const userId = "33333333-3333-4333-8333-333333333333";
+  const originalSessionId = "cs_test_original_complete";
+  const expiresAt = Math.floor(now.getTime() / 1000) - 60;
+  repository.currentPayment = payment({
+    subtotal_cents: totalCents,
+    stripe_checkout_session_id: originalSessionId,
+    checkout_expires_at: new Date(expiresAt * 1000).toISOString(),
+  });
+  const before = structuredClone(repository.currentPayment);
+  let attempt = 1;
+  // Share the existing webhook fixture's payment with the real Checkout service.
+  // Mutations remain functional so this test exposes the original overwrite bug.
+  const createPayment = t.mock.fn(async () => { throw new Error("unexpected new payment"); });
+  const reserveAttempt = t.mock.fn<CheckoutRepository["reserveAttempt"]>(async (input) => {
+    if (!repository.currentPayment || repository.currentPayment.paid_at || attempt !== input.expectedAttempt) return null;
+    attempt = input.nextAttempt;
+    repository.currentPayment.checkout_expires_at = input.leaseExpiresAt;
+    return { ...repository.currentPayment, checkout_attempt: attempt };
+  });
+  const markCheckoutOpen = t.mock.fn<CheckoutRepository["markCheckoutOpen"]>(async (input) => {
+    if (!repository.currentPayment || repository.currentPayment.paid_at || attempt !== input.attempt) return false;
+    repository.currentPayment.payment_status = "checkout_open";
+    repository.currentPayment.stripe_checkout_session_id = input.stripeCheckoutSessionId;
+    repository.currentPayment.checkout_expires_at = input.checkoutExpiresAt;
+    return true;
+  });
+  const markExpired = t.mock.method(repository, "markExpired");
+  const markFailed = t.mock.fn(async () => { throw new Error("unexpected failed payment"); });
+  const checkoutRepository: CheckoutRepository = {
+    getOrder: async () => ({
+      id: orderId, order_number: "VS-42", user_id: userId,
+      client_email: "customer@example.com", status: "pending", service_type: "virtual-staging",
+      item_count: 10, estimated_total_cents: totalCents, currency: "USD", pricing_snapshot: snapshot,
+    }),
+    getPayment: async () => repository.currentPayment && ({ ...repository.currentPayment, checkout_attempt: attempt }),
+    createPayment, reserveAttempt, markCheckoutOpen,
+    markExpired: () => repository.markExpired(), markFailed,
+  };
+  const create = t.mock.fn(async () => ({
+    id: "cs_test_replacement", url: "https://checkout.stripe.com/c/pay/cs_test_replacement",
+    expires_at: expiresAt + 1800, livemode: false,
+  }));
+  const retrieve = t.mock.fn(async () => ({
+    id: originalSessionId, status: "complete" as const, payment_status: "paid",
+    url: null, expires_at: expiresAt, livemode: false,
+  }));
+  const checkoutResult = await handleCheckoutRequest({ orderId }, {
+    repository: checkoutRepository,
+    getStripeClient: () => ({ checkout: { sessions: { create, retrieve } } }),
+    getStripeMode: () => "test", getAuthenticatedUser: async () => ({ id: userId }), now: () => now,
+  });
+  const afterCheckout = structuredClone(repository.currentPayment);
+  const lateEvent = event("checkout.session.completed", {
+    id: originalSessionId, expires_at: expiresAt,
+    amount_subtotal: totalCents, amount_total: totalCents,
+  });
+  const result = await processVerifiedStripeWebhook(lateEvent, dependencies(repository));
+
+  if (create.mock.callCount()) {
+    t.diagnostic(JSON.stringify({ checkoutResult, attempt, savedSessionId: afterCheckout?.stripe_checkout_session_id,
+      expiryWrites: markExpired.mock.callCount(), webhookEvent: repository.events.get(lateEvent.id) }));
+  }
+  assert.deepEqual(checkoutResult, {
+    status: 409, body: { error: "Payment is being processed.", state: "processing" },
+  });
+  assert.deepEqual(afterCheckout, before);
+  assert.equal(attempt, 1);
+  assert.equal(retrieve.mock.callCount(), 1);
+  assert.deepEqual(retrieve.mock.calls[0]?.arguments, [originalSessionId]);
+  for (const mutation of [create, createPayment, reserveAttempt, markCheckoutOpen, markExpired, markFailed]) {
+    assert.equal(mutation.mock.callCount(), 0);
+  }
+  assert.equal(result.status, 200);
+  assert.deepEqual(repository.currentPayment, {
+    ...before, payment_status: "paid", tax_cents: 100, total_cents: totalCents,
+    stripe_payment_intent_id: "pi_test_123", stripe_customer_id: "cus_test_123",
+    checkout_expires_at: null, paid_at: now.toISOString(),
+  });
+  assert.equal(repository.events.get(lateEvent.id)?.processing_status, "processed");
+  assert.equal(repository.updates, 1);
+
+  const paid = structuredClone(repository.currentPayment);
+  assert.equal((await processVerifiedStripeWebhook(lateEvent, dependencies(repository))).status, 200);
+  assert.deepEqual(repository.currentPayment, paid);
+  assert.equal(repository.updates, 1);
+  assert.equal(repository.events.size, 1);
+});
 
 function dependencies(
   repository: FakeRepository,

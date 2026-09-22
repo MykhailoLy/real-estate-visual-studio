@@ -283,7 +283,9 @@ async function reuseOrExpireOpenCheckout({
     return { url: session.url };
   }
 
-  if (session.status === "expired" || (expiresAt && expiresAt <= now)) {
+  // Only Stripe's explicit expired status permits replacing the saved Session.
+  // A completed Session retains expires_at while its webhook may still be pending.
+  if (session.status === "expired") {
     try {
       const markedExpired = await repository.markExpired({
         paymentId: payment.id,
@@ -304,8 +306,8 @@ async function reuseOrExpireOpenCheckout({
     return null;
   }
 
-  // A completed Session may be waiting for webhook processing. Never create a
-  // second session or infer that it is paid from a browser-visible redirect.
+  // Complete, unusable open, and unknown states must preserve the original
+  // attempt. Never infer payment confirmation from a browser-visible redirect.
   throw new CheckoutServiceError(409, "checkout-processing", "Payment is being processed.");
 }
 
