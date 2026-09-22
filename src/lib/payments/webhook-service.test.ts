@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import test from "node:test";
 import type { CheckoutRepository } from "./checkout-repository.ts";
 import type { WebhookPaymentRecord, WebhookRepository } from "./webhook-repository.ts";
+import type { StripeWebhookServiceDependencies } from "./webhook-service.ts";
 import { historicalStagingSnapshot } from "../pricing/historical-snapshots.fixture.ts";
 
 registerHooks({
@@ -161,6 +162,8 @@ class FakeRepository implements WebhookRepository {
   events = new Map<string, EventRecord>();
   registrations: Array<Record<string, unknown>> = [];
   updates = 0;
+  paidUpdates = 0;
+  refundUpdates = 0;
   onGetPayment: (() => void) | null = null;
 
   async registerEvent(input: Record<string, unknown>) {
@@ -231,6 +234,7 @@ class FakeRepository implements WebhookRepository {
     this.currentPayment.paid_at = input.paidAt;
     this.currentPayment.checkout_expires_at = null;
     this.updates += 1;
+    this.paidUpdates += 1;
     return true;
   }
 
@@ -269,6 +273,7 @@ class FakeRepository implements WebhookRepository {
     this.currentPayment.refunded_amount_cents = input.refundedAmountCents;
     this.currentPayment.refunded_at = input.refundedAt;
     this.updates += 1;
+    this.refundUpdates += 1;
     return true;
   }
 }
@@ -369,12 +374,64 @@ test("late original webhook pays the same payment after completed Checkout is bl
 function dependencies(
   repository: FakeRepository,
   chargeOverrides: Record<string, unknown> = {},
-) {
+): StripeWebhookServiceDependencies {
   return {
     repository,
     retrieveCharge: async () => charge(chargeOverrides),
+    retrievePaymentIntent: async () => ({
+      id: "pi_test_123", object: "payment_intent", livemode: false,
+      currency: "usd", amount: 1350, metadata: { picchuspot_order_id: orderId },
+    }),
+    retrieveCheckoutSession: async () => ({ object: "checkout.session", ...event("checkout.session.completed").data.object }),
     now: () => now,
   };
+}
+
+for (const earlyRefund of [chargeRefundedEvent(), refundEvent("refund.created"), refundEvent("refund.updated")]) {
+  test(`early ${earlyRefund.type} survives payment confirmation and same-event replay`, async (t) => {
+    const repository = new FakeRepository();
+    const before = structuredClone(repository.currentPayment);
+    const deps = dependencies(repository);
+    const intentLookup = t.mock.method(deps, "retrievePaymentIntent");
+    const sessionLookup = t.mock.method(deps, "retrieveCheckoutSession");
+    const first = await processVerifiedStripeWebhook(earlyRefund, deps);
+    const firstEvent = structuredClone(repository.events.get(earlyRefund.id));
+    assert.deepEqual(repository.currentPayment, before);
+    assert.equal(repository.paidUpdates, 0);
+    assert.equal(repository.refundUpdates, 0);
+
+    const paid = await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+    assert.equal(paid.status, 200);
+    assert.equal(repository.currentPayment?.payment_status, "paid");
+    assert.equal(repository.currentPayment?.stripe_payment_intent_id, "pi_test_123");
+    assert.equal(repository.paidUpdates, 1);
+    const replay = await processVerifiedStripeWebhook(earlyRefund, deps);
+    const afterRefund = structuredClone(repository.currentPayment);
+    const duplicate = await processVerifiedStripeWebhook(earlyRefund, deps);
+
+    t.diagnostic(JSON.stringify({ firstStatus: first.status, firstEvent,
+      finalRefundStatus: repository.currentPayment?.refund_status,
+      finalRefundedAmount: repository.currentPayment?.refunded_amount_cents,
+      paidUpdates: repository.paidUpdates, refundUpdates: repository.refundUpdates }));
+    assert.equal(first.status, 500);
+    assert.equal(firstEvent?.processing_status, "failed");
+    assert.equal(firstEvent?.processed_at, null);
+    assert.equal(replay.status, 200);
+    assert.equal(duplicate.status, 200);
+    assert.equal(repository.events.get(earlyRefund.id)?.processing_status, "processed");
+    assert.equal(repository.currentPayment?.id, before?.id);
+    assert.equal(repository.currentPayment?.stripe_checkout_session_id, before?.stripe_checkout_session_id);
+    assert.equal(repository.currentPayment?.stripe_payment_intent_id, "pi_test_123");
+    assert.equal(repository.currentPayment?.refund_status, "partial");
+    assert.equal(repository.currentPayment?.refunded_amount_cents, 500);
+    assert.deepEqual(repository.currentPayment, afterRefund);
+    assert.equal(repository.paidUpdates, 1);
+    assert.equal(repository.refundUpdates, 1);
+    assert.equal(intentLookup.mock.callCount(), 1);
+    assert.deepEqual(intentLookup.mock.calls[0]?.arguments, ["pi_test_123"]);
+    assert.equal(sessionLookup.mock.callCount(), 1);
+    assert.deepEqual(sessionLookup.mock.calls[0]?.arguments, ["cs_test_123"]);
+  });
 }
 
 test("keeps raw-body signature behavior and does not disclose configuration errors", async () => {
@@ -901,4 +958,320 @@ test("malformed refund events are terminal and cannot mutate payment state", asy
   assert.equal(repository.events.get(candidate.id)?.processing_status, "failed");
   assert.equal(repository.currentPayment.refund_status, "none");
   assert.equal(repository.updates, 0);
+});
+
+test("historical paid bindings retain the fast path without requiring metadata or extra lookups", async (t) => {
+  const repository = new FakeRepository();
+  repository.currentPayment = paidPayment();
+  const deps = dependencies(repository);
+  const intent = t.mock.method(deps, "retrievePaymentIntent", async () => { throw new Error("must not lookup"); });
+  const session = t.mock.method(deps, "retrieveCheckoutSession", async () => { throw new Error("must not lookup"); });
+  assert.equal((await processVerifiedStripeWebhook(chargeRefundedEvent(), deps)).status, 200);
+  assert.equal(repository.refundUpdates, 1);
+  assert.equal(intent.mock.callCount(), 0);
+  assert.equal(session.mock.callCount(), 0);
+});
+
+test("a bound PaymentIntent without confirmed Paid stays retryable until the real payment webhook", async () => {
+  const repository = new FakeRepository();
+  repository.currentPayment = payment({ stripe_payment_intent_id: "pi_test_123" });
+  const deps = dependencies(repository);
+  const refund = chargeRefundedEvent();
+  assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 500);
+  assert.equal(repository.events.get(refund.id)?.processed_at, null);
+  assert.equal(repository.updates, 0);
+  await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+  assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 200);
+  assert.equal(repository.paidUpdates, 1);
+  assert.equal(repository.refundUpdates, 1);
+});
+
+for (const status of ["pending", "requires_action", "failed", "canceled"] as const) {
+  test(`early ${status} refund never increases the successful aggregate`, async (t) => {
+    const repository = new FakeRepository();
+    const deps = dependencies(repository);
+    const readCharge = t.mock.method(deps, "retrieveCharge");
+    const refund = refundEvent("refund.created", { status });
+    assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 500);
+    await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+    assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 200);
+    assert.equal(repository.events.get(refund.id)?.processing_status, "processed");
+    assert.equal(repository.currentPayment?.refund_status, "none");
+    assert.equal(repository.currentPayment?.refunded_amount_cents, 0);
+    assert.equal(repository.refundUpdates, 0);
+    assert.equal(readCharge.mock.callCount(), 0);
+  });
+}
+
+for (const stage of ["retrievePaymentIntent", "retrieveCheckoutSession", "getPaymentByPaymentIntent", "getPayment", "retrieveCharge"] as const) {
+  test(`${stage} failure leaves the refund retryable and a later delivery recovers`, async (t) => {
+    const repository = new FakeRepository();
+    const deps = dependencies(repository);
+    const candidate = refundEvent("refund.created");
+    if (stage === "retrieveCharge") await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+    const fail = async () => { throw new Error("secret-provider-detail customer@example.com"); };
+    const spy = stage === "getPayment" || stage === "getPaymentByPaymentIntent"
+      ? t.mock.method(repository, stage, fail)
+      : t.mock.method(deps, stage, fail);
+    assert.equal((await processVerifiedStripeWebhook(candidate, deps)).status, 500);
+    assert.equal(repository.events.get(candidate.id)?.processed_at, null);
+    assert.equal(repository.refundUpdates, 0);
+    assert.doesNotMatch(JSON.stringify([...repository.events.values()]), /secret-provider-detail|customer@example/);
+    spy.mock.restore();
+    await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+    assert.equal((await processVerifiedStripeWebhook(candidate, deps)).status, 200);
+    assert.equal(repository.paidUpdates, 1);
+    assert.equal(repository.refundUpdates, 1);
+  });
+}
+
+test("missing historical metadata stays unresolved and can later use a confirmed direct binding", async (t) => {
+  const repository = new FakeRepository();
+  const deps = dependencies(repository);
+  const original = await deps.retrievePaymentIntent("pi_test_123");
+  t.mock.method(deps, "retrievePaymentIntent", async () => ({ ...original, metadata: {} }));
+  const refund = chargeRefundedEvent();
+  assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 500);
+  assert.equal(repository.events.get(refund.id)?.error, "Refund payment binding is unresolved.");
+  assert.equal(repository.events.get(refund.id)?.order_id, null);
+  assert.equal(repository.updates, 0);
+  await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+  assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 200);
+  assert.equal(repository.refundUpdates, 1);
+});
+
+test("signed standalone charges and refunds with explicit null PaymentIntent are unsupported and ignored", async (t) => {
+  for (const candidate of [chargeRefundedEvent({ payment_intent: null }), refundEvent("refund.created", { payment_intent: null })]) {
+    const repository = new FakeRepository();
+    const deps = dependencies(repository);
+    const lookup = t.mock.method(deps, "retrievePaymentIntent");
+    assert.equal((await processVerifiedStripeWebhook(candidate, deps)).status, 200);
+    assert.equal(repository.events.get(candidate.id)?.processing_status, "ignored");
+    assert.equal(repository.events.get(candidate.id)?.order_id, null);
+    assert.equal(repository.updates, 0);
+    assert.equal(lookup.mock.callCount(), 0);
+  }
+});
+
+test("unlinked malformed events and proven lookup mismatches are terminal without financial mutations", async (t) => {
+  const otherOrderId = "44444444-4444-4444-8444-444444444444";
+  const cases: Array<{ name: string; object?: Record<string, unknown>; intent?: Record<string, unknown>; session?: Record<string, unknown>; stored?: Partial<WebhookPaymentRecord> }> = [
+    { name: "missing PI", object: { payment_intent: undefined } },
+    { name: "malformed amount", object: { amount: "500" } },
+    { name: "malformed charge aggregate", object: { amount_refunded: 2000 } },
+    { name: "event currency", object: { currency: "eur" } },
+    { name: "event amount", object: { amount: 1400 } },
+    { name: "event mode", object: { livemode: true } },
+    { name: "contradictory event metadata", object: { metadata: { picchuspot_order_id: otherOrderId } } },
+    { name: "PI id", intent: { id: "pi_other" } },
+    { name: "PI id mismatch despite incomplete amount", intent: { id: "pi_other", amount: undefined } },
+    { name: "PI object", intent: { object: "charge" } },
+    { name: "PI mode", intent: { livemode: true } },
+    { name: "PI currency", intent: { currency: "eur" } },
+    { name: "PI amount", intent: { amount: 1400 } },
+    { name: "invalid metadata", intent: { metadata: { picchuspot_order_id: "invalid" } } },
+    { name: "metadata points to another order", intent: { metadata: { picchuspot_order_id: otherOrderId } } },
+    { name: "Session id", session: { id: "cs_other" } },
+    { name: "Session object", session: { object: "payment_intent" } },
+    { name: "Session PI", session: { payment_intent: "pi_other" } },
+    { name: "Session PI mismatch despite missing metadata", session: { payment_intent: "pi_other", metadata: {} } },
+    { name: "Session metadata", session: { metadata: { picchuspot_order_id: otherOrderId } } },
+    { name: "Session reference", session: { client_reference_id: otherOrderId } },
+    { name: "Session mode", session: { livemode: true } },
+    { name: "Session currency", session: { currency: "eur" } },
+    { name: "Session subtotal", session: { amount_subtotal: 1400 } },
+    { name: "Session total", session: { amount_total: 1400 } },
+    { name: "saved PI mismatch", stored: { stripe_payment_intent_id: "pi_other" } },
+    { name: "saved mode mismatch", stored: { stripe_livemode: true } },
+    { name: "saved currency mismatch", stored: { currency: "eur" } },
+    { name: "saved amount mismatch", stored: { subtotal_cents: 1400 } },
+  ];
+  for (const mismatch of cases) {
+    await t.test(mismatch.name, async (t) => {
+      const repository = new FakeRepository();
+      repository.currentPayment = payment(mismatch.stored);
+      const before = structuredClone(repository.currentPayment);
+      const deps = dependencies(repository);
+      const intent = await deps.retrievePaymentIntent("pi_test_123");
+      const session = await deps.retrieveCheckoutSession("cs_test_123");
+      t.mock.method(deps, "retrievePaymentIntent", async () => ({ ...intent, ...mismatch.intent }));
+      t.mock.method(deps, "retrieveCheckoutSession", async () => ({ ...session, ...mismatch.session }));
+      const candidate = chargeRefundedEvent(mismatch.object);
+      assert.equal((await processVerifiedStripeWebhook(candidate, deps)).status, 200);
+      assert.equal(repository.events.get(candidate.id)?.processing_status, "failed");
+      assert.notEqual(repository.events.get(candidate.id)?.processed_at, null);
+      assert.equal((await processVerifiedStripeWebhook(candidate, deps)).status, 200);
+      assert.deepEqual(repository.currentPayment, before);
+      assert.equal(repository.updates, 0);
+    });
+  }
+});
+
+for (const lookup of ["retrievePaymentIntent", "retrieveCheckoutSession"] as const) {
+  test(`payment confirmed during ${lookup} is reloaded and refund proceeds in the same delivery`, async (t) => {
+    const repository = new FakeRepository();
+    const deps = dependencies(repository);
+    const original = deps[lookup];
+    t.mock.method(deps, lookup, async (id: string) => {
+      const object = await original(id);
+      await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+      return object;
+    });
+    assert.equal((await processVerifiedStripeWebhook(chargeRefundedEvent(), deps)).status, 200);
+    assert.equal(repository.paidUpdates, 1);
+    assert.equal(repository.refundUpdates, 1);
+  });
+}
+
+test("a concurrent failed refund delivery cannot overwrite another delivery's processed result", async (t) => {
+  const repository = new FakeRepository();
+  const deps = dependencies(repository);
+  const refund = chargeRefundedEvent();
+  const successfulDeps = { ...deps };
+  t.mock.method(deps, "retrievePaymentIntent", async () => {
+    await processVerifiedStripeWebhook(event("checkout.session.completed"), successfulDeps);
+    assert.equal((await processVerifiedStripeWebhook(refund, successfulDeps)).status, 200);
+    throw new Error("late lookup failure");
+  });
+  assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 200);
+  assert.equal(repository.events.get(refund.id)?.processing_status, "processed");
+  assert.notEqual(repository.events.get(refund.id)?.processed_at, null);
+  assert.equal(repository.paidUpdates, 1);
+  assert.equal(repository.refundUpdates, 1);
+});
+
+test("historical missing metadata can use a binding confirmed during the lookup", async (t) => {
+  const repository = new FakeRepository();
+  const deps = dependencies(repository);
+  const intent = await deps.retrievePaymentIntent("pi_test_123");
+  t.mock.method(deps, "retrievePaymentIntent", async () => {
+    await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+    return { ...intent, metadata: {} };
+  });
+  assert.equal((await processVerifiedStripeWebhook(chargeRefundedEvent(), deps)).status, 200);
+  assert.equal(repository.paidUpdates, 1);
+  assert.equal(repository.refundUpdates, 1);
+});
+
+test("a saved binding changed during lookup cannot be adopted by the refund", async (t) => {
+  const repository = new FakeRepository();
+  const deps = dependencies(repository);
+  const session = await deps.retrieveCheckoutSession("cs_test_123");
+  t.mock.method(deps, "retrieveCheckoutSession", async () => {
+    repository.currentPayment = payment({ stripe_checkout_session_id: "cs_test_other" });
+    return session;
+  });
+  const refund = chargeRefundedEvent();
+  assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 200);
+  assert.equal(repository.events.get(refund.id)?.processing_status, "failed");
+  assert.notEqual(repository.events.get(refund.id)?.processed_at, null);
+  assert.equal(repository.currentPayment?.stripe_checkout_session_id, "cs_test_other");
+  assert.equal(repository.currentPayment?.stripe_payment_intent_id, null);
+  assert.equal(repository.updates, 0);
+});
+
+test("refund persistence and event finalization failures retry without a false processed or duplicate amount", async (t) => {
+  for (const method of ["syncRefund", "finishEvent"] as const) {
+    await t.test(method, async (t) => {
+      const repository = new FakeRepository();
+      const deps = dependencies(repository);
+      await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+      const fail = t.mock.method(repository, method, async () => { throw new Error("database unavailable"); });
+      const refund = chargeRefundedEvent();
+      assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 500);
+      assert.notEqual(repository.events.get(refund.id)?.processing_status, "processed");
+      assert.equal(repository.events.get(refund.id)?.processed_at, null);
+      fail.mock.restore();
+      assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 200);
+      assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 200);
+      assert.equal(repository.refundUpdates, 1);
+      assert.equal(repository.currentPayment?.refunded_amount_cents, 500);
+    });
+  }
+});
+
+test("incomplete lookup data or a missing candidate remains retryable without inferring a foreign payment", async (t) => {
+  for (const missing of ["intent amount", "session PI", "session metadata", "candidate", "saved Session"] as const) {
+    await t.test(missing, async (t) => {
+      const repository = new FakeRepository();
+      const deps = dependencies(repository);
+      const intent = await deps.retrievePaymentIntent("pi_test_123");
+      const session = await deps.retrieveCheckoutSession("cs_test_123");
+      if (missing === "intent amount") t.mock.method(deps, "retrievePaymentIntent", async () => ({ ...intent, amount: undefined }));
+      if (missing === "session PI") t.mock.method(deps, "retrieveCheckoutSession", async () => ({ ...session, payment_intent: null }));
+      if (missing === "session metadata") t.mock.method(deps, "retrieveCheckoutSession", async () => ({ ...session, metadata: {} }));
+      if (missing === "candidate") t.mock.method(repository, "getPayment", async () => null);
+      if (missing === "saved Session") repository.currentPayment = payment({ stripe_checkout_session_id: null });
+      const before = structuredClone(repository.currentPayment);
+      const refund = chargeRefundedEvent();
+      assert.equal((await processVerifiedStripeWebhook(refund, deps)).status, 500);
+      assert.equal(repository.events.get(refund.id)?.processing_status, "failed");
+      assert.equal(repository.events.get(refund.id)?.processed_at, null);
+      assert.deepEqual(repository.currentPayment, before);
+      assert.equal(repository.updates, 0);
+    });
+  }
+});
+
+test("a concurrent full refund wins over a stale partial snapshot and both events finish safely", async (t) => {
+  const repository = new FakeRepository();
+  const deps = dependencies(repository);
+  await processVerifiedStripeWebhook(event("checkout.session.completed"), deps);
+  // Each database read returns a snapshot; the stale partial CAS must lose.
+  t.mock.method(repository, "getPaymentByPaymentIntent", async () => structuredClone(repository.currentPayment));
+  const originalSync = repository.syncRefund.bind(repository);
+  t.mock.method(repository, "syncRefund", async (input: Parameters<WebhookRepository["syncRefund"]>[0]) => {
+    if (input.refundedAmountCents === 500) {
+      assert.equal((await processVerifiedStripeWebhook(chargeRefundedEvent(
+        { amount_refunded: 1350, refunded: true }, { id: "evt_concurrent_full" },
+      ), deps)).status, 200);
+    }
+    return originalSync(input);
+  });
+  const partial = chargeRefundedEvent();
+  assert.equal((await processVerifiedStripeWebhook(partial, deps)).status, 200);
+  assert.equal(repository.events.get(partial.id)?.processing_status, "processed");
+  assert.equal(repository.events.get("evt_concurrent_full")?.processing_status, "processed");
+  assert.equal(repository.currentPayment?.refund_status, "full");
+  assert.equal(repository.currentPayment?.refunded_amount_cents, 1350);
+  assert.equal(repository.refundUpdates, 1);
+});
+
+test("the existing admin gate observes full refund, while Paid before refund replay exposes the documented window", async () => {
+  const { assertAdminOrderStatusTransitionAllowed, AdminPaymentGateError } = await import("./admin-status-gate.ts");
+  const snapshot = historicalStagingSnapshot("2026-09-09-v4");
+  assert.ok(snapshot.totalCents !== null);
+  const total = snapshot.totalCents;
+  const order = { id: orderId, service_type: "virtual-staging", currency: "USD",
+    estimated_total_cents: total, pricing_snapshot: snapshot };
+  const repository = new FakeRepository();
+  repository.currentPayment = payment({ subtotal_cents: total });
+  const paidEvent = event("checkout.session.completed", { amount_subtotal: total, amount_total: total });
+  const deps = {
+    ...dependencies(repository),
+    retrievePaymentIntent: async () => ({ id: "pi_test_123", object: "payment_intent",
+      livemode: false, currency: "usd", amount: total, metadata: { picchuspot_order_id: orderId } }),
+    retrieveCheckoutSession: async () => ({ object: "checkout.session", ...paidEvent.data.object }),
+  };
+  const gate = () => assertAdminOrderStatusTransitionAllowed(
+    order, repository.currentPayment, "in-progress", { getExpectedStripeLivemode: () => false },
+  );
+  const partial = chargeRefundedEvent({ amount: total });
+  assert.equal((await processVerifiedStripeWebhook(partial, deps)).status, 500);
+  assert.throws(gate, AdminPaymentGateError);
+  await processVerifiedStripeWebhook(paidEvent, deps);
+  assert.equal(gate(), "paid"); // No atomic refund/fulfillment guarantee in this interval.
+  assert.equal((await processVerifiedStripeWebhook(partial, deps)).status, 200);
+  assert.throws(gate, (error: unknown) => error instanceof AdminPaymentGateError && error.paymentState === "partially_refunded");
+  const full = chargeRefundedEvent({ amount: total, amount_refunded: total, refunded: true }, { id: "evt_full" });
+  assert.equal((await processVerifiedStripeWebhook(full, deps)).status, 200);
+  const afterFull = structuredClone(repository.currentPayment);
+  for (const replay of [full, partial, chargeRefundedEvent({ amount: total }, { id: "evt_late_partial" }),
+    paidEvent, { ...paidEvent, id: "evt_late_paid" }]) {
+    assert.equal((await processVerifiedStripeWebhook(replay, deps)).status, 200);
+    assert.deepEqual(repository.currentPayment, afterFull);
+  }
+  assert.throws(gate, (error: unknown) => error instanceof AdminPaymentGateError && error.paymentState === "refunded");
+  assert.equal(repository.paidUpdates, 1);
+  assert.equal(repository.refundUpdates, 2);
 });

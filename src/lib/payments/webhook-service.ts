@@ -57,6 +57,8 @@ export interface VerifiedStripeWebhookEvent {
 export interface StripeWebhookServiceDependencies {
   repository: WebhookRepository;
   retrieveCharge: (chargeId: string) => Promise<StripeWebhookCheckoutSession>;
+  retrievePaymentIntent: (paymentIntentId: string) => Promise<StripeWebhookCheckoutSession>;
+  retrieveCheckoutSession: (sessionId: string) => Promise<StripeWebhookCheckoutSession>;
   now?: () => Date;
 }
 
@@ -66,6 +68,7 @@ export interface StripeWebhookResult {
 }
 
 class PermanentWebhookError extends Error {}
+class RetryableRefundError extends Error {}
 
 /**
  * Processes only already-verified Stripe events. Raw event data never reaches
@@ -156,8 +159,10 @@ export async function processVerifiedStripeWebhook(
         await processExpiredEvent(payment, normalized, dependencies.repository);
       }
     } else {
-      const paymentIntentId = extractStripeId(normalized.session.payment_intent);
+      const paymentIntentId = validateRefundEvent(normalized);
       if (!paymentIntentId) {
+        // A signed, structurally valid legacy Charge/Refund explicitly without
+        // a PaymentIntent cannot belong to our PaymentIntent-based Checkout.
         await finishTerminal(
           dependencies.repository,
           normalized.id,
@@ -169,20 +174,7 @@ export async function processVerifiedStripeWebhook(
         return received(200);
       }
 
-      const payment = await dependencies.repository.getPaymentByPaymentIntent(
-        paymentIntentId,
-      );
-      if (!payment) {
-        await finishTerminal(
-          dependencies.repository,
-          normalized.id,
-          "ignored",
-          null,
-          null,
-          now(),
-        );
-        return received(200);
-      }
+      const payment = await resolveRefundPayment(normalized, paymentIntentId, dependencies);
       linkedOrderId = payment.order_id;
 
       if (normalized.type === "charge.refunded") {
@@ -223,6 +215,7 @@ export async function processVerifiedStripeWebhook(
         dependencies.repository,
         normalized.id,
         linkedOrderId,
+        error instanceof RetryableRefundError ? error.message : TRANSIENT_ERROR_MESSAGE,
       );
       return received(terminalStateWon ? 200 : 500);
     } catch {
@@ -419,6 +412,145 @@ async function processExpiredEvent(
 interface RefundObjectMatch {
   chargeId: string;
   status: "pending" | "requires_action" | "succeeded" | "failed" | "canceled";
+}
+
+function validateRefundEvent(event: NormalizedEvent): string | null {
+  const object = event.session;
+  const amount = safeAmount(object.amount);
+  const isCharge = event.type === "charge.refunded";
+  const refunded = safeAmount(object.amount_refunded);
+  if (
+    !optionalId(object.id) || !normalizeCurrency(object.currency) || amount === null || amount <= 0 ||
+    (isCharge
+      ? object.object !== "charge" || object.livemode !== event.livemode || object.paid !== true ||
+        object.status !== "succeeded" || refunded === null || refunded <= 0 || refunded > amount ||
+        object.refunded !== (refunded === amount)
+      : object.object !== "refund" || !extractStripeId(object.charge) ||
+        !normalizeRefundObjectStatus(object.status) ||
+        (event.type === "refund.failed" && object.status !== "failed"))
+  ) {
+    throw new PermanentWebhookError("Refund event is malformed.");
+  }
+  return object.payment_intent === null ? null : requiredId(
+    extractStripeId(object.payment_intent), "Refund Payment Intent is required.",
+  );
+}
+
+function assertRefundCandidate(
+  payment: WebhookPaymentRecord,
+  event: NormalizedEvent,
+  paymentIntentId: string,
+): void {
+  const metadata = isRecord(event.session.metadata) ? event.session.metadata : null;
+  const amount = safeAmount(event.session.amount)!; // validateRefundEvent ran first.
+  if (
+    payment.provider !== "stripe" || payment.stripe_livemode !== event.livemode ||
+    payment.currency !== normalizeCurrency(event.session.currency) ||
+    (payment.stripe_payment_intent_id !== null && payment.stripe_payment_intent_id !== paymentIntentId) ||
+    (event.type === "charge.refunded" ? amount !== payment.subtotal_cents : amount > payment.subtotal_cents) ||
+    (metadata?.picchuspot_order_id !== undefined && metadata.picchuspot_order_id !== payment.order_id)
+  ) {
+    throw new PermanentWebhookError("Refund identity or amount does not match the stored payment.");
+  }
+}
+
+async function resolveRefundPayment(
+  event: NormalizedEvent,
+  paymentIntentId: string,
+  dependencies: StripeWebhookServiceDependencies,
+): Promise<WebhookPaymentRecord> {
+  const repository = dependencies.repository;
+  let payment = await repository.getPaymentByPaymentIntent(paymentIntentId);
+  if (payment) {
+    assertRefundCandidate(payment, event, paymentIntentId);
+    if (payment.payment_status === "paid" && payment.paid_at !== null) return payment;
+    // A failed/early payment event may have persisted the ID before Paid.
+    payment = await repository.getPaymentByPaymentIntent(paymentIntentId);
+  } else {
+    let intent: StripeWebhookCheckoutSession;
+    try {
+      intent = await dependencies.retrievePaymentIntent(paymentIntentId);
+    } catch {
+      throw new RetryableRefundError("Refund Payment Intent lookup is unavailable.");
+    }
+    const amount = safeAmount(intent.amount);
+    const currency = normalizeCurrency(intent.currency);
+    // A proven mismatch stays permanent even if another field is absent.
+    if (
+      (intent.object != null && intent.object !== "payment_intent") ||
+      (intent.id != null && intent.id !== paymentIntentId) ||
+      (typeof intent.livemode === "boolean" && intent.livemode !== event.livemode) ||
+      (currency !== null && currency !== normalizeCurrency(event.session.currency)) ||
+      (amount !== null && (amount <= 0 ||
+        (event.type === "charge.refunded" ? event.session.amount !== amount : (event.session.amount as number) > amount)))
+    ) {
+      throw new PermanentWebhookError("Refund does not match the retrieved Payment Intent.");
+    }
+    if (!optionalId(intent.id) || !optionalId(intent.object) || typeof intent.livemode !== "boolean" ||
+      !currency || amount === null) {
+      throw new RetryableRefundError("Refund Payment Intent lookup is incomplete.");
+    }
+    const metadata = isRecord(intent.metadata) ? intent.metadata : null;
+    const orderId = metadata?.picchuspot_order_id;
+    if (orderId === undefined) {
+      // Missing historical metadata is not proof of a foreign payment. A
+      // concurrent payment webhook may have established the direct binding.
+      payment = await repository.getPaymentByPaymentIntent(paymentIntentId);
+      if (!payment) throw new RetryableRefundError("Refund payment binding is unresolved.");
+    } else {
+      if (!isUuid(orderId)) throw new PermanentWebhookError("Refund Payment Intent metadata is invalid.");
+      const candidate = await repository.getPayment(orderId);
+      if (!candidate) throw new RetryableRefundError("Refund candidate payment is unavailable.");
+      assertRefundCandidate(candidate, event, paymentIntentId);
+      if (candidate.order_id !== orderId || candidate.subtotal_cents !== amount) {
+        throw new PermanentWebhookError("Refund Payment Intent does not match the candidate payment.");
+      }
+      const sessionId = candidate.stripe_checkout_session_id;
+      if (!sessionId) throw new RetryableRefundError("Refund Checkout binding is not ready.");
+      let session: StripeWebhookCheckoutSession;
+      try {
+        session = await dependencies.retrieveCheckoutSession(sessionId);
+      } catch {
+        throw new RetryableRefundError("Refund Checkout Session lookup is unavailable.");
+      }
+      const sessionIntentId = extractStripeId(session.payment_intent);
+      const sessionOrderId = isRecord(session.metadata) ? session.metadata.picchuspot_order_id : undefined;
+      const sessionCurrency = normalizeCurrency(session.currency);
+      const sessionSubtotal = safeAmount(session.amount_subtotal);
+      const sessionTotal = safeAmount(session.amount_total);
+      if (
+        (session.object != null && session.object !== "checkout.session") ||
+        (session.id != null && session.id !== sessionId) ||
+        (sessionIntentId !== null && sessionIntentId !== paymentIntentId) ||
+        (sessionOrderId !== undefined && sessionOrderId !== orderId) ||
+        (session.client_reference_id != null && session.client_reference_id !== orderId) ||
+        (typeof session.livemode === "boolean" && session.livemode !== event.livemode) ||
+        (sessionCurrency !== null && sessionCurrency !== candidate.currency) ||
+        (sessionSubtotal !== null && sessionSubtotal !== candidate.subtotal_cents) ||
+        (sessionTotal !== null && sessionTotal !== amount)
+      ) {
+        throw new PermanentWebhookError("Refund Payment Intent does not match the saved Checkout Session.");
+      }
+      if (!optionalId(session.id) || !optionalId(session.object) || !sessionIntentId ||
+        typeof session.livemode !== "boolean" || !sessionCurrency || sessionSubtotal === null ||
+        sessionTotal === null || session.client_reference_id == null || sessionOrderId === undefined) {
+        throw new RetryableRefundError("Refund Checkout Session lookup is incomplete.");
+      }
+      // Lookup metadata only locates a candidate. Never adopt its IDs or infer
+      // Paid here; only the payment webhook may confirm this stored payment.
+      payment = await repository.getPayment(orderId);
+      if (payment && (payment.id !== candidate.id || payment.order_id !== orderId ||
+        payment.stripe_checkout_session_id !== sessionId || payment.subtotal_cents !== amount)) {
+        throw new PermanentWebhookError("Refund candidate payment changed identity.");
+      }
+    }
+  }
+  if (payment) assertRefundCandidate(payment, event, paymentIntentId);
+  if (!payment || payment.payment_status !== "paid" || payment.paid_at === null ||
+    payment.stripe_payment_intent_id === null) {
+    throw new RetryableRefundError("Refund is waiting for confirmed payment binding.");
+  }
+  return payment;
 }
 
 interface RefundChargeMatch {
@@ -690,12 +822,13 @@ async function finishTransientFailure(
   repository: WebhookRepository,
   stripeEventId: string,
   orderId: string | null,
+  errorMessage: string,
 ): Promise<boolean> {
   const updated = await repository.finishEvent({
     stripeEventId,
     status: "failed",
     processedAt: null,
-    errorMessage: TRANSIENT_ERROR_MESSAGE,
+    errorMessage,
     orderId,
   });
   if (updated) return false;
