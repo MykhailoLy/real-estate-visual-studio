@@ -154,6 +154,8 @@ function dependencies(repository: FakeRepository) {
   return {
     repository,
     retrieveCharge: async () => ({}),
+    retrievePaymentIntent: async () => { throw new Error("unexpected refund lookup"); },
+    retrieveCheckoutSession: async () => { throw new Error("unexpected refund lookup"); },
     now: () => now,
     getWebhookSecret: () => "whsec_test",
     verifyEvent: () => paidEvent(),

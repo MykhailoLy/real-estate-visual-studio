@@ -30,6 +30,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         getStripeServerClient().webhooks.constructEvent(payload, signature, webhookSecret),
       retrieveCharge: (chargeId) =>
         getStripeServerClient().charges.retrieve(chargeId),
+      retrievePaymentIntent: (paymentIntentId) =>
+        getStripeServerClient().paymentIntents.retrieve(paymentIntentId),
+      retrieveCheckoutSession: (sessionId) =>
+        getStripeServerClient().checkout.sessions.retrieve(sessionId),
       enqueuePaymentConfirmationEmail: (orderId) =>
         enqueuePaymentConfirmationEmail({
           supabase: getSupabaseAdminClient(),
