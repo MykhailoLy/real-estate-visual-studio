@@ -722,7 +722,7 @@ test("rejects quote, historical, large, unsupported, completed, unsupported-curr
   }
 });
 
-test("reuses an active open Session and expires then replaces an expired Session", async () => {
+test("reuses an active open Session and expires then replaces an expired Session", async (t) => {
   const repository = new FakeRepository();
   repository.currentPayment = payment({
     payment_status: "checkout_open",
@@ -730,6 +730,10 @@ test("reuses an active open Session and expires then replaces an expired Session
     stripe_checkout_session_id: "cs_test_existing",
     checkout_expires_at: new Date(now.getTime() + 60000).toISOString(),
   });
+  const before = structuredClone(repository.currentPayment);
+  const expire = t.mock.method(repository, "markExpired");
+  const reserve = t.mock.method(repository, "reserveAttempt");
+  const persist = t.mock.method(repository, "markCheckoutOpen");
   const active = fakeStripe();
   const reused = await createCheckoutSession(
     { orderId, authenticatedUserId: userId },
@@ -737,6 +741,8 @@ test("reuses an active open Session and expires then replaces an expired Session
   );
   assert.equal(reused.url, "https://checkout.stripe.com/c/pay/cs_test_123");
   assert.equal(active.calls.length, 0);
+  assert.deepEqual(repository.currentPayment, before);
+  for (const mutation of [expire, reserve, persist]) assert.equal(mutation.mock.callCount(), 0);
 
   repository.currentPayment = payment({
     payment_status: "checkout_open",
@@ -751,7 +757,12 @@ test("reuses an active open Session and expires then replaces an expired Session
   );
   assert.equal(repository.currentPayment?.payment_status, "checkout_open");
   assert.equal(repository.currentPayment?.checkout_attempt, 2);
+  assert.equal(repository.currentPayment?.stripe_checkout_session_id, "cs_test_123");
   assert.equal(expired.calls.length, 1);
+  assert.deepEqual(expired.calls[0]?.options, {
+    idempotencyKey: `picchuspot-checkout-${repository.currentPayment?.id}-2`,
+  });
+  for (const mutation of [expire, reserve, persist]) assert.equal(mutation.mock.callCount(), 1);
 });
 
 test("a cancelled return safely reuses its still-open Checkout Session", async () => {
@@ -773,44 +784,110 @@ test("a cancelled return safely reuses its still-open Checkout Session", async (
   assert.equal(repository.currentPayment?.payment_status, "checkout_open");
 });
 
-test("a completed redirect never marks Paid or creates a replacement Session", async () => {
+for (const [expiryLabel, expiresAt] of [
+  ["past", Math.floor(now.getTime() / 1000) - 1],
+  ["future", Math.floor(now.getTime() / 1000) + 1800],
+  ["absent", null],
+] as const) {
+  for (const paymentStatus of ["paid", "unpaid"] as const) {
+    test(`complete Session with ${expiryLabel} expiry and ${paymentStatus} payment preserves the original attempt`, async (t) => {
+      const repository = new FakeRepository();
+      repository.currentPayment = payment({
+        payment_status: "checkout_open",
+        checkout_attempt: 1,
+        stripe_checkout_session_id: "cs_test_complete",
+        checkout_expires_at: new Date(now.getTime() - 60000).toISOString(),
+      });
+      const before = structuredClone(repository.currentPayment);
+      const mutations = ["createPayment", "markExpired", "reserveAttempt", "markCheckoutOpen", "markFailed"] as const;
+      const spies = mutations.map((method) => t.mock.method(repository, method));
+      const { stripe, calls } = fakeStripe();
+      const retrieve = t.mock.method(stripe.checkout.sessions, "retrieve", async () => ({
+        id: "cs_test_complete", status: "complete", url: null,
+        expires_at: expiresAt, livemode: false, payment_status: paymentStatus,
+      }));
+
+      const result = await handleCheckoutRequest({ orderId }, {
+        ...dependencies(repository, stripe),
+        getAuthenticatedUser: async () => ({ id: userId }),
+      });
+
+      assert.equal(calls.length, 0, "must not create a replacement Stripe Session");
+      assert.deepEqual(result, {
+        status: 409,
+        body: { error: "Payment is being processed.", state: "processing" },
+      });
+      assert.deepEqual(retrieve.mock.calls[0]?.arguments, ["cs_test_complete"]);
+      assert.equal(retrieve.mock.callCount(), 1);
+      for (const spy of spies) assert.equal(spy.mock.callCount(), 0);
+      assert.deepEqual(repository.currentPayment, before);
+      assert.equal(repository.markedPaid, false);
+    });
+  }
+}
+
+for (const [label, session] of [
+  ["open with past expiry", { status: "open", expires_at: Math.floor(now.getTime() / 1000) - 1 }],
+  ["open without URL", { status: "open", url: null }],
+  ["open without URL and with past expiry", { status: "open", url: null, expires_at: Math.floor(now.getTime() / 1000) - 1 }],
+  ["missing status with past expiry", { status: undefined, expires_at: Math.floor(now.getTime() / 1000) - 1 }],
+  // Deliberately malformed provider response; runtime status must fail closed.
+  ["unknown status with past expiry", { status: "unexpected" as CheckoutSessionFixture["status"], expires_at: Math.floor(now.getTime() / 1000) - 1 }],
+] as const) {
+  test(`${label} does not authorize a replacement Session`, async (t) => {
+    const repository = new FakeRepository();
+    repository.currentPayment = payment({
+      payment_status: "checkout_open", checkout_attempt: 1,
+      stripe_checkout_session_id: "cs_test_uncertain",
+    });
+    const before = structuredClone(repository.currentPayment);
+    const spies = (["createPayment", "markExpired", "reserveAttempt", "markCheckoutOpen", "markFailed"] as const)
+      .map((method) => t.mock.method(repository, method));
+    const { stripe, calls } = fakeStripe();
+    const sessionOverrides: Partial<CheckoutSessionFixture> = session;
+    t.mock.method(stripe.checkout.sessions, "retrieve", async () => ({
+      id: "cs_test_uncertain", url: "https://checkout.stripe.com/c/pay/cs_test_uncertain",
+      expires_at: Math.floor(now.getTime() / 1000) + 1800, livemode: false, ...sessionOverrides,
+    }));
+
+    await assert.rejects(
+      createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe)),
+      (error: unknown) => error instanceof CheckoutServiceError && error.code === "checkout-processing",
+    );
+    assert.equal(calls.length, 0);
+    for (const spy of spies) assert.equal(spy.mock.callCount(), 0);
+    assert.deepEqual(repository.currentPayment, before);
+  });
+}
+
+test("Session retrieval failure preserves the original attempt without creating Checkout", async (t) => {
   const repository = new FakeRepository();
   repository.currentPayment = payment({
     payment_status: "checkout_open",
     checkout_attempt: 1,
-    stripe_checkout_session_id: "cs_test_complete",
+    stripe_checkout_session_id: "cs_test_unavailable",
   });
-  const complete = fakeStripe({ status: "complete" });
+  const before = structuredClone(repository.currentPayment);
+  const spies = (["createPayment", "markExpired", "reserveAttempt", "markCheckoutOpen", "markFailed"] as const)
+    .map((method) => t.mock.method(repository, method));
+  const { stripe, calls } = fakeStripe();
+  t.mock.method(stripe.checkout.sessions, "retrieve", async () => { throw new Error("provider unavailable"); });
 
   await assert.rejects(
     createCheckoutSession(
       { orderId, authenticatedUserId: userId },
-      dependencies(repository, complete.stripe),
+      dependencies(repository, stripe),
     ),
     (error: unknown) => {
       assert.ok(error instanceof CheckoutServiceError);
-      assert.equal(error.code, "checkout-processing");
+      assert.equal(error.code, "stripe-unavailable");
+      assert.equal(error.status, 502);
       return true;
     },
   );
-  assert.equal(complete.calls.length, 0);
-  assert.equal(repository.currentPayment?.payment_status, "checkout_open");
-  assert.equal(repository.markedPaid, false);
-
-  const routeResult = await handleCheckoutRequest(
-    { orderId },
-    {
-      ...dependencies(repository, complete.stripe),
-      getAuthenticatedUser: async () => ({ id: userId }),
-    },
-  );
-  assert.deepEqual(routeResult, {
-    status: 409,
-    body: {
-      error: "Payment is being processed.",
-      state: "processing",
-    },
-  });
+  assert.equal(calls.length, 0);
+  for (const spy of spies) assert.equal(spy.mock.callCount(), 0);
+  assert.deepEqual(repository.currentPayment, before);
 });
 
 test("does not create another session for paid payment or a test/live mismatch", async () => {
@@ -870,7 +947,7 @@ test("never overwrites a payment that becomes paid before checkout_open is persi
   assert.notEqual(repository.currentPayment?.stripe_checkout_session_id, "cs_test_123");
 });
 
-test("does not reserve a replacement Session when expiry loses a race to paid", async () => {
+test("does not reserve a replacement Session when expiry loses a race to paid", async (t) => {
   const repository = new FakeRepository();
   repository.currentPayment = payment({
     payment_status: "checkout_open",
@@ -879,6 +956,8 @@ test("does not reserve a replacement Session when expiry loses a race to paid", 
     checkout_expires_at: new Date(now.getTime() - 60000).toISOString(),
   });
   repository.onMarkExpired = () => repository.markPaid();
+  const reserve = t.mock.method(repository, "reserveAttempt");
+  const persist = t.mock.method(repository, "markCheckoutOpen");
   const expired = fakeStripe({
     status: "expired",
     expires_at: Math.floor(now.getTime() / 1000) - 1,
@@ -898,6 +977,10 @@ test("does not reserve a replacement Session when expiry loses a race to paid", 
   assert.equal(expired.calls.length, 0);
   assert.equal(repository.currentPayment?.payment_status, "paid");
   assert.equal(repository.currentPayment?.checkout_attempt, 1);
+  assert.equal(repository.currentPayment?.stripe_checkout_session_id, "cs_test_expired");
+  assert.equal(repository.currentPayment?.paid_at, now.toISOString());
+  assert.equal(reserve.mock.callCount(), 0);
+  assert.equal(persist.mock.callCount(), 0);
 });
 
 test("failure handling cannot regress a concurrently paid payment", async () => {
