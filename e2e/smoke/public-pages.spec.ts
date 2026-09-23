@@ -480,7 +480,8 @@ test("photo editing article publishes English metadata, schema, sitemap, and dir
   await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
   await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
   await expect(page.locator("article time")).toHaveCount(1);
-  await expect(page.locator("article time")).toHaveAttribute("datetime", "2026-09-21");
+  await expect(page.locator("article time")).toHaveAttribute("datetime", "2026-09-23");
+  await expect(page.locator("article time")).toHaveText("Published September 23, 2026");
 
   const article = page.locator("article");
   await expect(article).toContainText("You can upload JPG or PNG files through the website.");
@@ -505,7 +506,7 @@ test("photo editing article publishes English metadata, schema, sitemap, and dir
     description: PHOTO_EDITING_ARTICLE.description,
     url: canonical,
     mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
-    datePublished: "2026-09-21",
+    datePublished: "2026-09-23",
     articleSection: "Photo Editing",
     inLanguage: "en-US",
     image: {
@@ -524,7 +525,7 @@ test("photo editing article publishes English metadata, schema, sitemap, and dir
     /<url>\s*<loc>https:\/\/picchuspot\.com\/blog\/outsource-real-estate-photo-editing<\/loc>[\s\S]*?<\/url>/,
   )?.[0];
   expect(entry).toBeDefined();
-  expect(entry).toContain("<lastmod>2026-09-21</lastmod>");
+  expect(entry).toContain("<lastmod>2026-09-23</lastmod>");
   expect(entry).not.toContain("hreflang");
   expect(xml).not.toContain("/es/blog/");
   expect((await request.get(`/es${PHOTO_EDITING_ARTICLE.path}`)).status()).toBe(404);

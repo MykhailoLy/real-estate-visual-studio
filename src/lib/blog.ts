@@ -43,7 +43,7 @@ const blogArticles: readonly BlogArticle[] = [
     metadataTitle: "Outsource Real Estate Photo Editing: A Test Checklist",
     description:
       "Choosing a real estate photo editor? Use a test brief and quality checklist to compare results, handle revisions, and see how much time you save.",
-    publishedDate: "2026-09-21",
+    publishedDate: "2026-09-23",
     category: "Photo Editing",
     readingTimeMinutes: 8,
     author: "Mykhailo Lykin",

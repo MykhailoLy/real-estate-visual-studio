@@ -383,7 +383,7 @@ test("photo editing outsourcing article registers its approved English identity 
     'title: "Outsourcing Real Estate Photo Editing: How to Test an Editor"',
     'metadataTitle: "Outsource Real Estate Photo Editing: A Test Checklist"',
     "Choosing a real estate photo editor? Use a test brief and quality checklist to compare results, handle revisions, and see how much time you save.",
-    'publishedDate: "2026-09-21"',
+    'publishedDate: "2026-09-23"',
     'canonicalPath: "/blog/outsource-real-estate-photo-editing"',
     'category: "Photo Editing"',
     'href: "/pricing/photo-editing"',
