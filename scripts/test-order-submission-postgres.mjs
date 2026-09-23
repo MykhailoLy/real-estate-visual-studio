@@ -277,6 +277,75 @@ test("F3/F5 real PostgreSQL migration, claim, lease, commit and outbox concurren
   let historicalAttempt;
   await observer.query("INSERT INTO auth.users(id) VALUES ($1), ($2)", [owner, stranger]);
 
+  await suite.test("F9 overlapping outbox drains skip locked rows; leases, tokens, keys and retry bounds remain authoritative", async () => {
+    const submission = randomUUID();
+    const submissionToken = randomUUID();
+    await claim(original, owner, submission, submissionToken);
+    const created = await commit(original, owner, submission, submissionToken);
+    assert.equal(created.result_code, "created");
+    const tokenA = randomUUID();
+    const tokenB = randomUUID();
+    const drain = async (client, token, limit = 10) => (await client.query(
+      "SELECT * FROM public.claim_order_email_deliveries($1, $2, $3)", [token, limit, created.order_id],
+    )).rows;
+    const complete = async (token, row, status) => (await observer.query(
+      "SELECT public.complete_order_email_delivery($1,$2,$3,$4,NULL,NULL) AS result",
+      [row.delivery_id, token, status, hash],
+    )).rows[0].result;
+
+    await original.query("BEGIN");
+    try {
+      const a = await drain(original, tokenA, 1);
+      // While A holds its UPDATE lock uncommitted, B claims the other row.
+      await retry.query("SET statement_timeout = '3s'");
+      const b = await drain(retry, tokenB);
+      assert.equal(a.length, 1); assert.equal(b.length, 1);
+      assert.notEqual(a[0].delivery_id, b[0].delivery_id);
+      await original.query("COMMIT");
+      assert.equal((await drain(retry, tokenB)).length, 0, "active leases excluded");
+      assert.equal(await complete(tokenB, a[0], "sent"), "not_completed", "wrong token cannot finish A");
+      assert.equal(await complete(tokenA, a[0], "failed"), "completed");
+      const retryA = await drain(original, tokenA);
+      assert.equal(retryA[0].idempotency_key, a[0].idempotency_key);
+      assert.equal(retryA[0].attempt_count, 2);
+      assert.equal(await complete(tokenA, retryA[0], "unknown"), "completed");
+      const unknownRetry = await drain(original, tokenA);
+      assert.equal(unknownRetry[0].attempt_count, 3);
+      assert.equal(unknownRetry[0].idempotency_key, a[0].idempotency_key);
+      assert.equal(await complete(tokenA, unknownRetry[0], "failed"), "completed");
+      assert.equal((await drain(original, tokenA)).length, 0, "exhausted attempts excluded");
+
+      const lease = (await observer.query(`SELECT lease_expires_at - last_attempt_at AS duration
+        FROM public.order_email_deliveries WHERE id = $1`, [b[0].delivery_id])).rows[0];
+      assert.equal(lease.duration.minutes, 5);
+      await observer.query("UPDATE public.order_email_deliveries SET lease_expires_at = now() - interval '1 second' WHERE id = $1", [b[0].delivery_id]);
+      const staleRetry = await drain(original, tokenA);
+      assert.equal(staleRetry[0].delivery_id, b[0].delivery_id);
+      assert.equal(staleRetry[0].idempotency_key, b[0].idempotency_key);
+      assert.equal(await complete(tokenB, b[0], "sent"), "not_completed", "stale token excluded");
+      assert.equal(await complete(tokenA, staleRetry[0], "unknown"), "completed");
+      await observer.query("UPDATE public.order_email_deliveries SET idempotency_expires_at = now() - interval '1 second' WHERE id = $1", [b[0].delivery_id]);
+      assert.equal((await drain(original, tokenA)).length, 0, "expired unknown excluded");
+    } catch (error) {
+      await original.query("ROLLBACK");
+      throw error;
+    } finally {
+      await retry.query("RESET statement_timeout");
+    }
+  });
+
+  await suite.test("F9 scheduler integration requires real pg_cron, pg_net and Vault extensions", async (scenario) => {
+    const extensions = (await observer.query(`SELECT name FROM pg_available_extensions
+      WHERE name IN ('pg_cron','pg_net','supabase_vault')`)).rows.map(row => row.name);
+    if (extensions.length !== 3) {
+      scenario.skip(`Scheduler migration not executed: real extensions unavailable (${extensions.join(', ') || 'none'}). No extension mocks used.`);
+      return;
+    }
+    // Extension presence alone does not establish a preloaded, Vault-configured
+    // Supabase installation. This portable harness does not configure that stack.
+    scenario.skip("Run the documented scheduler integration matrix on an isolated Supabase-compatible stack before rollout.");
+  });
+
   await suite.test("active lease refuses retry; released lease reuses original reservation and commits once", async () => {
     const submission = randomUUID();
     const oldToken = randomUUID();

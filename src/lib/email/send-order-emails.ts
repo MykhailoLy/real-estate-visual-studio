@@ -62,7 +62,7 @@ interface PersistedPayment {
   paid_at: string | null;
 }
 
-export interface DispatchOrderEmailsResult {
+interface DispatchOrderEmailsCounters {
   claimed: number;
   sent: number;
   failed: number;
@@ -71,6 +71,11 @@ export interface DispatchOrderEmailsResult {
   adminNotificationSent: boolean;
   paymentConfirmationSent: boolean;
 }
+
+export type DispatchOrderEmailsResult = DispatchOrderEmailsCounters & (
+  | { ok: true }
+  | { ok: false; errorCode: "claim_failed" | "dispatch_failed" }
+);
 
 interface DispatchOrderEmailsInput {
   supabase: SupabaseClient;
@@ -98,12 +103,8 @@ export async function dispatchOrderEmailOutbox(
 ): Promise<DispatchOrderEmailsResult> {
   try {
     return await dispatchOrderEmailOutboxUnsafe(input);
-  } catch (error) {
-    console.error(
-      "[order-email-outbox] dispatch threw after persistence:",
-      error instanceof Error ? error.name : "UnknownError",
-    );
-    return emptyDispatchResult();
+  } catch {
+    return failedDispatchResult("dispatch_failed");
   }
 }
 
@@ -112,20 +113,26 @@ async function dispatchOrderEmailOutboxUnsafe(
 ): Promise<DispatchOrderEmailsResult> {
   const result = emptyDispatchResult();
   const claimToken = crypto.randomUUID();
-  const { data, error } = await input.supabase.rpc(
-    "claim_order_email_deliveries",
-    {
-      p_claim_token: claimToken,
-      p_limit: input.limit ?? 10,
-      p_order_id: input.orderId ?? null,
-    },
-  );
-  if (error) {
-    console.error("[order-email-outbox] claim failed:", error.message);
-    return result;
+  let deliveries: ClaimedDelivery[];
+  try {
+    const { data, error } = await input.supabase.rpc(
+      "claim_order_email_deliveries",
+      {
+        p_claim_token: claimToken,
+        p_limit: input.limit ?? 10,
+        p_order_id: input.orderId ?? null,
+      },
+    );
+    // Validate the whole batch before sending anything. A malformed response is
+    // a broken claim contract, not an empty queue or a per-delivery rejection.
+    if (error || !Array.isArray(data) || !data.every(isClaimedDelivery)) {
+      return failedDispatchResult("claim_failed");
+    }
+    deliveries = data;
+  } catch {
+    return failedDispatchResult("claim_failed");
   }
 
-  const deliveries = Array.isArray(data) ? data as ClaimedDelivery[] : [];
   result.claimed = deliveries.length;
   for (const delivery of deliveries) {
     const outcome = await deliverOne(input.supabase, claimToken, delivery);
@@ -145,6 +152,7 @@ async function dispatchOrderEmailOutboxUnsafe(
 
 function emptyDispatchResult(): DispatchOrderEmailsResult {
   return {
+    ok: true,
     claimed: 0,
     sent: 0,
     failed: 0,
@@ -153,6 +161,25 @@ function emptyDispatchResult(): DispatchOrderEmailsResult {
     adminNotificationSent: false,
     paymentConfirmationSent: false,
   };
+}
+
+function failedDispatchResult(errorCode: "claim_failed" | "dispatch_failed"): DispatchOrderEmailsResult {
+  // Business callers retain false notification flags without an exception.
+  // Failed-dispatch counters are not evidence of whether a provider accepted mail.
+  console.error("[order-email-outbox]", errorCode);
+  return { ...emptyDispatchResult(), ok: false, errorCode };
+}
+
+function isClaimedDelivery(value: unknown): value is ClaimedDelivery {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  const nonEmpty = (field: unknown) => typeof field === "string" && field.trim().length > 0;
+  const kind = row.delivery_kind;
+  return nonEmpty(row.delivery_id) && nonEmpty(row.order_id) && nonEmpty(row.idempotency_key) &&
+    (row.payload_hash === null || (typeof row.payload_hash === "string" && /^[0-9a-f]{64}$/.test(row.payload_hash))) &&
+    (kind === "client_confirmation" || kind === "admin_notification" || kind === "payment_confirmation" ||
+      kind === "order_delivered" || (typeof kind === "string" &&
+        /^admin_replacement_ready:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(kind)));
 }
 
 async function deliverOne(
@@ -178,22 +205,25 @@ async function deliverOne(
     return "failed";
   }
 
+  let response;
   try {
-    const response = await resend.client.emails.send(payload.value, {
+    response = await resend.client.emails.send(payload.value, {
       idempotencyKey: delivery.idempotency_key,
     });
-    if (response.error) {
-      await completeDelivery(supabase, delivery, claimToken, "failed", payloadHash, null, "provider_rejected");
-      return "failed";
-    }
-    await completeDelivery(supabase, delivery, claimToken, "sent", payloadHash, response.data?.id ?? null, null);
-    return "sent";
   } catch {
     // Acceptance may have happened before the connection failed. The RPC only
     // reclaims this inside the stored 24-hour idempotency window.
     await completeDelivery(supabase, delivery, claimToken, "unknown", payloadHash, null, "provider_outcome_unknown");
     return "unknown";
   }
+  // Completion failures are infrastructure failures, not provider uncertainty.
+  // Leave the durable lease/key for recovery; do not attempt a second completion.
+  if (response.error) {
+    await completeDelivery(supabase, delivery, claimToken, "failed", payloadHash, null, "provider_rejected");
+    return "failed";
+  }
+  await completeDelivery(supabase, delivery, claimToken, "sent", payloadHash, response.data?.id ?? null, null);
+  return "sent";
 }
 
 async function buildPersistedEmailPayload(
@@ -393,7 +423,7 @@ async function completeDelivery(
   providerMessageId: string | null,
   errorCode: string | null,
 ): Promise<void> {
-  const { error } = await supabase.rpc("complete_order_email_delivery", {
+  const { data, error } = await supabase.rpc("complete_order_email_delivery", {
     p_delivery_id: delivery.delivery_id,
     p_claim_token: claimToken,
     p_status: status,
@@ -401,7 +431,7 @@ async function completeDelivery(
     p_provider_message_id: providerMessageId,
     p_error_code: errorCode,
   });
-  if (error) console.error("[order-email-outbox] completion failed:", error.message);
+  if (error || data !== "completed") throw new Error("Outbox completion failed.");
 }
 
 function readUploadedFileDetails(details: Record<string, unknown>) {

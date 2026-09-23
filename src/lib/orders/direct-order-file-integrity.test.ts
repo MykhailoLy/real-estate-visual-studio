@@ -230,6 +230,11 @@ interface OrderFingerprintModuleForTest {
 }
 
 interface EmailMockResult {
+  ok?: boolean;
+  errorCode?: "claim_failed" | "dispatch_failed";
+  clientConfirmationSent?: boolean;
+  adminNotificationSent?: boolean;
+  paymentConfirmationSent?: boolean;
   claimed: number;
   sent: number;
   failed: number;
@@ -3146,10 +3151,11 @@ test("Welcome Offer race loser preserves pending and shared direct final, and re
   );
 });
 
-test("email dispatch failure cannot roll back an atomically committed order", async () => {
+test("email dispatcher ok:false cannot roll back an atomically committed order", async () => {
   const itemFiles = itemFilesForDirectOrder();
   const supabase = new MockSupabase({
-    emailResult: { claimed: 2, sent: 0, failed: 2, unknown: 0 },
+    emailResult: { ok: false, errorCode: "claim_failed", claimed: 0, sent: 0, failed: 0, unknown: 0,
+      clientConfirmationSent: false, adminNotificationSent: false, paymentConfirmationSent: false },
   });
   addStoredObjects(supabase, itemFiles);
   installSupabaseMock(supabase);
@@ -3158,6 +3164,7 @@ test("email dispatch failure cannot roll back an atomically committed order", as
   const result = await createProductionOrder(orderInput({ itemFiles }));
 
   assert.equal(result.ok, true);
+  assert.deepEqual(result.ok && result.emailNotifications, { clientConfirmation: false, adminNotification: false });
   assert.equal(supabase.objects.has(finalPath(0, "original")), true);
   assert.equal(supabase.rpcCalls.filter((call) => call.name === "commit_order_submission_with_welcome_offer_v1").length, 1);
 });

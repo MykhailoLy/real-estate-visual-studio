@@ -30,6 +30,7 @@ Copy `.env.example` to `.env.local` and fill in your project values. Variables r
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Order system                            | Public                                     |
 | `SUPABASE_SERVICE_ROLE_KEY`  | Order API routes, portfolio admin         | **Server only.** Never expose to clients   |
 | `RESEND_API_KEY`             | Order confirmation + admin emails         | Server only                                |
+| `CRON_SECRET`                | Authenticated internal email-outbox worker | Server only; mirror in Supabase Vault, never commit |
 | `PROPERTY_LEADS_FROM_EMAIL`  | Property viewing-request sender            | Server-only verified Resend address        |
 | `PROPERTY_LEADS_CC_EMAIL`    | Optional property-lead operations copy     | Server only                                |
 | `ADMIN_EMAIL`                | Where order notifications are sent        | Plain string                               |
@@ -46,6 +47,11 @@ Property lead delivery is per listing: every published property that accepts
 viewing requests needs a valid `agent.email` in its saved showcase document.
 That realtor email is the primary recipient. `PROPERTY_LEADS_CC_EMAIL` adds an
 operations copy only; the application does not use a silent fallback recipient.
+
+The email-outbox scheduler uses Supabase Cron every 15 minutes to POST to the
+internal worker. Its Vault secret `picchuspot_order_email_worker_secret` must
+match Vercel production `CRON_SECRET`. Setup is manual; see the
+[F9 rollout and HTTP verification runbook](docs/f9-email-outbox-retry.md).
 
 ## Database setup (Supabase)
 
