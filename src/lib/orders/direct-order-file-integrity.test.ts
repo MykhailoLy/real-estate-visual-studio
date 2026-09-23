@@ -274,6 +274,8 @@ interface ListOperationForTest {
   directory: string;
   search?: string;
   limit?: number;
+  offset?: number;
+  sortBy?: { column: string; order: string };
 }
 
 interface MockSupabaseOptions {
@@ -288,6 +290,7 @@ interface MockSupabaseOptions {
   orderInsertError?: boolean;
   orderItemsInsertError?: boolean;
   listFailures?: string[];
+  listPageFailure?: { offset: number; throws?: boolean };
   moveFailures?: string[];
   copyFailures?: string[];
   signedReadFailures?: string[];
@@ -376,14 +379,20 @@ class MockSupabase {
       },
       list: async (
         directory: string,
-        options?: { search?: string; limit?: number },
+        options?: Pick<ListOperationForTest, "search" | "limit" | "offset" | "sortBy">,
       ) => {
         this.listCalls.push({
           bucket,
           directory,
           search: options?.search,
           limit: options?.limit,
+          offset: options?.offset,
+          sortBy: options?.sortBy,
         });
+        if (this.options.listPageFailure?.offset === (options?.offset ?? 0)) {
+          if (this.options.listPageFailure.throws) throw new Error("ListFailed");
+          return { data: null, error: storageError("ListFailed") };
+        }
         if (this.listFailures.has(directory)) {
           return { data: null, error: storageError("ListFailed") };
         }
@@ -397,9 +406,15 @@ class MockSupabase {
           .filter((entry) => !entry.name.includes("/"))
           .filter((entry) =>
             options?.search ? entry.name.includes(options.search) : true,
-          )
-          .slice(0, options?.limit);
-        return { data, error: null };
+          );
+        if (options?.sortBy?.column === "name") {
+          data.sort((left, right) => {
+            const comparison = left.name < right.name ? -1 : left.name > right.name ? 1 : 0;
+            return options.sortBy?.order === "desc" ? -comparison : comparison;
+          });
+        }
+        const offset = options?.offset ?? 0;
+        return { data: data.slice(offset, offset + (options?.limit ?? 100)), error: null };
       },
       move: async (sourcePath: string, finalPath: string) => {
         this.moves.push({ sourcePath, finalPath });
@@ -828,6 +843,27 @@ function itemFilesForDirectOrder(count = 1): ItemFilesForTest[] {
   }));
 }
 
+function itemFilesWithReferences(count: number, referenceCount: number): ItemFilesForTest[] {
+  return itemFilesForDirectOrder(count).map((slot, itemIndex) => ({
+    ...slot,
+    references: Array.from({ length: referenceCount }, (_, position) => {
+      const referenceId = `${REFERENCE_ID.slice(0, -2)}${position.toString().padStart(2, "0")}`;
+      return {
+        ...descriptor(buildPendingPath(USER_ID, TOKEN, itemIndex, "reference", "jpg", position, referenceId)),
+        referenceId,
+        position,
+      };
+    }),
+  }));
+}
+
+function addUnrelatedStoredObjects(supabase: MockSupabase, count: number): void {
+  // Reverse insertion order makes name sorting observable; these sort before 0-original.jpg.
+  for (let index = count - 1; index >= 0; index--) {
+    supabase.addObject(`${directDirectory()}/0-extra-${index.toString().padStart(3, "0")}.jpg`, metadata(1234, "image/jpeg"));
+  }
+}
+
 function stagingItems(count = 1) {
   return Array.from({ length: count }, (_value, index) => ({
     roomName: `Room ${index + 1}`,
@@ -1057,14 +1093,17 @@ function assertFailure(
 function assertListCalls(
   supabase: MockSupabase,
   directories: string[],
+  offsets: number[] = directories.map(() => 0),
 ): void {
   assert.deepEqual(
     supabase.listCalls,
-    directories.map((directory) => ({
+    directories.map((directory, index) => ({
       bucket: ORDER_FILES_BUCKET,
       directory,
       search: undefined,
       limit: 100,
+      offset: offsets[index],
+      sortBy: { column: "name", order: "asc" },
     })),
   );
 }
@@ -1313,6 +1352,142 @@ test("direct verifier accepts a valid original file", async () => {
   assert.equal(result.data?.[0]?.original.size, 1234);
   assert.equal(result.data?.[0]?.original.mimeType, "image/jpeg");
   assertListCalls(supabase, [directDirectory()]);
+});
+
+for (const [itemCount, referenceCount, offsets] of [
+  [9, 10, [0]],
+  [10, 9, [0]],
+  [10, 10, [0, 100]],
+  [20, 10, [0, 100, 200]],
+] as const) {
+  test(`F4: direct verifier accepts ${itemCount * (1 + referenceCount)} objects from ${itemCount} items with ${referenceCount} references each`, async () => {
+    const itemFiles = itemFilesWithReferences(itemCount, referenceCount);
+    const { OrderMetadataSchema } = await import("../server-validation.ts");
+    assert.equal(OrderMetadataSchema.safeParse(orderInput({ itemFiles })).success, true);
+    const supabase = new MockSupabase();
+    addStoredObjects(supabase, itemFiles);
+    assert.equal(supabase.objects.size, itemCount * (1 + referenceCount));
+    const verifier = await loadVerifier();
+    const result = await verifier.verifyDirectOrderUploads({
+      supabase, ownerUserId: USER_ID, serviceType: "virtual-staging", itemFiles,
+    });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.deepEqual(result.data, itemFiles.map((slot) => ({ ...slot, reference: null })));
+    assertListCalls(supabase, offsets.map(() => directDirectory()), [...offsets]);
+    assert.deepEqual(supabase.infoCalls, []);
+  });
+}
+
+test("F4: finds the required file at position 101 with deterministic name sorting", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const supabase = new MockSupabase();
+  addStoredObjects(supabase, itemFiles);
+  addUnrelatedStoredObjects(supabase, 100);
+  assert.equal(supabase.objects.size, 101);
+  const verifier = await loadVerifier();
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase, ownerUserId: USER_ID, serviceType: "virtual-staging", itemFiles,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data?.[0].original.path, itemFiles[0].original.path);
+  assertListCalls(supabase, [directDirectory(), directDirectory()], [0, 100]);
+});
+
+for (const precedingObjects of [0, 100]) {
+  test(`F4: stops after all candidates are found on a full page at offset ${precedingObjects}`, async () => {
+    const itemFiles = itemFilesForDirectOrder();
+    const supabase = new MockSupabase({ listPageFailure: { offset: precedingObjects + 100 } });
+    addStoredObjects(supabase, itemFiles);
+    addUnrelatedStoredObjects(supabase, precedingObjects);
+    for (let index = 0; index < 200; index++) {
+      supabase.addObject(`${directDirectory()}/z-extra-${index}.jpg`, metadata(1234, "image/jpeg"));
+    }
+    const verifier = await loadVerifier();
+    const result = await verifier.verifyDirectOrderUploads({
+      supabase, ownerUserId: USER_ID, serviceType: "virtual-staging", itemFiles,
+    });
+    assert.equal(result.ok, true);
+    const offsets = precedingObjects === 0 ? [0] : [0, 100];
+    assertListCalls(supabase, offsets.map(() => directDirectory()), offsets);
+  });
+}
+
+for (const storedCount of [101, 200]) {
+  test(`F4: missing file after ${storedCount} objects keeps the missing-upload contract`, async () => {
+    const supabase = new MockSupabase();
+    addUnrelatedStoredObjects(supabase, storedCount);
+    const verifier = await loadVerifier();
+    const result = await verifier.verifyDirectOrderUploads({
+      supabase, ownerUserId: USER_ID, serviceType: "virtual-staging", itemFiles: itemFilesForDirectOrder(),
+    });
+    assertFailure(result, "invalid_upload");
+    assert.equal(result.status, 409);
+    assert.equal(result.message, "Uploaded file was not found. Please refresh and upload again.");
+    const offsets = storedCount === 101 ? [0, 100] : [0, 100, 200];
+    assertListCalls(supabase, offsets.map(() => directDirectory()), offsets);
+  });
+}
+
+for (const offset of [100, 200]) {
+  for (const throws of [false, true]) {
+    test(`F4: page at offset ${offset} ${throws ? "throws" : "returns an error"} and blocks order creation`, async (context) => {
+      const log = context.mock.method(console, "error", () => {});
+      const itemFiles = itemFilesForDirectOrder();
+      const supabase = new MockSupabase({ listPageFailure: { offset, throws } });
+      addStoredObjects(supabase, itemFiles);
+      addUnrelatedStoredObjects(supabase, offset);
+      const verifier = await loadVerifier();
+      const result = await verifier.verifyDirectOrderUploads({
+        supabase, ownerUserId: USER_ID, serviceType: "virtual-staging", itemFiles,
+      });
+      assertFailure(result, "storage_error");
+      assert.equal(result.status, 500);
+      assert.equal(result.message, "Could not verify uploaded files. Please try again.");
+      const offsets = offset === 100 ? [0, 100] : [0, 100, 200];
+      assertListCalls(supabase, offsets.map(() => directDirectory()), offsets);
+      assert.deepEqual(log.mock.calls[0].arguments, [
+        throws ? "[orders] direct upload storage verification threw:" : "[orders] direct upload storage list failed:",
+        { reason: throws ? "Error" : "ListFailed" },
+      ]);
+
+      installSupabaseMock(supabase);
+      const { createProductionOrder } = await loadOrderModule();
+      assertFailure(await createProductionOrder(orderInput({ itemFiles })), "storage_error");
+      assert.deepEqual(supabase.moves, []);
+      assert.deepEqual(supabase.copies, []);
+      assert.deepEqual(supabase.inserts, []);
+      assert.deepEqual(supabase.emailCalls, []);
+      assert.equal(supabase.rpcCalls.some((call) => call.name.startsWith("commit_order_submission")), false);
+    });
+  }
+}
+
+for (const field of ["referenceId", "position"] as const) {
+  test(`F4: reference ${field} mismatch still fails before listing`, async () => {
+    const itemFiles = itemFilesWithReferences(1, 1);
+    const reference = itemFiles[0].references![0];
+    if (field === "referenceId") reference.referenceId = SECOND_USER_ID;
+    else reference.position = 1;
+    const supabase = new MockSupabase();
+    const verifier = await loadVerifier();
+    assertFailure(await verifier.verifyDirectOrderUploads({
+      supabase, ownerUserId: USER_ID, serviceType: "virtual-staging", itemFiles,
+    }), "invalid_upload");
+    assert.deepEqual(supabase.listCalls, []);
+  });
+}
+
+test("F4: metadata mismatch on the second page remains invalid_upload", async () => {
+  const supabase = new MockSupabase();
+  addUnrelatedStoredObjects(supabase, 100);
+  supabase.addObject(directPath(0, "original"), metadata(9999, "image/png"));
+  const verifier = await loadVerifier();
+  const result = await verifier.verifyDirectOrderUploads({
+    supabase, ownerUserId: USER_ID, serviceType: "virtual-staging", itemFiles: itemFilesForDirectOrder(),
+  });
+  assertFailure(result, "invalid_upload");
+  assert.equal(result.status, 400);
+  assertListCalls(supabase, [directDirectory(), directDirectory()], [0, 100]);
 });
 
 test("direct verifier rejects foreign descriptors before Storage list", async () => {
