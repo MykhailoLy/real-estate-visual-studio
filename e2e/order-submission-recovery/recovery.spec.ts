@@ -24,6 +24,20 @@ const successfulPost: Reply = {
   status: 200,
   body: { orderId: ORDER_ID, orderNumber: ORDER_NUMBER, emailNotifications: { clientConfirmation: false } },
 };
+const currentPricingSnapshot = {
+  pricingVersion: "synthetic-pricing-v1", currency: "USD", serviceType: "photo-editing",
+  eligibleUnits: 1, volumeEligibleUnits: 1, baseSubtotalCents: 250, addOnSubtotalCents: 0,
+  welcomeDiscountCents: 0,
+  welcomeOffer: { version: "synthetic-welcome-v1", totalDiscountCents: 0, benefits: [] },
+  volumeDiscountPercent: 0, volumeDiscountCents: 0, partnerClient: false,
+  partnerDiscountPercent: 0, partnerEligibleSubtotalCents: 0, partnerDiscountCents: 0,
+  subtotalAfterDiscountCents: 250, taxCalculated: false, taxCents: 0, totalCents: 250,
+  customQuote: false, items: [], pricedAt: "2026-09-23T00:00:00.000Z",
+};
+const pricingChanged: Reply = {
+  status: 409,
+  body: { code: "pricing_changed", error: "Review the updated price.", currentPricingSnapshot },
+};
 
 async function installFixture(page: Page) {
   const requests: string[] = [];
@@ -253,5 +267,102 @@ test("failure before POST preserves the current form and selected File", async (
   await expect(page.getByLabel("Job title")).toHaveValue("Unsaved original details");
   expect(await page.getByLabel("Source image").evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe("fixture.jpg");
   expect(fixture.postBodies).toHaveLength(0);
+  fixture.assertClean();
+});
+
+test("fresh pricing rejection keeps the form and current quote available for a new confirmed submission", async ({ page }) => {
+  const fixture = await installFixture(page);
+  fixture.setRecovery(() => ({ status: 404, body: { code: "submission_unavailable" } }));
+  const snapshot = await startSubmission(page, fixture);
+  fixture.posts[0].release(pricingChanged);
+  await expect(page.getByRole("button", { name: "Confirm updated price" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recovering your order" })).toHaveCount(0);
+  expect(JSON.parse(await page.getByTestId("submit-result").innerText()).currentPricingSnapshot).toEqual(currentPricingSnapshot);
+  expect(fixture.postBodies).toHaveLength(1);
+  expect(await readRecord(page)).toBeNull();
+  expect(await page.getByLabel("Source image").evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe("fixture.jpg");
+
+  await page.getByRole("button", { name: "Confirm updated price" }).click();
+  await page.getByRole("button", { name: "Submit synthetic order" }).click();
+  await fixture.arrivals[1].promise;
+  const nextPayload = JSON.parse(fixture.postBodies[1]);
+  expect(nextPayload.submissionId).not.toBe(snapshot.record.submissionId);
+  expect(nextPayload.pricingExpectation.totalCents).toBe(currentPricingSnapshot.totalCents);
+  // The fixture rejects the old ID and only succeeds for the newly confirmed
+  // request. Actual order uniqueness remains covered by the service/DB suites.
+  expect(fixture.postBodies.filter((body) => JSON.parse(body).submissionId === snapshot.record.submissionId)).toHaveLength(1);
+  fixture.posts[1].release(successfulPost);
+  await expect(page.getByTestId("submit-result")).toContainText('"success":true');
+  expect(await readRecord(page)).toBeNull();
+  expect(fixture.requests.filter((request) => request.startsWith("GET /api/order/submissions/"))).toHaveLength(0);
+  fixture.assertClean();
+});
+
+test("fresh client upgrade rejection leaves the current form available", async ({ page }) => {
+  const fixture = await installFixture(page);
+  fixture.setRecovery(() => ({ status: 404, body: { code: "submission_unavailable" } }));
+  await startSubmission(page, fixture);
+  fixture.posts[0].release({ status: 409, body: { code: "client_upgrade_required", error: "Refresh before submitting this order." } });
+  await expect(page.getByTestId("submit-result")).toContainText("client-upgrade-required");
+  await expect(page.getByRole("button", { name: "Submit synthetic order" })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Recovering your order" })).toHaveCount(0);
+  expect(await readRecord(page)).toBeNull();
+  expect(fixture.postBodies).toHaveLength(1);
+  fixture.assertClean();
+});
+
+test("pre-POST durable storage failure after uploaded keeps the form and selected File without support-only recovery", async ({ page }) => {
+  const fixture = await installFixture(page);
+  fixture.setRecovery(() => ({ status: 404, body: { code: "submission_unavailable" } }));
+  await page.goto("/");
+  await page.getByLabel("Job title").fill("Unsaved durable-write details");
+  await page.getByLabel("Source image").setInputFiles(sourceFile);
+  await page.evaluate((key) => {
+    const original = Storage.prototype.setItem;
+    const writes: { stage: string; requestBody?: string }[] = [];
+    (window as unknown as { __storageWrites: typeof writes }).__storageWrites = writes;
+    Storage.prototype.setItem = function (storageKey, value) {
+      if (this === sessionStorage && storageKey === key) {
+        const record = JSON.parse(value) as { stage: string; requestBody?: string };
+        writes.push(record);
+        if (record.stage === "ambiguous" && record.requestBody) {
+          throw new DOMException("Synthetic quota exhaustion before POST", "QuotaExceededError");
+        }
+      }
+      return original.call(this, storageKey, value);
+    };
+  }, STORAGE_KEY);
+  await page.getByRole("button", { name: "Submit synthetic order" }).click();
+  await expect(page.getByTestId("submit-result")).toContainText("No order request was sent");
+  const writes = await page.evaluate(() => (window as unknown as { __storageWrites: { stage: string; requestBody?: string }[] }).__storageWrites);
+  expect(writes.some((record) => record.stage === "uploaded" && !record.requestBody)).toBe(true);
+  expect(writes.some((record) => record.stage === "ambiguous" && record.requestBody)).toBe(true);
+  expect(fixture.postBodies).toHaveLength(0);
+  await expect(page.getByLabel("Job title")).toHaveValue("Unsaved durable-write details");
+  expect(await page.getByLabel("Source image").evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe("fixture.jpg");
+  await expect(page.getByRole("button", { name: "Submit synthetic order" })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Recovering your order" })).toHaveCount(0);
+  expect(fixture.requests.filter((request) => request.startsWith("GET /api/order/submissions/"))).toHaveLength(0);
+  fixture.assertClean();
+});
+
+test("recovery replay pricing rejection retains the earlier unknown ID until its original POST commits", async ({ page }) => {
+  const fixture = await installFixture(page);
+  const snapshot = await startSubmission(page, fixture);
+  fixture.setRecovery(() => ({ status: 404, body: { code: "submission_unavailable" } }));
+  await page.reload();
+  await page.getByRole("button", { name: "Retry original submission" }).click();
+  await fixture.arrivals[1].promise;
+  fixture.posts[1].release(pricingChanged);
+  await expect(page.getByRole("alert")).toHaveText("Review the updated price.");
+  await expect(page.getByRole("button", { name: "Retry original submission" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Submit synthetic order" })).toHaveCount(0);
+  expect(await readRecord(page)).toEqual(snapshot.record);
+  expect(fixture.postBodies).toEqual([snapshot.body, snapshot.body]);
+  fixture.setRecovery(committed);
+  fixture.posts[0].release(successfulPost);
+  await page.getByRole("button", { name: "Check again" }).click();
+  await expect(page).toHaveURL(`${ORIGIN}/dashboard/jobs/${ORDER_ID}`);
+  expect(await readRecord(page)).toBeNull();
   fixture.assertClean();
 });

@@ -1,12 +1,13 @@
-# F3 direct order submission recovery — local review
+# F3 direct order submission recovery — review evidence
 
 ## Scope and baseline
 
 Branch: `codex/fix-direct-order-submission-recovery`.
-Baseline and unchanged HEAD: `a919468acc0ce9c28f4944be72ce5c3c18606282` (main after F2).
-Final `git fetch origin` confirmed `HEAD...origin/main` is `0 0`: no commits behind.
-This is an uncommitted local patch. No commit, push, PR, merge, deployment,
-production SQL, real order, upload or email was performed.
+Baseline: `a919468acc0ce9c28f4944be72ce5c3c18606282` (main after F2).
+Original reviewed head: `bf9f8c1b1a37a09facd9fbb13fba3b6b9fce278d`.
+The patch is published in draft PR #340. Current commit and remote CI evidence
+are recorded in that PR. No merge, manual deployment, production SQL, real order,
+upload or email was performed.
 
 The pre-existing `.gitignore` modification, untracked `debug.log` and `.codex`
 configuration were preserved. F1/F2 payment code, pricing, hashes, auth/RLS,
@@ -26,7 +27,7 @@ behavior were not changed.
 3. A 404 previously cleared the ID, including when the first POST had not claimed
    yet. It now retains the context and permits only an explicit replay of the
    saved original request with the same ID. Invalid responses, 5xx, network loss,
-   auth loss and pricing/hash rejection retain the context too.
+   auth loss and pricing/hash rejection of recovery replay retain the context too.
 4. Direct retries share final Storage paths. A failed or stale handler no longer
    removes prepared direct final files. Pending sources are removed only after
    confirmed commit; existing identity/signature verification stays in place.
@@ -62,7 +63,7 @@ lease recovery returning `processing` and a stale handler deleting a shared
 final file. A separate red test demonstrated wrong-account pre-claim reservation.
 Those cases pass with the patch.
 
-Final results (2026-09-23):
+Original pre-review results (2026-09-23; follow-up results below):
 
 | Check | Result |
 | --- | --- |
@@ -115,6 +116,61 @@ npm.cmd run test:order-submission-db
 The verification runtime used native PostgreSQL 17.6 and `pg` 8.16.3, installed
 only in OS temp. Each run creates and stops its own fresh loopback cluster with
 synthetic data. Missing runtime variables report skipped, never passed.
+
+## PR #340 review blockers: red → green
+
+Before changing production code, the actual client functions reproduced both
+blockers: a definitive fresh rejection still emitted recovery, and a failed
+durable write after `uploaded` emitted recovery despite POST count zero. The
+expanded client suite was **12 passed / 14 failed**. The four new browser tests
+were **1 passed / 3 failed**: pricing and upgrade rejection hid the form; quota
+failure hid the selected File behind support-only recovery. The conservative
+replay test already passed. Logs: `test-results/f3-review-client-red.log` and
+`test-results/f3-blockers-browser-red.log`.
+
+The production follow-up changes only `src/lib/submit-order.ts`:
+
+- `postStoredOrder` explicitly receives `fresh` or `recovery` from its two
+  existing call sites. No new stages, storage fields or backend are introduced.
+- A fresh pre-POST durability failure clears only its matching known-unsent
+  record. It sends no POST, triggers no recovery gate/background retry and keeps
+  the mounted form/File available. A later attempt must persist successfully.
+- A fresh, well-formed definitive rejection clears only its matching record.
+  The allowlist uses the actual API's status/code contracts: 409 pricing,
+  client-upgrade and custom-quote rejections; 422 profile-incomplete; uncoded
+  route validation 400 and explicit pre-order input/pricing validation codes.
+  `currentPricingSnapshot` is returned unchanged so the existing form can confirm
+  the current quote and then start a new logical submission.
+- A replay never clears an earlier unknown operation on either failure. An old
+  POST may still be running before claim. Network loss, malformed/empty results,
+  5xx, unknown codes, active/conflicting/unavailable submissions and ownership
+  ambiguity (including `invalid_upload`) also retain the original context.
+
+Final follow-up results (2026-09-23):
+
+| Check | Result |
+| --- | --- |
+| Actual client submit/recovery functions | 26 passed, including both blockers |
+| Focused order-integrity | 235 passed |
+| F1 / F2 | 36 / 89 passed |
+| Full `test:ci` | 2161 passed across 52 invocations; 0 failed/skipped |
+| Chromium F3 | 12 passed (original 8 plus 4 review regressions) |
+| PostgreSQL 17.6 | 5 passed, 0 skipped; separate backend connections |
+| Test and production typechecks | Both exit 0 |
+| Lint / production build | Both exit 0; lint 0 errors, 9 pre-existing warnings |
+| `git diff --check` | Exit 0 |
+
+The PostgreSQL rerun again used a fresh synthetic loopback cluster and separate
+connections, including distinct backend PIDs 38408 and 44160. Existing active,
+released/expired takeover, stale-token, overlapping claim/commit, ownership,
+hash/pricing and per-notification outbox-count guarantees passed unchanged.
+Browser fixtures establish UI/action order, not DB concurrency or production
+traffic. Logs: `test-results/f3-review-*.log` and
+`test-results/f3-blockers-browser-green.log`.
+
+The follow-up contains only the client lifecycle change, its client/browser
+regressions and this evidence update. It changes no SQL, schema, migrations,
+server claim/commit, pricing calculation, auth/RLS or F5 draft finalization.
 
 Evidence boundaries:
 

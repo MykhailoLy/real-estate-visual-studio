@@ -291,7 +291,7 @@ export async function retryOrderSubmission(serviceType: string): Promise<OrderSu
     if (!record || record.submissionId !== recovery.submissionId) {
       return { success: false, errorCode: "submission-conflict", error: "The submission context changed. Check its status again." };
     }
-    return postStoredOrder(serviceType, record);
+    return postStoredOrder(serviceType, record, "recovery");
   });
 }
 
@@ -612,7 +612,7 @@ async function submitOrderOnce(
   };
 
   record.requestBody = JSON.stringify(payload);
-  return postStoredOrder(serviceType, record);
+  return postStoredOrder(serviceType, record, "fresh");
 }
 
 function storageUnavailableResult(): OrderSubmitResult {
@@ -625,6 +625,7 @@ function storageUnavailableResult(): OrderSubmitResult {
 async function postStoredOrder(
   serviceType: string,
   record: OrderSubmissionSessionRecord,
+  attempt: "fresh" | "recovery",
 ): Promise<OrderSubmitResult> {
   const body = readOrderSubmissionRequestBody(serviceType, record);
   if (!body) return {
@@ -634,7 +635,13 @@ async function postStoredOrder(
   // This synchronous durable write MUST precede the mutating fetch. A reload
   // can occur before fetch settles, including before the server's first claim.
   record.stage = "ambiguous";
-  if (!writeOrderSubmissionRecord(serviceType, record)) return storageUnavailableResult();
+  if (!writeOrderSubmissionRecord(serviceType, record)) {
+    // This fresh attempt never called POST. Its uploaded record must not trap
+    // the mounted form in legacy recovery. A replay may have an older POST
+    // still running, so its context must survive even this local failure.
+    if (attempt === "fresh") clearRecordIfCurrent(serviceType, record.submissionId);
+    return storageUnavailableResult();
+  }
 
   let response: Response;
   try {
@@ -686,6 +693,11 @@ async function postStoredOrder(
   if (typeof result.error !== "string") result.error = undefined;
 
   if (!response.ok) {
+    // Only the first POST on this page can establish a definitive rejection.
+    // A replay's rejection says nothing about an earlier unknown request.
+    if (attempt === "fresh" && isDefinitiveOrderRejection(response.status, result.code, result.error)) {
+      clearRecordIfCurrent(serviceType, record.submissionId);
+    }
     // Not signed in (or session expired) → caller sends user to login.
     if (response.status === 401) {
       return {
@@ -714,8 +726,8 @@ async function postStoredOrder(
       };
     }
     if (result.code === "pricing_changed") {
-      // Pricing rejection does not prove an overlapping earlier POST did not
-      // commit. Keep this identity; changing an old draft is a separate flow.
+      // Keep the authoritative snapshot available to the existing form's
+      // confirmation flow. Recovery replays retain their original identity.
       return {
         success: false,
         error: result.error || "Pricing changed. Review the updated total and confirm again.",
@@ -783,6 +795,28 @@ async function postStoredOrder(
     orderNumber: result.orderNumber,
     confirmationEmailSent: result.emailNotifications?.clientConfirmation === true,
   };
+}
+
+function isDefinitiveOrderRejection(status: number, code: string | undefined, error: string | undefined): boolean {
+  if (!error?.trim()) return false;
+  if (status === 409) {
+    return code === "pricing_changed" || code === "client_upgrade_required" || code === "custom-quote-required";
+  }
+  if (status === 422) return code === "profile-incomplete";
+  if (status !== 400) return false;
+  // The route's uncoded validation responses and these service validation
+  // codes precede order creation. Do not include invalid_upload: it can mean
+  // ownership ambiguity. Unknown codes, malformed responses and 5xx stay held.
+  return code === undefined || [
+    "invalid_input",
+    "unknown-option-id",
+    "duplicate-option-id",
+    "missing-renovation-option",
+    "invalid-quantity",
+    "unknown-floor-plan-type",
+    "missing-photo-editing-option",
+    "invalid-base-option-id",
+  ].includes(code);
 }
 
 async function browserSha256(value: unknown): Promise<string> {

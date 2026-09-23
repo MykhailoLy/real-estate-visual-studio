@@ -36,6 +36,7 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import Gate from "@/components/order/OrderSubmissionRecoveryGate";
 import { submitOrder } from "@/lib/submit-order";
+import { createPricingExpectation } from "@/lib/pricing/expectation";
 
 window.__submissionFixture = { atPost: [] };
 const originalFetch = window.fetch.bind(window);
@@ -55,6 +56,11 @@ function Form() {
   const [busy, setBusy] = useState(false);
   const [jobTitle, setJobTitle] = useState("Synthetic recovery job");
   const [file, setFile] = useState(null);
+  const [pricingExpectation, setPricingExpectation] = useState({
+    pricingVersion: "synthetic-pricing-v1", welcomeOfferVersion: "synthetic-welcome-v1",
+    welcomeBenefitKey: null, totalCents: 100,
+  });
+  const [currentPricingSnapshot, setCurrentPricingSnapshot] = useState(null);
   return React.createElement("main", { className: "mx-auto max-w-xl p-6" },
     React.createElement("h1", null, "Synthetic order fixture"),
     React.createElement("input", { "aria-label": "Job title", value: jobTitle, onChange: (event) => setJobTitle(event.target.value) }),
@@ -66,11 +72,19 @@ function Form() {
         const response = await submitOrder("photo-editing", [{ service: "photo-editing", notes: "Original synthetic request" }],
           [{ file }],
           { accepted: true, earlyPerformanceRequested: true, allowPortfolio: false },
-          jobTitle);
+          jobTitle, undefined, pricingExpectation);
+        if (response.errorCode === "pricing-changed") setCurrentPricingSnapshot(response.currentPricingSnapshot);
         setResult(JSON.stringify(response));
         setBusy(false);
       },
     }, "Submit synthetic order"),
+    currentPricingSnapshot && React.createElement("button", {
+      type: "button", disabled: busy,
+      onClick: () => {
+        setPricingExpectation(createPricingExpectation(currentPricingSnapshot));
+        setCurrentPricingSnapshot(null);
+      },
+    }, "Confirm updated price"),
     React.createElement("output", { "data-testid": "submit-result" }, result),
   );
 }

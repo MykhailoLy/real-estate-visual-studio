@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 import {
+  ORDER_SUBMISSION_RECOVERY_EVENT,
   readOrderSubmissionRecord,
   recoverAmbiguousOrderSubmission,
   writeOrderSubmissionRecord,
@@ -40,7 +41,11 @@ Object.defineProperty(globalThis, "sessionStorage", {
   },
 });
 const originalFetch = globalThis.fetch;
-test.beforeEach(() => storage.clear());
+let recoveryEvents = 0;
+const browserWindow = new EventTarget();
+browserWindow.addEventListener(ORDER_SUBMISSION_RECOVERY_EVENT, () => { recoveryEvents++; });
+Object.defineProperty(globalThis, "window", { configurable: true, value: browserWindow });
+test.beforeEach(() => { storage.clear(); recoveryEvents = 0; });
 test.afterEach(() => { globalThis.fetch = originalFetch; });
 
 function barrier<T>() {
@@ -49,10 +54,10 @@ function barrier<T>() {
   return { promise, release };
 }
 
-function submit() {
+function submit(pricingExpectation?: Parameters<typeof submitOrder>[6]) {
   return submitOrder(SERVICE, [{ roomType: "living-room" }],
     [{ file: new File(["synthetic"], "room.jpg", { type: "image/jpeg" }) }],
-    { accepted: true, earlyPerformanceRequested: true, allowPortfolio: false }, "Original job");
+    { accepted: true, earlyPerformanceRequested: true, allowPortfolio: false }, "Original job", undefined, pricingExpectation);
 }
 
 function uploadUrlResponse() {
@@ -209,8 +214,130 @@ test("a failed durable pre-POST write prevents the mutating request", async () =
   try {
     assert.equal((await submit()).success, false);
     assert.equal(posts, 0);
+    assert.equal(recoveryEvents, 0, "a known unsent fresh attempt must not capture the form");
+    assert.equal((await recoverAmbiguousOrderSubmission(SERVICE)).status, "none");
   } finally {
     Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: originalStorage });
+  }
+});
+
+test("fresh pricing rejection returns its snapshot and permits a newly confirmed logical submission", async () => {
+  const bodies: { submissionId: string; pricingExpectation: { totalCents: number } }[] = [];
+  const snapshot = { totalCents: 2000, pricingVersion: "current" };
+  let created = 0;
+  globalThis.fetch = async (input, init) => {
+    if (String(input) === "/api/upload-url") return uploadUrlResponse();
+    assert.equal(String(input), "/api/order", "definitive rejection needs no recovery GET");
+    const body = JSON.parse(String(init?.body));
+    bodies.push(body);
+    if (body.pricingExpectation.totalCents === 1000) {
+      return Response.json({ code: "pricing_changed", error: "Review the current price.", currentPricingSnapshot: snapshot }, { status: 409 });
+    }
+    created++;
+    return Response.json({ orderId: ORDER_ID, orderNumber: "VS-0042" });
+  };
+  const expectation = { pricingVersion: "current", welcomeOfferVersion: "current", welcomeBenefitKey: null, totalCents: 1000 };
+  const rejected = await submit(expectation);
+  assert.equal(rejected.errorCode, "pricing-changed");
+  assert.deepEqual(rejected.currentPricingSnapshot, snapshot);
+  assert.equal(bodies.length, 1);
+  assert.equal(created, 0);
+  assert.equal(recoveryEvents, 0);
+  assert.equal((await recoverAmbiguousOrderSubmission(SERVICE)).status, "none");
+  assert.equal((await submit({ ...expectation, totalCents: snapshot.totalCents })).success, true);
+  assert.equal(bodies.length, 2);
+  assert.notEqual(bodies[0].submissionId, bodies[1].submissionId);
+  assert.equal(created, 1, "the rejected ID never created an order");
+});
+
+for (const rejection of [
+  { code: "client_upgrade_required", status: 409, expected: "client-upgrade-required" },
+  { code: "custom-quote-required", status: 409, expected: "custom-quote-required" },
+  { code: "profile-incomplete", status: 422, expected: "profile-incomplete" },
+  { code: "invalid_input", status: 400, expected: "validation-failed" },
+  ...["unknown-option-id", "duplicate-option-id", "missing-renovation-option", "invalid-quantity", "unknown-floor-plan-type", "missing-photo-editing-option", "invalid-base-option-id"]
+    .map((code) => ({ code, status: 400, expected: "validation-failed" })),
+  { code: undefined, status: 400, expected: "validation-failed" },
+]) {
+  test(`fresh definitive ${rejection.code ?? "route validation"} rejection leaves no blocking operation`, async () => {
+    let posts = 0;
+    globalThis.fetch = async (input) => {
+      if (String(input) === "/api/upload-url") return uploadUrlResponse();
+      posts++;
+      return Response.json({ code: rejection.code, error: "Review your order." }, { status: rejection.status });
+    };
+    assert.equal((await submit()).errorCode, rejection.expected);
+    assert.equal(posts, 1);
+    assert.equal(recoveryEvents, 0);
+    assert.equal((await recoverAmbiguousOrderSubmission(SERVICE)).status, "none");
+  });
+}
+
+test("replay pricing rejection cannot release the earlier unknown POST or allow changed intent", async () => {
+  const bodies: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    if (String(input) === "/api/upload-url") return uploadUrlResponse();
+    if (init?.method === "GET") return Response.json({ code: "submission_unavailable" }, { status: 404 });
+    bodies.push(String(init?.body));
+    if (bodies.length === 1) throw new TypeError("old POST still running before claim");
+    return Response.json({ code: "pricing_changed", error: "Review the current price.", currentPricingSnapshot: { totalCents: 2000 } }, { status: 409 });
+  };
+  await submit();
+  const original = readOrderSubmissionRecord(SERVICE);
+  assert.equal((await retryOrderSubmission(SERVICE)).errorCode, "pricing-changed");
+  assert.deepEqual(readOrderSubmissionRecord(SERVICE), original);
+  assert.equal((await submit({ pricingVersion: "new", welcomeOfferVersion: "new", welcomeBenefitKey: null, totalCents: 2000 })).errorCode, "retry-required");
+  assert.deepEqual(bodies, [original?.requestBody, original?.requestBody]);
+});
+
+test("failed durable replay write preserves the earlier unknown operation without another POST", async () => {
+  globalThis.fetch = async (input) => {
+    if (String(input) === "/api/upload-url") return uploadUrlResponse();
+    throw new TypeError("old response lost");
+  };
+  await submit();
+  const original = readOrderSubmissionRecord(SERVICE);
+  const originalStorage = globalThis.sessionStorage;
+  Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: {
+    ...originalStorage, setItem() { throw new Error("quota exceeded"); },
+  } });
+  let posts = 0;
+  globalThis.fetch = async (_input, init) => {
+    if (init?.method !== "GET") posts++;
+    return Response.json({ code: "submission_unavailable" }, { status: 404 });
+  };
+  try {
+    assert.equal((await retryOrderSubmission(SERVICE)).success, false);
+    assert.equal(posts, 0);
+    assert.deepEqual(readOrderSubmissionRecord(SERVICE), original);
+    assert.equal((await submit()).errorCode, "retry-required");
+  } finally {
+    Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: originalStorage });
+  }
+});
+
+test("fresh uncertain, ownership, conflict and malformed rejections retain recovery context", async () => {
+  for (const [status, payload] of [
+    [500, { code: "pricing_changed", error: "Review pricing." }],
+    [503, { code: "database_error" }],
+    [409, { code: "submission_in_progress" }],
+    [409, { code: "submission_payload_conflict" }],
+    [404, { code: "submission_unavailable" }],
+    [400, { code: "invalid_upload", error: "Sign in with the original account." }],
+    [401, { error: "Sign in." }],
+    [400, { error: { malformed: true } }],
+    [400, null],
+    [409, { code: "unknown_code" }],
+    [409, { code: "pricing_changed" }],
+    [409, { code: "pricing_changed", error: "" }],
+    [400, { code: "pricing_changed", error: "Unexpected status." }],
+  ] as const) {
+    storage.clear();
+    globalThis.fetch = async (input) => String(input) === "/api/upload-url"
+      ? uploadUrlResponse() : Response.json(payload, { status });
+    assert.equal((await submit()).success, false);
+    assert.equal(readOrderSubmissionRecord(SERVICE)?.stage, "ambiguous", JSON.stringify(payload));
+    assert.ok(readOrderSubmissionRecord(SERVICE)?.requestBody);
   }
 });
 
