@@ -208,22 +208,24 @@ async function submitTrustedOrderDraftForUser(
 
     const draft = await loadClaimedDraft(input.userId, input.draftId);
     if (!draft) {
-      await releaseClaimBestEffort(input);
-      return finalizationError("not_found", "Draft was not found.");
+      return releaseClaimAfterFailure(input, {
+        ok: false,
+        code: "not_found",
+        message: "Draft was not found.",
+      });
     }
 
     const contextResult = buildTrustedDraftFinalizationContext(input, draft);
     if (!contextResult.ok) {
-      await releaseClaimBestEffort(input);
-      return contextResult;
+      return releaseClaimAfterFailure(input, contextResult);
     }
     const context = contextResult.data;
     if (expectedServiceType && context.serviceType !== expectedServiceType) {
-      await releaseClaimBestEffort(input);
-      return finalizationError(
-        "invalid_status",
-        "Draft belongs to a different order service.",
-      );
+      return releaseClaimAfterFailure(input, {
+        ok: false,
+        code: "invalid_status",
+        message: "Draft belongs to a different order service.",
+      });
     }
 
     if (claim.code === "already_converted") {
@@ -268,20 +270,17 @@ async function submitTrustedOrderDraftForUser(
       files: loadedFiles,
     });
     if (!reconciledFiles.ok) {
-      await releaseClaimBestEffort(input);
-      return reconciledFiles;
+      return releaseClaimAfterFailure(input, reconciledFiles);
     }
     const files = reconciledFiles.data;
     const slots = context.matchFiles(files);
     if (!slots.ok) {
-      await releaseClaimBestEffort(input);
-      return slots;
+      return releaseClaimAfterFailure(input, slots);
     }
 
     const storageVerification = await verifyDraftStorageObjects(files);
     if (!storageVerification.ok) {
-      await releaseClaimBestEffort(input);
-      return storageVerification;
+      return releaseClaimAfterFailure(input, storageVerification);
     }
 
     if (existingOrder) {
@@ -296,11 +295,11 @@ async function submitTrustedOrderDraftForUser(
 
     const itemFiles = await context.buildItemFiles(slots.data);
     if (!itemFiles.ok) {
-      await releaseClaimBestEffort(input);
-      return itemFiles;
+      return releaseClaimAfterFailure(input, itemFiles);
     }
     const orderResult = await createProductionOrder({
-      submissionId: input.draftId,
+      // The draft is editable after release; each attempt keeps its own snapshot.
+      submissionId: input.finalizationKey,
       ownerUserId: input.userId,
       clientIdentity: input.clientIdentity,
       serviceType: context.serviceType,
@@ -327,6 +326,11 @@ async function submitTrustedOrderDraftForUser(
     });
 
     if (!orderResult.ok) {
+      if (orderResult.code === "in_progress") {
+        // A same-attempt handler still owns the submission lease. Keep its
+        // draft claim and browser key instead of rotating to a new attempt.
+        return finalizationError("finalization_conflict", orderResult.message);
+      }
       if (orderResult.code === "source_draft_exists") {
         const sourceOrder = await loadProductionOrderBySourceDraft(
           input.userId,
@@ -343,9 +347,9 @@ async function submitTrustedOrderDraftForUser(
         }
       }
 
-      await releaseClaimBestEffort(input);
-      return finalizationError(
-        orderResult.code === "storage_error"
+      return releaseClaimAfterFailure(input, {
+        ok: false,
+        code: orderResult.code === "storage_error"
           ? "storage_error"
           : orderResult.code === "pricing_changed"
             ? "pricing_changed"
@@ -354,9 +358,9 @@ async function submitTrustedOrderDraftForUser(
           : orderResult.code === "database_error"
             ? "database_error"
             : "invalid_status",
-        orderResult.message,
-        orderResult.currentPricingSnapshot,
-      );
+        message: orderResult.message,
+        currentPricingSnapshot: orderResult.currentPricingSnapshot,
+      });
     }
 
     return {
@@ -666,9 +670,36 @@ async function completeDraftFinalization(input: SubmitVirtualStagingDraftInput &
   return parsed.result;
 }
 
+async function releaseClaimAfterFailure(
+  input: SubmitOrderDraftInput,
+  failure: Extract<DraftFinalizationResult<never>, { ok: false }>,
+): Promise<DraftFinalizationResult<never>> {
+  const draftReleased = await releaseClaimBestEffort(input);
+  // Preserve ambiguous outcomes even if release succeeds. Storage failures
+  // retain their existing explicit confirmation contract for the HTTP 500.
+  switch (failure.code) {
+    case "storage_error":
+      return draftReleased ? { ...failure, draftReleased: true } : failure;
+    case "database_error":
+    case "unexpected_error":
+    case "finalization_incomplete":
+    case "finalization_conflict":
+      return failure;
+    default:
+      // A definitive error may clear the browser key only after confirmed
+      // release. An unconfirmed release, including order_exists, must keep it.
+      return draftReleased
+        ? failure
+        : finalizationError(
+            "finalization_conflict",
+            "Draft release could not be confirmed. Retry the same finalization attempt.",
+          );
+  }
+}
+
 async function releaseClaimBestEffort(
   input: SubmitVirtualStagingDraftInput,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase.rpc(
@@ -684,7 +715,7 @@ async function releaseClaimBestEffort(
         "[order-draft-finalization] release RPC returned error:",
         error.message,
       );
-      return;
+      return false;
     }
     const result = parseReleaseFinalizationRpcResult(data);
     if (
@@ -697,8 +728,14 @@ async function releaseClaimBestEffort(
         result.code,
       );
     }
+    return (
+      Array.isArray(data) && data.length === 1 &&
+      result.code === "released" && result.draftId === input.draftId &&
+      result.convertedOrderId === null
+    );
   } catch (error) {
     console.warn("[order-draft-finalization] release RPC threw:", error);
+    return false;
   }
 }
 

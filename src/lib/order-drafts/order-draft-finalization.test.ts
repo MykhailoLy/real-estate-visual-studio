@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import "../orders/direct-order-file-integrity.test.ts";
+import "./order-draft-finalization-client.test.ts";
+import "./finalization-attempts.test.ts";
 import {
   DraftFinalizationBodySchema,
   STALE_DRAFT_FINALIZATION_CLAIM_MINUTES,
@@ -527,7 +529,7 @@ test("pricing preview is ignored for final pricing", () => {
   assert.doesNotMatch(FINALIZATION_SERVER, /pricingPreview/);
 });
 
-test("draft finalization forwards the reviewed expectation and releases its claim on stale pricing", () => {
+test("draft finalization forwards the reviewed expectation and exposes current pricing", () => {
   const createOrderCall = sourceSlice(
     FINALIZATION_SERVER,
     "const orderResult = await createProductionOrder({",
@@ -537,10 +539,8 @@ test("draft finalization forwards the reviewed expectation and releases its clai
     createOrderCall,
     /pricingExpectation: input\.pricingExpectation/,
   );
-  assert.match(
-    FINALIZATION_SERVER,
-    /if \(!orderResult\.ok\)[\s\S]*await releaseClaimBestEffort\(input\);[\s\S]*orderResult\.code === "pricing_changed"[\s\S]*orderResult\.code === "client_upgrade_required"[\s\S]*orderResult\.currentPricingSnapshot/,
-  );
+  // Release outcomes and snapshot preservation are exercised by the imported
+  // production-function regressions in finalization-attempts.test.ts.
   assert.match(
     VIRTUAL_STAGING_FORM,
     /submitVirtualStagingDraft\([\s\S]{0,220}buildCurrentPricingExpectation\(\)/,

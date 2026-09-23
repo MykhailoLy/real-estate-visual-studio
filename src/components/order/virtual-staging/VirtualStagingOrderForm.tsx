@@ -2474,6 +2474,7 @@ export default function VirtualStagingOrderForm({
       shouldPreserveVirtualStagingFinalizationKeyAfterFailure({
         code: result.code,
         status: result.status,
+        draftReleased: result.draftReleased,
       });
 
     if (shouldPreserveKey) {

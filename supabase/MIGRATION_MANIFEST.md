@@ -1,5 +1,32 @@
 # PicchuSpot Supabase Migration Manifest
 
+## F5 draft submission attempts — 2026-09-23
+
+Pending manual migration:
+`migrations/20260923143459_allow_multiple_draft_submission_attempts.sql`.
+Production state: **not executed by this task**.
+
+Requires the atomic submission foundation, current four-service draft claim/commit
+from `allow-floor-plan-draft-finalization.sql`, and the current Welcome Offer
+wrapper (`add-welcome-offer-redemptions.sql` / `fix-welcome-offer-rpc-coalesce.sql`).
+Verify this effective state; do not replay historical initializers.
+
+Replaces `order_submissions_source_draft_unique` with the non-unique partial
+lookup index `idx_order_submissions_source_draft`. Each immutable draft attempt
+uses `finalizationKey` as its `submission_id`; historical attempts may share
+`source_draft_id`. Submission primary-key identity, hashes, snapshots, leases,
+foreign keys, reserved/order ID uniqueness, RLS/grants and RPC bodies are unchanged.
+`orders_source_draft_id_unique` remains the authoritative one-draft-one-order
+boundary alongside locked draft owner/version/status/finalization-key checks.
+No rows are deleted, rewritten or backfilled.
+
+Rollout order: **manual migration → verify index state → application deployment**.
+Migration-first remains compatible with the old application: it still uses
+`submission_id = draftId`, protected by the submission primary key. Deploying
+the new attempt identity before migration can produce `23505`. The migration
+checks prerequisites and accepts an already-correct replacement index on rerun.
+See [F5 evidence and read-only operator checklist](../docs/f5-draft-finalization-blocker.md).
+
 ## Property Showcase raw-record privacy — 2026-09-19
 
 Pending manual migration: `migrations/20260919175745_harden_property_showcase_raw_access.sql`.

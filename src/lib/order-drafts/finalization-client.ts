@@ -29,6 +29,7 @@ export type DraftFinalizationClientResult =
       message: string;
       details?: unknown;
       currentPricingSnapshot?: PricingSnapshot;
+      draftReleased?: true;
     };
 
 export type DraftFinalizationStatusClientResult =
@@ -50,6 +51,7 @@ interface ApiError {
   code?: DraftFinalizationClientErrorCode;
   details?: unknown;
   currentPricingSnapshot?: PricingSnapshot;
+  draftReleased?: unknown;
 }
 
 export async function submitOrderDraft(
@@ -97,6 +99,11 @@ export async function submitOrderDraft(
       message: errorPayload.error ?? "Draft finalization failed.",
       details: errorPayload.details,
       currentPricingSnapshot: errorPayload.currentPricingSnapshot,
+      ...(errorPayload.code === "storage_error" &&
+      response.status === 500 &&
+      errorPayload.draftReleased === true
+        ? { draftReleased: true as const }
+        : {}),
     };
   }
 
