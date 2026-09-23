@@ -143,7 +143,14 @@ test("client preserves one UUID and upload namespace across ambiguous retries", 
   assert.match(CLIENT_SUBMIT, /record\.stage = "ambiguous"/);
   assert.match(CLIENT_SUBMIT, /previous\.stage === "ambiguous"/);
   assert.match(CLIENT_SUBMIT, /submissionId: record\.submissionId/);
-  assert.match(CLIENT_SUBMIT, /result\.code === "pricing_changed"[\s\S]*clearOrderSubmissionRecord/);
+  const pricingRejection = CLIENT_SUBMIT.slice(
+    CLIENT_SUBMIT.indexOf('if (result.code === "pricing_changed")'),
+    CLIENT_SUBMIT.indexOf('if (result.code === "submission_in_progress")'),
+  );
+  assert.match(pricingRejection, /errorCode: "pricing-changed"/);
+  // A concurrent original request may still commit: pricing rejection of its
+  // retry must not discard the logical ID. Executable recovery tests cover it.
+  assert.doesNotMatch(pricingRejection, /clearOrderSubmissionRecord|clearRecordIfCurrent/);
 });
 
 test("API has explicit create, replay, conflict, upgrade and owned recovery contracts", () => {

@@ -17,10 +17,14 @@ import { canonicalJson } from "@/lib/orders/canonical-json";
 import type { PricingSnapshot } from "@/lib/pricing/types";
 import type { PricingExpectation } from "@/lib/pricing/expectation";
 import {
-  clearOrderSubmissionRecord,
+  clearRecordIfCurrent,
+  ORDER_SUBMISSION_RECOVERY_EVENT,
+  ORDER_SUBMISSION_SERVICE_TYPES,
   readOrderSubmissionRecord,
+  readOrderSubmissionRequestBody,
   recoverAnyAmbiguousOrderSubmission,
   writeOrderSubmissionRecord,
+  type OrderSubmissionRecoveryResult,
   type OrderSubmissionSessionRecord,
 } from "@/lib/orders/submission-recovery";
 
@@ -75,6 +79,7 @@ export type OrderErrorCode =
   | "in-progress"
   | "submission-conflict"
   | "submission-unavailable"
+  | "retry-required"
   | "pricing-changed"
   | "client-upgrade-required"
   | "server-error"
@@ -264,7 +269,77 @@ function localFileCheck(
  * Errors are always returned as { success: false, error, errorCode }
  * rather than thrown, so the order pages can render them inline.
  */
+let submissionInFlight = false;
+
 export async function submitOrder(
+  ...args: Parameters<typeof submitOrderOnce>
+): Promise<OrderSubmitResult> {
+  return withSubmissionLock(() => submitOrderOnce(...args));
+}
+
+/** Explicitly retry only the original saved request, never the current form. */
+export async function retryOrderSubmission(serviceType: string): Promise<OrderSubmitResult> {
+  return withSubmissionLock(async () => {
+    const recovery = await recoverAnyAmbiguousOrderSubmission();
+    if (recovery.status !== "retryable" || recovery.serviceType !== serviceType || !recovery.canRetry) {
+      return resultFromRecovery(recovery) ?? {
+        success: false, errorCode: "submission-unavailable",
+        error: "The original submission details are unavailable. Check the order status before continuing.",
+      };
+    }
+    const record = readOrderSubmissionRecord(serviceType);
+    if (!record || record.submissionId !== recovery.submissionId) {
+      return { success: false, errorCode: "submission-conflict", error: "The submission context changed. Check its status again." };
+    }
+    return postStoredOrder(serviceType, record, "recovery");
+  });
+}
+
+async function withSubmissionLock(action: () => Promise<OrderSubmitResult>): Promise<OrderSubmitResult> {
+  if (submissionInFlight) return {
+    success: false, errorCode: "in-progress", error: "Your order submission is already in progress.",
+  };
+  submissionInFlight = true;
+  try {
+    return await action();
+  } finally {
+    submissionInFlight = false;
+    // A failed direct attempt can happen while the form is already mounted.
+    // Let the existing layout show recovery without a reload or polling loop.
+    const needsRecovery = ORDER_SUBMISSION_SERVICE_TYPES.some((serviceType) => {
+      const stage = readOrderSubmissionRecord(serviceType)?.stage;
+      return stage === "uploaded" || stage === "ambiguous";
+    });
+    if (needsRecovery && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(ORDER_SUBMISSION_RECOVERY_EVENT));
+    }
+  }
+}
+
+function resultFromRecovery(recovery: OrderSubmissionRecoveryResult): OrderSubmitResult | null {
+  if (recovery.status === "none") return null;
+  if (recovery.status === "committed") return {
+    success: true, orderId: recovery.orderId, orderNumber: recovery.orderNumber,
+    recovered: true, confirmationEmailSent: false,
+  };
+  if (recovery.status === "processing") return {
+    success: false, errorCode: "in-progress",
+    error: "Your previous order submission is still processing. Check again in a moment.",
+  };
+  if (recovery.status === "retryable") return {
+    success: false, errorCode: "retry-required",
+    error: "Recover the original submission before starting another order. Its original details and submission ID have been retained.",
+  };
+  if (recovery.status === "unauthorized") return {
+    success: false, errorCode: "unauthorized", error: "Please sign in to recover the previous order submission.",
+  };
+  return {
+    success: false, errorCode: "server-error",
+    error: "The previous order outcome could not be confirmed. No new submission was started.",
+  };
+}
+
+async function submitOrderOnce(
   serviceType: string,
   items: Record<string, unknown>[],
   files: FileRef[],
@@ -282,43 +357,8 @@ export async function submitOrder(
   // requiring browser File objects. This is also a defense-in-depth guard for
   // callers outside the shared new-order recovery layout.
   const recovery = await recoverAnyAmbiguousOrderSubmission();
-  if (recovery.status === "committed") {
-    return {
-      success: true,
-      orderId: recovery.orderId,
-      orderNumber: recovery.orderNumber,
-      recovered: true,
-      confirmationEmailSent: false,
-    };
-  }
-  if (recovery.status === "processing") {
-    return {
-      success: false,
-      error: "Your previous order submission is still processing. Check again in a moment; no new submission was started.",
-      errorCode: "in-progress",
-    };
-  }
-  if (recovery.status === "unavailable") {
-    return {
-      success: false,
-      error: "The previous submission is unavailable. Review the order before starting a new submission.",
-      errorCode: "submission-unavailable",
-    };
-  }
-  if (recovery.status === "unauthorized") {
-    return {
-      success: false,
-      error: "Please sign in to recover the previous order submission.",
-      errorCode: "unauthorized",
-    };
-  }
-  if (recovery.status === "error") {
-    return {
-      success: false,
-      error: "The previous order outcome could not be confirmed. No new submission was started.",
-      errorCode: "server-error",
-    };
-  }
+  const recoveryResult = resultFromRecovery(recovery);
+  if (recoveryResult) return recoveryResult;
 
   if (!orderTerms.accepted || !orderTerms.earlyPerformanceRequested) {
     return {
@@ -395,7 +435,7 @@ export async function submitOrder(
             .map(() => crypto.randomUUID()),
         ),
       };
-  writeOrderSubmissionRecord(serviceType, record);
+  if (!writeOrderSubmissionRecord(serviceType, record)) return storageUnavailableResult();
   const pendingToken = pendingTokenForSubmissionId(record.submissionId);
   if (!pendingToken) {
     return { success: false, error: "Could not allocate order submission.", errorCode: "server-error" };
@@ -571,20 +611,50 @@ export async function submitOrder(
     itemFiles,
   };
 
+  record.requestBody = JSON.stringify(payload);
+  return postStoredOrder(serviceType, record, "fresh");
+}
+
+function storageUnavailableResult(): OrderSubmitResult {
+  return {
+    success: false, errorCode: "server-error",
+    error: "Your browser could not save the order recovery details. Allow session storage before submitting. No order request was sent.",
+  };
+}
+
+async function postStoredOrder(
+  serviceType: string,
+  record: OrderSubmissionSessionRecord,
+  attempt: "fresh" | "recovery",
+): Promise<OrderSubmitResult> {
+  const body = readOrderSubmissionRequestBody(serviceType, record);
+  if (!body) return {
+    success: false, errorCode: "submission-unavailable",
+    error: "The original order details could not be restored. Check the submission status or contact support.",
+  };
+  // This synchronous durable write MUST precede the mutating fetch. A reload
+  // can occur before fetch settles, including before the server's first claim.
+  record.stage = "ambiguous";
+  if (!writeOrderSubmissionRecord(serviceType, record)) {
+    // This fresh attempt never called POST. Its uploaded record must not trap
+    // the mounted form in legacy recovery. A replay may have an older POST
+    // still running, so its context must survive even this local failure.
+    if (attempt === "fresh") clearRecordIfCurrent(serviceType, record.submissionId);
+    return storageUnavailableResult();
+  }
+
   let response: Response;
   try {
     response = await fetch("/api/order", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      body,
     });
   } catch {
-    record.stage = "ambiguous";
-    writeOrderSubmissionRecord(serviceType, record);
     return {
       success: false,
       error:
-        "Network error while submitting your order. Your files were uploaded — please retry the order in a moment.",
+        "The order response was interrupted. Check its status before retrying the original submission.",
       errorCode: "network-error",
     };
   }
@@ -614,12 +684,20 @@ export async function submitOrder(
     };
   } = {};
   try {
-    result = await response.json();
+    const parsed: unknown = await response.json();
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) result = parsed;
   } catch {
     // Empty / non-JSON body: fall through and surface status code.
   }
+  // A malformed error response must not put an object into the recovery UI.
+  if (typeof result.error !== "string") result.error = undefined;
 
   if (!response.ok) {
+    // Only the first POST on this page can establish a definitive rejection.
+    // A replay's rejection says nothing about an earlier unknown request.
+    if (attempt === "fresh" && isDefinitiveOrderRejection(response.status, result.code, result.error)) {
+      clearRecordIfCurrent(serviceType, record.submissionId);
+    }
     // Not signed in (or session expired) → caller sends user to login.
     if (response.status === 401) {
       return {
@@ -648,7 +726,8 @@ export async function submitOrder(
       };
     }
     if (result.code === "pricing_changed") {
-      clearOrderSubmissionRecord(serviceType);
+      // Keep the authoritative snapshot available to the existing form's
+      // confirmation flow. Recovery replays retain their original identity.
       return {
         success: false,
         error: result.error || "Pricing changed. Review the updated total and confirm again.",
@@ -657,8 +736,6 @@ export async function submitOrder(
       };
     }
     if (result.code === "submission_in_progress") {
-      record.stage = "ambiguous";
-      writeOrderSubmissionRecord(serviceType, record);
       return {
         success: false,
         error: result.error || "This order is still processing. Retry in a moment.",
@@ -666,8 +743,6 @@ export async function submitOrder(
       };
     }
     if (result.code === "submission_payload_conflict") {
-      record.stage = "ambiguous";
-      writeOrderSubmissionRecord(serviceType, record);
       return {
         success: false,
         error: result.error || "This submissionId belongs to different order details.",
@@ -675,10 +750,9 @@ export async function submitOrder(
       };
     }
     if (result.code === "submission_unavailable") {
-      clearOrderSubmissionRecord(serviceType);
       return {
         success: false,
-        error: result.error || "This order submission is unavailable. Review and submit again.",
+        error: result.error || "This submission is unavailable for the current account. Sign in with the account that started it.",
         errorCode: "submission-unavailable",
       };
     }
@@ -690,8 +764,6 @@ export async function submitOrder(
       };
     }
     if (response.status >= 500) {
-      record.stage = "ambiguous";
-      writeOrderSubmissionRecord(serviceType, record);
       return {
         success: false,
         error:
@@ -706,23 +778,45 @@ export async function submitOrder(
     };
   }
 
-  if (!result.orderId || !result.orderNumber) {
-    record.stage = "ambiguous";
-    writeOrderSubmissionRecord(serviceType, record);
+  if (typeof result.orderId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(result.orderId) ||
+      typeof result.orderNumber !== "string" || !result.orderNumber.trim()) {
     return {
       success: false,
-      error: "Order saved but no order number was returned. Please contact support.",
+      error: "The order result could not be confirmed. Check its status before retrying.",
       errorCode: "server-error",
     };
   }
 
-  clearOrderSubmissionRecord(serviceType);
+  clearRecordIfCurrent(serviceType, record.submissionId);
   return {
     success: true,
     orderId: result.orderId,
     orderNumber: result.orderNumber,
     confirmationEmailSent: result.emailNotifications?.clientConfirmation === true,
   };
+}
+
+function isDefinitiveOrderRejection(status: number, code: string | undefined, error: string | undefined): boolean {
+  if (!error?.trim()) return false;
+  if (status === 409) {
+    return code === "pricing_changed" || code === "client_upgrade_required" || code === "custom-quote-required";
+  }
+  if (status === 422) return code === "profile-incomplete";
+  if (status !== 400) return false;
+  // The route's uncoded validation responses and these service validation
+  // codes precede order creation. Do not include invalid_upload: it can mean
+  // ownership ambiguity. Unknown codes, malformed responses and 5xx stay held.
+  return code === undefined || [
+    "invalid_input",
+    "unknown-option-id",
+    "duplicate-option-id",
+    "missing-renovation-option",
+    "invalid-quantity",
+    "unknown-floor-plan-type",
+    "missing-photo-editing-option",
+    "invalid-base-option-id",
+  ].includes(code);
 }
 
 async function browserSha256(value: unknown): Promise<string> {
