@@ -1410,6 +1410,7 @@ export default function VirtualRenovationOrderForm({
         !shouldPreserveDraftFinalizationKeyAfterFailure({
           code: result.code,
           status: result.status,
+          draftReleased: result.draftReleased,
         })
       ) {
         clearFinalizationRetryContext(context.draftId);

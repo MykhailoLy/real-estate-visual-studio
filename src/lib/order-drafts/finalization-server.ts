@@ -280,8 +280,10 @@ async function submitTrustedOrderDraftForUser(
 
     const storageVerification = await verifyDraftStorageObjects(files);
     if (!storageVerification.ok) {
-      await releaseClaimBestEffort(input);
-      return storageVerification;
+      const draftReleased = await releaseClaimBestEffort(input);
+      return storageVerification.code === "storage_error" && draftReleased
+        ? { ...storageVerification, draftReleased: true }
+        : storageVerification;
     }
 
     if (existingOrder) {
@@ -296,11 +298,14 @@ async function submitTrustedOrderDraftForUser(
 
     const itemFiles = await context.buildItemFiles(slots.data);
     if (!itemFiles.ok) {
-      await releaseClaimBestEffort(input);
-      return itemFiles;
+      const draftReleased = await releaseClaimBestEffort(input);
+      return itemFiles.code === "storage_error" && draftReleased
+        ? { ...itemFiles, draftReleased: true }
+        : itemFiles;
     }
     const orderResult = await createProductionOrder({
-      submissionId: input.draftId,
+      // The draft is editable after release; each attempt keeps its own snapshot.
+      submissionId: input.finalizationKey,
       ownerUserId: input.userId,
       clientIdentity: input.clientIdentity,
       serviceType: context.serviceType,
@@ -327,6 +332,11 @@ async function submitTrustedOrderDraftForUser(
     });
 
     if (!orderResult.ok) {
+      if (orderResult.code === "in_progress") {
+        // A same-attempt handler still owns the submission lease. Keep its
+        // draft claim and browser key instead of rotating to a new attempt.
+        return finalizationError("finalization_conflict", orderResult.message);
+      }
       if (orderResult.code === "source_draft_exists") {
         const sourceOrder = await loadProductionOrderBySourceDraft(
           input.userId,
@@ -343,8 +353,8 @@ async function submitTrustedOrderDraftForUser(
         }
       }
 
-      await releaseClaimBestEffort(input);
-      return finalizationError(
+      const draftReleased = await releaseClaimBestEffort(input);
+      const failure = finalizationError(
         orderResult.code === "storage_error"
           ? "storage_error"
           : orderResult.code === "pricing_changed"
@@ -357,6 +367,11 @@ async function submitTrustedOrderDraftForUser(
         orderResult.message,
         orderResult.currentPricingSnapshot,
       );
+      // Storage failures here precede commit. Only a confirmed release may
+      // unlock editing; an unknown commit/release must keep the retry identity.
+      return !failure.ok && orderResult.code === "storage_error" && draftReleased
+        ? { ...failure, draftReleased: true }
+        : failure;
     }
 
     return {
@@ -668,7 +683,7 @@ async function completeDraftFinalization(input: SubmitVirtualStagingDraftInput &
 
 async function releaseClaimBestEffort(
   input: SubmitVirtualStagingDraftInput,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase.rpc(
@@ -684,7 +699,7 @@ async function releaseClaimBestEffort(
         "[order-draft-finalization] release RPC returned error:",
         error.message,
       );
-      return;
+      return false;
     }
     const result = parseReleaseFinalizationRpcResult(data);
     if (
@@ -697,8 +712,14 @@ async function releaseClaimBestEffort(
         result.code,
       );
     }
+    return (
+      Array.isArray(data) && data.length === 1 &&
+      result.code === "released" && result.draftId === input.draftId &&
+      result.convertedOrderId === null
+    );
   } catch (error) {
     console.warn("[order-draft-finalization] release RPC threw:", error);
+    return false;
   }
 }
 

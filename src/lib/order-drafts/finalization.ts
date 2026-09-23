@@ -127,6 +127,8 @@ export type DraftFinalizationResult<T> =
       code: DraftFinalizationPublicErrorCode;
       message: string;
       currentPricingSnapshot?: PricingSnapshot;
+      // Set only after a definitive pre-commit failure and confirmed draft release.
+      draftReleased?: true;
     };
 
 export interface BrowserFileMetadata {
@@ -1347,7 +1349,17 @@ export function shouldAutomaticallyRetryVirtualStagingFinalization(): false {
 export function shouldPreserveVirtualStagingFinalizationKeyAfterFailure(input: {
   code: DraftFinalizationPublicErrorCode | "invalid_json" | "network_error";
   status: number;
+  draftReleased?: boolean;
 }): boolean {
+  // Only a confirmed pre-commit Storage failure may unlock editing after a 500.
+  // Missing confirmation keeps older responses and ambiguous outcomes retryable.
+  if (
+    input.code === "storage_error" &&
+    input.status === 500 &&
+    input.draftReleased === true
+  ) {
+    return false;
+  }
   return (
     input.code === "network_error" ||
     input.code === "invalid_json" ||

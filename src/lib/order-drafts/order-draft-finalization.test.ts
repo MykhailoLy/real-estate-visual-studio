@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import "../orders/direct-order-file-integrity.test.ts";
+import "./order-draft-finalization-client.test.ts";
+import "./finalization-attempts.test.ts";
 import {
   DraftFinalizationBodySchema,
   STALE_DRAFT_FINALIZATION_CLAIM_MINUTES,

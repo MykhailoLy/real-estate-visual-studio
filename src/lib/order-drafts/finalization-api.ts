@@ -32,6 +32,7 @@ export interface DraftFinalizationApiErrorBody {
   code: DraftFinalizationPublicErrorCode | "invalid_json";
   details?: unknown;
   currentPricingSnapshot?: PricingSnapshot;
+  draftReleased?: true;
 }
 
 export type DraftFinalizationJsonParseResult =
@@ -51,11 +52,15 @@ export function draftFinalizationErrorResponse(
   status: number,
   details?: unknown,
   currentPricingSnapshot?: PricingSnapshot,
+  draftReleased?: true,
 ): Response {
   const body: DraftFinalizationApiErrorBody = { error, code };
   if (details !== undefined) body.details = details;
   if (currentPricingSnapshot !== undefined) {
     body.currentPricingSnapshot = currentPricingSnapshot;
+  }
+  if (code === "storage_error" && status === 500 && draftReleased === true) {
+    body.draftReleased = true;
   }
   return Response.json(body, { status, headers: NO_STORE_HEADERS });
 }
@@ -128,6 +133,7 @@ export function draftFinalizationResultToResponse<T>(
     FINALIZATION_ERROR_STATUS[result.code],
     undefined,
     result.currentPricingSnapshot,
+    result.draftReleased,
   );
 }
 

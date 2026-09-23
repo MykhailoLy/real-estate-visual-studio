@@ -1002,6 +1002,7 @@ export default function PhotoEditingOrderForm({
         !shouldPreserveDraftFinalizationKeyAfterFailure({
           code: result.code,
           status: result.status,
+          draftReleased: result.draftReleased,
         })
       ) {
         clearFinalizationRetryContext(context.draftId);
