@@ -99,7 +99,11 @@ const {
   completeOrderDraftFileUploadForUser,
   listUploadedOrderDraftFilesForUser,
 } = await import("./files-server.ts");
-const { completeDraftReferenceForUser } = await import(
+const {
+  completeDraftReferenceForUser,
+  listDraftReferencesForUser,
+  prepareDraftReferenceForUser,
+} = await import(
   "./draft-reference-files-server.ts"
 );
 const {
@@ -130,6 +134,11 @@ interface FlowMockOptions {
   previewSigningThrows?: boolean;
   fetchFailure?: boolean;
   failInvalidationUpdate?: boolean;
+  failRetirement?: boolean;
+  failSigningUpload?: boolean;
+  removeFailure?: "error" | "throw" | "missing";
+  draftUnavailable?: boolean;
+  beforePrefixResponse?: () => Promise<void>;
 }
 
 class FlowSupabaseMock {
@@ -140,6 +149,7 @@ class FlowSupabaseMock {
   readonly removedPaths: string[][] = [];
   readonly prefixReads: string[] = [];
   readonly signedUrlTtls: number[] = [];
+  readonly signedUploadPaths: string[] = [];
   readonly options: FlowMockOptions;
 
   constructor(options: FlowMockOptions = {}) {
@@ -194,12 +204,21 @@ class FlowSupabaseMock {
               error: null,
             };
       },
-      createSignedUploadUrl: async (path: string) => ({
-        data: { signedUrl: `https://storage.example/upload/${encodeURIComponent(path)}` },
-        error: null,
-      }),
+      createSignedUploadUrl: async (path: string) => {
+        this.signedUploadPaths.push(path);
+        return this.options.failSigningUpload
+          ? { data: null, error: { name: "SigningFailed" } }
+          : {
+              data: { path, token: `token-${path}`, signedUrl: `https://storage.example/upload/${encodeURIComponent(path)}` },
+              error: null,
+            };
+      },
       remove: async (paths: string[]) => {
         this.removedPaths.push([...paths]);
+        if (this.options.removeFailure === "throw") throw new Error("private-storage-token");
+        if (this.options.removeFailure) {
+          return { data: null, error: { name: "private-storage-token", message: "private-storage-path" } };
+        }
         for (const path of paths) this.objects.delete(path);
         return { data: [], error: null };
       },
@@ -224,6 +243,7 @@ class FlowSupabaseMock {
       const prefixLength = Math.min(512, object.size);
       const bytes = new Uint8Array(prefixLength);
       bytes.set(object.bytes.subarray(0, prefixLength));
+      await this.options.beforePrefixResponse?.();
       return new Response(bytes, {
         status: 206,
         headers: {
@@ -235,6 +255,9 @@ class FlowSupabaseMock {
   }
 
   getOwnedDraft(userId: string, draftId: string) {
+    if (userId !== USER_ID || draftId !== DRAFT_ID || this.options.draftUnavailable) {
+      return { ok: false, code: "not_found", message: "Draft was not found." };
+    }
     return {
       ok: true,
       data: {
@@ -292,6 +315,7 @@ class MockTableQuery implements PromiseLike<{ data: TableRow[] | null; error: { 
   private readonly supabase: FlowSupabaseMock;
   private readonly table: string;
   private readonly filters: Array<{ column: string; value: unknown }> = [];
+  private readonly inclusionFilters: Array<{ column: string; values: unknown[] }> = [];
   private mutation: { kind: "update" | "insert"; values: TableRow } | null = null;
   private maximum: number | null = null;
 
@@ -311,6 +335,11 @@ class MockTableQuery implements PromiseLike<{ data: TableRow[] | null; error: { 
 
   is(column: string, value: unknown) {
     return this.eq(column, value);
+  }
+
+  in(column: string, values: unknown[]) {
+    this.inclusionFilters.push({ column, values });
+    return this;
   }
 
   order() {
@@ -362,17 +391,29 @@ class MockTableQuery implements PromiseLike<{ data: TableRow[] | null; error: { 
     }
 
     if (this.mutation?.kind === "insert") {
-      const inserted = { ...this.mutation.values };
+      const inserted: TableRow = { deleted_at: null, ...this.mutation.values };
+      if (this.table === "order_draft_item_reference_files" && tableRows.some((row) =>
+        row.id === inserted.id ||
+        (row.draft_id === inserted.draft_id && row.item_client_id === inserted.item_client_id &&
+          row.position === inserted.position && row.deleted_at === null &&
+          ["pending", "uploaded"].includes(String(row.upload_status)))
+      )) {
+        return { data: null, error: { message: "Unique reference constraint" } };
+      }
       tableRows.push(inserted);
       return { data: [inserted], error: null };
     }
 
     let matches = tableRows.filter((row) =>
-      this.filters.every(({ column, value }) => row[column] === value),
+      this.filters.every(({ column, value }) => row[column] === value) &&
+      this.inclusionFilters.every(({ column, values }) => values.includes(row[column])),
     );
     if (this.maximum !== null) matches = matches.slice(0, this.maximum);
 
     if (this.mutation?.kind === "update") {
+      if (this.supabase.options.failRetirement && this.mutation.values.upload_status === "deleted") {
+        return { data: null, error: { message: "Retirement failed" } };
+      }
       this.supabase.updates.push({
         table: this.table,
         values: this.mutation.values,
@@ -386,7 +427,8 @@ class MockTableQuery implements PromiseLike<{ data: TableRow[] | null; error: { 
       for (const row of matches) Object.assign(row, this.mutation.values);
     }
 
-    return { data: matches, error: null };
+    // Queries return snapshots, not live references to mutable database rows.
+    return { data: matches.map((row) => ({ ...row })), error: null };
   }
 }
 
@@ -894,4 +936,243 @@ test("an object at a mismatched path cannot complete or expose a pending rework 
   });
   assert.equal(listed.ok, true);
   if (listed.ok) assert.deepEqual(listed.files, []);
+});
+
+const REFERENCE_TABLE = "order_draft_item_reference_files";
+const MB = 1024 * 1024;
+const newReferenceInput = {
+  itemClientId: ITEM_ID,
+  referenceId: EXISTING_FILE_ID,
+  position: 0,
+  filename: "new-reference.pdf",
+  fileSize: 1_234,
+  mimeType: "application/pdf" as const,
+};
+
+function referenceFixture(rows: TableRow[], options: FlowMockOptions = {}): FlowSupabaseMock {
+  const mock = new FlowSupabaseMock(options);
+  mock.setRows(REFERENCE_TABLE, rows);
+  mock.install();
+  return mock;
+}
+
+function assertRetired(row: TableRow): void {
+  assert.equal(row.upload_status, "deleted");
+  assert.match(String(row.deleted_at), /^\d{4}-\d{2}-\d{2}T/);
+}
+
+function uploadedReferences(count: number, fileSize = 1_234): TableRow[] {
+  return Array.from({ length: count }, (_, position) => {
+    const id = `aaaaaaaa-aaaa-4aaa-8aaa-${String(position).padStart(12, "0")}`;
+    return draftReferenceRow({
+      id, reference_id: id, position, file_size: fileSize, upload_status: "uploaded",
+      storage_path: `drafts/${USER_ID}/${DRAFT_ID}/${id}/notes.pdf`,
+    });
+  });
+}
+
+test("F6: reload hides interrupted pending reference; prepare recovers the same position", async () => {
+  const old = draftReferenceRow();
+  const mock = referenceFixture([old]);
+  assert.deepEqual(await listDraftReferencesForUser(USER_ID, DRAFT_ID), { ok: true, data: [] });
+  const result = await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput);
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assertRetired(old);
+  assert.equal(mock.tables.get(REFERENCE_TABLE)?.[1]?.upload_status, "pending");
+});
+
+test("F6: cleanup removes only the retired object's path once and keeps a unique new upload", async () => {
+  const old = draftReferenceRow();
+  const mock = referenceFixture([old]);
+  mock.addObject(String(old.storage_path), PDF, "application/pdf");
+  const result = await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput);
+  assert.ok(result.ok);
+  assertRetired(old);
+  assert.deepEqual(mock.removedPaths, [[old.storage_path]]);
+  assert.equal(mock.objects.has(String(old.storage_path)), false);
+  assert.notEqual(result.data.upload.path, old.storage_path);
+  assert.deepEqual(mock.signedUploadPaths, [result.data.upload.path]);
+  assert.equal(result.data.upload.token, `token-${result.data.upload.path}`);
+  assert.equal(result.data.reference.storagePath, null);
+});
+
+for (const removeFailure of ["missing", "error", "throw"] as const) {
+  test(`F6: Storage cleanup ${removeFailure} cannot undo retirement or fail prepare`, async (context) => {
+    const warnings: unknown[][] = [];
+    context.mock.method(console, "warn", (...args: unknown[]) => warnings.push(args));
+    const old = draftReferenceRow();
+    const mock = referenceFixture([old], { removeFailure });
+    if (removeFailure !== "missing") mock.addObject(String(old.storage_path), PDF, "application/pdf");
+    const result = await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput);
+    assert.ok(result.ok);
+    assertRetired(old);
+    assert.deepEqual(mock.removedPaths, [[old.storage_path]]);
+    assert.equal(warnings.length, 1);
+    assert.deepEqual(warnings[0], ["[draft-reference-files] retired reference storage cleanup failed."]);
+  });
+}
+
+test("F6: failed candidates retire even when they alone exceed the quota", async () => {
+  const failed = uploadedReferences(6, 20 * MB).map((row) => ({ ...row, upload_status: "failed" }));
+  referenceFixture([...failed]);
+  assert.ok((await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput)).ok);
+  failed.forEach(assertRetired);
+});
+
+test("F6: all incomplete positions retire; uploaded, other item/draft and already deleted rows stay intact", async () => {
+  const incomplete = [draftReferenceRow({ position: 2 }), draftReferenceRow({
+    id: FILE_ID, reference_id: FILE_ID, position: 8, upload_status: "failed",
+    storage_path: `drafts/${USER_ID}/${DRAFT_ID}/${FILE_ID}/notes.pdf`,
+  })];
+  const untouched = [
+    ...uploadedReferences(1),
+    draftReferenceRow({ id: REVIEW_ID, reference_id: REVIEW_ID, item_client_id: REVIEW_ID }),
+    draftReferenceRow({ id: ITEM_ID, reference_id: ITEM_ID, draft_id: REVIEW_ID }),
+    draftReferenceRow({ id: USER_ID, reference_id: USER_ID, deleted_at: TIMESTAMP, upload_status: "deleted" }),
+  ];
+  const snapshot = structuredClone(untouched);
+  const mock = referenceFixture([...incomplete, ...untouched]);
+  assert.ok((await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, { ...newReferenceInput, position: 1 })).ok);
+  incomplete.forEach(assertRetired);
+  assert.deepEqual(untouched, snapshot);
+  assert.deepEqual(mock.removedPaths.flat(), incomplete.map((row) => row.storage_path));
+});
+
+for (const conflict of ["position", "identity", "count", "total"] as const) {
+  test(`F6: true uploaded ${conflict} conflict still rejects without replacing completed references`, async () => {
+    const uploaded = uploadedReferences(conflict === "count" ? 10 : conflict === "total" ? 5 : 1,
+      conflict === "total" ? 20 * MB : 1_234);
+    const snapshot = structuredClone(uploaded);
+    const incomplete = conflict === "count" ? [] : [draftReferenceRow({ position: 9 })];
+    const mock = referenceFixture([...uploaded, ...incomplete]);
+    const input = {
+      ...newReferenceInput,
+      position: conflict === "position" ? 0 : 9,
+      referenceId: conflict === "identity" ? String(uploaded[0].reference_id) : newReferenceInput.referenceId,
+    };
+    const result = await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, input);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    const messages = { position: /position is already occupied/, identity: /already saved/, count: /up to 10/, total: /100 MB/ };
+    assert.match(result.message, messages[conflict]);
+    assert.deepEqual(uploaded, snapshot);
+    incomplete.forEach(assertRetired);
+    assert.deepEqual(mock.signedUploadPaths, []);
+    assert.deepEqual(mock.removedPaths.flat(), incomplete.map((row) => row.storage_path));
+  });
+}
+
+test("F6: nine uploaded plus an invisible pending tenth allows a fresh tenth", async () => {
+  const old = draftReferenceRow({ position: 9 });
+  referenceFixture([...uploadedReferences(9), old]);
+  assert.ok((await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, { ...newReferenceInput, position: 9 })).ok);
+  assertRetired(old);
+});
+
+test("F6: pending bytes do not inflate uploaded total at the exact 100 MB boundary", async () => {
+  const old = draftReferenceRow({ position: 7, file_size: 20 * MB });
+  referenceFixture([...uploadedReferences(4, 20 * MB), old]);
+  assert.ok((await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, {
+    ...newReferenceInput, position: 4, fileSize: 20 * MB,
+  })).ok);
+  assertRetired(old);
+});
+
+test("F6: database retirement failure aborts before insertion, signing or Storage removal", async () => {
+  const old = draftReferenceRow();
+  const snapshot = structuredClone(old);
+  const mock = referenceFixture([old], { failRetirement: true });
+  const result = await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput);
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.status, 500);
+  assert.deepEqual(mock.tables.get(REFERENCE_TABLE), [snapshot]);
+  assert.deepEqual(mock.removedPaths, []);
+  assert.deepEqual(mock.signedUploadPaths, []);
+});
+
+test("F6: signed upload failure marks only the new candidate failed and still cleans retired objects", async () => {
+  const old = draftReferenceRow();
+  const mock = referenceFixture([old], { failSigningUpload: true });
+  const result = await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput);
+  assert.equal(result.ok, false);
+  assertRetired(old);
+  const fresh = mock.tables.get(REFERENCE_TABLE)?.find((row) => row.id === newReferenceInput.referenceId);
+  assert.equal(fresh?.upload_status, "failed");
+  assert.equal(fresh?.deleted_at, null);
+  assert.deepEqual(mock.removedPaths, [[old.storage_path]]);
+});
+
+test("F6: a late completion of retired K1 cannot promote it or change new K2", async () => {
+  const old = draftReferenceRow();
+  const mock = referenceFixture([old]);
+  assert.ok((await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput)).ok);
+  const result = await completeDraftReferenceForUser(USER_ID, DRAFT_ID, REFERENCE_ID);
+  assert.equal(result.ok, false);
+  assertRetired(old);
+  assert.equal(mock.tables.get(REFERENCE_TABLE)?.[1]?.upload_status, "pending");
+  assert.deepEqual(mock.prefixReads, []);
+});
+
+test("F6: completion already verifying K1 cannot promote it after K2 retires it", async (context) => {
+  context.mock.method(console, "warn", () => undefined);
+  const old = draftReferenceRow();
+  const mock = referenceFixture([old], {
+    removeFailure: "error",
+    beforePrefixResponse: async () => {
+      assert.ok((await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput)).ok);
+    },
+  });
+  mock.addObject(String(old.storage_path), PDF, "application/pdf");
+  const result = await completeDraftReferenceForUser(USER_ID, DRAFT_ID, REFERENCE_ID);
+  assert.equal(result.ok, false);
+  assertRetired(old);
+  assert.equal(mock.tables.get(REFERENCE_TABLE)?.[1]?.upload_status, "pending");
+  assert.ok(mock.updates.some((update) => update.values.upload_status === "uploaded"));
+  assert.deepEqual(mock.tables.get("order_draft_files") ?? [], []);
+});
+
+for (const invalidCase of ["input", "user", "draft", "owner", "inactive", "item"] as const) {
+  test(`F6: ${invalidCase} validation happens before recovery mutations`, async () => {
+    const old = draftReferenceRow();
+    const snapshot = structuredClone(old);
+    const mock = referenceFixture([old], { draftUnavailable: invalidCase === "inactive" });
+    const result = await prepareDraftReferenceForUser(
+      invalidCase === "user" ? "invalid" : invalidCase === "owner" ? REVIEW_ID : USER_ID,
+      invalidCase === "draft" ? "invalid" : DRAFT_ID,
+      { ...newReferenceInput, position: invalidCase === "input" ? -1 : 0,
+        itemClientId: invalidCase === "item" ? REVIEW_ID : ITEM_ID },
+    );
+    assert.equal(result.ok, false);
+    assert.deepEqual(mock.tables.get(REFERENCE_TABLE), [snapshot]);
+    assert.deepEqual(mock.updates, []);
+    assert.deepEqual(mock.removedPaths, []);
+    assert.deepEqual(mock.signedUploadPaths, []);
+  });
+}
+
+test("F6: recovered prepare, completion and reload preserve the canonical summary and legacy mirror", async () => {
+  const old = draftReferenceRow();
+  const mock = referenceFixture([old]);
+  const prepared = await prepareDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput);
+  assert.ok(prepared.ok);
+  mock.addObject(prepared.data.upload.path, PDF, "application/pdf");
+  const completed = await completeDraftReferenceForUser(USER_ID, DRAFT_ID, newReferenceInput.referenceId);
+  assert.ok(completed.ok);
+  const listed = await listDraftReferencesForUser(USER_ID, DRAFT_ID);
+  assert.ok(listed.ok);
+  assert.equal(listed.data.length, 1);
+  for (const reference of [prepared.data.reference, completed.data, listed.data[0]]) {
+    assert.equal(reference.id, newReferenceInput.referenceId);
+    assert.equal(reference.draftFileId, newReferenceInput.referenceId);
+    assert.equal(reference.itemClientId, ITEM_ID);
+    assert.equal(reference.position, 0);
+    assert.equal(reference.filename, newReferenceInput.filename);
+    assert.equal(reference.file, null);
+    assert.equal(reference.storagePath, null);
+  }
+  assert.ok(completed.data.previewUrl);
+  assert.equal(listed.data[0].previewUrl, completed.data.previewUrl);
+  assert.equal(mock.tables.get("order_draft_files")?.[0]?.id, newReferenceInput.referenceId);
+  assertRetired(old);
 });
