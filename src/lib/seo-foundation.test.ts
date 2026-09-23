@@ -373,6 +373,47 @@ test("virtual staging cost article stays English-only and statically generated",
   );
 });
 
+test("photo editing outsourcing article registers its approved English identity and workflow", () => {
+  const registry = readSource("src/lib/blog.ts");
+  const article = registry.match(
+    /\{\s*slug: "outsource-real-estate-photo-editing",[\s\S]*?\n  \}/,
+  )?.[0];
+  assert.ok(article);
+  for (const value of [
+    'title: "Outsourcing Real Estate Photo Editing: How to Test an Editor"',
+    'metadataTitle: "Outsource Real Estate Photo Editing: A Test Checklist"',
+    "Choosing a real estate photo editor? Use a test brief and quality checklist to compare results, handle revisions, and see how much time you save.",
+    'publishedDate: "2026-09-23"',
+    'canonicalPath: "/blog/outsource-real-estate-photo-editing"',
+    'category: "Photo Editing"',
+    'href: "/pricing/photo-editing"',
+    'src: "/images/blog/photo-editing-brightness-contrast-after.webp"',
+    "showInArticleHeader: false",
+    'status: "published"',
+    "Content: OutsourceRealEstatePhotoEditingArticle",
+  ]) {
+    assert.ok(article.includes(value), value);
+  }
+
+  const content = readSource("src/components/blog/OutsourceRealEstatePhotoEditingArticle.tsx");
+  assert.doesNotMatch(content, /<h1|\/es\/blog|href="\/blog\//);
+  assert.equal((content.match(/<ArticleBeforeAfter\s/g) ?? []).length, 2);
+  for (const pair of ["brightness-contrast", "window-view"]) {
+    for (const version of ["before", "after"]) {
+      const path = `/images/blog/photo-editing-${pair}-${version}.webp`;
+      assert.ok(content.includes(`src: "${path}"`), path);
+      assert.ok(existsSync(`public${path}`), path);
+    }
+  }
+  assert.match(content, /You can upload JPG or PNG files through the website\./);
+  assert.match(content, /For RAW files or bracketed sets/);
+  assert.match(content, /href="\/contact"/);
+  assert.match(content, /share a link to your own cloud folder/);
+  assert.match(content, /photo editing examples and options/);
+  assert.match(content, /See Photo Editing Examples &amp; Pricing/);
+  assert.equal((content.match(/href="\/pricing\/photo-editing"/g) ?? []).length, 2);
+});
+
 test("virtual staging explainer is published with its approved identity", () => {
   const registry = readSource("src/lib/blog.ts");
   const article = registry.match(

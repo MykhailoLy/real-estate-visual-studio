@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import WhatIsVirtualStagingArticle from "@/components/blog/WhatIsVirtualStagingArticle";
 import VirtualStagingCostArticle from "@/components/blog/VirtualStagingCostArticle";
+import OutsourceRealEstatePhotoEditingArticle from "@/components/blog/OutsourceRealEstatePhotoEditingArticle";
 
 export type BlogArticleStatus = "draft" | "published";
 
@@ -36,6 +37,31 @@ export interface BlogArticle {
 // becomes public only after its content component is registered here with
 // status: "published"; drafts never reach the index, sitemap, or static params.
 const blogArticles: readonly BlogArticle[] = [
+  {
+    slug: "outsource-real-estate-photo-editing",
+    title: "Outsourcing Real Estate Photo Editing: How to Test an Editor",
+    metadataTitle: "Outsource Real Estate Photo Editing: A Test Checklist",
+    description:
+      "Choosing a real estate photo editor? Use a test brief and quality checklist to compare results, handle revisions, and see how much time you save.",
+    publishedDate: "2026-09-23",
+    category: "Photo Editing",
+    readingTimeMinutes: 8,
+    author: "Mykhailo Lykin",
+    primaryService: {
+      name: "Photo Editing",
+      href: "/pricing/photo-editing",
+    },
+    canonicalPath: "/blog/outsource-real-estate-photo-editing",
+    image: {
+      src: "/images/blog/photo-editing-brightness-contrast-after.webp",
+      alt: "Row houses and front gardens after brightness and contrast editing",
+      width: 1920,
+      height: 1281,
+      showInArticleHeader: false,
+    },
+    status: "published",
+    Content: OutsourceRealEstatePhotoEditingArticle,
+  },
   {
     slug: "what-is-virtual-staging",
     title: "What Is Virtual Staging? A Practical Guide for Real Estate Agents",
