@@ -152,6 +152,7 @@ export async function verifyDirectOrderUploads(input: {
     const storedObjects = await listStoredDirectObjectsInDirectory(
       input.supabase,
       directory,
+      directoryCandidates.map((candidate) => candidate.path.basename),
     );
     if (!storedObjects.ok) return storedObjects;
 
@@ -261,22 +262,41 @@ function groupDirectUploadCandidatesByDirectory(
 async function listStoredDirectObjectsInDirectory(
   supabase: SupabaseClient,
   directory: string,
+  requiredBasenames: string[],
 ): Promise<DirectUploadVerificationResult<SupabaseStorageObject[]>> {
   try {
-    const { data, error } = await supabase.storage
-      .from(ORDER_FILES_BUCKET)
-      .list(directory, { limit: DIRECT_PENDING_DIRECTORY_LIST_LIMIT });
+    const remainingBasenames = new Set(requiredBasenames);
+    const objects: SupabaseStorageObject[] = [];
+    let offset = 0;
 
-    if (error) {
-      console.error("[orders] direct upload storage list failed:", {
-        reason: getSafeErrorLabel(error),
-      });
-      return storageVerificationError();
+    while (remainingBasenames.size > 0) {
+      const { data, error } = await supabase.storage
+        .from(ORDER_FILES_BUCKET)
+        .list(directory, {
+          limit: DIRECT_PENDING_DIRECTORY_LIST_LIMIT,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        });
+
+      if (error) {
+        console.error("[orders] direct upload storage list failed:", {
+          reason: getSafeErrorLabel(error),
+        });
+        return storageVerificationError();
+      }
+
+      const page = data ?? [];
+      objects.push(...page);
+      for (const object of page) {
+        remainingBasenames.delete(object.name);
+      }
+      offset += page.length;
+      if (page.length < DIRECT_PENDING_DIRECTORY_LIST_LIMIT) break;
     }
 
     return {
       ok: true,
-      data: (data ?? []) as SupabaseStorageObject[],
+      data: objects,
     };
   } catch (error) {
     console.error("[orders] direct upload storage verification threw:", {
