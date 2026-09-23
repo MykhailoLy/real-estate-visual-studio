@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { registerHooks } from "node:module";
-import test from "node:test";
+import test, { afterEach } from "node:test";
 import type { NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -23,13 +23,20 @@ const state = {
   storageThrows: false,
   updateError: false,
   claimError: false,
+  claimThrows: false,
+  claimOverride: undefined as unknown,
+  queryThrows: false,
+  completionError: false,
+  completionResult: "completed",
+  adminClientThrows: false,
 };
 
 function reset() {
   Object.assign(state, {
     outbox: [], sent: [], after: [], authenticated: true, configured: true,
     provider: "ok", storageSize: 100, storageError: false, storageThrows: false,
-    updateError: false, claimError: false,
+    updateError: false, claimError: false, claimThrows: false, claimOverride: undefined,
+    queryThrows: false, completionError: false, completionResult: "completed", adminClientThrows: false,
   });
   state.tables = {
     orders: [{ id: orderId, status: "in-progress", order_number: "PS-0042",
@@ -55,11 +62,13 @@ class Query {
   readonly table: string;
   constructor(table: string) { this.table = table; }
   select() { return this; }
+  order() { return this; }
   eq(key: string, value: unknown) { this.filters.push(row => row[key] === value); return this; }
   in(key: string, values: unknown[]) { this.filters.push(row => values.includes(row[key])); return this; }
   is(key: string, value: unknown) { return this.eq(key, value); }
   update(values: Row) { this.updateValues = values; return this; }
   execute(single: boolean) {
+    if (state.queryThrows) throw new Error("PRIVATE database detail");
     if (this.updateValues && state.updateError) return { data: null, error: { message: "DB failure" } };
     const tableRows = this.table === "order_email_deliveries" ? state.outbox : state.tables[this.table];
     const rows = tableRows.filter(row => this.filters.every(filter => filter(row)));
@@ -102,7 +111,9 @@ const supabase = {
         .is("replacement_deliverable_id", null);
     }
     if (name === "claim_order_email_deliveries") {
+      if (state.claimThrows) throw new Error("PRIVATE database detail");
       if (state.claimError) return { data: null, error: { message: "Unavailable" } };
+      if (state.claimOverride !== undefined) return { data: state.claimOverride, error: null };
       const rows = state.outbox.filter(row => row.status !== "sent" && row.status !== "sending" && Number(row.attempt_count) < 3);
       for (const row of rows) {
         row.status = "sending"; row.attempt_count = Number(row.attempt_count) + 1;
@@ -110,6 +121,8 @@ const supabase = {
       return { data: rows.map(row => ({ ...row })), error: null };
     }
     assert.equal(name, "complete_order_email_delivery");
+    if (state.completionError) return { data: null, error: { message: "PRIVATE completion detail" } };
+    if (state.completionResult !== "completed") return { data: state.completionResult, error: null };
     const row = state.outbox.find(row => row.delivery_id === args.p_delivery_id)!;
     Object.assign(row, { status: args.p_status, payload_hash: args.p_payload_hash, last_error_code: args.p_error_code });
     return { data: "completed", error: null };
@@ -135,6 +148,12 @@ registerHooks({
       export const after = fn => globalThis.__workReadyFixture.state.after.push(fn);
     `);
     if (specifier === "@/lib/supabase") return mock("export const createServerClient = () => globalThis.__workReadyFixture.supabase;");
+    if (specifier === "@/lib/supabase-admin") return mock(`
+      export const getSupabaseAdminClient = () => {
+        if (globalThis.__workReadyFixture.state.adminClientThrows) throw new Error('PRIVATE config');
+        return globalThis.__workReadyFixture.supabase;
+      };
+    `);
     if (specifier === "@/lib/admin-auth") return mock("export const isAdminAuthenticated = async () => globalThis.__workReadyFixture.state.authenticated;");
     if (specifier === "./resend-client") return mock(`
       const fixture = globalThis.__workReadyFixture;
@@ -152,14 +171,140 @@ registerHooks({
 });
 const { renderWorkReadyEmail } = await import("./order-work-ready.ts");
 const { dispatchOrderEmailOutbox } = await import("./send-order-emails.ts");
+const { calculateOrderQuote } = await import("../pricing/calculate.ts");
+const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
 const { sendReviewWorkflowEmail } = await import("./review-workflow-notifications.ts");
 const { POST } = await import("../../app/(public)/api/admin/orders/[orderId]/status/route.ts");
 const { PATCH } = await import("../../app/(public)/api/admin/reviews/[reviewId]/replacement/route.ts");
+const { POST: workerPost } = await import("../../app/api/internal/order-email-outbox/route.ts");
 const request = (body: Row) => new Request("https://picchuspot.com/api/test", { method: "POST", body: JSON.stringify(body) }) as NextRequest;
 const setStatus = (status: string) => POST(request({ status, client_email: "attacker@example.com", client_name: "Attacker" }), { params: Promise.resolve({ orderId }) });
 const linkReplacement = () => PATCH(request({ replacementDeliverableId: replacementId }), { params: Promise.resolve({ reviewId }) });
 async function drain() { for (const callback of state.after.splice(0)) await callback(); }
 const dispatch = () => dispatchOrderEmailOutbox({ supabase: supabase as unknown as SupabaseClient, orderId });
+
+const originalCronSecret = process.env.CRON_SECRET;
+afterEach(() => {
+  if (originalCronSecret === undefined) delete process.env.CRON_SECRET;
+  else process.env.CRON_SECRET = originalCronSecret;
+});
+const worker = (authorization = "Bearer synthetic-worker-secret") => workerPost(new Request(
+  "https://picchuspot.com/api/internal/order-email-outbox",
+  { method: "POST", headers: { authorization } },
+));
+
+test("worker authentication fails closed before accessing the database", async () => {
+  reset(); state.adminClientThrows = true;
+  delete process.env.CRON_SECRET;
+  assert.equal((await worker()).status, 503);
+  process.env.CRON_SECRET = "synthetic-worker-secret";
+  for (const header of ["", "Bearer incorrect", "Bearer synthetic-worker-secreX", "Bearer é"]) {
+    assert.equal((await worker(header)).status, 404);
+  }
+});
+
+test("valid empty claim is healthy for dispatcher and authenticated POST", async () => {
+  reset(); process.env.CRON_SECRET = "synthetic-worker-secret";
+  assert.deepEqual(await dispatch(), { ok: true, claimed: 0, sent: 0, failed: 0, unknown: 0,
+    clientConfirmationSent: false, adminNotificationSent: false, paymentConfirmationSent: false });
+  const response = await worker();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).ok, true);
+});
+
+for (const failure of ["error", "throw", "null", "object", "missing-fields", "bad-kind", "bad-hash", "mixed"] as const) {
+  test(`claim ${failure} is infrastructure failure, never a healthy empty queue`, async () => {
+    reset(); process.env.CRON_SECRET = "synthetic-worker-secret";
+    await setStatus("delivered");
+    const valid = { ...state.outbox[0] };
+    if (failure === "error") state.claimError = true;
+    if (failure === "throw") state.claimThrows = true;
+    if (failure === "null") state.claimOverride = null;
+    if (failure === "object") state.claimOverride = {};
+    if (failure === "missing-fields") state.claimOverride = [{ delivery_id: "delivery-1" }];
+    if (failure === "bad-kind") state.claimOverride = [{ ...valid, delivery_kind: "unrecognized" }];
+    if (failure === "bad-hash") state.claimOverride = [{ ...valid, payload_hash: 123 }];
+    if (failure === "mixed") state.claimOverride = [valid, null];
+    assert.deepEqual(await dispatch(), { ok: false, errorCode: "claim_failed",
+      claimed: 0, sent: 0, failed: 0, unknown: 0,
+      clientConfirmationSent: false, adminNotificationSent: false, paymentConfirmationSent: false });
+    const response = await worker();
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { ok: false, error: "claim_failed" });
+    assert.equal(state.sent.length, 0);
+  });
+}
+
+test("unexpected processing and completion failures return safe 503", async () => {
+  for (const failure of ["query", "completion-error", "completion-not-owned", "configuration"]) {
+    reset(); process.env.CRON_SECRET = "synthetic-worker-secret";
+    await setStatus("delivered");
+    state.queryThrows = failure === "query";
+    state.completionError = failure === "completion-error";
+    state.completionResult = failure === "completion-not-owned" ? "not_completed" : "completed";
+    state.adminClientThrows = failure === "configuration";
+    const response = await worker();
+    assert.equal(response.status, 503, failure);
+    assert.deepEqual(await response.json(), { ok: false, error: "dispatch_failed" });
+  }
+});
+
+for (const provider of ["ok", "reject", "throw"] as const) {
+  test(`persisted provider ${provider} outcome keeps worker healthy`, async () => {
+    reset(); process.env.CRON_SECRET = "synthetic-worker-secret";
+    await setStatus("delivered"); state.provider = provider;
+    const response = await worker();
+    const result = await response.json();
+    const outcome = provider === "ok" ? "sent" : provider === "reject" ? "failed" : "unknown";
+    assert.equal(response.status, 200);
+    assert.equal(result.ok, true);
+    assert.equal(result.claimed, 1);
+    assert.equal(result[outcome], 1);
+    assert.equal(state.outbox[0].status, outcome);
+  });
+}
+
+test("payload validation persisted as failed is a healthy drain", async () => {
+  reset(); await setStatus("delivered"); state.tables.orders = [];
+  const result = await dispatch();
+  assert.equal(result.ok, true); assert.equal(result.failed, 1);
+  assert.equal(state.outbox[0].status, "failed");
+});
+
+test("valid confirmation deliveries preserve all counters, flags and persisted provider keys", async () => {
+  reset();
+  const snapshot = createPricingSnapshot(calculateOrderQuote({
+    serviceType: "virtual-staging", currency: "USD", items: [{ selectedAddons: [] }],
+  }));
+  Object.assign(state.tables.orders[0], { pricing_snapshot: snapshot, item_count: 1,
+    estimated_total_cents: snapshot.totalCents, currency: "USD", job_title: "Synthetic order",
+    client_phone: "", client_company: null });
+  state.tables.order_items = [{ order_id: orderId, item_index: 0, details: {}, subtotal_cents: snapshot.totalCents,
+    original_photo_path: null, reference_image_path: null }];
+  state.tables.order_payments = [{ order_id: orderId, provider: "stripe", payment_status: "paid", refund_status: "none",
+    refunded_amount_cents: 0, currency: "USD", subtotal_cents: snapshot.totalCents, tax_cents: 0,
+    total_cents: snapshot.totalCents, paid_at: "2026-09-23T00:00:00Z" }];
+  state.outbox = ["client_confirmation", "admin_notification", "payment_confirmation"].map(kind => ({
+    delivery_id: `delivery-${kind}`, order_id: orderId, delivery_kind: kind,
+    idempotency_key: `persisted-${kind}`, payload_hash: null, status: "pending", attempt_count: 0,
+  }));
+  assert.deepEqual(await dispatch(), { ok: true, claimed: 3, sent: 3, failed: 0, unknown: 0,
+    clientConfirmationSent: true, adminNotificationSent: true, paymentConfirmationSent: true });
+  assert.deepEqual(state.sent.map(sent => sent.key), state.outbox.map(row => row.idempotency_key));
+});
+
+test("delivered and replacement commits survive dispatcher infrastructure failure", async () => {
+  for (const replacement of [false, true]) {
+    reset(); state.claimError = true;
+    assert.equal((await (replacement ? linkReplacement() : setStatus("delivered"))).status, 200);
+    await drain();
+    assert.equal((await dispatch()).ok, false);
+    assert.equal(state.tables[replacement ? "deliverable_reviews" : "orders"][0].status,
+      replacement ? "rework_delivered" : "delivered");
+    assert.equal(state.outbox[0].status, "pending");
+    assert.equal(state.sent.length, 0);
+  }
+});
 
 for (const event of ["order_delivered", "admin_replacement_ready"] as const) {
   test(`${event}: branded HTML and useful text use only public media and verified routes`, () => {
@@ -360,4 +505,39 @@ test("migration atomically captures only transitions with the existing unique ke
   assert.match(sql, /replacement\.item_index IS NOT DISTINCT FROM reviews\.item_index/);
   assert.match(sql, /'admin_replacement_ready:' \|\| p_review_id::TEXT/);
   assert.doesNotMatch(sql, /CREATE POLICY|UPDATE public\.orders\s+SET|AFTER INSERT|storage\./i);
+});
+
+test("F9 scheduler migration fails closed and stores only a runtime Vault lookup", () => {
+  const files = readdirSync("supabase/migrations").filter(name => name.endsWith("_schedule_order_email_outbox_retry.sql"));
+  assert.equal(files.length, 1);
+  const sql = readFileSync(`supabase/migrations/${files[0]}`, "utf8");
+  const command = sql.match(/\$command\$([\s\S]*?)\$command\$/)?.[1];
+  assert.ok(command);
+  assert.match(sql, /BEGIN;[\s\S]*COMMIT;/);
+  assert.match(sql, /CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;/);
+  assert.match(sql, /CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;/);
+  assert.match(sql, /REVOKE ALL ON TABLE net\.http_request_queue FROM PUBLIC, anon, authenticated/);
+  assert.match(sql, /to_regclass\('vault\.decrypted_secrets'\)/);
+  assert.match(sql, /to_regprocedure\('net\.http_post\(text,jsonb,jsonb,jsonb,integer\)'\)/);
+  assert.match(sql, /count\(\*\) FROM vault\.decrypted_secrets[\s\S]*<> 1/);
+  assert.match(sql, /set_config\('row_security', 'off', true\)/);
+  assert.match(sql, /v_count > 1[\s\S]*RAISE EXCEPTION/);
+  for (const field of ["schedule", "command", "database", "username", "active", "nodename", "nodeport"]) {
+    assert.match(sql, new RegExp(`v_existing\\.${field} IS DISTINCT FROM`));
+  }
+  assert.match(sql, /RETURN;[\s\S]*PERFORM cron\.schedule\(v_name, v_schedule, v_command\)/);
+  assert.equal((sql.match(/cron\.schedule\(/g) ?? []).length, 1);
+  assert.match(sql, /v_schedule CONSTANT TEXT := '\*\/15 \* \* \* \*'/);
+  assert.match(sql, /v_name CONSTANT TEXT := 'picchuspot-order-email-outbox'/);
+  assert.match(command, /SELECT decrypted_secret INTO STRICT v_secret[\s\S]*FROM vault\.decrypted_secrets/);
+  assert.match(command, /name = 'picchuspot_order_email_worker_secret'/);
+  assert.match(command, /IF v_secret IS NULL OR length\(btrim\(v_secret\)\) = 0 THEN[\s\S]*RAISE EXCEPTION/);
+  assert.match(command, /net\.http_post\([\s\S]*url := 'https:\/\/picchuspot\.com\/api\/internal\/order-email-outbox'/);
+  assert.match(command, /'Authorization', 'Bearer ' \|\| v_secret/);
+  assert.match(command, /body := '\{\}'::jsonb/);
+  assert.match(command, /timeout_milliseconds := 65000/);
+  assert.match(command, /RAISE LOG 'picchuspot-order-email-outbox request_id=%', v_request_id/);
+  assert.doesNotMatch(sql, /vault\.create_secret|cron\.unschedule|CREATE (?:OR REPLACE )?FUNCTION|ALTER TABLE public\./i);
+  assert.ok(existsSync("src/app/api/internal/order-email-outbox/route.ts"));
+  assert.equal(existsSync("vercel.json"), false);
 });

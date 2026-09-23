@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import test from "node:test";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -13,11 +14,15 @@ registerHooks({
         shortCircuit: true,
       };
     }
+    if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !specifier.endsWith(".ts")) {
+      return { url: new URL(`${specifier}.ts`, context.parentURL).href, shortCircuit: true };
+    }
     return nextResolve(specifier, context);
   },
 });
 
 const { handleStripeWebhookRequest } = await import("./webhook-request.ts");
+const { dispatchOrderEmailOutbox } = await import("../email/send-order-emails.ts");
 const orderId = "11111111-1111-4111-8111-111111111111";
 const now = new Date("2026-08-25T00:00:00.000Z");
 
@@ -161,6 +166,30 @@ function dependencies(repository: FakeRepository) {
     verifyEvent: () => paidEvent(),
   };
 }
+
+test("real dispatcher claim failure leaves payment and webhook committed", async () => {
+  const repository = new FakeRepository();
+  let called = false;
+  const supabase = { rpc: async () => ({ data: null, error: { message: "PRIVATE DB error" } }) };
+  const result = await handleStripeWebhookRequest(
+    { rawBody: "raw", stripeSignature: "signature" },
+    {
+      ...dependencies(repository),
+      enqueuePaymentConfirmationEmail: async () => true,
+      dispatchOrderEmailOutbox: async (candidateOrderId) => {
+        const emailResult = await dispatchOrderEmailOutbox({
+          supabase: supabase as unknown as SupabaseClient, orderId: candidateOrderId,
+        });
+        assert.equal(emailResult.ok, false);
+        called = true;
+      },
+    },
+  );
+  assert.equal(called, true);
+  assert.equal(result.status, 200);
+  assert.equal(repository.payment.payment_status, "paid");
+  assert.equal(repository.events.get("evt_live_payment")?.processing_status, "processed");
+});
 
 test("enqueues then dispatches only after a paid event is stored as processed", async () => {
   const repository = new FakeRepository();

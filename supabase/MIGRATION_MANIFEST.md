@@ -1,5 +1,28 @@
 # PicchuSpot Supabase Migration Manifest
 
+## F9 email-outbox retry scheduler — 2026-09-23
+
+Pending manual migration:
+`migrations/20260923161749_schedule_order_email_outbox_retry.sql`.
+**Production was not changed by this task. Do not apply automatically.**
+
+Enables `pg_cron` (registration in `pg_catalog`) and `pg_net` (registration in
+`extensions`, functions in `net`) using Supabase's documented schemas. Removes
+browser/PUBLIC access to the transient pg_net request queue because it holds
+Authorization headers. Requires existing Vault and exactly one nonempty secret
+named `picchuspot_order_email_worker_secret`, matching Vercel `CRON_SECRET`.
+Schedules one `picchuspot-order-email-outbox` job at `*/15 * * * *` to POST to
+`https://picchuspot.com/api/internal/order-email-outbox`. The command reads Vault
+at execution time; no secret value is embedded or created. Exact reruns are
+no-ops; missing prerequisites or a conflicting job definition abort the transaction.
+Outbox tables and claim/complete RPCs are unchanged.
+
+Rollout: generate matching secrets → configure Vercel and Vault → deploy worker
+health patch → verify authenticated manual POST → apply this migration manually
+→ verify job definition, first scheduler run, correlated pg_net HTTP response,
+and outbox aggregates. Cron success proves enqueue only, not worker HTTP 200.
+See [F9 rollout, evidence and limitations](../docs/f9-email-outbox-retry.md).
+
 ## F5 draft submission attempts — 2026-09-23
 
 Pending manual migration:
@@ -83,8 +106,9 @@ four verified service routes, one primary CTA, and an equivalent plain-text body
 The existing outbox retains pending/failed/unknown outcomes, stable Resend keys,
 payload hashes, five-minute claim leases and its three-attempt limit. Unknown
 outcomes are only reclaimed within the existing 24-hour idempotency window.
-This change adds no scheduler or cron. Recovery uses the existing dispatcher or
-authenticated `POST /api/internal/order-email-outbox` operational path; a repeated
+F9 adds a separate, pending manual Supabase Cron migration (see above). Until its
+rollout, recovery uses the existing dispatcher or authenticated
+`POST /api/internal/order-email-outbox` operational path; a repeated
 delivered status request also drains existing retryable events. Do not clear sent
 rows or regenerate keys to retry. Expired unknown outcomes, exhausted attempts,
 and payload-hash mismatches require operator review before any resend.
