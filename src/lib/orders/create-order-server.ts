@@ -48,6 +48,8 @@ import {
   ORDER_FILES_BUCKET,
   buildFinalPath,
   getFileExtension,
+  normalizeSupabaseUserId,
+  parseDirectPendingPath,
   pendingTokenForSubmissionId,
   type UploadKind,
 } from "@/lib/upload-config";
@@ -372,6 +374,27 @@ export async function createProductionOrder(
   );
   if (!aerialValidation.ok) return aerialValidation;
 
+  if (input.storageMode === "move") {
+    const ownerUserId = normalizeSupabaseUserId(input.ownerUserId);
+    const files = input.itemFiles.flatMap((slot) => [
+      slot.original,
+      ...getTrustedReferenceFiles(slot),
+    ]);
+    // A retry after switching sessions must not claim the original submission
+    // for another owner. Check path ownership before any claim, without reading
+    // Storage: a committed replay may already have removed its pending sources.
+    if (!ownerUserId || files.some((file) =>
+      parseDirectPendingPath(file.path)?.userId !== ownerUserId
+    )) {
+      return {
+        ok: false,
+        code: "invalid_upload",
+        message: "Uploaded files could not be verified. Please sign in with the account that started this order.",
+        status: 400,
+      };
+    }
+  }
+
   const supabase = getSupabaseAdminClient();
   let partnerClient: boolean;
   try {
@@ -552,6 +575,9 @@ export async function createProductionOrder(
 
   const orderNumber = claim.reserved_order_number;
   const finalizedItemFiles: FinalizedOrderItemFiles[] = [];
+  // Direct retries share deterministic final paths. A failed handler cannot
+  // delete them safely after another handler takes over its lease. Keep both
+  // sources and prepared finals until a confirmed commit; preserve draft cleanup.
   const copiedFinalPaths: string[] = [];
 
   for (let i = 0; i < itemFiles.data.length; i++) {
@@ -570,7 +596,9 @@ export async function createProductionOrder(
       await releaseSubmissionBestEffort(supabase, input, leaseToken, original.code);
       return original;
     }
-    if (original.createdFinal) copiedFinalPaths.push(original.file.finalPath);
+    if (original.createdFinal && input.storageMode === "copy") {
+      copiedFinalPaths.push(original.file.finalPath);
+    }
 
     let reference: FinalizedOrderFile | null = null;
     if (slot.reference) {
@@ -590,7 +618,9 @@ export async function createProductionOrder(
         return finalizedReference;
       }
       reference = finalizedReference.file;
-      if (finalizedReference.createdFinal) copiedFinalPaths.push(finalizedReference.file.finalPath);
+      if (finalizedReference.createdFinal && input.storageMode === "copy") {
+        copiedFinalPaths.push(finalizedReference.file.finalPath);
+      }
     }
 
     const references: FinalizedOrderFile[] = [];
@@ -613,7 +643,9 @@ export async function createProductionOrder(
         return finalizedReference;
       }
       references.push(finalizedReference.file);
-      if (finalizedReference.createdFinal) copiedFinalPaths.push(finalizedReference.file.finalPath);
+      if (finalizedReference.createdFinal && input.storageMode === "copy") {
+        copiedFinalPaths.push(finalizedReference.file.finalPath);
+      }
     }
 
     if (!reference && references.length > 0) reference = references[0];
@@ -1263,9 +1295,11 @@ async function finalizeFileToOrderPath(input: {
 
   const copiedIdentity = await getStorageObjectIdentity(input.supabase, finalPath);
   if (!copiedIdentity || !storageIdentitiesMatch(sourceIdentity, copiedIdentity)) {
-    // The copy call itself succeeded, so this path was created by this attempt
-    // and may be removed before the DB transaction. The pending source remains.
-    await cleanupFinalPaths(input.supabase, [finalPath]);
+    // A direct attempt may have lost its lease during Storage I/O. The shared
+    // final path may already belong to the winning attempt, even on this error.
+    if (input.mode === "copy") {
+      await cleanupFinalPaths(input.supabase, [finalPath]);
+    }
     console.warn("[orders] copied final identity did not match its source:", {
       itemIndex: input.itemIndex,
       kind: input.kind,

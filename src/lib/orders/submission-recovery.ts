@@ -12,6 +12,8 @@ export interface OrderSubmissionSessionRecord<TItemFiles = unknown> {
   stage: "allocated" | "uploaded" | "ambiguous";
   referenceIds: string[][];
   itemFiles?: TItemFiles;
+  /** Exact JSON sent to /api/order; never contains File bytes or upload tokens. */
+  requestBody?: string;
 }
 
 export type OrderSubmissionRecoveryResult =
@@ -23,11 +25,12 @@ export type OrderSubmissionRecoveryResult =
       orderNumber: string;
     }
   | { status: "processing"; submissionId: string }
-  | { status: "unavailable"; submissionId: string }
+  | { status: "retryable"; submissionId: string; serviceType: string; canRetry: boolean }
   | { status: "unauthorized"; submissionId: string }
   | { status: "error"; submissionId: string };
 
 const STORAGE_PREFIX = "picchuspot:order-submission:v1:";
+export const ORDER_SUBMISSION_RECOVERY_EVENT = "picchuspot:order-submission-recovery";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -67,11 +70,13 @@ export function readOrderSubmissionRecord<TItemFiles = unknown>(
 export function writeOrderSubmissionRecord<TItemFiles>(
   serviceType: string,
   value: OrderSubmissionSessionRecord<TItemFiles>,
-): void {
+): boolean {
   try {
-    sessionStorage.setItem(storageKey(serviceType), JSON.stringify(value));
+    const serialized = JSON.stringify(value);
+    sessionStorage.setItem(storageKey(serviceType), serialized);
+    return sessionStorage.getItem(storageKey(serviceType)) === serialized;
   } catch {
-    // A single attempt remains safe even when browser storage is unavailable.
+    return false;
   }
 }
 
@@ -84,7 +89,7 @@ export function clearOrderSubmissionRecord(serviceType: string): void {
 }
 
 /**
- * Reconcile one ambiguous logical submission before any new form intent or
+ * Reconcile one potentially sent logical submission before any new form intent or
  * browser File is inspected. Owned state is returned by the server endpoint;
  * a 404 is deliberately indistinguishable from another user's submission.
  */
@@ -93,7 +98,9 @@ export async function recoverAmbiguousOrderSubmission(
   request: typeof fetch = fetch,
 ): Promise<OrderSubmissionRecoveryResult> {
   const record = readOrderSubmissionRecord(serviceType);
-  if (!record || record.stage !== "ambiguous") return { status: "none" };
+  // Older clients persisted uploaded before POST and only marked ambiguous
+  // after it failed. An uploaded record can therefore already be committed.
+  if (!record || record.stage === "allocated") return { status: "none" };
 
   let response: Response;
   try {
@@ -109,13 +116,11 @@ export async function recoverAmbiguousOrderSubmission(
   if (response.status === 401) {
     return { status: "unauthorized", submissionId: record.submissionId };
   }
-  if (
-    response.status === 404 ||
-    payload?.status === "unavailable" ||
-    payload?.code === "submission_unavailable"
-  ) {
-    clearRecordIfCurrent(serviceType, record.submissionId);
-    return { status: "unavailable", submissionId: record.submissionId };
+  if (response.status === 404 && payload?.code === "submission_unavailable") {
+    // Also covers an original POST that has not claimed yet. Never allocate a
+    // new ID here. Replaying the exact original request is safe under claim;
+    // foreign ownership is still checked by the authenticated POST endpoint.
+    return retryableResult(serviceType, record);
   }
   if (!response.ok || payload?.submissionId !== record.submissionId) {
     return { status: "error", submissionId: record.submissionId };
@@ -123,6 +128,7 @@ export async function recoverAmbiguousOrderSubmission(
   if (payload.status === "processing") {
     return { status: "processing", submissionId: record.submissionId };
   }
+  if (payload.status === "retryable") return retryableResult(serviceType, record);
   if (
     payload.status === "committed" &&
     typeof payload.orderId === "string" &&
@@ -145,24 +151,50 @@ export async function recoverAmbiguousOrderSubmission(
 export async function recoverAnyAmbiguousOrderSubmission(
   request: typeof fetch = fetch,
 ): Promise<OrderSubmissionRecoveryResult> {
-  let unavailable: OrderSubmissionRecoveryResult | null = null;
   for (const serviceType of ORDER_SUBMISSION_SERVICE_TYPES) {
     const result = await recoverAmbiguousOrderSubmission(serviceType, request);
     if (result.status === "none") continue;
-    if (result.status === "unavailable") {
-      unavailable = result;
-      continue;
-    }
     return result;
   }
-  return unavailable ?? { status: "none" };
+  return { status: "none" };
+}
+
+/** Only replay a stored body belonging to this exact logical submission. */
+export function readOrderSubmissionRequestBody(
+  serviceType: string,
+  record: OrderSubmissionSessionRecord,
+): string | null {
+  if (typeof record.requestBody !== "string") return null;
+  try {
+    const payload: unknown = JSON.parse(record.requestBody);
+    if (!payload || typeof payload !== "object" ||
+        !("submissionId" in payload) || payload.submissionId !== record.submissionId ||
+        !("serviceType" in payload) || payload.serviceType !== serviceType ||
+        !("items" in payload) || !Array.isArray(payload.items) ||
+        !("itemFiles" in payload) || !Array.isArray(payload.itemFiles)) return null;
+    return record.requestBody;
+  } catch {
+    return null;
+  }
+}
+
+function retryableResult(
+  serviceType: string,
+  record: OrderSubmissionSessionRecord,
+): OrderSubmissionRecoveryResult {
+  return {
+    status: "retryable",
+    submissionId: record.submissionId,
+    serviceType,
+    canRetry: readOrderSubmissionRequestBody(serviceType, record) !== null,
+  };
 }
 
 function storageKey(serviceType: string): string {
   return `${STORAGE_PREFIX}${serviceType}`;
 }
 
-function clearRecordIfCurrent(serviceType: string, submissionId: string): void {
+export function clearRecordIfCurrent(serviceType: string, submissionId: string): void {
   const current = readOrderSubmissionRecord(serviceType);
   if (current?.submissionId === submissionId) {
     clearOrderSubmissionRecord(serviceType);

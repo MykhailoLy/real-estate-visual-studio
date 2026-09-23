@@ -282,6 +282,9 @@ interface MockSupabaseOptions {
   commitCode?: string;
   commitError?: boolean;
   recoveryCommitted?: boolean;
+  recoveryRow?: Record<string, unknown> | null;
+  recoveryError?: boolean;
+  beforeCommit?: () => Promise<void>;
   orderInsertError?: boolean;
   orderItemsInsertError?: boolean;
   listFailures?: string[];
@@ -326,9 +329,10 @@ class MockSupabase {
   readonly rpcCalls: Array<{ name: string; params: unknown }> = [];
   readonly emailCalls: unknown[] = [];
   readonly fromCalls: string[] = [];
+  readonly recoveryFilters: Array<Map<string, unknown>> = [];
   private readonly listFailures: Set<string>;
   private readonly moveFailures: Set<string>;
-  private readonly copyFailures: Set<string>;
+  readonly copyFailures: Set<string>;
   private readonly signedReadFailures: Set<string>;
   private readonly prefixReadFailures: Set<string>;
   private readonly malformedRangeResponses: Set<string>;
@@ -508,6 +512,7 @@ class MockSupabase {
       name === "commit_order_submission_with_welcome_offer_v1" ||
       name === "commit_order_submission"
     ) {
+      await this.options.beforeCommit?.();
       if (this.options.commitError) {
         return { data: null, error: databaseError("CommitConnectionLost") };
       }
@@ -561,6 +566,14 @@ class MockSupabase {
 
   get recoveryCommitted(): boolean {
     return this.options.recoveryCommitted === true;
+  }
+
+  get recoveryRow(): Record<string, unknown> | null | undefined {
+    return this.options.recoveryRow;
+  }
+
+  get recoveryError(): boolean {
+    return this.options.recoveryError === true;
   }
 
   getWelcomeOfferRows(): Array<{ benefit_key: string }> {
@@ -654,6 +667,20 @@ class MockTableQuery {
         data: this.supabase.partnerClient === null ? null : { partner_client: this.supabase.partnerClient },
         error: this.supabase.partnerPricingLookupError ? databaseError("AccountPricingUnavailable") : null,
       };
+    }
+    if (this.table === "order_submissions") {
+      this.supabase.recoveryFilters.push(new Map(this.filters));
+      if (this.supabase.recoveryError) {
+        return { data: null, error: databaseError("RecoveryLookupFailed") };
+      }
+      if (this.supabase.recoveryRow !== undefined) {
+        const row = this.supabase.recoveryRow;
+        return {
+          data: row && row.user_id === this.filters.get("user_id") &&
+            row.submission_id === this.filters.get("submission_id") ? row : null,
+          error: null,
+        };
+      }
     }
     if (this.table === "order_submissions" && this.supabase.recoveryCommitted) {
       return {
@@ -2191,6 +2218,303 @@ test("ambiguous commit without recovery does not delete pending or prepared fina
   assert.equal(supabase.removes.length, 0);
 });
 
+function recoveryRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    submission_id: SUBMISSION_ID,
+    user_id: USER_ID,
+    status: "processing",
+    order_id: null,
+    reserved_order_number: ORDER_NUMBER,
+    lease_token: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    lease_expires_at: "2026-09-23T10:10:00.000Z",
+    committed_at: null,
+    ...overrides,
+  };
+}
+
+async function getSubmissionRecovery(): Promise<Response> {
+  const { GET } = await import("../../app/(public)/api/order/submissions/[submissionId]/route.ts");
+  return GET(new Request(`http://localhost/api/order/submissions/${SUBMISSION_ID}`), {
+    params: Promise.resolve({ submissionId: SUBMISSION_ID }),
+  });
+}
+
+function installRecoveryMock(supabase: MockSupabase, userId: string | null = USER_ID): void {
+  installSupabaseMock(supabase);
+  (globalThis as DirectOrderTestGlobals).__directOrderTestClientUser = userId
+    ? { id: userId, email: "client@example.com" }
+    : null;
+}
+
+for (const scenario of [
+  { name: "active", leaseToken: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", expiresAt: "2026-09-23T10:10:00.000Z", status: "processing" },
+  { name: "released", leaseToken: null, expiresAt: null, status: "retryable" },
+  { name: "expired", leaseToken: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", expiresAt: "2026-09-23T09:59:59.000Z", status: "retryable" },
+  { name: "exactly expired", leaseToken: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", expiresAt: "2026-09-23T10:00:00.000Z", status: "retryable" },
+]) {
+  test(`F3 recovery classifies ${scenario.name} lease read-only using server time`, async (context) => {
+    context.mock.timers.enable({ apis: ["Date"], now: new Date("2026-09-23T10:00:00.000Z") });
+    const supabase = new MockSupabase({ recoveryRow: recoveryRow({
+      lease_token: scenario.leaseToken,
+      lease_expires_at: scenario.expiresAt,
+    }) });
+    installRecoveryMock(supabase);
+
+    const response = await getSubmissionRecovery();
+    const body = await response.json() as Record<string, unknown>;
+
+    assert.equal(response.status, 200);
+    assert.equal(body.status, scenario.status);
+    assert.equal(body.submissionId, SUBMISSION_ID);
+    assert.equal(body.orderId, null);
+    assert.equal(body.orderNumber, null);
+    assert.equal("lease_token" in body, false);
+    assert.equal("lease_expires_at" in body, false);
+    assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0");
+    assert.equal(supabase.rpcCalls.length, 0);
+    assert.equal(supabase.inserts.length, 0);
+    assert.equal(supabase.removes.length, 0);
+    assert.equal(supabase.recoveryFilters[0]?.get("user_id"), USER_ID);
+  });
+}
+
+test("F3 recovery preserves committed identity and never exposes another owner's submission", async () => {
+  const row = recoveryRow({
+    status: "committed",
+    order_id: "33333333-3333-4333-8333-333333333333",
+    lease_token: null,
+    lease_expires_at: null,
+    committed_at: "2026-09-23T10:00:00.000Z",
+  });
+  const supabase = new MockSupabase({ recoveryRow: row });
+  installRecoveryMock(supabase);
+  const committed = await getSubmissionRecovery();
+  const committedBody = await committed.json() as Record<string, unknown>;
+  assert.equal(committedBody.status, "committed");
+  assert.equal(committedBody.orderId, row.order_id);
+  assert.equal(committedBody.orderNumber, ORDER_NUMBER);
+
+  installRecoveryMock(supabase, SECOND_USER_ID);
+  const forbidden = await getSubmissionRecovery();
+  const empty = new MockSupabase({ recoveryRow: null });
+  installRecoveryMock(empty, SECOND_USER_ID);
+  const missing = await getSubmissionRecovery();
+  assert.equal(forbidden.status, 404);
+  assert.equal(missing.status, 404);
+  assert.deepEqual(await forbidden.json(), await missing.json());
+  assert.equal(forbidden.headers.get("cache-control"), "private, no-store, max-age=0");
+  assert.equal(supabase.rpcCalls.length, 0);
+});
+
+test("F3 recovery requires authentication and fails closed on database or malformed lease state", async () => {
+  const unauthenticated = new MockSupabase({ recoveryRow: recoveryRow() });
+  installRecoveryMock(unauthenticated, null);
+  const unauthenticatedResponse = await getSubmissionRecovery();
+  assert.equal(unauthenticatedResponse.status, 401);
+  assert.equal(unauthenticated.fromCalls.length, 0);
+
+  for (const options of [
+    { recoveryError: true },
+    { recoveryRow: recoveryRow({ lease_expires_at: "invalid-date" }) },
+    { recoveryRow: recoveryRow({ lease_expires_at: null }) },
+    { recoveryRow: recoveryRow({ status: "unexpected" }) },
+  ]) {
+    const supabase = new MockSupabase(options);
+    installRecoveryMock(supabase);
+    const response = await getSubmissionRecovery();
+    assert.equal(response.status, 500);
+    assert.equal(supabase.rpcCalls.length, 0);
+    assert.equal(supabase.removes.length, 0);
+  }
+});
+
+test("F3 a session switch after preclaim 404 cannot reserve another owner's submission ID", async () => {
+  const supabase = new MockSupabase({ recoveryRow: null });
+  const itemFiles = itemFilesForDirectOrder();
+  addStoredObjects(supabase, itemFiles);
+  installRecoveryMock(supabase, SECOND_USER_ID);
+  assert.equal((await getSubmissionRecovery()).status, 404);
+  const { createProductionOrder } = await loadOrderModule();
+
+  const switchedUserResult = await createProductionOrder(orderInput({
+    ownerUserId: SECOND_USER_ID,
+    itemFiles,
+  }));
+  assertFailure(switchedUserResult, "invalid_upload");
+  assert.equal(supabase.rpcCalls.length, 0);
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.removes.length, 0);
+  assert.equal(supabase.objects.has(directPath(0, "original")), true);
+
+  // Returning to the original session can still claim the original logical ID.
+  installRecoveryMock(supabase, USER_ID);
+  assert.equal((await createProductionOrder(orderInput({ itemFiles }))).ok, true);
+  const claim = supabase.rpcCalls.find((call) => call.name === "claim_order_submission");
+  assert.equal((claim?.params as Record<string, unknown>).p_user_id, USER_ID);
+  assert.equal((claim?.params as Record<string, unknown>).p_submission_id, SUBMISSION_ID);
+});
+
+for (const multiReference of [false, true]) {
+  test(`F3 preclaim ownership includes ${multiReference ? "multi" : "legacy"} reference files`, async () => {
+    const reference = descriptor(directPathForUserAndToken(SECOND_USER_ID, TOKEN, 0, "reference"));
+    const itemFiles: ItemFilesForTest[] = [{
+      original: descriptor(directPath(0, "original")),
+      ...(multiReference
+        ? { references: [{ ...reference, referenceId: REFERENCE_ID, position: 0 }] }
+        : { reference }),
+    }];
+    const supabase = new MockSupabase();
+    addStoredObjects(supabase, itemFiles);
+    installRecoveryMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
+    assertFailure(await createProductionOrder(orderInput({ itemFiles })), "invalid_upload");
+    assert.equal(supabase.rpcCalls.length, 0);
+    assert.equal(supabase.listCalls.length, 0);
+  });
+}
+
+test("F3 Storage failure releases lease, recovery offers retry, and production service retries the same intent", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  const sourcePath = directPath(0, "original");
+  const destination = finalPath(0, "original");
+  const options: MockSupabaseOptions = {
+    copyFailures: [moveKey(sourcePath, destination)],
+    recoveryRow: recoveryRow({ lease_token: null, lease_expires_at: null }),
+  };
+  const supabase = new MockSupabase(options);
+  addStoredObjects(supabase, itemFiles);
+  installRecoveryMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  const input = orderInput({ itemFiles });
+
+  assertFailure(await createProductionOrder(input), "storage_error");
+  assert.equal(supabase.rpcCalls.at(-1)?.name, "release_order_submission");
+  const response = await getSubmissionRecovery();
+  assert.equal((await response.json() as { status: string }).status, "retryable");
+  supabase.copyFailures.clear();
+  const retried = await createProductionOrder(input);
+  assert.equal(retried.ok, true);
+  const claims = supabase.rpcCalls.filter((call) => call.name === "claim_order_submission");
+  const firstClaim = claims[0]?.params as Record<string, unknown>;
+  const secondClaim = claims[1]?.params as Record<string, unknown>;
+  assert.equal(firstClaim.p_submission_id, SUBMISSION_ID);
+  assert.equal(secondClaim.p_submission_id, SUBMISSION_ID);
+  assert.equal(firstClaim.p_request_hash, secondClaim.p_request_hash);
+  assert.equal(firstClaim.p_quote_hash, secondClaim.p_quote_hash);
+  assert.notEqual(firstClaim.p_lease_token, secondClaim.p_lease_token);
+  assert.equal(supabase.rpcCalls.filter((call) => call.name.startsWith("commit_order_submission")).length, 1);
+  assert.equal(supabase.emailCalls.length, 1);
+  assert.equal(supabase.objects.has(destination), true);
+});
+
+test("F3 stale service handler cannot delete shared finals while a retry owns the lease", async () => {
+  const itemFiles = itemFilesForDirectOrder();
+  let releaseOldCommit!: () => void;
+  let oldCommitEntered!: () => void;
+  const oldCommitReached = new Promise<void>((resolve) => { oldCommitEntered = resolve; });
+  const oldCommitBarrier = new Promise<void>((resolve) => { releaseOldCommit = resolve; });
+  let releaseWinningCommit!: () => void;
+  let winningCommitEntered!: () => void;
+  const winningCommitReached = new Promise<void>((resolve) => { winningCommitEntered = resolve; });
+  const winningCommitBarrier = new Promise<void>((resolve) => { releaseWinningCommit = resolve; });
+  let commitCalls = 0;
+  const options: MockSupabaseOptions = {
+    beforeCommit: async () => {
+      if (++commitCalls === 1) {
+        oldCommitEntered();
+        await oldCommitBarrier;
+        options.commitCode = "lease_conflict";
+      } else {
+        winningCommitEntered();
+        await winningCommitBarrier;
+        options.commitCode = "created";
+      }
+    },
+  };
+  const supabase = new MockSupabase(options);
+  addStoredObjects(supabase, itemFiles);
+  installRecoveryMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  const input = orderInput({ itemFiles });
+
+  // The fixture supplies DB decisions; PostgreSQL arbitration is tested separately.
+  const staleAttempt = createProductionOrder(input);
+  await oldCommitReached;
+  const winningAttempt = createProductionOrder(input);
+  await winningCommitReached;
+  releaseOldCommit();
+  const staleResult = await staleAttempt;
+  const finalWasPreservedBeforeCommit = supabase.objects.has(finalPath(0, "original"));
+  releaseWinningCommit();
+  const winner = await winningAttempt;
+  assertFailure(staleResult, "in_progress");
+  assert.equal(finalWasPreservedBeforeCommit, true);
+  assert.equal(winner.ok, true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.equal(supabase.removes.some((paths) => paths.includes(finalPath(0, "original"))), false);
+  assert.equal(supabase.emailCalls.length, 1);
+});
+
+test("F3 retryable recovery is advisory and a subsequent active claim prevents Storage work", async () => {
+  const supabase = new MockSupabase({
+    recoveryRow: recoveryRow({ lease_token: null, lease_expires_at: null }),
+    claimCode: "in_progress",
+  });
+  installRecoveryMock(supabase);
+  const response = await getSubmissionRecovery();
+  assert.equal((await response.json() as { status: string }).status, "retryable");
+  const { createProductionOrder } = await loadOrderModule();
+  assertFailure(await createProductionOrder(orderInput()), "in_progress");
+  assert.equal(supabase.copies.length, 0);
+  assert.equal(supabase.removes.length, 0);
+  assert.equal(supabase.emailCalls.length, 0);
+});
+
+test("F3 partial Storage failure preserves pending and prepared direct files for retry", async () => {
+  const originalPath = directPath(0, "original");
+  const referencePath = directPath(0, "reference");
+  const itemFiles: ItemFilesForTest[] = [{
+    original: descriptor(originalPath),
+    reference: descriptor(referencePath),
+  }];
+  const supabase = new MockSupabase({
+    copyFailures: [moveKey(referencePath, finalPath(0, "reference"))],
+  });
+  addStoredObjects(supabase, itemFiles);
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  const input = orderInput({ itemFiles });
+  assertFailure(await createProductionOrder(input), "storage_error");
+  assert.equal(supabase.objects.has(originalPath), true);
+  assert.equal(supabase.objects.has(referencePath), true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.equal(supabase.removes.length, 0);
+  supabase.copyFailures.clear();
+  supabase.copyFailures.add(moveKey(originalPath, finalPath(0, "original")));
+  assert.equal((await createProductionOrder(input)).ok, true);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
+  assert.equal(supabase.objects.has(finalPath(0, "reference")), true);
+});
+
+test("F3 failed post-copy identity verification does not delete a shared direct final", async () => {
+  const destination = finalPath(0, "original");
+  const supabase = new MockSupabase({
+    mutateOnInfoCall: {
+      path: destination,
+      callNumber: 1,
+      metadata: metadata(1234, "image/jpeg", '"different-final-identity"'),
+    },
+  });
+  addStoredObjects(supabase, itemFilesForDirectOrder());
+  installSupabaseMock(supabase);
+  const { createProductionOrder } = await loadOrderModule();
+  assertFailure(await createProductionOrder(orderInput()), "storage_error");
+  assert.equal(supabase.objects.has(directPath(0, "original")), true);
+  assert.equal(supabase.objects.has(destination), true);
+  assert.equal(supabase.removes.length, 0);
+  assert.equal(supabase.rpcCalls.some((call) => call.name.startsWith("commit_order_submission")), false);
+});
+
 test("known Storage copy failure keeps pending source and releases the claim", async () => {
   const itemFiles = itemFilesForDirectOrder();
   const sourcePath = directPath(0, "original");
@@ -2284,19 +2608,21 @@ test("retry rejects a deterministic final object whose metadata does not match",
   assert.equal(supabase.removes.some((paths) => paths.includes(destination)), false);
 });
 
-test("known atomic commit rejection cleans only finals created by this attempt", async () => {
-  const itemFiles = itemFilesForDirectOrder();
-  const supabase = new MockSupabase({ commitCode: "draft_conflict" });
-  addStoredObjects(supabase, itemFiles);
-  installSupabaseMock(supabase);
-  const { createProductionOrder } = await loadOrderModule();
+for (const storageMode of ["move", "copy"] as const) {
+  test(`known atomic commit rejection ${storageMode === "move" ? "retains shared direct finals" : "preserves draft final cleanup"}`, async () => {
+    const itemFiles = itemFilesForDirectOrder();
+    const supabase = new MockSupabase({ commitCode: "draft_conflict" });
+    addStoredObjects(supabase, itemFiles);
+    installSupabaseMock(supabase);
+    const { createProductionOrder } = await loadOrderModule();
 
-  const result = await createProductionOrder(orderInput({ itemFiles }));
+    const result = await createProductionOrder(orderInput({ itemFiles, storageMode }));
 
-  assertFailure(result, "draft_conflict");
-  assert.equal(supabase.objects.has(directPath(0, "original")), true);
-  assert.equal(supabase.objects.has(finalPath(0, "original")), false);
-});
+    assertFailure(result, "draft_conflict");
+    assert.equal(supabase.objects.has(directPath(0, "original")), true);
+    assert.equal(supabase.objects.has(finalPath(0, "original")), storageMode === "move");
+  });
+}
 
 for (const scenario of [
   {
@@ -2616,7 +2942,7 @@ test("eligible service with an applied benefit uses the versioned atomic Welcome
   );
 });
 
-test("Welcome Offer race loser preserves pending source, removes prepared final, and returns current pricing", async () => {
+test("Welcome Offer race loser preserves pending and shared direct final, and returns current pricing", async () => {
   const itemFiles = itemFilesForDirectOrder();
   const supabase = new MockSupabase({
     commitCode: "welcome_offer_conflict",
@@ -2630,7 +2956,7 @@ test("Welcome Offer race loser preserves pending source, removes prepared final,
 
   assertFailure(result, "pricing_changed");
   assert.equal(supabase.objects.has(directPath(0, "original")), true);
-  assert.equal(supabase.objects.has(finalPath(0, "original")), false);
+  assert.equal(supabase.objects.has(finalPath(0, "original")), true);
   assert.equal(
     result.ok ? -1 : result.currentPricingSnapshot?.welcomeDiscountCents,
     0,

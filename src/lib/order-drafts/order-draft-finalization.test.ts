@@ -876,12 +876,19 @@ test("Single Exposure aerial choices and detail requirements reach final order d
   );
 });
 
-test("final copy cleanup occurs on pre-order failure", () => {
+test("draft copy cleanup remains on pre-order failure while direct shared finals are retained", () => {
   assert.match(
     ORDER_SERVICE,
     /cleanupFinalPaths\(supabase, copiedFinalPaths\)/,
   );
-  assert.match(ORDER_SERVICE, /if \(finalizedReference\.createdFinal\) copiedFinalPaths\.push/);
+  assert.match(
+    ORDER_SERVICE,
+    /if \(finalizedReference\.createdFinal && input\.storageMode === "copy"\) \{\s+copiedFinalPaths\.push/,
+  );
+  assert.match(
+    ORDER_SERVICE,
+    /if \(input\.mode === "copy"\) \{\s+await cleanupFinalPaths\(input\.supabase, \[finalPath\]\)/,
+  );
 });
 
 test("source draft objects are retained until DB success", () => {

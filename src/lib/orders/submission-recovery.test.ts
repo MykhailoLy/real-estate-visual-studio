@@ -100,7 +100,7 @@ test("ambiguous processing remains durable and produces a wait state", async () 
   );
 });
 
-test("unavailable recovery clears only the stale submission context", async () => {
+test("404 retains a legacy context and never enables a new logical submission", async () => {
   session.setItem("unrelated", "preserve-me");
   const result = await recoverAmbiguousOrderSubmission(
     SERVICE_TYPE,
@@ -111,11 +111,48 @@ test("unavailable recovery clears only the stale submission context", async () =
   );
 
   assert.deepEqual(result, {
-    status: "unavailable",
+    status: "retryable",
     submissionId: SUBMISSION_ID,
+    serviceType: SERVICE_TYPE,
+    canRetry: false,
   });
-  assert.equal(readOrderSubmissionRecord(SERVICE_TYPE), null);
+  assert.equal(readOrderSubmissionRecord(SERVICE_TYPE)?.submissionId, SUBMISSION_ID);
   assert.equal(session.getItem("unrelated"), "preserve-me");
+});
+
+test("legacy uploaded before any POST remains recoverable without claiming creation", async () => {
+  writeOrderSubmissionRecord(SERVICE_TYPE, {
+    submissionId: SUBMISSION_ID, intentHash: "a".repeat(64), stage: "uploaded", referenceIds: [],
+  });
+  const result = await recoverAmbiguousOrderSubmission(SERVICE_TYPE, async () =>
+    Response.json({ code: "submission_unavailable" }, { status: 404 }));
+  assert.equal(result.status, "retryable");
+  assert.equal(readOrderSubmissionRecord(SERVICE_TYPE)?.stage, "uploaded");
+});
+
+test("network, 5xx, invalid JSON, unknown status and auth loss all retain context", async () => {
+  const requests: Array<{ request: typeof fetch; status: string }> = [
+    { request: async () => { throw new TypeError("network"); }, status: "error" },
+    { request: async () => Response.json({ code: "submission_unavailable" }, { status: 503 }), status: "error" },
+    { request: async () => new Response("invalid"), status: "error" },
+    { request: async () => Response.json(null), status: "error" },
+    { request: async () => Response.json({ submissionId: SUBMISSION_ID, status: "unknown" }), status: "error" },
+    { request: async () => Response.json({}, { status: 401 }), status: "unauthorized" },
+    { request: async () => new Response("not found", { status: 404 }), status: "error" },
+  ];
+  for (const { request, status } of requests) {
+    assert.equal((await recoverAmbiguousOrderSubmission(SERVICE_TYPE, request)).status, status);
+    assert.equal(readOrderSubmissionRecord(SERVICE_TYPE)?.submissionId, SUBMISSION_ID);
+  }
+});
+
+test("a delayed successful GET cannot clear a different current record", async () => {
+  const replacement = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  await recoverAmbiguousOrderSubmission(SERVICE_TYPE, async () => {
+    writeOrderSubmissionRecord(SERVICE_TYPE, { submissionId: replacement, intentHash: "b".repeat(64), stage: "ambiguous", referenceIds: [] });
+    return Response.json({ submissionId: SUBMISSION_ID, status: "committed", orderId: ORDER_ID, orderNumber: "VS-0042" });
+  });
+  assert.equal(readOrderSubmissionRecord(SERVICE_TYPE)?.submissionId, replacement);
 });
 
 test("changed form state cannot bypass ambiguous recovery", () => {
