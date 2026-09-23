@@ -208,22 +208,24 @@ async function submitTrustedOrderDraftForUser(
 
     const draft = await loadClaimedDraft(input.userId, input.draftId);
     if (!draft) {
-      await releaseClaimBestEffort(input);
-      return finalizationError("not_found", "Draft was not found.");
+      return releaseClaimAfterFailure(input, {
+        ok: false,
+        code: "not_found",
+        message: "Draft was not found.",
+      });
     }
 
     const contextResult = buildTrustedDraftFinalizationContext(input, draft);
     if (!contextResult.ok) {
-      await releaseClaimBestEffort(input);
-      return contextResult;
+      return releaseClaimAfterFailure(input, contextResult);
     }
     const context = contextResult.data;
     if (expectedServiceType && context.serviceType !== expectedServiceType) {
-      await releaseClaimBestEffort(input);
-      return finalizationError(
-        "invalid_status",
-        "Draft belongs to a different order service.",
-      );
+      return releaseClaimAfterFailure(input, {
+        ok: false,
+        code: "invalid_status",
+        message: "Draft belongs to a different order service.",
+      });
     }
 
     if (claim.code === "already_converted") {
@@ -268,22 +270,17 @@ async function submitTrustedOrderDraftForUser(
       files: loadedFiles,
     });
     if (!reconciledFiles.ok) {
-      await releaseClaimBestEffort(input);
-      return reconciledFiles;
+      return releaseClaimAfterFailure(input, reconciledFiles);
     }
     const files = reconciledFiles.data;
     const slots = context.matchFiles(files);
     if (!slots.ok) {
-      await releaseClaimBestEffort(input);
-      return slots;
+      return releaseClaimAfterFailure(input, slots);
     }
 
     const storageVerification = await verifyDraftStorageObjects(files);
     if (!storageVerification.ok) {
-      const draftReleased = await releaseClaimBestEffort(input);
-      return storageVerification.code === "storage_error" && draftReleased
-        ? { ...storageVerification, draftReleased: true }
-        : storageVerification;
+      return releaseClaimAfterFailure(input, storageVerification);
     }
 
     if (existingOrder) {
@@ -298,10 +295,7 @@ async function submitTrustedOrderDraftForUser(
 
     const itemFiles = await context.buildItemFiles(slots.data);
     if (!itemFiles.ok) {
-      const draftReleased = await releaseClaimBestEffort(input);
-      return itemFiles.code === "storage_error" && draftReleased
-        ? { ...itemFiles, draftReleased: true }
-        : itemFiles;
+      return releaseClaimAfterFailure(input, itemFiles);
     }
     const orderResult = await createProductionOrder({
       // The draft is editable after release; each attempt keeps its own snapshot.
@@ -353,9 +347,9 @@ async function submitTrustedOrderDraftForUser(
         }
       }
 
-      const draftReleased = await releaseClaimBestEffort(input);
-      const failure = finalizationError(
-        orderResult.code === "storage_error"
+      return releaseClaimAfterFailure(input, {
+        ok: false,
+        code: orderResult.code === "storage_error"
           ? "storage_error"
           : orderResult.code === "pricing_changed"
             ? "pricing_changed"
@@ -364,14 +358,9 @@ async function submitTrustedOrderDraftForUser(
           : orderResult.code === "database_error"
             ? "database_error"
             : "invalid_status",
-        orderResult.message,
-        orderResult.currentPricingSnapshot,
-      );
-      // Storage failures here precede commit. Only a confirmed release may
-      // unlock editing; an unknown commit/release must keep the retry identity.
-      return !failure.ok && orderResult.code === "storage_error" && draftReleased
-        ? { ...failure, draftReleased: true }
-        : failure;
+        message: orderResult.message,
+        currentPricingSnapshot: orderResult.currentPricingSnapshot,
+      });
     }
 
     return {
@@ -679,6 +668,33 @@ async function completeDraftFinalization(input: SubmitVirtualStagingDraftInput &
     };
   }
   return parsed.result;
+}
+
+async function releaseClaimAfterFailure(
+  input: SubmitOrderDraftInput,
+  failure: Extract<DraftFinalizationResult<never>, { ok: false }>,
+): Promise<DraftFinalizationResult<never>> {
+  const draftReleased = await releaseClaimBestEffort(input);
+  // Preserve ambiguous outcomes even if release succeeds. Storage failures
+  // retain their existing explicit confirmation contract for the HTTP 500.
+  switch (failure.code) {
+    case "storage_error":
+      return draftReleased ? { ...failure, draftReleased: true } : failure;
+    case "database_error":
+    case "unexpected_error":
+    case "finalization_incomplete":
+    case "finalization_conflict":
+      return failure;
+    default:
+      // A definitive error may clear the browser key only after confirmed
+      // release. An unconfirmed release, including order_exists, must keep it.
+      return draftReleased
+        ? failure
+        : finalizationError(
+            "finalization_conflict",
+            "Draft release could not be confirmed. Retry the same finalization attempt.",
+          );
+  }
 }
 
 async function releaseClaimBestEffort(

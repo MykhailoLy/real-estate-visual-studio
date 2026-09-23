@@ -9,6 +9,8 @@ import { createPricingExpectation } from "../pricing/expectation.ts";
 import type { OrderPricingInput, PricingSnapshot, TransactionalServiceType } from "../pricing/types.ts";
 import { WELCOME_OFFER_BENEFIT_KEYS } from "../welcome-offer.ts";
 import type { SubmitOrderDraftInput } from "./finalization-server.ts";
+import { shouldPreserveDraftFinalizationKeyAfterFailure, type DraftFinalizationResult } from "./finalization.ts";
+import { draftFinalizationResultToResponse } from "./finalization-api.ts";
 import type { OrderDraftDatabaseRow, OrderDraftFileDatabaseRow } from "./database.ts";
 import { mapVirtualStagingFormToDraftState } from "./virtual-staging.ts";
 import { createPhotoEditingFormItem, mapPhotoEditingFormToDraftState } from "./photo-editing.ts";
@@ -54,6 +56,10 @@ const K2 = "88888888-8888-4888-8888-888888888888";
 const NOW = "2026-09-23T10:00:00.000Z";
 type Row = Record<string, unknown>;
 type RpcResult = { data: unknown; error: { message: string } | null };
+const UNCONFIRMED_RELEASE_REPLIES = [
+  "error", "throw", "malformed", "order_exists", "already_converted", "finalization_conflict",
+  "wrong_draft", "missing_draft", "multiple_rows", "object_row", "converted_order",
+] as const;
 
 function fixtureState(service: TransactionalServiceType) {
   const common = {
@@ -125,7 +131,7 @@ class DraftAdapter {
   failCopy = true;
   failList = false;
   failListDirectory: string | null = null;
-  releaseReply: "released" | "error" | "throw" | "malformed" | "order_exists" | "wrong_draft" | "missing_draft" | "multiple_rows" | "object_row" | "converted_order" = "released";
+  releaseReply: "released" | typeof UNCONFIRMED_RELEASE_REPLIES[number] = "released";
   ambiguousCommit = false;
   readonly service: TransactionalServiceType;
   constructor(service: TransactionalServiceType = "virtual-staging") {
@@ -223,9 +229,12 @@ class DraftAdapter {
       if (this.releaseReply === "object_row") return { data: releasedRow, error: null };
       if (this.releaseReply === "converted_order") return { data: [{ ...releasedRow, converted_order_id: K2 }], error: null };
       if (this.orders.length || this.releaseReply === "order_exists") return row("order_exists");
+      if (this.releaseReply === "already_converted" || this.releaseReply === "finalization_conflict") return row(this.releaseReply);
       if (input.p_finalization_key !== this.draft.finalization_key) return row("finalization_conflict");
       this.draft.status = "active"; this.draft.finalization_key = null;
-      return row("released");
+      call.result = "released";
+      // The SQL release RPC returns exactly result_code and draft_id.
+      return { data: [{ result_code: "released", draft_id: DRAFT }], error: null };
     }
     if (name === "claim_order_submission") {
       const id = String(input.p_submission_id);
@@ -301,6 +310,16 @@ async function submit(db: DraftAdapter, input = db.input()) {
     globals.__directOrderTestSupabase = previous;
     globalThis.fetch = previousFetch;
   }
+}
+
+function clientPreservesAttempt<T>(result: DraftFinalizationResult<T>): boolean {
+  assert.equal(result.ok, false, JSON.stringify(result));
+  if (result.ok) throw new Error("Expected finalization failure");
+  // Use the production route's status mapping and the shared browser classifier.
+  const response = draftFinalizationResultToResponse(result);
+  return shouldPreserveDraftFinalizationKeyAfterFailure({
+    code: result.code, status: response.status, draftReleased: result.draftReleased,
+  });
 }
 
 async function failAfterReservation(db: DraftAdapter, key = K1) {
@@ -493,13 +512,137 @@ test("F5 owner, stale version, conflicting key and file namespace mismatches fai
   }
 });
 
+for (const variant of ["invalid_uuid", "unsupported_route"] as const) {
+  test(`F5 ${variant} is rejected before claim without release normalization`, async () => {
+    const db = new DraftAdapter(); db.releaseReply = "error";
+    const input = db.input();
+    if (variant === "invalid_uuid") input.finalizationKey = "not-a-uuid";
+    if (variant === "unsupported_route") db.draft.route = "/dashboard/orders/new/unsupported-service";
+    const result = await submit(db, input);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, variant === "invalid_uuid" ? "invalid_input" : "invalid_status");
+    assert.equal(db.calls.length, 0);
+    assert.equal(db.draft.status, "active"); assert.equal(db.draft.finalization_key, null);
+  });
+}
+
 test("F5 confirmed storage failure release is explicitly editable", async () => {
   const db = new DraftAdapter();
   const result = await failAfterReservation(db);
   assert.equal("draftReleased" in result && result.draftReleased, true);
+  assert.equal(clientPreservesAttempt(result), false);
 });
 
-for (const releaseReply of ["error", "throw", "malformed", "order_exists", "wrong_draft", "missing_draft", "multiple_rows", "object_row", "converted_order"] as const) {
+test("F5 confirmed pricing release preserves the authoritative snapshot and permits reviewed K2", async () => {
+  const db = new DraftAdapter(); db.failCopy = false;
+  const input = db.input();
+  assert.equal(input.pricingExpectation?.totalCents, 950);
+  db.welcomeAvailable = false;
+  const result = await submit(db, input);
+  assert.equal(result.ok, false);
+  if (result.ok) throw new Error("Expected changed authoritative pricing");
+  assert.equal(result.code, "pricing_changed");
+  assert.equal(result.currentPricingSnapshot?.totalCents, 1900);
+  assert.equal(clientPreservesAttempt(result), false);
+  const response = draftFinalizationResultToResponse(result);
+  assert.equal(response.status, 409);
+  const body = await response.json() as { currentPricingSnapshot: PricingSnapshot };
+  assert.deepEqual(body.currentPricingSnapshot, result.currentPricingSnapshot);
+  assert.equal(db.draft.status, "active");
+  assert.equal(db.draft.finalization_key, null);
+  assert.equal(db.submissions.size, 0);
+  db.state.jobTitle = "Reviewed current pricing"; db.draft.version += 1;
+  const reviewed = await submit(db, db.input(K2));
+  assert.equal(reviewed.ok, true, JSON.stringify(reviewed));
+  const committedSnapshot = db.submissions.get(K2)?.pricing_snapshot as PricingSnapshot;
+  assert.deepEqual({ ...committedSnapshot, pricedAt: result.currentPricingSnapshot?.pricedAt }, result.currentPricingSnapshot);
+  assert.equal(db.orders.length, 1);
+});
+
+for (const releaseReply of UNCONFIRMED_RELEASE_REPLIES) {
+  test(`F5 pricing_changed + ${releaseReply} release preserves K1 instead of authorizing K2`, async () => {
+    const db = new DraftAdapter(); db.failCopy = false; db.releaseReply = releaseReply;
+    const input = db.input(); db.welcomeAvailable = false;
+    const result = await submit(db, input);
+    assert.equal(db.calls.find((call) => call.name === "claim_order_draft_finalization")?.result, "claimed");
+    assert.equal(db.draft.status, "converting");
+    assert.equal(db.draft.finalization_key, K1);
+    assert.equal(db.calls.filter((call) => call.name === "release_order_draft_finalization").length, 1);
+    assert.equal(clientPreservesAttempt(result), true, "pricing_changed + release failure must not lose K1");
+    if (!result.ok) assert.equal(result.code, "finalization_conflict");
+    assert.equal("draftReleased" in result && result.draftReleased === true, false);
+    assert.equal(db.calls.some((call) => call.input.p_finalization_key === K2), false);
+    assert.equal(db.submissions.size, 0); assert.equal(db.orders.length, 0);
+  });
+}
+
+for (const code of ["client_upgrade_required", "file_mismatch", "missing_original", "invalid_status"] as const) {
+  for (const releaseReply of ["released", "error"] as const) {
+    test(`F5 post-claim ${code} with ${releaseReply} release clears identity only when editable`, async () => {
+      const db = new DraftAdapter(); db.releaseReply = releaseReply;
+      const input = db.input();
+      if (code === "client_upgrade_required") input.pricingExpectation = undefined;
+      if (code === "file_mismatch") db.files[0].storage_path = db.files[0].storage_path.replace(USER, K2);
+      if (code === "missing_original") db.files = [];
+      if (code === "invalid_status") db.state.termsUi.accepted = false;
+      const result = await submit(db, input);
+      assert.equal(db.calls.find((call) => call.name === "claim_order_draft_finalization")?.result, "claimed");
+      assert.equal(db.calls.filter((call) => call.name === "release_order_draft_finalization").length, 1);
+      assert.equal(clientPreservesAttempt(result), releaseReply !== "released");
+      if (!result.ok) assert.equal(result.code, releaseReply === "released" ? code : "finalization_conflict");
+      assert.equal(db.draft.status, releaseReply === "released" ? "active" : "converting");
+      assert.equal(db.draft.finalization_key, releaseReply === "released" ? null : K1);
+      assert.equal(db.submissions.size, 0); assert.equal(db.orders.length, 0);
+    });
+  }
+}
+
+for (const service of ["virtual-staging", "photo-editing", "virtual-renovation", "3d-floor-plans"] as const) {
+  for (const releaseReply of ["released", "error"] as const) {
+    test(`F5 ${service}: post-claim pricing failure observes ${releaseReply} release outcome`, async () => {
+      const db = new DraftAdapter(service); db.failCopy = false; db.releaseReply = releaseReply;
+      const input = db.input();
+      assert.ok(input.pricingExpectation);
+      input.pricingExpectation.totalCents -= 1;
+      const result = await submit(db, input);
+      assert.equal(db.calls.find((call) => call.name === "claim_order_draft_finalization")?.result, "claimed");
+      assert.equal(clientPreservesAttempt(result), releaseReply !== "released");
+      if (!result.ok) assert.equal(result.code, releaseReply === "released" ? "pricing_changed" : "finalization_conflict");
+      assert.equal(db.draft.finalization_key, releaseReply === "released" ? null : K1);
+      if (releaseReply === "released") {
+        const reviewed = await submit(db, db.input(K2));
+        assert.equal(reviewed.ok, true, JSON.stringify(reviewed));
+        assert.equal(db.orders.length, 1);
+      } else {
+        assert.equal(db.calls.some((call) => call.input.p_finalization_key === K2), false);
+        assert.equal(db.orders.length, 0);
+      }
+    });
+  }
+}
+
+test("F5 order_exists on definitive failure release retains K1 until existing-order reconciliation", async () => {
+  const db = new DraftAdapter(); db.failCopy = false;
+  const created = await submit(db);
+  assert.equal(created.ok, true, JSON.stringify(created));
+  db.draft.status = "converting"; db.draft.converted_order_id = null;
+  db.files.forEach((file) => db.addObject(file));
+  const originalPath = db.files[0].storage_path;
+  db.files[0].storage_path = originalPath.replace(USER, K2);
+  const result = await submit(db);
+  assert.equal(db.calls.at(-1)?.result, "order_exists");
+  assert.equal(clientPreservesAttempt(result), true);
+  if (!result.ok) assert.equal(result.code, "finalization_conflict");
+  assert.equal(db.draft.status, "converting"); assert.equal(db.draft.finalization_key, K1);
+  db.files[0].storage_path = originalPath;
+  const replay = await submit(db);
+  assert.equal(replay.ok, true, JSON.stringify(replay));
+  if (created.ok && replay.ok) assert.equal(replay.data.orderId, created.data.orderId);
+  assert.equal(db.calls.filter((call) => call.name === "claim_order_submission").length, 1);
+  assert.equal(db.orders.length, 1); assert.equal(db.orderItems.length, 1); assert.equal(db.outbox.length, 2);
+});
+
+for (const releaseReply of UNCONFIRMED_RELEASE_REPLIES) {
   test(`F5 ${releaseReply} release result cannot authorize editing after Storage failure`, async () => {
     const db = new DraftAdapter(); db.releaseReply = releaseReply;
     const result = await submit(db);
@@ -507,6 +650,7 @@ for (const releaseReply of ["error", "throw", "malformed", "order_exists", "wron
     if (!result.ok) assert.equal(result.code, "storage_error");
     assert.equal("draftReleased" in result && result.draftReleased === true, false);
     assert.equal(db.draft.status, "converting");
+    assert.equal(clientPreservesAttempt(result), true);
   });
 }
 
@@ -519,6 +663,7 @@ test("F5 ambiguous atomic commit never signals an editable released draft", asyn
   assert.equal(db.submissions.size, 1);
   assert.ok(db.submissions.get(K1)?.p_lease_token);
   assert.equal(db.removed.length, 0);
+  assert.equal(clientPreservesAttempt(result), true);
 });
 
 test("F5 Storage verification failure before submission claim unlocks only after confirmed draft release", async () => {

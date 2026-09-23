@@ -189,6 +189,7 @@ test("pricing conflict response and typed client preserve the authoritative snap
     assert.equal(result.ok, false);
     if (result.ok) return;
     assert.deepEqual(result.currentPricingSnapshot, currentPricingSnapshot);
+    assert.equal(shouldPreserveDraftFinalizationKeyAfterFailure(result), false);
     assert.deepEqual(
       JSON.parse(String(calls[0]?.init?.body)).pricingExpectation,
       pricingExpectation,
@@ -225,6 +226,26 @@ test("confirmed released storage failure reaches the client and unlocks the old 
     assert.equal(result.status, 500);
     assert.equal(result.draftReleased, true);
     assert.equal(shouldPreserveDraftFinalizationKeyAfterFailure(result), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("post-claim unconfirmed release reaches the client as a retry-preserving 409 conflict", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => draftFinalizationResultToResponse({
+    ok: false,
+    code: "finalization_conflict",
+    message: "Draft release could not be confirmed. Retry the same attempt.",
+  });
+  try {
+    const result = await submitOrderDraft(DRAFT_ID, 4, FINALIZATION_KEY);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.code, "finalization_conflict");
+    assert.equal(result.status, 409);
+    assert.equal(result.draftReleased, undefined);
+    assert.equal(shouldPreserveDraftFinalizationKeyAfterFailure(result), true);
   } finally {
     globalThis.fetch = originalFetch;
   }

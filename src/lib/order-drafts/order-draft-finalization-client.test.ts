@@ -12,9 +12,22 @@ import {
   type DraftFinalizationRetryContext,
 } from "./finalization.ts";
 import type { DraftFinalizationClientResult } from "./finalization-client.ts";
+import { calculateOrderQuote } from "../pricing/calculate.ts";
+import { createPricingSnapshot } from "../pricing/snapshot.ts";
 
 const DRAFT_ID = "22222222-2222-4222-8222-222222222222";
 const OLD_KEY = "77777777-7777-4777-8777-777777777777";
+const CURRENT_PRICING = createPricingSnapshot(calculateOrderQuote({
+  serviceType: "virtual-staging", currency: "USD", items: [{ selectedAddons: [] }],
+}));
+const CONFIRMED_RELEASE_FAILURES = [
+  { ok: false, code: "pricing_changed", status: 409, message: "Review the current price.", currentPricingSnapshot: CURRENT_PRICING },
+  { ok: false, code: "file_mismatch", status: 409, message: "Review the current files." },
+  { ok: false, code: "missing_original", status: 422, message: "Upload an original." },
+  { ok: false, code: "client_upgrade_required", status: 409, message: "Refresh the client." },
+  { ok: false, code: "invalid_status", status: 422, message: "Review the draft configuration." },
+  { ok: false, code: "storage_error", status: 500, message: "Retry the upload.", draftReleased: true },
+] as const satisfies readonly DraftFinalizationClientResult[];
 
 // Execute the existing form callbacks without mounting the UI. React state,
 // network, and draft saves are controlled; callback control flow is production
@@ -41,13 +54,15 @@ function formCallback(source: ts.SourceFile, name: string, bindings: Record<stri
   return runInNewContext(code, bindings) as (...args: unknown[]) => unknown;
 }
 
-for (const [service, form] of [
+for (const { service, form, releasedFailure } of ([
   ["virtual-staging", "VirtualStaging"],
   ["photo-editing", "PhotoEditing"],
   ["virtual-renovation", "VirtualRenovation"],
   ["floor-plans", "FloorPlans"],
-] as const) {
-  test(`${service}: actual callbacks preserve ambiguous K1, unlock released failure, and submit edited draft with K2`, async () => {
+] as const).flatMap(([service, form]) =>
+  CONFIRMED_RELEASE_FAILURES.map((releasedFailure) => ({ service, form, releasedFailure })),
+)) {
+  test(`${service}: actual callbacks retain unconfirmed K1, clear released ${releasedFailure.code}, and submit edited draft with K2`, async () => {
     const path = `src/components/order/${service}/${form}OrderForm.tsx`;
     const source = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const initial: DraftFinalizationRetryContext = { draftId: DRAFT_ID, expectedVersion: 1, finalizationKey: OLD_KEY };
@@ -60,9 +75,13 @@ for (const [service, form] of [
     let savedVersion = 1;
     let saves = 0;
     let generatedKeys = 0;
+    let appliedPricing: unknown;
     const sent: DraftFinalizationRetryContext[] = [];
     const ambiguous: DraftFinalizationClientResult = {
       ok: false, code: "storage_error", status: 500, message: "Storage result unavailable.",
+    };
+    const releaseUnconfirmed: DraftFinalizationClientResult = {
+      ok: false, code: "finalization_conflict", status: 409, message: "Draft release could not be confirmed. Retry the same attempt.",
     };
     const item = { clientItemId: "item-1", file: null, referenceFile: null };
     const noop = () => undefined;
@@ -82,7 +101,9 @@ for (const [service, form] of [
       canSubmit: true, configurationValid: true, missingRequiredFields: [],
       currency: "USD", partnerClient: false,
       setIsSubmitting: noop, setSubmitError: noop, setFinalizationKey: noop,
-      setValidationAttempted: noop, applyPartnerSnapshot: noop,
+      setValidationAttempted: noop,
+      applyPartnerSnapshot: (snapshot: unknown) => { appliedPricing = snapshot; },
+      setActiveWelcomeOfferAvailability: noop,
       setFinalizationRetryContext: (value: DraftFinalizationRetryContext | null) => { retryState = value; },
       removeStoredFinalizationRetryContext: () => { stored = null; },
       writeStoredFinalizationRetryContext: (value: DraftFinalizationRetryContext) => {
@@ -108,7 +129,7 @@ for (const [service, form] of [
     };
     const submit = async (draftId: string, expectedVersion: number, finalizationKey: string) => {
       sent.push({ draftId, expectedVersion, finalizationKey });
-      return ambiguous;
+      return releaseUnconfirmed;
     };
     bindings.submitOrderDraft = submit;
     bindings.submitVirtualStagingDraft = submit;
@@ -130,6 +151,7 @@ for (const [service, form] of [
       { ...ambiguous, status: 503, draftReleased: true as const },
       { ...ambiguous, code: "database_error" as const, draftReleased: true as const },
       { ...ambiguous, code: "finalization_incomplete" as const, status: 503 },
+      releaseUnconfirmed,
     ]) {
       apply(result, initial, 1);
       assert.equal(retryRef.current?.finalizationKey, OLD_KEY);
@@ -138,14 +160,18 @@ for (const [service, form] of [
     }
     await handleSubmit();
     assert.deepEqual(sent[0], initial);
-    assert.equal(saves, 0, "unknown-attempt retry must bypass saving an edited version");
+    assert.equal(retryRef.current?.finalizationKey, OLD_KEY);
+    assert.equal(retryState?.finalizationKey, OLD_KEY);
+    assert.equal(parseDraftFinalizationRetryContext(stored!, DRAFT_ID)?.finalizationKey, OLD_KEY);
+    assert.equal(saves, 0, "unconfirmed release must retry K1 without saving an edited version");
     assert.equal(generatedKeys, 0);
 
-    apply({ ...ambiguous, draftReleased: true }, initial, 1);
+    apply(releasedFailure, initial, 1);
     assert.equal(retryRef.current, null, "release must remove the edit/autosave lock ref");
     assert.equal(retryState, null, "release must enable rendered edit controls");
     assert.equal(stored, null, "reload must not restore the released K1");
     if (service === "virtual-staging") assert.equal(keyRef.current, null);
+    assert.equal(appliedPricing, releasedFailure.code === "pricing_changed" ? CURRENT_PRICING : undefined);
 
     savedVersion = 2; // Successful edit/version increment, supplied by the save boundary.
     await handleSubmit();

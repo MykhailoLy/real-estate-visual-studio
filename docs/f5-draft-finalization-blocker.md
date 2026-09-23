@@ -1,10 +1,49 @@
 # F5: immutable draft finalization attempts
 
 Branch: `codex/fix-draft-finalization-after-edit`.
-Baseline / unchanged HEAD: `0fb6cc94a3b976c7003eb6ff5c213437309bed0b`.
-Date: 2026-09-23. Local review only: no commit, push, PR, merge or deployment.
-**Local patch and forward migration validated; ready for independent review.**
+Baseline: `0fb6cc94a3b976c7003eb6ff5c213437309bed0b`.
+Date: 2026-09-23. Initial publication was separately authorized as
+[draft PR #342](https://github.com/MykhailoLy/real-estate-visual-studio/pull/342),
+reviewed head `1ce18ffe1406f96ba3ee2101f4227f34b59b3364`.
+**DO NOT MERGE BEFORE PRODUCTION MIGRATION IS APPLIED AND VERIFIED.**
 **Production migration has NOT been applied by this task.**
+
+## Review blocker: unconfirmed release must retain the attempt key
+
+The initial patch confirmed release only for `storage_error`. Other post-claim
+definitive failures still returned their original code after a failed release.
+For example, `pricing_changed` plus a release RPC error left the draft converting
+under K1 but instructed the client to clear K1. This could start a conflicting K2.
+
+All eight ordinary post-claim release paths now share `releaseClaimAfterFailure`:
+confirmed release returns the original definitive error, including its current
+authoritative pricing snapshot; an unconfirmed release returns the existing
+`finalization_conflict` code, which preserves K1. This includes errors, throws,
+malformed/wrong-draft/multiple-row responses and `order_exists`/`already_converted`/
+`finalization_conflict` release results. A retry can reach the existing-order
+reconciliation path without creating another attempt.
+
+Storage retains the existing `draftReleased: true` contract only after confirmed
+release. Database/unexpected/ambiguous outcomes remain conservative even if
+release succeeds. Preclaim input/service/route errors and route-level auth/profile/
+body validation are untouched. No production API/client contract, migration,
+attempt identity, direct-order flow or pricing formula changed in this follow-up.
+The real release RPC's two-column response (`result_code`, `draft_id`) remains valid.
+
+RED on the reviewed production functions: **41 passed / 20 failed**. The assertion
+`pricing_changed + release failure must not lose K1` failed for all 11 unsafe
+release fixtures; four other definitive codes, four service cases and existing-order
+release denial also failed. GREEN after the server-only normalization: **61/61**.
+Logs: `test-results/f5-review-service-red.log` and
+`test-results/f5-review-service-green.log`.
+
+The four actual form callbacks now cover six confirmed failure kinds each
+(24 cases), including ref/state/sessionStorage clearing only when editable,
+unchanged K1 retry without save/new UUID, and reviewed/edited K2 creation.
+API tests use the real response adapter and typed client for the preserving 409.
+The old regex requiring an inline release call was replaced by production-function
+release/snapshot evidence; its remaining price-forwarding checks stay in place.
+Independent review found no missed ordinary post-claim release branch.
 
 ## Scope and preflight
 
@@ -289,22 +328,22 @@ another blocking unique key require investigation before application deployment.
 
 | Check | Final result |
 | --- | --- |
-| Draft finalization (including new service + client cases) | 312 passed in final CI |
-| Finalization API | 16 passed |
+| Draft finalization (including new service + client cases) | 365 passed |
+| Finalization API | 17 passed |
 | Draft files / file API / staging draft files | 60 / 17 / 38 passed |
 | Order integrity including F3/F4 and Welcome | 251 passed |
 | F1 checkout / F2 webhook | 36 / 89 passed |
 | Pricing / Welcome relevant suite | 72 passed |
 | Native PostgreSQL F3/F5 migration/concurrency/Welcome | 15 passed, none skipped |
-| Full `test:ci` | 2227 passed, 52 invocations, none failed/skipped |
+| Full `test:ci` | 2281 passed, 52 invocations, none failed/skipped |
 | `npm.cmd run typecheck:test` | Exit 0 |
 | Production `npx.cmd tsc --noEmit` | Exit 0 |
 | `npm.cmd run lint` | Exit 0; 0 errors, 9 pre-existing navigation warnings |
 | `npm.cmd run build` | Exit 0 |
 | `git diff --check` | Exit 0 |
 
-Final logs are under `test-results/f5-final-*`; focused checks use
-`test-results/f5-green-*`. PostgreSQL runtime is installed outside the repo.
+Initial logs are under `test-results/f5-final-*`; the review-blocker validation
+uses `test-results/f5-review-*`. PostgreSQL runtime is installed outside the repo.
 Reproduce with the existing opt-in harness (no production URL is accepted):
 
 ```powershell
@@ -333,13 +372,14 @@ Added files:
 - `docs/f5-draft-finalization-blocker.md` (this existing local diagnostic report,
   updated for the completed patch; not previously committed).
 
-Final fetch still resolves `origin/main` to the baseline: HEAD is 0 commits ahead
-and 0 behind. `.codex` and original checkout changes are preserved.
+Before initial publication, the final fetch resolved `origin/main` to the baseline
+with 0 commits ahead/behind. `.codex` and original checkout changes are preserved.
 Remaining rollout limits: manual migration/index verification must precede app
 deployment; actual deployed schema/Storage/browser integration is not exercised;
 old running bundles require refresh to consume the new release signal. Historical
 abandoned attempts remain; their automatic cleanup is outside F5.
 
-No production migration/data changes, real orders/uploads, commits, pushes, PRs,
-merges or deployment are authorized or performed. No F6 pending-reference repair,
+Production migration/data changes, real orders/uploads, merge and deployment
+remain outside authorization and have not been performed. Commit/push and updates
+to the same draft PR #342 were separately authorized. No F6 pending-reference repair,
 pricing formula change, direct recovery change or unrelated system is included.
