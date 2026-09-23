@@ -7,9 +7,13 @@ Pending manual migration:
 **Production was not changed by this task. Do not apply automatically.**
 
 Enables `pg_cron` (registration in `pg_catalog`) and `pg_net` (registration in
-`extensions`, functions in `net`) using Supabase's documented schemas. Removes
-browser/PUBLIC access to the transient pg_net request queue because it holds
-Authorization headers. Requires existing Vault and exactly one nonempty secret
+`extensions`, functions in `net`) using Supabase's documented schemas. Preserves
+pg_net extension ACLs and assumes the standard Supabase configuration where `net`
+is not exposed through the Data API. The transient queue contains resolved HTTP
+headers during normal pg_net operation; do not expose or log them. A read-only
+Vault preflight aborts if anon/authenticated has schema USAGE or SELECT on
+`vault.decrypted_secrets`; no Vault grants or server-side access are modified.
+Requires existing encrypted Vault storage and exactly one nonempty secret
 named `picchuspot_order_email_worker_secret`, matching Vercel `CRON_SECRET`.
 Schedules one `picchuspot-order-email-outbox` job at `*/15 * * * *` to POST to
 `https://picchuspot.com/api/internal/order-email-outbox`. The command reads Vault

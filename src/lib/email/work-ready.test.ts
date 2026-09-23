@@ -516,8 +516,17 @@ test("F9 scheduler migration fails closed and stores only a runtime Vault lookup
   assert.match(sql, /BEGIN;[\s\S]*COMMIT;/);
   assert.match(sql, /CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;/);
   assert.match(sql, /CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;/);
-  assert.match(sql, /REVOKE ALL ON TABLE net\.http_request_queue FROM PUBLIC, anon, authenticated/);
+  assert.doesNotMatch(sql, /\b(?:GRANT|REVOKE)\b[^;]*(?:\bnet\.|\bSCHEMA\s+net\b|\bvault\.|\bSCHEMA\s+vault\b)/i);
+  assert.doesNotMatch(sql, /has_table_privilege\([^)]*net\.http_request_queue/);
   assert.match(sql, /to_regclass\('vault\.decrypted_secrets'\)/);
+  const vaultPreflight = sql.match(/IF has_schema_privilege\('anon', 'vault', 'USAGE'\)[\s\S]*?END IF;/)?.[0];
+  assert.ok(vaultPreflight);
+  assert.match(vaultPreflight, /OR has_schema_privilege\('authenticated', 'vault', 'USAGE'\)/);
+  for (const role of ["anon", "authenticated"]) {
+    assert.ok(vaultPreflight.includes(`OR has_table_privilege('${role}', 'vault.decrypted_secrets', 'SELECT')`));
+  }
+  assert.match(vaultPreflight, /THEN\s+RAISE EXCEPTION 'F9 requires separate security review of browser-role Vault access';/);
+  assert.ok(sql.indexOf(vaultPreflight) < sql.indexOf("PERFORM cron.schedule("));
   assert.match(sql, /to_regprocedure\('net\.http_post\(text,jsonb,jsonb,jsonb,integer\)'\)/);
   assert.match(sql, /count\(\*\) FROM vault\.decrypted_secrets[\s\S]*<> 1/);
   assert.match(sql, /set_config\('row_security', 'off', true\)/);

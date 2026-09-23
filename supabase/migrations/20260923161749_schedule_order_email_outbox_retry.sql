@@ -9,12 +9,6 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 GRANT USAGE ON SCHEMA cron TO postgres;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA cron TO postgres;
 
--- pg_net 0.20 grants PUBLIC access to its transient request queue upstream.
--- The queue contains actual Authorization headers until the async worker consumes
--- them. Browser roles must not read, rewrite, or DELETE ... RETURNING those rows.
--- The scheduled job runs as the privileged migration operator, not a browser role.
-REVOKE ALL ON TABLE net.http_request_queue FROM PUBLIC, anon, authenticated;
-
 DO $migration$
 DECLARE
   v_name CONSTANT TEXT := 'picchuspot-order-email-outbox';
@@ -48,13 +42,17 @@ $command$;
   v_existing cron.job%ROWTYPE;
   v_count INTEGER;
 BEGIN
-  IF has_table_privilege('anon', 'net.http_request_queue', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
-     OR has_table_privilege('authenticated', 'net.http_request_queue', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE') THEN
-    RAISE EXCEPTION 'F9 requires a private pg_net request queue';
-  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'supabase_vault')
      OR to_regclass('vault.decrypted_secrets') IS NULL THEN
     RAISE EXCEPTION 'F9 requires Supabase Vault';
+  END IF;
+  -- Read-only prerequisite: unexpected Vault exposure needs separate review.
+  -- Do not modify Vault or pg_net extension ACLs, including server-side access.
+  IF has_schema_privilege('anon', 'vault', 'USAGE')
+     OR has_schema_privilege('authenticated', 'vault', 'USAGE')
+     OR has_table_privilege('anon', 'vault.decrypted_secrets', 'SELECT')
+     OR has_table_privilege('authenticated', 'vault.decrypted_secrets', 'SELECT') THEN
+    RAISE EXCEPTION 'F9 requires separate security review of browser-role Vault access';
   END IF;
   IF to_regprocedure('net.http_post(text,jsonb,jsonb,jsonb,integer)') IS NULL THEN
     RAISE EXCEPTION 'F9 requires the supported pg_net HTTP POST signature';

@@ -46,12 +46,22 @@ or different same-name jobs (including inactive jobs, another database/user/host
 port). An exact match preserves the existing job ID. RLS filtering is disabled
 locally during inspection so insufficient operator privileges fail closed.
 
-pg_net temporarily stores the resolved Authorization header in its internal
-request queue, as required to send HTTP. Upstream pg_net 0.20 grants PUBLIC table
-access. This migration revokes ALL on that queue from PUBLIC, anon and
-authenticated and checks effective browser-role privileges. A privileged operator
-can still inspect it: never dump queue headers or decrypted Vault data. No
-outbox RPC, outbox table, provider idempotency semantics or application mutex changes.
+The secret is stored encrypted in Vault and read by the cron command at runtime.
+Before scheduling, a read-only preflight rejects any schema `vault` USAGE or
+`vault.decrypted_secrets` SELECT privilege for either anon or authenticated.
+Unexpected access requires separate security review; F9 does not change Vault
+grants or server-side `service_role` access. The production read-only evidence
+provided for this review records all four checks as false; recheck before rollout.
+
+pg_net temporarily stores resolved HTTP headers in its internal request queue
+as part of normal operation. F9 leaves its schema/object ACLs under Supabase and
+extension ownership, including the standard PUBLIC privileges needed by legitimate
+non-superuser callers. It relies on the standard Supabase configuration where
+schema `net` is not exposed through the Data API and anon/authenticated are NOLOGIN
+roles. Deliberately exposing `net` through the Data API requires a separate security
+decision/hardening task; F9 makes no Data API configuration changes. Never expose
+or log queued request headers or decrypted Vault data during rollout/debugging.
+No outbox RPC, outbox table, provider idempotency semantics or application mutex changes.
 
 Each POST claims at most 10 rows, once. Backlogs need subsequent scheduled runs;
 there is no loop until empty and no immediate scheduler retry. The pg_net timeout
@@ -137,6 +147,15 @@ Local results, 2026-09-23:
 | `npm.cmd run build` | Passed |
 | `git diff --check` | Passed |
 
+PR #343 ACL review follow-up (same date): removed custom pg_net queue ACL changes
+and added the four read-only browser-role Vault prerequisite checks. Revalidated:
+focused worker/business **171 passed** (now includes the scheduler contract test),
+email/rendering/scheduler **44 passed**, CI **2300 passed**, PostgreSQL **16 passed /
+1 skipped**, both typechecks and build passed, lint **0 errors / 9 existing warnings**,
+and diff check passed. Dispatcher/worker production code and the scheduled command
+are unchanged from reviewed head `cc6bbde79b1b4014cef1e4798c2fcbb2751fa88c`.
+Real-extension integration remains unexecuted; no production changes were made.
+
 Repeated read-only production aggregates: retryable pending/failed **0**, retryable
 unknown/stale sending **0**, exhausted unsent **0**, expired unknown **0**; sent
 admin/client/payment **16 / 16 / 2**, all at attempt 1. No customer data returned.
@@ -159,7 +178,8 @@ auth, 200/503, persisted failed/unknown outcomes, payload failures, completion
 failures, counters/flags, committed orders, payment acknowledgement and delivered/
 replacement state. Existing email tests include key reuse and overlapping drains.
 Static migration checks cover prerequisites, matching/no-op guard, target,
-cadence, runtime secret lookup and queue privileges. They do not prove extension
+cadence, runtime secret lookup, read-only Vault preflight and preservation of
+pg_net/Vault ACLs. They do not prove extension
 execution. These tests are included in existing email CI scripts; no package change.
 
 The disposable PostgreSQL 17.6 harness uses separate sessions to verify actual
@@ -172,7 +192,9 @@ integration case is explicitly skipped, with no fabricated implementations.
 Before production rollout, use an isolated Supabase-compatible stack with real
 extensions and synthetic secrets to verify: missing Vault/secret/signature aborts;
 first install creates one job; exact rerun retains it; altered schedule/command/
-owner/inactive job aborts; browser roles cannot access queued headers; runtime
+owner/inactive job aborts; each unexpected browser-role Vault privilege aborts
+without changing ACLs; standard pg_net ACLs and legitimate callers remain intact;
+confirm `net` is not exposed through the Data API; runtime
 secret removal blocks HTTP; rotation uses the new value; actual HTTP 200/503 can
 be correlated independently of cron success. Do not run a synthetic scheduler
 against the production URL: use an isolated test endpoint in a disposable copy
