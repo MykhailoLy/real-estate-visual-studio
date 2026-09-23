@@ -11,6 +11,12 @@ import {
   appendReferenceFiles,
   type ReferenceFileValue,
 } from "../../lib/reference-files.ts";
+import {
+  completeDraftReferenceFile,
+  listDraftReferenceFiles,
+  prepareDraftReferenceFile,
+} from "../../lib/order-drafts/draft-reference-files-client.ts";
+import type { DraftReferenceFileSummary } from "../../lib/order-drafts/draft-reference-files.ts";
 
 const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -103,6 +109,9 @@ const { default: ReferenceFilesUploader } = await import(
 );
 const { default: StagingItemCard, emptyStagingItem } = await import(
   "./virtual-staging/StagingItemCard.tsx"
+);
+const { default: RenovationItemCard, emptyRenovationItem } = await import(
+  "./virtual-renovation/RenovationItemCard.tsx"
 );
 
 function uploadedReference(
@@ -212,3 +221,56 @@ test("rehydrated card hides the legacy mirror while retaining inline invalid_upl
   assert.ok(markup.includes(error));
   assert.match(markup, /role="alert"/);
 });
+
+for (const service of ["Virtual Staging", "Virtual Renovation"] as const) {
+  test(`${service}: prepared, completed and restored canonical references render in the actual item card`, async (context) => {
+    const id = "33333333-3333-4333-8333-333333333333";
+    const itemClientId = "22222222-2222-4222-8222-222222222222";
+    const draftId = "11111111-1111-4111-8111-111111111111";
+    const completed: DraftReferenceFileSummary = {
+      ...uploadedReference(id, "saved.png"),
+      id, draftFileId: id, itemClientId, position: 0, file: null, storagePath: null,
+    };
+    const prepared = { ...completed, previewUrl: null };
+    let request = 0;
+    context.mock.method(globalThis, "fetch", async () => {
+      request += 1;
+      if (request === 1) return Response.json({ data: {
+        reference: prepared,
+        upload: { bucket: "order-files", path: "draft/fixture", token: "fixture", signedUrl: "https://storage.example/upload" },
+      } });
+      if (request === 2) return Response.json({ data: completed });
+      return Response.json({ data: [completed] });
+    });
+    const preparedResult = await prepareDraftReferenceFile(draftId, {
+      itemClientId, referenceId: id, position: 0, filename: "saved.png", fileSize: 1024, mimeType: "image/png",
+    });
+    const completedResult = await completeDraftReferenceFile(draftId, id);
+    const restoredResult = await listDraftReferenceFiles(draftId);
+    assert.ok(preparedResult.ok && completedResult.ok && restoredResult.ok);
+    const references = [preparedResult.data.reference, completedResult.data, ...restoredResult.data];
+    for (const reference of references) {
+      const shared = { index: 0, totalItems: 1, onChange: () => undefined,
+        onRemove: () => undefined, canRemove: false, exampleMediaByKey: {} };
+      const markup = renderToStaticMarkup(service === "Virtual Staging"
+        ? createElement(StagingItemCard, {
+            ...shared, defaultFurnitureStyle: "",
+            data: { ...emptyStagingItem(), clientItemId: itemClientId, referenceFiles: [reference] },
+          })
+        : createElement(RenovationItemCard, {
+            ...shared,
+            data: { ...emptyRenovationItem(), clientItemId: itemClientId, referenceFiles: [reference] },
+            onOriginalFileChange: () => undefined, onReferenceFilesChange: () => undefined,
+            onRemovePersistedOriginal: () => undefined, onRemovePersistedReference: () => undefined,
+          }));
+      assert.equal(reference.id, id);
+      assert.equal(reference.draftFileId, id);
+      assert.equal(reference.storagePath, null);
+      assert.match(markup, /1 of 10 files/);
+      assert.ok(markup.includes(`data-reference-remove="${id}"`));
+      assert.match(markup, /saved\.png/);
+      if (reference.previewUrl) assert.match(markup, /storage\.example\/object\/sign\/order-files/);
+    }
+    assert.deepEqual(restoredResult.data, [completedResult.data]);
+  });
+}

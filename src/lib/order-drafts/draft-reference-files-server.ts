@@ -117,73 +117,102 @@ export async function prepareDraftReferenceForUser(
   if (itemIndex === null) return invalid("Draft photo was not found.");
 
   const supabase = getSupabaseAdminClient();
-  const { data: existing, error: listError } = await supabase
+  // Additions are sequential per item. A fresh prepare supersedes incomplete
+  // candidates left behind when the previous browser operation was interrupted.
+  // Return only paths actually retired by this update, never a stale pre-read.
+  const { data: retired, error: retireError } = await supabase
     .from("order_draft_item_reference_files")
-    .select("reference_id, position, file_size")
+    .update({ upload_status: "deleted", deleted_at: new Date().toISOString() })
     .eq("draft_id", draftId)
     .eq("item_client_id", parsed.data.itemClientId)
-    .in("upload_status", ["pending", "uploaded"])
-    .is("deleted_at", null);
-  if (listError) return { ok: false, status: 500, message: "Could not prepare draft reference." };
-  const rows = existing ?? [];
-  const same = rows.find((row) => row.reference_id === parsed.data.referenceId);
-  if (same) return invalid("That reference is already saved.");
-  if (rows.length >= MAX_REFERENCE_FILES) return invalid("You can upload up to 10 reference files.");
-  if (rows.some((row) => Number(row.position) === parsed.data.position)) {
-    return invalid("That reference position is already occupied.");
-  }
-  const total = rows.reduce((sum, row) => sum + Number(row.file_size), 0);
-  if (total + parsed.data.fileSize > MAX_REFERENCE_TOTAL_SIZE_BYTES) {
-    return invalid("Reference files may total up to 100 MB.");
-  }
+    .in("upload_status", ["pending", "failed"])
+    .is("deleted_at", null)
+    .select("storage_path");
+  if (retireError) return { ok: false, status: 500, message: "Could not prepare draft reference." };
 
-  const storagePath = buildOrderDraftFilePath({
-    userId,
-    draftId,
-    fileId: parsed.data.referenceId,
-    originalFilename: parsed.data.filename,
-  });
-  const { data: inserted, error: insertError } = await supabase
-    .from("order_draft_item_reference_files")
-    .insert({
-      id: parsed.data.referenceId,
-      draft_id: draftId,
-      item_client_id: parsed.data.itemClientId,
-      item_index: itemIndex,
-      reference_id: parsed.data.referenceId,
-      position: parsed.data.position,
-      bucket: ORDER_FILES_BUCKET,
-      storage_path: storagePath,
-      original_filename: parsed.data.filename,
-      file_size: parsed.data.fileSize,
-      mime_type: parsed.data.mimeType,
-      upload_status: "pending",
-    })
-    .select(SELECT)
-    .single();
-  if (insertError || !inserted) return { ok: false, status: 409, message: "Could not reserve this reference position." };
+  try {
+    const { data: existing, error: listError } = await supabase
+      .from("order_draft_item_reference_files")
+      .select("reference_id, position, file_size")
+      .eq("draft_id", draftId)
+      .eq("item_client_id", parsed.data.itemClientId)
+      .eq("upload_status", "uploaded")
+      .is("deleted_at", null);
+    if (listError) return { ok: false, status: 500, message: "Could not prepare draft reference." };
+    const rows = existing ?? [];
+    const same = rows.find((row) => row.reference_id === parsed.data.referenceId);
+    if (same) return invalid("That reference is already saved.");
+    if (rows.length >= MAX_REFERENCE_FILES) return invalid("You can upload up to 10 reference files.");
+    if (rows.some((row) => Number(row.position) === parsed.data.position)) {
+      return invalid("That reference position is already occupied.");
+    }
+    const total = rows.reduce((sum, row) => sum + Number(row.file_size), 0);
+    if (total + parsed.data.fileSize > MAX_REFERENCE_TOTAL_SIZE_BYTES) {
+      return invalid("Reference files may total up to 100 MB.");
+    }
 
-  const { data: signed, error: signedError } = await supabase.storage
-    .from(ORDER_FILES_BUCKET)
-    .createSignedUploadUrl(storagePath);
-  if (signedError || !signed) {
-    await supabase.from("order_draft_item_reference_files")
-      .update({ upload_status: "failed" })
-      .eq("id", parsed.data.referenceId);
-    return { ok: false, status: 500, message: "Could not prepare draft reference upload." };
-  }
-  return {
-    ok: true,
-    data: {
-      reference: mapSummary(inserted as Record<string, unknown>),
-      upload: {
+    const storagePath = buildOrderDraftFilePath({
+      userId,
+      draftId,
+      fileId: parsed.data.referenceId,
+      originalFilename: parsed.data.filename,
+    });
+    const { data: inserted, error: insertError } = await supabase
+      .from("order_draft_item_reference_files")
+      .insert({
+        id: parsed.data.referenceId,
+        draft_id: draftId,
+        item_client_id: parsed.data.itemClientId,
+        item_index: itemIndex,
+        reference_id: parsed.data.referenceId,
+        position: parsed.data.position,
         bucket: ORDER_FILES_BUCKET,
-        path: signed.path ?? storagePath,
-        token: signed.token,
-        signedUrl: signed.signedUrl,
+        storage_path: storagePath,
+        original_filename: parsed.data.filename,
+        file_size: parsed.data.fileSize,
+        mime_type: parsed.data.mimeType,
+        upload_status: "pending",
+      })
+      .select(SELECT)
+      .single();
+    if (insertError || !inserted) return { ok: false, status: 409, message: "Could not reserve this reference position." };
+
+    const { data: signed, error: signedError } = await supabase.storage
+      .from(ORDER_FILES_BUCKET)
+      .createSignedUploadUrl(storagePath);
+    if (signedError || !signed) {
+      await supabase.from("order_draft_item_reference_files")
+        .update({ upload_status: "failed" })
+        .eq("id", parsed.data.referenceId)
+        .eq("upload_status", "pending")
+        .is("deleted_at", null);
+      return { ok: false, status: 500, message: "Could not prepare draft reference upload." };
+    }
+    return {
+      ok: true,
+      data: {
+        reference: mapSummary(inserted as Record<string, unknown>),
+        upload: {
+          bucket: ORDER_FILES_BUCKET,
+          path: signed.path ?? storagePath,
+          token: signed.token,
+          signedUrl: signed.signedUrl,
+        },
       },
-    },
-  };
+    };
+  } finally {
+    // Metadata retirement is authoritative even if validation/signing fails.
+    // Storage errors must neither reactivate old candidates nor fail a new one.
+    const paths = (retired ?? []).map((row) => String(row.storage_path));
+    if (paths.length > 0) {
+      try {
+        const { error } = await supabase.storage.from(ORDER_FILES_BUCKET).remove(paths);
+        if (error) console.warn("[draft-reference-files] retired reference storage cleanup failed.");
+      } catch {
+        console.warn("[draft-reference-files] retired reference storage cleanup failed.");
+      }
+    }
+  }
 }
 
 async function loadOwnedReference(userId: string, draftId: string, referenceId: string) {
