@@ -54,3 +54,17 @@ export function buildDeliverablePath(
   const ts = Date.now();
   return `${orderNumber}/${ts}-${safeBase}`;
 }
+
+/** Stable replacement path, reconstructed only from server-owned review data. */
+export function buildReplacementDeliverablePath(
+  orderNumber: string,
+  reviewId: string,
+  replacementDeliverableId: string,
+  originalFilename: string,
+): string {
+  const safeBase = originalFilename
+    .replace(/^.*[\\/]/, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 100);
+  return `${orderNumber}/rework/${reviewId}/${replacementDeliverableId}-${safeBase}`;
+}
