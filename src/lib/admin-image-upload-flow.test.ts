@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import "./admin-replacement-upload-client.test.ts";
+import "./admin-replacement-route.test.ts";
 import {
   STANDARD_PUBLIC_IMAGE_SLOTS,
   usesStandardPublicImageProfile,

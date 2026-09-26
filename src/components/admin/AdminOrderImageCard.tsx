@@ -20,7 +20,7 @@
 //   POST /deliverables/upload-url → signed URL
 //   PUT  → Supabase Storage
 //   POST /deliverables            → register row
-//   PATCH /reviews/:id/replacement (when replacementReview is set)
+// Replacements use the shared prepare → PUT → atomic replacement commit flow.
 // ============================================================
 
 import type React from "react";
@@ -44,6 +44,7 @@ import OrderItemDetails from "@/components/order/OrderItemDetails";
 import type { AdminSourceFile } from "@/lib/admin-source-files";
 import type { AdminReview } from "@/lib/admin-order-workflow";
 import type { DeliverableRow } from "@/components/admin/AdminDeliverableUpload";
+import { uploadAdminReplacement } from "@/lib/admin-replacement-upload-client";
 import {
   ADMIN_DELIVERABLE_MAX_BYTES,
   ADMIN_DELIVERABLE_MAX_MB,
@@ -261,6 +262,15 @@ export default function AdminOrderImageCard({
     setUploadProgress("Requesting upload URL…");
 
     try {
+      if (replacementReview) {
+        const deliverable = await uploadAdminReplacement(replacementReview.id, file, setUploadProgress);
+        setDeliverables((prev) => [deliverable, ...prev.filter(row => row.id !== deliverable.id)]);
+        setReviewList((prev) => prev.map(review => review.id === replacementReview.id
+          ? { ...review, status: "rework_delivered", replacement_deliverable_id: deliverable.id }
+          : review));
+        setUploadSuccess(`"${file.name}" uploaded as replacement for Image ${imageNumber}.`);
+        return;
+      }
       // Step 1 — signed upload URL
       const urlRes = await fetch(
         `/api/admin/orders/${orderId}/deliverables/upload-url`,
@@ -321,36 +331,8 @@ export default function AdminOrderImageCard({
         deliverable: DeliverableRow;
       };
 
-      // Step 4 — link to rework review if this is a replacement
-      if (replacementReview) {
-        setUploadProgress("Linking replacement to rework request…");
-        const linkRes = await fetch(
-          `/api/admin/reviews/${replacementReview.id}/replacement`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            body: JSON.stringify({
-              replacementDeliverableId: deliverable.id,
-            }),
-          },
-        );
-        if (!linkRes.ok) {
-          const body = (await linkRes.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(
-            `File uploaded, but replacement could not be linked: ${body.error ?? "Link failed."}`,
-          );
-        }
-      }
-
       setDeliverables((prev) => [deliverable, ...prev]);
-      setUploadSuccess(
-        replacementReview
-          ? `"${file.name}" uploaded as replacement for Image ${imageNumber}.`
-          : `"${file.name}" uploaded for Image ${imageNumber}.`,
-      );
+      setUploadSuccess(`"${file.name}" uploaded for Image ${imageNumber}.`);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed.");
     } finally {

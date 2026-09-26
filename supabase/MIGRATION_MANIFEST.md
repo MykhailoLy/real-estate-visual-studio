@@ -1,5 +1,38 @@
 # PicchuSpot Supabase Migration Manifest
 
+## F8 atomic replacement deliverable commit — 2026-09-26
+
+**MANUAL rollout only; NOT applied by this task.**
+`migrations/20260926155032_f8_atomic_replacement_deliverable_commit.sql` adds only
+`public.commit_rework_replacement_upload(uuid, uuid, text, text, bigint, text)`
+and its EXECUTE grants. SECURITY INVOKER with `search_path = pg_catalog, public`;
+EXECUTE revoked from PUBLIC, anon and authenticated; granted to service_role.
+Existing service-role table privileges suffice. No tables, columns, indexes,
+RLS, table grants, Storage policies/buckets, backfills or existing functions change.
+
+The route first verifies the persisted private object and exact positive size.
+The function locks the review and uses the stable server-generated candidate UUID
+to insert the deliverable, attach it, mark `rework_delivered`, and enqueue the
+existing `admin_replacement_ready:<reviewId>` outbox event in one transaction.
+Same-candidate retries return the exact existing deliverable without re-enqueue;
+different candidates conflict without inserting a losing deliverable row.
+SQL failure rolls back registration, review update and enqueue together.
+The existing `attach_replacement_with_email` function and legacy PATCH remain
+available for stale browser bundles. Ordinary deliverable upload is unchanged.
+
+Safe rollout order: **PR reviewed + CI green → manually apply migration → verify
+function/grants and unchanged aggregates → register the migration ledger if manual
+SQL did not → merge app PR → Vercel READY → post-deploy read-only checks**.
+Migration-first is backwards-compatible: the old application does not call this
+new function. Do not replay historical initializers. The new path fails closed
+without the RPC. F9 scheduler/claim/completion functions are unchanged.
+
+Abandoned/losing uploads may leave unreachable Storage objects. F8 prevents
+orphan/duplicate registered replacement rows; it adds no cleanup scheduler or
+automatic deliverable deletion. Historical delivered reviews without a replacement
+are not repaired and no historical emails are backfilled.
+See [F8 implementation and verification](../docs/f8-admin-replacement-atomic-commit.md).
+
 ## F7 atomic rework attachment submission — 2026-09-26
 
 **MANUAL rollout only; NOT applied by this task.**

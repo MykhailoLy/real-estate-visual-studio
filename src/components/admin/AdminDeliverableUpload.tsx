@@ -21,6 +21,7 @@
 //   5. POST /api/admin/orders/[orderId]/deliverables
 //      → registers the row in order_deliverables with item_index.
 //   6. onDeliverableAdded() callback updates parent state.
+// Replacements use the shared prepare → PUT → atomic replacement commit flow.
 // ============================================================
 
 import { useRef, useState } from "react";
@@ -47,6 +48,7 @@ import {
   itemLabel as sharedItemLabel,
 } from "@/lib/display/file-format";
 import type { StaticImageViewerVariant } from "@/components/media/static-image-variant";
+import { uploadAdminReplacement } from "@/lib/admin-replacement-upload-client";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -174,6 +176,14 @@ export default function AdminDeliverableUpload({
     setProgress("Requesting upload URL…");
 
     try {
+      if (replacementReview) {
+        const deliverable = await uploadAdminReplacement(replacementReview.id, file, setProgress);
+        setDeliverables((prev) => [deliverable, ...prev.filter(row => row.id !== deliverable.id)]);
+        onDeliverableAdded?.(deliverable);
+        const targetLabel = deliverable.item_index === null ? "Order-level" : `Image ${Number(deliverable.item_index) + 1}`;
+        setSuccessMsg(`"${file.name}" uploaded as the replacement for ${targetLabel}.`);
+        return;
+      }
       // Step 1 — get signed upload URL
       const urlRes = await fetch(
         `/api/admin/orders/${orderId}/deliverables/upload-url`,
@@ -240,38 +250,12 @@ export default function AdminDeliverableUpload({
         deliverable: DeliverableRow;
       };
 
-      if (replacementReview) {
-        setProgress("Linking replacement to rework request...");
-        const linkRes = await fetch(
-          `/api/admin/reviews/${replacementReview.id}/replacement`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            body: JSON.stringify({ replacementDeliverableId: deliverable.id }),
-          },
-        );
-
-        if (!linkRes.ok) {
-          const body = (await linkRes.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(
-            `File uploaded, but replacement could not be linked: ${body.error ?? "Link failed."}`,
-          );
-        }
-      }
-
       setDeliverables((prev) => [deliverable, ...prev]);
       onDeliverableAdded?.(deliverable);
 
       const targetLabel =
         itemIndex === null ? "Order-level" : `Image ${itemIndex + 1}`;
-      setSuccessMsg(
-        replacementReview
-          ? `"${file.name}" uploaded as the replacement for ${targetLabel}.`
-          : `"${file.name}" uploaded as ${targetLabel}.`,
-      );
+      setSuccessMsg(`"${file.name}" uploaded as ${targetLabel}.`);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Upload failed.");
     } finally {
