@@ -1,6 +1,33 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import "./rework-submission.test.ts";
+import "../components/dashboard/deliverable-rework-submit.test.ts";
+import { REWORK_REFERENCES_MAX_FILES } from "./rework-references-config.ts";
+
+const F7_SQL = readFileSync("supabase/migrations/20260926134104_f7_atomic_rework_submission.sql", "utf8");
+
+test("F7 manual migration changes only the two required invoker functions and their grants", () => {
+  assert.match(F7_SQL, /MANUAL MIGRATION ONLY/);
+  assert.match(F7_SQL, /^BEGIN;/m); assert.match(F7_SQL, /^COMMIT;/m);
+  assert.equal((F7_SQL.match(/CREATE OR REPLACE FUNCTION/g) ?? []).length, 2);
+  assert.equal((F7_SQL.match(/LANGUAGE plpgsql SECURITY INVOKER/g) ?? []).length, 2);
+  assert.equal((F7_SQL.match(/SET search_path = pg_catalog, public/g) ?? []).length, 2);
+  assert.doesNotMatch(F7_SQL, /(?:CREATE|ALTER|DROP)\s+(?:TABLE|INDEX|POLICY|TRIGGER)|storage\.(?:objects|buckets)/i);
+  for (const signature of ["prepare_rework_reference_file_upload(uuid, uuid, text, text, bigint, text)", "finalize_rework_review_submission(uuid, integer)"]) {
+    assert.ok(F7_SQL.includes(`REVOKE ALL ON FUNCTION public.${signature} FROM PUBLIC, anon, authenticated;`));
+    assert.ok(F7_SQL.includes(`GRANT EXECUTE ON FUNCTION public.${signature} TO service_role;`));
+  }
+});
+
+test("F7 SQL limits match the application and both functions lock the same strict parent state", () => {
+  assert.ok(F7_SQL.includes(`>= ${REWORK_REFERENCES_MAX_FILES} THEN`));
+  assert.ok(F7_SQL.includes(`NOT BETWEEN 1 AND ${REWORK_REFERENCES_MAX_FILES} THEN`));
+  assert.equal((F7_SQL.match(/WHERE id = p_review_id FOR UPDATE/g) ?? []).length, 2);
+  assert.equal((F7_SQL.match(/v_review.status <> 'pending_review'/g) ?? []).length, 2);
+  assert.match(F7_SQL, /v_total <> p_expected_file_count OR v_uploaded <> p_expected_file_count OR v_pending <> 0/);
+  assert.match(F7_SQL, /deliverable_reviews_one_active_rework/);
+});
 
 const SQL = readFileSync(
   "supabase/20260909191236_add_deliverable_review_file_upload_status.sql",

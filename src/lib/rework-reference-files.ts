@@ -178,7 +178,8 @@ async function storageObjectExists(storagePath: string): Promise<
  *
  * Ownership checks:
  * • review must belong to `email`
- * • review.status must be "rework_requested"
+ * • strict pending_rework mode requires pending_review under the DB row lock
+ * • absent mode preserves rework_requested uploads from legacy browser bundles
  * • existing file count for this review must be < REWORK_REFERENCES_MAX_FILES
  *
  * Returns the signed URL and safe file metadata (no storage_path).
@@ -187,6 +188,7 @@ export async function createReworkReferenceUploadSlot(
   reviewId: string,
   ownership: OrderOwnership,
   meta: { filename: string; contentType: string; fileSize: number },
+  submissionMode?: "pending_rework",
 ): Promise<SlotOk | SlotFail> {
   const { filename, contentType, fileSize } = meta;
 
@@ -226,53 +228,56 @@ export async function createReworkReferenceUploadSlot(
       return { ok: false, error: "Review not found.", status: 404 };
     }
 
-    if (review.status !== "rework_requested") {
+    const strict = submissionMode === "pending_rework";
+    if (review.status !== (strict ? "pending_review" : "rework_requested")) {
       return {
         ok: false,
-        error: "Reference files can only be added to an active rework request.",
+        error: "This review is no longer accepting reference files.",
         status: 409,
       };
     }
 
     // ── File count guard ──────────────────────────────────
 
-    const { count, error: countErr } = await supabase
-      .from("deliverable_review_files")
-      .select("id", { count: "exact", head: true })
-      .eq("review_id", reviewId);
+    if (!strict) {
+      // Rollout compatibility only. New-flow slots always use the locked RPC.
+      const { count, error: countErr } = await supabase
+        .from("deliverable_review_files")
+        .select("id", { count: "exact", head: true })
+        .eq("review_id", reviewId);
 
-    if (countErr) {
-      console.error("[rework-reference-files] Count error:", countErr.message);
-      return {
-        ok: false,
-        error: "Could not check existing files.",
-        status: 500,
-      };
-    }
+      if (countErr) {
+        console.error("[rework-reference-files] File count lookup failed.");
+        return {
+          ok: false,
+          error: "Could not check existing files.",
+          status: 500,
+        };
+      }
 
-    if ((count ?? 0) >= REWORK_REFERENCES_MAX_FILES) {
-      return {
-        ok: false,
-        error: `Maximum of ${REWORK_REFERENCES_MAX_FILES} reference files per rework request.`,
-        status: 422,
-      };
+      if ((count ?? 0) >= REWORK_REFERENCES_MAX_FILES) {
+        return {
+          ok: false,
+          error: `Maximum of ${REWORK_REFERENCES_MAX_FILES} reference files per rework request.`,
+          status: 422,
+        };
+      }
     }
 
     // ── Build storage path (server-side, never from client input) ─
 
-    const storagePath = buildReworkReferencePath(reviewId, filename);
+    const fileId = crypto.randomUUID();
+    const storagePath = buildReworkReferencePath(reviewId, filename)
+      .replace(`rework/${reviewId}/`, `rework/${reviewId}/${fileId}-`);
 
     // ── Issue signed upload URL ───────────────────────────
 
     const { data: signed, error: signedErr } = await supabase.storage
       .from(ORDER_FILES_BUCKET)
-      .createSignedUploadUrl(storagePath);
+      .createSignedUploadUrl(storagePath, { upsert: false });
 
     if (signedErr || !signed) {
-      console.error(
-        "[rework-reference-files] Signed URL error:",
-        signedErr?.message,
-      );
+      console.error("[rework-reference-files] Signed upload URL creation failed.");
       return {
         ok: false,
         error: "Could not create signed upload URL.",
@@ -280,11 +285,32 @@ export async function createReworkReferenceUploadSlot(
       };
     }
 
-    // ── Insert DB row ─────────────────────────────────────
+    if (strict) {
+      // Sign first; never return that capability unless the locked reservation succeeds.
+      const { data, error } = await supabase.rpc("prepare_rework_reference_file_upload", {
+        p_review_id: reviewId, p_file_id: fileId, p_storage_path: storagePath,
+        p_filename: filename, p_file_size: fileSize, p_mime_type: contentType,
+      });
+      const result = Array.isArray(data) && data.length === 1 ? data[0] : null;
+      if (error || !result) return { ok: false, error: "Could not prepare reference file upload.", status: 500 };
+      if (result.result_code === "not_found") return { ok: false, error: "Review not found.", status: 404 };
+      if (result.result_code === "invalid_state") return { ok: false, error: "This review is no longer accepting reference files.", status: 409 };
+      if (result.result_code === "file_limit") return { ok: false, error: `Maximum of ${REWORK_REFERENCES_MAX_FILES} reference files per rework request.`, status: 422 };
+      if (result.result_code !== "prepared" || result.file_id !== fileId || typeof result.created_at !== "string") {
+        return { ok: false, error: "Could not prepare reference file upload.", status: 500 };
+      }
+      return { ok: true, signedUrl: signed.signedUrl, file: {
+        id: fileId, review_id: reviewId, filename, file_size: fileSize,
+        mime_type: contentType, created_at: result.created_at,
+      } };
+    }
+
+    // ── Legacy insert (no strict-mode fallback) ─────────────
 
     const { data: inserted, error: insertErr } = await supabase
       .from("deliverable_review_files")
       .insert({
+        id: fileId,
         review_id: reviewId,
         order_id: review.order_id,
         deliverable_id: review.deliverable_id,
@@ -321,8 +347,8 @@ export async function createReworkReferenceUploadSlot(
       signedUrl: signed.signedUrl,
       file: toPublicFile(row),
     };
-  } catch (err) {
-    console.error("[rework-reference-files] Unexpected:", err);
+  } catch {
+    console.error("[rework-reference-files] Reference upload preparation failed.");
     return { ok: false, error: "Unexpected server error.", status: 500 };
   }
 }

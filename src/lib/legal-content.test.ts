@@ -220,7 +220,7 @@ test("revision policy is copy-only and repeated review cycles remain available",
   );
   assert.match(
     clientReviewsSource,
-    /if \(\(ACTIVE_REWORK_STATUSES as string\[\]\)\.includes\(latest\)\)/,
+    /\.eq\("deliverable_id", deliverableId\)\.in\("status", ACTIVE_REWORK_STATUSES\)/,
   );
   assert.doesNotMatch(
     clientReviewsSource,

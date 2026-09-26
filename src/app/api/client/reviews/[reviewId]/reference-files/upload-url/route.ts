@@ -43,6 +43,7 @@ import {
 export const runtime = "nodejs";
 
 const Body = z.object({
+  submission_mode: z.literal("pending_rework").optional(),
   filename: z.string().min(1).max(255),
   content_type: z.string().min(1),
   file_size: z
@@ -89,13 +90,14 @@ export async function POST(
     );
   }
 
-  const { filename, content_type, file_size } = parsed.data;
+  const { filename, content_type, file_size, submission_mode } = parsed.data;
 
   // ── Delegate to helper ──────────────────────────────────────
   const result = await createReworkReferenceUploadSlot(
     reviewId,
     toOrderOwnership(user),
     { filename, contentType: content_type, fileSize: file_size },
+    submission_mode,
   );
 
   if (!result.ok) {

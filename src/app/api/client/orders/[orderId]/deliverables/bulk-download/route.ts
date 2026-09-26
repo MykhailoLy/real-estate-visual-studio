@@ -75,6 +75,7 @@ export async function POST(
           "id, deliverable_id, order_id, order_number, item_index, client_email, status, comment, created_at, updated_at, replacement_deliverable_id"
         )
         .eq("order_id", orderId)
+        .neq("status", "pending_review")
         .order("created_at", { ascending: false }),
     ]);
 
