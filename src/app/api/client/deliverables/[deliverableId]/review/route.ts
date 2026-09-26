@@ -4,6 +4,7 @@ import { getClientUser } from "@/lib/client-auth";
 import { submitDeliverableReview, REVIEW_COMMENT_MIN, REVIEW_COMMENT_MAX } from "@/lib/client-reviews";
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { sendReviewWorkflowEmail } from "@/lib/email/review-workflow-notifications";
+import { REWORK_REFERENCES_MAX_FILES } from "@/lib/rework-references-config";
 
 // ============================================================
 // POST /api/client/deliverables/[deliverableId]/review
@@ -21,6 +22,7 @@ const ReviewBody = z.discriminatedUnion("action", [
   z.object({ action: z.literal("approve") }),
   z.object({
     action: z.literal("rework_requested"),
+    reference_file_count: z.number().int().min(0).max(REWORK_REFERENCES_MAX_FILES).default(0),
     comment: z.string()
       .min(REVIEW_COMMENT_MIN, `Min ${REVIEW_COMMENT_MIN} characters.`)
       .max(REVIEW_COMMENT_MAX, `Max ${REVIEW_COMMENT_MAX} characters.`),
@@ -53,7 +55,8 @@ export async function POST(
     deliverableId,
     toOrderOwnership(user),
     body.action,
-    body.action === "rework_requested" ? body.comment : undefined
+    body.action === "rework_requested" ? body.comment : undefined,
+    body.action === "rework_requested" ? body.reference_file_count : 0,
   );
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });

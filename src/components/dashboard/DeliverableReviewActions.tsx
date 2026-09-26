@@ -116,7 +116,6 @@ export default function DeliverableReviewActions({
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<SelectedReferenceFile[]>([]);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [referenceFileCount, setReferenceFileCount] = useState<number | null>(null);
 
   const fileLabel = filename ? `"${filename}"` : "this file";
@@ -128,7 +127,6 @@ export default function DeliverableReviewActions({
 
   async function submitRework(text: string, files: SelectedReferenceFile[]) {
     setApiError(null);
-    setUploadWarning(null);
     setUploadStatus(null);
     setLoading("rework");
 
@@ -137,7 +135,7 @@ export default function DeliverableReviewActions({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ action: "rework_requested", comment: text }),
+        body: JSON.stringify({ action: "rework_requested", comment: text, reference_file_count: files.length }),
       });
       const data = (await res.json()) as ReviewResponse;
       if (!res.ok || !data.ok) {
@@ -147,37 +145,39 @@ export default function DeliverableReviewActions({
         throw new Error("Review response was incomplete.");
       }
 
-      let uploadedCount = 0;
-      let failedCount = 0;
+      let submittedReview = data.review;
 
       if (files.length > 0) {
-        if (!data.review.id) {
-          failedCount = files.length;
-        } else {
+        if (!data.review.id || data.review.status !== "pending_review") {
+          throw new Error("Could not prepare the rework request. Please refresh and try again.");
+        }
+        try {
           for (let index = 0; index < files.length; index++) {
             const selected = files[index];
             setUploadStatus(
               `Uploading ${index + 1} of ${files.length} reference files...`,
             );
-            try {
-              await uploadReferenceFile(data.review.id, selected.file);
-              uploadedCount++;
-            } catch (err) {
-              failedCount++;
-              console.warn("[DeliverableReviewActions] Reference upload failed:", err);
-            }
+            await uploadReferenceFile(data.review.id, selected.file);
           }
+        } catch {
+          throw new Error("Your reference files could not be uploaded. The rework request was not submitted. Please try again.");
         }
+        const finalizeRes = await fetch(`/api/client/reviews/${data.review.id}/finalize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ expected_file_count: files.length }),
+        });
+        const finalized = (await finalizeRes.json()) as ReviewResponse;
+        if (!finalizeRes.ok || !finalized.ok || finalized.review?.status !== "rework_requested") {
+          throw new Error(finalized.error ?? "Could not confirm the rework request. Please try again.");
+        }
+        submittedReview = finalized.review;
       }
 
-      setStatus(data.review.status);
-      setComment(data.review.comment ?? null);
-      setReferenceFileCount(uploadedCount > 0 ? uploadedCount : null);
-      if (failedCount > 0) {
-        setUploadWarning(
-          `Rework requested, but ${failedCount} reference file${failedCount !== 1 ? "s" : ""} failed to upload.`,
-        );
-      }
+      setStatus(submittedReview.status);
+      setComment(submittedReview.comment ?? null);
+      setReferenceFileCount(files.length > 0 ? files.length : null);
       setShowForm(false);
       setDraft("");
       setSelectedFiles([]);
@@ -278,7 +278,6 @@ export default function DeliverableReviewActions({
               setFormError(null);
               setDraft("");
               setApiError(null);
-              setUploadWarning(null);
             }}
             disabled={loading !== null}
             className={`inline-flex items-center justify-center gap-2 border text-dashboard-action font-bold transition-colors disabled:opacity-60 ${
@@ -427,12 +426,6 @@ export default function DeliverableReviewActions({
           {apiError}
         </p>
       )}
-      {uploadWarning && (
-        <p className="mt-0.5 flex max-w-[240px] items-start gap-1 text-dashboard-metadata text-amber-700">
-          <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" aria-hidden />
-          {uploadWarning}
-        </p>
-      )}
     </div>
   );
 }
@@ -490,6 +483,7 @@ async function uploadReferenceFile(reviewId: string, file: File): Promise<void> 
         filename: file.name,
         content_type: file.type,
         file_size: file.size,
+        submission_mode: "pending_rework",
       }),
     },
   );

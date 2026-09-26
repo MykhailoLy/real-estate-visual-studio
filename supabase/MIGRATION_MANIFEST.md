@@ -1,5 +1,35 @@
 # PicchuSpot Supabase Migration Manifest
 
+## F7 atomic rework attachment submission — 2026-09-26
+
+**MANUAL rollout only; NOT applied by this task.**
+`migrations/20260926134104_f7_atomic_rework_submission.sql` adds/replaces only:
+
+- `public.prepare_rework_reference_file_upload(uuid, uuid, text, text, bigint, text)`
+- `public.finalize_rework_review_submission(uuid, integer)`
+- Their EXECUTE grants: revoked from PUBLIC, anon and authenticated; granted to service_role.
+
+Both are SECURITY INVOKER with `search_path = pg_catalog, public`; existing
+service_role table rights are sufficient. Both lock the same review row FOR
+UPDATE and require `pending_review`. Slot preparation derives the parent fields,
+enforces the five-file limit under lock and explicitly inserts `pending` files.
+Finalization requires exactly 1–5 selected rows, all `uploaded`, before promotion
+to `rework_requested`. The existing active-rework partial unique index is unchanged.
+No tables, columns, indexes, RLS, Storage policies, buckets or existing data change.
+
+Rollout order: **review and manually apply the function migration → verify grants
+and isolated concurrency results → deploy the application through the normal process**.
+Do not replay historical initializers. Migration-first is compatible with old code.
+New browser upload requests use strict `submission_mode: pending_rework`; absent
+mode retains legacy active-review upload compatibility. Text-only rework is unchanged.
+Never fall back from strict mode if the RPC is unavailable or the state changed.
+
+Abandoned pending preparations are deleted conditionally before a retry; FK cascade
+removes their file metadata. Storage cleanup follows only for confirmed deletions
+and is best-effort. A late signed upload can leave an unreachable orphan object;
+it cannot recreate metadata or active rework. No scheduler cleanup is introduced.
+See [F7 implementation and verification](../docs/f7-rework-attachment-atomic-submit.md).
+
 ## F9 email-outbox retry scheduler — 2026-09-23
 
 Pending manual migration:

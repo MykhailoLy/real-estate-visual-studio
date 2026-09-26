@@ -269,7 +269,7 @@ export default async function AdminOrderDetailPage({
           }));
         }
 
-        // Reviews (sorted newest-first so [0] is latest per item)
+        // Visible reviews (internal attachment preparations are excluded).
         const { data: revData } = await supabase
           .from("deliverable_reviews")
           .select(
@@ -278,6 +278,7 @@ export default async function AdminOrderDetailPage({
               "order_deliverables!deliverable_reviews_deliverable_id_fkey(filename)",
           )
           .eq("order_id", orderId)
+          .neq("status", "pending_review")
           .order("created_at", { ascending: false });
 
         if (revData) {
@@ -314,6 +315,7 @@ export default async function AdminOrderDetailPage({
               "filename, file_size, mime_type, created_at",
           )
           .eq("order_id", orderId)
+          .in("review_id", reviews.map((review) => review.id))
           .eq("upload_status", "uploaded")
           .order("created_at", { ascending: true });
 
