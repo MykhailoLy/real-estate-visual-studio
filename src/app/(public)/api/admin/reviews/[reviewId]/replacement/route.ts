@@ -3,6 +3,9 @@ import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { sendReviewWorkflowEmail } from "@/lib/email/review-workflow-notifications";
 import { createServerClient } from "@/lib/supabase";
+import { AdminPaymentGateError, assertAdminFulfillmentPaymentAllowed } from "@/lib/payments/admin-status-gate";
+import type { PaymentStateOrder, PersistedOrderPayment } from "@/lib/payments/payment-state";
+import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 import {
   DELIVERABLES_BUCKET, ADMIN_DELIVERABLE_MAX_BYTES,
   ALLOWED_DELIVERABLE_MIME_TYPES, ALLOWED_DELIVERABLE_EXTENSIONS,
@@ -38,6 +41,35 @@ function isMimeAllowed(mime: string, filename: string): boolean {
 
 const LINKABLE_STATUSES = new Set(["rework_requested", "rework_in_progress"]);
 
+// Each preparation/commit reloads payment through the review's trusted order ID.
+async function checkReplacementPayment(
+  supabase: ReturnType<typeof createServerClient>,
+  orderId: string,
+): Promise<NextResponse | null> {
+  try {
+    const { data: order, error: orderError } = await supabase.from("orders")
+      .select("id, service_type, estimated_total_cents, currency, pricing_snapshot")
+      .eq("id", orderId).maybeSingle();
+    if (orderError) throw orderError;
+    if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    const { data: payment, error } = await supabase.from("order_payments")
+      .select("order_id, provider, payment_status, refund_status, refunded_amount_cents, subtotal_cents, tax_cents, total_cents, currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, paid_at")
+      .eq("order_id", orderId).maybeSingle();
+    if (error) throw error;
+    assertAdminFulfillmentPaymentAllowed(
+      order as unknown as PaymentStateOrder,
+      payment as unknown as PersistedOrderPayment | null,
+      { getExpectedStripeLivemode },
+    );
+    return null;
+  } catch (error) {
+    if (error instanceof AdminPaymentGateError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Could not verify payment before replacing a deliverable." }, { status: 500 });
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ reviewId: string }> },
@@ -60,6 +92,8 @@ export async function POST(
     if (!LINKABLE_STATUSES.has(review.status) || review.replacement_deliverable_id) {
       return NextResponse.json({ error: "This review is not available for replacement." }, { status: 409 });
     }
+    const paymentRejection = await checkReplacementPayment(supabase, review.order_id);
+    if (paymentRejection) return paymentRejection;
     const replacementDeliverableId = crypto.randomUUID();
     const path = buildReplacementDeliverablePath(review.order_number, review.id, replacementDeliverableId, parsed.data.filename);
     const { data: signed, error: signingError } = await supabase.storage.from(DELIVERABLES_BUCKET)
@@ -127,6 +161,16 @@ export async function PATCH(
     const candidate = parsed.data;
     if (!isMimeAllowed(candidate.mime_type, candidate.filename) || candidate.replacementDeliverableId === reviewRow.deliverable_id) {
       return NextResponse.json({ error: "Invalid replacement file metadata." }, { status: 400 });
+    }
+    // Reconciliation discovers an existing result; it must survive a later refund.
+    const reconcilesCommitted = reviewRow.status === "rework_delivered" &&
+      reviewRow.replacement_deliverable_id === candidate.replacementDeliverableId;
+    if (!reconcilesCommitted) {
+      if (!LINKABLE_STATUSES.has(reviewRow.status) || reviewRow.replacement_deliverable_id) {
+        return NextResponse.json({ error: "This replacement could not be committed. Refresh the order." }, { status: 409 });
+      }
+      const paymentRejection = await checkReplacementPayment(supabase, reviewRow.order_id);
+      if (paymentRejection) return paymentRejection;
     }
     const path = buildReplacementDeliverablePath(reviewRow.order_number, reviewRow.id, candidate.replacementDeliverableId, candidate.filename);
     try {
@@ -221,6 +265,9 @@ export async function PATCH(
       (deliverableRow.expires_at && new Date(deliverableRow.expires_at).getTime() <= Date.now())) {
     return NextResponse.json({ error: "A new, accessible replacement file is required." }, { status: 409 });
   }
+
+  const paymentRejection = await checkReplacementPayment(supabase, reviewRow.order_id);
+  if (paymentRejection) return paymentRejection;
 
   // A metadata row alone is not proof of a completed upload. Verify the
   // persisted private object before attaching it or firing the existing event.
