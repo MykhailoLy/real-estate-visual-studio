@@ -34,9 +34,132 @@ const { createCheckoutSession, checkoutInternals, CheckoutServiceError } =
   await import("./checkout-service.ts");
 const { handleCheckoutRequest } = await import("./checkout-request.ts");
 const { PRICING_VERSION } = await import("../pricing/catalog.ts");
-const { isNoPaymentRequiredOrder } = await import("./checkout-eligibility.ts");
+const { isNoPaymentRequiredOrder, getStoredCheckoutPrice } = await import("./checkout-eligibility.ts");
 const { calculateOrderQuote } = await import("../pricing/calculate.ts");
-const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
+const { createPricingSnapshot, parsePricingSnapshot } = await import("../pricing/snapshot.ts");
+
+function welcomeLightsOrder(
+  currency: "USD" | "EUR" | "CAD",
+  dedicatedSubService = "image-enhancement-single-exposure",
+  partnerClient = true,
+) {
+  const baseOptionId = dedicatedSubService === "day-to-dusk" ? "day-to-dusk-pe" : "image-enhancement-re";
+  const quote = calculateOrderQuote({ serviceType: "photo-editing", currency, items: [{
+    dedicatedSubService, baseOptionId, selectedOptions: [baseOptionId, "turn-on-lights-pe"],
+  }] }, { partnerClient, welcomeOfferAvailability: {
+    imageEnhancementAvailable: true, dayToDuskAvailable: true, virtualStagingAvailable: false,
+  } });
+  return validOrder({ service_type: "photo-editing", currency,
+    estimated_total_cents: quote.totalCents!, pricing_snapshot: createPricingSnapshot(quote),
+  });
+}
+
+test("F10: CAD 90 and undiscounted USD/EUR 50 use real Welcome quotes unchanged in Checkout", async () => {
+  for (const base of ["image-enhancement-single-exposure", "day-to-dusk"]) {
+    for (const [currency, partner, expected] of [["CAD", true, 90], ["USD", false, 50], ["EUR", false, 50]] as const) {
+      const repository = new FakeRepository();
+      repository.order = welcomeLightsOrder(currency, base, partner);
+      const original = structuredClone(repository.order);
+      assert.equal(repository.order.estimated_total_cents, expected);
+      assert.equal(parsePricingSnapshot(repository.order.pricing_snapshot)?.totalCents, expected);
+      assert.deepEqual(getStoredCheckoutPrice(repository.order), {
+        subtotalCents: expected, currency: currency.toLowerCase(),
+      });
+      const { stripe, calls } = fakeStripe();
+      await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].params.line_items?.[0]?.price_data?.unit_amount, expected);
+      assert.equal(repository.created[0]?.subtotalCents, expected);
+      assert.deepEqual(repository.order, original);
+    }
+  }
+});
+
+test("F10: ordinary Partner Image Enhancement and standard staging still reach Checkout unchanged", async () => {
+  for (const [currency, serviceType, expected] of [
+    ["USD", "photo-editing", 108], ["EUR", "photo-editing", 90], ["USD", "virtual-staging", 1900],
+  ] as const) {
+    const quote = calculateOrderQuote(serviceType === "photo-editing" ? {
+      serviceType, currency, items: [{
+        dedicatedSubService: "image-enhancement-single-exposure", baseOptionId: "image-enhancement-re",
+        selectedOptions: ["image-enhancement-re"],
+      }],
+    } : { serviceType, currency, items: [{ selectedAddons: [] }] }, {
+      partnerClient: serviceType === "photo-editing",
+    });
+    assert.equal(quote.totalCents, expected);
+    const repository = new FakeRepository();
+    repository.order = validOrder({ service_type: serviceType, currency,
+      estimated_total_cents: expected, pricing_snapshot: createPricingSnapshot(quote),
+    });
+    const { stripe, calls } = fakeStripe();
+    await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+    assert.equal(calls[0].params.line_items?.[0]?.price_data?.unit_amount, expected);
+  }
+});
+
+test("F10: direct Checkout request returns a safe 422 for a valid sub-minimum quote", async (t) => {
+  for (const currency of ["USD", "EUR"] as const) {
+    const repository = new FakeRepository();
+    repository.order = welcomeLightsOrder(currency);
+    const { stripe, calls } = fakeStripe();
+    const created = t.mock.method(repository, "createPayment");
+    const reserved = t.mock.method(repository, "reserveAttempt");
+    const failed = t.mock.method(repository, "markFailed");
+    const result = await handleCheckoutRequest({ orderId }, {
+      ...dependencies(repository, stripe), getAuthenticatedUser: async () => ({ id: userId }),
+    });
+    assert.deepEqual(result, { status: 422, body: {
+      error: "This discounted order is below the minimum amount supported by secure card payment. Our team will review the order.",
+    } });
+    assert.equal(created.mock.callCount(), 0);
+    assert.equal(reserved.mock.callCount(), 0);
+    assert.equal(failed.mock.callCount(), 0);
+    assert.equal(calls.length, 0);
+    assert.equal(repository.currentPayment, null);
+  }
+});
+
+for (const currency of ["USD", "EUR"] as const) {
+  for (const base of ["image-enhancement-single-exposure", "day-to-dusk"]) {
+    test(`F10: ${currency} Partner Welcome ${base} plus lights rejects before payment mutation`, async (t) => {
+      const repository = new FakeRepository();
+      repository.order = welcomeLightsOrder(currency, base);
+      const original = structuredClone(repository.order);
+      assert.equal(repository.order.estimated_total_cents, 45);
+      assert.equal(parsePricingSnapshot(repository.order.pricing_snapshot)?.totalCents, 45);
+      assert.equal(isNoPaymentRequiredOrder(repository.order), false);
+      const { stripe, calls } = fakeStripe();
+      const reserved = t.mock.method(repository, "reserveAttempt");
+      const opened = t.mock.method(repository, "markCheckoutOpen");
+      const failed = t.mock.method(repository, "markFailed");
+      let serviceError: unknown;
+      try {
+        await createCheckoutSession({ orderId, authenticatedUserId: userId }, dependencies(repository, stripe));
+      } catch (error) {
+        serviceError = error;
+      }
+      t.diagnostic(JSON.stringify({ quoted: 45, parsed: 45,
+        stripeAmount: calls[0]?.params.line_items?.[0]?.price_data?.unit_amount ?? null,
+        created: repository.created.length, reserved: reserved.mock.callCount(),
+        opened: opened.mock.callCount(), failed: failed.mock.callCount(),
+      }));
+      assert.throws(() => getStoredCheckoutPrice(repository.order!), {
+        name: "CheckoutEligibilityError", kind: "ineligible", code: "below-stripe-minimum",
+      });
+      assert.ok(serviceError instanceof CheckoutServiceError);
+      assert.equal(serviceError.status, 422);
+      assert.equal(serviceError.code, "eligibility-ineligible");
+      assert.equal(repository.created.length, 0);
+      assert.equal(repository.currentPayment, null);
+      assert.equal(reserved.mock.callCount(), 0);
+      assert.equal(opened.mock.callCount(), 0);
+      assert.equal(failed.mock.callCount(), 0);
+      assert.equal(calls.length, 0);
+      assert.deepEqual(repository.order, original);
+    });
+  }
+}
 
 test("Partner accounts retain the exact free Welcome payment exemption in v5", () => {
   for (const currency of ["USD", "EUR", "CAD"] as const) {

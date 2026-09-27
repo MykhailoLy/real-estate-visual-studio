@@ -61,12 +61,14 @@ export function assertAdminOrderStatusTransitionAllowed(
   dependencies: AdminPaymentGateDependencies,
 ): PersistedOrderPaymentState {
   let expectedStripeLivemode: boolean | null = null;
+  let belowStripeMinimum = false;
   const noPaymentRequired = isNoPaymentRequiredOrder(order);
   try {
     getStoredCheckoutPrice(order);
     expectedStripeLivemode = dependencies.getExpectedStripeLivemode();
   } catch (error) {
     if (!(error instanceof CheckoutEligibilityError)) throw error;
+    belowStripeMinimum = error.code === "below-stripe-minimum";
   }
 
   const paymentState = getPersistedOrderPaymentState(
@@ -98,6 +100,9 @@ export function assertAdminOrderStatusTransitionAllowed(
     advancesProduction &&
     paymentState === "manual_review" &&
     !noPaymentRequired &&
+    // Only fully validated sub-minimum quotes without payment history inherit
+    // manual fulfillment. Never use this exemption to bypass a payment record.
+    !(belowStripeMinimum && payment === null) &&
     isSupportedPricingVersion(rawSnapshot?.pricingVersion) &&
     rawSnapshot?.serviceType === order.service_type &&
     snapshot?.customQuote !== true &&

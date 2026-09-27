@@ -16,9 +16,68 @@ registerHooks({
 
 const {
   AdminPaymentGateError,
+  assertAdminFulfillmentPaymentAllowed,
   assertAdminOrderStatusTransitionAllowed,
 } = await import("./admin-status-gate.ts");
 const { PRICING_VERSION } = await import("../pricing/catalog.ts");
+const { calculateOrderQuote } = await import("../pricing/calculate.ts");
+const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
+
+function subMinimumOrder(currency: "USD" | "EUR") {
+  const snapshot = createPricingSnapshot(calculateOrderQuote({
+    serviceType: "photo-editing", currency, items: [{
+      dedicatedSubService: "image-enhancement-single-exposure", baseOptionId: "image-enhancement-re",
+      selectedOptions: ["image-enhancement-re", "turn-on-lights-pe"],
+    }],
+  }, { partnerClient: true, welcomeOfferAvailability: {
+    imageEnhancementAvailable: true, dayToDuskAvailable: false, virtualStagingAvailable: false,
+  } }));
+  assert.equal(snapshot.totalCents, 45);
+  return { ...order(), service_type: "photo-editing", currency,
+    estimated_total_cents: 45, pricing_snapshot: snapshot,
+  };
+}
+
+test("F10: verified sub-minimum quotes retain manual fulfillment without Stripe configuration", () => {
+  for (const currency of ["USD", "EUR"] as const) {
+    const current = subMinimumOrder(currency);
+    const original = structuredClone(current);
+    const dependencies = { getExpectedStripeLivemode: () => { throw new Error("must not need Stripe"); } };
+    for (const status of ["confirmed", "in-progress", "delivered"]) {
+      assert.equal(assertAdminOrderStatusTransitionAllowed(current, null, status, dependencies), "manual_review");
+    }
+    assert.equal(assertAdminFulfillmentPaymentAllowed(current, null, dependencies), "manual_review");
+    assert.deepEqual(current, original);
+  }
+});
+
+test("F10: small totals do not exempt malformed snapshots, mismatched stored totals or currency", () => {
+  const current = subMinimumOrder("USD");
+  for (const invalid of [
+    { ...current, estimated_total_cents: 44 },
+    { ...current, currency: "EUR" },
+    { ...current, pricing_snapshot: { ...current.pricing_snapshot, partnerDiscountCents: 0 } },
+    { ...current, pricing_snapshot: { ...current.pricing_snapshot, totalCents: 44 } },
+    { ...current, pricing_snapshot: { ...current.pricing_snapshot, items: [] } },
+  ]) {
+    assert.throws(() => assertAdminFulfillmentPaymentAllowed(invalid, null, {
+      getExpectedStripeLivemode: () => false,
+    }), AdminPaymentGateError);
+  }
+});
+
+test("F10: sub-minimum manual exemption cannot bypass existing payment history", () => {
+  for (const currentPayment of [
+    payment({ payment_status: "checkout_open" }),
+    paidPayment(false),
+    payment({ ...paidPayment(false), refund_status: "partial", refunded_amount_cents: 500 }),
+    payment({ ...paidPayment(false), refund_status: "full", refunded_amount_cents: 1500 }),
+  ]) {
+    assert.throws(() => assertAdminFulfillmentPaymentAllowed(subMinimumOrder("USD"), currentPayment as never, {
+      getExpectedStripeLivemode: () => false,
+    }), AdminPaymentGateError);
+  }
+});
 
 const orderId = "11111111-1111-4111-8111-111111111111";
 

@@ -20,8 +20,35 @@ registerHooks({
 const { getAuthoritativePaymentSummary } = await import("./payment-summary.ts");
 const { calculateOrderQuote } = await import("../pricing/calculate.ts");
 const { createPricingSnapshot } = await import("../pricing/snapshot.ts");
+const { getPersistedOrderPaymentState } = await import("./payment-state.ts");
 const orderId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
+
+test("F10: valid sub-minimum quote has manual operational state and no customer Checkout or Paid claim", async () => {
+  for (const currency of ["USD", "EUR"] as const) {
+    const snapshot = createPricingSnapshot(calculateOrderQuote({
+      serviceType: "photo-editing", currency, items: [{
+        dedicatedSubService: "image-enhancement-single-exposure", baseOptionId: "image-enhancement-re",
+        selectedOptions: ["image-enhancement-re", "turn-on-lights-pe"],
+      }],
+    }, { partnerClient: true, welcomeOfferAvailability: {
+      imageEnhancementAvailable: true, dayToDuskAvailable: false, virtualStagingAvailable: false,
+    } }));
+    assert.equal(snapshot.totalCents, 45);
+    const current = order({ service_type: "photo-editing", currency,
+      estimated_total_cents: 45, pricing_snapshot: snapshot,
+    });
+    const original = structuredClone(current);
+    assert.equal(getPersistedOrderPaymentState(current, null, false), "manual_review");
+    const summary = await getAuthoritativePaymentSummary(orderId, userId, {
+      repository: repository(current, null) as never, expectedStripeLivemode: false,
+    });
+    assert.deepEqual(summary, { orderId, orderNumber: "VS-0042", serviceLabel: "Photo Editing",
+      itemCount: 1, finalTotalCents: null, currency: null, paymentStatus: null, state: "not_available",
+    });
+    assert.deepEqual(current, original);
+  }
+});
 
 function order(overrides: Record<string, unknown> = {}) {
   return {
