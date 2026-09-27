@@ -16,6 +16,15 @@ const SUPPORTED_CHECKOUT_SERVICES = new Set([
   "photo-editing",
 ]);
 
+// Card minimums in minor units: https://docs.stripe.com/currencies#minimum-and-maximum-charge-amounts
+// This local presentment guard does not cover settlement-currency conversion;
+// Stripe remains authoritative for additional provider constraints.
+const STRIPE_CARD_MINIMUM_CENTS: Record<StripeCheckoutCurrency, number> = {
+  usd: 50,
+  eur: 50,
+  cad: 50,
+};
+
 // Frozen evidence for Welcome Offer version 2026-08-29, used by both v2 and
 // v3/v4 snapshots. Keep the free-order exemption independent of future catalogue
 // prices while retaining its exact-price check. These are not charge prices.
@@ -49,14 +58,17 @@ export interface CheckoutEligibleOrder extends StoredCheckoutPriceOrder {
 
 export class CheckoutEligibilityError extends Error {
   readonly kind: "conflict" | "ineligible";
+  readonly code?: "below-stripe-minimum";
 
   constructor(
     kind: "conflict" | "ineligible",
     message: string,
+    code?: "below-stripe-minimum",
   ) {
     super(message);
     this.name = "CheckoutEligibilityError";
     this.kind = kind;
+    this.code = code;
   }
 }
 
@@ -206,6 +218,14 @@ export function getStoredCheckoutPrice(
     throw new CheckoutEligibilityError(
       "conflict",
       "The stored order total cannot be verified.",
+    );
+  }
+
+  if (totalCents < STRIPE_CARD_MINIMUM_CENTS[stripeCurrency]) {
+    throw new CheckoutEligibilityError(
+      "ineligible",
+      "This discounted order is below the minimum amount supported by secure card payment. Our team will review the order.",
+      "below-stripe-minimum",
     );
   }
 
