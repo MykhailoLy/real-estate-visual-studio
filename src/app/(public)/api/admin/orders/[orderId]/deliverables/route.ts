@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServerClient } from "@/lib/supabase";
+import { AdminPaymentGateError, assertAdminFulfillmentPaymentAllowed } from "@/lib/payments/admin-status-gate";
+import type { PaymentStateOrder, PersistedOrderPayment } from "@/lib/payments/payment-state";
+import { getExpectedStripeLivemode } from "@/lib/payments/stripe-server";
 import {
   DELIVERABLES_BUCKET,
   ADMIN_DELIVERABLE_MAX_BYTES,
@@ -99,7 +102,7 @@ export async function POST(
   // Fetch order to validate orderId + get order_number + item_count
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id, order_number, item_count")
+    .select("id, order_number, item_count, service_type, estimated_total_cents, currency, pricing_snapshot")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -140,6 +143,24 @@ export async function POST(
       { error: "Storage path does not match the order number." },
       { status: 400 }
     );
+  }
+
+  // A previously issued upload URL is not payment authorization at registration.
+  try {
+    const { data: payment, error } = await supabase.from("order_payments")
+      .select("order_id, provider, payment_status, refund_status, refunded_amount_cents, subtotal_cents, tax_cents, total_cents, currency, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, paid_at")
+      .eq("order_id", orderId).maybeSingle();
+    if (error) throw error;
+    assertAdminFulfillmentPaymentAllowed(
+      order as unknown as PaymentStateOrder,
+      payment as unknown as PersistedOrderPayment | null,
+      { getExpectedStripeLivemode },
+    );
+  } catch (error) {
+    if (error instanceof AdminPaymentGateError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Could not verify payment before registering a deliverable." }, { status: 500 });
   }
 
   const { data: row, error: insertErr } = await supabase

@@ -40,6 +40,15 @@ export class AdminPaymentGateError extends Error {
   }
 }
 
+/** New deliverables use exactly the existing production payment eligibility. */
+export function assertAdminFulfillmentPaymentAllowed(
+  order: PaymentStateOrder,
+  payment: PersistedOrderPayment | null,
+  dependencies: AdminPaymentGateDependencies,
+): PersistedOrderPaymentState {
+  return assertAdminOrderStatusTransitionAllowed(order, payment, "in-progress", dependencies);
+}
+
 /**
  * Server-side fulfillment gate. Only fixed-price Checkout orders are gated;
  * custom-quote and otherwise ineligible orders retain the manual workflow and
