@@ -20,7 +20,8 @@ jobs:
   quality-checks:
     name: Lint and CI Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Preserve the combined time budget of the two former jobs.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -43,3 +44,37 @@ jobs:
 
       - name: Run CI tests
         run: npm run test:ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps --no-shell chromium
+
+      - name: Run E2E smoke tests
+        id: smoke
+        run: npm run e2e:smoke
+
+      - name: Verify cross-root login with the existing isolated Auth fixture
+        id: auth
+        if: ${{ !cancelled() && (steps.smoke.outcome == 'success' || steps.smoke.outcome == 'failure') }}
+        run: npm run e2e:partner-invites -- --grep "Spanish login crosses"
+
+      - name: Upload Playwright failure artifacts
+        if: ${{ failure() && (steps.smoke.outcome == 'failure' || steps.auth.outcome == 'failure') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-failure-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload SEO audit reports
+        if: ${{ always() && steps.smoke.outcome != 'skipped' && steps.smoke.outcome != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: seo-audit-reports
+          path: |
+            test-results/**/seo-audit.json
+            test-results/**/seo-audit.md
+          if-no-files-found: warn
+          retention-days: 7
