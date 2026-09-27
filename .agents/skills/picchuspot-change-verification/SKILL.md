@@ -15,6 +15,8 @@ Validation must match the change's blast radius.
 
 Do not run everything as ceremony, and do not claim completion from one narrow test when shared or critical behavior changed.
 
+No cross-cutting check is mandatory merely because it exists. Lint, typecheck, build, Playwright, and `test:ci` are independent decisions. For every check beyond the focused test, be able to name the concrete failure mode it can catch for this change. If there is no credible failure mode, omit the check.
+
 ## Workflow
 
 ### 1. Inspect the actual diff
@@ -41,17 +43,29 @@ Start with the most specific existing test(s) that exercise the changed behavior
 
 Do not add a test that only repeats implementation details to satisfy process.
 
-### 3. Add cross-cutting checks when justified
+For a tiny presentation-only change, the minimum may be only:
 
-Run typecheck/lint/build based on impact:
+- inspect the diff;
+- run the most relevant focused presentation test;
+- perform targeted rendered UI QA around the changed breakpoint or state.
 
-- TypeScript/interface/server-client changes: relevant typecheck.
-- Lint-sensitive React/Next.js changes: lint when useful.
-- Routing, rendering, server/client boundary, config, metadata, or production-output changes: production build.
+Do not automatically add lint or build to that minimum.
+
+### 3. Add cross-cutting checks only when justified
+
+Treat these as separate choices:
+
+- TypeScript/interface/server-client changes: relevant typecheck when type or boundary regressions are plausible.
+- Lint-sensitive React/Next.js changes: lint when the changed code can trigger meaningful lint rules.
+- Routing, rendering architecture, server/client boundaries, configuration, metadata, or production-output behavior: production build when compilation/output regressions are plausible.
 - User-flow changes: relevant Playwright smoke when practical.
 - Shared/critical-system changes: broader regression suite and, when justified, `test:ci`.
 
+Do not infer that `lint + build` are an obligatory pair.
+
 Do not use `test:ci` by default for a tiny isolated presentation change.
+
+Before adding any broader check, state its one-sentence justification. If that justification is only “because the project has this command” or “for completeness,” do not run it.
 
 ### 4. Handle failures correctly
 
@@ -61,6 +75,8 @@ If a check fails:
 - determine whether it is a regression, stale test, environment/tooling issue, or pre-existing failure;
 - use `picchuspot-debugging` if root cause is not obvious;
 - do not weaken unrelated checks to turn CI green.
+
+A source-string assertion that conflicts with intentional current behavior may be stale. Diagnose it before changing correct production UI.
 
 ### 5. Completion gate
 
@@ -77,7 +93,7 @@ Before reporting completion, verify:
 Keep it concise:
 
 - focused checks: command → result;
-- broader checks: command → result;
+- broader checks: command → result + why that check was relevant;
 - not run: check → reason;
 - pre-existing/stale/environment failures: clearly separated;
 - final diff scope;
