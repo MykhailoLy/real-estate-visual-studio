@@ -81,6 +81,8 @@ Distinguish:
 
 Do not treat a cosmetic audit warning as a commercial priority.
 
+Do not collapse a buyer-confidence, compliance, or accuracy gap into an organic-search opportunity unless search evidence supports that connection.
+
 ### 4. Analyze intent and cannibalization
 
 For overlapping pages:
@@ -92,9 +94,18 @@ For overlapping pages:
 
 Keyword overlap alone is not proof of cannibalization.
 
-### 5. Find the highest-value gap
+### 5. Find the highest-value defensible gap
 
-Unless the user asks for a comprehensive backlog, recommend one primary P1 gap.
+Unless the user asks for a comprehensive backlog, return one primary recommendation.
+
+Label it P1 only when the available evidence supports a material current commercial/search problem or opportunity. Sparse or near-zero traffic data does not prove a ranking, CTR, demand, or cannibalization problem.
+
+If evidence is too weak for a defensible P1:
+
+- explicitly say that no evidence-backed P1 was established;
+- identify the strongest lower-confidence candidate;
+- classify what it actually is, such as buyer-confidence gap, accuracy/compliance risk, technical hypothesis, or content opportunity;
+- do not upgrade it to P1 merely because the user asked for one.
 
 Evaluate:
 
@@ -150,5 +161,7 @@ Separate:
 - recommendation.
 
 Use confidence labels only when uncertainty is material.
+
+When observed data is sparse, make the evidence limit part of the conclusion rather than burying it in caveats.
 
 Do not invent traffic, rankings, conversion lift, prices, reviews, turnaround, service availability, or causality.
