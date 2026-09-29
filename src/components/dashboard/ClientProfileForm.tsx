@@ -13,7 +13,7 @@
 // service role key / user_id are never exposed to the client.
 // ============================================================
 
-import Link from "next/link";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -380,13 +380,12 @@ export default function ClientProfileForm({
       {/* ── Save / skip actions ── */}
       <div className="flex flex-col-reverse items-stretch justify-end gap-3 rounded-xl border border-border bg-surface px-5 py-4 sm:flex-row sm:items-center">
         {isOnboarding && (
-          <Link
+          <ClientPortalLink
             href="/dashboard"
-            prefetch={false}
             className="inline-flex min-h-11 items-center justify-center px-4 py-2.5 text-dashboard-action font-bold text-primary transition-colors hover:text-primary-light"
           >
             {nextPath ? "Back to dashboard" : "Skip for now"}
-          </Link>
+          </ClientPortalLink>
         )}
         <button
           type="submit"
