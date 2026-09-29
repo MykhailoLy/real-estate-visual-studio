@@ -5,7 +5,7 @@
 //
 // Handles both:
 //   - Onboarding mode  (?onboarding=1): "Complete your profile" heading,
-//     "Save and continue to dashboard" button, redirects to /dashboard on save.
+//     save-and-continue action plus a non-blocking way back to the dashboard.
 //   - Edit mode (default): "Profile" heading, stays on page, shows success msg.
 //
 // Uses the browser Supabase client to POST to the /api/profile/upsert
@@ -13,6 +13,7 @@
 // service role key / user_id are never exposed to the client.
 // ============================================================
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -179,9 +180,9 @@ export default function ClientProfileForm({
       {isOnboarding && (
         <div className="mb-6 p-4 bg-primary/5 border border-primary/15 rounded-xl">
           <p className="text-dashboard-body text-foreground/80">
-            This helps us personalise your orders, send delivery notifications to
-            the right contact, and keep your project communication organised.
-            You can update these details any time from your profile.
+            Your profile is optional while you browse the client portal. To place
+            an order, we only require your name and phone number. The remaining
+            details can be added later.
           </p>
         </div>
       )}
@@ -376,17 +377,26 @@ export default function ClientProfileForm({
         </div>
       )}
 
-      {/* ── Save button ── */}
-      <div className="flex items-center justify-end gap-3 px-5 py-4 bg-surface border border-border rounded-xl">
+      {/* ── Save / skip actions ── */}
+      <div className="flex flex-col-reverse items-stretch justify-end gap-3 rounded-xl border border-border bg-surface px-5 py-4 sm:flex-row sm:items-center">
+        {isOnboarding && (
+          <Link
+            href="/dashboard"
+            prefetch={false}
+            className="inline-flex min-h-11 items-center justify-center px-4 py-2.5 text-dashboard-action font-bold text-primary transition-colors hover:text-primary-light"
+          >
+            {nextPath ? "Back to dashboard" : "Skip for now"}
+          </Link>
+        )}
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-dashboard-action font-bold hover:bg-primary-light transition-colors disabled:opacity-60 shadow-sm"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-dashboard-action font-bold text-white shadow-sm transition-colors hover:bg-primary-light disabled:opacity-60"
         >
           {loading ? (
             <><Loader2 className="w-4 h-4 animate-spin" aria-hidden />Saving…</>
           ) : isOnboarding ? (
-            "Save and continue to dashboard"
+            nextPath ? "Save and continue to order" : "Save and continue to dashboard"
           ) : (
             "Save changes"
           )}

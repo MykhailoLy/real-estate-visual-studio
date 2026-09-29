@@ -87,29 +87,53 @@ test("resolved order identity uses the verified email and normalized profile fie
   assert.equal(resolveClientIdentity("", profile()), null);
 });
 
-test("onboarding, profile saves, and order entry share the profile-completeness contract", () => {
+test("profile completion is optional for portal browsing but remains required at the order boundary", () => {
   const layoutSource = source("app/(default)/(dashboard)/layout.tsx");
   const dashboardSource = source("app/(default)/(dashboard)/dashboard/page.tsx");
+  const newOrderLayoutSource = source(
+    "app/(default)/(dashboard)/dashboard/orders/new/layout.tsx",
+  );
+  const orderAccessSource = source("lib/order-access.ts");
   const profilePageSource = source("app/(default)/(dashboard)/dashboard/profile/page.tsx");
+  const profileFormSource = source("components/dashboard/ClientProfileForm.tsx");
   const callbackSource = source("app/auth/callback/route.ts");
   const profileApiSource = source("app/api/profile/upsert/route.ts");
   const orderApiSource = source("app/(public)/api/order/route.ts");
 
-  assert.match(layoutSource, /!isProfileComplete\(profile\)/);
-  assert.match(layoutSource, /destinationPathname !== "\/dashboard\/profile"/);
-  assert.match(layoutSource, /params\.set\("next", destination\)/);
+  // Incomplete profiles must not trap clients at the portal boundary or the
+  // dashboard home.
+  assert.doesNotMatch(layoutSource, /isProfileComplete/);
+  assert.doesNotMatch(dashboardSource, /isProfileComplete/);
 
-  assert.match(dashboardSource, /!isProfileComplete\(profile\)/);
-  assert.doesNotMatch(dashboardSource, /profile === null/);
+  // Concrete order routes render a stable contact-details gate instead of
+  // throwing a redirect during client navigation. The service hub remains
+  // browseable without profile completion.
+  assert.match(newOrderLayoutSource, /!isProfileComplete\(profile\)/);
+  assert.match(
+    newOrderLayoutSource,
+    /destinationPathname !== "\/dashboard\/orders\/new"/,
+  );
+  assert.match(newOrderLayoutSource, /Add contact details to place this order/);
+  assert.match(newOrderLayoutSource, /Complete profile/);
+  assert.match(newOrderLayoutSource, /Back to dashboard/);
 
+  // Individual order pages only require authenticated session identity; the
+  // shared layout owns the pre-form UX gate.
+  assert.doesNotMatch(orderAccessSource, /isProfileComplete/);
+  assert.doesNotMatch(orderAccessSource, /dashboard\/profile/);
+
+  // The profile screen remains available, onboarding can be dismissed, and
+  // authenticated callback flows may still suggest onboarding once.
   assert.match(profilePageSource, /!isProfileComplete\(profile\)/);
-
+  assert.match(profileFormSource, /Skip for now/);
+  assert.match(profileFormSource, /Save and continue to order/);
   assert.match(
     callbackSource,
     /\.select\("first_name, last_name, full_name, phone"\)/,
   );
   assert.match(callbackSource, /!isProfileComplete\(profile\)/);
 
+  // Saving an order-capable profile and creating an order remain fail-closed.
   assert.match(profileApiSource, /getMissingProfileCompletionFields\(candidate\)/);
   assert.match(profileApiSource, /code: "profile-incomplete"/);
   assert.match(profileApiSource, /status: 422/);

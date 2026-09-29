@@ -10,7 +10,6 @@
 // params, query strings, cookies, or any client input.
 // ============================================================
 
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
@@ -29,7 +28,6 @@ import { getReviewsForClient } from "@/lib/client-reviews";
 import { toOrderOwnership } from "@/lib/order-ownership";
 import { getOrderCardImages } from "@/lib/order-card-media";
 import { getOrderServiceExamples } from "@/lib/order-card-examples";
-import { isProfileComplete } from "@/lib/profile-completion";
 import {
   CLIENT_PORTAL_QA_COMPLETED_JOBS,
 } from "@/lib/client-portal-qa-fixtures";
@@ -64,11 +62,8 @@ export default async function DashboardPage() {
     getDashboardRequestProfile(),
   ]);
 
-  // Keep this page-local guard aligned with the route-group boundary and the
-  // order API. QA uses a fixed complete in-memory profile.
-  if (user && !user.isQaPreview && !isProfileComplete(profile)) {
-    redirect("/dashboard/profile?onboarding=1");
-  }
+  // Incomplete profiles are allowed in the portal. The order flow keeps the
+  // minimum name + phone requirement at its own boundary.
 
   // Fetch real orders only for a verified session. QA renders use fixed,
   // in-memory fixtures and never enter ownership-backed service-role reads.
