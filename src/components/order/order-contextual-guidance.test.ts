@@ -245,13 +245,13 @@ test("all configure pages opt into the existing wide dashboard workspace", () =>
     "src/components/dashboard/client-portal-workspace.ts",
   );
   const pages = [
-    "src/app/(default)/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/item-removal-virtual-cleaning/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/photo-editing/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/3d-floor-plans/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/virtual-staging/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/virtual-renovation/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/day-to-dusk/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/image-enhancement/single-exposure/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/item-removal-virtual-cleaning/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/photo-editing/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/3d-floor-plans/page.tsx",
   ];
 
   assert.match(workspace, /max-w-\[1800px\]/);

@@ -1,25 +1,21 @@
 // ============================================================
 // ORDER ACCESS GATE — server-side guard for dashboard order pages
 //
-// Centralises the "can this client open an order form?" decision so
-// all four service pages behave identically:
-//   1. Must have a verified Supabase session (the /dashboard proxy
-//      already enforces this; we re-check for defence-in-depth and to
-//      read the email).
-//   2. Must have a complete client_profiles row (name + phone). If
-//      not, we send them to profile onboarding, preserving the
-//      intended order route in `next` so they return here afterwards.
+// Centralises the authenticated client lookup used by order pages.
+// The /dashboard proxy already enforces the session; we re-check it for
+// defence-in-depth and to read the verified email.
+//
+// Profile completeness is deliberately NOT redirected from this helper.
+// The shared new-order layout renders a stable contact-details gate for
+// incomplete profiles, while /api/order remains the final fail-closed
+// identity boundary.
 //
 // Server-only.
 // ============================================================
 
 import "server-only";
 import { redirect } from "next/navigation";
-import {
-  getDashboardRequestProfile,
-  getDashboardRequestUser,
-} from "@/lib/dashboard-request-context";
-import { isProfileComplete } from "@/lib/profile-completion";
+import { getDashboardRequestUser } from "@/lib/dashboard-request-context";
 
 export interface OrderingClient {
   /** Verified session ID used only by trusted server-side eligibility reads. */
@@ -29,9 +25,11 @@ export interface OrderingClient {
 }
 
 /**
- * Ensure the current request is from an authenticated client with a
- * complete profile. Redirects (throws) otherwise. Returns the verified
- * email on success.
+ * Ensure the current request is from an authenticated client. Redirects
+ * to login otherwise and returns verified session identity on success.
+ *
+ * Profile completeness is handled by the shared new-order layout and is
+ * revalidated by the order API before an order can be created.
  */
 export async function requireOrderingClient(
   orderRoute: string,
@@ -39,13 +37,6 @@ export async function requireOrderingClient(
   const user = await getDashboardRequestUser();
   if (!user) {
     redirect(`/login?redirectTo=${encodeURIComponent(orderRoute)}`);
-  }
-
-  const profile = await getDashboardRequestProfile();
-  if (!isProfileComplete(profile)) {
-    redirect(
-      `/dashboard/profile?onboarding=1&next=${encodeURIComponent(orderRoute)}`,
-    );
   }
 
   return { email: user.email, userId: user.id };

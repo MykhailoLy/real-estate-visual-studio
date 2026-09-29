@@ -61,7 +61,7 @@ const SQL_VIRTUAL_RENOVATION_COMPATIBILITY = readFileSync(
   "utf8",
 );
 const VIRTUAL_RENOVATION_PAGE = readFileSync(
-  "src/app/(default)/(dashboard)/dashboard/orders/new/virtual-renovation/page.tsx",
+  "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/virtual-renovation/page.tsx",
   "utf8",
 );
 const ORDER_ROUTE = readFileSync("src/app/(public)/api/order/route.ts", "utf8");
