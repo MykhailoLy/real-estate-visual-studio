@@ -171,12 +171,16 @@ test("standard invite fragment establishes real SDK cookies, sets password and c
     await expect(recipient.getByRole("heading", { name: "Complete your client profile" })).toBeVisible();
     await recipient.getByLabel("First name", { exact: true }).fill("Future");
     await recipient.getByLabel("Last name", { exact: true }).fill("Client");
-    await recipient.locator("#profile-phone").fill("+34 600 000 000");
-    await recipient.getByRole("button", { name: "Save and continue to dashboard" }).click();
+    await expect(recipient.getByLabel("Phone — Optional", { exact: true })).toHaveValue("");
+    // The current profile form labels a save with a return path differently
+    // from a save to the default dashboard. Verify the invitation journey.
+    await recipient.getByRole("button", { name: /^Save and continue/ }).click();
     await expect(recipient.getByRole("heading", { name: "Profile", exact: true })).toBeVisible();
     const completed = await state(request);
     expect(completed.passwordSet).toBe(true);
     expect(completed.profile.user_id).toBe(invited.userId);
+    expect(completed.profile.phone).toBeNull();
+    expect(completed.profile.company_name).toBeNull();
     expect(completed.pricing[0].partner_client).toBe(true);
     const response = await client.request.get("http://127.0.0.1:3200/auth/callback?type=invite&next=%2Fdashboard%2Fjobs", { maxRedirects: 0 });
     expect(response.headers().location).toBe("http://127.0.0.1:3200/dashboard/jobs");

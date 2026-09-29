@@ -8,7 +8,7 @@
 //     save-and-continue action plus a non-blocking way back to the dashboard.
 //   - Edit mode (default): "Profile" heading, stays on page, shows success msg.
 //
-// Uses the browser Supabase client to POST to the /api/profile/upsert
+// Uses fetch to POST to the /api/profile/upsert
 // route handler, which calls upsertClientProfile() server-side so the
 // service role key / user_id are never exposed to the client.
 // ============================================================
@@ -103,8 +103,9 @@ export default function ClientProfileForm({
   // Pre-fill from profile row first, then fall back to auth metadata
   const authSplit = authFullName ? splitFullName(authFullName) : null;
 
-  const [firstName,   setFirstName]   = useState(initialProfile?.first_name   ?? authSplit?.first  ?? "");
-  const [lastName,    setLastName]    = useState(initialProfile?.last_name    ?? authSplit?.last   ?? "");
+  const profileSplit = initialProfile?.full_name ? splitFullName(initialProfile.full_name) : null;
+  const [firstName,   setFirstName]   = useState(initialProfile?.first_name   ?? profileSplit?.first ?? authSplit?.first ?? "");
+  const [lastName,    setLastName]    = useState(initialProfile?.last_name    ?? profileSplit?.last ?? authSplit?.last ?? "");
   const [companyName, setCompanyName] = useState(initialProfile?.company_name ?? "");
   const [phone,       setPhone]       = useState(initialProfile?.phone        ?? "");
   const [country,     setCountry]     = useState(initialProfile?.country      ?? "");
@@ -181,8 +182,8 @@ export default function ClientProfileForm({
         <div className="mb-6 p-4 bg-primary/5 border border-primary/15 rounded-xl">
           <p className="text-dashboard-body text-foreground/80">
             Your profile is optional while you browse the client portal. To place
-            an order, we only require your name and phone number. The remaining
-            details can be added later.
+            an order, we only require your name. Phone, company, and all other
+            details are optional and can be added later.
           </p>
         </div>
       )}
@@ -235,10 +236,10 @@ export default function ClientProfileForm({
               disabled
               value={authEmail}
               className={`${inputClass} bg-surface cursor-default`}
-              title="Email address cannot be changed here"
+              title="Manage your email in Account & Security below"
             />
             <p className="mt-1 text-dashboard-metadata text-muted-light">
-              To change your email address, contact support.
+              Manage your email address in Account &amp; Security below.
             </p>
           </div>
 
@@ -246,7 +247,7 @@ export default function ClientProfileForm({
           <div>
             <label htmlFor="profile-phone" className={labelClass}>
               <span className="inline-flex items-center gap-1">
-                <Phone className="w-3 h-3" aria-hidden /> Phone
+                <Phone className="w-3 h-3" aria-hidden /> Phone — Optional
               </span>
             </label>
             <input
@@ -265,7 +266,7 @@ export default function ClientProfileForm({
           <div>
             <label htmlFor="profile-country" className={labelClass}>
               <span className="inline-flex items-center gap-1">
-                <MapPin className="w-3 h-3" aria-hidden /> Country
+                <MapPin className="w-3 h-3" aria-hidden /> Country — Optional
               </span>
             </label>
             <select
@@ -296,7 +297,7 @@ export default function ClientProfileForm({
           <div className="sm:col-span-2">
             <label htmlFor="profile-company" className={labelClass}>
               <span className="inline-flex items-center gap-1">
-                <Building2 className="w-3 h-3" aria-hidden /> Company name
+                <Building2 className="w-3 h-3" aria-hidden /> Company name — Optional
               </span>
             </label>
             <input
@@ -315,7 +316,7 @@ export default function ClientProfileForm({
           <div className="sm:col-span-2">
             <label htmlFor="profile-industry" className={labelClass}>
               <span className="inline-flex items-center gap-1">
-                <Briefcase className="w-3 h-3" aria-hidden /> Industry
+                <Briefcase className="w-3 h-3" aria-hidden /> Industry — Optional
               </span>
             </label>
             <select

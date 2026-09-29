@@ -63,7 +63,7 @@ export default async function DashboardPage() {
   ]);
 
   // Incomplete profiles are allowed in the portal. The order flow keeps the
-  // minimum name + phone requirement at its own boundary.
+  // minimum name requirement at its own boundary.
 
   // Fetch real orders only for a verified session. QA renders use fixed,
   // in-memory fixtures and never enter ownership-backed service-role reads.

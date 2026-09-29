@@ -37,12 +37,12 @@ export default async function OrderingLayout({ children }: { children: ReactNode
         </p>
         <div className="rounded-xl border border-border bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-bold leading-tight text-primary sm:text-[28px]">
-            Add contact details to place this order
+            Add your name to place this order
           </h1>
           <p className="mt-3 text-dashboard-body leading-relaxed text-muted md:text-base">
             You can use the dashboard without completing your profile. Before
-            an order can be submitted, we only need your name and phone number
-            for the order record and delivery communication.
+            an order can be submitted, we only need your name for the order
+            record. Phone, company, and all other profile details are optional.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <ClientPortalLink

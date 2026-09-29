@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { installSmokeNetworkGuards } from "../support/network";
 
 const serviceRoute = "/dashboard/orders/new/virtual-renovation";
-const requirement = "Add contact details to place this order";
+const requirement = "Add your name to place this order";
 
 async function login(page: Page, destination: string) {
   await page.goto(`/login?redirectTo=${encodeURIComponent(destination)}`);
@@ -99,15 +99,15 @@ test("incomplete profile is gated after client-side catalogue navigation and ret
   await expect(page.getByRole("link", { name: "Back to dashboard", exact: true })).toHaveAttribute("href", "/dashboard");
   expect(documentNavigations).toEqual([]);
 
-  // Only the required name and phone are saved through the real profile API.
+  // A name alone is saved through the real profile API; optional fields stay empty.
   await page.getByLabel("First name", { exact: true }).fill("Client");
-  await page.getByLabel("Phone", { exact: true }).fill("+34 600 000 000");
+  await expect(page.getByLabel("Phone — Optional", { exact: true })).toHaveValue("");
   await page.getByRole("button", { name: "Save and continue to order", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${serviceRoute}$`));
   await expectOrderForm(page);
   const saved = await (await request.get("/__fixture/state")).json();
   expect(saved.profile).toMatchObject({
-    user_id: saved.userId, full_name: "Client", phone: "+34 600 000 000",
+    user_id: saved.userId, full_name: "Client", phone: null,
     last_name: null, company_name: null, country: null, industry: null, how_found_us: null,
   });
   expect(saved.unsupportedOperations).toEqual([]);
@@ -117,7 +117,7 @@ test("incomplete profile is gated after client-side catalogue navigation and ret
 
 test("complete profile opens the concrete order form directly", async ({ page, request }, testInfo) => {
   await request.post("/__fixture/reset", {
-    data: { mode: "password-login", profile: { full_name: "Existing Client", phone: "+34 600 000 000" } },
+    data: { mode: "password-login", profile: { full_name: "Existing Client", phone: null, company_name: null } },
   });
   const guard = await installSmokeNetworkGuards(page, testInfo);
   await login(page, serviceRoute);

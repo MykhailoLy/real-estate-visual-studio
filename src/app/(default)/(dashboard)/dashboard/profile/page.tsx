@@ -6,6 +6,7 @@ import { isProfileComplete } from "@/lib/profile-completion";
 import { safeInternalPath } from "@/lib/safe-redirect";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import ClientProfileForm from "@/components/dashboard/ClientProfileForm";
+import ClientAccountSecurity from "@/components/dashboard/ClientAccountSecurity";
 
 export const metadata = {
   title: "Profile | PicchuSpot Client Portal",
@@ -52,7 +53,7 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
         </h1>
         <p className="text-dashboard-body text-muted mt-1 md:text-base">
           {isOnboarding
-            ? "Tell us a bit about yourself to get started."
+            ? "Browse with an optional profile. Only your name is required to place an order."
             : "Manage your account details and preferences."}
         </p>
       </div>
@@ -65,6 +66,7 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
           isOnboarding={isOnboarding}
           nextPath={nextPath}
         />
+        {user && !user.isQaPreview && <ClientAccountSecurity authEmail={authEmail} authUserId={user.id} />}
       </div>
     </ClientDashboardLayout>
   );

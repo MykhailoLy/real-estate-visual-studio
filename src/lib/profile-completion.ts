@@ -4,8 +4,8 @@
 // An authenticated client can only place an order once their
 // client_profiles row has the minimum fields an order needs:
 //   - a non-empty name (full_name, or first_name + last_name)
-//   - a non-empty phone
-// Company is optional. Email + verified session come from Supabase
+// Phone, company, and all other profile fields are optional.
+// Email + verified session come from Supabase
 // Auth, never from the profile row.
 //
 // This module is the single server source of truth for onboarding,
@@ -22,7 +22,7 @@ export interface ProfileCompletionFields {
   company_name?: string | null;
 }
 
-export type MissingProfileField = "name" | "phone";
+export type MissingProfileField = "name";
 
 /** Snapshot identity written onto an order (and used for emails). */
 export interface ResolvedClientIdentity {
@@ -55,17 +55,16 @@ export function resolveProfileName(
 export function getMissingProfileCompletionFields(
   profile: ProfileCompletionFields | null,
 ): MissingProfileField[] {
-  if (!profile) return ["name", "phone"];
+  if (!profile) return ["name"];
 
   const missing: MissingProfileField[] = [];
   if (!resolveProfileName(profile)) missing.push("name");
-  if (!(profile.phone ?? "").trim()) missing.push("phone");
   return missing;
 }
 
 /**
  * True when the profile has the minimum fields required to order:
- * a non-empty resolved name AND a non-empty phone. Company is optional.
+ * a non-empty resolved name. Phone and company are optional.
  */
 export function isProfileComplete(
   profile: ProfileCompletionFields | null,
@@ -90,6 +89,7 @@ export function resolveClientIdentity(
   return {
     name: resolveProfileName(profile),
     email,
+    // Production orders.client_phone is NOT NULL; preserve its snapshot shape.
     phone: (profile.phone ?? "").trim(),
     company: (profile.company_name ?? "").trim() || null,
   };
