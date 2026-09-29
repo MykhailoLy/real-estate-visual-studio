@@ -299,9 +299,9 @@ test("synthetic dashboard renders use fixed safe fixtures and bypass ownership r
   assert.match(dashboardSource, /CLIENT_PORTAL_QA_COMPLETED_JOBS/);
 
   for (const path of [
-    "app/(default)/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
-    "app/(default)/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
-    "app/(default)/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/(ordering)/day-to-dusk/page.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/(ordering)/virtual-staging/page.tsx",
+    "app/(default)/(dashboard)/dashboard/orders/new/(ordering)/image-enhancement/single-exposure/page.tsx",
   ]) {
     const pageSource = source(path);
     assert.match(pageSource, /isQaPreview[\s\S]*?NO_WELCOME_OFFER_AVAILABLE/, path);

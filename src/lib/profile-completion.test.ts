@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -93,6 +93,9 @@ test("profile completion is optional for portal browsing but remains required at
   const newOrderLayoutSource = source(
     "app/(default)/(dashboard)/dashboard/orders/new/layout.tsx",
   );
+  const orderingLayoutSource = source(
+    "app/(default)/(dashboard)/dashboard/orders/new/(ordering)/layout.tsx",
+  );
   const orderAccessSource = source("lib/order-access.ts");
   const profilePageSource = source("app/(default)/(dashboard)/dashboard/profile/page.tsx");
   const profileFormSource = source("components/dashboard/ClientProfileForm.tsx");
@@ -108,17 +111,21 @@ test("profile completion is optional for portal browsing but remains required at
   // Concrete order routes render a stable contact-details gate instead of
   // throwing a redirect during client navigation. The service hub remains
   // browseable without profile completion.
-  assert.match(newOrderLayoutSource, /!isProfileComplete\(profile\)/);
-  assert.match(
-    newOrderLayoutSource,
-    /destinationPathname !== "\/dashboard\/orders\/new"/,
-  );
-  assert.match(newOrderLayoutSource, /Add contact details to place this order/);
-  assert.match(newOrderLayoutSource, /Complete profile/);
-  assert.match(newOrderLayoutSource, /Back to dashboard/);
+  assert.doesNotMatch(newOrderLayoutSource, /isProfileComplete|DASHBOARD_REQUEST_PATH_HEADER/);
+  assert.match(newOrderLayoutSource, /<PartnerPricingProvider/);
+  assert.match(newOrderLayoutSource, /<OrderSubmissionRecoveryGate>\{children\}/);
+  assert.match(orderingLayoutSource, /getDashboardRequestUser\(\)/);
+  assert.match(orderingLayoutSource, /getDashboardRequestProfile\(\)/);
+  assert.match(orderingLayoutSource, /user\.isQaPreview \|\| isProfileComplete\(profile\)/);
+  assert.doesNotMatch(orderingLayoutSource, /redirect\(/);
+  assert.match(orderingLayoutSource, /Add contact details to place this order/);
+  assert.match(orderingLayoutSource, /Complete profile/);
+  assert.match(orderingLayoutSource, /Back to dashboard/);
+  assert.match(orderingLayoutSource, /safeDashboardRequestPath\(/);
+  assert.match(orderingLayoutSource, /encodeURIComponent\(destination\)/);
 
   // Individual order pages only require authenticated session identity; the
-  // shared layout owns the pre-form UX gate.
+  // ordering route-group layout owns the pre-form UX gate.
   assert.doesNotMatch(orderAccessSource, /isProfileComplete/);
   assert.doesNotMatch(orderAccessSource, /dashboard\/profile/);
 
@@ -140,4 +147,31 @@ test("profile completion is optional for portal browsing but remains required at
 
   assert.match(orderApiSource, /resolveClientIdentity\(sessionUser\.email, profile\)/);
   assert.match(orderApiSource, /code: "profile-incomplete"/);
+});
+
+test("only concrete order pages enter the profile-gated route group without duplicate URLs", () => {
+  const newOrderRoot = join(SOURCE_DIRECTORY, "app/(default)/(dashboard)/dashboard/orders/new");
+  const concretePages = [
+    "3d-floor-plans/page.tsx",
+    "day-to-dusk/page.tsx",
+    "image-enhancement/page.tsx",
+    "image-enhancement/hdr-bracketed/page.tsx",
+    "image-enhancement/single-exposure/page.tsx",
+    "item-removal-virtual-cleaning/page.tsx",
+    "photo-editing/page.tsx",
+    "virtual-renovation/page.tsx",
+    "virtual-staging/page.tsx",
+  ];
+  assert.ok(existsSync(join(newOrderRoot, "page.tsx")), "catalogue stays outside the gate");
+  assert.ok(!existsSync(join(newOrderRoot, "(ordering)/page.tsx")));
+  for (const page of concretePages) {
+    assert.ok(existsSync(join(newOrderRoot, "(ordering)", page)), page);
+    assert.ok(!existsSync(join(newOrderRoot, page)), `no duplicate route: ${page}`);
+  }
+  const actualPages = readdirSync(newOrderRoot, { recursive: true })
+    .map(String)
+    .map((path) => path.replaceAll("\\", "/"))
+    .filter((path) => path.endsWith("page.tsx"))
+    .sort();
+  assert.deepEqual(actualPages, ["page.tsx", ...concretePages.map((page) => `(ordering)/${page}`)].sort());
 });

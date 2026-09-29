@@ -7,9 +7,9 @@ const source = (path: string) => readFileSync(path, "utf8");
 
 test("authenticated dedicated order pages server-load current eligibility", () => {
   for (const path of [
-    "src/app/(default)/(dashboard)/dashboard/orders/new/virtual-staging/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/image-enhancement/single-exposure/page.tsx",
-    "src/app/(default)/(dashboard)/dashboard/orders/new/day-to-dusk/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/virtual-staging/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/image-enhancement/single-exposure/page.tsx",
+    "src/app/(default)/(dashboard)/dashboard/orders/new/(ordering)/day-to-dusk/page.tsx",
   ]) {
     const page = source(path);
     assert.match(page, /getWelcomeOfferAvailability\(userId\)/);

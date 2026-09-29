@@ -1,6 +1,7 @@
 // Loopback-only Supabase HTTP fixture. Real SDK, cookies, routes and components
 // run against this process; no email, production account or order is created.
 import { createServer, request as proxyRequest } from "node:http";
+import { STAGING_STYLE_CARDS } from "../../src/data/order-options.ts";
 
 const userId = "33333333-3333-4333-8333-333333333333";
 const existingId = "11111111-1111-4111-8111-111111111111";
@@ -22,6 +23,13 @@ const accessToken = `${tokenPart({ alg: "HS256", typ: "JWT" })}.${tokenPart({ su
 
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1:3200");
+  // The isolated catalogue has no admin-managed style media. Supply only its
+  // known fallback thumbnails so order-form QA retains strict console checks.
+  if (req.method === "GET" && STAGING_STYLE_CARDS.some(({ imageSrc }) => imageSrc === url.pathname)) {
+    res.writeHead(200, { "Content-Type": "image/svg+xml" });
+    res.end('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="24"><rect width="32" height="24" fill="#ddd"/></svg>');
+    return;
+  }
   if (!url.pathname.startsWith("/__fixture/") && !url.pathname.startsWith("/__supabase/")) {
     // Same-origin local proxy keeps the application's full production CSP
     // intact, including connect-src; no security headers are bypassed.
@@ -53,6 +61,7 @@ createServer(async (req, res) => {
     passwordSignIns = 0; authenticatedUserReads = 0; unsupportedOperations = [];
     if (mode === "password-login") {
       users.unshift(makeUser(userId, "root-client@example.com"));
+      profile = body.profile ? { ...body.profile, id: userId, user_id: userId } : null;
     }
     json({ ok: true }); return;
   }
@@ -105,6 +114,13 @@ createServer(async (req, res) => {
   if (url.pathname === "/rest/v1/client_profiles") {
     if (req.method === "POST") { profile = { ...body, id: userId }; json(profile, 201); return; }
     json(profile ? [profile] : []); return;
+  }
+  // Listing dashboard drafts first recovers stale claims. This fixture has no
+  // drafts to recover; accept only the authenticated fixture user's list call.
+  if (req.method === "POST" && url.pathname === "/rest/v1/rpc/recover_stale_order_draft_finalization" &&
+      mode === "password-login" && body.p_user_id === userId && body.p_draft_id === null &&
+      req.headers.authorization === "Bearer isolated-fixture-service-role") {
+    json([]); return;
   }
   // Public/build and dashboard reads have empty, isolated data. Never permit
   // unknown writes, particularly order/payment/storage operations.
