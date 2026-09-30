@@ -92,11 +92,22 @@ export default function ClientAccountSecurity({ authEmail, authUserId }: { authE
     try {
       const supabase = createBrowserSupabaseClient();
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user || user.id !== authUserId) {
+      if (userError || !user?.email || user.id !== authUserId) {
         setPasswordError("Your session changed. Reload this page before trying again.");
         return;
       }
-      const { error } = await supabase.auth.updateUser({ password, current_password: currentPassword });
+      // Explicitly verify the current password even when Auth's optional
+      // require-current-password setting is disabled for this project.
+      const { data: reauthenticated, error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (signInError) { setPasswordError(signInError.message); return; }
+      if (!reauthenticated.user || reauthenticated.user.id !== authUserId) {
+        setPasswordError("Your session changed. Reload this page before trying again.");
+        return;
+      }
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) { setPasswordError(error.message); return; }
       form.reset();
       setPasswordDone(true);

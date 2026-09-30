@@ -19,6 +19,7 @@ test.beforeEach(async ({ request, context }) => {
     mode: "password-login", profile: { full_name: "Client", phone: null, company_name: null },
     accountOrders: [
       { id: "legacy", user_id: null, client_email: "ROOT-CLIENT@EXAMPLE.COM" },
+      { id: "padded-legacy", user_id: null, client_email: " \tRoot-Client@Example.COM\t " },
       { id: "other-email", user_id: null, client_email: "other@example.com" },
       { id: "already-owned", user_id: USER_ID, client_email: "historic@example.com" },
       { id: "other-owner", user_id: OTHER_ID, client_email: email },
@@ -88,6 +89,7 @@ test("account controls are responsive and email stays pending until verified Aut
   expect(state.emailChanges).toBe(1);
   expect(state.accountOrders).toEqual([
     { id: "legacy", user_id: USER_ID, client_email: "ROOT-CLIENT@EXAMPLE.COM" },
+    { id: "padded-legacy", user_id: USER_ID, client_email: " \tRoot-Client@Example.COM\t " },
     { id: "other-email", user_id: null, client_email: "other@example.com" },
     { id: "already-owned", user_id: USER_ID, client_email: "historic@example.com" },
     { id: "other-owner", user_id: OTHER_ID, client_email: email },
@@ -110,7 +112,13 @@ test("ownership and Auth errors stop the email change and retain the current ema
   await security.getByRole("button", { name: "Send confirmation", exact: true }).click();
   await expect(security.getByRole("alert")).toContainText("could not confirm your order ownership");
   expect((await (await request.get("/__fixture/state")).json()).emailChanges).toBe(0);
-  await request.post("/__fixture/account-failures", { data: { ownership: false, email: true } });
+  await request.post("/__fixture/account-failures", { data: { ownership: false, claim: true } });
+  await security.getByRole("button", { name: "Send confirmation", exact: true }).click();
+  await expect(security.getByRole("alert")).toContainText("could not confirm your order ownership");
+  const unclaimed = await (await request.get("/__fixture/state")).json();
+  expect(unclaimed.emailChanges).toBe(0);
+  expect(unclaimed.accountOrders.filter((order: { user_id: string | null }) => order.user_id === null)).toHaveLength(3);
+  await request.post("/__fixture/account-failures", { data: { claim: false, email: true } });
   await security.getByRole("button", { name: "Send confirmation", exact: true }).click();
   await expect(security.getByRole("alert")).toContainText("Unable to change email.");
   await expect(security.getByRole("button", { name: "Send confirmation", exact: true })).toBeEnabled();
@@ -125,10 +133,18 @@ test("password validates, verifies current password, and updates directly throug
   await login(page);
   const security = page.getByRole("region", { name: "Account & Security" });
   await expect(security.getByRole("link", { name: "Forgot current password?" })).toHaveAttribute("href", "/forgot-password");
-  const apiBodies: string[] = [];
+  const apiRequests: string[] = [];
   page.on("request", (req) => {
-    if (new URL(req.url()).pathname.startsWith("/api/")) apiBodies.push(req.postData() ?? "");
+    if (new URL(req.url()).pathname.startsWith("/api/")) apiRequests.push(new URL(req.url()).pathname);
   });
+  const reauthEmails: string[] = [];
+  await page.route("**/__supabase/auth/v1/token?grant_type=password", async (route) => {
+    reauthEmails.push(route.request().postDataJSON().email);
+    await route.continue();
+  });
+  // An editable proposed email must never become the reauthentication identity.
+  await security.getByRole("button", { name: "Change email", exact: true }).click();
+  await security.getByLabel("New email address", { exact: true }).fill("unverified-proposal@example.com");
   const current = security.getByLabel("Current password", { exact: true });
   const next = security.getByLabel("New password", { exact: true });
   const confirm = security.getByLabel("Confirm new password", { exact: true });
@@ -141,15 +157,19 @@ test("password validates, verifies current password, and updates directly throug
   await confirm.fill("fixture-new-password"); await submit.click();
   await expect(security.getByRole("alert")).toContainText("Current password is incorrect.");
   await expect(submit).toBeEnabled();
-  expect((await (await request.get("/__fixture/state")).json()).passwordChanges).toBe(0);
+  const rejected = await (await request.get("/__fixture/state")).json();
+  expect(rejected.passwordChanges).toBe(0);
+  expect(rejected.passwordSignIns).toBe(1); // Original login only.
+  expect(rejected.passwordSignInFailures).toBe(1);
+  expect(rejected.passwordAuthEvents).toEqual(["sign-in-accepted", "sign-in-rejected"]);
   await current.fill("fixture-password-only");
   let release!: () => void;
   const held = new Promise<void>((resolve) => { release = resolve; });
   await page.route("**/__supabase/auth/v1/user", async (route) => {
     if (route.request().method() !== "PUT") { await route.continue(); return; }
     const attributes = route.request().postDataJSON();
-    expect(attributes.current_password).toBe("fixture-password-only");
     expect(attributes.password).toBe("fixture-new-password");
+    expect(attributes).not.toHaveProperty("current_password");
     const response = await route.fetch();
     await held;
     await route.fulfill({ response });
@@ -160,11 +180,41 @@ test("password validates, verifies current password, and updates directly throug
   release();
   await expect(security.getByRole("status")).toContainText("Password updated successfully.");
   await expect(current).toHaveValue(""); await expect(next).toHaveValue(""); await expect(confirm).toHaveValue("");
-  expect(apiBodies, "passwords never go to a custom PicchuSpot API").toEqual([]);
+  expect(apiRequests, "passwords never go to a custom PicchuSpot API").toEqual([]);
+  expect(reauthEmails).toEqual([email, email]);
   const state = await (await request.get("/__fixture/state")).json();
   expect(state.currentPasswordVerified).toBe(true);
   expect(state.passwordChanges).toBe(1);
+  expect(state.passwordSignIns).toBe(2);
+  expect(state.passwordAuthEvents).toEqual(["sign-in-accepted", "sign-in-rejected", "sign-in-accepted", "password-update"]);
   expect(state.unsupportedOperations).toEqual([]);
+});
+
+test("password change rejects a different reauthenticated user and displays update errors", async ({ page, request }) => {
+  await login(page);
+  const security = page.getByRole("region", { name: "Account & Security" });
+  await security.getByLabel("Current password", { exact: true }).fill("fixture-password-only");
+  await security.getByLabel("New password", { exact: true }).fill("fixture-new-password");
+  await security.getByLabel("Confirm new password", { exact: true }).fill("fixture-new-password");
+  const submit = security.getByRole("button", { name: "Update password", exact: true });
+  await request.post("/__fixture/account-failures", { data: { reauthUserMismatch: true } });
+  await submit.click();
+  await expect(security.getByRole("alert")).toContainText("Your session changed");
+  await expect(submit).toBeEnabled();
+  const mismatched = await (await request.get("/__fixture/state")).json();
+  expect(mismatched.passwordSignIns).toBe(2);
+  expect(mismatched.passwordChanges).toBe(0);
+  expect(mismatched.currentPasswordVerified).toBe(false);
+  expect(mismatched.passwordAuthEvents).not.toContain("password-update");
+  await request.post("/__fixture/account-failures", { data: { reauthUserMismatch: false, password: true } });
+  await submit.click();
+  await expect(security.getByRole("alert")).toContainText("Unable to change password.");
+  await expect(submit).toBeEnabled();
+  await expect(security.getByRole("status")).toHaveCount(0);
+  const failedUpdate = await (await request.get("/__fixture/state")).json();
+  expect(failedUpdate.currentPasswordVerified).toBe(true);
+  expect(failedUpdate.passwordChanges).toBe(0);
+  expect(failedUpdate.unsupportedOperations).toEqual([]);
 });
 
 test("unauthenticated ownership preparation rejects browser identity", async ({ request }) => {

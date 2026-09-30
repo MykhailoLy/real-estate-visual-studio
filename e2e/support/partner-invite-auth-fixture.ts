@@ -17,10 +17,12 @@ let passwordSet = false;
 let inviteCalls = 0;
 let redirectTo = "";
 let passwordSignIns = 0;
+let passwordSignInFailures = 0;
+let passwordAuthEvents: string[] = [];
 let authenticatedUserReads = 0;
 let unsupportedOperations: string[] = [];
 let accountOrders: { id: string; user_id: string | null; client_email: string }[] = [];
-let accountFailures = { ownership: false, email: false, password: false };
+let accountFailures = { ownership: false, claim: false, email: false, password: false, reauthUserMismatch: false };
 let emailChanges = 0;
 let passwordChanges = 0;
 let currentPasswordVerified = false;
@@ -64,9 +66,10 @@ createServer(async (req, res) => {
   if (url.pathname === "/__fixture/reset") {
     users = [makeUser(existingId, "registered@example.com")]; pricing = []; profile = null;
     mode = body.mode ?? "success"; passwordSet = false; inviteCalls = 0; redirectTo = "";
-    passwordSignIns = 0; authenticatedUserReads = 0; unsupportedOperations = [];
+    passwordSignIns = 0; passwordSignInFailures = 0; passwordAuthEvents = [];
+    authenticatedUserReads = 0; unsupportedOperations = [];
     accountOrders = body.accountOrders ?? [];
-    accountFailures = { ownership: false, email: false, password: false };
+    accountFailures = { ownership: false, claim: false, email: false, password: false, reauthUserMismatch: false };
     emailChanges = 0; passwordChanges = 0; currentPasswordVerified = false;
     if (mode === "password-login") {
       users.unshift(makeUser(userId, "root-client@example.com"));
@@ -76,7 +79,7 @@ createServer(async (req, res) => {
   }
   if (url.pathname === "/__fixture/state") {
     json({ pricing, profile, passwordSet, inviteCalls, redirectTo, accessToken, userId,
-      passwordSignIns, authenticatedUserReads, unsupportedOperations, accountOrders,
+      passwordSignIns, passwordSignInFailures, passwordAuthEvents, authenticatedUserReads, unsupportedOperations, accountOrders,
       emailChanges, passwordChanges, currentPasswordVerified }); return;
   }
   if (url.pathname === "/__fixture/account-failures") {
@@ -90,12 +93,19 @@ createServer(async (req, res) => {
   // Password-grant stub for cross-root acceptance. The real browser SDK writes
   // cookies; the unchanged server gate must still call /auth/v1/user below.
   if (url.pathname === "/auth/v1/token" && req.method === "POST" &&
-      url.searchParams.get("grant_type") === "password" && mode === "password-login" &&
-      body.email === "root-client@example.com" && body.password === "fixture-password-only") {
+      url.searchParams.get("grant_type") === "password" && mode === "password-login") {
+    const user = users.find((user) => user.id === userId)!;
+    if (body.email !== user.email || body.password !== "fixture-password-only") {
+      passwordSignInFailures++; passwordAuthEvents.push("sign-in-rejected");
+      json({ code: "invalid_credentials", msg: "Current password is incorrect." }, 400); return;
+    }
+    const returnedUser = accountFailures.reauthUserMismatch ? users.find((user) => user.id === existingId)! : user;
+    currentPasswordVerified = passwordSignIns > 0 && returnedUser.id === userId;
     passwordSignIns++;
+    passwordAuthEvents.push("sign-in-accepted");
     json({ access_token: accessToken, refresh_token: "fixture-refresh-token", token_type: "bearer",
       expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
-      user: users.find((user) => user.id === userId) }); return;
+      user: returnedUser }); return;
   }
   if (url.pathname === "/auth/v1/invite") {
     inviteCalls++; redirectTo = url.searchParams.get("redirect_to") ?? "";
@@ -122,17 +132,19 @@ createServer(async (req, res) => {
         if (accountFailures.email) { json({ code: "email_exists", msg: "Unable to change email." }, 422); return; }
         // Assert ownership preparation preceded the real SDK email update.
         const user = users.find((user) => user.id === userId)!;
-        if (accountOrders.some((order) => order.user_id === null && order.client_email.toLowerCase() === user.email.toLowerCase())) {
+        if (accountOrders.some((order) => order.user_id === null && order.client_email.trim().toLowerCase() === user.email.trim().toLowerCase())) {
           json({ code: "fixture_ownership", msg: "Ownership was not prepared" }, 400); return;
         }
         emailChanges++; user.new_email = body.email;
       }
       if (typeof body.password === "string") {
         if (mode === "password-login") {
-          if (accountFailures.password || body.current_password !== "fixture-password-only") {
-            json({ code: "invalid_credentials", msg: "Current password is incorrect." }, 422); return;
+          // Simulate Auth with require-current-password disabled: this endpoint
+          // does not validate current_password or require prior reauthentication.
+          if (accountFailures.password) {
+            json({ code: "fixture_password", msg: "Unable to change password." }, 422); return;
           }
-          currentPasswordVerified = true; passwordChanges++;
+          passwordAuthEvents.push("password-update"); passwordChanges++;
         }
         passwordSet = body.password.length >= 8;
       }
@@ -156,15 +168,17 @@ createServer(async (req, res) => {
       req.headers.authorization === "Bearer isolated-fixture-service-role") {
     if (accountFailures.ownership) { json({ message: "fixture ownership failure" }, 503); return; }
     if (req.method === "GET" && url.searchParams.get("user_id") === "is.null" &&
-        url.searchParams.get("client_email")?.startsWith("ilike.")) {
-      const email = url.searchParams.get("client_email")!.slice(6).replace(/\\([\\%_])/g, "$1").toLowerCase();
+        !url.searchParams.has("client_email")) {
       const offset = Number(url.searchParams.get("offset") ?? 0);
       const limit = Number(url.searchParams.get("limit") ?? 100);
-      json(accountOrders.filter((row) => row.user_id === null && row.client_email.toLowerCase() === email).slice(offset, offset + limit)); return;
+      const cursor = url.searchParams.get("id")?.replace(/^gt\./, "");
+      json(accountOrders.filter((row) => row.user_id === null && (!cursor || row.id > cursor))
+        .sort((left, right) => left.id.localeCompare(right.id)).slice(offset, offset + limit)); return;
     }
     if (req.method === "PATCH" && Object.keys(body).length === 1 && body.user_id === userId &&
         url.searchParams.get("user_id") === "is.null" && url.searchParams.get("id")?.startsWith("eq.") &&
         url.searchParams.get("client_email")?.startsWith("eq.")) {
+      if (accountFailures.claim) { json([]); return; }
       const row = accountOrders.find((row) => row.id === url.searchParams.get("id")!.slice(3) &&
         row.user_id === null && row.client_email === url.searchParams.get("client_email")!.slice(3));
       if (row) row.user_id = userId;

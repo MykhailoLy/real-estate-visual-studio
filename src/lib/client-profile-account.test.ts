@@ -13,7 +13,8 @@ let user: User | null;
 let profile: Record<string, unknown> | null;
 let orders: Order[];
 let writes: { url: URL; body: Record<string, unknown> }[];
-let dbFailure: "read" | "write" | "unconfirmed" | "race" | null;
+let reads: URL[];
+let dbFailure: "read" | "write" | "unconfirmed" | "race" | "email-race" | "scan-race" | "remaining" | null;
 let authFailure: boolean;
 let submitted: Record<string, unknown> | null;
 
@@ -32,14 +33,22 @@ const database = createClient("http://fixture.example", "fixture-key", {
     }
     assert.equal(url.pathname, "/rest/v1/orders");
     if (method === "GET") {
+      reads.push(url);
       if (dbFailure === "read") return json({ message: "private DB failure" }, 503);
       assert.equal(url.searchParams.get("user_id"), "is.null");
-      assert.ok(url.searchParams.get("client_email")?.startsWith("ilike."));
-      // Deliberately overinclusive candidate results prove the route checks
-      // exact lowercase equality before writing, even for email metacharacters.
-      const offset = Number(url.searchParams.get("offset") ?? 0);
+      assert.equal(url.searchParams.has("client_email"), false, "email prefilters can exclude padded snapshots");
+      assert.equal(url.searchParams.get("order"), "id.asc");
+      assert.equal(url.searchParams.has("offset"), false);
+      if (dbFailure === "scan-race" && reads.length === 2) {
+        for (const row of orders.filter((order) => order.client_email === "other@example.com")) row.user_id = OTHER_ID;
+      }
+      if (dbFailure === "remaining" && writes.length > 0 && !orders.some((row) => row.id === "late-legacy")) {
+        orders.push({ id: "late-legacy", user_id: null, client_email: " CLIENT@example.com ", client_phone: "historic-phone" });
+      }
+      const afterId = url.searchParams.get("id")?.slice(3);
       const limit = Number(url.searchParams.get("limit") ?? 100);
-      return json(orders.filter((order) => order.user_id === null).slice(offset, offset + limit));
+      return json(orders.filter((order) => order.user_id === null && (!afterId || order.id > afterId))
+        .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).slice(0, limit));
     }
     assert.equal(method, "PATCH");
     writes.push({ url, body });
@@ -50,7 +59,8 @@ const database = createClient("http://fixture.example", "fixture-key", {
     const row = orders.find((order) => order.id === id && order.user_id === null && order.client_email === email);
     if (dbFailure === "write") return json({ message: "private write error" }, 503);
     if (dbFailure === "race" && row) row.user_id = OTHER_ID;
-    if (!row || dbFailure === "unconfirmed" || dbFailure === "race") return json([]);
+    if (dbFailure === "email-race" && row) row.client_email = ` ${row.client_email.toUpperCase()} `;
+    if (!row || dbFailure === "unconfirmed" || dbFailure === "race" || dbFailure === "email-race") return json([]);
     row.user_id = USER_ID;
     return json([{ id: row.id, user_id: row.user_id }]);
   } },
@@ -93,7 +103,7 @@ const { NextRequest } = await import("next/server.js");
 
 beforeEach(() => {
   user = { id: USER_ID, email: "client@example.com", email_confirmed_at: "2026-09-09T10:00:00Z" };
-  profile = null; orders = []; writes = []; dbFailure = null; authFailure = false; submitted = null;
+  profile = null; orders = []; writes = []; reads = []; dbFailure = null; authFailure = false; submitted = null;
 });
 after(() => { hooks.deregister(); delete globals.__profileAccount; });
 const request = (path: string, body: unknown) => new NextRequest(`http://fixture.example${path}`, {
@@ -151,28 +161,47 @@ test("order fails closed for missing name/session/email and never trusts browser
   assert.equal(submitted, null);
 });
 
-test("email preparation claims only exact matching NULL legacy rows and leaves all historical snapshots/owners unchanged", async () => {
+test("email preparation claims case-only and whitespace-padded NULL legacy matches without changing historical snapshots or other owners", async () => {
   orders = [legacy("legacy-upper", "CLIENT@EXAMPLE.COM"), legacy("legacy"), legacy("other", "other@example.com"),
     legacy("already-owned", "old@example.com", USER_ID), legacy("other-owner", "client@example.com", OTHER_ID),
-    legacy("padded-email", " client@example.com ")];
+    legacy("padded-email", " client@example.com "), legacy("padded-mixed-email", "\tCLIENT@example.com\n"),
+    legacy("already-owned-matching", " client@example.com ", USER_ID),
+    legacy("other-owner-padded", " CLIENT@example.com ", OTHER_ID), legacy("empty-owner", "client@example.com", "")];
   const snapshots = structuredClone(orders);
+  const claimedIds = new Set(["legacy-upper", "legacy", "padded-email", "padded-mixed-email"]);
   const response = await prepare();
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), { prepared: true, userId: USER_ID, email: "client@example.com" });
   for (const [i, row] of orders.entries()) {
-    assert.deepEqual(row, { ...snapshots[i], user_id: i < 2 ? USER_ID : snapshots[i].user_id });
+    assert.deepEqual(row, { ...snapshots[i], user_id: claimedIds.has(row.id) ? USER_ID : snapshots[i].user_id });
   }
-  assert.equal(writes.length, 2);
+  assert.equal(writes.length, 4);
+  for (const write of writes) {
+    const id = write.url.searchParams.get("id")?.slice(3);
+    const snapshot = snapshots.find((row) => row.id === id)!;
+    assert.equal(write.url.searchParams.get("client_email"), `eq.${snapshot.client_email}`, "claims retain the exact raw email guard");
+  }
   assert.equal((await prepare()).status, 200);
-  assert.equal(writes.length, 2, "retry never updates already owned rows");
+  assert.equal(writes.length, 4, "retry never updates already owned rows");
 });
 
 test("ownership pagination does not silently miss legacy orders beyond the response limit", async () => {
-  orders = Array.from({ length: 205 }, (_, index) => legacy(String(index)));
+  orders = Array.from({ length: 410 }, (_, index) => legacy(String(index).padStart(4, "0"),
+    index % 2 === 0 ? " client@example.com " : "other@example.com"));
   assert.equal((await prepare()).status, 200);
   assert.equal(writes.length, 205);
-  assert.ok(orders.every((row) => row.user_id === USER_ID));
+  assert.ok(orders.every((row, index) => row.user_id === (index % 2 === 0 ? USER_ID : null)));
+  assert.ok(reads.some((url) => url.searchParams.get("id")?.startsWith("gt.")), "later pages use a stable ID cursor");
+});
+
+test("concurrent claims of earlier unrelated candidates do not shift later legacy matches out of pagination", async () => {
+  orders = Array.from({ length: 230 }, (_, index) => legacy(String(index).padStart(4, "0"),
+    index < 100 ? "other@example.com" : " client@example.com "));
+  dbFailure = "scan-race";
+  assert.equal((await prepare()).status, 200);
+  assert.equal(writes.length, 130);
+  assert.ok(orders.every((row, index) => row.user_id === (index < 100 ? OTHER_ID : USER_ID)));
 });
 
 test("email pattern characters cannot claim a different email", async () => {
@@ -196,7 +225,7 @@ test("email preparation fails closed on unverified/anonymous/missing session", a
 });
 
 test("email preparation fails closed on DB errors, unconfirmed updates, or another user's concurrent claim", async () => {
-  for (const failure of ["read", "write", "unconfirmed", "race"] as const) {
+  for (const failure of ["read", "write", "unconfirmed", "race", "email-race"] as const) {
     dbFailure = failure; orders = [legacy("legacy")];
     const response = await prepare();
     assert.equal(response.status, 503);
@@ -205,6 +234,16 @@ test("email preparation fails closed on DB errors, unconfirmed updates, or anoth
     assert.ok(!body.error.includes("private"));
     assert.equal(orders[0].user_id, failure === "race" ? OTHER_ID : null);
   }
+});
+
+test("email preparation fails closed when a matching padded legacy row remains after claims", async () => {
+  orders = [legacy("legacy")];
+  dbFailure = "remaining";
+  const response = await prepare();
+  assert.equal(response.status, 503);
+  assert.ok(!(await response.json()).prepared);
+  assert.equal(orders[0].user_id, USER_ID);
+  assert.equal(orders.find((row) => row.id === "late-legacy")?.user_id, null);
 });
 
 test("browser-supplied ownership identity cannot affect preparation", async () => {

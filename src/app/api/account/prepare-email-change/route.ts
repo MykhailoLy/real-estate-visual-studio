@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
-import { escapeIlikeLiteral } from "@/lib/order-ownership";
+import { isOrderOwned, toOrderOwnership } from "@/lib/order-ownership";
 
 export const runtime = "nodejs";
 
@@ -20,29 +20,33 @@ export async function POST() {
     }
 
     const db = getSupabaseAdminClient();
-    const verifiedEmail = user.email;
-    const currentEmail = verifiedEmail.toLowerCase();
+    const ownership = toOrderOwnership({ id: user.id, email: user.email });
 
     async function legacyOrders() {
       const eligible: { id: string; client_email: string }[] = [];
       const pageSize = 100;
-      for (let offset = 0; ; offset += pageSize) {
-        const { data, error: readError } = await db.from("orders")
+      let afterId: string | null = null;
+      for (;;) {
+        let query = db.from("orders")
           .select("id, user_id, client_email")
           .is("user_id", null)
-          .ilike("client_email", escapeIlikeLiteral(verifiedEmail))
           .order("id")
-          .range(offset, offset + pageSize - 1);
+          .limit(pageSize);
+        // Cursor pagination is unaffected when another request claims earlier
+        // rows during the scan. An email prefilter would exclude padded emails.
+        if (afterId !== null) query = query.gt("id", afterId);
+        const { data, error: readError } = await query;
         if (readError || !data) throw new Error("Ownership lookup failed");
         for (const row of data) {
-          // Exact equality also protects valid email metacharacters from any
-          // PostgREST pattern aliases. Do not trim historical snapshots.
+          // Use the authoritative trim + lowercase ownership rule to match,
+          // but retain the raw snapshot for the conditional claim below.
           if (row.user_id === null && typeof row.client_email === "string" &&
-              row.client_email.toLowerCase() === currentEmail) {
+              isOrderOwned(row, ownership)) {
             eligible.push({ id: row.id, client_email: row.client_email });
           }
         }
         if (data.length < pageSize) return eligible;
+        afterId = data[data.length - 1].id;
       }
     }
 
