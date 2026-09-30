@@ -129,28 +129,46 @@ test("complete profile opens the concrete order form directly", async ({ page, r
 });
 
 for (const scenario of [
-  { name: "empty first name", first_name: "", last_name: "Smith", first: "Jane", last: "Smith" },
-  { name: "whitespace last name", first_name: "Jane", last_name: " \t ", first: "Jane", last: "Smith" },
-  { name: "both split fields blank", first_name: " \t ", last_name: "", first: "Jane", last: "Smith" },
-  { name: "explicit split names", first_name: "Janet", last_name: "Doe", first: "Janet", last: "Doe" },
+  { name: "whitespace full name falls back to Auth", full_name: "   ", first_name: null, last_name: null, first: "Auth", last: "Person", onboarding: true },
+  { name: "empty full name falls back to Auth", full_name: "", first_name: null, last_name: null, first: "Auth", last: "Person", onboarding: true },
+  { name: "empty split result falls back to Auth", full_name: " \t\n ", first_name: "", last_name: " \t ", first: "Auth", last: "Person", onboarding: true },
+  { name: "valid historical full name", full_name: "  Jane Smith  ", first_name: null, last_name: null, first: "Jane", last: "Smith" },
+  { name: "single historical name", full_name: "Jane", first_name: null, last_name: null, first: "Jane", last: "" },
+  { name: "empty first name", full_name: "Jane Smith", first_name: "", last_name: "Smith", first: "Jane", last: "Smith" },
+  { name: "whitespace last name", full_name: "Jane Smith", first_name: "Jane", last_name: " \t ", first: "Jane", last: "Smith" },
+  { name: "both split fields blank", full_name: "Jane Smith", first_name: " \t ", last_name: "", first: "Jane", last: "Smith" },
+  { name: "explicit split names", full_name: "Jane Smith", first_name: "Janet", last_name: "Doe", first: "Janet", last: "Doe" },
+  { name: "explicit split names with blank full name", full_name: "   ", first_name: "Janet", last_name: "Doe", first: "Janet", last: "Doe" },
 ]) {
-  test(`historical profile preserves its name on an optional edit: ${scenario.name}`, async ({ page, request }) => {
+  test(`historical profile preserves its name on an optional edit: ${scenario.name}`, async ({ page, request }, testInfo) => {
     await request.post("/__fixture/reset", { data: {
-      mode: "password-login", profile: {
-        full_name: "Jane Smith", first_name: scenario.first_name, last_name: scenario.last_name,
+      mode: "password-login", authFullName: "Auth Person", profile: {
+        full_name: scenario.full_name, first_name: scenario.first_name, last_name: scenario.last_name,
       },
     } });
-    await login(page, "/dashboard/profile");
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+    // Incomplete historical profiles use onboarding; return here after saving.
+    await login(page, scenario.onboarding
+      ? "/dashboard/profile?next=%2Fdashboard%2Fprofile" : "/dashboard/profile");
     await expect(page.getByLabel("First name", { exact: true })).toHaveValue(scenario.first);
     await expect(page.getByLabel("Last name", { exact: true })).toHaveValue(scenario.last);
     await page.getByLabel("Company name — Optional", { exact: true }).fill("Edited company");
-    await page.getByRole("button", { name: "Save changes", exact: true }).click();
-    await expect(page.getByText("Profile saved successfully.", { exact: true })).toBeVisible();
+    await page.getByRole("button", {
+      name: scenario.onboarding ? "Save and continue to order" : "Save changes", exact: true,
+    }).click();
+    if (scenario.onboarding) {
+      await expect(page).toHaveURL(/\/dashboard\/profile$/);
+      await expect(page.getByLabel("First name", { exact: true })).toHaveValue(scenario.first);
+      await expect(page.getByLabel("Last name", { exact: true })).toHaveValue(scenario.last);
+    } else {
+      await expect(page.getByText("Profile saved successfully.", { exact: true })).toBeVisible();
+    }
     const state = await (await request.get("/__fixture/state")).json();
     expect(state.profile).toMatchObject({
-      full_name: `${scenario.first} ${scenario.last}`,
-      first_name: scenario.first, last_name: scenario.last, company_name: "Edited company",
+      full_name: [scenario.first, scenario.last].filter(Boolean).join(" "),
+      first_name: scenario.first, last_name: scenario.last || null, company_name: "Edited company",
     });
     expect(state.unsupportedOperations).toEqual([]);
+    await guard.expectClean();
   });
 }

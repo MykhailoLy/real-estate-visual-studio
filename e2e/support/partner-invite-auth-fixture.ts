@@ -5,10 +5,10 @@ import { STAGING_STYLE_CARDS } from "../../src/data/order-options.ts";
 
 const userId = "33333333-3333-4333-8333-333333333333";
 const existingId = "11111111-1111-4111-8111-111111111111";
-const makeUser = (id: string, email: string) => ({ id, email, aud: "authenticated", role: "authenticated",
+const makeUser = (id: string, email: string, fullName?: string) => ({ id, email, aud: "authenticated", role: "authenticated",
   email_confirmed_at: "2026-09-09T10:00:00Z", new_email: "",
   created_at: "2026-09-09T10:00:00Z", app_metadata: { provider: "email", providers: ["email"] },
-  user_metadata: { private_marker: "never-expose-invite-metadata" }, is_anonymous: false });
+  user_metadata: { private_marker: "never-expose-invite-metadata", ...(fullName ? { full_name: fullName } : {}) }, is_anonymous: false });
 let users = [makeUser(existingId, "registered@example.com")];
 let pricing: Record<string, unknown>[] = [];
 let profile: Record<string, unknown> | null = null;
@@ -78,7 +78,7 @@ createServer(async (req, res) => {
     emailChanges = 0; passwordChanges = 0; currentPasswordVerified = false;
     passwordUpdateAttempts = 0; requireCurrentPassword = false; captchaAttempts = []; usedCaptchaTokens = new Set();
     if (mode === "password-login") {
-      users.unshift(makeUser(userId, "root-client@example.com"));
+      users.unshift(makeUser(userId, "root-client@example.com", body.authFullName));
       profile = body.profile ? { ...body.profile, id: userId, user_id: userId } : null;
     }
     json({ ok: true }); return;

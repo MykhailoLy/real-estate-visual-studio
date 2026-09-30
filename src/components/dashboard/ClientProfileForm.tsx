@@ -103,7 +103,8 @@ export default function ClientProfileForm({
   // Pre-fill from profile row first, then fall back to auth metadata
   const authSplit = authFullName ? splitFullName(authFullName) : null;
 
-  const profileSplit = initialProfile?.full_name ? splitFullName(initialProfile.full_name) : null;
+  const profileFullName = initialProfile?.full_name?.trim();
+  const profileSplit = profileFullName ? splitFullName(profileFullName) : null;
   const [firstName,   setFirstName]   = useState(initialProfile?.first_name?.trim()
     ? initialProfile.first_name : profileSplit?.first ?? authSplit?.first ?? "");
   const [lastName,    setLastName]    = useState(initialProfile?.last_name?.trim()
