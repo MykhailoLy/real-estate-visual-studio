@@ -21,7 +21,7 @@
     "test:order-draft-finalization-api": "node --experimental-strip-types --test src/lib/order-drafts/order-draft-finalization-api.test.ts",
     "test:saved-drafts": "node --experimental-strip-types --test src/lib/order-drafts/saved-drafts.test.ts",
     "test:supabase-browser": "node --experimental-strip-types --test src/lib/supabase/browser-client.test.ts",
-    "test:dashboard-navigation": "node --conditions=react-server --experimental-strip-types --test src/lib/dashboard-navigation-performance.test.ts src/lib/client-portal-qa.test.ts src/lib/dashboard-welcome-offer.test.ts src/lib/homepage-presentation.test.ts src/lib/profile-completion.test.ts",
+    "test:dashboard-navigation": "node --conditions=react-server --experimental-strip-types --test src/lib/dashboard-navigation-performance.test.ts src/lib/client-portal-qa.test.ts src/lib/dashboard-welcome-offer.test.ts src/lib/homepage-presentation.test.ts src/lib/profile-completion.test.ts src/lib/client-profile-account.test.ts",
     "test:support-handoff": "node --experimental-strip-types --test src/components/support/support-handoff.test.ts",
     "test:crisp-support": "node --experimental-strip-types --test src/components/support/crisp-support-client.test.ts",
     "test:support-chat": "node --experimental-strip-types --test src/components/support/support-chat-client.test.ts",

@@ -71,7 +71,7 @@ test("invite Auth verification exceptions fail closed to login", async () => {
 
 test("accepted invite with verified session routes missing/incomplete profiles to onboarding with safe next", async () => {
   authenticated = true;
-  for (const current of [null, { full_name: "Future Client", phone: "" }]) {
+  for (const current of [null, { full_name: "  ", phone: "123" }]) {
     profile = current;
     assert.equal(await destination("?type=invite&next=%2Fdashboard%2Forders%2Fnew%2Fvirtual-staging"),
       "http://localhost/dashboard/profile?onboarding=1&next=%2Fdashboard%2Forders%2Fnew%2Fvirtual-staging");
@@ -80,7 +80,7 @@ test("accepted invite with verified session routes missing/incomplete profiles t
 });
 
 test("accepted invite with completed profile reaches dashboard or intended internal route", async () => {
-  authenticated = true; profile = { full_name: "Future Client", phone: "+34 600 000 000" };
+  authenticated = true; profile = { full_name: "Future Client", phone: "" };
   assert.equal(await destination("?type=invite"), "http://localhost/dashboard");
   assert.equal(await destination("?type=invite&next=%2Fdashboard%2Fjobs"), "http://localhost/dashboard/jobs");
   for (const next of ["https://evil.example", "//evil.example", "/\\evil.example", "/\nevil"]) {

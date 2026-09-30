@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Please complete your profile (name and phone) before submitting an order.",
+            "Please add your name to your profile before submitting an order. Phone and company are optional.",
           code: "profile-incomplete",
         },
         { status: 422 },

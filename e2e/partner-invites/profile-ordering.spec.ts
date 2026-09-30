@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { installSmokeNetworkGuards } from "../support/network";
 
 const serviceRoute = "/dashboard/orders/new/virtual-renovation";
-const requirement = "Add contact details to place this order";
+const requirement = "Add your name to place this order";
 
 async function login(page: Page, destination: string) {
   await page.goto(`/login?redirectTo=${encodeURIComponent(destination)}`);
@@ -99,15 +99,15 @@ test("incomplete profile is gated after client-side catalogue navigation and ret
   await expect(page.getByRole("link", { name: "Back to dashboard", exact: true })).toHaveAttribute("href", "/dashboard");
   expect(documentNavigations).toEqual([]);
 
-  // Only the required name and phone are saved through the real profile API.
+  // A name alone is saved through the real profile API; optional fields stay empty.
   await page.getByLabel("First name", { exact: true }).fill("Client");
-  await page.getByLabel("Phone", { exact: true }).fill("+34 600 000 000");
+  await expect(page.getByLabel("Phone — Optional", { exact: true })).toHaveValue("");
   await page.getByRole("button", { name: "Save and continue to order", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${serviceRoute}$`));
   await expectOrderForm(page);
   const saved = await (await request.get("/__fixture/state")).json();
   expect(saved.profile).toMatchObject({
-    user_id: saved.userId, full_name: "Client", phone: "+34 600 000 000",
+    user_id: saved.userId, full_name: "Client", phone: null,
     last_name: null, company_name: null, country: null, industry: null, how_found_us: null,
   });
   expect(saved.unsupportedOperations).toEqual([]);
@@ -117,7 +117,7 @@ test("incomplete profile is gated after client-side catalogue navigation and ret
 
 test("complete profile opens the concrete order form directly", async ({ page, request }, testInfo) => {
   await request.post("/__fixture/reset", {
-    data: { mode: "password-login", profile: { full_name: "Existing Client", phone: "+34 600 000 000" } },
+    data: { mode: "password-login", profile: { full_name: "Existing Client", phone: null, company_name: null } },
   });
   const guard = await installSmokeNetworkGuards(page, testInfo);
   await login(page, serviceRoute);
@@ -127,3 +127,48 @@ test("complete profile opens the concrete order form directly", async ({ page, r
   expect(current.unsupportedOperations).toEqual([]);
   await guard.expectClean();
 });
+
+for (const scenario of [
+  { name: "whitespace full name falls back to Auth", full_name: "   ", first_name: null, last_name: null, first: "Auth", last: "Person", onboarding: true },
+  { name: "empty full name falls back to Auth", full_name: "", first_name: null, last_name: null, first: "Auth", last: "Person", onboarding: true },
+  { name: "empty split result falls back to Auth", full_name: " \t\n ", first_name: "", last_name: " \t ", first: "Auth", last: "Person", onboarding: true },
+  { name: "valid historical full name", full_name: "  Jane Smith  ", first_name: null, last_name: null, first: "Jane", last: "Smith" },
+  { name: "single historical name", full_name: "Jane", first_name: null, last_name: null, first: "Jane", last: "" },
+  { name: "empty first name", full_name: "Jane Smith", first_name: "", last_name: "Smith", first: "Jane", last: "Smith" },
+  { name: "whitespace last name", full_name: "Jane Smith", first_name: "Jane", last_name: " \t ", first: "Jane", last: "Smith" },
+  { name: "both split fields blank", full_name: "Jane Smith", first_name: " \t ", last_name: "", first: "Jane", last: "Smith" },
+  { name: "explicit split names", full_name: "Jane Smith", first_name: "Janet", last_name: "Doe", first: "Janet", last: "Doe" },
+  { name: "explicit split names with blank full name", full_name: "   ", first_name: "Janet", last_name: "Doe", first: "Janet", last: "Doe" },
+]) {
+  test(`historical profile preserves its name on an optional edit: ${scenario.name}`, async ({ page, request }, testInfo) => {
+    await request.post("/__fixture/reset", { data: {
+      mode: "password-login", authFullName: "Auth Person", profile: {
+        full_name: scenario.full_name, first_name: scenario.first_name, last_name: scenario.last_name,
+      },
+    } });
+    const guard = await installSmokeNetworkGuards(page, testInfo);
+    // Incomplete historical profiles use onboarding; return here after saving.
+    await login(page, scenario.onboarding
+      ? "/dashboard/profile?next=%2Fdashboard%2Fprofile" : "/dashboard/profile");
+    await expect(page.getByLabel("First name", { exact: true })).toHaveValue(scenario.first);
+    await expect(page.getByLabel("Last name", { exact: true })).toHaveValue(scenario.last);
+    await page.getByLabel("Company name — Optional", { exact: true }).fill("Edited company");
+    await page.getByRole("button", {
+      name: scenario.onboarding ? "Save and continue to order" : "Save changes", exact: true,
+    }).click();
+    if (scenario.onboarding) {
+      await expect(page).toHaveURL(/\/dashboard\/profile$/);
+      await expect(page.getByLabel("First name", { exact: true })).toHaveValue(scenario.first);
+      await expect(page.getByLabel("Last name", { exact: true })).toHaveValue(scenario.last);
+    } else {
+      await expect(page.getByText("Profile saved successfully.", { exact: true })).toBeVisible();
+    }
+    const state = await (await request.get("/__fixture/state")).json();
+    expect(state.profile).toMatchObject({
+      full_name: [scenario.first, scenario.last].filter(Boolean).join(" "),
+      first_name: scenario.first, last_name: scenario.last || null, company_name: "Edited company",
+    });
+    expect(state.unsupportedOperations).toEqual([]);
+    await guard.expectClean();
+  });
+}

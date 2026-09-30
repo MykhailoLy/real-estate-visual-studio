@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   if (missingFields.length > 0) {
     return NextResponse.json(
       {
-        error: "Please complete your profile (name and phone) before continuing.",
+        error: "Please add your name to your profile before continuing. Phone and company are optional.",
         code: "profile-incomplete",
         fields: missingFields,
       },

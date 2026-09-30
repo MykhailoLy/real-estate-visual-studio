@@ -30,9 +30,9 @@ function profile(
   };
 }
 
-test("profile completion requires a usable name and phone", () => {
+test("profile completion requires only a usable name", () => {
   assert.equal(isProfileComplete(null), false);
-  assert.deepEqual(getMissingProfileCompletionFields(null), ["name", "phone"]);
+  assert.deepEqual(getMissingProfileCompletionFields(null), ["name"]);
 
   assert.equal(isProfileComplete(profile()), true);
   assert.deepEqual(getMissingProfileCompletionFields(profile()), []);
@@ -58,8 +58,15 @@ test("profile completion requires a usable name and phone", () => {
   );
   assert.deepEqual(
     getMissingProfileCompletionFields(profile({ phone: "   " })),
-    ["phone"],
+    [],
   );
+  for (const phone of [undefined, null, "", "   "]) {
+    for (const company_name of [undefined, null, "", "   "]) {
+      assert.equal(isProfileComplete({ full_name: "Client", phone, company_name }), true);
+    }
+  }
+  assert.equal(isProfileComplete({ first_name: " Client " }), true);
+  assert.equal(isProfileComplete({ phone: "123456", company_name: "Company" }), false);
 });
 
 test("resolved order identity uses the verified email and normalized profile fields", () => {
@@ -80,10 +87,13 @@ test("resolved order identity uses the verified email and normalized profile fie
     },
   );
 
-  assert.equal(
+  assert.deepEqual(
     resolveClientIdentity("verified@example.com", profile({ phone: null })),
-    null,
+    { name: "Jane Smith", email: "verified@example.com", phone: "", company: "Example Realty" },
   );
+  assert.deepEqual(resolveClientIdentity("verified@example.com", { full_name: "Client", company_name: "" }),
+    { name: "Client", email: "verified@example.com", phone: "", company: null });
+  assert.equal(resolveClientIdentity("verified@example.com", { full_name: "  ", phone: "123" }), null);
   assert.equal(resolveClientIdentity("", profile()), null);
 });
 
@@ -118,7 +128,8 @@ test("profile completion is optional for portal browsing but remains required at
   assert.match(orderingLayoutSource, /getDashboardRequestProfile\(\)/);
   assert.match(orderingLayoutSource, /user\.isQaPreview \|\| isProfileComplete\(profile\)/);
   assert.doesNotMatch(orderingLayoutSource, /redirect\(/);
-  assert.match(orderingLayoutSource, /Add contact details to place this order/);
+  assert.match(orderingLayoutSource, /Add your name to place this order/);
+  assert.doesNotMatch(orderingLayoutSource, /name and phone/);
   assert.match(orderingLayoutSource, /Complete profile/);
   assert.match(orderingLayoutSource, /Back to dashboard/);
   assert.match(orderingLayoutSource, /safeDashboardRequestPath\(/);
@@ -134,6 +145,10 @@ test("profile completion is optional for portal browsing but remains required at
   assert.match(profilePageSource, /!isProfileComplete\(profile\)/);
   assert.match(profileFormSource, /Skip for now/);
   assert.match(profileFormSource, /Save and continue to order/);
+  assert.doesNotMatch(profileFormSource, /name and phone/);
+  for (const label of ["Phone", "Company name", "Country", "Industry"]) {
+    assert.ok(profileFormSource.includes(`${label} — Optional`));
+  }
   assert.match(
     callbackSource,
     /\.select\("first_name, last_name, full_name, phone"\)/,
