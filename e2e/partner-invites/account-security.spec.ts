@@ -1,9 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installSmokeNetworkGuards } from "../support/network";
+import {
+  TURNSTILE_SCRIPT_SRC, installFakeTurnstile, getTurnstileState, expireTurnstile,
+  failTurnstile, completeTurnstile, setTurnstileAutoComplete,
+} from "../support/turnstile-fixture";
 
 const USER_ID = "33333333-3333-4333-8333-333333333333";
 const OTHER_ID = "11111111-1111-4111-8111-111111111111";
 const email = "root-client@example.com";
+const captchaEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 
 async function login(page: Page) {
   await page.goto("/login?redirectTo=%2Fdashboard%2Fprofile");
@@ -14,7 +19,8 @@ async function login(page: Page) {
   await expect(page.getByRole("heading", { name: "Account & Security" })).toBeVisible();
 }
 
-test.beforeEach(async ({ request, context }) => {
+test.beforeEach(async ({ request, context, page }) => {
+  if (captchaEnabled) await installFakeTurnstile(page);
   await request.post("/__fixture/reset", { data: {
     mode: "password-login", profile: { full_name: "Client", phone: null, company_name: null },
     accountOrders: [
@@ -34,6 +40,7 @@ test("account controls are responsive and email stays pending until verified Aut
   const guard = await installSmokeNetworkGuards(page, testInfo);
   await login(page);
   const security = page.getByRole("region", { name: "Account & Security" });
+  if (!captchaEnabled) await expect(page.locator(`script[src="${TURNSTILE_SCRIPT_SRC}"]`)).toHaveCount(0);
   await expect(page.getByLabel("First name", { exact: true })).toHaveValue("Client");
   for (const label of ["Phone", "Company name", "Country", "Industry"]) {
     await expect(page.getByLabel(`${label} — Optional`, { exact: true })).toBeVisible();
@@ -129,7 +136,9 @@ test("ownership and Auth errors stop the email change and retain the current ema
   expect(state.unsupportedOperations).toEqual([]);
 });
 
-test("password validates, verifies current password, and updates directly through signed-in Supabase", async ({ page, request }) => {
+for (const requireCurrentPassword of [false, true]) {
+test(`password explicitly reauthenticates with provider current-password enforcement ${requireCurrentPassword ? "ON" : "OFF"}`, async ({ page, request }) => {
+  await request.post("/__fixture/account-settings", { data: { requireCurrentPassword } });
   await login(page);
   const security = page.getByRole("region", { name: "Account & Security" });
   await expect(security.getByRole("link", { name: "Forgot current password?" })).toHaveAttribute("href", "/forgot-password");
@@ -159,6 +168,7 @@ test("password validates, verifies current password, and updates directly throug
   await expect(submit).toBeEnabled();
   const rejected = await (await request.get("/__fixture/state")).json();
   expect(rejected.passwordChanges).toBe(0);
+  expect(rejected.passwordUpdateAttempts).toBe(0);
   expect(rejected.passwordSignIns).toBe(1); // Original login only.
   expect(rejected.passwordSignInFailures).toBe(1);
   expect(rejected.passwordAuthEvents).toEqual(["sign-in-accepted", "sign-in-rejected"]);
@@ -169,7 +179,7 @@ test("password validates, verifies current password, and updates directly throug
     if (route.request().method() !== "PUT") { await route.continue(); return; }
     const attributes = route.request().postDataJSON();
     expect(attributes.password).toBe("fixture-new-password");
-    expect(attributes).not.toHaveProperty("current_password");
+    expect(attributes.current_password).toBe("fixture-password-only");
     const response = await route.fetch();
     await held;
     await route.fulfill({ response });
@@ -185,10 +195,13 @@ test("password validates, verifies current password, and updates directly throug
   const state = await (await request.get("/__fixture/state")).json();
   expect(state.currentPasswordVerified).toBe(true);
   expect(state.passwordChanges).toBe(1);
+  expect(state.requireCurrentPassword).toBe(requireCurrentPassword);
+  expect(state.passwordUpdateAttempts).toBe(1);
   expect(state.passwordSignIns).toBe(2);
   expect(state.passwordAuthEvents).toEqual(["sign-in-accepted", "sign-in-rejected", "sign-in-accepted", "password-update"]);
   expect(state.unsupportedOperations).toEqual([]);
 });
+}
 
 test("password change rejects a different reauthenticated user and displays update errors", async ({ page, request }) => {
   await login(page);
@@ -204,6 +217,7 @@ test("password change rejects a different reauthenticated user and displays upda
   const mismatched = await (await request.get("/__fixture/state")).json();
   expect(mismatched.passwordSignIns).toBe(2);
   expect(mismatched.passwordChanges).toBe(0);
+  expect(mismatched.passwordUpdateAttempts).toBe(0);
   expect(mismatched.currentPasswordVerified).toBe(false);
   expect(mismatched.passwordAuthEvents).not.toContain("password-update");
   await request.post("/__fixture/account-failures", { data: { reauthUserMismatch: false, password: true } });
@@ -225,4 +239,87 @@ test("unauthenticated ownership preparation rejects browser identity", async ({ 
   const state = await (await request.get("/__fixture/state")).json();
   expect(state.accountOrders[0].user_id).toBeNull();
   expect(state.emailChanges).toBe(0);
+});
+
+test("CAPTCHA protects password reauthentication and each retry requires a fresh token", async ({ page, request }, testInfo) => {
+  test.skip(!captchaEnabled, "Run the same Auth fixture with the dummy Turnstile site key.");
+  await request.post("/__fixture/account-settings", { data: { requireCurrentPassword: true } });
+  await login(page);
+  const security = page.getByRole("region", { name: "Account & Security" });
+  const widget = security.getByTestId("fake-turnstile-widget");
+  await expect(widget).toHaveText("Security check (login)");
+  for (const width of [360, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await widget.scrollIntoViewIfNeeded();
+    const box = (await widget.boundingBox())!;
+    const card = (await security.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(card.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(card.x + card.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`account-captcha-${width}.png`) });
+  }
+  await setTurnstileAutoComplete(page, false);
+  const apiRequests: string[] = [];
+  page.on("request", (req) => {
+    if (new URL(req.url()).pathname.startsWith("/api/")) apiRequests.push(new URL(req.url()).pathname);
+  });
+  const current = security.getByLabel("Current password", { exact: true });
+  const next = security.getByLabel("New password", { exact: true });
+  const confirm = security.getByLabel("Confirm new password", { exact: true });
+  const submit = security.getByRole("button", { name: "Update password", exact: true });
+  await current.fill("wrong-fixture-current");
+  await next.fill("fixture-new-password");
+  await confirm.fill("fixture-new-password");
+
+  await expireTurnstile(page);
+  await expect(submit).toBeDisabled();
+  await security.getByRole("form", { name: "Change password" }).evaluate((form: HTMLFormElement) => form.requestSubmit());
+  await expect(security.getByText("Please complete the security check.", { exact: true })).toBeVisible();
+  expect((await (await request.get("/__fixture/state")).json()).passwordSignIns).toBe(1);
+  await failTurnstile(page);
+  await expect(security.getByText("Security check failed. Please try again.", { exact: true })).toBeVisible();
+  await security.getByRole("button", { name: "Retry security check" }).click();
+  await expect.poll(async () => (await getTurnstileState(page)).resetCount).toBe(1);
+  await expect(submit).toBeDisabled();
+
+  await completeTurnstile(page, "invalid-token");
+  await submit.click();
+  await expect(security.getByText("CAPTCHA verification failed.", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await getTurnstileState(page)).resetCount).toBe(2);
+  await expect(submit).toBeDisabled();
+
+  await completeTurnstile(page);
+  const consumedToken = (await getTurnstileState(page)).latestToken!;
+  await submit.click();
+  await expect(security.getByText("Current password is incorrect.", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await getTurnstileState(page)).resetCount).toBe(3);
+  await expect(submit).toBeDisabled();
+
+  await current.fill("fixture-password-only");
+  await completeTurnstile(page, consumedToken);
+  await submit.click();
+  await expect(security.getByText("CAPTCHA verification failed.", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await getTurnstileState(page)).resetCount).toBe(4);
+  await expect(submit).toBeDisabled();
+  const rejected = await (await request.get("/__fixture/state")).json();
+  expect(rejected.passwordUpdateAttempts).toBe(0);
+  expect(rejected.passwordSignInFailures).toBe(1);
+
+  await completeTurnstile(page);
+  const freshToken = (await getTurnstileState(page)).latestToken!;
+  expect(freshToken).not.toBe(consumedToken);
+  await submit.click();
+  await expect(security.getByText("Password updated successfully.", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await getTurnstileState(page)).resetCount).toBe(5);
+  await expect(submit).toBeDisabled();
+  const saved = await (await request.get("/__fixture/state")).json();
+  expect(saved.requireCaptcha).toBe(true);
+  expect(saved.captchaAttempts.slice(1)).toEqual(["invalid-token", consumedToken, consumedToken, freshToken]);
+  expect(saved.passwordAuthEvents).toEqual([
+    "sign-in-accepted", "captcha-rejected", "sign-in-rejected", "captcha-rejected", "sign-in-accepted", "password-update",
+  ]);
+  expect(saved.passwordChanges).toBe(1);
+  expect(saved.passwordUpdateAttempts).toBe(1);
+  expect(apiRequests).toEqual([]);
+  expect(saved.unsupportedOperations).toEqual([]);
 });

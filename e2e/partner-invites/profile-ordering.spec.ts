@@ -127,3 +127,30 @@ test("complete profile opens the concrete order form directly", async ({ page, r
   expect(current.unsupportedOperations).toEqual([]);
   await guard.expectClean();
 });
+
+for (const scenario of [
+  { name: "empty first name", first_name: "", last_name: "Smith", first: "Jane", last: "Smith" },
+  { name: "whitespace last name", first_name: "Jane", last_name: " \t ", first: "Jane", last: "Smith" },
+  { name: "both split fields blank", first_name: " \t ", last_name: "", first: "Jane", last: "Smith" },
+  { name: "explicit split names", first_name: "Janet", last_name: "Doe", first: "Janet", last: "Doe" },
+]) {
+  test(`historical profile preserves its name on an optional edit: ${scenario.name}`, async ({ page, request }) => {
+    await request.post("/__fixture/reset", { data: {
+      mode: "password-login", profile: {
+        full_name: "Jane Smith", first_name: scenario.first_name, last_name: scenario.last_name,
+      },
+    } });
+    await login(page, "/dashboard/profile");
+    await expect(page.getByLabel("First name", { exact: true })).toHaveValue(scenario.first);
+    await expect(page.getByLabel("Last name", { exact: true })).toHaveValue(scenario.last);
+    await page.getByLabel("Company name — Optional", { exact: true }).fill("Edited company");
+    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(page.getByText("Profile saved successfully.", { exact: true })).toBeVisible();
+    const state = await (await request.get("/__fixture/state")).json();
+    expect(state.profile).toMatchObject({
+      full_name: `${scenario.first} ${scenario.last}`,
+      first_name: scenario.first, last_name: scenario.last, company_name: "Edited company",
+    });
+    expect(state.unsupportedOperations).toEqual([]);
+  });
+}

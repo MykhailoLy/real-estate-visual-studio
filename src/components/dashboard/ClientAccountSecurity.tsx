@@ -3,11 +3,21 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Shield } from "lucide-react";
+import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import { DEFAULT_TURNSTILE_COPY, normalizeTurnstileSiteKey } from "@/components/auth/turnstile";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-export default function ClientAccountSecurity({ authEmail, authUserId }: { authEmail: string; authUserId: string }) {
+export default function ClientAccountSecurity({ authEmail, authUserId, turnstileSiteKey }: {
+  authEmail: string;
+  authUserId: string;
+  turnstileSiteKey?: string | null;
+}) {
   const router = useRouter();
+  const normalizedTurnstileSiteKey = normalizeTurnstileSiteKey(turnstileSiteKey);
+  const turnstileEnabled = Boolean(normalizedTurnstileSiteKey);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -88,7 +98,13 @@ export default function ClientAccountSecurity({ authEmail, authUserId }: { authE
     if (!currentPassword) { setPasswordError("Enter your current password."); return; }
     if (password.length < 8) { setPasswordError("Password must be at least 8 characters."); return; }
     if (password !== confirm) { setPasswordError("Passwords do not match."); return; }
+    const captchaToken = turnstileEnabled ? turnstileToken : null;
+    if (turnstileEnabled && !captchaToken) {
+      setPasswordError(DEFAULT_TURNSTILE_COPY.required);
+      return;
+    }
     setPasswordLoading(true);
+    let reauthenticationAttempted = false;
     try {
       const supabase = createBrowserSupabaseClient();
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -98,22 +114,30 @@ export default function ClientAccountSecurity({ authEmail, authUserId }: { authE
       }
       // Explicitly verify the current password even when Auth's optional
       // require-current-password setting is disabled for this project.
+      reauthenticationAttempted = true;
+      if (turnstileEnabled) setTurnstileToken(null);
       const { data: reauthenticated, error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPassword,
+        ...(captchaToken ? { options: { captchaToken } } : {}),
       });
       if (signInError) { setPasswordError(signInError.message); return; }
       if (!reauthenticated.user || reauthenticated.user.id !== authUserId) {
         setPasswordError("Your session changed. Reload this page before trying again.");
         return;
       }
-      const { error } = await supabase.auth.updateUser({ password });
+      const { error } = await supabase.auth.updateUser({ password, current_password: currentPassword });
       if (error) { setPasswordError(error.message); return; }
       form.reset();
       setPasswordDone(true);
     } catch {
       setPasswordError("Unable to change your password. Please try again.");
     } finally {
+      // A password-grant attempt consumes the challenge even when it fails.
+      if (turnstileEnabled && reauthenticationAttempted) {
+        setTurnstileToken(null);
+        setTurnstileResetSignal((value) => value + 1);
+      }
       setPasswordLoading(false);
     }
   }
@@ -167,9 +191,15 @@ export default function ClientAccountSecurity({ authEmail, authUserId }: { authE
             <label htmlFor="account-confirm-password" className={labelClass}>Confirm new password</label>
             <input id="account-confirm-password" name="confirm" type="password" autoComplete="new-password" required disabled={busy} className={inputClass} />
           </div>
+          <TurnstileWidget
+            siteKey={normalizedTurnstileSiteKey}
+            action="login"
+            resetSignal={turnstileResetSignal}
+            onTokenChange={setTurnstileToken}
+          />
           {passwordError && <p role="alert" className="text-dashboard-body text-red-700">{passwordError}</p>}
           {passwordDone && <p role="status" className="text-dashboard-body text-emerald-700">Password updated successfully.</p>}
-          <button type="submit" disabled={busy} className={`${buttonClass} w-full sm:w-auto`}>
+          <button type="submit" disabled={busy || (turnstileEnabled && !turnstileToken)} className={`${buttonClass} w-full sm:w-auto`}>
             {passwordLoading ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden />Updating password…</> : "Update password"}
           </button>
         </form>

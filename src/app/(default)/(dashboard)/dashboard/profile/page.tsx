@@ -7,6 +7,7 @@ import { safeInternalPath } from "@/lib/safe-redirect";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import ClientProfileForm from "@/components/dashboard/ClientProfileForm";
 import ClientAccountSecurity from "@/components/dashboard/ClientAccountSecurity";
+import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 
 export const metadata = {
   title: "Profile | PicchuSpot Client Portal",
@@ -66,7 +67,11 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
           isOnboarding={isOnboarding}
           nextPath={nextPath}
         />
-        {user && !user.isQaPreview && <ClientAccountSecurity authEmail={authEmail} authUserId={user.id} />}
+        {user && !user.isQaPreview && <ClientAccountSecurity
+          authEmail={authEmail}
+          authUserId={user.id}
+          turnstileSiteKey={getTurnstileSiteKeyFromEnv()}
+        />}
       </div>
     </ClientDashboardLayout>
   );

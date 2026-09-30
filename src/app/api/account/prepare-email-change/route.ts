@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
-import { isOrderOwned, toOrderOwnership } from "@/lib/order-ownership";
+import { escapeIlikeLiteral, isOrderOwned, toOrderOwnership } from "@/lib/order-ownership";
 
 export const runtime = "nodejs";
 
@@ -12,7 +12,7 @@ export async function POST() {
   try {
     const auth = await createServerSupabaseClient();
     const { data: { user }, error } = await auth.auth.getUser();
-    if (error || !user?.email || !user.email_confirmed_at || user.is_anonymous) {
+    if (error || !user?.email?.trim() || !user.email_confirmed_at || user.is_anonymous) {
       return NextResponse.json(
         { error: "Please sign in with a confirmed email before changing it." },
         { status: 401, headers },
@@ -21,6 +21,9 @@ export async function POST() {
 
     const db = getSupabaseAdminClient();
     const ownership = toOrderOwnership({ id: user.id, email: user.email });
+    // Narrow the DB candidates while including whitespace-padded snapshots.
+    // Substring/pattern-alias false positives never authorize a claim below.
+    const emailCandidate = `%${escapeIlikeLiteral(user.email.trim())}%`;
 
     async function legacyOrders() {
       const eligible: { id: string; client_email: string }[] = [];
@@ -30,10 +33,11 @@ export async function POST() {
         let query = db.from("orders")
           .select("id, user_id, client_email")
           .is("user_id", null)
+          .ilike("client_email", emailCandidate)
           .order("id")
           .limit(pageSize);
         // Cursor pagination is unaffected when another request claims earlier
-        // rows during the scan. An email prefilter would exclude padded emails.
+        // rows during the scan.
         if (afterId !== null) query = query.gt("id", afterId);
         const { data, error: readError } = await query;
         if (readError || !data) throw new Error("Ownership lookup failed");

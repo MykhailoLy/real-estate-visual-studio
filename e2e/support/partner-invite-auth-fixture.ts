@@ -25,6 +25,11 @@ let accountOrders: { id: string; user_id: string | null; client_email: string }[
 let accountFailures = { ownership: false, claim: false, email: false, password: false, reauthUserMismatch: false };
 let emailChanges = 0;
 let passwordChanges = 0;
+let passwordUpdateAttempts = 0;
+let requireCurrentPassword = false;
+let captchaAttempts: (string | null)[] = [];
+let usedCaptchaTokens = new Set<string>();
+const requireCaptcha = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 let currentPasswordVerified = false;
 const tokenPart = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 const accessToken = `${tokenPart({ alg: "HS256", typ: "JWT" })}.${tokenPart({ sub: userId, exp: Math.floor(Date.now() / 1000) + 86400, role: "authenticated" })}.${Buffer.from("fixture-signature").toString("base64url")}`;
@@ -71,6 +76,7 @@ createServer(async (req, res) => {
     accountOrders = body.accountOrders ?? [];
     accountFailures = { ownership: false, claim: false, email: false, password: false, reauthUserMismatch: false };
     emailChanges = 0; passwordChanges = 0; currentPasswordVerified = false;
+    passwordUpdateAttempts = 0; requireCurrentPassword = false; captchaAttempts = []; usedCaptchaTokens = new Set();
     if (mode === "password-login") {
       users.unshift(makeUser(userId, "root-client@example.com"));
       profile = body.profile ? { ...body.profile, id: userId, user_id: userId } : null;
@@ -80,10 +86,15 @@ createServer(async (req, res) => {
   if (url.pathname === "/__fixture/state") {
     json({ pricing, profile, passwordSet, inviteCalls, redirectTo, accessToken, userId,
       passwordSignIns, passwordSignInFailures, passwordAuthEvents, authenticatedUserReads, unsupportedOperations, accountOrders,
-      emailChanges, passwordChanges, currentPasswordVerified }); return;
+      emailChanges, passwordChanges, passwordUpdateAttempts, currentPasswordVerified,
+      requireCurrentPassword, requireCaptcha, captchaAttempts }); return;
   }
   if (url.pathname === "/__fixture/account-failures") {
     accountFailures = { ...accountFailures, ...body }; json({ ok: true }); return;
+  }
+  if (url.pathname === "/__fixture/account-settings") {
+    requireCurrentPassword = body.requireCurrentPassword === true;
+    json({ ok: true }); return;
   }
   if (url.pathname === "/__fixture/confirm-email") {
     const user = users.find((user) => user.id === userId);
@@ -95,6 +106,16 @@ createServer(async (req, res) => {
   if (url.pathname === "/auth/v1/token" && req.method === "POST" &&
       url.searchParams.get("grant_type") === "password" && mode === "password-login") {
     const user = users.find((user) => user.id === userId)!;
+    if (requireCaptcha) {
+      const captchaToken = body.gotrue_meta_security?.captcha_token;
+      captchaAttempts.push(typeof captchaToken === "string" ? captchaToken : null);
+      const reused = usedCaptchaTokens.has(captchaToken);
+      if (typeof captchaToken === "string") usedCaptchaTokens.add(captchaToken);
+      if (typeof captchaToken !== "string" || !captchaToken.startsWith("token-") || reused) {
+        passwordAuthEvents.push("captcha-rejected");
+        json({ code: "captcha_failed", msg: "CAPTCHA verification failed." }, 400); return;
+      }
+    }
     if (body.email !== user.email || body.password !== "fixture-password-only") {
       passwordSignInFailures++; passwordAuthEvents.push("sign-in-rejected");
       json({ code: "invalid_credentials", msg: "Current password is incorrect." }, 400); return;
@@ -139,8 +160,12 @@ createServer(async (req, res) => {
       }
       if (typeof body.password === "string") {
         if (mode === "password-login") {
-          // Simulate Auth with require-current-password disabled: this endpoint
-          // does not validate current_password or require prior reauthentication.
+          passwordUpdateAttempts++;
+          // Exercise both provider configurations independently of the explicit
+          // password grant; OFF must not mask a skipped/wrong reauthentication.
+          if (requireCurrentPassword && body.current_password !== "fixture-password-only") {
+            json({ code: "invalid_credentials", msg: "Current password is required for this update." }, 422); return;
+          }
           if (accountFailures.password) {
             json({ code: "fixture_password", msg: "Unable to change password." }, 422); return;
           }
@@ -167,12 +192,17 @@ createServer(async (req, res) => {
   if (url.pathname === "/rest/v1/orders" && mode === "password-login" &&
       req.headers.authorization === "Bearer isolated-fixture-service-role") {
     if (accountFailures.ownership) { json({ message: "fixture ownership failure" }, 503); return; }
-    if (req.method === "GET" && url.searchParams.get("user_id") === "is.null" &&
-        !url.searchParams.has("client_email")) {
+    if (req.method === "GET" && url.searchParams.get("user_id") === "is.null") {
+      const verifiedEmail = users.find((user) => user.id === userId)!.email.trim();
+      const escapedEmail = verifiedEmail.replace(/([\\%_])/g, "\\$1");
+      if (url.searchParams.get("client_email") !== `ilike.%${escapedEmail}%`) {
+        json({ message: "Missing bounded email candidate filter" }, 503); return;
+      }
       const offset = Number(url.searchParams.get("offset") ?? 0);
       const limit = Number(url.searchParams.get("limit") ?? 100);
       const cursor = url.searchParams.get("id")?.replace(/^gt\./, "");
-      json(accountOrders.filter((row) => row.user_id === null && (!cursor || row.id > cursor))
+      json(accountOrders.filter((row) => row.user_id === null && (!cursor || row.id > cursor) &&
+        row.client_email.toLowerCase().includes(verifiedEmail.toLowerCase()))
         .sort((left, right) => left.id.localeCompare(right.id)).slice(offset, offset + limit)); return;
     }
     if (req.method === "PATCH" && Object.keys(body).length === 1 && body.user_id === userId &&

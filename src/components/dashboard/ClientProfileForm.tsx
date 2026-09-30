@@ -104,8 +104,10 @@ export default function ClientProfileForm({
   const authSplit = authFullName ? splitFullName(authFullName) : null;
 
   const profileSplit = initialProfile?.full_name ? splitFullName(initialProfile.full_name) : null;
-  const [firstName,   setFirstName]   = useState(initialProfile?.first_name   ?? profileSplit?.first ?? authSplit?.first ?? "");
-  const [lastName,    setLastName]    = useState(initialProfile?.last_name    ?? profileSplit?.last ?? authSplit?.last ?? "");
+  const [firstName,   setFirstName]   = useState(initialProfile?.first_name?.trim()
+    ? initialProfile.first_name : profileSplit?.first ?? authSplit?.first ?? "");
+  const [lastName,    setLastName]    = useState(initialProfile?.last_name?.trim()
+    ? initialProfile.last_name : profileSplit?.last ?? authSplit?.last ?? "");
   const [companyName, setCompanyName] = useState(initialProfile?.company_name ?? "");
   const [phone,       setPhone]       = useState(initialProfile?.phone        ?? "");
   const [country,     setCountry]     = useState(initialProfile?.country      ?? "");

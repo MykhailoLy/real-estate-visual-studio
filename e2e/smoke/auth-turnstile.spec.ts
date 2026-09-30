@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { expectNavigationResponseOk } from "../support/network";
 
-const TURNSTILE_SCRIPT_SRC =
-  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+import { TURNSTILE_SCRIPT_SRC, installFakeTurnstile, getTurnstileState, expireTurnstile, failTurnstile } from "../support/turnstile-fixture";
 const TURNSTILE_DUMMY_SITE_KEY = "1x00000000000000000000AA";
 const hasAnyTurnstileSiteKey = Boolean(
   process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim(),
@@ -19,17 +18,6 @@ type CapturedSupabaseCall = {
   pathname: string;
   search: string;
   body: Record<string, unknown>;
-};
-
-type TurnstileTestState = {
-  renderCount: number;
-  resetCount: number;
-  removeCount: number;
-  widgets: Array<{
-    id: string;
-    action: string | null;
-    sitekey: string | null;
-  }>;
 };
 
 const dormantAuthRoutes = [
@@ -435,83 +423,6 @@ test.describe("auth Turnstile enabled state", () => {
   });
 });
 
-async function installFakeTurnstile(page: Page) {
-  let scriptRequests = 0;
-
-  await page.route(TURNSTILE_SCRIPT_SRC, async (route) => {
-    scriptRequests += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/javascript",
-      body: `
-(() => {
-  const state = {
-    renderCount: 0,
-    resetCount: 0,
-    removeCount: 0,
-    latestOptions: null,
-    widgets: [],
-  };
-
-  window.__turnstileTest = {
-    state: () => ({
-      renderCount: state.renderCount,
-      resetCount: state.resetCount,
-      removeCount: state.removeCount,
-      widgets: state.widgets.map((widget) => ({ ...widget })),
-    }),
-    expire: () => state.latestOptions && state.latestOptions["expired-callback"](),
-    fail: () => state.latestOptions && state.latestOptions["error-callback"](),
-  };
-
-  window.turnstile = {
-    render: (container, options) => {
-      state.renderCount += 1;
-      state.latestOptions = options;
-
-      const id = "turnstile-widget-" + state.renderCount;
-      state.widgets.push({
-        id,
-        action: options.action || null,
-        sitekey: options.sitekey || null,
-      });
-
-      const widget = document.createElement("div");
-      widget.setAttribute("data-testid", "fake-turnstile-widget");
-      widget.textContent = "Security check (" + options.action + ")";
-      container.replaceChildren(widget);
-
-      queueMicrotask(() => {
-        options.callback("token-" + options.action + "-" + state.renderCount);
-      });
-
-      return id;
-    },
-    reset: () => {
-      state.resetCount += 1;
-      const options = state.latestOptions;
-      if (options) {
-        queueMicrotask(() => {
-          options.callback("token-reset-" + state.resetCount);
-        });
-      }
-    },
-    remove: () => {
-      state.removeCount += 1;
-    },
-  };
-})();
-      `,
-    });
-  });
-
-  return {
-    requestCount() {
-      return scriptRequests;
-    },
-  };
-}
-
 async function installSupabaseAuthStub(
   page: Page,
   responses: Record<string, { status: number; body: Record<string, unknown> }>,
@@ -583,34 +494,4 @@ function readCaptchaToken(call: CapturedSupabaseCall | undefined) {
 
 function readRedirectTo(call: CapturedSupabaseCall | undefined) {
   return new URLSearchParams(call?.search ?? "").get("redirect_to") ?? "";
-}
-
-async function getTurnstileState(page: Page): Promise<TurnstileTestState> {
-  return page.evaluate(() => {
-    const windowWithTest = window as unknown as {
-      __turnstileTest: { state: () => TurnstileTestState };
-    };
-
-    return windowWithTest.__turnstileTest.state();
-  });
-}
-
-async function expireTurnstile(page: Page) {
-  await page.evaluate(() => {
-    const windowWithTest = window as unknown as {
-      __turnstileTest: { expire: () => void };
-    };
-
-    windowWithTest.__turnstileTest.expire();
-  });
-}
-
-async function failTurnstile(page: Page) {
-  await page.evaluate(() => {
-    const windowWithTest = window as unknown as {
-      __turnstileTest: { fail: () => void };
-    };
-
-    windowWithTest.__turnstileTest.fail();
-  });
 }
