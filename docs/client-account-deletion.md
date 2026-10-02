@@ -1,7 +1,10 @@
 # Client account deletion
 
-This PR is limited to client account deletion. Neither migration has been applied
-by this task. Production Auth, Storage, data, configuration and Cron are untouched.
+This PR is limited to client account deletion. The schema migration was applied
+to production on 2026-10-02 and is recorded in the Supabase ledger as
+`20261002214429 client_account_deletion`. The scheduler migration is still
+unapplied. The schema rollout created no deletion requests, cleanup targets or
+order tombstones and did not delete Auth users, Storage objects or commercial data.
 
 ## Lifecycle and scheduling
 
@@ -103,13 +106,13 @@ or assignment to a future identity. No historical email is rewritten.
 
 ## Exact manual rollout (separate authorization required)
 
-1. **Schema migration first:** review and manually apply
-   `supabase/migrations/20261002095908_client_account_deletion.sql`. This adds the
+1. **Schema migration — completed 2026-10-02:** production ledger version
+   `20261002214429 client_account_deletion` matches
+   `supabase/migrations/20261002214429_client_account_deletion.sql`. It added the
    two deletion-specific tables/indexes, order tombstone, private helpers,
    restrictive policies, ownership/temporary-target guards, server-only RPCs and
-   the existing client-review RPC's deletion predicate. Installation deletes no
-   data and creates no deletion requests. Both migration files are unapplied;
-   this revision edits them directly rather than adding corrective migrations.
+   the existing client-review RPC's deletion predicate. Post-apply verification
+   found zero deletion requests, cleanup targets and tombstoned orders.
 2. **Deploy the matching application** through the normal reviewed process.
    Reuse `CRON_SECRET`; no new environment variables or secrets. **Application
    before schema is prohibited:** the account-state query fails closed for all
@@ -122,7 +125,7 @@ or assignment to a future identity. No historical email is rewritten.
    authentication; preview QA fallbacks are not evidence. Observe the real initial
    delay; do not bypass it or manually mark a request finished.
 4. **Only then manually apply the Cron scheduler migration**
-   `supabase/migrations/20261002100706_schedule_account_deletion_worker.sql`.
+   `supabase/migrations/20261002220455_schedule_account_deletion_worker.sql`.
    It reuses pg_cron/pg_net/Vault and `picchuspot_order_email_worker_secret`, with
    the dedicated `picchuspot-account-deletions` job every 15 minutes. The email job
    is unchanged. Exact reruns are no-ops; unexpected definitions fail closed.

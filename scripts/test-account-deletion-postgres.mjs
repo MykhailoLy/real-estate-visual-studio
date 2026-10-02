@@ -120,7 +120,7 @@ test('deletion transaction, durable targets, stale-JWT RLS, fair claims and FK r
       GRANT SELECT ON public.orders, public.client_profiles TO authenticated;
       GRANT INSERT, UPDATE ON public.client_profiles TO authenticated;`);
     await db.query(`GRANT SELECT ON ${readable.join(', ')} TO authenticated`);
-    const sql = await loadSql('supabase/migrations/20261002095908_client_account_deletion.sql');
+    const sql = await loadSql('supabase/migrations/20261002214429_client_account_deletion.sql');
     await db.query(sql); await db.query(sql); // Exact rerun is safe.
     const user = randomUUID(), stranger = randomUUID(), replacement = randomUUID();
     await db.query(`INSERT INTO auth.users(id,email,email_confirmed_at) VALUES ($1,'Client@example.com',now()),($2,'other@example.com',now())`, [user,stranger]);

@@ -2,20 +2,30 @@
 
 ## Client account deletion - 2026-10-02
 
-**MANUAL rollout only; NOT applied by this task.**
-Apply `migrations/20261002095908_client_account_deletion.sql` before the application
-release. It adds `account_deletion_requests` with pending/reconciling scheduling
-and progress checkpoints, server-only `account_deletion_cleanup_targets`, indexes,
+**Production schema applied on 2026-10-02; scheduler is not applied.**
+The live Supabase migration ledger records version `20261002214429` with name
+`client_account_deletion`. The repository file
+`migrations/20261002214429_client_account_deletion.sql` is the exact reviewed
+schema that was applied from PR #355 head `51e75a67c7793f3d01d1b87022ed75a5e024a01d`.
+
+It adds `account_deletion_requests` with pending/reconciling scheduling and
+progress checkpoints, server-only `account_deletion_cleanup_targets`, indexes,
 the immutable `orders.account_deleted_at` marker, and private policy/trigger helpers.
 Request/claim/preflight RPCs are service-only. Restrictive policies preserve existing
 grants. Deletion-specific guards serialize order/rework/submission activity;
 retired pending rework paths survive metadata deletion via a stable order ID.
 Native PostgreSQL verifies inherited child-table RLS for stale JWTs. The existing
-client-review RPC also rejects deleted accounts/history. Installation deletes no
-Auth user, order, payment, snapshot or Storage object.
+client-review RPC also rejects deleted accounts/history.
 
-After schema, matching application deployment, and controlled-account production
-smoke, separately apply `migrations/20261002100706_schedule_account_deletion_worker.sql`.
+Post-apply production verification found zero deletion-request rows, zero cleanup
+targets, zero tombstoned orders, all expected guards/RPC grants present, and no
+`picchuspot-account-deletions` Cron job. An existing authenticated profile remained
+readable under its normal RLS path. No Auth user, order, payment, snapshot or Storage
+object was deleted or rewritten by the schema rollout.
+
+After matching application deployment and controlled-account production smoke,
+separately apply
+`migrations/20261002220455_schedule_account_deletion_worker.sql`.
 Then verify the actual worker HTTP execution/result. The dedicated worker reuses
 existing pg_cron/pg_net/Vault and its secret; the email job and environment are
 unchanged. Auth deletion does not terminate Storage cleanup: successful scans back
