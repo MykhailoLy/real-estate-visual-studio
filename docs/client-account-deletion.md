@@ -23,10 +23,11 @@ by this task. Production Auth, Storage, data, configuration and Cron are untouch
 5. The existing Supabase Cron job invokes one account per call every 15 minutes.
    `retry_after` is the durable next-run time: failures retry after 15 minutes;
    successful full scans back off for 24 hours. A ten-minute lease recovers crashes.
-   Pending Auth deletions have priority over recurring scans; oldest due work wins
-   within each state. Failures move behind other already-due requests. Monitor
-   backlog age: due times are eligibility, not a promised completion SLA, and a
-   sustained pending backlog can delay recurring work.
+   Pending Auth deletions receive a one-hour preference in oldest-due ordering.
+   Overdue recurring scans age ahead, so a permanently failing pending record
+   cannot monopolize every tick. Retries move back to their new due time; successful
+   scans back off daily. Monitor backlog age: due times are eligibility, not a
+   promised completion SLA, and sustained load beyond worker capacity adds delay.
 6. A server-only `cleanup_cursor` checkpoints each completed target. Interrupted
    scans resume, so a long target list need not fit in one invocation. A full pass
    resets the cursor before Auth/preflight, even if those later operations fail.

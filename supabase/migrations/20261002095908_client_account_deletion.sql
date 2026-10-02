@@ -215,9 +215,12 @@ RETURNS SETOF public.account_deletion_requests LANGUAGE sql SECURITY INVOKER SET
     SELECT user_id FROM public.account_deletion_requests
     WHERE earliest_delete_at <= now() AND retry_after <= now()
       AND (lease_expires_at IS NULL OR lease_expires_at <= now())
-    -- Pending identity deletion wins over recurring scans. Oldest due first
-    -- within each class; retry/backoff moves each attempt behind other due work.
-    ORDER BY (status = 'pending') DESC, retry_after, requested_at, user_id
+    -- Give identity deletion a one-hour preference, but let overdue recurring
+    -- scans age ahead. Strict pending-first would let one permanent Auth failure
+    -- monopolize every Cron tick and leave late Storage objects forever.
+    ORDER BY greatest(earliest_delete_at, retry_after)
+      + CASE WHEN status = 'pending' THEN interval '0' ELSE interval '1 hour' END,
+      requested_at, user_id
     LIMIT 1 FOR UPDATE SKIP LOCKED
   ) RETURNING *;
 $$;

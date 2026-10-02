@@ -260,11 +260,11 @@ test('deletion transaction, durable targets, stale-JWT RLS, fair claims and FK r
     await db.query(`INSERT INTO account_deletion_requests(user_id,requested_at,earliest_delete_at,status,retry_after)
       VALUES ($1,now()-interval '3 hours',now()-interval '45 minutes','pending',now()-interval '1 minute'),
              ($2,now()-interval '3 hours',now()-interval '45 minutes','pending',now()-interval '30 seconds'),
-             ($3,now()-interval '30 days',now()-interval '29 days','reconciling',now()-interval '5 days')`,[pendingA,pendingB,reconcilingB]);
-    await db.query(`UPDATE account_deletion_requests SET retry_after=now()-interval '7 days' WHERE user_id=$1`,[user]);
+             ($3,now()-interval '30 days',now()-interval '29 days','reconciling',now()-interval '30 seconds')`,[pendingA,pendingB,reconcilingB]);
+    await db.query(`UPDATE account_deletion_requests SET retry_after=now()-interval '1 minute' WHERE user_id=$1`,[user]);
     await db.query('SET ROLE service_role');
     const claim = async () => (await db.query('SELECT * FROM claim_client_account_deletion($1)',[randomUUID()])).rows[0];
-    const a=await claim(); assert.equal(a.user_id,pendingA); // Old reconciliation cannot starve pending.
+    const a=await claim(); assert.equal(a.user_id,pendingA); // Pending gets priority over newly due reconciliation.
     await db.query(`UPDATE account_deletion_requests SET lease_token=NULL,lease_expires_at=NULL,retry_after=now()+interval '15 minutes',last_error_code='storage_list_failed' WHERE user_id=$1`,[pendingA]);
     assert.equal((await claim()).user_id,pendingB); // Failed account cannot monopolize claims.
     assert.equal((await claim()).user_id,user); // Due recurring records remain claimable.
@@ -273,6 +273,14 @@ test('deletion transaction, durable targets, stale-JWT RLS, fair claims and FK r
     await db.query('RESET ROLE');
     await db.query(`UPDATE account_deletion_requests SET lease_expires_at=now()-interval '1 second' WHERE user_id=$1`,[reconcilingB]);
     assert.equal((await claim()).user_id,reconcilingB); // Crash lease recovery.
+    // A persistent pending failure must not starve recurring cleanup either.
+    // Age recurring work beyond the pending preference; the next retry competes
+    // from its new due time instead of retaining permanent state priority.
+    await db.query(`UPDATE account_deletion_requests SET lease_token=NULL,lease_expires_at=NULL,
+      retry_after=now()-interval '2 hours' WHERE user_id=$1`,[reconcilingB]);
+    await db.query(`UPDATE account_deletion_requests SET retry_after=now()-interval '1 second' WHERE user_id=$1`,[pendingA]);
+    assert.equal((await claim()).user_id,reconcilingB);
+    assert.equal((await claim()).user_id,pendingA); // The recurring record cannot repeat while leased/backed off.
     // A NULL-owner legacy review can be reserved concurrently with deletion.
     // The order-row lock makes its target capture atomic too.
     const legacyUser=randomUUID(), legacyOrder=randomUUID(), legacyDelivery=randomUUID(), legacyReview=randomUUID(), legacyFile=randomUUID();

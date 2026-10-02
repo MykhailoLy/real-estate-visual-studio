@@ -87,9 +87,12 @@ const db = createClient("http://deletion-fixture.invalid", "fixture-service-role
         return json(requested_at);
       }
       if (rpc === "claim_client_account_deletion") {
+        const priority = (row: Row) => Math.max(
+          Date.parse(String(row.earliest_delete_at ?? "1970-01-01")),
+          Date.parse(String(row.retry_after ?? "1970-01-01")),
+        ) + (row.status === "pending" ? 0 : 60 * 60_000);
         const row = ready ? tables.account_deletion_requests.filter((r) => !r.retry_after || Date.parse(String(r.retry_after)) <= Date.now())
-          .sort((a, b) => Number(b.status === "pending") - Number(a.status === "pending") ||
-            String(a.retry_after ?? "").localeCompare(String(b.retry_after ?? "")))[0] : null;
+          .sort((a, b) => priority(a) - priority(b))[0] : null;
         if (row) row.lease_token = body.p_token;
         return json(row ? [row] : []);
       }
