@@ -1,5 +1,24 @@
 # PicchuSpot Supabase Migration Manifest
 
+## Client account deletion - 2026-10-02
+
+**MANUAL rollout only; NOT applied by this task.**
+Apply `migrations/20261002095908_client_account_deletion.sql` before the application
+release. It adds `account_deletion_requests`, its pending index, the durable
+`orders.account_deleted_at` marker, a dedicated `account_deletion_private` schema
+for restricted policy/trigger helpers, and service-only request/claim/preflight
+RPCs. Restrictive policies block pending/deleted clients without changing existing
+ownership grants. An order trigger prevents races with new orders and makes
+historical tombstones immutable. The existing client-review RPC also checks them.
+No Auth user, order, payment, snapshot or Storage object is changed by installation.
+
+After normal deployment, separately apply
+`migrations/20261002100706_schedule_account_deletion_worker.sql` to schedule the
+small dedicated worker using the existing Cron/Vault secret. The email job and
+its implementation remain unchanged. No new environment variable is required.
+See `docs/client-account-deletion.md` for the deletion sequence, retained/deleted
+data, retry semantics, verification commands and rollout prerequisites.
+
 ## F8 atomic replacement deliverable commit — 2026-09-26
 
 **MANUAL rollout only; NOT applied by this task.**

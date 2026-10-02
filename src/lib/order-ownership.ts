@@ -35,6 +35,7 @@ export interface OrderOwnership {
 
 /** The columns every ownership decision needs from an order row. */
 export interface OwnableOrderRow {
+  account_deleted_at?: string | null;
   user_id?: string | null;
   client_email?: string | null;
 }
@@ -73,7 +74,7 @@ export function escapeIlikeLiteral(value: string): string {
  */
 export function ownedOrdersOrFilter(ownership: OrderOwnership): string {
   const email = escapeIlikeLiteral(ownership.email);
-  return `user_id.eq.${ownership.userId},and(user_id.is.null,client_email.ilike.${email})`;
+  return `user_id.eq.${ownership.userId},and(user_id.is.null,account_deleted_at.is.null,client_email.ilike.${email})`;
 }
 
 /**
@@ -87,6 +88,7 @@ export function isOrderOwned(
   row: OwnableOrderRow,
   ownership: OrderOwnership,
 ): boolean {
+  if (row.account_deleted_at != null) return false;
   if (row.user_id != null && row.user_id !== "") {
     return row.user_id === ownership.userId;
   }

@@ -263,7 +263,7 @@ test("API accepts only rating/comment and derives identity from the authenticate
   assert.match(persistence, /\.rpc\("create_client_order_review"/);
   assert.match(persistence, /p_user_id: input\.userId/);
   assert.match(persistence, /p_user_email: input\.userEmail/);
-  assert.match(persistence, /orders!inner\(user_id, client_email\)/);
+  assert.match(persistence, /orders!inner\(user_id, client_email, account_deleted_at\)/);
   assert.match(persistence, /isOrderOwned\(row\.orders, ownership\)/);
   assert.match(persistence, /\.from\("deliverable_reviews"\)/);
   assert.match(persistence, /\.in\("status", ACTIVE_REWORK_STATUSES\)/);

@@ -166,7 +166,7 @@ export async function getDeliverableDownloadUrl(
       .from("order_deliverables")
       .select(
         "storage_path, filename, file_size, mime_type, " +
-        "orders!inner(user_id, client_email)"
+        "orders!inner(user_id, client_email, account_deleted_at)"
       )
       .eq("id", deliverableId)
       .maybeSingle();

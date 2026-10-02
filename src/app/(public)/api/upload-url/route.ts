@@ -1,3 +1,4 @@
+import { createClientSignedUploadUrl } from "@/lib/account-deletion";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -193,11 +194,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await supabase.storage
-    .from(ORDER_FILES_BUCKET)
-    // Re-uploading the deterministic pending path is safe for the same
-    // submission and lets a partial upload retry complete without a new key.
-    .createSignedUploadUrl(path, { upsert: true });
+  const { data, error } = await createClientSignedUploadUrl(
+    supabase, ownerUserId, ORDER_FILES_BUCKET, path, { upsert: true },
+  ).catch(() => ({ data: null, error: new Error("Account or upload unavailable") }));
 
   if (error || !data) {
     console.error("createSignedUploadUrl failed:", {

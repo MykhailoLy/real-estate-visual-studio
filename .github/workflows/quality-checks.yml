@@ -55,7 +55,7 @@ jobs:
       - name: Verify cross-root login and order profile gating with the isolated Auth fixture
         id: auth
         if: ${{ !cancelled() && (steps.smoke.outcome == 'success' || steps.smoke.outcome == 'failure') }}
-        run: npm run e2e:partner-invites -- --grep "Spanish login crosses|profile"
+        run: npm run e2e:partner-invites -- --grep "Spanish login crosses|profile|account deletion"
 
       - name: Upload Playwright failure artifacts
         if: ${{ failure() && (steps.smoke.outcome == 'failure' || steps.auth.outcome == 'failure') }}

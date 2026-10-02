@@ -24,7 +24,7 @@ function reset() {
   state.tables = {
     order_deliverables: [{ id: deliverableId, order_id: orderId, order_number: "F7-SYNTHETIC", item_index: 1 }],
     orders: [{ id: orderId, user_id: owner.userId, client_email: owner.email }],
-    deliverable_reviews: [], deliverable_review_files: [],
+    deliverable_reviews: [], deliverable_review_files: [], account_deletion_requests: [],
   };
 }
 

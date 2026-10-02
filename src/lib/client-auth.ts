@@ -8,6 +8,9 @@
 // Import getInitials from client-auth-utils instead.
 // ============================================================
 
+import { assertClientAccountActive } from "@/lib/account-deletion";
+import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 // ── Types ─────────────────────────────────────────────────────
@@ -36,6 +39,7 @@ export async function getClientUser(): Promise<ClientUser | null> {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) return null;
+    await assertClientAccountActive(getSupabaseAdminClient(), user.id);
 
     const email = user.email ?? "";
     const meta  = (user.user_metadata ?? {}) as Record<string, unknown>;

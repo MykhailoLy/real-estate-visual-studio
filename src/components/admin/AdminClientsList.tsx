@@ -1,4 +1,5 @@
 import type { AdminClientRow } from "@/lib/admin-clients-server";
+import DeleteAccountControl from "@/components/dashboard/DeleteAccountControl";
 import AdminPartnerPricingControl from "./AdminPartnerPricingControl";
 
 function joinedDate(value: string | null): string {
@@ -24,11 +25,12 @@ export default function AdminClientsList({ clients }: { clients: AdminClientRow[
             </p>
             <p className="text-sm text-muted"><span className="lg:hidden">Joined </span>{joinedDate(client.joined)}</p>
             <fieldset className="min-w-0 border-0 p-0" aria-label={`Partner pricing for ${client.email ?? client.name ?? client.userId}`}>
-              {client.partnerClient === null ? (
+              {client.deletionPending ? <p className="text-sm text-muted">Account locked</p> : client.partnerClient === null ? (
                 <p role="status" className="text-sm text-muted">Partner status unavailable. Reload to retry.</p>
               ) : (
                 <AdminPartnerPricingControl key={`${client.userId}:${client.partnerClient}`} userId={client.userId} partnerClient={client.partnerClient} compact />
               )}
+              {client.email && <DeleteAccountControl email={client.email} userId={client.userId} pending={client.deletionPending} />}
             </fieldset>
           </li>
         ))}

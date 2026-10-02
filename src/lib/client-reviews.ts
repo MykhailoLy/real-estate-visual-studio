@@ -151,7 +151,7 @@ export async function getLatestReviewForDeliverable(
       .select(
         "id, deliverable_id, order_id, order_number, item_index, " +
           "client_email, status, comment, created_at, updated_at, " +
-          "replacement_deliverable_id, orders!inner(user_id, client_email)",
+          "replacement_deliverable_id, orders!inner(user_id, client_email, account_deleted_at)",
       )
       .eq("deliverable_id", deliverableId)
       .neq("status", "pending_review")
@@ -220,7 +220,7 @@ export async function submitDeliverableReview(
     const { data: delivData, error: delivErr } = await supabase
       .from("order_deliverables")
       .select(
-        "id, order_id, order_number, item_index, orders!inner(user_id, client_email)",
+        "id, order_id, order_number, item_index, orders!inner(user_id, client_email, account_deleted_at)",
       )
       .eq("id", deliverableId)
       .maybeSingle();
@@ -377,7 +377,7 @@ export async function finalizeReworkReviewSubmission(
   try {
     const supabase = makeClient();
     const { data: review, error: lookupError } = await supabase.from("deliverable_reviews")
-      .select("id, orders!inner(user_id, client_email)").eq("id", reviewId).maybeSingle();
+      .select("id, orders!inner(user_id, client_email, account_deleted_at)").eq("id", reviewId).maybeSingle();
     const row = review as unknown as { orders: { user_id: string | null; client_email: string | null } } | null;
     if (lookupError || !row || !isOrderOwned(row.orders, ownership)) {
       return { ok: false, error: "Review not found.", status: 404 };

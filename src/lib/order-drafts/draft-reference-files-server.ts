@@ -1,3 +1,4 @@
+import { createClientSignedUploadUrl } from "@/lib/account-deletion";
 import "server-only";
 
 import { getSupabaseAdminClient } from "../supabase-admin.ts";
@@ -177,9 +178,7 @@ export async function prepareDraftReferenceForUser(
       .single();
     if (insertError || !inserted) return { ok: false, status: 409, message: "Could not reserve this reference position." };
 
-    const { data: signed, error: signedError } = await supabase.storage
-      .from(ORDER_FILES_BUCKET)
-      .createSignedUploadUrl(storagePath);
+    const { data: signed, error: signedError } = await createClientSignedUploadUrl(supabase, userId, ORDER_FILES_BUCKET, storagePath);
     if (signedError || !signed) {
       await supabase.from("order_draft_item_reference_files")
         .update({ upload_status: "failed" })

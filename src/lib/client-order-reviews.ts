@@ -110,7 +110,7 @@ export async function getClientOrderReviewForClient(
       .from("client_order_reviews")
       .select(
         "id, order_id, user_id, rating, comment, created_at, " +
-          "orders!inner(user_id, client_email)",
+          "orders!inner(user_id, client_email, account_deleted_at)",
       )
       .eq("order_id", orderId)
       .maybeSingle();

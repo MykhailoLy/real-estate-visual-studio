@@ -609,6 +609,11 @@ class MockSupabase {
 }
 
 class MockUploadUrlSupabase {
+  from(table: string) {
+    assert.equal(table, "account_deletion_requests");
+    return { select() { return this; }, eq() { return this; },
+      async maybeSingle() { return { data: null, error: null }; } };
+  }
   readonly signedUploadPaths: string[] = [];
   readonly buckets: string[] = [];
   signedUploadError: { name: string; message: string } | null = null;

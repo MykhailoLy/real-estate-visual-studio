@@ -1,3 +1,4 @@
+import { createClientSignedUploadUrl } from "@/lib/account-deletion";
 import "server-only";
 
 import {
@@ -140,9 +141,7 @@ export async function prepareOrderDraftFileUploadForUser(
     const prepareResult = parsePrepareOrderDraftFileUploadRpcResult(rpcData);
     if (!prepareResult.ok) return prepareResult;
 
-    const { data: signed, error: signedError } = await supabase.storage
-      .from(ORDER_FILES_BUCKET)
-      .createSignedUploadUrl(storagePath);
+    const { data: signed, error: signedError } = await createClientSignedUploadUrl(supabase, userId, ORDER_FILES_BUCKET, storagePath);
 
     if (signedError || !signed) {
       console.error(
