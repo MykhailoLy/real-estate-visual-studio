@@ -4,20 +4,23 @@
 
 **MANUAL rollout only; NOT applied by this task.**
 Apply `migrations/20261002095908_client_account_deletion.sql` before the application
-release. It adds `account_deletion_requests`, its pending index, the durable
-`orders.account_deleted_at` marker, a dedicated `account_deletion_private` schema
-for restricted policy/trigger helpers, and service-only request/claim/preflight
-RPCs. Restrictive policies block pending/deleted clients without changing existing
-ownership grants. An order trigger prevents races with new orders and makes
-historical tombstones immutable. The existing client-review RPC also checks them.
-No Auth user, order, payment, snapshot or Storage object is changed by installation.
+release. It adds `account_deletion_requests` with pending/reconciling scheduling
+and progress checkpoints, server-only `account_deletion_cleanup_targets`, indexes,
+the immutable `orders.account_deleted_at` marker, and private policy/trigger helpers.
+Request/claim/preflight RPCs are service-only. Restrictive policies preserve existing
+grants. Deletion-specific guards serialize order/rework/submission activity;
+retired pending rework paths survive metadata deletion via a stable order ID.
+Native PostgreSQL verifies inherited child-table RLS for stale JWTs. The existing
+client-review RPC also rejects deleted accounts/history. Installation deletes no
+Auth user, order, payment, snapshot or Storage object.
 
-After normal deployment, separately apply
-`migrations/20261002100706_schedule_account_deletion_worker.sql` to schedule the
-small dedicated worker using the existing Cron/Vault secret. The email job and
-its implementation remain unchanged. No new environment variable is required.
-See `docs/client-account-deletion.md` for the deletion sequence, retained/deleted
-data, retry semantics, verification commands and rollout prerequisites.
+After schema, matching application deployment, and controlled-account production
+smoke, separately apply `migrations/20261002100706_schedule_account_deletion_worker.sql`.
+Then verify the actual worker HTTP execution/result. The dedicated worker reuses
+existing pg_cron/pg_net/Vault and its secret; the email job and environment are
+unchanged. Auth deletion does not terminate Storage cleanup: successful scans back
+off daily and failures retry after 15 minutes, with no fixed reconciliation end.
+See `docs/client-account-deletion.md` for the exact rollout and production limits.
 
 ## F8 atomic replacement deliverable commit — 2026-09-26
 

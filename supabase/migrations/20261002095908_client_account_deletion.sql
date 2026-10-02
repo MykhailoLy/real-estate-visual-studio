@@ -11,22 +11,42 @@ CREATE TABLE IF NOT EXISTS public.account_deletion_requests (
   user_id uuid PRIMARY KEY,
   requested_at timestamptz NOT NULL DEFAULT now(),
   earliest_delete_at timestamptz NOT NULL DEFAULT (now() + interval '2 hours 15 minutes'),
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reconciling')),
   attempts integer NOT NULL DEFAULT 0,
   retry_after timestamptz NOT NULL DEFAULT now(),
   lease_token uuid,
   lease_expires_at timestamptz,
   last_error_code text,
-  completed_at timestamptz,
+  auth_deleted_at timestamptz,
+  last_reconciled_at timestamptz,
+  cleanup_cursor text,
   CHECK (earliest_delete_at >= requested_at + interval '2 hours'),
   CHECK ((lease_token IS NULL) = (lease_expires_at IS NULL))
 );
-CREATE INDEX IF NOT EXISTS account_deletion_pending_idx
-  ON public.account_deletion_requests(retry_after, earliest_delete_at)
-  WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS account_deletion_due_idx
+  ON public.account_deletion_requests(status, retry_after, earliest_delete_at);
 ALTER TABLE public.account_deletion_requests ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.account_deletion_requests FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.account_deletion_requests TO service_role;
+
+-- Captured atomically with lockout, before temporary metadata or Auth FKs can
+-- disappear. Exact rework objects only; never an entire commercial review prefix.
+CREATE TABLE IF NOT EXISTS public.account_deletion_cleanup_targets (
+  user_id uuid REFERENCES public.account_deletion_requests(user_id) ON DELETE RESTRICT,
+  order_id uuid, -- No metadata FK: abandoned rework metadata may already be gone.
+  kind text NOT NULL CHECK (kind IN ('rework_file', 'submission_prefix')),
+  target text NOT NULL,
+  PRIMARY KEY (kind, target),
+  CHECK (
+    (kind = 'rework_file' AND order_id IS NOT NULL AND target ~ '^rework/[0-9a-f-]{36}/[^/\\]+$') OR
+    (kind = 'submission_prefix' AND user_id IS NOT NULL AND target ~ '^(VS|VR|FP|PE|ORD)-[0-9]+$')
+  )
+);
+CREATE INDEX IF NOT EXISTS account_deletion_targets_user_idx
+  ON public.account_deletion_cleanup_targets(user_id, target);
+ALTER TABLE public.account_deletion_cleanup_targets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.account_deletion_cleanup_targets FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.account_deletion_cleanup_targets TO service_role;
 
 CREATE SCHEMA IF NOT EXISTS account_deletion_private;
 -- This helper reveals only whether the caller may use their own account.
@@ -71,6 +91,76 @@ DROP TRIGGER IF EXISTS guard_deleted_order_ownership ON public.orders;
 CREATE TRIGGER guard_deleted_order_ownership BEFORE INSERT OR UPDATE ON public.orders
 FOR EACH ROW EXECUTE FUNCTION account_deletion_private.guard_deleted_order_ownership();
 
+-- Serialize the non-UUID temporary namespaces with deletion's account lock.
+-- An already-admitted server request must not create/commit a temporary reference
+-- after capture, or renew/create a submission lease after lockout. Existing
+-- commercial files and normal admin review processing are unchanged.
+CREATE OR REPLACE FUNCTION account_deletion_private.guard_rework_file()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_user uuid; v_deleted timestamptz;
+BEGIN
+  SELECT user_id, account_deleted_at INTO v_user, v_deleted
+    FROM public.orders WHERE id = NEW.order_id;
+  IF v_user IS NOT NULL THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 352));
+    IF EXISTS (SELECT 1 FROM public.account_deletion_requests WHERE user_id = v_user) THEN
+      RAISE EXCEPTION 'Client account is unavailable';
+    END IF;
+  END IF;
+  -- Lock even a legacy order with NULL user_id. Deletion binds/tombstones that
+  -- row before target capture, so a concurrent insert either commits first and
+  -- is captured, or observes the tombstone and is rejected.
+  SELECT account_deleted_at INTO v_deleted FROM public.orders WHERE id = NEW.order_id FOR UPDATE;
+  IF v_deleted IS NOT NULL THEN RAISE EXCEPTION 'Client account is unavailable'; END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION account_deletion_private.guard_rework_file() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS account_deletion_rework_guard ON public.deliverable_review_files;
+CREATE TRIGGER account_deletion_rework_guard BEFORE INSERT OR UPDATE ON public.deliverable_review_files
+FOR EACH ROW EXECUTE FUNCTION account_deletion_private.guard_rework_file();
+
+CREATE OR REPLACE FUNCTION account_deletion_private.guard_submission_claim()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  -- Clearing a lease and Auth's ON DELETE SET NULL remain allowed. Fresh/reclaimed
+  -- leases are denied even for a handler whose server session predates deletion.
+  IF NEW.user_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.lease_expires_at IS NOT NULL) THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(NEW.user_id::text, 352));
+    IF EXISTS (SELECT 1 FROM public.account_deletion_requests WHERE user_id = NEW.user_id) THEN
+      RAISE EXCEPTION 'Client account is unavailable';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION account_deletion_private.guard_submission_claim() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS account_deletion_submission_guard ON public.order_submissions;
+CREATE TRIGGER account_deletion_submission_guard BEFORE INSERT OR UPDATE ON public.order_submissions
+FOR EACH ROW EXECUTE FUNCTION account_deletion_private.guard_submission_claim();
+
+-- Existing rework retries delete abandoned metadata before best-effort Storage
+-- cleanup. Preserve pending paths even BEFORE an account requests deletion.
+-- Stable order_id carries ownership until the request binds the target to its
+-- durable UUID. No token/email/Auth FK; uploaded references are never captured.
+CREATE OR REPLACE FUNCTION account_deletion_private.retain_retired_rework_target()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_user uuid;
+BEGIN
+  IF OLD.upload_status = 'pending' THEN
+    -- Serialize with request's order tombstone, including NULL-owner legacy orders.
+    SELECT user_id INTO v_user FROM public.orders WHERE id = OLD.order_id FOR UPDATE;
+    IF NOT EXISTS (SELECT 1 FROM public.account_deletion_requests WHERE user_id = v_user) THEN
+      v_user := NULL;
+    END IF;
+    INSERT INTO public.account_deletion_cleanup_targets(user_id,order_id,kind,target)
+      VALUES (v_user,OLD.order_id,'rework_file',OLD.storage_path) ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN OLD;
+END $$;
+REVOKE ALL ON FUNCTION account_deletion_private.retain_retired_rework_target() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS account_deletion_retain_rework ON public.deliverable_review_files;
+CREATE TRIGGER account_deletion_retain_rework BEFORE DELETE ON public.deliverable_review_files
+FOR EACH ROW EXECUTE FUNCTION account_deletion_private.retain_retired_rework_target();
+
 CREATE OR REPLACE FUNCTION public.request_client_account_deletion(p_user_id uuid, p_confirmation_email text)
 RETURNS timestamptz LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_email text; v_confirmed timestamptz; v_anonymous boolean; v_requested timestamptz;
@@ -99,6 +189,19 @@ BEGIN
   -- tombstone a pre-existing customer's legacy history.
   UPDATE public.orders SET account_deleted_at = v_requested
    WHERE account_deleted_at IS NULL AND user_id = p_user_id;
+  UPDATE public.account_deletion_cleanup_targets t SET user_id = p_user_id
+    FROM public.orders o WHERE t.order_id = o.id AND o.user_id = p_user_id AND t.user_id IS NULL;
+  INSERT INTO public.account_deletion_cleanup_targets(user_id, order_id, kind, target)
+    SELECT p_user_id, f.order_id, 'rework_file', f.storage_path
+    FROM public.deliverable_review_files f JOIN public.orders o ON o.id = f.order_id
+    WHERE o.user_id = p_user_id AND f.upload_status = 'pending'
+    ON CONFLICT DO NOTHING;
+  INSERT INTO public.account_deletion_cleanup_targets(user_id, kind, target)
+    SELECT p_user_id, 'submission_prefix', s.reserved_order_number
+    FROM public.order_submissions s
+    WHERE s.user_id = p_user_id AND s.status = 'processing'
+      AND NOT EXISTS (SELECT 1 FROM public.orders o WHERE o.order_number = s.reserved_order_number)
+    ON CONFLICT DO NOTHING;
   RETURN v_requested;
 END $$;
 REVOKE ALL ON FUNCTION public.request_client_account_deletion(uuid,text) FROM PUBLIC, anon, authenticated;
@@ -110,9 +213,12 @@ RETURNS SETOF public.account_deletion_requests LANGUAGE sql SECURITY INVOKER SET
     lease_expires_at = now() + interval '10 minutes', attempts = attempts + 1
   WHERE user_id = (
     SELECT user_id FROM public.account_deletion_requests
-    WHERE status = 'pending' AND earliest_delete_at <= now() AND retry_after <= now()
+    WHERE earliest_delete_at <= now() AND retry_after <= now()
       AND (lease_expires_at IS NULL OR lease_expires_at <= now())
-    ORDER BY retry_after, requested_at LIMIT 1 FOR UPDATE SKIP LOCKED
+    -- Pending identity deletion wins over recurring scans. Oldest due first
+    -- within each class; retry/backoff moves each attempt behind other due work.
+    ORDER BY (status = 'pending') DESC, retry_after, requested_at, user_id
+    LIMIT 1 FOR UPDATE SKIP LOCKED
   ) RETURNING *;
 $$;
 REVOKE ALL ON FUNCTION public.claim_client_account_deletion(uuid) FROM PUBLIC, anon, authenticated;

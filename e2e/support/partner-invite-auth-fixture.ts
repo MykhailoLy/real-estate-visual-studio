@@ -207,11 +207,12 @@ createServer(async (req, res) => {
     json(requested_at); return;
   }
   if (url.pathname === "/rest/v1/rpc/claim_client_account_deletion") {
-    const row = deletionReady ? deletions.find((row) => row.status === "pending") : undefined;
+    const row = deletionReady ? deletions.find((row) => !row.retry_after || Date.parse(String(row.retry_after)) <= Date.now()) : undefined;
     if (row) row.lease_token = body.p_token;
     json(row ? [row] : []); return;
   }
   if (url.pathname === "/rest/v1/rpc/check_client_account_deletion") { json(deletionReady); return; }
+  if (url.pathname === "/rest/v1/account_deletion_cleanup_targets") { json([]); return; }
   if (url.pathname === "/storage/v1/object/list/order-files") { json([]); return; }
   if (url.pathname === "/rest/v1/account_pricing") {
     if (req.method === "POST") {

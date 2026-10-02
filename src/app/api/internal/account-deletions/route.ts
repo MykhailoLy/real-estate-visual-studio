@@ -16,6 +16,6 @@ export async function POST(request: Request) {
   try {
     return NextResponse.json(await processAccountDeletion(getSupabaseAdminClient()));
   } catch {
-    return NextResponse.json({ error: "Deletion remains pending; worker will retry." }, { status: 503 });
+    return NextResponse.json({ error: "Account cleanup will retry." }, { status: 503 });
   }
 }

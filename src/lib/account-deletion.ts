@@ -62,8 +62,11 @@ export async function requestAccountDeletion(db: SupabaseClient, userId: string,
 }
 
 /** Only known account-temporary namespaces. Commercial order/rework/deliverable
- * prefixes are never swept wholesale. A failed sweep preserves Auth and retries. */
-export async function cleanupAccountTemporaryStorage(db: SupabaseClient, userId: string, safeOnly = false) {
+ * prefixes are never swept wholesale. Targets survive Auth and metadata deletion. */
+export async function cleanupAccountTemporaryStorage(
+  db: SupabaseClient, userId: string, safeOnly = false,
+  progress?: { token: string; cursor: string | null },
+) {
   if (!z.uuid().safeParse(userId).success) throw new AccountDeletionError("invalid_account");
   const deadline = Date.now() + 35_000;
   const bucket = db.storage.from("order-files");
@@ -109,58 +112,65 @@ export async function cleanupAccountTemporaryStorage(db: SupabaseClient, userId:
   await sweep(`drafts/${userId}`);
   await sweep(`pending/${userId}`);
 
-  // Incomplete rework attachments are temporary. Uploaded attachments are part
-  // of the commercial record and are retained with their orders.
-  for (;;) {
-    const files = await db.from("deliverable_review_files")
-      .select("id, review_id, storage_path, orders!inner(user_id)")
-      .eq("orders.user_id", userId).eq("upload_status", "pending").limit(100);
-    if (files.error || !files.data) throw new AccountDeletionError("reference_lookup_failed");
-    if (!files.data.length) break;
-    const paths = files.data.map((file) => {
-      if (!z.uuid().safeParse(file.review_id).success || typeof file.storage_path !== "string" ||
-          !file.storage_path.startsWith(`rework/${file.review_id}/`) ||
-          !/^[^/\\]+$/.test(file.storage_path.slice(`rework/${file.review_id}/`.length))) {
-        throw new AccountDeletionError("unexpected_reference_path");
-      }
-      return file.storage_path as string;
-    });
-    if ((await bucket.remove(paths)).error) throw new AccountDeletionError("storage_remove_failed");
-    for (const path of paths) {
-      const slash = path.lastIndexOf("/");
-      const filename = path.slice(slash + 1);
-      const remaining = await bucket.list(path.slice(0, slash), { search: filename, limit: 100 });
-      if (remaining.error || !remaining.data || remaining.data.some((entry) => entry.name === filename)) {
-        throw new AccountDeletionError("reference_cleanup_unconfirmed");
-      }
-    }
-    const removed = await db.from("deliverable_review_files").delete()
-      .in("id", files.data.map((file) => file.id)).eq("upload_status", "pending");
-    if (removed.error) throw new AccountDeletionError("reference_cleanup_failed");
-    if (Date.now() >= deadline) throw new AccountDeletionError("cleanup_incomplete");
+  // These targets were captured atomically with lockout. Never rediscover them
+  // through Auth FKs: those links disappear after hard deletion, and pending
+  // metadata may already have been removed by an earlier successful sweep.
+  let cursor = progress?.cursor ?? null;
+  async function checkpoint(path: string | null) {
+    if (!progress) throw new AccountDeletionError("cleanup_lease_required");
+    const saved = await db.from("account_deletion_requests").update({ cleanup_cursor: path })
+      .eq("user_id", userId).eq("lease_token", progress.token).select("user_id");
+    if (saved.error || saved.data?.length !== 1) throw new AccountDeletionError("cleanup_checkpoint_failed");
   }
-
-  // A failed submit can have copied files to a reserved order number without
-  // committing an order. Preserve any actual order, regardless of its status.
-  let cursor: string | null = null;
   for (;;) {
-    let query = db.from("order_submissions").select("submission_id, reserved_order_id, reserved_order_number")
-      .eq("user_id", userId).eq("status", "processing").order("submission_id").limit(100);
-    if (cursor) query = query.gt("submission_id", cursor);
+    let query = db.from("account_deletion_cleanup_targets").select("kind, target")
+      .eq("user_id", userId).order("target").limit(100);
+    if (cursor) query = query.gt("target", cursor);
     const { data, error } = await query;
-    if (error || !data) throw new AccountDeletionError("submission_lookup_failed");
+    if (error || !data) throw new AccountDeletionError("cleanup_targets_unavailable");
     for (const row of data) {
-      const order = await db.from("orders").select("id").eq("order_number", row.reserved_order_number).maybeSingle();
-      if (order.error) throw new AccountDeletionError("order_lookup_failed");
-      if (order.data) continue;
-      if (typeof row.reserved_order_number !== "string" || !/^[a-zA-Z0-9_-]+$/.test(row.reserved_order_number)) {
-        throw new AccountDeletionError("unexpected_order_number");
+      if (Date.now() >= deadline) throw new AccountDeletionError("cleanup_incomplete");
+      const path = row.target;
+      if (row.kind === "rework_file") {
+        const parts = typeof path === "string" ? path.split("/") : [];
+        if (parts.length !== 3 || parts[0] !== "rework" || !z.uuid().safeParse(parts[1]).success ||
+            !parts[2] || /[\\]/.test(parts[2]) || parts[2] === "." || parts[2] === "..") {
+          throw new AccountDeletionError("unexpected_reference_path");
+        }
+        // Defense in depth: a commercial attachment must never be removed.
+        const committed = await db.from("deliverable_review_files").select("id")
+          .eq("storage_path", path).eq("upload_status", "uploaded").limit(1);
+        if (committed.error || !committed.data) throw new AccountDeletionError("reference_lookup_failed");
+        if (committed.data.length) { await checkpoint(path); continue; }
+        if ((await bucket.remove([path])).error) throw new AccountDeletionError("storage_remove_failed");
+        const remaining = await bucket.list(`rework/${parts[1]}`, { search: parts[2], limit: 100 });
+        if (remaining.error || !remaining.data || remaining.data.some((entry) => entry.name === parts[2])) {
+          throw new AccountDeletionError("reference_cleanup_unconfirmed");
+        }
+        const removed = await db.from("deliverable_review_files").delete()
+          .eq("storage_path", path).eq("upload_status", "pending");
+        if (removed.error) throw new AccountDeletionError("reference_cleanup_failed");
+      } else if (row.kind === "submission_prefix") {
+        if (typeof path !== "string" || !/^(VS|VR|FP|PE|ORD)-[0-9]+$/.test(path)) {
+          throw new AccountDeletionError("unexpected_order_number");
+        }
+        // Preserve any actual order, regardless of its status or current owner.
+        const order = await db.from("orders").select("id").eq("order_number", path).maybeSingle();
+        if (order.error) throw new AccountDeletionError("order_lookup_failed");
+        if (!order.data) await sweep(path);
+      } else {
+        throw new AccountDeletionError("unexpected_cleanup_target");
       }
-      await sweep(row.reserved_order_number);
+      // Retained targets are not deleted. Resume after completed targets on an
+      // interrupted scan; reset only after a full pass so late writes are revisited.
+      await checkpoint(path);
     }
     if (data.length < 100) break;
-    cursor = data[data.length - 1].submission_id;
+    cursor = data[data.length - 1].target;
   }
+  // A full pass is complete even if a later Auth/preflight call fails. Restart
+  // from the beginning on that retry to catch new arrivals behind the cursor.
+  await checkpoint(null);
 }
 
 /** One account per invocation, using the existing Cron/CRON_SECRET pattern. */
@@ -169,29 +179,38 @@ export async function processAccountDeletion(db: SupabaseClient) {
   const claimed = await db.rpc("claim_client_account_deletion", { p_token: token });
   if (claimed.error || !Array.isArray(claimed.data)) throw new AccountDeletionError("claim_failed");
   if (!claimed.data.length) return { processed: 0 };
-  const userId = claimed.data[0].user_id as string;
+  const claim = claimed.data[0];
+  const userId = claim.user_id as string;
   try {
-    const target = await db.auth.admin.getUserById(userId);
-    const absent = target.error?.code === "user_not_found" || target.error?.status === 404;
+    if (claim.status !== "pending" && claim.status !== "reconciling") throw new AccountDeletionError("unexpected_deletion_state");
+    let absent = claim.status === "reconciling";
     if (!absent) {
-      if (target.error || target.data.user?.id !== userId) throw new AccountDeletionError("identity_unavailable");
-      const banned = await db.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
-      if (banned.error) throw new AccountDeletionError("auth_lock_failed");
+      const target = await db.auth.admin.getUserById(userId);
+      absent = target.error?.code === "user_not_found" || target.error?.status === 404;
+      if (!absent) {
+        if (target.error || target.data.user?.id !== userId) throw new AccountDeletionError("identity_unavailable");
+        const banned = await db.auth.admin.updateUserById(userId, { ban_duration: "876000h" });
+        if (banned.error) throw new AccountDeletionError("auth_lock_failed");
+      }
     }
-    // Reconcile temporary namespaces even after a lost Auth response or an
-    // external Auth deletion. Absence alone is not evidence of Storage cleanup.
-    await cleanupAccountTemporaryStorage(db, userId);
-    const ready = await db.rpc("check_client_account_deletion", { p_user_id: userId, p_token: token });
-    if (ready.error || ready.data !== true) throw new AccountDeletionError("cleanup_precondition_failed");
-    if (!absent) {
-      const deleted = await db.auth.admin.deleteUser(userId, false);
-      if (deleted.error) throw new AccountDeletionError("auth_delete_failed");
+    await cleanupAccountTemporaryStorage(db, userId, false, { token, cursor: claim.cleanup_cursor ?? null });
+    if (claim.status === "pending") {
+      const ready = await db.rpc("check_client_account_deletion", { p_user_id: userId, p_token: token });
+      if (ready.error || ready.data !== true) throw new AccountDeletionError("cleanup_precondition_failed");
+      if (!absent) {
+        const deleted = await db.auth.admin.deleteUser(userId, false);
+        if (deleted.error) throw new AccountDeletionError("auth_delete_failed");
+      }
     }
-    const completed = await db.from("account_deletion_requests").update({
-      status: "completed", completed_at: new Date().toISOString(),
+    // Token expiry is only an admission deadline. A previously admitted upload
+    // can commit later, so even empty scans never make cleanup terminal.
+    const now = new Date().toISOString();
+    const reconciled = await db.from("account_deletion_requests").update({
+      status: "reconciling", auth_deleted_at: claim.auth_deleted_at ?? now,
+      cleanup_cursor: null, last_reconciled_at: now, retry_after: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
       lease_token: null, lease_expires_at: null, last_error_code: null,
     }).eq("user_id", userId).eq("lease_token", token).select("user_id");
-    if (completed.error || completed.data?.length !== 1) throw new AccountDeletionError("completion_unconfirmed");
+    if (reconciled.error || reconciled.data?.length !== 1) throw new AccountDeletionError("reconciliation_unconfirmed");
     return { processed: 1 };
   } catch (error) {
     const code = error instanceof AccountDeletionError ? error.code : "cleanup_failed";

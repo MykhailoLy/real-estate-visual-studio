@@ -96,6 +96,11 @@ test("admin account deletion selects one client and worker removes it from the l
   expect(await (await worker()).json()).toEqual({ processed: 0 });
   await request.post("/__fixture/deletion-settings", { data: { ready: true } });
   expect(await (await worker()).json()).toEqual({ processed: 1 });
+  const deletionState = (await (await request.get("/__fixture/state")).json()).deletions[0];
+  expect(deletionState.status).toBe("reconciling");
+  expect(deletionState.auth_deleted_at).toBeTruthy();
+  expect(deletionState.retry_after).toBeTruthy();
+  expect(await (await worker()).json()).toEqual({ processed: 0 });
   await page.reload();
   await expect(page.getByText("registered@example.com", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("list", { name: "Registered clients" }).getByRole("paragraph").filter({ hasText: email })).toBeVisible();

@@ -1,6 +1,7 @@
--- Account deletion: MANUAL rollout only after the worker is deployed.
--- Before activation, establish the in-flight upload lifetime bound documented
--- in docs/client-account-deletion.md; signed-token expiry alone is insufficient.
+-- Account deletion: MANUAL rollout only after schema, matching app deployment,
+-- and controlled-account production smoke. Then verify the actual HTTP result.
+-- Post-Auth Storage reconciliation remains scheduled indefinitely; see
+-- docs/client-account-deletion.md. Token expiry is not a transfer deadline.
 -- Reuses the existing pg_cron/pg_net/Vault infrastructure and CRON_SECRET.
 -- Neither this migration nor cron.job contains a secret value.
 BEGIN;
