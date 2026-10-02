@@ -70,6 +70,17 @@ test("Clients layout is compact, accessible and readable at all requested widths
     await expect(list.getByRole("status").filter({ hasText: "Partner status unavailable" })).toBeVisible();
     await switches.first().focus();
     await page.keyboard.press("Tab");
+    const deleteFirst = list.getByRole("listitem").first().getByRole("button", { name: "Delete account", exact: true });
+    await expect(deleteFirst).toBeFocused();
+    expect(await deleteFirst.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
+    await page.keyboard.press("Tab");
+    await expect(switches.nth(1)).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(deleteFirst).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(switches.first()).toBeFocused();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
     await expect(switches.nth(1)).toBeFocused();
     expect(await switches.nth(1).evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

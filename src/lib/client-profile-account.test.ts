@@ -45,6 +45,7 @@ const database = createClient("http://fixture.example", "fixture-key", {
     const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
       status, headers: { "Content-Type": "application/json" },
     });
+    if (url.pathname.endsWith("/account_deletion_requests")) return json([]);
     if (url.pathname.endsWith("/client_profiles")) {
       if (method === "POST") { writes.push({ url, body }); profile = { ...body, id: USER_ID }; return json(profile); }
       return json(profile ? [profile] : []);

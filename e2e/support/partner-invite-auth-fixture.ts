@@ -13,6 +13,9 @@ let users = [makeUser(existingId, "registered@example.com")];
 let pricing: Record<string, unknown>[] = [];
 let profile: Record<string, unknown> | null = null;
 let mode = "success";
+let deletions: Record<string, unknown>[] = [];
+let deletionReady = false;
+let deletionFailure = false;
 let passwordSet = false;
 let inviteCalls = 0;
 let redirectTo = "";
@@ -70,6 +73,7 @@ createServer(async (req, res) => {
   if (url.pathname === "/__fixture/health") { json({ ok: true }); return; }
   if (url.pathname === "/__fixture/reset") {
     users = [makeUser(existingId, "registered@example.com")]; pricing = []; profile = null;
+    deletions = []; deletionReady = false; deletionFailure = false;
     mode = body.mode ?? "success"; passwordSet = false; inviteCalls = 0; redirectTo = "";
     passwordSignIns = 0; passwordSignInFailures = 0; passwordAuthEvents = [];
     authenticatedUserReads = 0; unsupportedOperations = [];
@@ -84,7 +88,7 @@ createServer(async (req, res) => {
     json({ ok: true }); return;
   }
   if (url.pathname === "/__fixture/state") {
-    json({ pricing, profile, passwordSet, inviteCalls, redirectTo, accessToken, userId,
+    json({ deletions, users, pricing, profile, passwordSet, inviteCalls, redirectTo, accessToken, userId,
       passwordSignIns, passwordSignInFailures, passwordAuthEvents, authenticatedUserReads, unsupportedOperations, accountOrders,
       emailChanges, passwordChanges, passwordUpdateAttempts, currentPasswordVerified,
       requireCurrentPassword, requireCaptcha, captchaAttempts }); return;
@@ -94,6 +98,10 @@ createServer(async (req, res) => {
   }
   if (url.pathname === "/__fixture/account-settings") {
     requireCurrentPassword = body.requireCurrentPassword === true;
+    json({ ok: true }); return;
+  }
+  if (url.pathname === "/__fixture/deletion-settings") {
+    deletionReady = body.ready === true; deletionFailure = body.fail === true;
     json({ ok: true }); return;
   }
   if (url.pathname === "/__fixture/confirm-email") {
@@ -141,7 +149,15 @@ createServer(async (req, res) => {
     json({ users, total: users.length }); return;
   }
   if (url.pathname.startsWith("/auth/v1/admin/users/")) {
-    json(users.find((user) => user.id === url.pathname.split("/").at(-1)) ?? null); return;
+    const target = users.find((user) => user.id === url.pathname.split("/").at(-1));
+    if (!target) { json({ code: "user_not_found", msg: "Not found" }, 404); return; }
+    if (req.method === "DELETE") {
+      if (!deletions.some((row) => row.user_id === target.id) || !deletionReady) { json({ msg: "Deletion not ready" }, 409); return; }
+      users = users.filter((user) => user.id !== target.id);
+      pricing = pricing.filter((row) => row.user_id !== target.id);
+      if (profile?.user_id === target.id) profile = null;
+    }
+    json(target); return;
   }
   if (url.pathname === "/auth/v1/user") {
     if (req.headers.authorization !== `Bearer ${accessToken}`) {
@@ -176,6 +192,28 @@ createServer(async (req, res) => {
     }
     json(users.find((user) => user.id === userId)); return;
   }
+  if (url.pathname === "/auth/v1/logout") { json({}); return; }
+  if (url.pathname === "/rest/v1/account_deletion_requests") {
+    const id = url.searchParams.get("user_id")?.replace(/^eq\./, "");
+    const rows = deletions.filter((row) => !id || row.user_id === id);
+    if (req.method === "PATCH") rows.forEach((row) => Object.assign(row, body));
+    json(rows); return;
+  }
+  if (url.pathname === "/rest/v1/rpc/request_client_account_deletion") {
+    const target = users.find((user) => user.id === body.p_user_id);
+    if (deletionFailure || !target || target.email !== body.p_confirmation_email) { json({ message: "Request rejected" }, 400); return; }
+    const requested_at = new Date().toISOString();
+    if (!deletions.some((row) => row.user_id === target.id)) deletions.push({ user_id: target.id, status: "pending", requested_at });
+    json(requested_at); return;
+  }
+  if (url.pathname === "/rest/v1/rpc/claim_client_account_deletion") {
+    const row = deletionReady ? deletions.find((row) => !row.retry_after || Date.parse(String(row.retry_after)) <= Date.now()) : undefined;
+    if (row) row.lease_token = body.p_token;
+    json(row ? [row] : []); return;
+  }
+  if (url.pathname === "/rest/v1/rpc/check_client_account_deletion") { json(deletionReady); return; }
+  if (url.pathname === "/rest/v1/account_deletion_cleanup_targets") { json([]); return; }
+  if (url.pathname === "/storage/v1/object/list/order-files") { json([]); return; }
   if (url.pathname === "/rest/v1/account_pricing") {
     if (req.method === "POST") {
       if (mode === "partial") { json({ code: "fixture", message: "private pricing write failure" }, 503); return; }

@@ -1,3 +1,4 @@
+import { createClientSignedUploadUrl } from "@/lib/account-deletion";
 // ============================================================
 // REWORK REFERENCE FILES — server-side helpers (Phase 5H.4)
 //
@@ -126,7 +127,7 @@ async function getOwnedReview(
     .from("deliverable_reviews")
     .select(
       "id, status, deliverable_id, order_id, item_index, " +
-        "orders!inner(user_id, client_email)",
+        "orders!inner(user_id, client_email, account_deleted_at)",
     )
     .eq("id", reviewId)
     .maybeSingle();
@@ -272,9 +273,7 @@ export async function createReworkReferenceUploadSlot(
 
     // ── Issue signed upload URL ───────────────────────────
 
-    const { data: signed, error: signedErr } = await supabase.storage
-      .from(ORDER_FILES_BUCKET)
-      .createSignedUploadUrl(storagePath, { upsert: false });
+    const { data: signed, error: signedErr } = await createClientSignedUploadUrl(supabase, ownership.userId, ORDER_FILES_BUCKET, storagePath, { upsert: false });
 
     if (signedErr || !signed) {
       console.error("[rework-reference-files] Signed upload URL creation failed.");

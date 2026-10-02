@@ -118,7 +118,7 @@ export async function getClientSourceFilesForOrder(
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
-    .select("id, user_id, client_email")
+    .select("id, user_id, client_email, account_deleted_at")
     .eq("id", orderId)
     .maybeSingle();
 

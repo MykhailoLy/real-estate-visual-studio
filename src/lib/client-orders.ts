@@ -403,7 +403,7 @@ export async function getOrdersForClient(
       .select(
         "id, order_number, service_type, status, " +
         "item_count, estimated_total_cents, currency, pricing_snapshot, " +
-        "created_at, updated_at, job_title, user_id, client_email"
+        "created_at, updated_at, job_title, user_id, client_email, account_deleted_at"
       )
       .or(ownedOrdersOrFilter(ownership))   // ← user_id OR (NULL + email)
       .order("created_at", { ascending: false });
@@ -480,7 +480,7 @@ export async function getOwnedOrderIds(
     });
     const { data, error } = await supabase
       .from("orders")
-      .select("id, user_id, client_email")
+      .select("id, user_id, client_email, account_deleted_at")
       .or(ownedOrdersOrFilter(ownership));
 
     if (error) {
@@ -551,7 +551,7 @@ export async function getOrderForClient(
       .select(
         "id, order_number, service_type, status, " +
         "item_count, estimated_total_cents, currency, pricing_snapshot, " +
-        "client_company, created_at, updated_at, job_title, user_id, client_email"
+        "client_company, created_at, updated_at, job_title, user_id, client_email, account_deleted_at"
       )
       .eq("id", orderId)
       .maybeSingle();

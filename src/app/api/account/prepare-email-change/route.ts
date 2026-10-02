@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { escapeIlikeLiteral, isOrderOwned, toOrderOwnership } from "@/lib/order-ownership";
 
+import { assertClientAccountActive } from "@/lib/account-deletion";
+
 export const runtime = "nodejs";
 
 // This endpoint prepares ownership only. Auth credentials never pass through it.
@@ -20,6 +22,7 @@ export async function POST() {
     }
 
     const db = getSupabaseAdminClient();
+    await assertClientAccountActive(db, user.id);
     const ownership = toOrderOwnership({ id: user.id, email: user.email });
     // Narrow the DB candidates while including whitespace-padded snapshots.
     // Substring/pattern-alias false positives never authorize a claim below.
@@ -31,8 +34,9 @@ export async function POST() {
       let afterId: string | null = null;
       for (;;) {
         let query = db.from("orders")
-          .select("id, user_id, client_email")
+          .select("id, user_id, client_email, account_deleted_at")
           .is("user_id", null)
+          .is("account_deleted_at", null)
           .ilike("client_email", emailCandidate)
           .order("id")
           .limit(pageSize);
@@ -60,6 +64,7 @@ export async function POST() {
         .update({ user_id: user.id })
         .eq("id", order.id)
         .is("user_id", null)
+        .is("account_deleted_at", null)
         .eq("client_email", order.client_email)
         .select("id, user_id");
       if (claimError || data?.length !== 1 || data[0].id !== order.id || data[0].user_id !== user.id) {

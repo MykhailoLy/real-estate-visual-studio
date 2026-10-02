@@ -51,10 +51,11 @@ const supabase = {
   } },
   from(table: string) {
     calls.push(table);
-    assert.ok(["client_profiles", "account_pricing", "orders"].includes(table));
+    assert.ok(["client_profiles", "account_pricing", "orders", "account_deletion_requests"].includes(table));
     let selectedId = "";
     return {
       select(columns: string) {
+        if (table === "account_deletion_requests") { assert.equal(columns, "user_id"); return this; }
         assert.equal(columns, table === "client_profiles" ? "user_id, first_name, last_name, full_name, company_name" : table === "orders" ? "user_id" : columns.includes("user_id") ? "user_id, partner_client" : "partner_client");
         return this;
       },
@@ -64,6 +65,7 @@ const supabase = {
       },
       async in(column: string, ids: string[]) {
         assert.equal(column, "user_id"); assert.ok(ids.length <= 50);
+        if (table === "account_deletion_requests") return { data: [], error: null };
         return { data: (table === "client_profiles" ? profiles : pricing).filter((row) => ids.includes(String(row.user_id))),
           error: (table === "client_profiles" ? profileError : pricingError) ? { message: "unavailable" } : null };
       },
@@ -249,7 +251,7 @@ test("real admin session verification rejects expired and tampered cookies", () 
 test("zero-order accounts appear with safe missing-profile/Partner fallbacks and whitelisted data", async () => {
   admin();
   const result = await listAdminClients(1);
-  assert.deepEqual(result.clients, [{ userId, name: "Registered Client", email: "registered@example.com", company: null, joined: "2026-09-09T10:00:00Z", partnerClient: false }]);
+  assert.deepEqual(result.clients, [{ userId, deletionPending: false, name: "Registered Client", email: "registered@example.com", company: null, joined: "2026-09-09T10:00:00Z", partnerClient: false }]);
   assert.equal(result.hasNextPage, false);
   assert.equal(calls.includes("orders"), false);
   assert.doesNotMatch(JSON.stringify(result), /private_marker|never-render|identities|session/);

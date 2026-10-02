@@ -22,6 +22,7 @@ export default defineConfig({
         SUPABASE_SERVICE_ROLE_KEY: "isolated-fixture-service-role",
         NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3200",
         NEXT_PUBLIC_GA_MEASUREMENT_ID: "G-INVITEFIXTURE",
+        CRON_SECRET: "isolated-deletion-worker-secret",
         ADMIN_PASSWORD: "isolated-partner-invite-test-password",
       },
     },

@@ -66,6 +66,7 @@ export interface AdminClientRow {
   company: string | null;
   joined: string | null;
   partnerClient: boolean | null;
+  deletionPending?: boolean;
 }
 
 export interface AdminClientsPageData {
@@ -103,6 +104,10 @@ export async function listAdminClients(page: number): Promise<AdminClientsPageDa
       : data.users.length === ADMIN_CLIENTS_PAGE_SIZE;
     if (users.length === 0) return { clients: [], page, hasNextPage, profilesUnavailable: false, pricingUnavailable: false };
 
+    const deletionRequests = await supabase.from("account_deletion_requests").select("user_id")
+      .in("user_id", users.map((user) => user.id));
+    if (deletionRequests.error || !deletionRequests.data) throw new Error("Account deletion state unavailable");
+    const pendingIds = new Set(deletionRequests.data.map((row) => row.user_id));
     const ids = users.map((user) => user.id);
     const [profiles, pricing] = await Promise.allSettled([
       supabase.from("client_profiles").select("user_id, first_name, last_name, full_name, company_name").in("user_id", ids),
@@ -120,6 +125,7 @@ export async function listAdminClients(page: number): Promise<AdminClientsPageDa
         // Whitelist display fields; never forward an Auth User/metadata object.
         return {
           userId: user.id,
+          deletionPending: pendingIds.has(user.id),
           name: text(profile?.full_name) ??
             text([text(profile?.first_name), text(profile?.last_name)].filter(Boolean).join(" ")) ??
             text(user.user_metadata?.full_name) ?? text(user.user_metadata?.name),

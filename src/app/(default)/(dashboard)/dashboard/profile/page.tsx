@@ -6,6 +6,7 @@ import { isProfileComplete } from "@/lib/profile-completion";
 import { safeInternalPath } from "@/lib/safe-redirect";
 import ClientDashboardLayout from "@/components/dashboard/ClientDashboardLayout";
 import ClientProfileForm from "@/components/dashboard/ClientProfileForm";
+import DeleteAccountControl from "@/components/dashboard/DeleteAccountControl";
 import ClientAccountSecurity from "@/components/dashboard/ClientAccountSecurity";
 import { getTurnstileSiteKeyFromEnv } from "@/components/auth/turnstile";
 
@@ -72,6 +73,7 @@ export default async function DashboardProfilePage({ searchParams }: ProfilePage
           authUserId={user.id}
           turnstileSiteKey={getTurnstileSiteKeyFromEnv()}
         />}
+        {user && !user.isQaPreview && <DeleteAccountControl email={authEmail} />}
       </div>
     </ClientDashboardLayout>
   );
