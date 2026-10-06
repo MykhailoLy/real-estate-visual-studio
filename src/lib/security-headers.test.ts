@@ -476,8 +476,6 @@ test("next config keeps the existing redirects and image configuration", async (
   ]);
 
   assert.deepEqual(nextConfig.images, {
-    deviceSizes: [640, 768, 1024, 1280, 1600, 1920, 2048, 2560, 3840],
-    imageSizes: [96, 144, 256, 384, 512],
     formats: ["image/webp"],
     qualities: [70, 75],
     minimumCacheTTL: 2678400,
