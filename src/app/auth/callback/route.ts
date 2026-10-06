@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { after, type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { isProfileComplete } from "@/lib/profile-completion";
 import { safeInternalPath } from "@/lib/safe-redirect";
+import { sendClientRegistrationAdminNotification } from "@/lib/email/client-registration-admin-notification";
 
 export const runtime = "nodejs";
 
@@ -109,6 +110,30 @@ export async function GET(req: NextRequest) {
   // Password recovery → /reset-password so the user can set a new password
   if (type === "recovery") {
     return NextResponse.redirect(new URL("/reset-password", origin));
+  }
+
+  // The public signup marker only routes notifications; it is not identity or
+  // authentication. Unmarked PKCE callbacks include existing-user magic links.
+  if (searchParams.get("flow") === "signup" && (!type || type === "signup")) {
+    try {
+      const { data, error: userError } = await supabase.auth.getUser();
+      const user = data.user;
+      if (!userError && user?.id && user.email && user.email_confirmed_at &&
+          !user.is_anonymous && !user.invited_at) {
+        const registration = {
+          userId: user.id,
+          name: typeof user.user_metadata.full_name === "string" ? user.user_metadata.full_name : "",
+          email: user.email,
+          registeredAt: user.created_at,
+        };
+        after(async () => {
+          await sendClientRegistrationAdminNotification(registration);
+        });
+      }
+    } catch {
+      // Best effort only: verification/scheduling failure must not alter Auth
+      // cookies, onboarding, or redirects. Never log private Auth details.
+    }
   }
 
   // Email confirmation (type=signup or default after signUp) →
