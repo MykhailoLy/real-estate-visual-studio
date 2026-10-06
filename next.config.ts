@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
     // that can create roughly 30 cached transformations for one source image.
     // Keep high-resolution 4K delivery while removing unused tiny/intermediate
     // widths that multiply Vercel Image Optimization usage.
-    deviceSizes: [640, 768, 1024, 1280, 1600, 1920, 2560, 3840],
+    deviceSizes: [640, 768, 1024, 1280, 1600, 1920, 2048, 2560, 3840],
     imageSizes: [96, 144, 256, 384, 512],
     // WebP gives broad browser support with one optimized format family.
     // Avoid a second AVIF cache variant for every width.
