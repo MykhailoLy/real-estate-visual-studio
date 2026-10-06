@@ -13,6 +13,12 @@ let userThrows = false;
 let userError = false;
 let missingUser = false;
 let user: Partial<User>;
+const exchangedAccessToken = "EXCHANGED-ACCESS-TOKEN";
+let exchangeHasSession = true;
+let claims: { sub?: string; amr?: unknown } | null;
+let claimsError = false;
+let claimsThrows = false;
+let verifiedTokens: { user: (string | undefined)[]; claims: (string | undefined)[] };
 let resendMode: "ok" | "unavailable" | "error" | "throws";
 let afterThrows = false;
 let deferred: (() => Promise<void>)[] = [];
@@ -45,12 +51,24 @@ globals.__inviteCallbackSupabase = {
     async exchangeCodeForSession(code: string) {
       calls.push(`exchange:${code}`);
       authenticated = !exchangeFails;
-      return { data: { user: { email: "unverified-exchange@example.com" } }, error: exchangeFails ? { message: "Invalid code" } : null };
+      return { data: {
+        user: { email: "unverified-exchange@example.com" },
+        session: exchangeHasSession ? { access_token: exchangedAccessToken } : null,
+      }, error: exchangeFails ? { message: "Invalid code" } : null };
     },
-    async getUser() {
+    async getUser(token?: string) {
+      verifiedTokens.user.push(token);
       calls.push("verify-session");
       if (userThrows) throw new Error("private Auth transport failure");
       return { data: { user: authenticated && !missingUser ? user : null }, error: userError ? { message: "private verification failure" } : null };
+    },
+    async getClaims(token?: string) {
+      verifiedTokens.claims.push(token);
+      if (claimsThrows) throw new Error("private claims transport failure");
+      // An older cookie session could still have signup AMR. Only the token
+      // from this code exchange describes the callback being processed.
+      const tokenClaims = token === exchangedAccessToken ? claims : { sub: user.id, amr: [{ method: "email/signup" }] };
+      return { data: tokenClaims ? { claims: tokenClaims } : null, error: claimsError ? { message: "invalid signature" } : null };
     },
   },
   from(table: string) {
@@ -80,6 +98,8 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
   authenticated = false; profile = null; profileThrows = false; exchangeFails = false; userThrows = false; calls = [];
   userError = false; missingUser = false; resendMode = "ok"; deferred = []; sent = []; afterThrows = false;
+  exchangeHasSession = true; claimsError = false; claimsThrows = false;
+  verifiedTokens = { user: [], claims: [] };
   user = {
     id: "11111111-1111-4111-8111-111111111111",
     email: "verified-client@example.com",
@@ -88,6 +108,7 @@ beforeEach(() => {
     is_anonymous: false,
     user_metadata: { full_name: "Verified Client", password: "PRIVATE-PASSWORD", token: "PRIVATE-TOKEN" },
   };
+  claims = { sub: user.id, amr: [{ method: "email/signup", timestamp: 1791273900 }] };
 });
 after(() => {
   if (originalUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL; else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
@@ -166,6 +187,7 @@ for (const type of ["", "&type=signup"]) {
     const location = await destination(`?code=PRIVATE-CODE&flow=signup${type}&email=browser@example.com&name=Browser&next=%2Fdashboard%2Fjobs`);
     assert.equal(location, "http://localhost/dashboard/profile?onboarding=1&next=%2Fdashboard%2Fjobs");
     assert.deepEqual(calls, ["exchange:PRIVATE-CODE", "verify-session", "profile"]);
+    assert.deepEqual(verifiedTokens, { user: [exchangedAccessToken], claims: [exchangedAccessToken] });
     assert.equal(sent.length, 0, "delivery does not block the redirect");
     assert.equal(deferred.length, 1);
     await deliver();
@@ -182,7 +204,7 @@ for (const type of ["", "&type=signup"]) {
       assert.ok(body.includes("2026-10-06T08:00:00.000Z"));
       assert.ok(body.includes("https://picchuspot.com/admin/clients"));
     }
-    assert.doesNotMatch(JSON.stringify(payload), /PRIVATE-PASSWORD|PRIVATE-TOKEN|PRIVATE-CODE|browser@example.com|unverified-exchange/);
+    assert.doesNotMatch(JSON.stringify(payload), /PRIVATE-PASSWORD|PRIVATE-TOKEN|PRIVATE-CODE|EXCHANGED-ACCESS-TOKEN|browser@example.com|unverified-exchange/);
     assert.equal(options.headers["Idempotency-Key"], `client-registration-${user.id}`);
     await deliver();
     assert.equal(sent.length, 1);
@@ -207,6 +229,80 @@ test("recovery, invite, default/magic-link and unmarked signup callbacks never n
   authenticated = true;
   await destination("?type=invite&flow=signup");
   await deliver();
+  assert.equal(sent.length, 0);
+});
+
+test("existing confirmed account cannot spoof signup with flow=signup on a valid default magic-link PKCE callback", async () => {
+  user.created_at = "2025-01-01T08:00:00.000Z";
+  user.email_confirmed_at = "2025-01-01T08:05:00.000Z";
+  user.last_sign_in_at = "2026-10-06T08:05:00.000Z";
+  claims = { sub: user.id, amr: [{ method: "magiclink", timestamp: 1791273900 }] };
+  profile = { full_name: "Existing Client", phone: "" };
+  assert.equal(await destination("?code=valid&flow=signup"), "http://localhost/dashboard");
+  assert.equal(authenticated, true);
+  assert.ok(calls.includes("verify-session"));
+  assert.equal(deferred.length, 0, "a valid existing-user session is not a signup event");
+  await deliver();
+  assert.equal(sent.length, 0);
+});
+
+test("spoofed signup query/metadata cannot override verified magic-link, recovery, invite, email-change or login AMR", async () => {
+  // Even newly created/just-confirmed account timestamps cannot prove the flow.
+  user.user_metadata = { full_name: "Client", flow: "signup", amr: [{ method: "email/signup" }] };
+  for (const method of ["magiclink", "recovery", "invite", "email_change", "password", "otp", "oauth"]) {
+    claims = { sub: user.id, amr: [{ method, timestamp: 1791273900 }] };
+    for (const queryType of ["", "&type=signup"]) {
+      assert.equal(await destination(`?code=valid&flow=signup${queryType}&amr=email%2Fsignup`), "http://localhost/dashboard/profile?onboarding=1");
+      assert.equal(deferred.length, 0, method);
+    }
+  }
+  assert.equal(sent.length, 0);
+});
+
+test("missing/malformed signup evidence and a different verified subject fail closed for notification only", async () => {
+  for (const amr of [undefined, null, [], "email/signup", { method: "email/signup" }, [null], ["signup"], [{ method: "signup" }]]) {
+    claims = { sub: user.id, amr };
+    assert.equal(await destination("?code=valid&flow=signup"), "http://localhost/dashboard/profile?onboarding=1");
+    assert.equal(deferred.length, 0);
+  }
+  for (const invalidClaims of [null, { amr: ["email/signup"] }, { sub: "another-user", amr: ["email/signup"] }]) {
+    claims = invalidClaims;
+    await destination("?code=valid&flow=signup");
+    assert.equal(deferred.length, 0);
+  }
+  assert.equal(sent.length, 0);
+});
+
+test("verified signup AMR supports the SDK string-array representation without a timestamp heuristic", async () => {
+  // The confirmation may occur long after signup. Auth's event, not account age,
+  // determines whether this exchange represents an email signup confirmation.
+  user.created_at = "2025-01-01T08:00:00.000Z";
+  claims = { sub: user.id, amr: ["email/signup"] };
+  await destination("?code=valid&flow=signup");
+  await deliver();
+  assert.equal(sent.length, 1);
+});
+
+test("unverifiable claims never schedule email or change successful onboarding/redirects", async () => {
+  for (const failure of ["error", "throws"] as const) {
+    claimsError = failure === "error";
+    claimsThrows = failure === "throws";
+    for (const completed of [false, true]) {
+      profile = completed ? { full_name: "Client", phone: "" } : null;
+      assert.equal(await destination("?code=valid&flow=signup&next=%2Fdashboard%2Fjobs"), completed
+        ? "http://localhost/dashboard/jobs"
+        : "http://localhost/dashboard/profile?onboarding=1&next=%2Fdashboard%2Fjobs");
+      assert.equal(deferred.length, 0);
+    }
+  }
+  assert.equal(sent.length, 0);
+});
+
+test("a successful exchange without a returned session never falls back to an older signup cookie", async () => {
+  exchangeHasSession = false;
+  assert.equal(await destination("?code=valid&flow=signup"), "http://localhost/dashboard/profile?onboarding=1");
+  assert.deepEqual(verifiedTokens, { user: [], claims: [] });
+  assert.equal(deferred.length, 0);
   assert.equal(sent.length, 0);
 });
 
