@@ -41,15 +41,8 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    // Bound the generated width set to the sizes PicchuSpot actually uses.
-    // Next.js defaults expose 15 widths; across multiple negotiated formats
-    // that can create roughly 30 cached transformations for one source image.
-    // Keep high-resolution 4K delivery while removing unused tiny/intermediate
-    // widths that multiply Vercel Image Optimization usage.
-    deviceSizes: [640, 768, 1024, 1280, 1600, 1920, 2048, 2560, 3840],
-    imageSizes: [96, 144, 256, 384, 512],
-    // WebP gives broad browser support with one optimized format family.
-    // Avoid a second AVIF cache variant for every width.
+    // Use one optimized format family so each responsive width maps to one
+    // cache variant instead of separate AVIF and WebP transformations.
     formats: ["image/webp"],
     // Next.js 16 requires an explicit allowlist when components select a
     // quality. Public raster photo contexts use 70; hero and floor plans use
