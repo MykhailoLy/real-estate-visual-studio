@@ -4,8 +4,7 @@ All ordinary public property and portfolio raster images use
 `src/components/media/OptimizedImage.tsx`. Its named delivery contexts in
 `image-delivery.ts` are the only source of the responsive `sizes` and quality
 rules. The component uses `next/image`, so public Supabase Storage source URLs
-are requested server-side through `/_next/image` and returned as AVIF or WebP
-according to the browser's `Accept` header.
+are requested server-side through `/_next/image` and returned as WebP.
 
 `PropertyGallery` renders only its visible compact tiles. Once a lightbox frame
 has loaded, it may mount one hidden `OptimizedImagePreloader` for the following

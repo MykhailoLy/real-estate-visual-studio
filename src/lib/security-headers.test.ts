@@ -476,7 +476,7 @@ test("next config keeps the existing redirects and image configuration", async (
   ]);
 
   assert.deepEqual(nextConfig.images, {
-    formats: ["image/avif", "image/webp"],
+    formats: ["image/webp"],
     qualities: [70, 75],
     minimumCacheTTL: 2678400,
     remotePatterns: [

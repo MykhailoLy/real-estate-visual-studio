@@ -18,7 +18,7 @@ import ServicePlaceholder, {
 // imagery without a visual jump.
 //
 // Images use next/image (fill) so the public Supabase Storage
-// originals are resized/served as AVIF/WebP via the Next.js image
+// originals are resized/served as WebP via the Next.js image
 // optimizer instead of being downloaded full-size from Supabase.
 // The Supabase public host is allow-listed in next.config.ts.
 // ============================================================

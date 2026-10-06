@@ -24,7 +24,7 @@
 // shown to the public.
 //
 // Images use next/image so the public Supabase Storage originals
-// are resized and served as AVIF/WebP via the Next.js optimizer
+// are resized and served as WebP via the Next.js optimizer
 // (the Supabase public host is allow-listed in next.config.ts).
 // We keep the natural-aspect, full-width presentation: width/height
 // are only an intrinsic-ratio hint and CSS `w-full h-auto` makes the

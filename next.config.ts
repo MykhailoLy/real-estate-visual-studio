@@ -41,9 +41,9 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    // Modern formats — Next.js negotiates AVIF/WebP per request and
-    // falls back to the original format for unsupported browsers.
-    formats: ["image/avif", "image/webp"],
+    // Use one optimized format family so each responsive width maps to one
+    // cache variant instead of separate AVIF and WebP transformations.
+    formats: ["image/webp"],
     // Next.js 16 requires an explicit allowlist when components select a
     // quality. Public raster photo contexts use 70; hero and floor plans use
     // 75 where detail is more important than thumbnail byte savings.
