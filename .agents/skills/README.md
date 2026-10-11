@@ -13,6 +13,7 @@ Repository-wide policy remains in the root `AGENTS.md`. A skill does not grant p
 | `picchuspot-ui-qa` | Verifying rendered UI, responsive behavior, interactions, accessibility |
 | `picchuspot-change-verification` | Choosing and running proportionate checks before declaring a code change complete |
 | `picchuspot-seo-commercial-audit` | SEO/GEO research, GSC/SE Ranking analysis, commercial content-gap and cannibalization work |
+| [`stop-slop`](stop-slop/SKILL.md) | Reviewing English-language user-facing prose; preserving natural voice and claims |
 
 ## Deliberate exclusions
 
