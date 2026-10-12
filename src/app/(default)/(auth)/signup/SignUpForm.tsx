@@ -138,6 +138,7 @@ export default function SignUpForm({
       // by passing it as ?next= on the callback URL. The callback
       // sanitizes it again server-side.
       const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+      callbackUrl.searchParams.set("flow", "signup");
       if (hasRedirect) callbackUrl.searchParams.set("next", redirectTo);
 
       const { data, error: authError } = await supabase.auth.signUp({

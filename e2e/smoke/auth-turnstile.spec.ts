@@ -283,6 +283,7 @@ test.describe("auth Turnstile enabled state", () => {
     expect(redirectUrl.origin).toBe(new URL(page.url()).origin);
     expect(redirectUrl.pathname).toBe("/auth/callback");
     expect(redirectUrl.searchParams.get("next")).toBe(redirectPath);
+    expect(redirectUrl.searchParams.has("flow")).toBe(false);
   });
 
   test("magic link resets Turnstile after auth failure", async ({
@@ -361,6 +362,37 @@ test.describe("auth Turnstile enabled state", () => {
     expect(signupData?.full_name).toBe("Jane Smith");
     expect((await getTurnstileState(page)).resetCount).toBe(1);
   });
+
+  for (const route of ["/signup", "/es/signup"]) {
+    for (const redirectPath of [undefined, "/dashboard/orders/new/virtual-staging?source=signup", "https://evil.example"]) {
+      test(`${route} marks confirmed signup flow and preserves safe next (${redirectPath ?? "default"})`, async ({ page }) => {
+        await installFakeTurnstile(page);
+        const supabase = await installSupabaseAuthStub(page, {
+          "/auth/v1/signup": {
+            status: 200,
+            body: { user: { id: "signup-client", email: "new-client@example.com" }, session: null },
+          },
+        });
+        const response = await page.goto(`${route}${redirectPath ? `?redirectTo=${encodeURIComponent(redirectPath)}` : ""}`);
+        expectNavigationResponseOk(response, route);
+        await page.locator('input[name="name"]').fill("Jane Smith");
+        await page.locator('input[name="email"]').fill("new-client@example.com");
+        await page.locator('input[name="password"]').fill("password123");
+        await page.locator('input[name="confirm"]').fill("password123");
+        await page.locator('button[type="submit"]').click();
+        await expect(page.getByRole("heading", { name: route === "/signup" ? "Check your email" : "Revisa tu correo" })).toBeVisible();
+        const calls = await supabase.calls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0]?.pathname).toBe("/auth/v1/signup");
+        expect(readCaptchaToken(calls[0])).toMatch(/^token-signup-/);
+        const callback = new URL(readRedirectTo(calls[0]));
+        expect(callback.origin).toBe(new URL(page.url()).origin);
+        expect(callback.pathname).toBe("/auth/callback");
+        expect(callback.searchParams.get("flow")).toBe("signup");
+        expect(callback.searchParams.get("next")).toBe(redirectPath?.startsWith("/dashboard/") ? redirectPath : null);
+      });
+    }
+  }
 
   test("forgot password passes captchaToken and keeps non-enumerating success copy", async ({
     page,

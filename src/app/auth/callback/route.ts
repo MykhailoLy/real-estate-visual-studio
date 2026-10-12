@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { after, type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { isProfileComplete } from "@/lib/profile-completion";
 import { safeInternalPath } from "@/lib/safe-redirect";
+import { sendClientRegistrationAdminNotification } from "@/lib/email/client-registration-admin-notification";
 
 export const runtime = "nodejs";
 
@@ -83,9 +84,9 @@ export async function GET(req: NextRequest) {
   // /auth/invite consumes the standard invite fragment in the browser. An
   // invite query parameter alone is never authentication: verify its cookies
   // with Auth before reading the profile or sending it to the dashboard.
-  const { error: exchangeError } = code
+  const { data: exchangeData, error: exchangeError } = code
     ? await supabase.auth.exchangeCodeForSession(code)
-    : { error: null };
+    : { data: null, error: null };
 
   if (exchangeError) {
     const target = new URL("/login", origin);
@@ -109,6 +110,40 @@ export async function GET(req: NextRequest) {
   // Password recovery → /reset-password so the user can set a new password
   if (type === "recovery") {
     return NextResponse.redirect(new URL("/reset-password", origin));
+  }
+
+  // The public signup marker only routes notifications; it is not identity or
+  // authentication. Unmarked PKCE callbacks include existing-user magic links.
+  const accessToken = exchangeData?.session?.access_token;
+  if (searchParams.get("flow") === "signup" && (!type || type === "signup") && accessToken) {
+    try {
+      const { data, error: userError } = await supabase.auth.getUser(accessToken);
+      // Supabase PKCE issues a new session with the stored Auth flow's AMR:
+      // email/signup is distinct from magiclink, recovery, invite, email_change.
+      // Verify this exchange's exact token, not an older cookie session. Account
+      // timestamps cannot establish which event produced the current session.
+      // https://supabase.com/docs/guides/auth/jwt-fields#authentication-methods-amrmethod
+      const { data: verified, error: claimsError } = await supabase.auth.getClaims(accessToken);
+      const methods = verified?.claims.amr;
+      const user = data.user;
+      if (!userError && user?.id && user.email && user.email_confirmed_at &&
+          !user.is_anonymous && !user.invited_at && !claimsError &&
+          verified?.claims.sub === user.id && Array.isArray(methods) &&
+          methods.some((entry) => (typeof entry === "string" ? entry : entry?.method) === "email/signup")) {
+        const registration = {
+          userId: user.id,
+          name: typeof user.user_metadata.full_name === "string" ? user.user_metadata.full_name : "",
+          email: user.email,
+          registeredAt: user.created_at,
+        };
+        after(async () => {
+          await sendClientRegistrationAdminNotification(registration);
+        });
+      }
+    } catch {
+      // Best effort only: verification/scheduling failure must not alter Auth
+      // cookies, onboarding, or redirects. Never log private Auth details.
+    }
   }
 
   // Email confirmation (type=signup or default after signUp) →
