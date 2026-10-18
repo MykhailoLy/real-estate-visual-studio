@@ -17,9 +17,6 @@ import AboutPicchuSpot, {
   type AboutCollageTile,
   type AboutPicchuSpotCopy,
 } from "@/components/home/AboutPicchuSpot";
-import Testimonials, {
-  type TestimonialsCopy,
-} from "@/components/home/Testimonials";
 import CtaSection from "@/components/sections/CtaSection";
 import {
   getAboutCollageItems,
@@ -150,25 +147,27 @@ const serviceGridCopy: ServiceGridCopy = {
 
 const processCopy: HowItWorksDetailedCopy = {
   eyebrow: "Proceso",
-  title: "Cómo funciona",
-  description: "Desde la subida hasta la entrega en cuatro pasos sencillos.",
+  title: "Cómo hacer tu primer pedido",
+  description: "Revisa tus archivos, instrucciones y el total antes de enviar el pedido.",
   stepLabel: "Paso",
+  ctaLabel: "Empezar mi primer pedido",
+  deliveryNote: "Consulta el estado de tu pedido y descarga los archivos entregados desde tu cuenta.",
   steps: [
     {
-      title: "Sube",
-      body: "Sube tus fotos o archivos de proyecto desde cualquier dispositivo. Los archivos van directamente a almacenamiento privado.",
+      title: "Elige un servicio",
+      body: "Compara ejemplos y precios. Elige la edición o el tipo de plano que necesita tu proyecto.",
     },
     {
-      title: "Editamos",
-      body: "Preparamos tus visuales según el servicio seleccionado y las instrucciones que enviaste.",
+      title: "Accede a tu cuenta",
+      body: "Inicia sesión o crea una cuenta y completa tu nombre para abrir el formulario del pedido.",
     },
     {
-      title: "Revisión de calidad",
-      body: "Cada pedido se revisa para comprobar realismo, claridad y calidad de presentación antes de la entrega.",
+      title: "Añade archivos e instrucciones",
+      body: "Sube tus fotos o planos, selecciona las opciones y añade instrucciones y referencias cuando corresponda.",
     },
     {
-      title: "Listo",
-      body: "Recibes archivos listos para el mercado para tu anuncio, MLS, web o paquete de marketing.",
+      title: "Revisa y confirma",
+      body: "Comprueba los archivos, las opciones y el total. Envía el pedido y completa el pago cuando se solicite.",
     },
   ],
 };
@@ -180,39 +179,6 @@ const aboutCopy: AboutPicchuSpotCopy = {
   paragraphs: [
     "PicchuSpot crea visuales listos para anuncios inmobiliarios. Con formación arquitectónica y experiencia práctica en visualización 3D, edición fotográfica y Virtual Staging, nos centramos en resultados realistas que ayudan a presentar mejor las propiedades online.",
     "Ofrecemos servicios digitales remotos en todo el mundo y media inmobiliaria local en Alicante y Costa Blanca. Ya sea una sola imagen editada o un paquete completo de media para una propiedad, el objetivo es siempre el mismo: visuales claros y pulidos que ayuden a destacar los anuncios.",
-  ],
-};
-
-const testimonialsCopy: TestimonialsCopy = {
-  eyebrow: "Testimonios",
-  title: "Qué dicen nuestros clientes",
-  previousLabel: "Testimonio anterior",
-  nextLabel: "Testimonio siguiente",
-  chooseLabel: "Elegir testimonio",
-  slideLabel: "Testimonio",
-  showLabel: "Mostrar testimonio",
-  testimonials: [
-    {
-      name: "Sarah Mitchell",
-      role: "Agente inmobiliaria",
-      initials: "SM",
-      quote:
-        "PicchuSpot nos ayudó a presentar los anuncios de una forma más limpia y cuidada. Las ediciones se veían realistas, la comunicación fue clara y la entrega rápida.",
-    },
-    {
-      name: "Daniel Foster",
-      role: "Marketing inmobiliario",
-      initials: "DF",
-      quote:
-        "Los visuales quedaron naturales y listos para publicar. Nos gustó especialmente la atención al detalle y la consistencia entre varias imágenes.",
-    },
-    {
-      name: "Elena Ruiz",
-      role: "Broker Associate",
-      initials: "ER",
-      quote:
-        "El proceso fue sencillo y las imágenes finales se veían profesionales sin parecer demasiado retocadas.",
-    },
   ],
 };
 
@@ -277,24 +243,36 @@ export default async function SpanishHomePage() {
 
   return (
     <>
-      <section className="bg-white overflow-hidden">
-        <div className="px-3 pt-3 sm:px-4 lg:px-2 lg:pt-4">
-          <BeforeAfterShowcase slides={sliderSlides} locale="es" />
-        </div>
-      </section>
-
       <section className="bg-white border-b border-border">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-6 lg:py-8">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
             Edición fotográfica inmobiliaria, Virtual Staging y planos
           </h1>
-          <p className="mt-3 text-sm sm:text-base lg:text-lg text-muted leading-relaxed max-w-4xl">
-            Crea visuales listos para tus anuncios con mejora de imagen,
-            edición Day to Dusk, Virtual Staging, eliminación de objetos,
-            renovación virtual, planos y mejora de imagen 360°. Pensado para
-            agentes inmobiliarios, fotógrafos, gestores de propiedades y
-            equipos de marketing.
+          <p className="mt-3 text-base lg:text-lg text-muted leading-relaxed max-w-4xl">
+            Visuales profesionales para agentes y fotógrafos inmobiliarios.
+            Compara los resultados y empieza con una imagen o un proyecto completo.
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <a
+              href="#services"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+            >
+              Explorar servicios
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </a>
+            <a
+              href="#how-it-works"
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline decoration-border-strong underline-offset-4 hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+            >
+              Cómo hacer tu primer pedido
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white overflow-hidden" aria-label="Ejemplos de antes y después">
+        <div className="px-3 pt-3 sm:px-4 lg:px-2 lg:pt-4">
+          <BeforeAfterShowcase slides={sliderSlides} locale="es" />
         </div>
       </section>
 
@@ -344,8 +322,6 @@ export default async function SpanishHomePage() {
         copy={aboutCopy}
         placeholderLabels={{ left: "Antes", right: "Después" }}
       />
-
-      <Testimonials copy={testimonialsCopy} />
 
       <CtaSection
         title="Empieza tu próximo anuncio con los visuales ya resueltos."

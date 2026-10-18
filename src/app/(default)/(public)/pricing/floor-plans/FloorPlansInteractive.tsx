@@ -103,6 +103,7 @@ function StylePlaceholder({ variant, label }: { variant: string; label: string }
 // ── PortfolioExamplesGrid ─────────────────────────────────────
 
 interface PortfolioGridProps {
+  locale?: "en" | "es";
   cards: PortfolioExampleCard[];
   viewerVariant: StaticImageViewerVariant;
   imageFit?: "contain" | "cover";
@@ -116,6 +117,7 @@ interface PortfolioGridProps {
 }
 
 export function PortfolioExamplesGrid({
+  locale = "en",
   cards,
   viewerVariant,
   imageFit = "contain",
@@ -256,6 +258,7 @@ export function PortfolioExamplesGrid({
         return imgs.length > 0 ? (
           <ImageLightbox
             key={`portfolio-${open.id}`}
+            locale={locale}
             variant={viewerVariant}
             images={imgs}
             title={open.title}

@@ -8,7 +8,6 @@ import {
   BookOpen,
   ChevronDown,
   FileText,
-  Globe2,
   HelpCircle,
   Image as ImageIcon,
   Info,
@@ -342,8 +341,7 @@ export function getLocaleAwareHref(href: string, language: SiteLanguage): string
 
 export default function Header() {
   const pathname = usePathname() ?? "/";
-  const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
-  const currentLanguage = getCurrentLanguage(pathname, savedLanguage);
+  const currentLanguage: SiteLanguage = getPathLanguage(pathname) ?? "en";
   const active = getTopLevelForPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -351,21 +349,40 @@ export default function Header() {
 
   const closeMenu = () => setMenuOpen(false);
 
-  useEffect(() => {
-    window.queueMicrotask(() => setSavedLanguage(readStoredLanguage()));
-  }, []);
-
   const setLanguagePreference = (language: SiteLanguage) => {
     writeLanguagePreference(language);
-    setSavedLanguage(language);
     trackLanguageSwitch(language, "header");
   };
 
   useEffect(() => {
     if (!menuOpen) return;
 
+    const panel = menuPanelRef.current;
+    if (!panel) return;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : menuButtonRef.current;
+    const overlay = panel.parentElement;
+    const backgroundElements = Array.from(document.body.children)
+      .filter((element): element is HTMLElement =>
+        element instanceof HTMLElement && element !== overlay
+      )
+      .map((element) => ({ element, inert: element.inert }));
+    backgroundElements.forEach(({ element }) => {
+      element.inert = true;
+    });
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    const getFocusableElements = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+
+    (getFocusableElements()[0] ?? panel).focus({ preventScroll: true });
 
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
@@ -376,15 +393,48 @@ export default function Header() {
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeMenu();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusableElements = getFocusableElements();
+      const first = focusableElements[0] ?? panel;
+      const last = focusableElements.at(-1) ?? panel;
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || document.activeElement === panel)
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last || !panel.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      if (!panel.contains(event.target as Node)) {
+        (getFocusableElements()[0] ?? panel).focus({ preventScroll: true });
+      }
     };
 
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("focusin", onFocusIn);
+      backgroundElements.forEach(({ element, inert }) => {
+        element.inert = inert;
+      });
+      if (previouslyFocused?.isConnected) previouslyFocused.focus({ preventScroll: true });
     };
   }, [menuOpen]);
 
@@ -418,7 +468,7 @@ export default function Header() {
           {/* Top-level categories (desktop) */}
           <nav
             aria-label={currentLanguage === "es" ? "Categorías de servicios" : "Service categories"}
-            className="hidden 3xl:ml-4 3xl:flex 3xl:min-w-0 3xl:items-center 3xl:gap-0.5 2xl:ml-10 2xl:gap-1"
+            className="hidden 2xl:ml-4 2xl:flex 2xl:min-w-0 2xl:items-center 2xl:gap-0.5"
           >
             {topLevels.map((entry) => {
               const isActive = entry.key === active.key;
@@ -458,6 +508,7 @@ export default function Header() {
               aria-label={currentLanguage === "es" ? (menuOpen ? "Cerrar menú" : "Abrir menú") : (menuOpen ? "Close menu" : "Open menu")}
               aria-expanded={menuOpen}
               aria-haspopup="dialog"
+              aria-controls="public-site-menu"
             >
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -470,6 +521,28 @@ export default function Header() {
             />
           </div>
         </div>
+      </div>
+
+      <div
+        className={cn(
+          "flex h-11 items-center justify-between gap-3 border-t border-white/10 bg-primary sm:hidden",
+          NAV_X_PADDING
+        )}
+      >
+        <LanguageSelector
+          pathname={pathname}
+          currentLanguage={currentLanguage}
+          onLanguageChange={setLanguagePreference}
+        />
+        <MarketLanguageSelector
+          pathname={pathname}
+          currentLanguage={currentLanguage}
+          compact
+          marketOnly
+          theme="dark"
+          onLanguageChange={setLanguagePreference}
+          analyticsLocation="header"
+        />
       </div>
 
       {/* ── Row 2: desktop sub-nav ── */}
@@ -523,10 +596,16 @@ function HeaderAccountControls({
           loading={status === "loading"}
         />
       )}
+      <LanguageSelector
+        pathname={pathname}
+        currentLanguage={language}
+        onLanguageChange={onLanguageChange}
+      />
       <MarketLanguageSelector
         pathname={pathname}
         currentLanguage={language}
         compact
+        marketOnly
         theme="dark"
         onLanguageChange={onLanguageChange}
         analyticsLocation="header"
@@ -757,6 +836,8 @@ function BurgerMenuPanel({
     >
       <div
         ref={panelRef}
+        id="public-site-menu"
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={language === "es" ? "Menú del sitio" : "Site menu"}
@@ -782,6 +863,29 @@ function BurgerMenuPanel({
         </div>
 
         <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
+          <nav
+            aria-label={language === "es" ? "Categorías de servicios" : "Service categories"}
+            className="2xl:hidden"
+          >
+            <p className="mb-1 text-public-kicker font-bold uppercase text-muted">
+              {language === "es" ? "Todos los servicios" : "All services"}
+            </p>
+            <div className="grid grid-cols-1 gap-x-5 sm:grid-cols-2">
+              {topLevels.map((entry) => (
+                <Link
+                  key={entry.key}
+                  href={getLocaleAwareHref(entry.href, language)}
+                  onClick={onClose}
+                  aria-current={entry.key === activeEntry.key ? "page" : undefined}
+                  className="flex items-center justify-between gap-3 border-b border-border py-3 text-sm font-semibold text-primary transition-colors hover:text-secondary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {getHeaderLabel(entry.label, language)}
+                  <ChevronDown className="h-4 w-4 flex-shrink-0 -rotate-90" aria-hidden />
+                </Link>
+              ))}
+            </div>
+          </nav>
+
           <section className="xl:hidden">
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -859,6 +963,7 @@ function BurgerMenuPanel({
               currentLanguage={language}
               className="w-full"
               placement="panel"
+              marketOnly
               onNavigate={onClose}
               onLanguageChange={onLanguageChange}
               analyticsLocation="mobile_menu"
@@ -953,6 +1058,7 @@ export function MarketLanguageSelector({
   onLanguageChange,
   analyticsLocation,
   getLanguageOptionHref,
+  marketOnly = false,
 }: {
   pathname: string;
   currentLanguage: SiteLanguage;
@@ -965,6 +1071,7 @@ export function MarketLanguageSelector({
   onLanguageChange: (language: SiteLanguage) => void;
   analyticsLocation: string;
   getLanguageOptionHref?: (language: SiteLanguage) => string;
+  marketOnly?: boolean;
 }) {
   const [region, setRegion] = useDisplayRegion();
   const [open, setOpen] = useState(false);
@@ -1028,7 +1135,9 @@ export function MarketLanguageSelector({
   const copy =
     currentLanguage === "es"
       ? {
-          aria: "Seleccionar mercado, moneda e idioma",
+          aria: marketOnly
+            ? "Seleccionar mercado y moneda"
+            : "Seleccionar mercado, moneda e idioma",
           market: "Mercado",
           language: "Idioma",
           selected: "Seleccionado",
@@ -1036,7 +1145,9 @@ export function MarketLanguageSelector({
           spanish: "Espa\u00f1ol",
         }
       : {
-          aria: "Select market, currency, and language",
+          aria: marketOnly
+            ? "Select market and currency"
+            : "Select market, currency, and language",
           market: "Market",
           language: "Language",
           selected: "Selected",
@@ -1121,39 +1232,41 @@ export function MarketLanguageSelector({
         </div>
       </div>
 
-      <div className="p-2.5">
-        <p className="px-2 pb-1.5 text-public-kicker font-bold uppercase text-muted">
-          {copy.language}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {languageOptions.map((option) => {
-            const active = option.code === currentLanguage;
-            return (
-              <Link
-                key={option.code}
-                href={
-                  getLanguageOptionHref?.(option.code) ??
-                  getLanguageHref(pathname, option.code)
-                }
-                onClick={() => {
-                  onLanguageChange(option.code);
-                  setOpen(false);
-                  onNavigate?.();
-                }}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "inline-flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
-                  active
-                    ? "bg-primary text-white"
-                    : "bg-surface text-foreground/75 hover:bg-primary/5 hover:text-primary"
-                )}
-              >
-                {option.label}
-              </Link>
-            );
-          })}
+      {!marketOnly && (
+        <div className="p-2.5">
+          <p className="px-2 pb-1.5 text-public-kicker font-bold uppercase text-muted">
+            {copy.language}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {languageOptions.map((option) => {
+              const active = option.code === currentLanguage;
+              return (
+                <Link
+                  key={option.code}
+                  href={
+                    getLanguageOptionHref?.(option.code) ??
+                    getLanguageHref(pathname, option.code)
+                  }
+                  onClick={() => {
+                    onLanguageChange(option.code);
+                    setOpen(false);
+                    onNavigate?.();
+                  }}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-bold transition-colors",
+                    active
+                      ? "bg-primary text-white"
+                      : "bg-surface text-foreground/75 hover:bg-primary/5 hover:text-primary"
+                  )}
+                >
+                  {option.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -1182,11 +1295,13 @@ export function MarketLanguageSelector({
             ? "border-white/15 bg-white/5 hover:bg-white/10 focus-visible:ring-white focus-visible:ring-offset-primary"
             : "border-stone-200 bg-white/95 shadow-sm hover:border-primary/30 focus-visible:ring-primary",
           placement === "header"
-            ? compact
-              ? tight
-                ? "h-9 min-w-[4.75rem] gap-1 px-1.5 sm:min-w-[6.5rem] sm:px-2"
-                : "h-9 min-w-[6.5rem] px-2 xl:min-w-[7rem] 2xl:min-w-[8rem] 2xl:px-3"
-              : "h-9 min-w-[7rem] px-2 2xl:min-w-[8rem] 2xl:px-3"
+            ? marketOnly
+              ? "h-9 min-w-[5rem] px-2"
+              : compact
+                ? tight
+                  ? "h-9 min-w-[4.75rem] gap-1 px-1.5 sm:min-w-[6.5rem] sm:px-2"
+                  : "h-9 min-w-[6.5rem] px-2 xl:min-w-[7rem] 2xl:min-w-[8rem] 2xl:px-3"
+                : "h-9 min-w-[7rem] px-2 2xl:min-w-[8rem] 2xl:px-3"
             : "w-full px-3"
         )}
       >
@@ -1200,10 +1315,12 @@ export function MarketLanguageSelector({
             <RegionFlag code={activeOption.code} />
           </span>
           <span>{currencyForRegion(region)}</span>
-          <span className={darkHeaderTrigger ? "text-white/60" : "text-muted"}>
-            {"\u00b7"}
-          </span>
-          <span>{currentLanguage.toUpperCase()}</span>
+          {!marketOnly && (
+            <span className={darkHeaderTrigger ? "text-white/60" : "text-muted"}>
+              {"\u00b7"}
+            </span>
+          )}
+          {!marketOnly && <span>{currentLanguage.toUpperCase()}</span>}
         </span>
         <ChevronDown
           className={cn(
@@ -1221,18 +1338,15 @@ export function MarketLanguageSelector({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function LanguageSelector({
   pathname,
   currentLanguage,
-  compact = false,
   className,
   onNavigate,
   onLanguageChange,
 }: {
   pathname: string;
   currentLanguage: SiteLanguage;
-  compact?: boolean;
   className?: string;
   onNavigate?: () => void;
   onLanguageChange: (language: SiteLanguage) => void;
@@ -1246,43 +1360,31 @@ function LanguageSelector({
     <nav
       aria-label={currentLanguage === "es" ? "Seleccionar idioma" : "Select language"}
       className={cn(
-        "inline-flex items-center rounded-lg border border-stone-200 bg-white/95 p-0.5 shadow-sm",
-        compact && "h-9 flex-shrink-0",
+        "inline-flex h-9 flex-shrink-0 items-center gap-0.5",
         className
       )}
     >
-      <span
-        className={cn(
-          "inline-flex items-center px-2 text-primary",
-          compact && "hidden lg:inline-flex"
-        )}
-      >
-        <Globe2 className="h-4 w-4" aria-hidden />
-      </span>
       {options.map((option) => {
         const active = option.code === currentLanguage;
         return (
           <Link
             key={option.code}
-            href={getLanguageHref(pathname, option.code)}
+            href={option.code === currentLanguage ? pathname : getLanguageHref(pathname, option.code)}
+            hrefLang={option.code}
+            lang={option.code}
             onClick={() => {
               onLanguageChange(option.code);
               onNavigate?.();
             }}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex flex-1 items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors",
-              compact && "min-w-7 px-2",
+              "inline-flex h-9 items-center justify-center whitespace-nowrap border-b-2 px-2 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white",
               active
-                ? "bg-primary text-white"
-                : "text-foreground/70 hover:bg-surface hover:text-primary"
+                ? "border-secondary text-white"
+                : "border-transparent text-white/70 hover:text-white"
             )}
           >
-            {compact
-              ? option.code.toUpperCase()
-              : option.code === "es"
-                ? "Español"
-                : option.label}
+            {option.label}
           </Link>
         );
       })}

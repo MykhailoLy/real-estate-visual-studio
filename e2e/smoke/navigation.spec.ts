@@ -7,7 +7,7 @@ import {
 const pixel5 = devices["Pixel 5"];
 
 test.describe("public navigation", () => {
-  test.use({ viewport: { width: 1440, height: 900 } });
+  test.use({ viewport: { width: 1536, height: 900 } });
 
   test("desktop header keeps the dark primary treatment and control behavior", async ({
     page,
@@ -47,7 +47,7 @@ test.describe("public navigation", () => {
     await expect(signup).toHaveClass(/text-primary/);
 
     const marketSelector = header.getByRole("button", {
-      name: "Select market, currency, and language",
+      name: "Select market and currency",
     });
     await expect(marketSelector).toHaveClass(/border-white\/15/);
     await expect(marketSelector).toHaveClass(/bg-white\/5/);
@@ -126,7 +126,30 @@ test.describe("mobile navigation", () => {
 });
 
 test.describe("responsive service navigation", () => {
-  test("top-level categories wait for 3xl while the burger remains clickable", async ({
+  test("all service categories remain reachable when the primary category navigation is hidden", async ({ page }) => {
+    for (const width of [360, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+      await page.getByRole("button", { name: "Open menu", exact: true }).click();
+      const menu = page.getByRole("dialog", { name: "Site menu", exact: true });
+      const categories = menu.getByRole("navigation", { name: "Service categories" });
+      for (const [name, href] of [
+        ["Remote Digital Services", "/"],
+        ["Local Real Estate Media", "/local"],
+        ["Renders", "/renders"],
+        ["Online Retail", "/online-retail"],
+      ] as const) {
+        const link = categories.getByRole("link", { name, exact: true });
+        await expect(link).toBeVisible();
+        await expect(link).toHaveAttribute("href", href);
+      }
+      await categories.getByRole("link", { name: "Local Real Estate Media", exact: true }).click();
+      await expect(page).toHaveURL(/\/local$/);
+      await expect(menu).toBeHidden();
+    }
+  });
+
+  test("top-level categories wait for 2xl while the burger remains clickable", async ({
     page,
   }, testInfo) => {
     const guard = await installSmokeNetworkGuards(page, testInfo);
@@ -144,7 +167,7 @@ test.describe("responsive service navigation", () => {
     await expect(page.getByRole("dialog", { name: "Site menu" })).toBeVisible();
     await page.keyboard.press("Escape");
 
-    await page.setViewportSize({ width: 1360, height: 900 });
+    await page.setViewportSize({ width: 1536, height: 900 });
     response = await page.goto("/");
     expectNavigationResponseOk(response, "/");
     await expect(
@@ -247,3 +270,112 @@ test.describe("responsive service navigation", () => {
     await guard.expectClean();
   });
 });
+
+test.describe("public header language and keyboard access", () => {
+  test("language stays discoverable and separate from currency on narrow and wide screens", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("picchuspot-language", "es");
+    });
+    for (const width of [360, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/pricing/virtual-staging");
+
+      const languageNav = page.getByRole("navigation", { name: "Select language" });
+      await expect(languageNav.getByRole("link", { name: "English", exact: true })).toHaveAttribute("aria-current", "page");
+      const spanish = languageNav.getByRole("link", { name: "Español", exact: true });
+      await expect(spanish).toBeVisible();
+      await expect(spanish).toHaveAttribute("href", "/es/pricing/virtual-staging");
+      const currency = page.getByRole("button", { name: "Select market and currency", exact: true });
+      await expect(currency).toBeVisible();
+      await currency.click();
+      await page.getByRole("button", { name: /Europe — EUR/ }).click();
+      await expect(page).toHaveURL(/\/pricing\/virtual-staging$/);
+      await expect(currency).toContainText("EUR");
+
+      const fits = await page.getByTestId("public-header-primary-row").evaluate((row) => {
+        const controls = Array.from(row.querySelectorAll("a, button")).filter((element) => element.getClientRects().length > 0);
+        return controls.every((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.left >= 0 && rect.right <= document.documentElement.clientWidth;
+        });
+      });
+      expect(fits, `${width}px header controls`).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`public-discovery-en-${width}.png`) });
+    }
+
+    await page.getByRole("navigation", { name: "Select language" }).getByRole("link", { name: "Español", exact: true }).click();
+    await expect(page).toHaveURL(/\/es\/pricing\/virtual-staging$/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page.getByRole("button", { name: "Seleccionar mercado y moneda", exact: true })).toContainText("EUR");
+    const english = page.getByRole("navigation", { name: "Seleccionar idioma" }).getByRole("link", { name: "English", exact: true });
+    await expect(english).toHaveAttribute("href", "/pricing/virtual-staging");
+    const spanishPageFits = await page.evaluate(() =>
+      document.documentElement.scrollWidth <= document.documentElement.clientWidth
+    );
+    expect(spanishPageFits, "1440px Spanish page overflow").toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("public-discovery-es-1440.png") });
+    await english.click();
+    await expect(page).toHaveURL(/\/pricing\/virtual-staging$/);
+  });
+
+  test("site menu traps keyboard focus and restores its trigger on close", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto("/");
+    const trigger = page.getByRole("button", { name: "Open menu", exact: true });
+    await trigger.focus();
+    await trigger.press("Enter");
+    const menu = page.getByRole("dialog", { name: "Site menu", exact: true });
+    const close = menu.getByRole("button", { name: "Close menu", exact: true });
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(menu.getByRole("link").last()).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.press("Enter");
+    await close.click();
+    await expect(trigger).toBeFocused();
+  });
+});
+
+for (const width of [390, 1440]) {
+  test(`service sections are reachable below the sticky header at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    for (const path of ["/pricing/virtual-staging", "/es/pricing/floor-plans", "/pricing/photo-editing"]) {
+      const es = path.startsWith("/es/");
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeInViewport();
+      const nav = page.getByRole("navigation", { name: es ? "En esta página" : "On this page", exact: true });
+      await expect(nav).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath(`public-discovery-service-${path.split("/").at(-1)}-${es ? "es" : "en"}-${width}.png`) });
+      await nav.getByRole("link", { name: es ? "Precios" : "Pricing", exact: true }).click();
+      await expect(page).toHaveURL(/#pricing$/);
+      await expect.poll(() => page.locator("#pricing").evaluate((section) => {
+        const top = section.getBoundingClientRect().top;
+        const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+        return top >= headerBottom - 1 && top < window.innerHeight;
+      })).toBe(true);
+    }
+  });
+}
+
+for (const locale of ["en", "es"] as const) {
+  test(`homepage discovery and first-order guide work in ${locale}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(locale === "es" ? "/es" : "/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath(`public-discovery-home-${locale}-390.png`) });
+    await page.locator('a[href="#services"]').click();
+    await expect(page.locator("#services-heading")).toBeInViewport();
+    await expect(page.locator("#services").getByRole("link", { name: locale === "es" ? "Eliminación de objetos y limpieza virtual" : "Item Removal & Virtual Cleaning", exact: true }))
+      .toHaveAttribute("href", `${locale === "es" ? "/es" : ""}/pricing/item-removal-virtual-cleaning`);
+    await page.locator('a[href="#how-it-works"]').click();
+    await expect(page.locator("#first-order-heading")).toBeInViewport();
+    await expect(page.locator("#how-it-works").getByRole("link")).toHaveAttribute("href", "/dashboard/orders/new");
+    await page.screenshot({ path: testInfo.outputPath(`public-discovery-first-order-${locale}-390.png`) });
+  });
+}

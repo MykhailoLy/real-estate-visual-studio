@@ -1,3 +1,4 @@
+import ServiceSectionNav from "@/components/pricing/ServiceSectionNav";
 import type { Metadata } from "next";
 import Link from "next/link";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
@@ -15,6 +16,10 @@ import ServicePageSlider, {
 } from "@/components/pricing/ServicePageSlider";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
+import {
+  PortfolioExamplesGrid,
+  type PortfolioExampleCard,
+} from "@/app/(default)/(public)/pricing/floor-plans/FloorPlansInteractive";
 import { getPortfolioPublicUrl, getServicePageItemsForService } from "@/lib/portfolio";
 import {
   getServiceOptionsImages,
@@ -240,7 +245,25 @@ export default async function VirtualStagingPage() {
     getServiceOptionsImages("virtual-staging"),
   ]);
   const sliderSlides = await buildSliderSlides(allItems);
-  const hasItems = allItems.length > 0;
+  const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => {
+    const alt = getBeforeAfterAlt({
+      beforeAlt: item.before_alt,
+      afterAlt: item.after_alt,
+      title: item.title,
+      description: item.description,
+      serviceLabel: "Virtual Staging",
+      serviceSlug: item.service_slug,
+    });
+    return {
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      beforeUrl: getPortfolioPublicUrl(item.before_image_path),
+      afterUrl: getPortfolioPublicUrl(item.after_image_path),
+      beforeAlt: alt.beforeAlt,
+      afterAlt: alt.afterAlt,
+    };
+  });
   const styleImageOverrides: StyleGalleryImageOverride[] = optionImages
     .filter((item) => item.title && item.image_path)
     .map((item) => {
@@ -280,70 +303,9 @@ export default async function VirtualStagingPage() {
           ]),
         ]}
       />
-      {/* ═══════════════════════════════════════════════════════
-          A. HERO SLIDER  —  white / near-edge (homepage feel)
-          px-3 sm:px-4 lg:px-2 matches the homepage slider wrapper
-          exactly so the banner feels edge-to-edge at every viewport.
-          pb-0 removes the gap between slider and the next section
-          so the "When to use" cards sit snugly beneath the banner.
-          overflow-hidden on the section prevents lateral bleed.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="bg-white overflow-hidden">
-        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
-          <ServicePageSlider
-            slides={sliderSlides}
-            serviceSlug="virtual-staging"
-            locale="en"
-            orderHref="/dashboard/orders/new/virtual-staging"
-            orderLabel="Order Virtual Staging"
-            ariaLabel="Virtual Staging before and after examples"
-          />
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          B. WHEN TO USE  —  stone-50
-          pt-8 lg:pt-10 gives a tight but readable gap after the
-          slider; pb remains generous so the section breathes.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
-        <Wide>
-          <SectionLead
-            eyebrow="Best for"
-            title="When to use Virtual Staging"
-            description="Virtual staging works for almost any listing where empty or outdated rooms make it harder for buyers to visualize the space."
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
-            {USE_CASES.map((u) => {
-              const Icon = u.icon;
-              return (
-                <div
-                  key={u.title}
-                  className="bg-white border border-stone-200 rounded-2xl p-6 lg:p-7 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                    <Icon className="w-5 h-5 text-primary" aria-hidden />
-                  </div>
-                  <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
-                    {u.title}
-                  </h3>
-                  <p className="text-sm text-muted leading-relaxed">
-                    {u.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </Wide>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          C. PRICING INTRO  —  white
-          Compact side-by-side block: title + price + CTAs.
-          Uses <h1> because this is the primary page heading.
-          ═══════════════════════════════════════════════════════ */}
+      {/* Service summary and actions precede examples so visitors can choose their next step. */}
       <section className="bg-white border-y border-stone-200">
-        <Wide className="py-10 lg:py-14">
+        <Wide className="py-7 lg:py-9">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
             <div className="lg:max-w-2xl">
               <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
@@ -386,18 +348,56 @@ export default async function VirtualStagingPage() {
               </Link>
             </div>
           </div>
+          <ServiceSectionNav locale="en" showStyles />
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          D. WHAT IT IS + EXAMPLES  —  stone-50
-          Text block only on top (no right-side small cards).
-          The full-width examples grid appears directly below
-          the intro text inside the same section.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="examples" className="scroll-mt-40 bg-white overflow-hidden">
+        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
+          <ServicePageSlider
+            slides={sliderSlides}
+            serviceSlug="virtual-staging"
+            locale="en"
+            orderHref="/dashboard/orders/new/virtual-staging"
+            orderLabel="Order Virtual Staging"
+            ariaLabel="Virtual Staging before and after examples"
+          />
+        </div>
+      </section>
+
+      <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
         <Wide>
-          {/* ── Intro copy — full width, no side cards ── */}
+          <SectionLead
+            eyebrow="Best for"
+            title="When to use Virtual Staging"
+            description="Virtual staging works for almost any listing where empty or outdated rooms make it harder for buyers to visualize the space."
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
+            {USE_CASES.map((u) => {
+              const Icon = u.icon;
+              return (
+                <div
+                  key={u.title}
+                  className="bg-white border border-stone-200 rounded-2xl p-6 lg:p-7 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                    <Icon className="w-5 h-5 text-primary" aria-hidden />
+                  </div>
+                  <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
+                    {u.title}
+                  </h3>
+                  <p className="text-sm text-muted leading-relaxed">
+                    {u.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </Wide>
+      </section>
+
+      <section id="service-details" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
+        <Wide>
           <div className="max-w-3xl mb-10 lg:mb-14">
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
               What it is
@@ -428,52 +428,12 @@ export default async function VirtualStagingPage() {
             </ul>
           </div>
 
-          {/* ── Full examples grid (2-col desktop, 1-col mobile) ──
-              Shown when portfolio items are uploaded. Falls back to
-              a single full-width placeholder so the section always
-              has visual weight even before any images are added. */}
-          {hasItems ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-              {allItems.map((item) => {
-                const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
-                const afterUrl = getPortfolioPublicUrl(item.after_image_path);
-                const alt = getBeforeAfterAlt({
-                  beforeAlt: item.before_alt,
-                  afterAlt: item.after_alt,
-                  title: item.title,
-                  description: item.description,
-                  serviceLabel: "Virtual Staging",
-                  serviceSlug: item.service_slug,
-                });
-                return (
-                  <article
-                    key={item.id}
-                    className="group bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
-                  >
-                    {/* 5:2 wide aspect — same as homepage service grid */}
-                    <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
-                      <BeforeAfterFrame
-                        beforeUrl={beforeUrl}
-                        afterUrl={afterUrl}
-                        beforeAlt={alt.beforeAlt}
-                        afterAlt={alt.afterAlt}
-                        placeholderVariant="virtual-staging"
-                      />
-                    </div>
-                    <div className="p-5 lg:p-6">
-                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                        {item.title}
-                      </h3>
-                      {item.description && (
-                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+          {portfolioCards.length > 0 ? (
+            <PortfolioExamplesGrid
+              cards={portfolioCards}
+              viewerVariant="photo"
+              imageFit="cover"
+            />
           ) : (
             <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
               <BeforeAfterFrame
@@ -488,10 +448,7 @@ export default async function VirtualStagingPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          E. BEFORE YOU ORDER  —  white
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="requirements" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Before you order"
@@ -529,12 +486,7 @@ export default async function VirtualStagingPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          F. STYLE OPTIONS  —  stone-50
-          StyleGallerySection renders 9 horizontal cards (3-col
-          desktop, 2-col tablet, 1-col mobile) + lightbox.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="styles" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Style options"
@@ -545,14 +497,7 @@ export default async function VirtualStagingPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          G. PRICING CARDS  —  white
-          3-col desktop / 2-col tablet / 1-col mobile.
-          Navy card for base, white cards for add-ons.
-          Placed after Style options so users have seen all
-          available styles before reviewing the price breakdown.
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="pricing" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Pricing"
@@ -641,10 +586,7 @@ export default async function VirtualStagingPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          H. FAQ  —  stone-50
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="faq" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead eyebrow="FAQ" title="Virtual Staging questions" />
           <div className="max-w-3xl">
@@ -653,9 +595,6 @@ export default async function VirtualStagingPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          I. FINAL CTA  —  navy  (ServiceCTA owns its own bg)
-          ═══════════════════════════════════════════════════════ */}
       <ServiceCTA
         title="Ready to stage your listing?"
         subtitle="Upload your photos, choose a style, and receive market-ready images within 24–48 hours."

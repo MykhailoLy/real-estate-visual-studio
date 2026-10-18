@@ -1,4 +1,5 @@
-import { Upload, PenTool, ScanSearch, PackageCheck } from "lucide-react";
+import { ArrowRight, Images, UserRound, Upload, ClipboardCheck } from "lucide-react";
+import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 
 // ============================================================
 // HOW IT WORKS — 4-step homepage section
@@ -6,24 +7,24 @@ import { Upload, PenTool, ScanSearch, PackageCheck } from "lucide-react";
 
 const STEPS = [
   {
+    icon: Images,
+    title: "Choose a service",
+    body: "Compare examples and pricing. Choose the edit or floor plan your project needs.",
+  },
+  {
+    icon: UserRound,
+    title: "Sign in or create an account",
+    body: "Log in or create your account, then add your name to open the order form.",
+  },
+  {
     icon: Upload,
-    title: "Upload",
-    body: "Upload your photos or project files from any device. Files go straight to private storage.",
+    title: "Add files and instructions",
+    body: "Upload your photos or plans, select your options, and add instructions and references where available.",
   },
   {
-    icon: PenTool,
-    title: "We Edit",
-    body: "We prepare your visuals based on the selected service and the instructions you submitted.",
-  },
-  {
-    icon: ScanSearch,
-    title: "Quality Review",
-    body: "Every order is reviewed for realism, clarity, and presentation quality before delivery.",
-  },
-  {
-    icon: PackageCheck,
-    title: "Ready",
-    body: "You receive market-ready files for your listing, MLS, website, or marketing package.",
+    icon: ClipboardCheck,
+    title: "Review and confirm",
+    body: "Check your files, selections and total. Submit your order and complete payment when requested.",
   },
 ];
 
@@ -32,6 +33,8 @@ export type HowItWorksDetailedCopy = {
   title: string;
   description: string;
   stepLabel: string;
+  ctaLabel: string;
+  deliveryNote: string;
   steps: {
     title: string;
     body: string;
@@ -40,9 +43,11 @@ export type HowItWorksDetailedCopy = {
 
 const DEFAULT_COPY: HowItWorksDetailedCopy = {
   eyebrow: "Process",
-  title: "How it works",
-  description: "From upload to delivery in four simple steps.",
+  title: "How to place your first order",
+  description: "Review your files, instructions and total before you submit.",
   stepLabel: "STEP",
+  ctaLabel: "Start your first order",
+  deliveryNote: "Track your order and download delivered files from your account.",
   steps: STEPS,
 };
 
@@ -52,13 +57,13 @@ export default function HowItWorksDetailed({
   copy?: HowItWorksDetailedCopy;
 }) {
   return (
-    <section className="py-12 lg:py-16 bg-white" id="how-it-works">
+    <section className="scroll-mt-32 py-12 lg:py-16 bg-white" id="how-it-works" aria-labelledby="first-order-heading">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-10 lg:mb-12">
           <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
-          <h2 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight leading-[1.05]">
+          <h2 id="first-order-heading" className="text-3xl lg:text-4xl font-bold text-primary tracking-tight leading-[1.05]">
             {copy.title}
           </h2>
           <p className="mt-6 text-public-lead lg:text-xl text-muted leading-relaxed">
@@ -73,16 +78,13 @@ export default function HowItWorksDetailed({
             return (
               <li
                 key={step.title}
-                className="relative bg-white border border-stone-200 rounded-2xl p-6 shadow-sm"
+                className="border-t border-border pt-6"
               >
-                <span
-                  aria-hidden
-                  className="absolute -top-3 left-6 inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-primary text-white text-xs font-bold tracking-[0.12em]"
-                >
+                <div className="mb-4 flex items-center gap-3 text-primary">
+                  <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                  <span className="text-xs font-semibold tracking-[0.12em]">
                     {copy.stepLabel} {stepNumber}
-                </span>
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Icon className="w-5 h-5 text-primary" aria-hidden />
+                  </span>
                 </div>
                 <h3 className="font-semibold text-foreground text-lg">
                   {step.title}
@@ -94,6 +96,17 @@ export default function HowItWorksDetailed({
             );
           })}
         </ol>
+
+        <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <ClientPortalLink
+            href="/dashboard/orders/new"
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          >
+            {copy.ctaLabel}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </ClientPortalLink>
+          <p className="max-w-lg text-sm leading-relaxed text-muted">{copy.deliveryNote}</p>
+        </div>
       </div>
     </section>
   );

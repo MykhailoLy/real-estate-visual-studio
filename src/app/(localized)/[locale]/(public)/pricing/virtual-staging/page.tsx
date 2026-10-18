@@ -1,3 +1,4 @@
+import ServiceSectionNav from "@/components/pricing/ServiceSectionNav";
 import Link from "next/link";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
@@ -9,6 +10,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import BeforeAfterFrame from "@/components/portfolio/BeforeAfterFrame";
+import {
+  PortfolioExamplesGrid,
+  type PortfolioExampleCard,
+} from "@/app/(default)/(public)/pricing/floor-plans/FloorPlansInteractive";
 import FaqAccordion, { type FaqItem } from "@/components/pricing/FaqAccordion";
 import { CatalogPriceText } from "@/components/pricing/currency-client";
 import SectionLead from "@/components/pricing/SectionLead";
@@ -270,7 +275,34 @@ export default async function SpanishVirtualStagingPage() {
     getServiceOptionsImages("virtual-staging"),
   ]);
   const sliderSlides = await buildSliderSlides(allItems);
-  const hasItems = allItems.length > 0;
+  const portfolioCards: PortfolioExampleCard[] = allItems.map((item) => {
+    const title = translatePricingExampleTitle(item.title);
+    const description = item.description
+      ? translatePricingExampleDescription(item.description)
+      : item.description;
+    const alt = getBeforeAfterAlt({
+      beforeAlt: item.before_alt
+        ? translatePricingExampleAlt(item.before_alt)
+        : item.before_alt,
+      afterAlt: item.after_alt
+        ? translatePricingExampleAlt(item.after_alt)
+        : item.after_alt,
+      title,
+      description,
+      serviceLabel: "Virtual Staging",
+      serviceSlug: item.service_slug,
+      locale: "es",
+    });
+    return {
+      id: item.id,
+      title,
+      description,
+      beforeUrl: getPortfolioPublicUrl(item.before_image_path),
+      afterUrl: getPortfolioPublicUrl(item.after_image_path),
+      beforeAlt: alt.beforeAlt,
+      afterAlt: alt.afterAlt,
+    };
+  });
   const styleImageOverrides: StyleGalleryImageOverride[] = optionImages
     .filter((item) => item.title && item.image_path)
     .map((item) => {
@@ -310,52 +342,9 @@ export default async function SpanishVirtualStagingPage() {
           ]),
         ]}
       />
-      <section className="bg-white overflow-hidden">
-        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
-          <ServicePageSlider
-            slides={sliderSlides}
-            serviceSlug="virtual-staging"
-            locale="es"
-            orderHref="/dashboard/orders/new/virtual-staging"
-            orderLabel="Pedir Virtual Staging"
-            ariaLabel="Ejemplos antes y después de Virtual Staging"
-          />
-        </div>
-      </section>
-
-      <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
-        <Wide>
-          <SectionLead
-            eyebrow="Ideal para"
-            title="Cuándo usar Virtual Staging"
-            description="Virtual Staging funciona para casi cualquier anuncio en el que las habitaciones vacías o anticuadas dificultan que los compradores visualicen el espacio."
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
-            {USE_CASES.map((u) => {
-              const Icon = u.icon;
-              return (
-                <div
-                  key={u.title}
-                  className="bg-white border border-stone-200 rounded-2xl p-6 lg:p-7 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                    <Icon className="w-5 h-5 text-primary" aria-hidden />
-                  </div>
-                  <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
-                    {u.title}
-                  </h3>
-                  <p className="text-sm text-muted leading-relaxed">
-                    {u.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </Wide>
-      </section>
-
+      {/* Service summary and actions precede examples so visitors can choose their next step. */}
       <section className="bg-white border-y border-stone-200">
-        <Wide className="py-10 lg:py-14">
+        <Wide className="py-7 lg:py-9">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
             <div className="lg:max-w-2xl">
               <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
@@ -399,10 +388,55 @@ export default async function SpanishVirtualStagingPage() {
               </Link>
             </div>
           </div>
+          <ServiceSectionNav locale="es" showStyles />
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="examples" className="scroll-mt-40 bg-white overflow-hidden">
+        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
+          <ServicePageSlider
+            slides={sliderSlides}
+            serviceSlug="virtual-staging"
+            locale="es"
+            orderHref="/dashboard/orders/new/virtual-staging"
+            orderLabel="Pedir Virtual Staging"
+            ariaLabel="Ejemplos antes y después de Virtual Staging"
+          />
+        </div>
+      </section>
+
+      <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
+        <Wide>
+          <SectionLead
+            eyebrow="Ideal para"
+            title="Cuándo usar Virtual Staging"
+            description="Virtual Staging funciona para casi cualquier anuncio en el que las habitaciones vacías o anticuadas dificultan que los compradores visualicen el espacio."
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
+            {USE_CASES.map((u) => {
+              const Icon = u.icon;
+              return (
+                <div
+                  key={u.title}
+                  className="bg-white border border-stone-200 rounded-2xl p-6 lg:p-7 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                    <Icon className="w-5 h-5 text-primary" aria-hidden />
+                  </div>
+                  <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
+                    {u.title}
+                  </h3>
+                  <p className="text-sm text-muted leading-relaxed">
+                    {u.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </Wide>
+      </section>
+
+      <section id="service-details" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <div className="max-w-3xl mb-10 lg:mb-14">
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
@@ -435,62 +469,18 @@ export default async function SpanishVirtualStagingPage() {
             </ul>
           </div>
 
-          {hasItems ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-              {allItems.map((item) => {
-                const beforeUrl = getPortfolioPublicUrl(item.before_image_path);
-                const afterUrl = getPortfolioPublicUrl(item.after_image_path);
-                const title = translatePricingExampleTitle(item.title);
-                const alt = getBeforeAfterAlt({
-                  beforeAlt: item.before_alt
-        ? translatePricingExampleAlt(item.before_alt)
-        : item.before_alt,
-                  afterAlt: item.after_alt
-        ? translatePricingExampleAlt(item.after_alt)
-        : item.after_alt,
-                  title,
-                  description: item.description
-        ? translatePricingExampleDescription(item.description)
-        : item.description,
-                  serviceLabel: "Virtual Staging",
-                  serviceSlug: item.service_slug,
-                  locale: "es",
-                });
-                return (
-                  <article
-                    key={item.id}
-                    className="group bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
-                  >
-                    <div className="aspect-[5/2] relative overflow-hidden bg-stone-100">
-                      <BeforeAfterFrame
-                        beforeUrl={beforeUrl}
-                        afterUrl={afterUrl}
-                        beforeAlt={alt.beforeAlt}
-                        afterAlt={alt.afterAlt}
-                        placeholderVariant="virtual-staging"
-                        beforeLabel="Antes"
-                        afterLabel="Después"
-                        placeholderLabels={{
-                          left: "Antes",
-                          right: "Después",
-                          ariaLabel: `${title}: antes y después`,
-                        }}
-                      />
-                    </div>
-                    <div className="p-5 lg:p-6">
-                      <h3 className="text-base lg:text-lg font-bold text-primary tracking-tight">
-                        {title}
-                      </h3>
-                      {item.description && (
-                        <p className="mt-1.5 text-sm text-muted leading-relaxed line-clamp-3">
-                          {translatePricingExampleDescription(item.description)}
-                        </p>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+          {portfolioCards.length > 0 ? (
+            <PortfolioExamplesGrid locale="es"
+              cards={portfolioCards}
+              viewerVariant="photo"
+              imageFit="cover"
+              labels={{
+                before: "Antes",
+                after: "Después",
+                viewExamplePrefix: "Ver ",
+                viewExampleSuffix: ": antes y después",
+              }}
+            />
           ) : (
             <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl shadow-sm ring-1 ring-stone-200 bg-stone-100">
               <BeforeAfterFrame
@@ -512,7 +502,7 @@ export default async function SpanishVirtualStagingPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="requirements" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Antes de pedir"
@@ -551,7 +541,7 @@ export default async function SpanishVirtualStagingPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="styles" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Opciones de estilo"
@@ -570,7 +560,7 @@ export default async function SpanishVirtualStagingPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="pricing" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Precios"
@@ -648,7 +638,7 @@ export default async function SpanishVirtualStagingPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="faq" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead eyebrow="Preguntas frecuentes" title="Preguntas sobre Virtual Staging" />
           <div className="max-w-3xl">

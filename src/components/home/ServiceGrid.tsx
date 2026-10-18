@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
 import {
   type ServiceVariant,
 } from "./ServicePlaceholder";
@@ -13,6 +13,7 @@ import { CatalogPriceText } from "@/components/pricing/currency-client";
 import { getSpanishPath } from "@/lib/localized-routes";
 import type { PriceKey } from "@/lib/pricing/types";
 import { getBeforeAfterAlt } from "@/lib/before-after-alt";
+import { REMOTE_SERVICE_GROUPS } from "@/lib/pricing/remote-service-presentation";
 
 // ============================================================
 // REMOTE DIGITAL SERVICES — "This is what we do" grid
@@ -23,7 +24,8 @@ import { getBeforeAfterAlt } from "@/lib/before-after-alt";
 // the card renders the real before/after pair via
 // BeforeAfterFrame; otherwise it renders the original
 // CSS placeholder. Either way the grid layout, typography,
-// and 2-cards-per-row desktop rhythm are unchanged.
+// and 2-cards-per-row desktop rhythm are preserved. Grouping reuses
+// the shared pricing presentation so discovery matches the catalogue.
 // ============================================================
 
 interface ServiceEntry {
@@ -111,7 +113,7 @@ const SERVICES: ServiceEntry[] = [
     priceKey: "item-removal-virtual-cleaning",
     pricePrefix: "From ",
     priceSuffix: " / image",
-    href: "/pricing/photo-editing",
+    href: "/pricing/item-removal-virtual-cleaning",
   },
   {
     id: "floor-plans",
@@ -285,24 +287,59 @@ export default async function ServiceGrid({
     };
   });
 
+  const groupTitles: Record<string, string> = {
+    "Photo Editing": "Edición fotográfica",
+    "Staging & Renovation": "Staging y renovación",
+    "Plans & Property Visuals": "Planos y visuales de propiedades",
+  };
+  const groups = REMOTE_SERVICE_GROUPS.map((group) => ({
+    id: `services-${group.services[0].id}`,
+    title: locale === "es" ? (groupTitles[group.title] ?? group.title) : group.title,
+    cards: group.services.flatMap((service) => {
+      const card = cards.find((candidate) => candidate.svc.id === service.id);
+      return card ? [card] : [];
+    }),
+  }));
+
   return (
-    <section className="py-12 lg:py-16 bg-surface">
+    <section className="scroll-mt-32 py-12 lg:py-16 bg-surface" id="services" aria-labelledby="services-heading">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="max-w-3xl mb-10 lg:mb-12">
           <p className="text-public-kicker font-semibold uppercase text-secondary-dark mb-4">
             {copy.eyebrow}
           </p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-primary tracking-tight leading-[1.02]">
+          <h2 id="services-heading" className="text-3xl sm:text-4xl font-bold text-primary tracking-tight leading-[1.02]">
             {copy.title}
           </h2>
           <p className="mt-6 text-public-lead text-muted leading-relaxed">
             {copy.description}
           </p>
+          <nav aria-label={locale === "es" ? "Grupos de servicios" : "Service groups"} className="mt-5 flex flex-wrap gap-x-6 gap-y-1">
+            {groups.map((group) => (
+              <a
+                key={group.id}
+                href={`#${group.id}`}
+                className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary underline decoration-border-strong underline-offset-4 hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+              >
+                {group.title}
+                <ArrowDown className="h-4 w-4" aria-hidden />
+              </a>
+            ))}
+          </nav>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
-          {cards.map((card) => (
-            <ServiceCard key={card.svc.id} card={card} copy={copy} />
+        <div className="space-y-10 lg:space-y-12">
+          {groups.map((group) => (
+            <section key={group.id} id={group.id} aria-labelledby={`${group.id}-heading`} className="scroll-mt-32">
+              <h3 id={`${group.id}-heading`} className="mb-5 text-xl font-semibold tracking-tight text-primary sm:text-2xl">
+                {group.title}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
+                {group.cards.map((card) => (
+                  <ServiceCard key={card.svc.id} card={card} copy={copy} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </div>
@@ -371,9 +408,9 @@ function ServiceCard({
 
       {/* Content */}
       <div className="p-6 lg:p-8 flex-1 flex flex-col">
-        <h3 className="text-xl lg:text-2xl font-bold text-primary leading-tight tracking-tight group-hover:text-primary-light transition-colors">
+        <h4 className="text-xl lg:text-2xl font-bold text-primary leading-tight tracking-tight group-hover:text-primary-light transition-colors">
           {name}
-        </h3>
+        </h4>
         <p
           className={
             hasCatalogPrice || customPriceLabel
