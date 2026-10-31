@@ -27,16 +27,19 @@ test("homepage keeps the SEO introduction, compact benefits, and conversion sect
   assert.doesNotMatch(benefitsSource, /<h3\s/);
 
   assertSourceOrder(source, [
-    "<BeforeAfterShowcase",
     "Real Estate Photo Editing, Virtual Staging &amp; Floor Plans",
+    'href="#services"',
+    'href="#how-it-works"',
+    "<BeforeAfterShowcase",
     "<BenefitsRow />",
     "<ServiceGrid />",
     "<HowItWorksDetailed />",
     "Help Your Listings Stand Out and Sell Faster",
     "<AboutPicchuSpot",
-    "<Testimonials />",
     "<CtaSection",
   ]);
+  assert.equal((source.match(/<h1/g) ?? []).length, 1);
+  assert.doesNotMatch(source, /Testimonials/);
   assert.doesNotMatch(benefitsSource, /Why work with PicchuSpot/);
   assert.doesNotMatch(
     benefitsSource,
@@ -142,7 +145,7 @@ test("public header keeps the dark primary hierarchy without changing its shared
   assert.match(accountMenuSource, /text-white hover:bg-white\/10/);
 });
 
-test("top-level header categories wait for the wide 3xl layout while the lg service row remains", () => {
+test("top-level header categories wait for the wide 2xl layout while the lg service row remains", () => {
   const headerSource = readSource("src/components/layout/Header.tsx");
   const categoryStart = headerSource.indexOf("{/* Top-level categories (desktop) */}");
   const categoryEnd = headerSource.indexOf(
@@ -154,7 +157,7 @@ test("top-level header categories wait for the wide 3xl layout while the lg serv
 
   assert.match(
     categorySource,
-    /hidden 3xl:ml-4 3xl:flex 3xl:min-w-0 3xl:items-center 3xl:gap-0\.5/,
+    /hidden 2xl:ml-4 2xl:flex 2xl:min-w-0 2xl:items-center 2xl:gap-0\.5/,
   );
   assert.doesNotMatch(categorySource, /\sxl:flex/);
   assert.match(headerSource, /hidden border-b border-border bg-white lg:block/);
@@ -473,17 +476,19 @@ test("Spanish homepage and signup mirror the localized presentation without a se
   const spanishSignUpSource = readSource("src/app/(localized)/[locale]/(auth)/signup/page.tsx");
 
   assertSourceOrder(spanishHomeSource, [
-    "<BeforeAfterShowcase",
     "Edición fotográfica inmobiliaria, Virtual Staging y planos",
+    'href="#services"',
+    'href="#how-it-works"',
+    "<BeforeAfterShowcase",
     "<BenefitsRow copy={benefitsCopy} />",
     '<ServiceGrid copy={serviceGridCopy} locale="es" />',
     "<HowItWorksDetailed copy={processCopy} />",
     "Ayuda a que tus anuncios destaquen y vendan más rápido",
     "<AboutPicchuSpot",
-    "<Testimonials",
     "<CtaSection",
   ]);
   assert.equal((spanishHomeSource.match(/<h1/g) ?? []).length, 1);
+  assert.doesNotMatch(spanishHomeSource, /Testimonials|Sarah Mitchell|Daniel Foster|Elena Ruiz/);
   assert.doesNotMatch(spanishHomeSource, /Remoto \+ local/);
   assert.deepEqual(WELCOME_OFFER_PUBLIC_COPY.es.benefits, [
     "1 mejora de imagen gratis",

@@ -12,7 +12,6 @@ import HowItWorksDetailed from "@/components/home/HowItWorksDetailed";
 import AboutPicchuSpot, {
   type AboutCollageTile,
 } from "@/components/home/AboutPicchuSpot";
-import Testimonials from "@/components/home/Testimonials";
 import CtaSection from "@/components/sections/CtaSection";
 import {
   getAboutCollageItems,
@@ -52,16 +51,15 @@ export const metadata: Metadata = publicPageMetadata({
 //
 // Section order:
 //   1. Header / two-level nav (sticky, owned by PublicLayout)
-//   2. Before/After slider — visual demonstration banner strip
-//   3. SEO intro — visible H1 + supporting paragraph
+//   2. SEO intro — visible H1, service discovery and first-order guide
+//   3. Before/After slider — visual demonstration banner strip
 //   4. Compact benefits row
 //   5. Remote Digital Services — service grid (what we do)
 //   6. How It Works
 //   7. Help Your Listings Stand Out — results / CTA strip
 //   8. About PicchuSpot — collage + narrative
-//   9. Testimonials carousel
-//  10. Final CTA — navy block
-//  11. Footer (owned by PublicLayout)
+//   9. Final CTA — navy block
+//  10. Footer (owned by PublicLayout)
 //
 // Data flow:
 //   - The slider and the About collage read from the
@@ -70,7 +68,7 @@ export const metadata: Metadata = publicPageMetadata({
 //     each component falls back to its built-in placeholders so
 //     a fresh deploy still ships a polished page.
 //   - This page is rendered as a server component; the slider
-//     and Testimonials stay "use client" for interactivity.
+//     stays "use client" for interactivity.
 // ============================================================
 
 export default async function HomePage() {
@@ -143,28 +141,37 @@ export default async function HomePage() {
     <>
       <JsonLd data={[organizationSchema(), webSiteSchema()]} />
 
-      {/* 1. Slider — wide banner strip directly under the nav. */}
-      <section className="bg-white overflow-hidden">
-        <div className="px-3 pt-3 sm:px-4 lg:px-2 lg:pt-4">
-          <BeforeAfterShowcase slides={sliderSlides} />
-        </div>
-      </section>
-
-      {/* 2. SEO introduction — visible H1 and supporting paragraph.
-            Compact band that tells users and search engines what the
-            page is about without pushing the service content down. */}
+      {/* Explain the offer and next steps before the visual comparison. */}
       <section className="bg-white border-b border-border">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 py-6 lg:py-8">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary leading-tight tracking-tight">
             Real Estate Photo Editing, Virtual Staging &amp; Floor Plans
           </h1>
-          <p className="mt-3 text-sm sm:text-base lg:text-lg text-muted leading-relaxed max-w-4xl">
-            Create listing-ready visuals with professional image enhancement,
-            day-to-dusk editing, virtual staging, item removal, virtual
-            renovation, floor plans, and 360° image enhancement. Built for real
-            estate agents, photographers, property managers, and marketing
-            teams.
+          <p className="mt-3 text-base lg:text-lg text-muted leading-relaxed max-w-4xl">
+            Professional property visuals for real estate agents and photographers.
+            Compare the results below and start with one image or a full project.
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <a
+              href="#services"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+            >
+              Explore services
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </a>
+            <a
+              href="#how-it-works"
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline decoration-border-strong underline-offset-4 hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+            >
+              How to place your first order
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white overflow-hidden" aria-label="Before and after examples">
+        <div className="px-3 pt-3 sm:px-4 lg:px-2 lg:pt-4">
+          <BeforeAfterShowcase slides={sliderSlides} />
         </div>
       </section>
 
@@ -215,10 +222,7 @@ export default async function HomePage() {
       {/* 7. About PicchuSpot — collage + narrative. */}
       <AboutPicchuSpot tiles={collageTiles} />
 
-      {/* 8. Testimonials carousel. */}
-      <Testimonials />
-
-      {/* 9. Final CTA — navy block. */}
+      {/* 8. Final CTA — navy block. */}
       <CtaSection
         title="Start your next listing with the visuals already done."
         subtitle="Upload your photos and we will take it from there."

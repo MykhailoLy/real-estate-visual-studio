@@ -1,3 +1,4 @@
+import ServiceSectionNav from "@/components/pricing/ServiceSectionNav";
 import Link from "next/link";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
 import {
@@ -355,7 +356,51 @@ export default async function SpanishFloorPlansPage() {
           ]),
         ]}
       />
-      <section className="bg-white overflow-hidden">
+      {/* Service summary and actions precede examples so visitors can choose their next step. */}
+      <section className="bg-white border-y border-stone-200">
+        <Wide className="py-7 lg:py-9">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
+            <div className="lg:max-w-2xl">
+              <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
+                Planos
+              </p>
+              <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary leading-[1.05] tracking-tight">
+                Redibujos de planos y planos 3D
+              </h1>
+              <p className="mt-3 text-base lg:text-lg text-muted leading-relaxed">
+                Convierte bocetos, escaneos o distribuciones medidas en planos
+                limpios y profesionales para anuncios, marketing, webs y
+                presentaciones a clientes.
+              </p>
+              <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
+                <CatalogPriceText
+                  priceKey="floor-plan-2d-bw"
+                  prefix="Desde "
+                  suffix=" / planta"
+                />
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
+              <ClientPortalLink
+                href="/dashboard/orders/new/3d-floor-plans"
+                className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
+              >
+                Pedir plano
+                <ArrowRight className="w-4 h-4" aria-hidden />
+              </ClientPortalLink>
+              <Link
+                href="/es/pricing"
+                className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
+              >
+                Volver a precios
+              </Link>
+            </div>
+          </div>
+          <ServiceSectionNav locale="es" showStyles />
+        </Wide>
+      </section>
+
+      <section id="examples" className="scroll-mt-40 bg-white overflow-hidden">
         <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
           <ServicePageSlider
             slides={sliderSlides}
@@ -402,49 +447,7 @@ export default async function SpanishFloorPlansPage() {
         </Wide>
       </section>
 
-      <section className="bg-white border-y border-stone-200">
-        <Wide className="py-10 lg:py-14">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
-            <div className="lg:max-w-2xl">
-              <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
-                Planos
-              </p>
-              <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-primary leading-[1.05] tracking-tight">
-                Redibujos de planos y planos 3D
-              </h1>
-              <p className="mt-3 text-base lg:text-lg text-muted leading-relaxed">
-                Convierte bocetos, escaneos o distribuciones medidas en planos
-                limpios y profesionales para anuncios, marketing, webs y
-                presentaciones a clientes.
-              </p>
-              <p className="mt-2 text-lg lg:text-xl font-semibold text-foreground">
-                <CatalogPriceText
-                  priceKey="floor-plan-2d-bw"
-                  prefix="Desde "
-                  suffix=" / planta"
-                />
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-              <ClientPortalLink
-                href="/dashboard/orders/new/3d-floor-plans"
-                className="inline-flex items-center gap-2 px-6 lg:px-7 py-3 lg:py-3.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-light transition-colors text-sm shadow-sm"
-              >
-                Pedir plano
-                <ArrowRight className="w-4 h-4" aria-hidden />
-              </ClientPortalLink>
-              <Link
-                href="/es/pricing"
-                className="inline-flex items-center px-6 lg:px-7 py-3 lg:py-3.5 border border-stone-300 text-foreground font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors text-sm"
-              >
-                Volver a precios
-              </Link>
-            </div>
-          </div>
-        </Wide>
-      </section>
-
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="service-details" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <div className="max-w-3xl mb-10 lg:mb-14">
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
@@ -477,7 +480,7 @@ export default async function SpanishFloorPlansPage() {
             </ul>
           </div>
 
-          <PortfolioExamplesGrid
+          <PortfolioExamplesGrid locale="es"
             cards={portfolioCards}
             viewerVariant="plan"
             labels={{
@@ -491,7 +494,7 @@ export default async function SpanishFloorPlansPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="requirements" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Antes de pedir"
@@ -529,7 +532,7 @@ export default async function SpanishFloorPlansPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="styles" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Opciones de estilo"
@@ -546,7 +549,7 @@ export default async function SpanishFloorPlansPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="pricing" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Precios"
@@ -631,7 +634,7 @@ export default async function SpanishFloorPlansPage() {
         </Wide>
       </section>
 
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="faq" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead eyebrow="FAQ" title="Preguntas sobre planos" />
           <div className="max-w-3xl">

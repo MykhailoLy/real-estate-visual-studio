@@ -231,8 +231,7 @@ test("language links cross document roots while English navigation and stored co
     (window as Window & { documentRootSentinel?: string }).documentRootSentinel,
   )).toBe("english");
 
-  await page.getByRole("button", { name: "Select market, currency, and language" }).click();
-  await page.getByRole("link", { name: "Spanish", exact: true }).click();
+  await page.getByRole("navigation", { name: "Select language" }).getByRole("link", { name: "Español", exact: true }).click();
   await expect(page).toHaveURL(/\/es\/pricing\/virtual-staging$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   expect(await page.evaluate(() =>
@@ -241,8 +240,7 @@ test("language links cross document roots while English navigation and stored co
   expect(await page.evaluate(() => localStorage.getItem("picchuspot_cookie_consent"))).toBe("rejected");
   expect(await page.locator("body").evaluate((node) => getComputedStyle(node).fontFamily)).toContain("Geist");
 
-  await page.getByRole("button", { name: "Seleccionar mercado, moneda e idioma" }).click();
-  await page.getByRole("link", { name: "Inglés", exact: true }).click();
+  await page.getByRole("navigation", { name: "Seleccionar idioma" }).getByRole("link", { name: "English", exact: true }).click();
   await expect(page).toHaveURL(/\/pricing\/virtual-staging$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   expect(await page.evaluate(() => localStorage.getItem("picchuspot_cookie_consent"))).toBe("rejected");
@@ -949,7 +947,7 @@ test("homepage hero keeps active-slide service context, regional pricing, and ro
 
   await hero.hover();
   const marketSelector = page.getByRole("button", {
-    name: "Select market, currency, and language",
+    name: "Select market and currency",
   });
   await marketSelector.click();
   await page.getByRole("button", { name: /Europe — EUR/ }).click();
@@ -1499,19 +1497,13 @@ test("homepage, footer, and language switch use canonical pricing routes", async
   }
 
   await page.goto("/pricing");
-  await page
-    .getByRole("button", { name: "Select market, currency, and language" })
-    .click();
-  await expect(page.getByRole("link", { name: "Spanish", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("navigation", { name: "Select language" }).getByRole("link", { name: "Español", exact: true })).toHaveAttribute(
     "href",
     "/es/pricing",
   );
 
   await page.goto("/es/pricing");
-  await page
-    .getByRole("button", { name: "Seleccionar mercado, moneda e idioma" })
-    .click();
-  await expect(page.getByRole("link", { name: "Inglés", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("navigation", { name: "Seleccionar idioma" }).getByRole("link", { name: "English", exact: true })).toHaveAttribute(
     "href",
     "/pricing",
   );

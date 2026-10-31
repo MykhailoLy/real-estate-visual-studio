@@ -1,3 +1,4 @@
+import ServiceSectionNav from "@/components/pricing/ServiceSectionNav";
 import type { Metadata } from "next";
 import Link from "next/link";
 import ClientPortalLink from "@/components/dashboard/ClientPortalLink";
@@ -417,65 +418,9 @@ export default async function FloorPlansPage() {
           ]),
         ]}
       />
-      {/* ═══════════════════════════════════════════════════════
-          A. HERO SLIDER  —  white / near-edge
-          Source: /admin/media → service-hero / floor-plans
-          ═══════════════════════════════════════════════════════ */}
-      <section className="bg-white overflow-hidden">
-        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
-          <ServicePageSlider
-            slides={sliderSlides}
-            serviceSlug="floor-plans"
-            locale="en"
-            orderHref="/dashboard/orders/new/3d-floor-plans"
-            orderLabel="Order Floor Plan"
-            ariaLabel="Floor plan before and after examples"
-            imageFit="contain"
-            imageBackground="bg-white"
-            mobileAspect="aspect-[16/10]"
-          />
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          B. WHEN TO USE  —  stone-50
-          ═══════════════════════════════════════════════════════ */}
-      <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
-        <Wide>
-          <SectionLead
-            eyebrow="Best for"
-            title="When to use Floor Plans"
-            description="Floor plans help buyers understand the property layout, room flow, and spatial relationships before they visit or book a showing."
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
-            {USE_CASES.map((u) => {
-              const Icon = u.icon;
-              return (
-                <div
-                  key={u.title}
-                  className="bg-white border border-stone-200 rounded-2xl p-6 lg:p-7 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                    <Icon className="w-5 h-5 text-primary" aria-hidden />
-                  </div>
-                  <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
-                    {u.title}
-                  </h3>
-                  <p className="text-sm text-muted leading-relaxed">
-                    {u.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </Wide>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          C. PRICING INTRO  —  white
-          ═══════════════════════════════════════════════════════ */}
+      {/* Service summary and actions precede examples so visitors can choose their next step. */}
       <section className="bg-white border-y border-stone-200">
-        <Wide className="py-10 lg:py-14">
+        <Wide className="py-7 lg:py-9">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 lg:gap-10">
             <div className="lg:max-w-2xl">
               <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-2">
@@ -513,15 +458,58 @@ export default async function FloorPlansPage() {
               </Link>
             </div>
           </div>
+          <ServiceSectionNav locale="en" showStyles />
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          D. WHAT IT IS + EXAMPLES  —  stone-50
-          Source: /admin/portfolio → floor-plans
-          Clicking image cards opens a lightbox (PortfolioExamplesGrid).
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="examples" className="scroll-mt-40 bg-white overflow-hidden">
+        <div className="px-3 sm:px-4 lg:px-2 pt-3 lg:pt-4 pb-0">
+          <ServicePageSlider
+            slides={sliderSlides}
+            serviceSlug="floor-plans"
+            locale="en"
+            orderHref="/dashboard/orders/new/3d-floor-plans"
+            orderLabel="Order Floor Plan"
+            ariaLabel="Floor plan before and after examples"
+            imageFit="contain"
+            imageBackground="bg-white"
+            mobileAspect="aspect-[16/10]"
+          />
+        </div>
+      </section>
+
+      <section className="pt-8 lg:pt-10 pb-14 lg:pb-20 bg-stone-50">
+        <Wide>
+          <SectionLead
+            eyebrow="Best for"
+            title="When to use Floor Plans"
+            description="Floor plans help buyers understand the property layout, room flow, and spatial relationships before they visit or book a showing."
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
+            {USE_CASES.map((u) => {
+              const Icon = u.icon;
+              return (
+                <div
+                  key={u.title}
+                  className="bg-white border border-stone-200 rounded-2xl p-6 lg:p-7 shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                    <Icon className="w-5 h-5 text-primary" aria-hidden />
+                  </div>
+                  <h3 className="text-base lg:text-lg font-bold text-primary mb-2 tracking-tight">
+                    {u.title}
+                  </h3>
+                  <p className="text-sm text-muted leading-relaxed">
+                    {u.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </Wide>
+      </section>
+
+      <section id="service-details" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <div className="max-w-3xl mb-10 lg:mb-14">
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-secondary-dark mb-3">
@@ -559,10 +547,7 @@ export default async function FloorPlansPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          E. BEFORE YOU ORDER  —  white
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="requirements" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Before you order"
@@ -600,13 +585,7 @@ export default async function FloorPlansPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          F. STYLE OPTIONS  —  stone-50
-          Source: /admin/media → service-options / floor-plans
-          When no admin items exist, shows visual style fallbacks.
-          Clicking image cards opens a lightbox (StyleOptionsGrid).
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="styles" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead
             eyebrow="Style options"
@@ -618,10 +597,7 @@ export default async function FloorPlansPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          G. PRICING CARDS  —  white
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-white">
+      <section id="pricing" className="scroll-mt-40 py-14 lg:py-20 bg-white">
         <Wide>
           <SectionLead
             eyebrow="Pricing"
@@ -705,10 +681,7 @@ export default async function FloorPlansPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          H. FAQ  —  stone-50
-          ═══════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20 bg-stone-50">
+      <section id="faq" className="scroll-mt-40 py-14 lg:py-20 bg-stone-50">
         <Wide>
           <SectionLead eyebrow="FAQ" title="Floor Plan questions" />
           <div className="max-w-3xl">
@@ -717,9 +690,6 @@ export default async function FloorPlansPage() {
         </Wide>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════
-          I. FINAL CTA  —  navy
-          ═══════════════════════════════════════════════════════ */}
       <ServiceCTA
         title="Ready to create a clear floor plan?"
         subtitle="Upload your sketch, scan, or existing plan and we'll prepare a clean, listing-ready floor plan for your property."
