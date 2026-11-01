@@ -51,7 +51,7 @@
     "test:static-image-viewers": "node --experimental-strip-types --test src/components/media/static-image-viewer.test.ts",
     "test:security-headers": "node --experimental-strip-types --test src/lib/security-headers.test.ts",
     "test:brand-palette": "node --experimental-strip-types --test src/lib/brand-palette.test.ts",
-    "test:seo": "node --experimental-strip-types --test src/lib/seo-foundation.test.ts",
+    "test:seo": "node --experimental-strip-types --test src/lib/seo-foundation.test.ts src/lib/gallery-sitemap.test.ts",
     "test:legal": "node --experimental-strip-types --test src/components/order/order-review-ux.test.ts src/lib/legal-content.test.ts src/lib/early-performance.test.ts",
     "test:stripe-server": "node --experimental-strip-types --test src/lib/payments/stripe-config.test.ts src/lib/payments/stripe-server.test.ts",
     "test:stripe-checkout": "node --experimental-strip-types --test src/lib/payments/checkout-service.test.ts",

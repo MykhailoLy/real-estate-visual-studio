@@ -323,6 +323,7 @@ export function revalidatePortfolioPaths(
     "/admin/portfolio",
     "/gallery",
     "/es/gallery",
+    "/sitemap.xml",
   ];
   for (const slug of affectedSlugs) {
     if (!isPortfolioServiceSlug(slug)) continue;

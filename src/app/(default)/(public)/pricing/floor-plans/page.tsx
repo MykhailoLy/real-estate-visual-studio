@@ -544,6 +544,16 @@ export default async function FloorPlansPage() {
 
           {/* Client component — owns lightbox state for portfolio cards */}
           <PortfolioExamplesGrid cards={portfolioCards} viewerVariant="plan" />
+
+          <div className="mt-10">
+            <Link
+              href="/gallery/floor-plans"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              View the full Floor Plans gallery
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Link>
+          </div>
         </Wide>
       </section>
 

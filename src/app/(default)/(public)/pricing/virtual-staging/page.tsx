@@ -445,6 +445,16 @@ export default async function VirtualStagingPage() {
               />
             </div>
           )}
+
+          <div className="mt-10">
+            <Link
+              href="/gallery/virtual-staging"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              View the full Virtual Staging gallery
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Link>
+          </div>
         </Wide>
       </section>
 
