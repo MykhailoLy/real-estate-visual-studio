@@ -20,5 +20,8 @@ export function createServerClient(fetcher?: typeof fetch): SupabaseClient {
       "Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY env vars."
     );
   }
-  return createClient(url, serviceRoleKey, fetcher ? { global: { fetch: fetcher } } : undefined);
+  if (fetcher) {
+    return createClient(url, serviceRoleKey, { global: { fetch: fetcher } });
+  }
+  return createClient(url, serviceRoleKey);
 }
