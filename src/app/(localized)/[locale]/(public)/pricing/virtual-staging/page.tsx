@@ -499,6 +499,16 @@ export default async function SpanishVirtualStagingPage() {
               />
             </div>
           )}
+
+          <div className="mt-10">
+            <Link
+              href="/es/gallery/virtual-staging"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              Ver la galería completa de Virtual Staging
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Link>
+          </div>
         </Wide>
       </section>
 

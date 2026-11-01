@@ -78,9 +78,9 @@ export const localizedRoutes = [
   },
   // ── Gallery ─────────────────────────────────────────────────
   { englishPath: "/gallery", spanishPath: "/es/gallery", priority: 0.8 },
-  // Gallery service detail routes are kept for language switching but excluded
-  // from the static sitemap. Content availability is dynamic (depends on what
-  // the admin has published) and empty pages should not be indexed.
+  // Gallery service detail routes are listed in /sitemap.xml only while the
+  // service has a published, gallery-eligible example (see sitemap.ts). They
+  // stay in this list unconditionally for language switching.
   {
     englishPath: "/gallery/virtual-staging",
     spanishPath: "/es/gallery/virtual-staging",

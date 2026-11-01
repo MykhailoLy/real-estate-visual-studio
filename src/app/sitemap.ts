@@ -5,6 +5,10 @@ import {
 } from "@/lib/seo";
 import { localizedRoutes } from "@/lib/localized-routes";
 import { getPublishedBlogArticles } from "@/lib/blog";
+import { getGallerySitemapSlugs } from "@/lib/gallery-sitemap";
+
+// Retry a cold-start fallback even when no one edits the portfolio.
+export const revalidate = 300;
 
 const englishMarketingRoutes = [
   // /portfolio is intentionally omitted: the obsolete public
@@ -16,7 +20,7 @@ const englishMarketingRoutes = [
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
 ] as const;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const localizedEntries: MetadataRoute.Sitemap = localizedRoutes
     .filter(
       (route) =>
@@ -41,6 +45,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
       },
     ]);
 
+  const galleryEntries: MetadataRoute.Sitemap = (await getGallerySitemapSlugs()).flatMap((slug) => [
+    {
+      url: absoluteUrl(`/gallery/${slug}`),
+      changeFrequency: "weekly",
+      priority: 0.7,
+      alternates: {
+        languages: localizedLanguages(`/gallery/${slug}`, `/es/gallery/${slug}`),
+      },
+    },
+    {
+      url: absoluteUrl(`/es/gallery/${slug}`),
+      changeFrequency: "weekly",
+      priority: 0.7,
+      alternates: {
+        languages: localizedLanguages(`/gallery/${slug}`, `/es/gallery/${slug}`),
+      },
+    },
+  ]);
+
   const marketingEntries: MetadataRoute.Sitemap = englishMarketingRoutes.map(
     ({ path, priority, changeFrequency }) => ({
       url: absoluteUrl(path),
@@ -57,5 +80,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.6,
     }));
 
-  return [...localizedEntries, ...marketingEntries, ...blogArticleEntries];
+  return [
+    ...localizedEntries,
+    ...galleryEntries,
+    ...marketingEntries,
+    ...blogArticleEntries,
+  ];
 }

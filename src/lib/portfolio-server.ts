@@ -1,14 +1,15 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { createServerClient } from "@/lib/supabase";
 import {
   PORTFOLIO_BUCKET,
   PORTFOLIO_SERVICES,
   isPortfolioServiceSlug,
+  portfolioCacheTag,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
-import { getSpanishPath } from "@/lib/localized-routes";
+import { GALLERY_SITEMAP_TAG } from "@/lib/gallery-sitemap";
 
 // ============================================================
 // PORTFOLIO — server-side helpers
@@ -315,25 +316,30 @@ function pricingHrefForSlug(slug: PortfolioServiceSlug): string {
 export function revalidatePortfolioPaths(
   affectedSlugs: PortfolioServiceSlug[]
 ): void {
+  // Hard-expiring /es paths discards their generated entry under the
+  // dynamicParams=false locale root. Refresh their data dependencies instead.
+  try {
+    revalidateTag(GALLERY_SITEMAP_TAG, "max");
+    revalidateTag(portfolioCacheTag(), "max");
+    for (const slug of new Set(affectedSlugs)) {
+      revalidateTag(portfolioCacheTag(slug), "max");
+    }
+  } catch (err) {
+    console.warn("portfolio: tag revalidation failed", err);
+  }
   const seen = new Set<string>();
   const queue = [
     "/",
-    "/es",
     "/pricing",
     "/admin/portfolio",
     "/gallery",
-    "/es/gallery",
   ];
   for (const slug of affectedSlugs) {
     if (!isPortfolioServiceSlug(slug)) continue;
-    // Pricing/service page — EN, plus the ES equivalent if mapped.
+    // English routes also support direct path revalidation.
     const enPricing = pricingHrefForSlug(slug);
     queue.push(enPricing);
-    const esPricing = getSpanishPath(enPricing);
-    if (esPricing) queue.push(esPricing);
-    // Gallery detail pages for this service (EN + ES).
     queue.push(`/gallery/${slug}`);
-    queue.push(`/es/gallery/${slug}`);
   }
   for (const path of queue) {
     if (seen.has(path)) continue;

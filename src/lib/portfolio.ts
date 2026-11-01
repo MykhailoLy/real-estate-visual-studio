@@ -96,6 +96,18 @@ function isSupabaseConfigured(): boolean {
   );
 }
 
+// Tag public reads so a portfolio edit can refresh prerendered locale routes
+// while keeping their generated HTML available during regeneration.
+export function portfolioCacheTag(slug?: PortfolioServiceSlug): string {
+  return slug ? `portfolio-service-${slug}` : "portfolio-hubs";
+}
+
+function publicPortfolioClient(slug?: PortfolioServiceSlug) {
+  return createServerClient((input, init) =>
+    fetch(input, { ...init, next: { tags: [portfolioCacheTag(slug)] } })
+  );
+}
+
 /**
  * Pick the "homepage" portfolio item for each service:
  *   1. first published item with featured_home = TRUE, OR
@@ -114,7 +126,7 @@ export async function getFeaturedHomeItems(): Promise<
 
   let supabase;
   try {
-    supabase = createServerClient();
+    supabase = publicPortfolioClient();
   } catch {
     return out;
   }
@@ -159,7 +171,7 @@ export async function getGalleryCoverItems(): Promise<
 
   let supabase;
   try {
-    supabase = createServerClient();
+    supabase = publicPortfolioClient();
   } catch {
     return out;
   }
@@ -202,7 +214,7 @@ export async function getGalleryItemsForService(
 
   let supabase;
   try {
-    supabase = createServerClient();
+    supabase = publicPortfolioClient(slug);
   } catch {
     return [];
   }
@@ -296,7 +308,7 @@ export async function getServicePageItemsForService(
 
   let supabase;
   try {
-    supabase = createServerClient();
+    supabase = publicPortfolioClient(slug);
   } catch {
     return [];
   }

@@ -491,6 +491,16 @@ export default async function SpanishFloorPlansPage() {
               viewExampleSuffix: ": antes y después",
             }}
           />
+
+          <div className="mt-10">
+            <Link
+              href="/es/gallery/floor-plans"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-light transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+            >
+              Ver la galería completa de Planos
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </Link>
+          </div>
         </Wide>
       </section>
 
