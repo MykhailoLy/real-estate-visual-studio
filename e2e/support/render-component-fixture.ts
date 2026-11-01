@@ -24,7 +24,10 @@ export function renderComponentFixture(script: string, input: unknown): string {
           if (/\\.tsx?$/.test(url.pathname) && existsSync(url)) return { url: url.href, shortCircuit: true };
         }
       }
-      return nextResolve(specifier === "next/link" ? "next/link.js" : specifier, context);
+      if (specifier === "next/link" || specifier === "next/navigation") {
+        return nextResolve(specifier + ".js", context);
+      }
+      return nextResolve(specifier, context);
     },
     load(url, context, nextLoad) {
       if (/\\.tsx?$/.test(url)) return { format: "module", shortCircuit: true,

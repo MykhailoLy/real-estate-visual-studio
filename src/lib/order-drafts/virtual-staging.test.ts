@@ -487,6 +487,23 @@ test("save inputs use draft API shape and non-authoritative pricing preview", ()
   assert.equal(buildVirtualStagingPricingPreview(source())?.nonAuthoritative, true);
 });
 
+test("only a claimed draft keeps the guest origin across account saves and resume", () => {
+  const ordinary = mapVirtualStagingFormToDraftState(source());
+  const accountUpdate = buildVirtualStagingUpdateDraftInput(source(), 1);
+  assert.deepEqual(accountUpdate.state?.metadata, ordinary.metadata);
+  assert.equal(ordinary.metadata.origin, undefined);
+
+  const claimedUpdate = buildVirtualStagingUpdateDraftInput(source(), 1, true);
+  assert.ok(claimedUpdate.state);
+  const resumed = validateVirtualStagingDraftForResume(draftRow(claimedUpdate.state));
+  assert.ok(resumed.ok);
+  assert.equal(resumed.state.metadata.origin, "guest");
+  assert.equal(resumed.form.items[0].file, null);
+  assert.equal(validateVirtualStagingDraftForResume({
+    ...draftRow(), state: { ...ordinary, metadata: { ...ordinary.metadata, origin: "other" } },
+  }).ok, false);
+});
+
 test("file-selection save snapshot contains the selected filename", () => {
   const before = {
     ...source(),
