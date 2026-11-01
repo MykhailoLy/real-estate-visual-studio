@@ -86,6 +86,7 @@ export function stagingItemDomId(clientItemId: string): string {
 }
 
 interface StagingItemCardProps {
+  guest?: boolean;
   index: number;
   totalItems: number;
   data: StagingItemData;
@@ -130,6 +131,7 @@ const DEFAULT_DRAFT_COPY = {
 };
 
 export default function StagingItemCard({
+  guest = false,
   index,
   totalItems,
   data,
@@ -255,7 +257,7 @@ export default function StagingItemCard({
 
       <OrderImageWorkspace
         hasPreview={hasOriginalPreview}
-        media={
+        media={guest ? <p className="rounded-xl bg-surface p-4 text-sm text-muted">Choose the original photo after signing in.</p> :
           <FileUpload
             viewerVariant="photo"
             label="Upload Original Photo"
@@ -274,9 +276,11 @@ export default function StagingItemCard({
             accept={STAGING_FILE_ACCEPT}
             required
             helperText={
-              data.needsOriginalFileReselection && data.originalFilename
-                ? draftCopy.savedOriginalFile(data.originalFilename)
-                : undefined
+              data.needsOriginalFileReselection && !uploadedOriginalFile && !data.file
+                ? "Choose the original photo for this image to complete your guest draft."
+                : data.needsOriginalFileReselection && uploadedOriginalFile
+                  ? draftCopy.savedOriginalFile(uploadedOriginalFile.originalFilename)
+                  : undefined
             }
             persistedFile={persistedOriginalDisplay}
             operationStatusText={originalOperationStatusText}
@@ -394,6 +398,7 @@ export default function StagingItemCard({
             </div>
           </div>
 
+          {!guest && <>
           {/* Per-item delivery preferences (File Size Limit + Disclaimer Text) */}
           <ItemDeliveryFields
             idPrefix={fieldIdPrefix}
@@ -454,6 +459,8 @@ export default function StagingItemCard({
             </p>
           ) : null}
 
+          </>}
+
           {/* Additional Information */}
           <div>
             <label
@@ -464,6 +471,7 @@ export default function StagingItemCard({
             </label>
             <textarea
               id={additionalInfoId}
+              maxLength={guest ? 5000 : undefined}
               value={data.additionalInfo}
               disabled={disabled}
               onChange={(e) =>
@@ -526,7 +534,7 @@ export default function StagingItemCard({
           </div>
 
           {/* Subtotal */}
-          <ItemSubtotal totalCents={subtotal} />
+          {!guest && <ItemSubtotal totalCents={subtotal} />}
         </div>
       </OrderImageWorkspace>
 

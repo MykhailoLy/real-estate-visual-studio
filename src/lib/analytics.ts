@@ -84,6 +84,17 @@ export function trackEvent(name: string, params: AnalyticsParams = {}) {
   }
 }
 
+export function trackGuestDraftEvent(name:
+  | "guest_draft_start" | "guest_draft_save" | "guest_claim_start"
+  | "guest_claim_success" | "guest_claim_error" | "guest_draft_resume"
+) {
+  // Guest routes may be reached from an auth callback. Omit its URL and query from GA.
+  trackEvent(name, {
+    page_location: window.location.origin + "/order/virtual-staging",
+    page_referrer: "",
+  });
+}
+
 export function trackSignUpClick(location: ConversionLocation | string) {
   trackEvent(
     "sign_up_click",

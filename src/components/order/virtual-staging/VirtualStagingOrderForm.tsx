@@ -1,5 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { GUEST_LOGIN } from "@/lib/guest-order-drafts/entry";
+import { GuestState } from "@/lib/guest-order-drafts/schema";
+import type { GuestEditor } from "./GuestVirtualStagingEntry";
+import {
+  confirmationKey, guestEstimateText, guestSaveBody, GuestRequestError,
+  newGuestDraft, saveGuestDraft, signedInEstimateAction,
+} from "@/lib/guest-order-drafts/client";
+import { trackGuestDraftEvent } from "@/lib/analytics";
 import { usePartnerPricing } from "@/components/order/PartnerPricingContext";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -55,6 +64,7 @@ import {
   scrollElementIntoViewWithinDashboard,
 } from "@/lib/dashboard-scroll";
 import { getCatalogPrice } from "@/lib/pricing/catalog";
+import { formatMoney } from "@/lib/pricing/format";
 import { calculateOrderQuote } from "@/lib/pricing/calculate";
 import {
   applyAuthoritativeWelcomeOfferSnapshot,
@@ -169,6 +179,7 @@ import type { WelcomeOfferAvailability } from "@/lib/welcome-offer";
 // ============================================================
 
 interface VirtualStagingOrderFormProps {
+  guest?: GuestEditor;
   clientEmail: string;
   orderRoute: string;
   exampleMediaByKey: Record<string, ServiceOptionMedia>;
@@ -514,6 +525,7 @@ function focusRequiredField(targetId: string): void {
 }
 
 export default function VirtualStagingOrderForm({
+  guest,
   clientEmail,
   orderRoute,
   exampleMediaByKey,
@@ -521,7 +533,7 @@ export default function VirtualStagingOrderForm({
 }: VirtualStagingOrderFormProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const requestedDraftId = searchParams.get("draft");
+  const requestedDraftId = guest ? null : searchParams.get("draft");
   const supportRecommendationTitleId = useId();
   const globalStyleLabelId = useId();
   const globalStyleHelperId = useId();
@@ -531,12 +543,22 @@ export default function VirtualStagingOrderForm({
   const [savedLanguage, setSavedLanguage] = useState<SiteLanguage | null>(null);
   const language = getCurrentLanguage(pathname, savedLanguage);
   const copy = DRAFT_COPY[language];
-  const [items, setItems] = useState<StagingItemData[]>([emptyStagingItem()]);
-  const [defaultFurnitureStyle, setDefaultFurnitureStyle] = useState("");
+  const [initialGuest] = useState(guest?.initial);
+  const [initialInput] = useState(guest?.input);
+  const initialState = initialInput?.draft ?? initialGuest?.state;
+  const [guestSaved, setGuestSaved] = useState(initialGuest);
+  const guestSavedRef = useRef(initialGuest);
+  const guestPaused = useRef(false);
+  const guestConfirming = useRef(false);
+  const [items, setItems] = useState<StagingItemData[]>(() =>
+    initialState?.items.map(({ clientItemId, state }) => ({
+      ...emptyStagingItem(), ...state, clientItemId,
+    })) ?? [emptyStagingItem()]);
+  const [defaultFurnitureStyle, setDefaultFurnitureStyle] = useState(initialState?.defaultFurnitureStyle ?? "");
   const [pendingGlobalStyle, setPendingGlobalStyle] = useState<string | null>(
     null,
   );
-  const [jobTitle, setJobTitle] = useState("");
+  const [jobTitle, setJobTitle] = useState(initialState?.jobTitle ?? "");
   const [orderTerms, setOrderTerms] = useState<OrderTermsData>(emptyOrderTerms);
   const [step, setStep] = useState<VirtualStagingFormStep>("configure");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -556,6 +578,7 @@ export default function VirtualStagingOrderForm({
   const [draftVersion, setDraftVersion] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] =
     useState<VirtualStagingAutosaveStatus>("not_saved");
+  const [restoredGuestId, setRestoredGuestId] = useState<string | null>(null);
   const [draftError, setDraftError] = useState("");
   const [resumeState, setResumeState] = useState<
     | "idle"
@@ -594,7 +617,12 @@ export default function VirtualStagingOrderForm({
   const supportRecommendedAddOnIdsRef = useRef<string[]>([]);
   const supportRecommendationAppliedRef = useRef(false);
   const mountedRef = useRef(false);
-  const savedFingerprintRef = useRef<string | null>(null);
+  const [initialFingerprint] = useState(() => initialGuest ? buildVirtualStagingDraftFingerprint({
+    jobTitle: initialGuest.state.jobTitle, defaultFurnitureStyle: initialGuest.state.defaultFurnitureStyle,
+    items: initialGuest.state.items.map(({ clientItemId, state }) => ({ ...emptyStagingItem(), ...state, clientItemId })),
+    orderTerms: emptyOrderTerms, currency: initialGuest.currency,
+  }) : null);
+  const savedFingerprintRef = useRef<string | null>(initialFingerprint);
   const failedAutosaveFingerprintRef = useRef<string | null>(null);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const isRestoringRef = useRef(resumeState === "loading");
@@ -771,6 +799,9 @@ export default function VirtualStagingOrderForm({
     [currency, defaultFurnitureStyle, items, jobTitle, orderTerms, region],
   );
 
+  const latestSource = useRef(draftSource);
+  useEffect(() => { latestSource.current = draftSource; }, [draftSource]);
+
   const buildDraftSourceSnapshot = useCallback(
     (snapshotItems: StagingItemData[] = itemsRef.current):
       VirtualStagingFormDraftSource => ({
@@ -867,8 +898,14 @@ export default function VirtualStagingOrderForm({
         return;
       }
 
-      let restoredItems = resume.form.items;
+      const fromGuest =
+        resume.state.metadata.origin === "guest" || GuestState.safeParse(draft.state).success;
+      let restoredItems = fromGuest
+        ? resume.form.items.map((item) => ({ ...item, needsOriginalFileReselection: true }))
+        : resume.form.items;
       const restoredReferences = await listDraftReferenceFiles(draft.id);
+      if (signal?.aborted || !mountedRef.current || sessionAtStart !== draftSessionRef.current) return;
+      setRestoredGuestId(fromGuest ? draft.id : null);
       if (restoredReferences.ok) {
         restoredItems = restoredItems.map((item) => ({
           ...item,
@@ -986,6 +1023,13 @@ export default function VirtualStagingOrderForm({
       storeFinalizationRetryContext,
     ],
   );
+
+  useEffect(() => {
+    const savedCurrency = initialInput?.currency ?? initialGuest?.currency;
+    if (!savedCurrency) return;
+    const restoredRegion = resolveVirtualStagingDraftRegion({ region: null, currency: savedCurrency });
+    window.queueMicrotask(() => setRegion(restoredRegion));
+  }, [initialGuest, initialInput, setRegion]);
 
   const hasMeaningfulDraft = useMemo(
     () => hasMeaningfulVirtualStagingDraftChange(draftSource),
@@ -1159,6 +1203,7 @@ export default function VirtualStagingOrderForm({
         }
         if (
           !options.force &&
+          !(guest && (guestSavedRef.current || sourceSnapshot.items.length > 1)) &&
           !hasMeaningfulVirtualStagingDraftChange(sourceSnapshot)
         ) {
           const currentDraftId = draftIdRef.current;
@@ -1167,6 +1212,7 @@ export default function VirtualStagingOrderForm({
             ? { ok: true, draftId: currentDraftId, version: currentVersion }
             : { ok: false };
         }
+        if (guest && (guestPaused.current || !mountedRef.current)) return { ok: false };
         if (saveStatus === "conflict") return { ok: false };
 
         const fingerprint = buildVirtualStagingDraftFingerprint(sourceSnapshot);
@@ -1180,12 +1226,16 @@ export default function VirtualStagingOrderForm({
           return { ok: false };
         }
         if (
-          !options.force &&
+          (guest || !options.force) &&
           shouldSkipDuplicateVirtualStagingSave(
             savedFingerprintRef.current,
             fingerprint,
           )
         ) {
+          if (guestSavedRef.current) {
+            setSaveStatus("saved");
+            return { ok: true, draftId: guestSavedRef.current.guestDraftId, version: guestSavedRef.current.version };
+          }
           setSaveStatus(draftIdRef.current ? "saved" : "not_saved");
           const currentDraftId = draftIdRef.current;
           const currentVersion = draftVersionRef.current;
@@ -1197,6 +1247,37 @@ export default function VirtualStagingOrderForm({
         setSaveStatus("saving");
         setDraftError("");
 
+        if (guest) {
+          const previous = guestSavedRef.current;
+          const current = () => mountedRef.current && shouldApplyVirtualStagingSaveResult(sessionAtEnqueue, draftSessionRef.current);
+          if (!previous) guest.onCreating();
+          try {
+            const saved = !previous && guest.fresh ? await newGuestDraft(sourceSnapshot) :
+              await saveGuestDraft(sourceSnapshot, previous ? { guestDraftId: previous.guestDraftId, expectedVersion: previous.version } : undefined);
+            if (!current()) return { ok: false };
+            guestSavedRef.current = saved;
+            setGuestSaved(saved);
+            savedFingerprintRef.current = fingerprint;
+            failedAutosaveFingerprintRef.current = null;
+            setSaveStatus("saved");
+            guest.onSaved(saved);
+            if (!previous) trackGuestDraftEvent("guest_draft_start");
+            trackGuestDraftEvent("guest_draft_save");
+            return { ok: true, draftId: saved.guestDraftId, version: saved.version };
+          } catch (error) {
+            if (!current()) return { ok: false };
+            failedAutosaveFingerprintRef.current = fingerprint;
+            setSaveStatus("save_failed");
+            if (error instanceof GuestRequestError && [400, 413, 422, 429].includes(error.status)) {
+              setDraftError(error.code === "rate_limited" ? "Too many saves. Wait a moment and retry." :
+                error.message === error.code ? "Check the length and contents of the draft fields." : error.message);
+            } else {
+              guestPaused.current = true;
+              guest.onRecover(previous ?? null, guestSaveBody(latestSource.current));
+            }
+            return { ok: false };
+          }
+        }
         const currentDraftId = draftIdRef.current;
         if (!currentDraftId) {
           const result = await createOrderDraft(
@@ -1240,7 +1321,9 @@ export default function VirtualStagingOrderForm({
 
         const result = await updateOrderDraft(
           currentDraftId,
-          buildVirtualStagingUpdateDraftInput(sourceSnapshot, expectedVersion),
+          buildVirtualStagingUpdateDraftInput(
+            sourceSnapshot, expectedVersion, currentDraftId === restoredGuestId,
+          ),
         );
         if (
           !shouldApplyVirtualStagingSaveResult(
@@ -1282,6 +1365,8 @@ export default function VirtualStagingOrderForm({
       return savePromise;
     },
     [
+      guest,
+      restoredGuestId,
       resumeState,
       saveStatus,
       setDraftQueryParam,
@@ -1299,6 +1384,28 @@ export default function VirtualStagingOrderForm({
     },
     [buildDraftSourceSnapshot, enqueueDraftSave],
   );
+
+  async function confirmGuestEstimate() {
+    if (!guest || guestConfirming.current || !guestSaved?.quote) return;
+    guestConfirming.current = true;
+    setIsSubmitting(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    try {
+      const flushed = await saveDraftNow({ force: true });
+      const latest = guestSavedRef.current;
+      if (!mountedRef.current || !flushed || !latest) return;
+      if (confirmationKey(latest) !== confirmationKey(guestSaved) ||
+            buildVirtualStagingDraftFingerprint(latestSource.current) !== savedFingerprintRef.current) {
+        setDraftError("The draft changed. Review the new version and estimate, then confirm again.");
+        return;
+      }
+      guestPaused.current = true;
+      await guest.onConfirm(latest);
+    } finally {
+      guestConfirming.current = false;
+      if (mountedRef.current) setIsSubmitting(false);
+    }
+  }
 
   const handleDraftFileSelected = useCallback(
     async (
@@ -1979,7 +2086,12 @@ export default function VirtualStagingOrderForm({
     ],
   );
 
+  const isGuest = Boolean(guest);
   useEffect(() => {
+    if (isGuest) {
+      window.queueMicrotask(() => setSupportPrefillReady(true));
+      return;
+    }
     if (requestedDraftId) {
       if (
         shouldPreserveVirtualStagingSupportRecommendationForDraft({
@@ -2028,7 +2140,7 @@ export default function VirtualStagingOrderForm({
       setSupportRecommendationNoticeVisible(true);
       setSupportPrefillReady(true);
     });
-  }, [commitItems, requestedDraftId]);
+  }, [commitItems, isGuest, requestedDraftId]);
 
   useEffect(() => {
     if (!requestedDraftId) {
@@ -2152,7 +2264,7 @@ export default function VirtualStagingOrderForm({
       finalizationRetryContext !== null ||
       resumeState !== "ready" ||
       !supportPrefillReady ||
-      !hasMeaningfulDraft ||
+      (!hasMeaningfulDraft && !(isGuest && (guestSaved || items.length > 1))) ||
       !shouldAllowVirtualStagingSupportPrefillAutosave({
         currentDraftId: draftId,
         source: draftSource,
@@ -2175,6 +2287,9 @@ export default function VirtualStagingOrderForm({
     draftSource,
     finalizationRetryContext,
     hasMeaningfulDraft,
+    isGuest,
+    guestSaved,
+    items.length,
     resumeState,
     saveDraftNow,
     saveStatus,
@@ -2199,7 +2314,14 @@ export default function VirtualStagingOrderForm({
       setDraftError(resume.message);
       return;
     }
-    let restoredItems = resume.form.items;
+    const fromGuest =
+      restoredGuestId === result.data.id ||
+      resume.state.metadata.origin === "guest" ||
+      GuestState.safeParse(result.data.state).success;
+    setRestoredGuestId(fromGuest ? result.data.id : null);
+    let restoredItems = fromGuest
+      ? resume.form.items.map((item) => ({ ...item, needsOriginalFileReselection: true }))
+      : resume.form.items;
     const restoredReferences = await listDraftReferenceFiles(result.data.id);
     if (restoredReferences.ok) {
       restoredItems = restoredItems.map((item) => ({
@@ -2317,11 +2439,8 @@ export default function VirtualStagingOrderForm({
     applyDraftFinalizationResult(result, retryContext, sessionAtStart);
   };
 
-  function buildCurrentPricingExpectation(
-    currentItems: StagingItemData[] = itemsRef.current,
-  ) {
-    return createPricingExpectation(
-      calculateOrderQuote(
+  function calculateCurrentQuote(currentItems: StagingItemData[]) {
+    return calculateOrderQuote(
         {
           serviceType: "virtual-staging",
           currency,
@@ -2330,8 +2449,11 @@ export default function VirtualStagingOrderForm({
           })),
         },
         { welcomeOfferAvailability: activeWelcomeOfferAvailability, partnerClient },
-      ),
     );
+  }
+
+  function buildCurrentPricingExpectation(currentItems: StagingItemData[] = itemsRef.current) {
+    return createPricingExpectation(calculateCurrentQuote(currentItems));
   }
 
   const submitCurrentLocalOrder = async (
@@ -2916,7 +3038,8 @@ export default function VirtualStagingOrderForm({
     </>
   );
 
-  const guide = !isReview ? (
+  const resumedQuote = draftId && restoredGuestId === draftId ? calculateCurrentQuote(items) : null;
+  const guide = !isReview && !guest ? (
     <OrderGuideRail
       steps={VIRTUAL_STAGING_GUIDE_STEPS}
       information={guideInformation}
@@ -2926,7 +3049,7 @@ export default function VirtualStagingOrderForm({
   return (
     <OrderLayout
       title="Virtual Staging"
-      subtitle={
+      subtitle={guest ? "Choose rooms, furniture and extras. Sign in to add photos and review your order." : (
         <>
           Upload your empty room photos and choose a furniture style.{" "}
           <RegionalCentsText
@@ -2934,8 +3057,8 @@ export default function VirtualStagingOrderForm({
           />{" "}
           per image + optional add-ons.
         </>
-      }
-      header={<OrderStepIndicator steps={STEPS} currentStepId={step} />}
+      )}
+      header={guest ? undefined : <OrderStepIndicator steps={STEPS} currentStepId={step} />}
       sidebar={
         isReview ? (
           <OrderSummary
@@ -2991,7 +3114,12 @@ export default function VirtualStagingOrderForm({
         />
       ) : (
         <>
-      {saveStatus === "saving" && (
+      {resumedQuote && <div className="rounded-xl border border-border bg-white p-5" role="status">
+        <h2 className="font-semibold text-primary">Your account estimate</h2>
+        <p>{resumedQuote.totalCents === null ? "Custom quote" : formatMoney(resumedQuote.totalCents, currency) + " " + currency}
+          {" · "}Recalculated with your account pricing. Choose the original photo for each image before review.</p>
+      </div>}
+      {!isGuest && saveStatus === "saving" && (
         <p role="status" className="text-dashboard-metadata font-medium text-muted">
           {copy.saving}
         </p>
@@ -3095,6 +3223,7 @@ export default function VirtualStagingOrderForm({
       )}
 
       <OrderJobTitleField
+        placeholder={guest ? "Example: Oak Street living room" : undefined}
         value={jobTitle}
         onChange={setJobTitle}
         showError={validationAttempted}
@@ -3173,6 +3302,7 @@ export default function VirtualStagingOrderForm({
               index={index}
               totalItems={items.length}
               data={item}
+              guest={isGuest}
               defaultFurnitureStyle={defaultFurnitureStyle}
               exampleMediaByKey={exampleMediaByKey}
               onChange={(data) => handleItemChange(index, data)}
@@ -3257,14 +3387,28 @@ export default function VirtualStagingOrderForm({
       <button
         type="button"
         onClick={handleAddItem}
-        disabled={hasFinalizationRetryContext || isSubmitting}
+        disabled={hasFinalizationRetryContext || isSubmitting || (isGuest && items.length >= 50)}
         className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-base font-medium text-muted transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="h-5 w-5" aria-hidden />
         Add Another Image
       </button>
 
-      <OrderReviewAction onClick={goToReview} disabled={!canReview}>
+      {guest ? (
+        <section className="space-y-3 rounded-xl border border-border bg-white p-5">
+          <h2 className="text-lg font-semibold text-primary">Guest estimate</h2>
+          <p role="status" className="min-h-16">{saveStatus === "saving" ? "Saving changes…" :
+            guestSaved ? guestEstimateText(guestSaved) : "Your estimate appears after the first save."}</p>
+          <button type="button" disabled={!guestSaved?.quote || isSubmitting}
+            className="min-h-11 rounded-lg bg-primary px-5 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
+            onClick={confirmGuestEstimate}>
+            {guest.signedIn ? signedInEstimateAction : "Confirm estimate and sign in"}
+          </button>
+          {!guest.signedIn && !guestSaved && !hasMeaningfulDraft && items.length === 1 && saveStatus === "not_saved" && (
+            <p><Link href={GUEST_LOGIN} className="font-semibold text-primary underline focus-visible:outline-2">Sign in to start in your account</Link></p>
+          )}
+        </section>
+      ) : <OrderReviewAction onClick={goToReview} disabled={!canReview}>
         <div>
           {hasActiveDraftFileOperation ? (
             <p role="status">{copy.waitForImages}</p>
@@ -3302,7 +3446,7 @@ export default function VirtualStagingOrderForm({
             </p>
           )}
         </div>
-      </OrderReviewAction>
+      </OrderReviewAction>}
         </>
       )}
       <ApplyStyleConfirmationDialog

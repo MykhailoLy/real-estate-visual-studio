@@ -161,7 +161,11 @@ test("all scoped configure stages use the shared guide and no summary column", (
       1,
       flow.name,
     );
-    assert.match(form, /const \w+ = !isReview \? \(/, flow.name);
+    // The upload guide belongs to the authenticated Configure step.
+    const guideCondition = flow.name === "Virtual Staging"
+      ? /const guide = !isReview && !guest \? \(/
+      : /const \w+ = !isReview \? \(/;
+    assert.match(form, guideCondition, flow.name);
     assert.match(
       form,
       new RegExp(`leadingRail=\\{${flow.guideVariable}\\}`),

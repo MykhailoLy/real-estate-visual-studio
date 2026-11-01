@@ -37,6 +37,7 @@ interface OrderJobTitleFieldProps {
   showError?: boolean;
   disabled?: boolean;
   containerId?: string;
+  placeholder?: string;
   errorMessage?: string;
   /** Larger typography for wide, editorial order forms. */
   comfortable?: boolean;
@@ -48,6 +49,7 @@ export default function OrderJobTitleField({
   showError = false,
   disabled = false,
   containerId,
+  placeholder = "Example: 123 Main Street — Exterior Photos",
   errorMessage = "Enter a job title.",
   comfortable = false,
 }: OrderJobTitleFieldProps) {
@@ -100,7 +102,7 @@ export default function OrderJobTitleField({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Example: 123 Main Street — Exterior Photos"
+        placeholder={placeholder}
         maxLength={JOB_TITLE_MAX}
         required
         disabled={disabled}

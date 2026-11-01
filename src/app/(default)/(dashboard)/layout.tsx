@@ -11,6 +11,7 @@
 // can remain readable inside the shared wide client-workspace shell.
 
 import type { Metadata } from "next";
+import { guestEntryForDashboard } from "@/lib/guest-order-drafts/entry";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -49,6 +50,8 @@ export default async function DashboardGroupLayout({
   );
 
   if (!rawUser) {
+    const guestEntry = guestEntryForDashboard(destination);
+    if (guestEntry) redirect(guestEntry);
     redirect(`/login?redirectTo=${encodeURIComponent(destination)}`);
   }
 

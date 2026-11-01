@@ -92,9 +92,10 @@ export interface VirtualStagingDraftTermsUi extends JsonObject {
   allowPortfolio: boolean;
 }
 
-export interface VirtualStagingDraftMetadata extends JsonObject {
+export type VirtualStagingDraftMetadata = {
   service: "virtual-staging";
-}
+  origin?: "guest";
+};
 
 export interface VirtualStagingDraftItemEnvelope extends JsonObject {
   clientItemId: string;
@@ -257,6 +258,7 @@ export const VirtualStagingDraftStateSchema = z
     metadata: z
       .object({
         service: z.literal("virtual-staging"),
+        origin: z.literal("guest").optional(),
       })
       .strict(),
   })
@@ -485,7 +487,7 @@ export function findMissingVirtualStagingRequiredFields(
 }
 
 export function buildVirtualStagingPricingPreview(
-  source: Pick<VirtualStagingFormDraftSource, "items" | "currency">,
+  source: { currency: TransactionalCurrency; items: Array<{ selectedAddons: string[] }> },
 ): PricingPreview | null {
   try {
     const quote = calculateOrderQuote({
@@ -529,8 +531,10 @@ export function buildVirtualStagingCreateDraftInput(
 export function buildVirtualStagingUpdateDraftInput(
   source: VirtualStagingFormDraftSource,
   expectedVersion: number,
+  fromGuest = false,
 ): UpdateOrderDraftInput<VirtualStagingDraftState> {
   const state = mapVirtualStagingFormToDraftState(source);
+  if (fromGuest) state.metadata.origin = "guest";
   return {
     expectedVersion,
     title: state.jobTitle || null,
