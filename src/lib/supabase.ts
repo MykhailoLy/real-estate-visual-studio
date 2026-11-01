@@ -12,7 +12,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * Server-side Supabase client (uses service role key, bypasses RLS).
  * Only use this in API routes / server components.
  */
-export function createServerClient(): SupabaseClient {
+export function createServerClient(fetcher?: typeof fetch): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey) {
@@ -20,5 +20,5 @@ export function createServerClient(): SupabaseClient {
       "Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY env vars."
     );
   }
-  return createClient(url, serviceRoleKey);
+  return createClient(url, serviceRoleKey, fetcher ? { global: { fetch: fetcher } } : undefined);
 }

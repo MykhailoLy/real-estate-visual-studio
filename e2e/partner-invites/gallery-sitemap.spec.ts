@@ -44,7 +44,7 @@ test("gallery sitemap follows publication, survives a read failure and handles c
   const others = PORTFOLIO_SERVICE_SLUGS.filter((s) => s !== "floor-plans");
   const rows = [
     ...Array.from({ length: 1000 }, (_, i) => row(others[i % others.length])),
-    { ...row("floor-plans"), id: floorId },
+    { ...row("floor-plans"), id: floorId, after_image_path: "sitemap-fixture-floor.jpg" },
     { ...row("floor-plans"), before_image_path: "" },
     { ...row("floor-plans"), after_image_path: null },
     { ...row("floor-plans"), show_in_gallery: false },
@@ -53,8 +53,19 @@ test("gallery sitemap follows publication, survives a read failure and handles c
   expect((await request.post("/__fixture/gallery", { data: { rows, failReads: false } })).ok()).toBe(true);
   await publish(true);
   await expect.poll(entries).toEqual(full);
+  async function spanishGalleryShowsExample() {
+    const response = await request.get(es);
+    expect(response.status()).toBe(200);
+    return (await response.text()).includes("sitemap-fixture-floor.jpg");
+  }
+  await expect.poll(spanishGalleryShowsExample).toBe(true);
+  for (const path of ["/es", "/es/gallery", "/es/pricing/floor-plans"]) {
+    expect((await request.get(path)).status(), path).toBe(200);
+    expect((await request.get(path, { headers: { RSC: "1" } })).status(), path).toBe(200);
+  }
   await publish(false);
   await expect.poll(entries).toEqual(withoutFloor);
+  await expect.poll(spanishGalleryShowsExample).toBe(false);
 
   const failuresBeforeRefresh = await failedReads();
   await request.post("/__fixture/gallery", { data: { failReads: true } });
