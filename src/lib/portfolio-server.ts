@@ -1,5 +1,5 @@
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { createServerClient } from "@/lib/supabase";
 import {
@@ -8,6 +8,7 @@ import {
   isPortfolioServiceSlug,
   type PortfolioServiceSlug,
 } from "@/lib/portfolio";
+import { GALLERY_SITEMAP_TAG } from "@/lib/gallery-sitemap";
 import { getSpanishPath } from "@/lib/localized-routes";
 
 // ============================================================
@@ -315,6 +316,12 @@ function pricingHrefForSlug(slug: PortfolioServiceSlug): string {
 export function revalidatePortfolioPaths(
   affectedSlugs: PortfolioServiceSlug[]
 ): void {
+  // Keep the last confirmed gallery list available during a failed refresh.
+  try {
+    revalidateTag(GALLERY_SITEMAP_TAG, "max");
+  } catch (err) {
+    console.warn("portfolio: sitemap revalidation failed", err);
+  }
   const seen = new Set<string>();
   const queue = [
     "/",
@@ -323,7 +330,6 @@ export function revalidatePortfolioPaths(
     "/admin/portfolio",
     "/gallery",
     "/es/gallery",
-    "/sitemap.xml",
   ];
   for (const slug of affectedSlugs) {
     if (!isPortfolioServiceSlug(slug)) continue;

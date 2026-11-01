@@ -5,9 +5,10 @@ import {
 } from "@/lib/seo";
 import { localizedRoutes } from "@/lib/localized-routes";
 import { getPublishedBlogArticles } from "@/lib/blog";
-import { getGalleryServiceSlugsWithExamples } from "@/lib/portfolio";
-import { PORTFOLIO_SERVICE_SLUGS } from "@/lib/portfolio-service-meta";
-import { gallerySitemapSlugs } from "@/lib/gallery-sitemap";
+import { getGallerySitemapSlugs } from "@/lib/gallery-sitemap";
+
+// Retry a cold-start fallback even when no one edits the portfolio.
+export const revalidate = 300;
 
 const englishMarketingRoutes = [
   // /portfolio is intentionally omitted: the obsolete public
@@ -44,13 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     ]);
 
-  // Gallery detail routes are listed only while the service has a published,
-  // gallery-eligible example with a resolvable image pair. A failed portfolio
-  // read keeps all of them (see gallerySitemapSlugs).
-  const galleryEntries: MetadataRoute.Sitemap = gallerySitemapSlugs(
-    await getGalleryServiceSlugsWithExamples(),
-    PORTFOLIO_SERVICE_SLUGS,
-  ).flatMap((slug) => [
+  const galleryEntries: MetadataRoute.Sitemap = (await getGallerySitemapSlugs()).flatMap((slug) => [
     {
       url: absoluteUrl(`/gallery/${slug}`),
       changeFrequency: "weekly",

@@ -34,6 +34,10 @@ let captchaAttempts: (string | null)[] = [];
 let usedCaptchaTokens = new Set<string>();
 const requireCaptcha = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 let currentPasswordVerified = false;
+let galleryRows: Record<string, string | boolean | null>[] = [];
+// Start with a failed sitemap read during the fixture's production build.
+let failGalleryReads = true;
+let failedGalleryReads = 0;
 const tokenPart = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 const accessToken = `${tokenPart({ alg: "HS256", typ: "JWT" })}.${tokenPart({ sub: userId, exp: Math.floor(Date.now() / 1000) + 86400, role: "authenticated" })}.${Buffer.from("fixture-signature").toString("base64url")}`;
 
@@ -71,6 +75,35 @@ createServer(async (req, res) => {
   const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {};
   const json = (value: unknown, status = 200) => { res.writeHead(status).end(JSON.stringify(value)); };
   if (url.pathname === "/__fixture/health") { json({ ok: true }); return; }
+  if (url.pathname === "/__fixture/gallery") {
+    if (body.rows) galleryRows = body.rows;
+    if (body.failReads !== undefined) failGalleryReads = body.failReads;
+    json({ failedReads: failedGalleryReads }); return;
+  }
+  if (url.pathname === "/rest/v1/portfolio_items") {
+    const id = url.searchParams.get("id")?.replace(/^eq\./, "");
+    if (id) {
+      const item = galleryRows.find((row) => row.id === id);
+      if (req.method === "PATCH" && item) { Object.assign(item, body); json(item); return; }
+      if (req.method === "GET") { json(item ? [item] : []); return; }
+    }
+    if (req.method === "GET") {
+      if (failGalleryReads && url.searchParams.get("select")?.includes("service_slug")) {
+        failedGalleryReads++;
+        json({ message: "fixture gallery read failed" }, 400); return;
+      }
+      const rows = galleryRows.filter((row) => {
+        for (const [key, filter] of url.searchParams) {
+          const value = row[key];
+          if (filter.startsWith("eq.") && String(value) !== filter.slice(3)) return false;
+          if (filter.startsWith("neq.") && (value == null || String(value) === filter.slice(4))) return false;
+          if (filter.startsWith("in.(") && !filter.slice(4, -1).split(",").includes(String(value))) return false;
+        }
+        return true;
+      });
+      json(rows.slice(0, Math.min(1000, Number(url.searchParams.get("limit") ?? 1000)))); return;
+    }
+  }
   if (url.pathname === "/__fixture/reset") {
     users = [makeUser(existingId, "registered@example.com")]; pricing = []; profile = null;
     deletions = []; deletionReady = false; deletionFailure = false;

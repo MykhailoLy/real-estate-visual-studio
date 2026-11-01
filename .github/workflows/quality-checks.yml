@@ -52,10 +52,10 @@ jobs:
         id: smoke
         run: npm run e2e:smoke
 
-      - name: Verify cross-root login and order profile gating with the isolated Auth fixture
+      - name: Verify account flows and gallery sitemap with the isolated Supabase fixture
         id: auth
         if: ${{ !cancelled() && (steps.smoke.outcome == 'success' || steps.smoke.outcome == 'failure') }}
-        run: npm run e2e:partner-invites -- --grep "Spanish login crosses|profile|account deletion"
+        run: npm run e2e:partner-invites -- --grep "Spanish login crosses|profile|account deletion|gallery sitemap"
 
       - name: Upload Playwright failure artifacts
         if: ${{ failure() && (steps.smoke.outcome == 'failure' || steps.auth.outcome == 'failure') }}

@@ -187,54 +187,6 @@ export async function getGalleryCoverItems(): Promise<
 }
 
 /**
- * Services that currently have at least one gallery-eligible item with a
- * resolvable before/after pair. Feeds /sitemap.xml.
- *
- * Returns `null` when the portfolio could not be read at all — Supabase is not
- * configured or the query failed — so the sitemap can fall back to every
- * service instead of treating a failed read as "nothing is published".
- */
-export async function getGalleryServiceSlugsWithExamples(): Promise<
-  string[] | null
-> {
-  if (!isSupabaseConfigured()) return null;
-
-  let supabase;
-  try {
-    supabase = createServerClient();
-  } catch {
-    return null;
-  }
-
-  const { data, error } = await supabase
-    .from("portfolio_items")
-    .select("service_slug, before_image_path, after_image_path")
-    .eq("published", true)
-    .eq("show_in_gallery", true);
-
-  if (error) {
-    console.warn(
-      "portfolio: getGalleryServiceSlugsWithExamples query failed:",
-      error
-    );
-    return null;
-  }
-
-  const slugs = new Set<string>();
-  for (const row of (data ?? []) as {
-    service_slug: string;
-    before_image_path: string | null;
-    after_image_path: string | null;
-  }[]) {
-    if (!row.before_image_path || !row.after_image_path) continue;
-    if (!getPortfolioPublicUrl(row.before_image_path)) continue;
-    if (!getPortfolioPublicUrl(row.after_image_path)) continue;
-    slugs.add(row.service_slug);
-  }
-  return [...slugs];
-}
-
-/**
  * Public GALLERY reader. Published items for a service that are
  * flagged show_in_gallery = TRUE. Used only by the public gallery
  * detail pages (/gallery/[slug], /es/gallery/[slug]).
