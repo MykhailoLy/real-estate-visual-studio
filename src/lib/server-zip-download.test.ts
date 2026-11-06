@@ -134,6 +134,10 @@ class Query {
     return this;
   }
 
+  neq() {
+    return this;
+  }
+
   order() {
     return Promise.resolve({
       data: this.table === "order_deliverables" ? deliverables : reviews,
