@@ -30,6 +30,7 @@ Copy `.env.example` to `.env.local` and fill in your project values. Variables r
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Order system                            | Public                                     |
 | `SUPABASE_SERVICE_ROLE_KEY`  | Order API routes, portfolio admin         | **Server only.** Never expose to clients   |
 | `RESEND_API_KEY`             | Order confirmation + admin emails         | Server only                                |
+| `FROM_EMAIL`                 | Verified "From" address for transactional email | Server only; optional — defaults to `orders@picchuspot.com`, must belong to a Resend-verified domain |
 | `CRON_SECRET`                | Authenticated internal email-outbox worker | Server only; mirror in Supabase Vault, never commit |
 | `PROPERTY_LEADS_FROM_EMAIL`  | Property viewing-request sender            | Server-only verified Resend address        |
 | `PROPERTY_LEADS_CC_EMAIL`    | Optional property-lead operations copy     | Server only                                |
@@ -41,6 +42,10 @@ Copy `.env.example` to `.env.local` and fill in your project values. Variables r
 | `UPSTASH_REDIS_REST_TOKEN`   | Public endpoint rate limiting             | Server only                                |
 | `PROPERTY_LEADS_RATE_LIMIT_SECRET` | Property-lead client hashing        | Server only; at least 32 characters        |
 | `PROPERTY_SHOWCASE_TRUSTED_VIDEO_ORIGINS` | Custom property-video embeds | Server-only comma-separated exact HTTPS origins |
+| `PROPERTY_SHOWCASE_TRUSTED_FRAME_ORIGINS` | Custom provider iframe embeds (property tours) | Optional comma-separated exact HTTPS origins; also feeds the CSP frame-src allowlist |
+| `GEMINI_API_KEY`             | AI support assistant in the client portal | Server only; optional — without it the support assistant stays unavailable |
+| `SUPPORT_RATE_LIMIT_SECRET`  | Support-assistant rate-limit identity hashing | Server only; at least 32 characters, fails closed without it |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 page-view tracking | Public; optional — leave empty to disable analytics |
 | `ADMIN_PASSWORD`             | `/admin/login` + portfolio admin          | **Server only.** Rotating it logs everyone out |
 
 Property lead delivery is per listing: every published property that accepts

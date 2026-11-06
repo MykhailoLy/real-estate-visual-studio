@@ -35,6 +35,34 @@ const BASELINE_SECURITY_HEADERS = [
   },
 ] as const satisfies readonly ResponseHeader[];
 
+// CSP nonce migration plan (deferred 2026-11-06, audit F5):
+// 'unsafe-inline' in script-src is the current deliberate compromise. Per the
+// Next.js 16.3.8 CSP guide (node_modules/next/dist/docs/01-app/02-guides/
+// content-security-policy.md), a site-wide nonce policy requires Proxy on page
+// routes and DYNAMIC rendering: static generation and ISR are disabled, CDN
+// caching needs additional configuration, and static shells get no nonce.
+// This mostly-static marketing/portfolio/blog app therefore needs a rendering
+// and caching migration, plus build and browser verification. Per CSP3,
+// browsers IGNORE 'unsafe-inline' when 'nonce-…' is present in script-src:
+// inline scripts still need a matching nonce or an allowed hash.
+// Google Analytics rendering after hydration is not itself a blocker: a
+// dynamic server layout can pass the nonce through GoogleAnalytics props to
+// both <Script> components. Crisp's runtime injections need separate checks.
+// Full migration therefore needs ALL of:
+// 1. src/proxy.ts: match all page routes (not just /dashboard), generate a
+//    per-request nonce, set CSP with 'nonce-…' + 'strict-dynamic' on both the
+//    request and response headers, and pass the nonce via x-nonce.
+// 2. Force dynamic rendering on pages using the policy (await connection())
+//    and re-verify rendering, caching and sitemap behavior.
+// 3. Read the nonce via headers() in the server layout, pass it through
+//    GoogleAnalytics props to both GA <Script> components, and verify Crisp.
+//    'strict-dynamic' allows non-parser-inserted external scripts, not inline
+//    blocks or styles; those need separate CSP authorization.
+// 4. Rebuild the security-headers tests around the nonce-based policy, and
+//    verify with a real next build + production smoke before removing
+//    'unsafe-inline'. The experimental SRI (hash-based) alternative in the
+//    same guide keeps static generation but is experimental and also needs
+//    build-time verification.
 const CONTENT_SECURITY_POLICY_DIRECTIVES = [
   "default-src 'self'",
   "base-uri 'self'",
